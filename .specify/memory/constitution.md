@@ -1,50 +1,54 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+
+<!--
+Sync Impact Report
+Version change: 1.0.0 → 1.1.0
+Modified principles: replaced all with new focus (see below)
+Added sections: None
+Removed sections: None
+Templates requiring updates: 
+	- plan-template.md ✅
+	- spec-template.md ✅
+	- tasks-template.md ✅
+Follow-up TODOs: None
+-->
+
+# Write Project Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Code Quality
+All code MUST be readable, maintainable, and follow agreed style guides. Code reviews are mandatory for all changes. No code is merged without at least one peer review. All code must be commented and be fully localisable.
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+**Rationale**: High code quality reduces defects, improves onboarding, and ensures long-term maintainability.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### II. Testing Standards
+All features MUST include automated tests. Tests MUST cover critical paths and edge cases. No feature is considered complete without passing tests. Continuous integration MUST run all tests on every commit to main branches.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+**Rationale**: Testing prevents regressions, increases confidence in releases, and enables safe refactoring.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### III. User Experience Consistency
+The user interface and interactions MUST be consistent across platforms. All user-facing changes MUST be reviewed for usability and accessibility. User feedback MUST be incorporated into iterative improvements.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+**Rationale**: Consistency and accessibility drive user satisfaction and reduce confusion.
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+### IV. Performance Requirements
+The application MUST meet defined performance targets for responsiveness and resource usage. Performance regressions are not permitted without explicit review and mitigation plan. All features MUST be profiled and optimized as needed before release.
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+**Rationale**: Good performance is essential for user retention and platform compliance.
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+## Additional Constraints
+
+- All dependencies MUST be approved and tracked.
+- Security best practices MUST be followed for all code and data.
+
+## Development Workflow
+
+- All work MUST be tracked via issues and linked to user stories.
+- Pull requests MUST reference relevant tasks and user stories.
+- Releases MUST follow semantic versioning.
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+This constitution supersedes all other practices. Amendments require documentation, approval by project maintainers, and a migration plan if breaking changes are introduced. All PRs and reviews MUST verify compliance with these principles. Constitution versioning follows semantic versioning: MAJOR for breaking changes, MINOR for new principles or sections, PATCH for clarifications or non-semantic edits.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 1.1.0 | **Ratified**: TODO(RATIFICATION_DATE): original adoption date unknown | **Last Amended**: 2025-10-20
