@@ -1,0 +1,41 @@
+# macOS/iOS/Swift project ignore patterns
+.DS_Store
+*.swp
+*.tmp
+.idea/
+.vscode/
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+*.xcworkspace
+*.xcodeproj
+*.xcassets
+*.plist
+# Swift Package Manager
+.build/
+Packages/
+# CocoaPods
+Pods/
+# Carthage
+Carthage/
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/
+fastlane/test_output/
+# Archives
+*.ipa
+*.dSYM
+*.app
+*.framework
+*.xcarchive
+*.xctest
+*.playground
+*.swiftpm
+# Logs
+*.log
+# Environment
+.env*
+# Coverage
+coverage/
