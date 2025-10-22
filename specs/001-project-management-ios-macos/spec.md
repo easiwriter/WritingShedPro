@@ -2,7 +2,12 @@
 # Feature Specification: Project Management (iOS/MacOS)
 
 **Phase**: 001  
-**Feature Branch**: `001-project-management-ios-macos`  
+**Featur### Key Entities
+
+- **Project**: Represents a user's writing work. Key attributes: name, type, creation date, notes. Each project is independent and stored in SwiftData. The followng project types are supported:
+  - prose: allows files containing text and nested folders
+  - poetry: as vanilla with files containing poetry
+  - drama: as vanilla with files containing play scriptsch**: `001-project-management-ios-macos`  
 **Created**: 20 October 2025  
 **Status**: ✅ Complete (21 October 2025)  
 **Next Phase**: [002-folder-file-management](../002-folder-file-management/spec.md)  
@@ -80,6 +85,17 @@ It should propmpt the user to create a project
 ### Non-functional Requirements
 
 - System must localize all relevant code
+- Preview blocks (#Preview) must be disabled - no Xcode previews should be generated
+- System must comply with Apple Accessibility Guidelines (WCAG 2.1 Level AA minimum):
+  - **Accessibility Labels**: All interactive elements (buttons, text fields, navigation links) MUST have descriptive `accessibilityLabel` modifiers
+  - **Accessibility Hints**: Interactive elements with non-obvious behavior MUST have `accessibilityHint` providing guidance (e.g., "Double tap to edit project name")
+  - **Semantic Roles**: Buttons MUST use appropriate roles (`.destructive`, `.cancel`) to provide semantic meaning to screen readers
+  - **Dynamic Type Support**: All text MUST support dynamic type scaling; avoid `.lineLimit(1)` on primary content, use `.lineLimit(.max)` instead
+  - **Color Independence**: Information MUST NOT rely on color alone (e.g., validation errors must use both color and text labels)
+  - **Grouped Elements**: Related elements MUST use `accessibilityElement(children: .combine)` to group them for screen readers
+  - **Icon-Only Buttons**: Any icon-only button MUST have an accessibility label; purely decorative icons MUST be marked with `.accessibilityHidden(true)`
+  - **Modal Dialogs**: Confirmation dialogs and alerts MUST have clear accessibility labels and focus management
+  - **Form Fields**: Text input fields MUST have associated labels using `accessibilityLabel` describing their purpose
 
 ### Key Entities
 
@@ -97,6 +113,7 @@ It should propmpt the user to create a project
 - **SC-003**: Users can order the project list and see changes instantly.
 - **SC-004**: 95% of users successfully complete project management tasks (add, delete, rename, view details) on first attempt.
 - **SC-005**: No crashes or data loss during project management actions.
+- **SC-006**: All interactive elements have accessibility labels and hints; app passes automated accessibility audit with zero critical issues.
 
 ## Assumptions
 
