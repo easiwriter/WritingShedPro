@@ -4,7 +4,12 @@
 **Phase**: 001  
 **Featur### Key Entities
 
-- **Project**: Represents a user's writing work. Key attributes: name, type, creation date, notes. Each project is independent and stored in SwiftData. The followng project types are supported:
+- **Project**: Re### Key Entities
+
+- **Project**: Represents a user's writing work. Key attributes: name, type, creation date, details, userOrder (for custom sorting). Each project is independent and stored in SwiftData. The following project types are supported:
+  - prose: allows files containing text and nested folders
+  - poetry: as vanilla with files containing poetry
+  - drama: as vanilla with files containing play scriptsts a user's writing work. Key attributes: name, type, creation date, notes. Each project is independent and stored in SwiftData. The followng project types are supported:
   - prose: allows files containing text and nested folders
   - poetry: as vanilla with files containing poetry
   - drama: as vanilla with files containing play scriptsch**: `001-project-management-ios-macos`  
@@ -61,6 +66,22 @@ A user can rename a project, delete a project, and view details about a project.
 
 ---
 
+### User Story 4 - Drag to Reorder Projects (Priority: P3)
+
+A user can drag projects to reorder them in their preferred custom sequence and save this ordering as "User's Order".
+
+**Why this priority**: Users want to organize their work in their own preferred order, beyond alphabetical or date-based sorting.
+
+**Independent Test**: Can be tested by dragging projects to new positions and verifying the order is maintained when "User's Order" sort is selected.
+
+**Acceptance Scenarios**:
+
+1. **Given** the project list is in Edit mode with "User's Order" selected, **When** the user drags a project to a new position, **Then** the project moves to that position and the order is saved.
+2. **Given** projects have been reordered by the user, **When** the user selects "User's Order" sorting, **Then** projects appear in the custom order.
+3. **Given** the user has a custom order set, **When** they switch to other sort options and back to "User's Order", **Then** their custom order is preserved.
+
+---
+
 ### Edge Cases
 - How does the system handle deleting the last remaining project?
 It simply displays an empty project list
@@ -77,10 +98,13 @@ It should propmpt the user to create a project
 - **FR-002**: System MUST allow users to delete existing projects.
 - **FR-003**: System MUST allow users to rename projects.
 - **FR-004**: System MUST display a list of all projects.
-- **FR-005**: System MUST allow users to order the project list by name or creation date.
+- **FR-005**: System MUST allow users to order the project list by name, creation date, or user's custom order.
 - **FR-006**: System MUST display project details when selected.
 - **FR-007**: System MUST prevent renaming a project to an empty name.
-- **FR-008**: System MUST handle duplicate project names by alerting the user and asking them to retry
+- **FR-008**: System MUST handle duplicate project names by alerting the user and asking them to retry.
+- **FR-009**: System MUST allow users to drag projects to reorder them when in Edit mode and "User's Order" is selected.
+- **FR-010**: System MUST save and persist the user's custom project order across app sessions.
+- **FR-011**: System MUST only enable drag-to-reorder when "User's Order" sort option is active.
 
 ### Non-functional Requirements
 
@@ -111,9 +135,11 @@ It should propmpt the user to create a project
 - **SC-001**: Users can add, delete, and rename projects without errors.
 - **SC-002**: 100% of projects are displayed in the list after creation.
 - **SC-003**: Users can order the project list and see changes instantly.
-- **SC-004**: 95% of users successfully complete project management tasks (add, delete, rename, view details) on first attempt.
+- **SC-004**: 95% of users successfully complete project management tasks (add, delete, rename, view details, reorder) on first attempt.
 - **SC-005**: No crashes or data loss during project management actions.
 - **SC-006**: All interactive elements have accessibility labels and hints; app passes automated accessibility audit with zero critical issues.
+- **SC-007**: Users can drag to reorder projects and the custom order persists across app sessions.
+- **SC-008**: Drag-to-reorder is only available when "User's Order" sort option is active and Edit mode is enabled.
 
 ## Assumptions
 
