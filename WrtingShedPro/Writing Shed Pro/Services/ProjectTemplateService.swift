@@ -31,10 +31,18 @@ struct ProjectTemplateService {
         modelContext.insert(typeFolder)
         modelContext.insert(trashFolder)
         
-        // SwiftData should automatically manage the project.folders array based on the relationship
-        
         // Create subfolders for type-specific folder
         createTypeSubfolders(in: typeFolder, project: project, modelContext: modelContext)
+        
+        // Explicitly save the context to ensure all relationships are persisted
+        do {
+            try modelContext.save()
+            print("✅ Successfully created folder structure for project: \(project.name ?? "Unknown")")
+            print("📁 Root folders count: \(project.folders?.count ?? 0)")
+            print("📁 Type folder '\(typeFolder.name ?? "")' has \(typeFolder.folders?.count ?? 0) subfolders")
+        } catch {
+            print("❌ Error saving folder structure: \(error)")
+        }
     }
     
     // MARK: - Top-Level Folders
@@ -106,11 +114,9 @@ struct ProjectTemplateService {
         for key in subfolderKeys {
             let name = NSLocalizedString(key, comment: "Default folder name")
             let subfolder = Folder(name: name, parentFolder: parentFolder)
+            // Ensure the subfolder inherits the project reference from its parent
+            subfolder.project = project
             modelContext.insert(subfolder)
-            if parentFolder.folders == nil {
-                parentFolder.folders = []
-            }
-            parentFolder.folders?.append(subfolder)
         }
     }
     
@@ -143,11 +149,9 @@ struct ProjectTemplateService {
         for key in subfolderKeys {
             let name = NSLocalizedString(key, comment: "Publications folder name")
             let subfolder = Folder(name: name, parentFolder: parentFolder)
+            // Ensure the subfolder inherits the project reference from its parent
+            subfolder.project = project
             modelContext.insert(subfolder)
-            if parentFolder.folders == nil {
-                parentFolder.folders = []
-            }
-            parentFolder.folders?.append(subfolder)
         }
     }
 }
