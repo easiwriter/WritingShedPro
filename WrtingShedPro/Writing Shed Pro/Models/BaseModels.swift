@@ -45,7 +45,7 @@ final class Folder {
     @Relationship(deleteRule: .cascade, inverse: \Folder.parentFolder) var folders: [Folder]?
     @Relationship(deleteRule: .nullify) var parentFolder: Folder?
     @Relationship(deleteRule: .cascade, inverse: \File.parentFolder) var files: [File]?
-    @Relationship(deleteRule: .cascade, inverse: \TextFile.parentFolder) var textFiles: [TextFile] = []
+    // @Relationship(deleteRule: .cascade, inverse: \TextFile.parentFolder) var textFiles: [TextFile] = []
     var project: Project?
     
     init(name: String?, project: Project? = nil, parentFolder: Folder? = nil) {
@@ -54,7 +54,7 @@ final class Folder {
         self.parentFolder = parentFolder
         self.folders = []
         self.files = []
-        self.textFiles = []
+        // self.textFiles = []
     }
 }
 
@@ -80,7 +80,6 @@ final class Version {
     var comment: String?
     
     // SwiftData Relationships
-    @Relationship(deleteRule: .nullify)
     var textFile: TextFile?
     
     init(content: String, versionNumber: Int, comment: String? = nil) {
