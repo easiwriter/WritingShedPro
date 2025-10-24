@@ -1,7 +1,7 @@
 import XCTest
 import SwiftUI
 import SwiftData
-@testable import Write_
+@testable import Writing_Shed_Pro
 
 final class AddProjectUITests: XCTestCase {
     

@@ -1,6 +1,6 @@
 import XCTest
 import SwiftData
-@testable import Write_
+@testable import Writing_Shed_Pro
 
 final class ProjectTemplateServiceTests: XCTestCase {
     var modelContainer: ModelContainer!

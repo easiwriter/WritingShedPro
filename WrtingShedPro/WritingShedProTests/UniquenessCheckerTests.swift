@@ -1,5 +1,5 @@
 import XCTest
-@testable import Write_
+@testable import Writing_Shed_Pro
 
 final class UniquenessCheckerTests: XCTestCase {
     
