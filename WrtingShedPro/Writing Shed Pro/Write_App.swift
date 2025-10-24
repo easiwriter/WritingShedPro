@@ -14,7 +14,9 @@ struct Write_App: App {
         let schema = Schema([
             Project.self,
             File.self,
-            Folder.self
+            Folder.self,
+            TextFile.self,
+            Version.self
         ])
         let modelConfiguration = ModelConfiguration(
             schema: schema,

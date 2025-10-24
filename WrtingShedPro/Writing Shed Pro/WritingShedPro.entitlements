@@ -8,7 +8,7 @@
 	<string>development</string>
 	<key>com.apple.developer.icloud-container-identifiers</key>
 	<array>
-		<string>iCloud.Appworks.Write-</string>
+		<string>iCloud.com.appworks.writingshedpro</string>
 	</array>
 	<key>com.apple.developer.icloud-services</key>
 	<array>
