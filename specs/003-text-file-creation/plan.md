@@ -2,34 +2,41 @@
 
 ## Phase 1: Data Model Implementation
 - [ ] Create `TextFile` model in `BaseModels.swift`
+- [ ] Create `Version` model in `BaseModels.swift`
 - [ ] Update `Folder` model to include `textFiles` relationship
-- [ ] Test data model with sample data
-- [ ] Verify CloudKit sync functionality
+- [ ] Implement version management methods on `TextFile`
+- [ ] Test data model with sample versioned data
+- [ ] Verify CloudKit sync functionality for both models
 
 ## Phase 2: UI Components
 - [ ] Create `AddTextFileSheet` view for file creation
 - [ ] Create `TextFileEditorView` for editing content
+- [ ] Create `VersionNavigationView` for version management
 - [ ] Create `TextFileRowView` for file list display
 - [ ] Update `FolderDetailView` to show text files
 
 ## Phase 3: Integration
 - [ ] Add text file creation button to folder views
-- [ ] Implement file deletion functionality
+- [ ] Implement file deletion functionality (cascade to versions)
 - [ ] Add file rename capability
-- [ ] Test complete user workflow
+- [ ] Implement version creation and navigation
+- [ ] Add version comments/annotations
+- [ ] Test complete user workflow with versioning
 
 ## Phase 4: Polish
-- [ ] Add file validation and error handling
-- [ ] Implement auto-save functionality
+- [ ] Add file and version validation and error handling
+- [ ] Implement auto-save functionality with smart versioning
 - [ ] Add loading states and progress indicators
-- [ ] Write comprehensive unit tests
+- [ ] Implement version comparison UI (basic)
+- [ ] Write comprehensive unit tests for versioning
+- [ ] Add version management UI (delete old versions, etc.)
 
 ## Timeline Estimate
-- Phase 1: 2-3 hours
-- Phase 2: 4-5 hours  
-- Phase 3: 2-3 hours
-- Phase 4: 2-3 hours
-- **Total**: 10-14 hours
+- Phase 1: 3-4 hours (extended for dual model complexity)
+- Phase 2: 6-7 hours (additional version navigation UI)
+- Phase 3: 4-5 hours (version management integration)
+- Phase 4: 3-4 hours (version-aware testing and polish)
+- **Total**: 16-20 hours
 
 ## Risk Mitigation
 - Start with Phase 1 to validate data model approach

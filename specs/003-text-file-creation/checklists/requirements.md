@@ -3,27 +3,35 @@
 ## Functional Requirements
 - [ ] User can create new text files in "All" folder of blank projects
 - [ ] User can edit text file content
+- [ ] User can navigate between different versions of the same file
+- [ ] User can create new versions manually or automatically
+- [ ] User can add comments/notes to versions
 - [ ] User can rename text files
-- [ ] User can delete text files
-- [ ] Text files are saved automatically
-- [ ] Text files persist between app sessions
-- [ ] Text files sync across devices via CloudKit
+- [ ] User can delete text files (and all versions)
+- [ ] Text files and versions are saved automatically
+- [ ] Text files and versions persist between app sessions
+- [ ] Text files and versions sync across devices via CloudKit
 
 ## Technical Requirements
 - [ ] `TextFile` model integrated with SwiftData
-- [ ] Proper relationship between `TextFile` and `Folder`
-- [ ] CloudKit synchronization working
+- [ ] `Version` model integrated with SwiftData
+- [ ] Proper relationship between `TextFile`, `Version`, and `Folder`
+- [ ] CloudKit synchronization working for both models
+- [ ] Version management methods implemented
 - [ ] No breaking changes to existing models
-- [ ] Proper error handling for file operations
-- [ ] Input validation for file names
+- [ ] Proper error handling for file and version operations
+- [ ] Input validation for file names and version data
+- [ ] Efficient version navigation and loading
 
 ## UI/UX Requirements
 - [ ] Intuitive file creation interface
 - [ ] Clean text editing experience
+- [ ] Version navigation interface (previous/next, list view)
 - [ ] Clear file listing in folder view
+- [ ] Version history display with timestamps and comments
 - [ ] Appropriate loading states
 - [ ] Error messages for failed operations
-- [ ] Confirmation dialogs for destructive actions
+- [ ] Confirmation dialogs for destructive actions (file/version deletion)
 
 ## Performance Requirements
 - [ ] Fast file creation (< 1 second)
@@ -33,12 +41,13 @@
 - [ ] Responsive UI during sync operations
 
 ## Quality Requirements
-- [ ] Unit tests for `TextFile` model
-- [ ] Unit tests for file operations
-- [ ] Integration tests for folder/file relationship
-- [ ] UI tests for file creation workflow
-- [ ] No memory leaks in text editor
-- [ ] Proper data validation
+- [ ] Unit tests for `TextFile` model and version management
+- [ ] Unit tests for `Version` model
+- [ ] Unit tests for file operations and versioning workflows
+- [ ] Integration tests for folder/file/version relationships
+- [ ] UI tests for file creation and version navigation workflow
+- [ ] No memory leaks in text editor or version navigation
+- [ ] Proper data validation and error recovery
 
 ## Security & Data Requirements
 - [ ] Text content properly encrypted for CloudKit
