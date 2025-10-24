@@ -155,10 +155,12 @@ struct RootFolderSectionContent: View {
     let folder: Folder
     
     // Define the desired order for subfolders
+    let blankSubfolderOrder = ["All"]
     let poetrySubfolderOrder = ["All", "Draft", "Ready", "Set Aside", "Published", "Collections", "Submissions", "Research"]
     let novelSubfolderOrder = ["Novel", "Chapters", "Scenes", "Characters", "Locations", "Set Aside", "Research"]
     let scriptSubfolderOrder = ["Script", "Acts", "Scenes", "Characters", "Locations", "Set Aside", "Research"]
-    let publicationsSubfolderOrder = ["Magazines", "Competitions", "Commissions", "Other"]
+    let poetryPublicationsOrder = ["Magazines", "Competitions", "Commissions", "Other"]
+    let novelPublicationsOrder = ["Competitions", "Commissions", "Other"]
     
     var orderedSubfolders: [Folder] {
         let subfolders = folder.folders ?? []
@@ -166,7 +168,21 @@ struct RootFolderSectionContent: View {
         // Determine which ordering to use based on parent folder name
         let order: [String]
         if folder.name == "Publications" {
-            order = publicationsSubfolderOrder
+            // Determine publication type based on sibling folders to identify project type
+            if let project = folder.project {
+                switch project.type {
+                case .poetry, .shortStory:
+                    order = poetryPublicationsOrder  // Includes Magazines
+                case .novel, .script:
+                    order = novelPublicationsOrder   // No Magazines
+                case .blank:
+                    order = []  // No publications for blank projects
+                }
+            } else {
+                order = poetryPublicationsOrder  // Default fallback
+            }
+        } else if folder.name?.contains("BLANK") == true {
+            order = blankSubfolderOrder
         } else if folder.name?.contains("NOVEL") == true {
             order = novelSubfolderOrder
         } else if folder.name?.contains("SCRIPT") == true {
