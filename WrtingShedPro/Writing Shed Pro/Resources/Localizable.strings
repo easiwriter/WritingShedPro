@@ -1,9 +1,11 @@
 /* Localization strings for Write! app */
 
 /* Project types */
-"projectType.prose" = "Prose";
+"projectType.blank" = "Blank";
+"projectType.novel" = "Novel";
 "projectType.poetry" = "Poetry";
-"projectType.drama" = "Drama";
+"projectType.script" = "Script";
+"projectType.shortStory" = "Short Story";
 
 /* ContentView */
 "contentView.title" = "Projects";
