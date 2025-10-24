@@ -67,7 +67,7 @@ git clone https://github.com/easiwriter/Write.git
 cd Write
 
 # 2. Open Xcode
-open Write!.xcodeproj
+open "Writing Shed Pro.xcodeproj"
 
 # 3. Run tests
 ⌘+U
@@ -159,7 +159,7 @@ open Write!.xcodeproj
 → Run `git show b8a46c2`
 
 **...understand the test coverage**
-→ Review `Write!Tests/` and `IMPLEMENTATION_GUIDE.md` "Testing Strategy"
+→ Review `Writing Shed ProTests/` and `IMPLEMENTATION_GUIDE.md` "Testing Strategy"
 
 **...continue with Phase 003**
 → Follow pattern in `IMPLEMENTATION_GUIDE.md` "Next Steps"
@@ -213,10 +213,10 @@ git log --oneline -5
 ### Source Code
 | Location | Purpose |
 |----------|---------|
-| `Write!/Views/` | All SwiftUI components |
+| `Writing Shed Pro/Views/` | All SwiftUI components |
 | `models/BaseModels.swift` | SwiftData models |
 | `services/` | Business logic services |
-| `Write!Tests/` | 66 test cases |
+| `Writing Shed ProTests/` | 66 test cases |
 
 ---
 
@@ -273,7 +273,7 @@ If all ✅: You have complete, traceable, replayable implementation!
 5. Implement features + tests
 
 ### Option 3: Deploy
-1. Build for simulator: `xcodebuild -scheme Write!`
+1. Build for simulator: `xcodebuild -scheme "Writing Shed Pro"`
 2. Build for device: Connect device, select target, `⌘+R`
 3. Archive for TestFlight: `xcodebuild archive`
 4. Submit to App Store

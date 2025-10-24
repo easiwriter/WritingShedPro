@@ -15,7 +15,7 @@ final class Project {
     var type: ProjectType {
         get {
             guard let typeRaw = typeRaw, let projectType = ProjectType(rawValue: typeRaw) else {
-                return .prose
+                return .blank
             }
             return projectType
         }
@@ -24,7 +24,7 @@ final class Project {
         }
     }
     
-    init(name: String?, type: ProjectType = ProjectType.prose, creationDate: Date? = Date(), details: String? = nil, notes: String? = nil, userOrder: Int? = nil) {
+    init(name: String?, type: ProjectType = ProjectType.blank, creationDate: Date? = Date(), details: String? = nil, notes: String? = nil, userOrder: Int? = nil) {
         self.name = name
         self.typeRaw = type.rawValue
         self.creationDate = creationDate
@@ -35,7 +35,7 @@ final class Project {
 }
 
 enum ProjectType: String, Codable, CaseIterable {
-    case prose, poetry, drama
+    case blank, novel, poetry, script, shortStory
 }
 
 @Model
@@ -51,6 +51,8 @@ final class Folder {
         self.name = name
         self.project = project
         self.parentFolder = parentFolder
+        self.folders = []
+        self.files = []
     }
 }
 

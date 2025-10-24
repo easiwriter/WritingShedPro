@@ -1,6 +1,6 @@
 import XCTest
 import SwiftData
-@testable import Write_
+@testable import Writing_Shed_Pro
 
 final class ProjectTemplateIntegrationTests: XCTestCase {
     var modelContainer: ModelContainer!
@@ -47,7 +47,7 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
     
     func testCanNavigateToCreatedFolders() throws {
         // Given: A project with template folders
-        let project = Project(name: "Test Project", type: .prose)
+        let project = Project(name: "Test Project", type: .blank)
         modelContext.insert(project)
         ProjectTemplateService.createDefaultFolders(for: project, in: modelContext)
         
@@ -55,18 +55,18 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
         let rootFolders = project.folders ?? []
         
         // Then: Can access each root folder and its children
-        XCTAssertEqual(rootFolders.count, 3, "Should have 3 root folders")
+        XCTAssertEqual(rootFolders.count, 2, "Should have 2 root folders for blank project")
         
         for rootFolder in rootFolders {
             XCTAssertNotNil(rootFolder.name, "Root folder should have name")
             XCTAssertNotNil(rootFolder.folders, "Root folder should have folders array")
             
-            if rootFolder.name == "Your Prose" {
-                XCTAssertEqual(rootFolder.folders?.count, 8, "Type folder should have 8 subfolders")
-            } else if rootFolder.name == "Publications" {
-                XCTAssertEqual(rootFolder.folders?.count, 4, "Publications should have 4 subfolders")
+            if rootFolder.name == "BLANK" {
+                XCTAssertEqual(rootFolder.folders?.count, 1, "BLANK folder should have 1 subfolder (All)")
             } else if rootFolder.name == "Trash" {
                 XCTAssertEqual(rootFolder.folders?.count, 0, "Trash should have no subfolders")
+            } else {
+                XCTFail("Unexpected folder: \(rootFolder.name ?? "nil")")
             }
         }
     }
@@ -77,10 +77,14 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
         modelContext.insert(project)
         ProjectTemplateService.createDefaultFolders(for: project, in: modelContext)
         
-        // When: Finding the "Your Poetry" folder
+        // When: Finding the "YOUR POETRY" folder
         let rootFolders = project.folders ?? []
-        let typeFolders = rootFolders.filter { $0.name == "Your Poetry" }
-        XCTAssertEqual(typeFolders.count, 1)
+        let typeFolders = rootFolders.filter { $0.name == "YOUR POETRY" }
+        XCTAssertEqual(typeFolders.count, 1, "Should have one 'YOUR POETRY' folder")
+        guard !typeFolders.isEmpty else {
+            XCTFail("Type folder not found")
+            return
+        }
         
         let typeFolder = typeFolders[0]
         
@@ -98,36 +102,36 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
     func testMultipleProjectsHaveIsolatedFolderStructures() throws {
         // Given: Two projects with different types
         let poetryProject = Project(name: "Poetry Project", type: .poetry)
-        let proseProject = Project(name: "Prose Project", type: .prose)
+        let novelProject = Project(name: "Novel Project", type: .novel)
         
         modelContext.insert(poetryProject)
-        modelContext.insert(proseProject)
+        modelContext.insert(novelProject)
         
         ProjectTemplateService.createDefaultFolders(for: poetryProject, in: modelContext)
-        ProjectTemplateService.createDefaultFolders(for: proseProject, in: modelContext)
+        ProjectTemplateService.createDefaultFolders(for: novelProject, in: modelContext)
         
         // When: Accessing folders for each project
         let poetryRootFolders = poetryProject.folders ?? []
-        let proseRootFolders = proseProject.folders ?? []
+        let novelRootFolders = novelProject.folders ?? []
         
         // Then: Each has its own folder structure
         XCTAssertEqual(poetryRootFolders.count, 3, "Poetry project should have 3 root folders")
-        XCTAssertEqual(proseRootFolders.count, 3, "Prose project should have 3 root folders")
+        XCTAssertEqual(novelRootFolders.count, 3, "Novel project should have 3 root folders")
         
         // Verify type-specific folders
-        let poetryTypeFolder = poetryRootFolders.first { $0.name == "Your Poetry" }
-        let proseTypeFolder = proseRootFolders.first { $0.name == "Your Prose" }
+        let poetryTypeFolder = poetryRootFolders.first { $0.name == "YOUR POETRY" }
+        let novelTypeFolder = novelRootFolders.first { $0.name == "YOUR NOVEL" }
         
-        XCTAssertNotNil(poetryTypeFolder, "Poetry project should have 'Your Poetry' folder")
-        XCTAssertNotNil(proseTypeFolder, "Prose project should have 'Your Prose' folder")
+        XCTAssertNotNil(poetryTypeFolder, "Poetry project should have 'YOUR POETRY' folder")
+        XCTAssertNotNil(novelTypeFolder, "Novel project should have 'YOUR NOVEL' folder")
         
-        XCTAssertNil(poetryRootFolders.first { $0.name == "Your Prose" }, "Poetry project should not have prose folder")
-        XCTAssertNil(proseRootFolders.first { $0.name == "Your Poetry" }, "Prose project should not have poetry folder")
+        XCTAssertNil(poetryRootFolders.first { $0.name == "YOUR NOVEL" }, "Poetry project should not have novel folder")
+        XCTAssertNil(novelRootFolders.first { $0.name == "YOUR POETRY" }, "Novel project should not have poetry folder")
     }
     
     func testDeletingProjectCascadeDeletesFolders() throws {
         // Given: A project with template folders
-        let project = Project(name: "Test Project", type: .drama)
+        let project = Project(name: "Test Project", type: .script)
         modelContext.insert(project)
         ProjectTemplateService.createDefaultFolders(for: project, in: modelContext)
         
@@ -159,10 +163,10 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
         XCTAssertEqual(rootFolders.count, 3, "Should have 3 root folders")
         
         let rootNames = Set(rootFolders.compactMap { $0.name })
-        XCTAssertEqual(rootNames, Set(["Your Poetry", "Publications", "Trash"]), "Root folders should match spec")
+        XCTAssertEqual(rootNames, Set(["YOUR POETRY", "Publications", "Trash"]), "Root folders should match spec")
         
-        // "Your Poetry" subfolders
-        let poetryFolder = rootFolders.first { $0.name == "Your Poetry" }!
+        // "YOUR POETRY" subfolders
+        let poetryFolder = rootFolders.first { $0.name == "YOUR POETRY" }!
         let poetrySubfolders = poetryFolder.folders ?? []
         XCTAssertEqual(poetrySubfolders.count, 8, "Poetry folder should have 8 subfolders")
         
@@ -187,19 +191,23 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
     
     func testEmptyFoldersAreReadyForContent() throws {
         // Given: A project with template folders
-        let project = Project(name: "Test Project", type: .prose)
+        let project = Project(name: "Test Project", type: .novel)
         modelContext.insert(project)
         ProjectTemplateService.createDefaultFolders(for: project, in: modelContext)
         
-        // When: Finding a subfolder (e.g., "Draft") by navigating through parent hierarchy
+        // When: Finding a subfolder (e.g., "Chapters") by navigating through parent hierarchy
         let rootFolders = project.folders ?? []
-        let typeFolder = rootFolders.first { $0.name == "Your Prose" }
+        let typeFolder = rootFolders.first { $0.name == "YOUR NOVEL" }
         XCTAssertNotNil(typeFolder, "Should have type-specific folder")
         
-        let draftFolders = (typeFolder?.folders ?? []).filter { $0.name == "Draft" }
-        XCTAssertEqual(draftFolders.count, 1)
+        let chapterFolders = (typeFolder?.folders ?? []).filter { $0.name == "Chapters" }
+        XCTAssertEqual(chapterFolders.count, 1, "Should have one Chapters folder")
+        guard !chapterFolders.isEmpty else {
+            XCTFail("Chapters folder not found")
+            return
+        }
         
-        let draftFolder = draftFolders[0]
+        let draftFolder = chapterFolders[0]
         
         // Then: Verify it's ready to contain files
         XCTAssertNotNil(draftFolder.files, "Should have files array initialized")
@@ -208,8 +216,12 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
         XCTAssertEqual(draftFolder.folders?.count, 0, "Should start with no subfolders")
         
         // Can add a file
-        let testFile = File(name: "Chapter 1.txt", content: "Once upon a time...", parentFolder: draftFolder)
+        let testFile = File(name: "Chapter 1.txt", content: "Once upon a time...")
+        testFile.parentFolder = draftFolder
         modelContext.insert(testFile)
+        if draftFolder.files == nil {
+            draftFolder.files = []
+        }
         draftFolder.files?.append(testFile)
         
         XCTAssertEqual(draftFolder.files?.count, 1, "Should now contain one file")

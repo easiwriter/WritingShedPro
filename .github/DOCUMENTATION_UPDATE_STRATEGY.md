@@ -8,7 +8,7 @@
 
 ## Overview
 
-The Write! project uses a living documentation approach where all guides are updated as the project progresses through phases. This document describes how documentation evolves with the codebase.
+The Writing Shed Pro project uses a living documentation approach where all guides are updated as the project progresses through phases. This document describes how documentation evolves with the codebase.
 
 ---
 

@@ -18,7 +18,7 @@ struct ProjectItemView: View {
                 Text(project.name ?? NSLocalizedString("projectItem.untitledProject", comment: "Untitled project"))
                     .font(.headline)
                     .lineLimit(.max)
-                Text((project.type ?? ProjectType.prose).rawValue.capitalized)
+                Text((project.type ?? ProjectType.blank).rawValue.capitalized)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -49,7 +49,7 @@ struct ProjectItemView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Project: \(project.name ?? NSLocalizedString("projectItem.untitledProject", comment: "Untitled project"))")
-        .accessibilityValue((project.type ?? ProjectType.prose).rawValue.capitalized)
+        .accessibilityValue((project.type ?? ProjectType.blank).rawValue.capitalized)
         .accessibilityHint("Double tap to view project details")
     }
 }

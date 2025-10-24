@@ -15,7 +15,7 @@ git clone https://github.com/easiwriter/Write.git
 cd Write
 
 # 2. Open Xcode project
-open Write!.xcodeproj
+open "Writing Shed Pro.xcodeproj"
 
 # 3. Run tests to verify
 ⌘+U (in Xcode)
@@ -120,7 +120,7 @@ specs/002-folder-file-management/
 
 ### Modified Files in Xcode Project
 ```
-Write!/Write!/
+Writing Shed Pro/Writing Shed Pro/
 ├── Views/
 │   ├── ProjectDetailView.swift          [MODIFIED] Shows FolderListView + info sheet
 │   ├── ContentView.swift                [MODIFIED] Project list with state management
@@ -134,7 +134,7 @@ Write!/Write!/
 ├── Models/
 │   └── BaseModels.swift                 [LINKED] from /Users/Projects/Write/models/
 
-Write!Tests/
+Writing Shed ProTests/
 ├── ProjectTemplateServiceTests.swift    [NEW] 8 tests
 ├── FolderListTests.swift                [NEW] 6 tests
 ├── FileCRUDTests.swift                  [NEW] 7 tests
@@ -157,7 +157,7 @@ cd Write
 Write/
 ├── .git/
 ├── .gitignore
-├── Write!/
+├── Writing Shed Pro/
 ├── models/
 ├── services/
 ├── specs/
@@ -178,12 +178,12 @@ git checkout b8a46c2
 ### Step 3: Open Xcode Project
 
 ```bash
-open Write!.xcodeproj
+open "Writing Shed Pro.xcodeproj"
 ```
 
 **Verify**: Xcode opens with project structure:
 ```
-Write!
+Writing Shed Pro
 ├── Write_App.swift
 ├── ContentView.swift
 ├── Views/
@@ -200,7 +200,7 @@ Write!
 
 ### Step 4: Select Target
 
-- Choose **"Write!"** (not Write!Tests or Write!UITests)
+- Choose **"Writing Shed Pro"** (not Writing Shed ProTests or Writing Shed ProUITests)
 - Select **"iPhone 15"** simulator (or your device)
 
 ### Step 5: Build & Run
@@ -208,7 +208,7 @@ Write!
 ```bash
 # In Xcode: ⌘+R
 # Or terminal:
-xcodebuild -scheme Write! -destination 'platform=iOS Simulator,name=iPhone 15'
+xcodebuild -scheme "Writing Shed Pro" -destination 'platform=iOS Simulator,name=iPhone 15'
 ```
 
 **Verify**: App launches showing:
@@ -221,7 +221,7 @@ xcodebuild -scheme Write! -destination 'platform=iOS Simulator,name=iPhone 15'
 ```bash
 # In Xcode: ⌘+U
 # Or terminal:
-xcodebuild test -scheme Write! -destination 'platform=iOS Simulator,name=iPhone 15'
+xcodebuild test -scheme "Writing Shed Pro" -destination 'platform=iOS Simulator,name=iPhone 15'
 ```
 
 **Verify**: All 66 tests pass

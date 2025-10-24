@@ -12,8 +12,8 @@
 ## Decision: Project structure
 - **Rationale**: Separate platform-specific code (ios/, macos/) and shared modules for models/services maximizes code reuse and maintainability. Tests are organized by type for clarity.
 
-## Decision: Project types (prose, poetry, drama)
-- **Rationale**: Supporting multiple project types from the start allows for future extensibility and clear user flows. Each type can have tailored file/folder structures.
+## Decision: Project types (blank, novel, poetry, script, short story)
+- **Rationale**: Supporting 5 distinct project types allows for tailored workflows and folder structures. Each type serves specific writing genres with appropriate organizational frameworks.
 
 ## Decision: Localization support
 - **Rationale**: SwiftUI and Xcode provide built-in localization via `.strings` files and the `LocalizedStringResource` macro. All user-facing text must use localization keys to support multiple languages and meet non-functional requirements.

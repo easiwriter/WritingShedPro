@@ -4,7 +4,7 @@ import SwiftData
 struct AddProjectSheet: View {
     @Binding var isPresented: Bool
     @State var projectName = ""
-    @State var selectedType: ProjectType = .prose
+    @State var selectedType: ProjectType = .blank
     @State var details = ""
     @State private var showErrorAlert = false
     @State private var errorMessage = ""

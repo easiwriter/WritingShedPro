@@ -1,4 +1,4 @@
-# Write! Quick Reference Card
+# Writing Shed Pro Quick Reference Card
 ## Phase 001-002 Implementation Summary
 
 **Commit**: `b8a46c2` | **Tests**: 66/66 ✅ | **Date**: 21 Oct 2025
@@ -142,7 +142,7 @@ do {
 ## File Locations
 
 ```
-Write! (Xcode Project)
+Writing Shed Pro (Xcode Project)
 ├── Write_App.swift              ← App entry + ModelContainer
 ├── ContentView.swift            ← Project list
 ├── Views/
@@ -152,7 +152,7 @@ Write! (Xcode Project)
 │   ├── AddProjectSheet.swift    ← Create projects
 │   ├── AddFolderSheet.swift     ← Create folders
 │   └── FileDetailView.swift     ← File metadata
-└── Write!Tests/                 ← 66 tests
+└── Writing Shed ProTests/                 ← 66 tests
 
 Write (Shared)
 ├── models/BaseModels.swift      ← Data models

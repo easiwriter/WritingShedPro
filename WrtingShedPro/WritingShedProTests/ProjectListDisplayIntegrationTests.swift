@@ -1,14 +1,14 @@
 import XCTest
-@testable import Write_
+@testable import Writing_Shed_Pro
 
 final class ProjectListDisplayIntegrationTests: XCTestCase {
     
     func testProjectListDisplaysMultipleProjects() {
         // Arrange
         let projects = [
-            Project(name: "Novel", type: .prose),
+            Project(name: "Novel", type: .poetry),
             Project(name: "Sonnet", type: .poetry),
-            Project(name: "Play", type: .drama)
+            Project(name: "Play", type: .script)
         ]
         
         // Act
@@ -24,9 +24,9 @@ final class ProjectListDisplayIntegrationTests: XCTestCase {
     func testProjectListSortsByNameCorrectly() {
         // Arrange
         let projects = [
-            Project(name: "Zebra Project", type: .prose),
+            Project(name: "Zebra Project", type: .poetry),
             Project(name: "Alpha Project", type: .poetry),
-            Project(name: "Beta Project", type: .drama)
+            Project(name: "Beta Project", type: .script)
         ]
         
         // Act
@@ -45,9 +45,9 @@ final class ProjectListDisplayIntegrationTests: XCTestCase {
         let futureDate = Date(timeIntervalSinceNow: 3600)
         
         let projects = [
-            Project(name: "Future", type: .prose, creationDate: futureDate),
+            Project(name: "Future", type: .poetry, creationDate: futureDate),
             Project(name: "Old", type: .poetry, creationDate: oldDate),
-            Project(name: "Recent", type: .drama, creationDate: recentDate)
+            Project(name: "Recent", type: .script, creationDate: recentDate)
         ]
         
         // Act
@@ -73,23 +73,23 @@ final class ProjectListDisplayIntegrationTests: XCTestCase {
     func testProjectListDisplaysProjectTypes() {
         // Arrange
         let projects = [
-            Project(name: "Novel", type: .prose),
+            Project(name: "Novel", type: .poetry),
             Project(name: "Haiku", type: .poetry),
-            Project(name: "Screenplay", type: .drama)
+            Project(name: "Screenplay", type: .script)
         ]
         
         // Assert
-        XCTAssertEqual(projects[0].projectType, .prose)
-        XCTAssertEqual(projects[1].projectType, .poetry)
-        XCTAssertEqual(projects[2].projectType, .drama)
+        XCTAssertEqual(projects[0].type, .poetry)
+        XCTAssertEqual(projects[1].type, .poetry)
+        XCTAssertEqual(projects[2].type, .script)
     }
     
     func testProjectListHandlesMixedCaseNames() {
         // Arrange
         let projects = [
-            Project(name: "UPPERCASE", type: .prose),
+            Project(name: "UPPERCASE", type: .poetry),
             Project(name: "lowercase", type: .poetry),
-            Project(name: "MixedCase", type: .drama)
+            Project(name: "MixedCase", type: .script)
         ]
         
         // Act
@@ -104,7 +104,7 @@ final class ProjectListDisplayIntegrationTests: XCTestCase {
     func testProjectListPreservesProjectDetails() {
         // Arrange
         let details = "A detailed description of my project"
-        let project = Project(name: "My Project", type: .prose, details: details)
+        let project = Project(name: "My Project", type: .poetry, details: details)
         
         // Assert
         XCTAssertEqual(project.details, details)

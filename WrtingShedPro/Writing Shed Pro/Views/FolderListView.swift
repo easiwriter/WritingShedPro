@@ -36,23 +36,60 @@ struct FolderListView: View {
         guard parentFolder == nil else { return [] }
         
         let rootFolders = project.folders ?? []
-        let typeFolder = rootFolders.first { ($0.name ?? "").contains("Your") }
+        
+        // Find type folder by comparing with expected names for the project type
+        let expectedTypeFolderName = project.type.typeFolderName
+        let typeFolder = rootFolders.first { ($0.name ?? "") == expectedTypeFolderName }
+        
         let publicationsFolder = rootFolders.first { $0.name == "Publications" }
         let trashFolder = rootFolders.first { $0.name == "Trash" }
         
         var sections: [(String, [Folder])] = []
         
+        // Show subfolders of the type folder (e.g., "Your Poetry" subfolders)
         if let typeFolder = typeFolder {
-            let typeName = (typeFolder.name ?? "Items").replacingOccurrences(of: "Your ", with: "")
-            sections.append((typeName.uppercased(), [typeFolder]))
+            let sectionTitle = typeFolder.name ?? "ITEMS"
+            let subfolders = (typeFolder.folders ?? []).sorted { folder1, folder2 in
+                let order: [String]
+                switch project.type {
+                case .blank:
+                    order = ["All"]
+                case .poetry, .shortStory:
+                    order = ["All", "Draft", "Ready", "Set Aside", "Published", "Collections", "Submissions", "Research"]
+                case .novel:
+                    order = ["Novel", "Chapters", "Scenes", "Characters", "Locations", "Set Aside", "Research"]
+                case .script:
+                    order = ["Script", "Acts", "Scenes", "Characters", "Locations", "Set Aside", "Research"]
+                }
+                let index1 = order.firstIndex(of: folder1.name ?? "") ?? order.count
+                let index2 = order.firstIndex(of: folder2.name ?? "") ?? order.count
+                return index1 < index2
+            }
+            sections.append((sectionTitle.uppercased(), subfolders))
         }
         
-        if let publicationsFolder = publicationsFolder {
-            sections.append(("PUBLICATIONS", [publicationsFolder]))
+        // Show subfolders of the publications folder (only for non-blank projects)
+        if let publicationsFolder = publicationsFolder, project.type != .blank {
+            let subfolders = (publicationsFolder.folders ?? []).sorted { folder1, folder2 in
+                let order: [String]
+                switch project.type {
+                case .blank:
+                    order = []
+                case .poetry, .shortStory:
+                    order = ["Magazines", "Competitions", "Commissions", "Other"]
+                case .novel, .script:
+                    order = ["Competitions", "Commissions", "Other"]
+                }
+                let index1 = order.firstIndex(of: folder1.name ?? "") ?? order.count
+                let index2 = order.firstIndex(of: folder2.name ?? "") ?? order.count
+                return index1 < index2
+            }
+            sections.append(("PUBLICATIONS", subfolders))
         }
         
+        // Show trash folder directly
         if let trashFolder = trashFolder {
-            sections.append(("", [trashFolder]))  // Empty string for no header
+            sections.append(("TRASH", [trashFolder]))
         }
         
         return sections
@@ -60,12 +97,12 @@ struct FolderListView: View {
     
     var body: some View {
         List {
-            // Root level: show all sections with all their contents
+            // Root level: show all sections with their subfolders
             if parentFolder == nil {
                 ForEach(rootFolderSections, id: \.title) { section in
                     Section {
-                        ForEach(section.folders) { rootFolder in
-                            RootFolderSectionContent(folder: rootFolder)
+                        ForEach(section.folders) { folder in
+                            FolderRowView(folder: folder)
                         }
                     } header: {
                         if !section.title.isEmpty {

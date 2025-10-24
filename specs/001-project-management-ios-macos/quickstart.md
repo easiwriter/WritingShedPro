@@ -1,7 +1,7 @@
 # Quickstart: Project Management (iOS/MacOS)
 
 ## Overview
-Write! is a multiplatform project management app for writers, supporting prose, poetry, and drama projects with automatic CloudKit sync across iOS and macOS devices.
+Writing Shed Pro is a multiplatform project management app for writers, supporting blank, novel, poetry, script, and short story projects with automatic CloudKit sync across iOS and macOS devices.
 
 ## Prerequisites
 - Xcode 15+
@@ -11,15 +11,15 @@ Write! is a multiplatform project management app for writers, supporting prose, 
 
 ## Setup
 1. Clone the repository
-2. Open `Write!.xcodeproj` in Xcode
+2. Open `Writing Shed Pro.xcodeproj` in Xcode
 3. Ensure CloudKit entitlements are enabled in project settings
 4. Sign in with your Apple ID in Xcode (for CloudKit development)
 5. Build and run on iOS simulator, Mac, or physical device
 
 ## Project Structure
 ```
-Write!/
-├── Write!/                    # Main app source
+Writing Shed Pro/
+├── Writing Shed Pro/                    # Main app source
 │   ├── Write_App.swift       # App entry point with ModelContainer
 │   ├── BaseModels.swift      # SwiftData models (Project, Folder, File)
 │   ├── ContentView.swift     # Main project list view
@@ -29,7 +29,7 @@ Write!/
 │   ├── UniquenessChecker.swift # Duplicate name checking
 │   ├── ProjectSortService.swift # Sorting logic
 │   └── Localizable.strings   # Localization strings
-└── Write!Tests/              # Test suite
+└── Writing Shed ProTests/              # Test suite
     ├── NameValidatorTests.swift
     ├── UniquenessCheckerTests.swift
     ├── ProjectSortServiceTests.swift
@@ -44,7 +44,7 @@ Write!/
 ### ✅ Add Projects
 1. Tap the **"+"** button in the top toolbar
 2. Enter a project name (required, must be unique)
-3. Select project type: Prose, Poetry, or Drama
+3. Select project type: Blank, Novel, Poetry, Script, or Short Story
 4. Optionally add project details
 5. Tap **"Add"** to create the project
 

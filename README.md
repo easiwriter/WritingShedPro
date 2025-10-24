@@ -1,4 +1,4 @@
-# Write! - iOS/macOS Writing App
+# Writing Shed Pro - iOS/macOS Writing App
 ## Complete Implementation (Phase 001-002)
 
 **Status**: ✅ Phase 001-002 Complete | **Tests**: 66/66 Passing | **Commits**: 2
@@ -57,7 +57,7 @@ git clone https://github.com/easiwriter/Write.git
 cd Write
 
 # 2. Open Xcode
-open Write!.xcodeproj
+open "Writing Shed Pro.xcodeproj"
 
 # 3. Run tests (should see 66/66 passing)
 ⌘+U
@@ -112,7 +112,7 @@ Localization    (NSLocalizedString for i18n)
 
 ### Project Structure
 ```
-Write! (Xcode App)
+Writing Shed Pro (Xcode App)
 ├── Views/                      # All SwiftUI components
 │   ├── ContentView.swift       # Project list
 │   ├── ProjectDetailView.swift # Project detail + folder list
@@ -205,7 +205,7 @@ Project (e.g., "My Poetry")
 ⌘+U
 
 # From terminal
-xcodebuild test -scheme Write! -destination 'platform=iOS Simulator,name=iPhone 15'
+xcodebuild test -scheme "Writing Shed Pro" -destination 'platform=iOS Simulator,name=iPhone 15'
 
 # View coverage
 Product → Scheme → Edit Scheme → Test → Code Coverage
@@ -329,7 +329,7 @@ See **IMPLEMENTATION_GUIDE.md** for complete debugging guide.
 
 ### Checklist
 - [ ] Clone repository
-- [ ] Open `Write!.xcodeproj` in Xcode
+- [ ] Open `Writing Shed Pro.xcodeproj` in Xcode
 - [ ] Select iOS simulator as target
 - [ ] Run tests: `⌘+U` (should see 66/66 ✅)
 - [ ] Run app: `⌘+R` (should launch on simulator)
@@ -372,13 +372,13 @@ git diff HEAD~1 HEAD
 ### For Deployment
 ```bash
 # Build for simulator
-xcodebuild -scheme Write! -configuration Debug
+xcodebuild -scheme "Writing Shed Pro" -configuration Debug
 
 # Build for device
-xcodebuild -scheme Write! -configuration Release
+xcodebuild -scheme "Writing Shed Pro" -configuration Release
 
 # Archive for TestFlight
-xcodebuild archive -scheme Write!
+xcodebuild archive -scheme "Writing Shed Pro"
 ```
 
 ---
@@ -392,9 +392,9 @@ xcodebuild archive -scheme Write!
 | **IMPLEMENTATION_GUIDE.md** | Complete technical guide | Root |
 | **README.md** | This file | Root |
 | Specifications | Requirements & design | `specs/001-*/` and `specs/002-*/` |
-| Source code | Swift implementation | `Write!/Write!/` (Xcode project) |
+| Source code | Swift implementation | `Writing Shed Pro/Writing Shed Pro/` (Xcode project) |
 | Shared code | Shared models/services | `models/` and `services/` |
-| Tests | 66 test cases | `Write!Tests/` |
+| Tests | 66 test cases | `Writing Shed ProTests/` |
 
 ---
 

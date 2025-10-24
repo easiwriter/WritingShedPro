@@ -1,9 +1,11 @@
 /* Localization strings for Write! app */
 
 /* Project types */
-"projectType.prose" = "Prose";
+"projectType.blank" = "Blank";
+"projectType.novel" = "Novel";
 "projectType.poetry" = "Poetry";
-"projectType.drama" = "Drama";
+"projectType.script" = "Script";
+"projectType.shortStory" = "Short Story";
 
 /* ContentView */
 "contentView.title" = "Projects";
@@ -146,4 +148,25 @@
 "validation.emptyFileName" = "File name cannot be empty.";
 "validation.emptyFolderName" = "Folder name cannot be empty.";
 "validation.duplicateProjectName" = "A project with this name already exists.";
+
+/* Template folder names */
+"template.yourBlank" = "BLANK";
+"template.yourNovel" = "YOUR NOVEL";
+"template.yourPoetry" = "YOUR POETRY";
+"template.yourScript" = "YOUR SCRIPT";
+"template.yourShortStory" = "YOUR STORIES";
+"template.all" = "All";
+"template.draft" = "Draft";
+"template.ready" = "Ready";
+"template.setAside" = "Set Aside";
+"template.published" = "Published";
+"template.collections" = "Collections";
+"template.submissions" = "Submissions";
+"template.research" = "Research";
+"template.publications" = "Publications";
+"template.magazines" = "Magazines";
+"template.competitions" = "Competitions";
+"template.commissions" = "Commissions";
+"template.other" = "Other";
+"template.trash" = "Trash";
 

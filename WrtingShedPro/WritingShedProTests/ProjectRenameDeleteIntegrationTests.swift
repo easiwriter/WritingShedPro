@@ -1,5 +1,5 @@
 import XCTest
-@testable import Write_
+@testable import Writing_Shed_Pro
 
 final class ProjectRenameDeleteIntegrationTests: XCTestCase {
     
@@ -7,7 +7,7 @@ final class ProjectRenameDeleteIntegrationTests: XCTestCase {
     
     func testRenameProjectEndToEnd() {
         // Arrange
-        let project = Project(name: "Original Name", type: .prose)
+        let project = Project(name: "Original Name", type: .poetry)
         let newName = "New Name"
         let projects = [project]
         
@@ -27,7 +27,7 @@ final class ProjectRenameDeleteIntegrationTests: XCTestCase {
     
     func testRenameProjectWithValidationFailure() {
         // Arrange
-        let project = Project(name: "Valid Name", type: .prose)
+        let project = Project(name: "Valid Name", type: .poetry)
         let invalidName = "  "
         
         // Act & Assert - validation should fail
@@ -41,7 +41,7 @@ final class ProjectRenameDeleteIntegrationTests: XCTestCase {
     
     func testRenameProjectWithDuplicateNameFailure() {
         // Arrange
-        let project1 = Project(name: "Project 1", type: .prose)
+        let project1 = Project(name: "Project 1", type: .poetry)
         let project2 = Project(name: "Project 2", type: .poetry)
         let projects = [project1, project2]
         
@@ -58,7 +58,7 @@ final class ProjectRenameDeleteIntegrationTests: XCTestCase {
     
     func testRenameProjectToSameName() {
         // Arrange
-        let project = Project(name: "My Project", type: .prose)
+        let project = Project(name: "My Project", type: .poetry)
         let originalName = project.name
         let projects = [project]
         
@@ -76,7 +76,7 @@ final class ProjectRenameDeleteIntegrationTests: XCTestCase {
         // Arrange
         let creationDate = Date(timeIntervalSinceNow: -3600)
         let details = "Project details"
-        let project = Project(name: "Original", type: .drama, creationDate: creationDate, details: details)
+        let project = Project(name: "Original", type: .script, creationDate: creationDate, details: details)
         let originalId = project.id
         
         // Act
@@ -85,7 +85,7 @@ final class ProjectRenameDeleteIntegrationTests: XCTestCase {
         // Assert - all other properties preserved
         XCTAssertEqual(project.name, "Renamed")
         XCTAssertEqual(project.id, originalId)
-        XCTAssertEqual(project.projectType, .drama)
+        XCTAssertEqual(project.type, .script)
         XCTAssertEqual(project.creationDate, creationDate)
         XCTAssertEqual(project.details, details)
     }
@@ -95,9 +95,9 @@ final class ProjectRenameDeleteIntegrationTests: XCTestCase {
     func testDeleteProjectEndToEnd() {
         // Arrange
         var projects = [
-            Project(name: "Keep 1", type: .prose),
+            Project(name: "Keep 1", type: .poetry),
             Project(name: "Delete Me", type: .poetry),
-            Project(name: "Keep 2", type: .drama)
+            Project(name: "Keep 2", type: .script)
         ]
         let projectToDelete = projects[1]
         let initialCount = projects.count
@@ -114,7 +114,7 @@ final class ProjectRenameDeleteIntegrationTests: XCTestCase {
     
     func testDeleteProjectWithConfirmation() {
         // Arrange
-        let project = Project(name: "To Delete", type: .prose)
+        let project = Project(name: "To Delete", type: .poetry)
         var projects = [project]
         var userConfirmed = false
         
@@ -131,7 +131,7 @@ final class ProjectRenameDeleteIntegrationTests: XCTestCase {
     
     func testCancelDeletePreservesProject() {
         // Arrange
-        let project = Project(name: "To Keep", type: .prose)
+        let project = Project(name: "To Keep", type: .poetry)
         var projects = [project]
         
         // Act - simulate user canceling delete (userConfirmed = false)
@@ -150,9 +150,9 @@ final class ProjectRenameDeleteIntegrationTests: XCTestCase {
     func testDeleteProjectFromSortedList() {
         // Arrange
         var projects = [
-            Project(name: "Zebra", type: .prose),
+            Project(name: "Zebra", type: .poetry),
             Project(name: "Alpha", type: .poetry),
-            Project(name: "Beta", type: .drama)
+            Project(name: "Beta", type: .script)
         ]
         let sorted = ProjectSortService.sortProjects(projects, by: .byName)
         let projectToDelete = sorted[1] // Beta
@@ -171,7 +171,7 @@ final class ProjectRenameDeleteIntegrationTests: XCTestCase {
     
     func testViewAndEditProjectDetails() {
         // Arrange
-        let project = Project(name: "My Novel", type: .prose, details: "Initial outline")
+        let project = Project(name: "My Novel", type: .poetry, details: "Initial outline")
         
         // Act - view details
         let initialDetails = project.details
@@ -186,7 +186,7 @@ final class ProjectRenameDeleteIntegrationTests: XCTestCase {
     
     func testAddDetailsToProjectWithoutDetails() {
         // Arrange
-        let project = Project(name: "My Novel", type: .prose)
+        let project = Project(name: "My Novel", type: .poetry)
         XCTAssertNil(project.details)
         
         // Act
@@ -198,7 +198,7 @@ final class ProjectRenameDeleteIntegrationTests: XCTestCase {
     
     func testClearProjectDetails() {
         // Arrange
-        let project = Project(name: "My Novel", type: .prose, details: "Some details")
+        let project = Project(name: "My Novel", type: .poetry, details: "Some details")
         
         // Act
         project.details = ""
@@ -209,7 +209,7 @@ final class ProjectRenameDeleteIntegrationTests: XCTestCase {
     
     func testEditMultipleProjectProperties() {
         // Arrange
-        let project = Project(name: "Original", type: .prose)
+        let project = Project(name: "Original", type: .poetry)
         
         // Act - edit name and details
         project.name = "Updated Name"
@@ -218,7 +218,7 @@ final class ProjectRenameDeleteIntegrationTests: XCTestCase {
         // Assert
         XCTAssertEqual(project.name, "Updated Name")
         XCTAssertEqual(project.details, "New details")
-        XCTAssertEqual(project.projectType, .prose) // Type unchanged
+        XCTAssertEqual(project.type, .poetry) // Type unchanged
     }
     
     // MARK: - Combined Workflow Tests
@@ -226,7 +226,7 @@ final class ProjectRenameDeleteIntegrationTests: XCTestCase {
     func testCompleteProjectLifecycle() {
         // Arrange - create project
         var projects: [Project] = []
-        let newProject = Project(name: "My Project", type: .prose, details: "Initial details")
+        let newProject = Project(name: "My Project", type: .poetry, details: "Initial details")
         projects.append(newProject)
         
         XCTAssertEqual(projects.count, 1)

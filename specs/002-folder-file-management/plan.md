@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-Phase 002 adds folder and file management capabilities to Write!, building upon the existing Project, Folder, and File SwiftData models from Phase 001. This phase introduces:
+Phase 002 adds folder and file management capabilities to Writing Shed Pro, building upon the existing Project, Folder, and File SwiftData models from Phase 001. This phase introduces:
 
 1. **Project Template System**: Auto-generate predefined folder structures when creating projects
 2. **Folder Management**: Create, rename, delete, and navigate folders
@@ -56,13 +56,13 @@ Resources/
 
 ### Decision 1: Project Template System
 
-**Problem**: Each project needs a predefined folder structure based on project type (prose, poetry, drama).
+**Problem**: Each project needs a predefined folder structure based on project type (blank, novel, poetry, script, short story).
 
 **Solution**: `ProjectTemplateService` that auto-generates folders when a project is created.
 
 **Rationale**:
 - Provides consistent organization across all projects
-- Type-specific structure (e.g., "Your Poetry" vs "Your Prose")
+- Type-specific structure (e.g., "YOUR POETRY" vs "YOUR NOVEL" vs "BLANK")
 - Users can still create custom folders
 - Templates generated once at project creation, then fully editable
 
@@ -339,7 +339,7 @@ UniquenessChecker.isFileNameUnique(_ name: String, in folder: Folder) -> Bool
 
 **ProjectTemplateServiceTests.swift**:
 - Test template creates correct folder count
-- Test type-specific folder names (Poetry vs Prose vs Drama)
+- Test type-specific folder names (Blank vs Novel vs Poetry vs Script vs Short Story)
 - Test nested folder structure
 - Test all folders linked to project
 
@@ -416,9 +416,11 @@ UniquenessChecker.isFileNameUnique(_ name: String, in folder: Folder) -> Bool
 
 **Template Folders** (type-specific):
 ```
-"template.yourPoetry" = "Your Poetry"
-"template.yourProse" = "Your Prose"
-"template.yourDrama" = "Your Drama"
+"template.yourBlank" = "BLANK"
+"template.yourNovel" = "YOUR NOVEL"
+"template.yourPoetry" = "YOUR POETRY"
+"template.yourScript" = "YOUR SCRIPT"
+"template.yourShortStory" = "YOUR STORIES"
 "template.all" = "All"
 "template.draft" = "Draft"
 "template.ready" = "Ready"
@@ -505,4 +507,4 @@ UniquenessChecker.isFileNameUnique(_ name: String, in folder: Folder) -> Bool
 
 - [Phase 001 Plan](../001-project-management-ios-macos/plan.md) - Architecture patterns
 - [Phase 002 Spec](./spec.md) - Requirements and user stories
-- [BaseModels.swift](/Users/Projects/Write!/Write!/Models/BaseModels.swift) - Data models
+- [BaseModels.swift](/Users/Projects/Write/Writing Shed Pro/Writing Shed Pro/Models/BaseModels.swift) - Data models

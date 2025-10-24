@@ -2,21 +2,19 @@
 # Feature Specification: Project Management (iOS/MacOS)
 
 **Phase**: 001  
-**Featur### Key Entities
-
-- **Project**: Re### Key Entities
-
-- **Project**: Represents a user's writing work. Key attributes: name, type, creation date, details, userOrder (for custom sorting). Each project is independent and stored in SwiftData. The following project types are supported:
-  - prose: allows files containing text and nested folders
-  - poetry: as vanilla with files containing poetry
-  - drama: as vanilla with files containing play scriptsts a user's writing work. Key attributes: name, type, creation date, notes. Each project is independent and stored in SwiftData. The followng project types are supported:
-  - prose: allows files containing text and nested folders
-  - poetry: as vanilla with files containing poetry
-  - drama: as vanilla with files containing play scriptsch**: `001-project-management-ios-macos`  
 **Created**: 20 October 2025  
 **Status**: ✅ Complete (21 October 2025)  
 **Next Phase**: [002-folder-file-management](../002-folder-file-management/spec.md)  
-**Input**: User description: "This is the first stage of a writing app called Write! to run on IOS and MacOS (Mac Catalyst). The app lets users store their work in objects called Project. All user work is held in SwiftData. All code is in Swift using SwiftUI. It should be fully testable. All the first stage should be able to do is: - add projects - delete projects - rename projects - display project details - display a list of projects - order the project list"
+**Input**: User description: "This is the first stage of a writing app called Writing Shed Pro to run on IOS and MacOS (Mac Catalyst). The app lets users store their work in objects called Project. All user work is held in SwiftData. All code is in Swift using SwiftUI. It should be fully testable. All the first stage should be able to do is: - add projects - delete projects - rename projects - display project details - display a list of projects - order the project list"
+
+## Key Entities
+
+**Project**: Represents a user's writing work. Key attributes: name, type, creation date, details, userOrder (for custom sorting). Each project is independent and stored in SwiftData. The following project types are supported:
+- `blank`: allows text files and nested folders
+- `novel`: allows text files and nested folders specifically for writing a novel
+- `poetry`: allows text files and nested folders specifically for writing poetry
+- `script`: allows text files and nested folders specifically for writing plays and filmscripts
+- `short story`: allows text files and nested folders specifically for writing short stories
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -123,10 +121,7 @@ It should propmpt the user to create a project
 
 ### Key Entities
 
-- **Project**: Represents a user’s writing work. Key attributes: name, type, creation date, details. Each project is independent and stored in SwiftData. The followng project types are supported:
-- prose: allows files containing text and nested folders
-- poetry: as vanilla with files containing poetry
-- drama: as vanilla with files containing play scripts
+- **Project**: Represents a user’s writing work. Key attributes: name, type, creation date, details. Each project is independent and stored in SwiftData. The followng project types are defined ealier in this document.
 
 ## Success Criteria *(mandatory)*
 

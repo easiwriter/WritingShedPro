@@ -3,7 +3,7 @@
 ## Entity: Project
 - id: UUID (auto-generated; used for identification; uniqueness not enforced by SwiftData)
 - name: String (non-empty; uniqueness enforced in application logic)
-- type: Enum (prose, poetry, drama)
+- type: Enum (blank, novel, poetry, script, shortStory)
 - creationDate: Date
 - details: String (optional)
 - files: [File] (nested, supports folders)
@@ -40,5 +40,5 @@
 
 ## Localization Considerations
 - All user-facing strings (error messages, button labels, placeholder text) must use `LocalizedStringResource` or `.strings` files
-- Project type enum values (`prose`, `poetry`, `drama`) should have localized display names
+- Project type enum values (`blank`, `novel`, `poetry`, `script`, `shortStory`) should have localized display names
 

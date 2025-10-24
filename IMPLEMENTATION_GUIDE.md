@@ -1,4 +1,4 @@
-# Write! Implementation Guide
+# Writing Shed Pro Implementation Guide
 ## Phase 001-002: Project & Folder Management
 
 **Created:** 21 October 2025  
@@ -23,7 +23,7 @@
 
 ## Executive Summary
 
-This guide documents the complete implementation of Phase 001 (project management) and Phase 002 (folder/file management) for the Write! app - a multiplatform Swift writing application for iOS and macOS.
+This guide documents the complete implementation of Phase 001 (project management) and Phase 002 (folder/file management) for the Writing Shed Pro app - a multiplatform Swift writing application for iOS and macOS.
 
 ### What Was Built
 
@@ -66,8 +66,8 @@ Target Platforms
 ### Project Structure
 
 ```
-Write! (Xcode App)
-├── Write!/                      # Main app source
+Writing Shed Pro (Xcode App)
+├── Writing Shed Pro/                      # Main app source
 │   ├── Write_App.swift          # App entry point
 │   ├── ContentView.swift        # Project list
 │   ├── Views/
@@ -85,10 +85,10 @@ Write! (Xcode App)
 │   │   ├── ProjectDataService.swift
 │   │   └── CloudKitSyncService.swift
 │   └── Localizable.strings
-├── Write!Tests/                 # Test suite
+├── Writing Shed ProTests/                 # Test suite
 │   ├── Phase001Tests/           # 45 tests
 │   └── Phase002Tests/           # 21 tests
-└── Write!UITests/               # UI integration tests
+└── Writing Shed ProUITests/               # UI integration tests
 
 Write (Git Root)
 ├── models/                      # Shared models
@@ -206,7 +206,7 @@ git show HEAD:services/ProjectTemplateService.swift
 git show HEAD:specs/002-folder-file-management/plan.md
 
 # 3. Build and run
-open Write!.xcodeproj
+open "Writing Shed Pro.xcodeproj"
 # Select iOS simulator or Mac target
 # Press ⌘+R to run
 ```
@@ -835,7 +835,7 @@ Product → Scheme → Edit Scheme → Test → Code Coverage
 
 # Run from terminal
 xcodebuild test \
-  -scheme Write! \
+  -scheme "Writing Shed Pro" \
   -destination 'platform=iOS Simulator,name=iPhone 15'
 ```
 
@@ -1068,7 +1068,7 @@ var projects: [Project]
 | Models | `models/BaseModels.swift` |
 | Services | `services/*.swift` |
 | Views | `Views/*.swift` in Xcode project |
-| Tests | `Write!Tests/` |
+| Tests | `Writing Shed ProTests/` |
 | Specs | `specs/001-*/` and `specs/002-*/` |
 
 ### Common Commands

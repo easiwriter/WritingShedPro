@@ -25,7 +25,7 @@
 ### Template Service Implementation
 - [ ] T004 Create ProjectTemplateService.swift in Services/
 - [ ] T005 Implement `createDefaultFolders(for:in:)` method
-- [ ] T006 Implement type-specific folder name method (Poetry/Prose/Drama)
+- [ ] T006 Implement type-specific folder name method (Blank/Novel/Poetry/Script/Short Story)
 - [ ] T007 Add folder creation helper methods (createTypeFolder, createPublicationsFolder, createTrashFolder)
 - [ ] T008 Add nested folder creation logic (Collections, Submissions, Research subfolders)
 
@@ -37,7 +37,7 @@
 ### Template Testing
 - [ ] T012 Create ProjectTemplateServiceTests.swift
 - [ ] T013 Test: Template creates correct number of folders
-- [ ] T014 Test: Type-specific folder names (Poetry vs Prose vs Drama)
+- [ ] T014 Test: Type-specific folder names (Blank vs Novel vs Poetry vs Script vs Short Story)
 - [ ] T015 Test: Nested folder structure is correct
 - [ ] T016 Test: All folders linked to project
 - [ ] T017 Test: Top-level folders have no parent
@@ -150,7 +150,7 @@
   - [ ] file.delete, file.deleteConfirm
   - [ ] file.files, file.noFiles, file.content
 - [ ] T088 Add template folder name strings to Localizable.strings
-  - [ ] template.yourPoetry, template.yourProse, template.yourDrama
+  - [ ] template.yourBlank, template.yourNovel, template.yourPoetry, template.yourScript, template.yourShortStory
   - [ ] template.all, template.draft, template.ready, template.setAside
   - [ ] template.published, template.collections, template.submissions
   - [ ] template.research, template.publications, template.magazines
