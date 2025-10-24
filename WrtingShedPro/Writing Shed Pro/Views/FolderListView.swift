@@ -155,7 +155,9 @@ struct RootFolderSectionContent: View {
     let folder: Folder
     
     // Define the desired order for subfolders
-    let typeSubfolderOrder = ["All", "Draft", "Ready", "Set Aside", "Published", "Collections", "Submissions", "Research"]
+    let poetrySubfolderOrder = ["All", "Draft", "Ready", "Set Aside", "Published", "Collections", "Submissions", "Research"]
+    let novelSubfolderOrder = ["Novel", "Chapters", "Scenes", "Characters", "Locations", "Set Aside", "Research"]
+    let scriptSubfolderOrder = ["Script", "Acts", "Scenes", "Characters", "Locations", "Set Aside", "Research"]
     let publicationsSubfolderOrder = ["Magazines", "Competitions", "Commissions", "Other"]
     
     var orderedSubfolders: [Folder] {
@@ -165,8 +167,13 @@ struct RootFolderSectionContent: View {
         let order: [String]
         if folder.name == "Publications" {
             order = publicationsSubfolderOrder
+        } else if folder.name?.contains("NOVEL") == true {
+            order = novelSubfolderOrder
+        } else if folder.name?.contains("SCRIPT") == true {
+            order = scriptSubfolderOrder
         } else {
-            order = typeSubfolderOrder
+            // Default to poetry/short story order for "YOUR POETRY" and "YOUR STORIES"
+            order = poetrySubfolderOrder
         }
         
         // Return subfolders sorted by the specified order
