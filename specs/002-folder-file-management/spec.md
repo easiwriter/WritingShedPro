@@ -61,10 +61,19 @@ The folder navigation displays a hierarchical structure organized by category wi
 
 ![Folder Navigation UI](/Resources/Screenshot%202025-10-21%20at%2013.16.52.jpeg)
 
-**Key UI Elements:**
-- **Section Headers**: "YOUR POEMS" (or PROSE/DRAMA), "PUBLICATIONS", "TRASH"
+**Project Type Display Mappings:**
+
+#### BLANK Project Type
+- **Section Header**: "BLANK"
 - **Folder Icons**: 
-  - Your Poetry/Prose/Drama: `globe`
+  - All: `globe`
+- **Section Header**: "TRASH"
+  - Trash: `trash`
+
+#### POETRY Project Type  
+- **Section Header**: "YOUR POETRY"
+- **Folder Icons**: 
+  - All: `globe`
   - Draft: `doc.badge.ellipsis`
   - Ready: `checkmark.circle`
   - Set Aside: `archivebox`
@@ -72,11 +81,68 @@ The folder navigation displays a hierarchical structure organized by category wi
   - Collections: `books.vertical`
   - Submissions: `paperplane`
   - Research: `magnifyingglass`
+- **Section Header**: "PUBLICATIONS"
   - Magazines: `magazine`
   - Competitions: `medal`
   - Commissions: `person.2`
   - Other: `tray`
+- **Section Header**: "TRASH"
   - Trash: `trash`
+
+#### SHORT STORY Project Type
+- **Section Header**: "YOUR STORIES"
+- **Folder Icons**: 
+  - All: `globe`
+  - Draft: `doc.badge.ellipsis`
+  - Ready: `checkmark.circle`
+  - Set Aside: `archivebox`
+  - Published: `book.circle`
+  - Collections: `books.vertical`
+  - Submissions: `paperplane`
+  - Research: `magnifyingglass`
+- **Section Header**: "PUBLICATIONS"
+  - Magazines: `magazine`
+  - Competitions: `medal`
+  - Commissions: `person.2`
+  - Other: `tray`
+- **Section Header**: "TRASH"
+  - Trash: `trash`
+
+#### NOVEL Project Type
+- **Section Header**: "YOUR NOVEL"
+- **Folder Icons**: 
+  - Novel: `book.closed.fill`
+  - Chapters: `document.on.document`
+  - Scenes: `document.badge.plus`
+  - Characters: `person.circle`
+  - Locations: `mountain.2`
+  - Set Aside: `archivebox`
+  - Research: `magnifyingglass`
+- **Section Header**: "PUBLICATIONS"
+  - Competitions: `medal`
+  - Commissions: `person.2`
+  - Other: `tray`
+- **Section Header**: "TRASH"
+  - Trash: `trash`
+
+#### SCRIPT Project Type
+- **Section Header**: "YOUR SCRIPT"
+- **Folder Icons**: 
+  - Script: `book.closed.fill`
+  - Acts: `document.on.document`
+  - Scenes: `document.badge.plus`
+  - Characters: `person.circle`
+  - Locations: `mountain.2`
+  - Set Aside: `archivebox`
+  - Research: `magnifyingglass`
+- **Section Header**: "PUBLICATIONS"
+  - Competitions: `medal`
+  - Commissions: `person.2`
+  - Other: `tray`
+- **Section Header**: "TRASH"
+  - Trash: `trash`
+
+**Common UI Elements:**
 - **Item Counts**: Show folder and file counts for each folder
 - **Navigation**: Tap to drill down into folder hierarchy
 
@@ -311,7 +377,7 @@ The folder navigation displays a hierarchical structure organized by category wi
 - [Phase 001 Specification](../001-project-management-ios-macos/spec.md)
 - [Phase 001 Architecture Plan](../001-project-management-ios-macos/plan.md)
 - [Phase 001 Data Model](../001-project-management-ios-macos/data-model.md)
-- [Existing BaseModels.swift](/Users/Projects/Write!/Write!/Models/BaseModels.swift)
+- [Existing BaseModels.swift](/Users/Projects/WritingShedPro/Writing Shed Pro/Models/BaseModels.swift)
 
 ---
 

@@ -149,3 +149,33 @@
 "validation.emptyFolderName" = "Folder name cannot be empty.";
 "validation.duplicateProjectName" = "A project with this name already exists.";
 
+/* Default folder names */
+"folder.all" = "All";
+"folder.draft" = "Draft";
+"folder.ready" = "Ready";
+"folder.setAside" = "Set Aside";
+"folder.published" = "Published";
+"folder.collections" = "Collections";
+"folder.submissions" = "Submissions";
+"folder.research" = "Research";
+"folder.publications" = "Publications";
+"folder.magazines" = "Magazines";
+"folder.competitions" = "Competitions";
+"folder.commissions" = "Commissions";
+"folder.other" = "Other";
+"folder.trash" = "Trash";
+"folder.novel" = "Novel";
+"folder.chapters" = "Chapters";
+"folder.scenes" = "Scenes";
+"folder.characters" = "Characters";
+"folder.locations" = "Locations";
+"folder.script" = "Script";
+"folder.acts" = "Acts";
+
+/* Project type folder names */
+"projectFolder.blank" = "BLANK";
+"projectFolder.yourPoetry" = "YOUR POETRY";
+"projectFolder.yourStories" = "YOUR STORIES";
+"projectFolder.yourNovel" = "YOUR NOVEL";
+"projectFolder.yourScript" = "YOUR SCRIPT";
+

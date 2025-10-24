@@ -48,62 +48,63 @@ struct ProjectTemplateService {
     
     /// Creates the Publications folder
     private static func createPublicationsFolder(for project: Project, in modelContext: ModelContext) -> Folder {
-        return Folder(name: "Publications", project: project)
+        let name = NSLocalizedString("folder.publications", comment: "Publications folder name")
+        return Folder(name: name, project: project)
     }
     
     /// Creates the Trash folder
     private static func createTrashFolder(for project: Project, in modelContext: ModelContext) -> Folder {
-        return Folder(name: "Trash", project: project)
+        let name = NSLocalizedString("folder.trash", comment: "Trash folder name")
+        return Folder(name: name, project: project)
     }
     
     // MARK: - Type-Specific Subfolders
     
     /// Creates all subfolders within the type-specific folder (e.g., "YOUR POETRY")
     private static func createTypeSubfolders(in parentFolder: Folder, project: Project, modelContext: ModelContext) {
-        let subfolderNames: [String]
+        let subfolderKeys: [String]
         
         switch project.type {
         case .blank:
-            subfolderNames = ["All"]
+            subfolderKeys = ["folder.all"]
             
         case .poetry, .shortStory:
-            subfolderNames = [
-                "All",
-                "Draft",
-                "Ready",
-                "Set Aside", 
-                "Published",
-                "Collections",
-                "Submissions",
-                "Research"
+            subfolderKeys = [
+                "folder.all",
+                "folder.draft",
+                "folder.ready",
+                "folder.setAside", 
+                "folder.published",
+                "folder.collections",
+                "folder.submissions",
+                "folder.research"
             ]
             
         case .novel:
-            subfolderNames = [
-                "Novel",
-                "Chapters",
-                "Scenes",
-                "Characters",
-                "Locations",
-                "Set Aside",
-                "Research"
+            subfolderKeys = [
+                "folder.novel",
+                "folder.chapters",
+                "folder.scenes",
+                "folder.characters",
+                "folder.locations",
+                "folder.setAside",
+                "folder.research"
             ]
             
         case .script:
-            subfolderNames = [
-                "Script",
-                "Acts",
-                "Scenes", 
-                "Characters",
-                "Locations",
-                "Set Aside",
-                "Published",
-                "Submissions",
-                "Research"
+            subfolderKeys = [
+                "folder.script",
+                "folder.acts",
+                "folder.scenes", 
+                "folder.characters",
+                "folder.locations",
+                "folder.setAside",
+                "folder.research"
             ]
         }
         
-        for name in subfolderNames {
+        for key in subfolderKeys {
+            let name = NSLocalizedString(key, comment: "Default folder name")
             let subfolder = Folder(name: name, parentFolder: parentFolder)
             modelContext.insert(subfolder)
             if parentFolder.folders == nil {
@@ -117,29 +118,30 @@ struct ProjectTemplateService {
     
     /// Creates all subfolders within the Publications folder
     private static func createPublicationsSubfolders(in parentFolder: Folder, project: Project, modelContext: ModelContext) {
-        let subfolderNames: [String]
+        let subfolderKeys: [String]
         
         switch project.type {
         case .blank:
-            subfolderNames = [] // No publications for blank projects
+            subfolderKeys = [] // No publications for blank projects
             
         case .poetry, .shortStory:
-            subfolderNames = [
-                "Magazines",
-                "Competitions", 
-                "Commissions",
-                "Other"
+            subfolderKeys = [
+                "folder.magazines",
+                "folder.competitions", 
+                "folder.commissions",
+                "folder.other"
             ]
             
         case .novel, .script:
-            subfolderNames = [
-                "Competitions",
-                "Commissions", 
-                "Other"
+            subfolderKeys = [
+                "folder.competitions",
+                "folder.commissions", 
+                "folder.other"
             ]
         }
         
-        for name in subfolderNames {
+        for key in subfolderKeys {
+            let name = NSLocalizedString(key, comment: "Publications folder name")
             let subfolder = Folder(name: name, parentFolder: parentFolder)
             modelContext.insert(subfolder)
             if parentFolder.folders == nil {
@@ -173,15 +175,15 @@ extension ProjectType {
     var typeFolderName: String {
         switch self {
         case .blank:
-            return "BLANK"
+            return NSLocalizedString("projectFolder.blank", comment: "Blank project folder name")
         case .novel:
-            return "YOUR NOVEL"
+            return NSLocalizedString("projectFolder.yourNovel", comment: "Novel project folder name")
         case .poetry:
-            return "YOUR POETRY"
+            return NSLocalizedString("projectFolder.yourPoetry", comment: "Poetry project folder name")
         case .script:
-            return "YOUR SCRIPT"
+            return NSLocalizedString("projectFolder.yourScript", comment: "Script project folder name")
         case .shortStory:
-            return "YOUR STORIES"
+            return NSLocalizedString("projectFolder.yourStories", comment: "Short Story project folder name")
         }
     }
 }

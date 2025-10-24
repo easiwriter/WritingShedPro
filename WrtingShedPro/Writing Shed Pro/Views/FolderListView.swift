@@ -276,6 +276,22 @@ struct FolderRowView: View {
             return "person.2"
         case "Other":
             return "tray"
+        // Novel-specific folders
+        case "Novel":
+            return "book.closed.fill"
+        case "Chapters":
+            return "document.on.document"
+        case "Scenes":
+            return "document.badge.plus"
+        case "Characters":
+            return "person.circle"
+        case "Locations":
+            return "mountain.2"
+        // Script-specific folders  
+        case "Script":
+            return "book.closed.fill"
+        case "Acts":
+            return "document.on.document"
         default:
             let subfolderCount = folder.folders?.count ?? 0
             let fileCount = folder.files?.count ?? 0
