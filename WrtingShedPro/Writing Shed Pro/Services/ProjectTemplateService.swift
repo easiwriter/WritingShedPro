@@ -31,11 +31,7 @@ struct ProjectTemplateService {
         modelContext.insert(typeFolder)
         modelContext.insert(trashFolder)
         
-        // Explicitly add folders to project's folders array
-        if project.folders == nil {
-            project.folders = []
-        }
-        project.folders?.append(contentsOf: foldersToAdd)
+        // SwiftData should automatically manage the project.folders array based on the relationship
         
         // Create subfolders for type-specific folder
         createTypeSubfolders(in: typeFolder, project: project, modelContext: modelContext)
