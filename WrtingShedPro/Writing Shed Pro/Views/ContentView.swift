@@ -57,6 +57,7 @@ struct ContentView: View {
                 .onDelete(perform: confirmDelete)
                 .onMove(perform: moveProjects)
             }
+            .environment(\.editMode, .constant(isEditMode ? EditMode.active : EditMode.inactive))
             .onAppear {
                 initializeUserOrderIfNeeded()
             }
