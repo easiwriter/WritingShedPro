@@ -36,15 +36,44 @@ struct FolderListView: View {
         guard parentFolder == nil else { return [] }
         
         let rootFolders = project.folders ?? []
-        let typeFolder = rootFolders.first { ($0.name ?? "").contains("Your") }
+        print("🔍 FolderListView: Project '\(project.name ?? "Unknown")' has \(rootFolders.count) root folders")
+        for folder in rootFolders {
+            print("📁 Root folder: '\(folder.name ?? "nil")' with \(folder.folders?.count ?? 0) subfolders")
+        }
+        
+        // Find the type-specific folder by checking against all possible names
+        let typeFolder = rootFolders.first { folder in
+            let name = folder.name ?? ""
+            return name == "BLANK" || 
+                   name.contains("YOUR POETRY") || 
+                   name.contains("YOUR NOVEL") || 
+                   name.contains("YOUR SCRIPT") || 
+                   name.contains("YOUR STORIES")
+        }
+        
         let publicationsFolder = rootFolders.first { $0.name == "Publications" }
         let trashFolder = rootFolders.first { $0.name == "Trash" }
         
         var sections: [(String, [Folder])] = []
         
         if let typeFolder = typeFolder {
-            let typeName = (typeFolder.name ?? "Items").replacingOccurrences(of: "Your ", with: "")
-            sections.append((typeName.uppercased(), [typeFolder]))
+            // Determine section title based on the folder name
+            let sectionTitle: String
+            let folderName = typeFolder.name ?? ""
+            if folderName == "BLANK" {
+                sectionTitle = "BLANK"
+            } else if folderName.contains("POETRY") {
+                sectionTitle = "YOUR POETRY"  
+            } else if folderName.contains("NOVEL") {
+                sectionTitle = "YOUR NOVEL"
+            } else if folderName.contains("SCRIPT") {
+                sectionTitle = "YOUR SCRIPT"
+            } else if folderName.contains("STORIES") {
+                sectionTitle = "YOUR STORIES"
+            } else {
+                sectionTitle = folderName.uppercased()
+            }
+            sections.append((sectionTitle, [typeFolder]))
         }
         
         if let publicationsFolder = publicationsFolder {
