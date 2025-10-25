@@ -11,6 +11,7 @@ struct ContentView: View {
     @State private var projectsToDelete: IndexSet?
     @State private var errorMessage = ""
     @State private var showErrorAlert = false
+    @State private var isEditMode = false
     @Environment(\.modelContext) var modelContext
     @Environment(\.editMode) private var editMode
     
@@ -65,7 +66,13 @@ struct ContentView: View {
             }
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    EditButton()
+                    Button(isEditMode ? "Done" : "Edit") {
+                        withAnimation {
+                            isEditMode.toggle()
+                            editMode?.wrappedValue = isEditMode ? .active : .inactive
+                        }
+                    }
+                    .disabled(projects.isEmpty)
                 }
                 
                 ToolbarItemGroup(placement: .primaryAction) {
@@ -123,14 +130,6 @@ struct ContentView: View {
                 )
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
-            }
-            .onChange(of: projects.count) { oldCount, newCount in
-                // Exit edit mode when all projects are deleted
-                if newCount == 0 && editMode?.wrappedValue == .active {
-                    withAnimation {
-                        editMode?.wrappedValue = .inactive
-                    }
-                }
             }
         }
     }
@@ -198,6 +197,16 @@ struct ContentView: View {
             modelContext.delete(project)
         }
         projectsToDelete = nil
+        
+        // Exit edit mode if no projects remain
+        DispatchQueue.main.async {
+            if self.projects.isEmpty && (self.isEditMode || self.editMode?.wrappedValue == .active) {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    self.isEditMode = false
+                    self.editMode?.wrappedValue = .inactive
+                }
+            }
+        }
     }
 }
 
