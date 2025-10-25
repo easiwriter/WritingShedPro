@@ -169,7 +169,7 @@ struct ProjectInfoSheet: View {
             
             Button(action: { 
                 // Validate and save name change
-                let trimmedName = editedName.trimmingCharacters(in: .whitespaces)
+                let trimmedName: String = editedName.trimmingCharacters(in: .whitespaces)
                 
                 // Check for empty name
                 if trimmedName.isEmpty {
@@ -178,9 +178,10 @@ struct ProjectInfoSheet: View {
                 }
                 
                 // Check for duplicate name (excluding current project)
-                let isDuplicate = allProjects.contains { otherProject in
-                    otherProject.id != project.id &&
-                    (otherProject.name ?? "").lowercased() == trimmedName.lowercased()
+                let isDuplicate: Bool = allProjects.contains { (otherProject: Project) -> Bool in
+                    guard otherProject.id != project.id else { return false }
+                    let otherName: String = otherProject.name ?? ""
+                    return otherName.lowercased() == trimmedName.lowercased()
                 }
                 
                 if isDuplicate {

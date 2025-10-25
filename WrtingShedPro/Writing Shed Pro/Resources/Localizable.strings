@@ -117,7 +117,9 @@
 "folderDetail.deleteConfirmationTitle" = "Delete \"%@\"?";
 "folderDetail.deleteButton" = "Delete";
 "folderDetail.deleteWarning" = "This folder will be permanently deleted. This action cannot be undone.";
-"folderDetail.deleteWarningWithContent" = "This folder contains %d subfolders and %d files. All contents will be permanently deleted. This action cannot be undone.";
+"folderDetail.deleteWarningWithFiles" = "This folder contains %d files. All contents will be permanently deleted. This action cannot be undone.";
+"folderDetail.deleteWarningWithSubfolders" = "This folder contains %d subfolders. All contents will be permanently deleted. This action cannot be undone.";
+"folderDetail.deleteWarningWithBoth" = "This folder contains %d subfolders and %d files. All contents will be permanently deleted. This action cannot be undone.";
 
 /* AddFileSheet */
 "addFile.title" = "New File";
@@ -218,3 +220,16 @@
 "folder.worldBuilding" = "World Building";
 "folder.notes" = "Notes";
 
+/* Folder capabilities */
+"folder.error.unnamed" = "Cannot perform operation on unnamed folder";
+"folder.error.noSubfolders" = "The '%@' folder cannot contain subfolders";
+"folder.error.noFiles" = "The '%@' folder cannot contain files";
+
+/* Folder list counts */
+"folderList.folderCount" = "%d folders";
+"folderList.mixedCount" = "%d folders, %d files";
+"folderList.foldersHeader" = "Folders";
+"folderList.parentFolder" = "Parent Folder";
+
+/* Add folder */
+"addFolder.parentFolder" = "In Folder";

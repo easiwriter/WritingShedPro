@@ -12,72 +12,51 @@ struct ProjectTemplateService {
     ///   - project: The project to create folders for
     ///   - modelContext: The SwiftData model context for persistence
     static func createDefaultFolders(for project: Project, in modelContext: ModelContext) {
-        // Create type-specific folder and trash folder for all projects
-        let typeFolder = createTypeSpecificFolder(for: project, in: modelContext)
-        let trashFolder = createTrashFolder(for: project, in: modelContext)
+        var foldersToAdd: [Folder] = []
         
-        var foldersToAdd = [typeFolder, trashFolder]
+        // Create all folders as direct children of the project (flat structure)
         
-        // Only create Publications folder for non-blank projects
+        // 1. Create type-specific folders
+        let typeFolders = createTypeFolders(for: project, in: modelContext)
+        foldersToAdd.append(contentsOf: typeFolders)
+        
+        // 2. Create Publications folders (only for non-blank projects)
         if project.type != .blank {
-            let publicationsFolder = createPublicationsFolder(for: project, in: modelContext)
-            foldersToAdd.append(publicationsFolder)
-            modelContext.insert(publicationsFolder)
-            // Create subfolders for publications folder
-            createPublicationsSubfolders(in: publicationsFolder, project: project, modelContext: modelContext)
+            let publicationsFolders = createPublicationsFolders(for: project, in: modelContext)
+            foldersToAdd.append(contentsOf: publicationsFolders)
         }
         
-        // Insert folders into context
-        modelContext.insert(typeFolder)
-        modelContext.insert(trashFolder)
+        // 3. Create Trash folder
+        let trashFolder = createTrashFolder(for: project, in: modelContext)
+        foldersToAdd.append(trashFolder)
         
-        // Create subfolders for type-specific folder
-        createTypeSubfolders(in: typeFolder, project: project, modelContext: modelContext)
+        // Insert all folders into context
+        for folder in foldersToAdd {
+            modelContext.insert(folder)
+        }
         
         // Explicitly save the context to ensure all relationships are persisted
         do {
             try modelContext.save()
             print("✅ Successfully created folder structure for project: \(project.name ?? "Unknown")")
-            print("📁 Root folders count: \(project.folders?.count ?? 0)")
-            print("📁 Type folder '\(typeFolder.name ?? "")' has \(typeFolder.folders?.count ?? 0) subfolders")
+            print("📁 Total folders created: \(foldersToAdd.count)")
         } catch {
             print("❌ Error saving folder structure: \(error)")
         }
     }
     
-    // MARK: - Top-Level Folders
+    // MARK: - Folder Creation Methods
     
-    /// Creates the type-specific root folder (Your Poetry/Your Prose/Your Drama)
-    private static func createTypeSpecificFolder(for project: Project, in modelContext: ModelContext) -> Folder {
-        let typeName = (project.type ?? ProjectType.blank).typeFolderName
-        let folder = Folder(name: typeName, project: project, parentFolder: nil)
-        return folder
-    }
-    
-    /// Creates the Publications folder
-    private static func createPublicationsFolder(for project: Project, in modelContext: ModelContext) -> Folder {
-        let name = NSLocalizedString("folder.publications", comment: "Publications folder name")
-        return Folder(name: name, project: project)
-    }
-    
-    /// Creates the Trash folder
-    private static func createTrashFolder(for project: Project, in modelContext: ModelContext) -> Folder {
-        let name = NSLocalizedString("folder.trash", comment: "Trash folder name")
-        return Folder(name: name, project: project)
-    }
-    
-    // MARK: - Type-Specific Subfolders
-    
-    /// Creates all subfolders within the type-specific folder (e.g., "YOUR POETRY")
-    private static func createTypeSubfolders(in parentFolder: Folder, project: Project, modelContext: ModelContext) {
-        let subfolderKeys: [String]
+    /// Creates all type-specific folders for a project (flat structure)
+    private static func createTypeFolders(for project: Project, in modelContext: ModelContext) -> [Folder] {
+        let folderKeys: [String]
         
         switch project.type {
         case .blank:
-            subfolderKeys = ["folder.all"]
+            folderKeys = ["folder.all"]
             
         case .poetry, .shortStory:
-            subfolderKeys = [
+            folderKeys = [
                 "folder.all",
                 "folder.draft",
                 "folder.ready",
@@ -89,7 +68,7 @@ struct ProjectTemplateService {
             ]
             
         case .novel:
-            subfolderKeys = [
+            folderKeys = [
                 "folder.novel",
                 "folder.chapters",
                 "folder.scenes",
@@ -100,7 +79,7 @@ struct ProjectTemplateService {
             ]
             
         case .script:
-            subfolderKeys = [
+            folderKeys = [
                 "folder.script",
                 "folder.acts",
                 "folder.scenes", 
@@ -111,27 +90,22 @@ struct ProjectTemplateService {
             ]
         }
         
-        for key in subfolderKeys {
+        return folderKeys.map { key in
             let name = NSLocalizedString(key, comment: "Default folder name")
-            let subfolder = Folder(name: name, parentFolder: parentFolder)
-            // Ensure the subfolder inherits the project reference from its parent
-            subfolder.project = project
-            modelContext.insert(subfolder)
+            return Folder(name: name, project: project)
         }
     }
     
-    // MARK: - Publications Subfolders
-    
-    /// Creates all subfolders within the Publications folder
-    private static func createPublicationsSubfolders(in parentFolder: Folder, project: Project, modelContext: ModelContext) {
-        let subfolderKeys: [String]
+    /// Creates all publications-related folders for a project (flat structure)
+    private static func createPublicationsFolders(for project: Project, in modelContext: ModelContext) -> [Folder] {
+        let folderKeys: [String]
         
         switch project.type {
         case .blank:
-            subfolderKeys = [] // No publications for blank projects
+            folderKeys = [] // No publications for blank projects
             
         case .poetry, .shortStory:
-            subfolderKeys = [
+            folderKeys = [
                 "folder.magazines",
                 "folder.competitions", 
                 "folder.commissions",
@@ -139,21 +113,26 @@ struct ProjectTemplateService {
             ]
             
         case .novel, .script:
-            subfolderKeys = [
+            folderKeys = [
                 "folder.competitions",
                 "folder.commissions", 
                 "folder.other"
             ]
         }
         
-        for key in subfolderKeys {
+        return folderKeys.map { key in
             let name = NSLocalizedString(key, comment: "Publications folder name")
-            let subfolder = Folder(name: name, parentFolder: parentFolder)
-            // Ensure the subfolder inherits the project reference from its parent
-            subfolder.project = project
-            modelContext.insert(subfolder)
+            return Folder(name: name, project: project)
         }
     }
+    
+    /// Creates the Trash folder
+    private static func createTrashFolder(for project: Project, in modelContext: ModelContext) -> Folder {
+        let name = NSLocalizedString("folder.trash", comment: "Trash folder name")
+        return Folder(name: name, project: project)
+    }
+    
+
 }
 
 // MARK: - ProjectType Extension
@@ -175,19 +154,5 @@ extension ProjectType {
         }
     }
     
-    /// Returns the localized folder name for this project type
-    var typeFolderName: String {
-        switch self {
-        case .blank:
-            return NSLocalizedString("projectFolder.blank", comment: "Blank project folder name")
-        case .novel:
-            return NSLocalizedString("projectFolder.yourNovel", comment: "Novel project folder name")
-        case .poetry:
-            return NSLocalizedString("projectFolder.yourPoetry", comment: "Poetry project folder name")
-        case .script:
-            return NSLocalizedString("projectFolder.yourScript", comment: "Script project folder name")
-        case .shortStory:
-            return NSLocalizedString("projectFolder.yourStories", comment: "Short Story project folder name")
-        }
-    }
+
 }

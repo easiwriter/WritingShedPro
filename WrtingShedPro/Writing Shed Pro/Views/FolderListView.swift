@@ -3,174 +3,170 @@ import SwiftData
 
 struct FolderListView: View {
     let project: Project
-    let parentFolder: Folder?
+    let selectedFolder: Folder?
     
     @Environment(\.modelContext) var modelContext
     @State private var showAddFolderSheet = false
     @State private var showAddFileSheet = false
     
-    init(project: Project, parentFolder: Folder? = nil) {
+    init(project: Project, selectedFolder: Folder? = nil) {
         self.project = project
-        self.parentFolder = parentFolder
+        self.selectedFolder = selectedFolder
     }
     
-    // Use direct properties instead of predicates
-    var currentFolders: [Folder] {
-        if let parentFolder = parentFolder {
-            return (parentFolder.folders ?? []).sorted(by: { ($0.name ?? "") < ($1.name ?? "") })
-        } else {
-            return (project.folders ?? []).sorted(by: { ($0.name ?? "") < ($1.name ?? "") })
+    // Get all project folders in the correct order (not alphabetically!)
+    var projectFolders: [Folder] {
+        let folders = project.folders ?? []
+        let order = folderOrderForProjectType(project.type)
+        
+        // Sort folders by predefined order
+        return folders.sorted { folder1, folder2 in
+            let name1 = folder1.name ?? ""
+            let name2 = folder2.name ?? ""
+            let index1 = order.firstIndex(of: name1) ?? Int.max
+            let index2 = order.firstIndex(of: name2) ?? Int.max
+            return index1 < index2
         }
     }
     
+    // Define the display order for each project type
+    private func folderOrderForProjectType(_ type: ProjectType) -> [String] {
+        switch type {
+        case .blank:
+            return ["All", "Trash"]
+            
+        case .poetry, .shortStory:
+            return [
+                "All", "Draft", "Ready", "Set Aside", "Published",
+                "Collections", "Submissions", "Research",
+                "Magazines", "Competitions", "Commissions", "Other",
+                "Trash"
+            ]
+            
+        case .novel:
+            return [
+                "Novel", "Chapters", "Scenes", "Characters", "Locations",
+                "Set Aside", "Research",
+                "Competitions", "Commissions", "Other",
+                "Trash"
+            ]
+            
+        case .script:
+            return [
+                "Script", "Acts", "Scenes", "Characters", "Locations",
+                "Set Aside", "Research",
+                "Competitions", "Commissions", "Other",
+                "Trash"
+            ]
+        }
+    }
+    
+    // Get files for the selected folder
     var currentFiles: [File] {
-        if let parentFolder = parentFolder {
-            return (parentFolder.files ?? []).sorted(by: { ($0.name ?? "") < ($1.name ?? "") })
-        } else {
-            return []  // Root level has no files
-        }
+        guard let selectedFolder = selectedFolder else { return [] }
+        return (selectedFolder.files ?? []).sorted(by: { ($0.name ?? "") < ($1.name ?? "") })
     }
     
-    // Organize root folders into sections
-    var rootFolderSections: [(title: String, folders: [Folder])] {
-        guard parentFolder == nil else { return [] }
-        
-        let rootFolders = project.folders ?? []
-        print("🔍 FolderListView: Project '\(project.name ?? "Unknown")' has \(rootFolders.count) root folders")
-        for folder in rootFolders {
-            print("📁 Root folder: '\(folder.name ?? "nil")' with \(folder.folders?.count ?? 0) subfolders")
-        }
-        
-        // Find the type-specific folder by checking against all possible names
-        let typeFolder = rootFolders.first { folder in
-            let name = folder.name ?? ""
-            return name == "BLANK" || 
-                   name.contains("YOUR POETRY") || 
-                   name.contains("YOUR NOVEL") || 
-                   name.contains("YOUR SCRIPT") || 
-                   name.contains("YOUR STORIES")
-        }
-        
-        let publicationsFolder = rootFolders.first { $0.name == "Publications" }
-        let trashFolder = rootFolders.first { $0.name == "Trash" }
-        
-        var sections: [(String, [Folder])] = []
-        
-        if let typeFolder = typeFolder {
-            // Determine section title based on the folder name
-            let sectionTitle: String
-            let folderName = typeFolder.name ?? ""
-            if folderName == "BLANK" {
-                sectionTitle = "BLANK"
-            } else if folderName.contains("POETRY") {
-                sectionTitle = "YOUR POETRY"  
-            } else if folderName.contains("NOVEL") {
-                sectionTitle = "YOUR NOVEL"
-            } else if folderName.contains("SCRIPT") {
-                sectionTitle = "YOUR SCRIPT"
-            } else if folderName.contains("STORIES") {
-                sectionTitle = "YOUR STORIES"
-            } else {
-                sectionTitle = folderName.uppercased()
-            }
-            sections.append((sectionTitle, [typeFolder]))
-        }
-        
-        if let publicationsFolder = publicationsFolder {
-            sections.append(("PUBLICATIONS", [publicationsFolder]))
-        }
-        
-        if let trashFolder = trashFolder {
-            sections.append(("", [trashFolder]))  // Empty string for no header
-        }
-        
-        return sections
+    // Get subfolders for the selected folder
+    var currentSubfolders: [Folder] {
+        guard let selectedFolder = selectedFolder else { return [] }
+        return (selectedFolder.folders ?? []).sorted(by: { ($0.name ?? "") < ($1.name ?? "") })
     }
     
     var body: some View {
         List {
-            // Root level: show all sections with all their contents
-            if parentFolder == nil {
-                ForEach(rootFolderSections, id: \.title) { section in
-                    Section {
-                        ForEach(section.folders) { rootFolder in
-                            RootFolderSectionContent(folder: rootFolder)
-                        }
-                    } header: {
-                        if !section.title.isEmpty {
-                            Text(section.title)
-                                .font(.headline)
-                                .fontWeight(.semibold)
-                        }
+            if selectedFolder == nil {
+                // Show all project folders in a simple list
+                ForEach(projectFolders) { folder in
+                    NavigationLink(destination: FolderListView(project: project, selectedFolder: folder)) {
+                        FolderRowView(folder: folder)
                     }
                 }
             } else {
-                // Subfolder level: show all items in this folder in a grouped list
-                if let parentFolder = parentFolder {
-                    let subfolders = (parentFolder.folders ?? []).sorted(by: { ($0.name ?? "") < ($1.name ?? "") })
-                    let files = (parentFolder.files ?? []).sorted(by: { ($0.name ?? "") < ($1.name ?? "") })
-                    
-                    if !subfolders.isEmpty {
-                        Section {
-                            ForEach(subfolders) { subfolder in
+                // Show subfolders if any exist
+                if !currentSubfolders.isEmpty {
+                    Section {
+                        ForEach(currentSubfolders) { subfolder in
+                            NavigationLink(destination: FolderListView(project: project, selectedFolder: subfolder)) {
                                 FolderRowView(folder: subfolder)
                             }
-                        } header: {
-                            Text(NSLocalizedString("folderList.foldersHeader", comment: "Folders section header"))
                         }
+                    } header: {
+                        Text(NSLocalizedString("folderList.foldersHeader", comment: "Folders section header"))
                     }
-                    
-                    if !files.isEmpty {
-                        Section {
-                            ForEach(files) { file in
-                                FileRowView(file: file)
-                            }
-                        } header: {
-                            Text(NSLocalizedString("folderList.filesHeader", comment: "Files section header"))
+                }
+                
+                // Show files within the selected folder
+                if !currentFiles.isEmpty {
+                    Section {
+                        ForEach(currentFiles) { file in
+                            FileRowView(file: file)
                         }
+                    } header: {
+                        Text(NSLocalizedString("folderList.filesHeader", comment: "Files section header"))
                     }
-                    
-                    if subfolders.isEmpty && files.isEmpty {
-                        EmptyFolderView(parentFolder: parentFolder)
-                    }
+                }
+                
+                // Show empty state only if no subfolders and no files
+                if currentSubfolders.isEmpty && currentFiles.isEmpty {
+                    EmptyFolderView(folder: selectedFolder!)
                 }
             }
         }
-        .navigationTitle(parentFolder?.name ?? project.name ?? "Folders")
-        .navigationBarTitleDisplayMode(parentFolder == nil ? .large : .inline)
+        .navigationTitle(selectedFolder?.name ?? project.name ?? "Folders")
+        .navigationBarTitleDisplayMode(selectedFolder == nil ? .large : .inline)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                Menu {
-                    Button(action: { showAddFolderSheet = true }) {
-                        Label(NSLocalizedString("folderList.addFolder", comment: "Add folder button"), systemImage: "folder.badge.plus")
-                    }
+                // Show add buttons based on folder capabilities
+                if let selectedFolder = selectedFolder {
+                    let canAddFolder = FolderCapabilityService.canAddSubfolder(to: selectedFolder)
+                    let canAddFile = FolderCapabilityService.canAddFile(to: selectedFolder)
                     
-                    if parentFolder != nil {
-                        Button(action: { showAddFileSheet = true }) {
-                            Label(NSLocalizedString("folderList.addFile", comment: "Add file button"), systemImage: "doc.badge.plus")
+                    if canAddFolder && canAddFile {
+                        // Both operations allowed - show menu
+                        Menu {
+                            Button(action: { showAddFolderSheet = true }) {
+                                Label(NSLocalizedString("folderList.addFolder", comment: "Add folder button"), systemImage: "folder.badge.plus")
+                            }
+                            
+                            Button(action: { showAddFileSheet = true }) {
+                                Label(NSLocalizedString("folderList.addFile", comment: "Add file button"), systemImage: "doc.badge.plus")
+                            }
+                        } label: {
+                            Image(systemName: "plus")
+                                .accessibilityHidden(true)
                         }
+                        .accessibilityLabel(NSLocalizedString("folderList.addAccessibility", comment: "Add button"))
+                        .accessibilityHint("Double tap to add a folder or file")
+                    } else if canAddFolder {
+                        // Only folders allowed
+                        Button(action: { showAddFolderSheet = true }) {
+                            Image(systemName: "folder.badge.plus")
+                        }
+                        .accessibilityLabel(NSLocalizedString("folderList.addFolder", comment: "Add folder button"))
+                    } else if canAddFile {
+                        // Only files allowed
+                        Button(action: { showAddFileSheet = true }) {
+                            Image(systemName: "doc.badge.plus")
+                        }
+                        .accessibilityLabel(NSLocalizedString("folderList.addFile", comment: "Add file button"))
                     }
-                } label: {
-                    Image(systemName: "plus")
-                        .accessibilityHidden(true)
                 }
-                .accessibilityLabel(NSLocalizedString("folderList.addAccessibility", comment: "Add button"))
-                .accessibilityHint("Double tap to add a folder or file")
             }
         }
         .sheet(isPresented: $showAddFolderSheet) {
             AddFolderSheet(
                 isPresented: $showAddFolderSheet,
                 project: project,
-                parentFolder: parentFolder,
-                existingFolders: currentFolders
+                parentFolder: selectedFolder,
+                existingFolders: selectedFolder != nil ? currentSubfolders : projectFolders
             )
         }
         .sheet(isPresented: $showAddFileSheet) {
-            if let parentFolder = parentFolder {
+            if let selectedFolder = selectedFolder {
                 AddFileSheet(
                     isPresented: $showAddFileSheet,
-                    parentFolder: parentFolder,
+                    parentFolder: selectedFolder,
                     existingFiles: currentFiles
                 )
             }
@@ -178,88 +174,7 @@ struct FolderListView: View {
     }
 }
 
-// MARK: - Root Folder Section Content
 
-struct RootFolderSectionContent: View {
-    let folder: Folder
-    
-    // Define the desired order for subfolders
-    let blankSubfolderOrder = ["All"]
-    let poetrySubfolderOrder = ["All", "Draft", "Ready", "Set Aside", "Published", "Collections", "Submissions", "Research"]
-    let novelSubfolderOrder = ["Novel", "Chapters", "Scenes", "Characters", "Locations", "Set Aside", "Research"]
-    let scriptSubfolderOrder = ["Script", "Acts", "Scenes", "Characters", "Locations", "Set Aside", "Research"]
-    let poetryPublicationsOrder = ["Magazines", "Competitions", "Commissions", "Other"]
-    let novelPublicationsOrder = ["Competitions", "Commissions", "Other"]
-    
-    var orderedSubfolders: [Folder] {
-        let subfolders = folder.folders ?? []
-        
-        // Determine which ordering to use based on parent folder name
-        let order: [String]
-        if folder.name == "Publications" {
-            // Determine publication type based on sibling folders to identify project type
-            if let project = folder.project {
-                switch project.type {
-                case .poetry, .shortStory:
-                    order = poetryPublicationsOrder  // Includes Magazines
-                case .novel, .script:
-                    order = novelPublicationsOrder   // No Magazines
-                case .blank:
-                    order = []  // No publications for blank projects
-                }
-            } else {
-                order = poetryPublicationsOrder  // Default fallback
-            }
-        } else if folder.name?.contains("BLANK") == true {
-            order = blankSubfolderOrder
-        } else if folder.name?.contains("NOVEL") == true {
-            order = novelSubfolderOrder
-        } else if folder.name?.contains("SCRIPT") == true {
-            order = scriptSubfolderOrder
-        } else {
-            // Default to poetry/short story order for "YOUR POETRY" and "YOUR STORIES"
-            order = poetrySubfolderOrder
-        }
-        
-        // Return subfolders sorted by the specified order
-        return order.compactMap { desiredName in
-            subfolders.first { ($0.name ?? "") == desiredName }
-        }
-    }
-    
-    var body: some View {
-        if folder.name == "Trash" {
-            FolderRowView(folder: folder)
-        } else {
-            let subfolders = orderedSubfolders
-            let files = (folder.files ?? []).sorted(by: { ($0.name ?? "") < ($1.name ?? "") })
-            
-            if !subfolders.isEmpty {
-                ForEach(subfolders) { subfolder in
-                    HStack(spacing: 16) {
-                        Image(systemName: "arrow.right")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        
-                        FolderRowView(folder: subfolder)
-                    }
-                }
-            }
-            
-            if !files.isEmpty {
-                ForEach(files) { file in
-                    HStack(spacing: 16) {
-                        Image(systemName: "arrow.right")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        
-                        FileRowView(file: file)
-                    }
-                }
-            }
-        }
-    }
-}
 
 // MARK: - Folder Row View
 
@@ -345,10 +260,9 @@ struct FolderRowView: View {
         case "Acts":
             return "document.on.document"
         default:
-            let subfolderCount = folder.folders?.count ?? 0
             let fileCount = folder.files?.count ?? 0
             
-            if subfolderCount > 0 || fileCount > 0 {
+            if fileCount > 0 {
                 return "folder.fill"
             } else {
                 return "folder"
@@ -357,24 +271,21 @@ struct FolderRowView: View {
     }
     
     private var folderContentCount: String? {
-        let subfolderCount = folder.folders?.count ?? 0
         let fileCount = folder.files?.count ?? 0
+        let subfolderCount = folder.folders?.count ?? 0
         
-        guard subfolderCount > 0 || fileCount > 0 else { return nil }
-        
-        var parts: [String] = []
-        
-        if subfolderCount > 0 {
+        if subfolderCount > 0 && fileCount > 0 {
+            let format = NSLocalizedString("folderList.mixedCount", comment: "Folder and file count")
+            return String(format: format, subfolderCount, fileCount)
+        } else if subfolderCount > 0 {
             let format = NSLocalizedString("folderList.folderCount", comment: "Folder count")
-            parts.append(String(format: format, subfolderCount))
-        }
-        
-        if fileCount > 0 {
+            return String(format: format, subfolderCount)
+        } else if fileCount > 0 {
             let format = NSLocalizedString("folderList.fileCount", comment: "File count")
-            parts.append(String(format: format, fileCount))
+            return String(format: format, fileCount)
+        } else {
+            return nil
         }
-        
-        return parts.joined(separator: ", ")
     }
     
     private var accessibilityLabel: String {
@@ -427,41 +338,25 @@ struct FileRowView: View {
 // MARK: - Empty State View
 
 struct EmptyFolderView: View {
-    let parentFolder: Folder?
+    let folder: Folder
     
     var body: some View {
         VStack(spacing: 16) {
-            Image(systemName: parentFolder == nil ? "folder" : "doc.text")
+            Image(systemName: "doc.text")
                 .font(.system(size: 60))
                 .foregroundStyle(.secondary)
             
-            Text(emptyMessage)
+            Text(NSLocalizedString("folderList.emptyFolder", comment: "Empty folder message"))
                 .font(.headline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             
-            Text(emptyHint)
+            Text(NSLocalizedString("folderList.tapAddContentHint", comment: "Tap + to add content hint"))
                 .font(.subheadline)
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
         }
         .padding()
         .listRowBackground(Color.clear)
-    }
-    
-    private var emptyMessage: String {
-        if parentFolder == nil {
-            return NSLocalizedString("folderList.noFoldersYet", comment: "No folders message")
-        } else {
-            return NSLocalizedString("folderList.emptyFolder", comment: "Empty folder message")
-        }
-    }
-    
-    private var emptyHint: String {
-        if parentFolder == nil {
-            return NSLocalizedString("folderList.tapAddFolderHint", comment: "Tap + to add folder hint")
-        } else {
-            return NSLocalizedString("folderList.tapAddContentHint", comment: "Tap + to add content hint")
-        }
     }
 }

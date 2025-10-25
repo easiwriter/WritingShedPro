@@ -28,18 +28,39 @@ struct FolderDetailView: View {
             }
             
             Section {
-                HStack {
-                    Text(NSLocalizedString("folderDetail.subfolders", comment: "Subfolders label"))
-                    Spacer()
-                    Text("\(folder.folders?.count ?? 0)")
-                        .foregroundStyle(.secondary)
-                }
+                let subfolderCount = folder.folders?.count ?? 0
+                let fileCount = folder.files?.count ?? 0
                 
-                HStack {
-                    Text(NSLocalizedString("folderDetail.files", comment: "Files label"))
-                    Spacer()
-                    Text("\(folder.files?.count ?? 0)")
-                        .foregroundStyle(.secondary)
+                if subfolderCount > 0 && fileCount > 0 {
+                    // Show both subfolders and files
+                    HStack {
+                        Text(NSLocalizedString("folderDetail.subfolders", comment: "Subfolders label"))
+                        Spacer()
+                        Text("\(subfolderCount)")
+                            .foregroundStyle(.secondary)
+                    }
+                    HStack {
+                        Text(NSLocalizedString("folderDetail.files", comment: "Files label"))
+                        Spacer()
+                        Text("\(fileCount)")
+                            .foregroundStyle(.secondary)
+                    }
+                } else if subfolderCount > 0 {
+                    // Show only subfolders
+                    HStack {
+                        Text(NSLocalizedString("folderDetail.subfolders", comment: "Subfolders label"))
+                        Spacer()
+                        Text("\(subfolderCount)")
+                            .foregroundStyle(.secondary)
+                    }
+                } else {
+                    // Show only files (or both at 0)
+                    HStack {
+                        Text(NSLocalizedString("folderDetail.files", comment: "Files label"))
+                        Spacer()
+                        Text("\(fileCount)")
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
             
@@ -84,10 +105,20 @@ struct FolderDetailView: View {
         let subfolderCount = folder.folders?.count ?? 0
         let fileCount = folder.files?.count ?? 0
         
-        if subfolderCount > 0 || fileCount > 0 {
-            return String(format: NSLocalizedString("folderDetail.deleteWarningWithContent", comment: "Delete warning with content"),
+        if subfolderCount > 0 && fileCount > 0 {
+            // Has both subfolders and files
+            return String(format: NSLocalizedString("folderDetail.deleteWarningWithBoth", comment: "Delete warning with subfolders and files"),
                          subfolderCount, fileCount)
+        } else if subfolderCount > 0 {
+            // Has only subfolders
+            return String(format: NSLocalizedString("folderDetail.deleteWarningWithSubfolders", comment: "Delete warning with subfolders"),
+                         subfolderCount)
+        } else if fileCount > 0 {
+            // Has only files
+            return String(format: NSLocalizedString("folderDetail.deleteWarningWithFiles", comment: "Delete warning with files"),
+                         fileCount)
         } else {
+            // Empty folder
             return NSLocalizedString("folderDetail.deleteWarning", comment: "Delete warning")
         }
     }
@@ -108,21 +139,13 @@ struct FolderDetailView: View {
             return
         }
         
-        // Check uniqueness in parent folder
-        if let parentFolder = folder.parentFolder {
-            // Get sibling folders (excluding current folder)
-            let siblings = (parentFolder.folders ?? []).filter { $0.id != folder.id }
-            if siblings.contains(where: { ($0.name ?? "").caseInsensitiveCompare(trimmedName) == .orderedSame }) {
+        // Check uniqueness within parent folder or project
+        if let project = folder.project {
+            if !UniquenessChecker.isFolderNameUnique(trimmedName, in: project, parentFolder: folder.parentFolder, excludingFolder: folder) {
                 errorMessage = NSLocalizedString("folderDetail.duplicateName", comment: "Duplicate folder name error")
                 showErrorAlert = true
                 editedName = folder.name ?? ""
                 return
-            }
-        } else {
-            // Check uniqueness at root level (siblings in same project)
-            if let project = folder.project {
-                // This would require querying all root folders - simplified for now
-                // In production, you'd fetch root folders and check uniqueness
             }
         }
         

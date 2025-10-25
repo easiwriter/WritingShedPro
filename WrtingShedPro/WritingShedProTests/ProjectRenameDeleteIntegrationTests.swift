@@ -85,7 +85,7 @@ final class ProjectRenameDeleteIntegrationTests: XCTestCase {
         // Assert - all other properties preserved
         XCTAssertEqual(project.name, "Renamed")
         XCTAssertEqual(project.id, originalId)
-        XCTAssertEqual(project.projectType, .script)
+        XCTAssertEqual(project.type, .script)
         XCTAssertEqual(project.creationDate, creationDate)
         XCTAssertEqual(project.details, details)
     }
@@ -218,7 +218,7 @@ final class ProjectRenameDeleteIntegrationTests: XCTestCase {
         // Assert
         XCTAssertEqual(project.name, "Updated Name")
         XCTAssertEqual(project.details, "New details")
-        XCTAssertEqual(project.projectType, .blank) // Type unchanged
+        XCTAssertEqual(project.type, .blank) // Type unchanged
     }
     
     // MARK: - Combined Workflow Tests

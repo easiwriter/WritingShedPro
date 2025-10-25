@@ -171,10 +171,10 @@ struct FolderItemView: View {
                 
                 Spacer()
                 
-                // Show item count
-                let itemCount = (folder.folders?.count ?? 0) + (folder.files?.count ?? 0)
-                if itemCount > 0 {
-                    Text("\(itemCount)")
+                // Show file count
+                let fileCount = folder.files?.count ?? 0
+                if fileCount > 0 {
+                    Text("\(fileCount)")
                         .foregroundColor(.secondary)
                         .font(.caption)
                 }

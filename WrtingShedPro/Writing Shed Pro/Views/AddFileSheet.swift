@@ -52,6 +52,13 @@ struct AddFileSheet: View {
     }
     
     private func addFile() {
+        // Check if folder allows files
+        guard FolderCapabilityService.canAddFile(to: parentFolder) else {
+            errorMessage = FolderCapabilityService.disallowedOperationMessage(for: parentFolder, operation: .addFile)
+            showErrorAlert = true
+            return
+        }
+        
         // Validate file name
         do {
             try NameValidator.validateFileName(fileName)

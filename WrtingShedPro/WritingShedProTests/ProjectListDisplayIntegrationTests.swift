@@ -79,9 +79,9 @@ final class ProjectListDisplayIntegrationTests: XCTestCase {
         ]
         
         // Assert
-        XCTAssertEqual(projects[0].projectType, .blank)
-        XCTAssertEqual(projects[1].projectType, .poetry)
-        XCTAssertEqual(projects[2].projectType, .script)
+        XCTAssertEqual(projects[0].type, .blank)
+        XCTAssertEqual(projects[1].type, .poetry)
+        XCTAssertEqual(projects[2].type, .script)
     }
     
     func testProjectListHandlesMixedCaseNames() {

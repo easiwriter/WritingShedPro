@@ -4,7 +4,7 @@ import SwiftData
 struct AddFolderSheet: View {
     @Binding var isPresented: Bool
     let project: Project
-    let parentFolder: Folder?
+    let parentFolder: Folder?  // nil for root-level folders
     let existingFolders: [Folder]
     
     @State private var folderName = ""
@@ -20,13 +20,20 @@ struct AddFolderSheet: View {
                         .accessibilityLabel(NSLocalizedString("addFolder.folderNameAccessibility", comment: "Folder name accessibility"))
                 }
                 
-                if let parentFolder = parentFolder {
-                    Section {
+                Section {
+                    if let parentFolder = parentFolder {
                         HStack {
                             Text(NSLocalizedString("addFolder.parentFolder", comment: "Parent folder label"))
                                 .foregroundStyle(.secondary)
                             Spacer()
                             Text(parentFolder.name ?? "")
+                        }
+                    } else {
+                        HStack {
+                            Text(NSLocalizedString("addFolder.projectName", comment: "Project name label"))
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Text(project.name ?? "")
                         }
                     }
                 }
@@ -64,32 +71,23 @@ struct AddFolderSheet: View {
             return
         }
         
-        // Check uniqueness
-        if let parentFolder = parentFolder {
-            if !UniquenessChecker.isFolderNameUnique(folderName, in: parentFolder) {
-                errorMessage = NSLocalizedString("addFolder.duplicateName", comment: "Duplicate folder name error")
-                showErrorAlert = true
-                return
-            }
-        } else {
-            // Check uniqueness at root level
-            if existingFolders.contains(where: { ($0.name ?? "").caseInsensitiveCompare(folderName) == .orderedSame }) {
-                errorMessage = NSLocalizedString("addFolder.duplicateName", comment: "Duplicate folder name error")
-                showErrorAlert = true
-                return
-            }
+        // Check uniqueness within parent context (hierarchical structure)
+        if !UniquenessChecker.isFolderNameUnique(folderName, in: project, parentFolder: parentFolder) {
+            errorMessage = NSLocalizedString("addFolder.duplicateName", comment: "Duplicate folder name error")
+            showErrorAlert = true
+            return
         }
         
-        // Create folder
+        // Create folder with proper parent relationship
         let newFolder = Folder(name: folderName, project: project, parentFolder: parentFolder)
         modelContext.insert(newFolder)
         
-        // Add to parent's folders array if exists
-        if var parent = parentFolder {
-            if parent.folders == nil {
-                parent.folders = []
+        // If this is a subfolder, add it to parent's folders array
+        if let parentFolder = parentFolder {
+            if parentFolder.folders == nil {
+                parentFolder.folders = []
             }
-            parent.folders?.append(newFolder)
+            parentFolder.folders?.append(newFolder)
         }
         
         isPresented = false

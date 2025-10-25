@@ -41,15 +41,14 @@ final class Project {
 ```swift
 @Model
 final class Folder {
-    var id: UUID?
+    var id: UUID = UUID()
     var name: String?
-    @Relationship(deleteRule: .cascade, inverse: \Folder.parentFolder) 
-    var folders: [Folder]?  // ✅ Nested folders
-    @Relationship(deleteRule: .nullify) 
-    var parentFolder: Folder?  // ✅ Hierarchy support
-    var parentFolderId: UUID?
     @Relationship(deleteRule: .cascade, inverse: \File.parentFolder) 
-    var files: [File]?  // ✅ Contains files
+    var files: [File]?  // ✅ Contains files (based on capability)
+    @Relationship(deleteRule: .cascade) 
+    var folders: [Folder]?  // ✅ Contains subfolders (based on capability)
+    var parentFolder: Folder?  // ✅ Parent folder (for hierarchical structure)
+    @Relationship(deleteRule: .nullify, inverse: \Project.folders) 
     var project: Project?  // ✅ Parent project
     
     // ... initializer
@@ -57,10 +56,11 @@ final class Folder {
 ```
 
 **Key Points**:
-- Self-referential: folders can contain folders
-- `parentFolder` for navigation up the hierarchy
-- `parentFolderId` for UUID-based hierarchy (alternative approach)
-- Cascade delete: deleting folder deletes all nested folders and files
+- **Selective nesting structure**: Folders can contain subfolders AND/OR files based on capability rules
+- `folders` relationship supports hierarchical nesting (one-sided to avoid circular SwiftData references)
+- `parentFolder` relationship identifies parent in hierarchy
+- Cascade delete: deleting folder deletes all files and subfolders within it
+- FolderCapabilityService determines what each folder can contain based on name/type
 - CloudKit compatible (optional relationships, optional arrays)
 
 ---
@@ -88,51 +88,78 @@ final class File {
 
 ## Project Template Structure
 
-### Template Hierarchy
+### Template Structure (Selective Nesting)
 
-When a project is created, `ProjectTemplateService` generates this structure:
+When a project is created, `ProjectTemplateService` generates folder structures with **selective nesting** based on folder capabilities. Folder capabilities are managed by `FolderCapabilityService`:
+
+**Folder Capability Types:**
+
+1. **Subfolder-Only Folders** (cannot contain files):
+   - Magazines
+   - Competitions
+   - Commissions
+   - Other
+   - Collections
+   - Submissions
+   - Chapters
+   - Acts
+
+2. **File-Only Folders** (cannot contain subfolders):
+   - All
+   - Ready
+   - Set Aside
+   - Published
+   - Research
+   - Novel
+   - Script
+   - Trash
+
+3. **Mixed Capability Folders** (can contain both files AND subfolders):
+   - Draft
+   - Scenes
+   - Characters
+   - Locations
+
+4. **User-Created Folders**: Always have mixed capability
 
 ```
 Project (e.g., "My Poetry Collection")
-├── Your Poetry (type-specific)
-│   ├── All
-│   ├── Draft
-│   ├── Ready
-│   ├── Set Aside
-│   ├── Published
-│   ├── Collections
-│   │   └── (user creates subfolders)
-│   ├── Submissions
-│   │   └── (user creates subfolders)
-│   └── Research
-│       └── (user creates subfolders)
-├── Publications
-│   ├── Magazines
-│   ├── Competitions
-│   ├── Commissions
-│   └── Other
-└── Trash
+├── All                    (file-only)
+├── Draft                  (mixed - can have files and subfolders)
+├── Ready                  (file-only)
+├── Set Aside              (file-only)
+├── Published              (file-only)
+├── Collections            (subfolder-only)
+├── Submissions            (subfolder-only)
+├── Research               (file-only)
+├── Magazines             (publications folders - poetry/short story only)
+├── Competitions          (publications folders)
+├── Commissions           (publications folders)
+├── Other                 (publications folders)
+└── Trash                 (always present)
 ```
 
 **Type Variations**:
-- Poetry: "Your Poetry"
-- Prose: "Your Prose"
-- Drama: "Your Drama"
+- **Poetry/Short Story**: All folders above
+- **Novel**: Novel, Chapters, Scenes, Characters, Locations, Set Aside, Research, Competitions, Commissions, Other, Trash
+- **Script**: Script, Acts, Scenes, Characters, Locations, Set Aside, Research, Competitions, Commissions, Other, Trash
+- **Blank**: All, Trash only
 
 ---
 
 ## Folder Relationships
 
-### Top-Level Folders (Project Root)
+### Root-Level Folders
 
 **Characteristics**:
-- `parentFolder = nil`
+- Belong directly to project (no parent folder)
 - `project = <the project>`
-- Direct children of Project
+- `parentFolder = nil`
 
 **Examples**:
-- "Your Poetry"
-- "Publications"
+- "All"
+- "Draft"
+- "Magazines" 
 - "Trash"
 
 **Query**:
@@ -145,24 +172,24 @@ var rootFolders: [Folder]
 
 ---
 
-### Nested Folders (Children)
+### Nested Folders (Subfolders)
 
 **Characteristics**:
-- `parentFolder = <parent folder>`
-- `project = <the project>` (inherited)
-- Children of another folder
+- Belong to parent folder
+- `parentFolder = <the parent folder>`
+- `project = <the project>` (inherited for easy querying)
 
 **Examples**:
-- "All" (parent: "Your Poetry")
-- "Draft" (parent: "Your Poetry")
-- "Magazines" (parent: "Publications")
+- Subfolder in "Magazines"
+- Subfolder in "Draft"
+- Subfolder in "Collections"
 
 **Query**:
 ```swift
 @Query(filter: #Predicate<Folder> { folder in
     folder.parentFolder?.id == parentFolderId
 })
-var childFolders: [Folder]
+var subfolders: [Folder]
 ```
 
 ---
@@ -184,19 +211,68 @@ var files: [File]
 
 ---
 
+## FolderCapabilityService
+
+The `FolderCapabilityService` determines what operations are allowed on each folder based on its name and type:
+
+```swift
+struct FolderCapabilityService {
+    // Folders that can ONLY contain subfolders (no files)
+    private static let subfolderOnlyFolders: Set<String> = [
+        "Magazines", "Competitions", "Commissions", "Other",
+        "Collections", "Submissions", "Chapters", "Acts"
+    ]
+    
+    // Folders that can ONLY contain files (no subfolders)
+    private static let fileOnlyFolders: Set<String> = [
+        "All", "Ready", "Set Aside", "Published", "Research",
+        "Novel", "Script", "Trash"
+    ]
+    
+    // Folders that can contain BOTH files and subfolders
+    private static let mixedCapabilityFolders: Set<String> = [
+        "Draft", "Scenes", "Characters", "Locations"
+    ]
+    
+    static func canAddSubfolder(to folder: Folder) -> Bool
+    static func canAddFile(to folder: Folder) -> Bool
+    static func isTemplateFolder(_ folder: Folder) -> Bool
+    static func disallowedOperationMessage(for folder: Folder, operation: String) -> String
+}
+```
+
+**Business Rules**:
+- **Template folders**: Use name-based capability rules (defined above)
+- **User-created folders**: Always have mixed capability (both files and subfolders allowed)
+- **UI Integration**: FolderListView uses service to show/hide toolbar buttons
+- **Validation**: AddFolderSheet and AddFileSheet validate operations before creation
+
+---
+
 ## Cascade Delete Behavior
 
 ### Delete Project
 ```
 Delete Project
     ↓
-Cascade to all folders (via folders relationship)
+Cascade to all root folders (via folders relationship)
     ↓
-Cascade to nested folders (via folders.folders relationship)
+Cascade to all subfolders (via folders.folders relationship)
     ↓
 Cascade to all files (via folders.files relationship)
     ↓
 Everything deleted
+```
+
+### Delete Folder
+```
+Delete Folder
+    ↓
+Cascade to all subfolders (via folders relationship)
+    ↓
+Cascade to all files in folder (via files relationship)
+    ↓
+Subfolders and files deleted
 ```
 
 **SwiftData Rule**: `@Relationship(deleteRule: .cascade)`
@@ -241,9 +317,9 @@ File deleted, folder remains
 - No minimum/maximum length enforced (use common sense)
 
 **Uniqueness** (handled by `UniquenessChecker`):
-- Must be unique within parent folder (case-insensitive)
-- Can have duplicate names at different levels
-- Example: "Draft" in "Your Poetry" and "Draft" in "Publications" is allowed
+- Must be unique within project (case-insensitive)
+- No duplicate folder names allowed in same project
+- Example: Cannot have two folders named "Draft" in same project
 
 **Implementation**:
 ```swift
@@ -251,7 +327,7 @@ File deleted, folder remains
 try NameValidator.validateProjectName(folderName)
 
 // Check uniqueness
-let isUnique = UniquenessChecker.isFolderNameUnique(folderName, in: parentFolder)
+let isUnique = UniquenessChecker.isFolderNameUnique(folderName, in: project)
 ```
 
 ---
@@ -308,22 +384,12 @@ All models sync automatically via SwiftData's CloudKit integration (configured i
 
 ## Queries and Predicates
 
-### Get Root Folders for Project
+### Get All Folders for Project
 ```swift
 @Query(filter: #Predicate<Folder> { folder in
-    folder.project?.id == projectId && folder.parentFolder == nil
+    folder.project?.id == projectId
 })
-var rootFolders: [Folder]
-```
-
----
-
-### Get Child Folders for Folder
-```swift
-@Query(filter: #Predicate<Folder> { folder in
-    folder.parentFolder?.id == parentFolderId
-})
-var childFolders: [Folder]
+var projectFolders: [Folder]
 ```
 
 ---
@@ -334,16 +400,6 @@ var childFolders: [Folder]
     file.parentFolder?.id == folderId
 })
 var files: [File]
-```
-
----
-
-### Get All Folders for Project (Flat List)
-```swift
-@Query(filter: #Predicate<Folder> { folder in
-    folder.project?.id == projectId
-})
-var allFolders: [Folder]
 ```
 
 ---
@@ -373,21 +429,28 @@ SwiftData automatically indexes:
 ### Query Optimization
 
 **Best Practices**:
-- Query only the current level (root folders, then child folders as needed)
-- Avoid querying entire project hierarchy at once
+- Query root folders first, then navigate into subfolders as needed
+- Query folder files only when folder is selected
 - Use predicates to filter at database level
 
 **Example - Good**:
 ```swift
-// Query only current folder's children
-@Query(filter: #Predicate<Folder> { $0.parentFolder?.id == currentFolderId })
+// Query root-level folders
+@Query(filter: #Predicate<Folder> { 
+    $0.project?.id == projectId && $0.parentFolder == nil 
+})
+var rootFolders: [Folder]
+
+// Query subfolders when navigating into a folder
+@Query(filter: #Predicate<Folder> { $0.parentFolder?.id == parentId })
+var subfolders: [Folder]
 ```
 
 **Example - Avoid**:
 ```swift
 // Query all folders, then filter in Swift
 @Query var allFolders: [Folder]
-let filtered = allFolders.filter { $0.parentFolder?.id == currentFolderId }
+let filtered = allFolders.filter { $0.project?.id == projectId }
 ```
 
 ---
@@ -395,8 +458,7 @@ let filtered = allFolders.filter { $0.parentFolder?.id == currentFolderId }
 ### Large Hierarchies
 
 **Tested Scenarios**:
-- 100 folders at one level ✅
-- 20 levels deep ✅
+- 100 folders in project ✅  
 - 1000 files in one folder ✅
 
 **Performance**:
@@ -408,39 +470,32 @@ let filtered = allFolders.filter { $0.parentFolder?.id == currentFolderId }
 
 ## Folder Template Details
 
-### Top-Level Folders (3)
+### Root and Nested Folders
 
-| Folder Name | Purpose | Contains |
-|------------|---------|----------|
-| Your [Type] | Main writing workspace | Subfolders for workflow stages |
-| Publications | Track submission targets | Subfolders for venue types |
-| Trash | Soft delete location | Deleted items (future: permanent delete) |
+Folders can be at root level or nested within other folders based on capabilities:
 
----
-
-### "Your [Type]" Subfolders (8)
-
-| Folder Name | Purpose | User-Created Subfolders |
-|------------|---------|------------------------|
-| All | Smart folder (Phase 003) | No |
-| Draft | Work in progress | No |
-| Ready | Ready for submission | No |
-| Set Aside | Paused work | No |
-| Published | Published works | No |
-| Collections | Pre-submission groupings | Yes (user creates) |
-| Submissions | Submitted works | Yes (user creates) |
-| Research | Reference materials | Yes (user creates) |
-
----
-
-### "Publications" Subfolders (4)
-
-| Folder Name | Purpose | User-Created Subfolders |
-|------------|---------|------------------------|
-| Magazines | Magazine targets | Yes (user creates per magazine) |
-| Competitions | Competition targets | Yes (user creates per competition) |
-| Commissions | Commissioned works | Yes (user creates per commission) |
-| Other | Miscellaneous | Yes (user creates) |
+| Folder Name | Purpose | Capability | Type-Specific |
+|------------|---------|------------|---------------|
+| All | Smart folder (Phase 003) | File-only | All types |
+| Draft | Work in progress | Mixed (files + subfolders) | Poetry, Novel, Script |
+| Ready | Ready for submission | File-only | Poetry, Short Story |
+| Set Aside | Paused work | All types |
+| Published | Published works | Poetry, Short Story |
+| Collections | Pre-submission groupings | Poetry, Short Story |
+| Submissions | Submitted works | Poetry, Short Story |
+| Research | Reference materials | All types |
+| Novel | Main novel content | Novel only |
+| Chapters | Novel chapters | Novel only |
+| Scenes | Individual scenes | Novel, Script |
+| Script | Main script content | Script only |
+| Acts | Script acts | Script only |
+| Characters | Character development | Novel, Script |
+| Locations | Setting details | Novel, Script |
+| Magazines | Magazine targets | Poetry, Short Story |
+| Competitions | Competition targets | All types (except Blank) |
+| Commissions | Commissioned works | All types (except Blank) |
+| Other | Miscellaneous | All types (except Blank) |
+| Trash | Soft delete location | All types |
 
 ---
 
@@ -450,13 +505,9 @@ let filtered = allFolders.filter { $0.parentFolder?.id == currentFolderId }
 - Allowed (no minimum file/folder count)
 - Display "No folders yet" / "No files yet" messages
 
-### Deep Nesting
-- No enforced limit (tested to 100 levels)
-- Users can create as deep as needed
-
 ### Duplicate Names
-- Not allowed within same parent
-- Allowed in different folders
+- Not allowed within same project
+- Each folder name must be unique in project
 - Case-insensitive comparison
 
 ### Deleting Template Folders

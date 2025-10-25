@@ -42,9 +42,9 @@ enum ProjectType: String, Codable, CaseIterable {
 final class Folder {
     var id: UUID = UUID()
     var name: String?
-    @Relationship(deleteRule: .cascade, inverse: \Folder.parentFolder) var folders: [Folder]?
-    @Relationship(deleteRule: .nullify) var parentFolder: Folder?
     @Relationship(deleteRule: .cascade, inverse: \File.parentFolder) var files: [File]?
+    @Relationship(deleteRule: .cascade, inverse: \Folder.parentFolder) var folders: [Folder]?
+    var parentFolder: Folder?  // No inverse - avoid circular SwiftData reference
     // @Relationship(deleteRule: .cascade, inverse: \TextFile.parentFolder) var textFiles: [TextFile] = []
     var project: Project?
     
@@ -52,8 +52,8 @@ final class Folder {
         self.name = name
         self.project = project
         self.parentFolder = parentFolder
-        self.folders = []
         self.files = []
+        self.folders = []
         // self.textFiles = []
     }
 }
