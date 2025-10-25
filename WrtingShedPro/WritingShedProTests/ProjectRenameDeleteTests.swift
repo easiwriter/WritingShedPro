@@ -7,7 +7,7 @@ final class ProjectRenameDeleteTests: XCTestCase {
     
     func testRenameProjectWithValidName() {
         // Arrange
-        let project = Project(name: "Original Name", type: .prose)
+        let project = Project(name: "Original Name", type: .blank)
         let newName = "Updated Name"
         
         // Act
@@ -40,7 +40,7 @@ final class ProjectRenameDeleteTests: XCTestCase {
     func testRenameProjectUniquenessCheck() {
         // Arrange
         let existingProjects = [
-            Project(name: "Project One", type: .prose),
+            Project(name: "Project One", type: .blank),
             Project(name: "Project Two", type: .poetry)
         ]
         
@@ -52,7 +52,7 @@ final class ProjectRenameDeleteTests: XCTestCase {
     func testRenameProjectUniquenessCaseInsensitive() {
         // Arrange
         let existingProjects = [
-            Project(name: "My Project", type: .prose)
+            Project(name: "My Project", type: .blank)
         ]
         
         // Act & Assert
@@ -63,7 +63,7 @@ final class ProjectRenameDeleteTests: XCTestCase {
     
     func testRenameProjectToSameNameIsValid() {
         // Arrange
-        let project = Project(name: "My Project", type: .prose)
+        let project = Project(name: "My Project", type: .blank)
         let projects = [project]
         
         // Act & Assert - renaming to the same name should be allowed
@@ -76,9 +76,9 @@ final class ProjectRenameDeleteTests: XCTestCase {
     func testDeleteProjectRemovesFromList() {
         // Arrange
         var projects = [
-            Project(name: "Project 1", type: .prose),
+            Project(name: "Project 1", type: .blank),
             Project(name: "Project 2", type: .poetry),
-            Project(name: "Project 3", type: .drama)
+            Project(name: "Project 3", type: .script)
         ]
         let projectToDelete = projects[1]
         
@@ -92,9 +92,9 @@ final class ProjectRenameDeleteTests: XCTestCase {
     
     func testDeleteProjectPreservesOtherProjects() {
         // Arrange
-        let project1 = Project(name: "Project 1", type: .prose)
+        let project1 = Project(name: "Project 1", type: .blank)
         let project2 = Project(name: "Project 2", type: .poetry)
-        let project3 = Project(name: "Project 3", type: .drama)
+        let project3 = Project(name: "Project 3", type: .script)
         var projects = [project1, project2, project3]
         
         // Act - delete middle project
@@ -108,7 +108,7 @@ final class ProjectRenameDeleteTests: XCTestCase {
     
     func testDeleteLastProjectLeavesEmptyList() {
         // Arrange
-        let project = Project(name: "Only Project", type: .prose)
+        let project = Project(name: "Only Project", type: .blank)
         var projects = [project]
         
         // Act
@@ -120,7 +120,7 @@ final class ProjectRenameDeleteTests: XCTestCase {
     
     func testDeleteProjectWithFolders() {
         // Arrange
-        let project = Project(name: "Project", type: .prose)
+        let project = Project(name: "Project", type: .blank)
         let folder = Folder(name: "Folder", project: project)
         project.folders = [folder]
         
@@ -136,7 +136,7 @@ final class ProjectRenameDeleteTests: XCTestCase {
     
     func testUpdateProjectDetails() {
         // Arrange
-        let project = Project(name: "My Novel", type: .prose, details: "Initial details")
+        let project = Project(name: "My Novel", type: .blank, details: "Initial details")
         
         // Act
         project.details = "Updated details with more information"
@@ -147,7 +147,7 @@ final class ProjectRenameDeleteTests: XCTestCase {
     
     func testClearProjectDetails() {
         // Arrange
-        let project = Project(name: "My Novel", type: .prose, details: "Some details")
+        let project = Project(name: "My Novel", type: .blank, details: "Some details")
         
         // Act
         project.details = nil
@@ -159,7 +159,7 @@ final class ProjectRenameDeleteTests: XCTestCase {
     func testProjectPreservesCreationDate() {
         // Arrange
         let creationDate = Date(timeIntervalSinceNow: -3600)
-        let project = Project(name: "Project", type: .prose, creationDate: creationDate)
+        let project = Project(name: "Project", type: .blank, creationDate: creationDate)
         
         // Act - rename project
         project.name = "Renamed Project"

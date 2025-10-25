@@ -25,7 +25,7 @@ final class AddProjectUITests: XCTestCase {
         
         // Verify sheet has empty initial state
         XCTAssertTrue(sheet.projectName.isEmpty)
-        XCTAssertEqual(sheet.selectedType, .prose)
+        XCTAssertEqual(sheet.selectedType, .blank)
         XCTAssertTrue(sheet.details.isEmpty)
     }
     
@@ -35,7 +35,7 @@ final class AddProjectUITests: XCTestCase {
     }
     
     func testProjectDetailViewCanBeCreated() {
-        let project = Project(name: "Test Project", type: .prose)
+        let project = Project(name: "Test Project", type: .blank)
         let view = ProjectDetailView(project: project)
         
         XCTAssertNotNil(view)

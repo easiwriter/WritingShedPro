@@ -19,6 +19,8 @@
 "contentView.sortByUserOrder" = "User's Order";
 "contentView.sortAccessibility" = "Sort projects";
 "contentView.addProjectAccessibility" = "Add new project";
+"contentView.edit" = "Edit";
+"contentView.done" = "Done";
 "contentView.delete" = "Delete";
 "contentView.cancel" = "Cancel";
 "contentView.deleteTitle" = "Delete Projects";
@@ -178,4 +180,41 @@
 "projectFolder.yourStories" = "YOUR STORIES";
 "projectFolder.yourNovel" = "YOUR NOVEL";
 "projectFolder.yourScript" = "YOUR SCRIPT";
+
+/* Sorting and editing */
+"sort.byName" = "Name";
+"sort.byCreationDate" = "Creation Date";
+"sort.byItemCount" = "Item Count";
+"sort.bySize" = "Size";
+
+/* Folder list */
+"folderList.edit" = "Edit";
+"folderList.done" = "Done";
+"folderList.deleteFolder.title" = "Delete Folder?";
+"folderList.deleteFolder.message" = "This will also delete all files and subfolders. This action cannot be undone.";
+"folderList.emptyProject" = "This project has no folders yet";
+"folderList.emptyFolder" = "This folder is empty";
+"folderList.foldersHeader" = "Folders";
+"folderList.filesHeader" = "Files";
+
+/* File list */
+"fileList.edit" = "Edit";
+"fileList.done" = "Done";
+"fileList.deleteFile.title" = "Delete File?";
+"fileList.deleteFile.message" = "This action cannot be undone.";
+
+/* File info */
+"file.empty" = "Empty";
+"file.bytes" = "%d bytes";
+"file.kilobytes" = "%.1f KB";
+"file.megabytes" = "%.1f MB";
+"file.untitled" = "Untitled File";
+
+/* Folder info */
+"folder.untitled" = "Untitled Folder";
+"folder.poems" = "Poems";
+"folder.drafts" = "Drafts";
+"folder.inspiration" = "Inspiration";
+"folder.worldBuilding" = "World Building";
+"folder.notes" = "Notes";
 

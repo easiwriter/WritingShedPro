@@ -6,9 +6,9 @@ final class ProjectSortServiceTests: XCTestCase {
     func testSortByNameAscending() {
         // Arrange
         let projects = [
-            Project(name: "Zebra", type: .prose),
+            Project(name: "Zebra", type: .blank),
             Project(name: "Alpha", type: .poetry),
-            Project(name: "Beta", type: .drama)
+            Project(name: "Beta", type: .script)
         ]
         
         // Act
@@ -23,9 +23,9 @@ final class ProjectSortServiceTests: XCTestCase {
     func testSortByNameCaseInsensitive() {
         // Arrange
         let projects = [
-            Project(name: "zebra", type: .prose),
+            Project(name: "zebra", type: .blank),
             Project(name: "ALPHA", type: .poetry),
-            Project(name: "BeTa", type: .drama)
+            Project(name: "BeTa", type: .script)
         ]
         
         // Act
@@ -44,9 +44,9 @@ final class ProjectSortServiceTests: XCTestCase {
         let tomorrow = Date(timeIntervalSinceNow: 86400)
         
         let projects = [
-            Project(name: "Future", type: .prose, creationDate: tomorrow),
+            Project(name: "Future", type: .blank, creationDate: tomorrow),
             Project(name: "Today", type: .poetry, creationDate: now),
-            Project(name: "Yesterday", type: .drama, creationDate: yesterday)
+            Project(name: "Yesterday", type: .script, creationDate: yesterday)
         ]
         
         // Act
@@ -71,7 +71,7 @@ final class ProjectSortServiceTests: XCTestCase {
     
     func testSortSingleProject() {
         // Arrange
-        let projects = [Project(name: "Single", type: .prose)]
+        let projects = [Project(name: "Single", type: .blank)]
         
         // Act
         let sorted = ProjectSortService.sortProjects(projects, by: .byName)
@@ -84,9 +84,9 @@ final class ProjectSortServiceTests: XCTestCase {
     func testSortByUserOrder() {
         // Arrange
         let projects = [
-            Project(name: "First", type: .prose, userOrder: 2),
+            Project(name: "First", type: .blank, userOrder: 2),
             Project(name: "Second", type: .poetry, userOrder: 0),
-            Project(name: "Third", type: .drama, userOrder: 1)
+            Project(name: "Third", type: .script, userOrder: 1)
         ]
         
         // Act
@@ -101,9 +101,9 @@ final class ProjectSortServiceTests: XCTestCase {
     func testSortByUserOrderWithNilValues() {
         // Arrange
         let projects = [
-            Project(name: "HasOrder", type: .prose, userOrder: 1),
+            Project(name: "HasOrder", type: .blank, userOrder: 1),
             Project(name: "NoOrder1", type: .poetry, userOrder: nil),
-            Project(name: "NoOrder2", type: .drama, userOrder: nil)
+            Project(name: "NoOrder2", type: .script, userOrder: nil)
         ]
         
         // Act
@@ -119,9 +119,9 @@ final class ProjectSortServiceTests: XCTestCase {
     func testUpdateUserOrder() {
         // Arrange
         var projects = [
-            Project(name: "First", type: .prose, userOrder: 0),
+            Project(name: "First", type: .blank, userOrder: 0),
             Project(name: "Second", type: .poetry, userOrder: 1),
-            Project(name: "Third", type: .drama, userOrder: 2)
+            Project(name: "Third", type: .script, userOrder: 2)
         ]
         let movedOffsets = IndexSet([0]) // Move "First" project
         let destination = 2 // Move to position 2 (between Second and Third)

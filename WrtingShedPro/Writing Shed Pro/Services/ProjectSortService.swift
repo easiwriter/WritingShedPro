@@ -30,4 +30,12 @@ struct ProjectSortService {
         
         return reorderedProjects
     }
+    
+    static func sortOptions() -> [SortOption<SortOrder>] {
+        [
+            SortOption(.byName, title: NSLocalizedString("contentView.sortByName", comment: "Sort by name")),
+            SortOption(.byCreationDate, title: NSLocalizedString("contentView.sortByDate", comment: "Sort by creation date")),
+            SortOption(.byUserOrder, title: NSLocalizedString("contentView.sortByUserOrder", comment: "Sort by user's order"))
+        ]
+    }
 }

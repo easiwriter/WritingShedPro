@@ -47,7 +47,7 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
     
     func testCanNavigateToCreatedFolders() throws {
         // Given: A project with template folders
-        let project = Project(name: "Test Project", type: .prose)
+        let project = Project(name: "Test Project", type: .blank)
         modelContext.insert(project)
         ProjectTemplateService.createDefaultFolders(for: project, in: modelContext)
         
@@ -98,7 +98,7 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
     func testMultipleProjectsHaveIsolatedFolderStructures() throws {
         // Given: Two projects with different types
         let poetryProject = Project(name: "Poetry Project", type: .poetry)
-        let proseProject = Project(name: "Prose Project", type: .prose)
+        let proseProject = Project(name: "Prose Project", type: .blank)
         
         modelContext.insert(poetryProject)
         modelContext.insert(proseProject)
@@ -127,7 +127,7 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
     
     func testDeletingProjectCascadeDeletesFolders() throws {
         // Given: A project with template folders
-        let project = Project(name: "Test Project", type: .drama)
+        let project = Project(name: "Test Project", type: .script)
         modelContext.insert(project)
         ProjectTemplateService.createDefaultFolders(for: project, in: modelContext)
         
@@ -187,7 +187,7 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
     
     func testEmptyFoldersAreReadyForContent() throws {
         // Given: A project with template folders
-        let project = Project(name: "Test Project", type: .prose)
+        let project = Project(name: "Test Project", type: .blank)
         modelContext.insert(project)
         ProjectTemplateService.createDefaultFolders(for: project, in: modelContext)
         

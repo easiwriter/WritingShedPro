@@ -42,7 +42,7 @@ final class ProjectTemplateServiceTests: XCTestCase {
     
     func testCreateDefaultFoldersForProseProject() throws {
         // Given a prose project
-        let project = Project(name: "Test Prose", type: .prose)
+        let project = Project(name: "Test Prose", type: .blank)
         modelContext.insert(project)
         
         // When creating default folders
@@ -57,7 +57,7 @@ final class ProjectTemplateServiceTests: XCTestCase {
     
     func testCreateDefaultFoldersForDramaProject() throws {
         // Given a drama project
-        let project = Project(name: "Test Drama", type: .drama)
+        let project = Project(name: "Test Drama", type: .script)
         modelContext.insert(project)
         
         // When creating default folders
@@ -97,7 +97,7 @@ final class ProjectTemplateServiceTests: XCTestCase {
     
     func testTypeSubfoldersHaveCorrectParentReferences() throws {
         // Given a project with default folders
-        let project = Project(name: "Test Project", type: .prose)
+        let project = Project(name: "Test Project", type: .blank)
         modelContext.insert(project)
         ProjectTemplateService.createDefaultFolders(for: project, in: modelContext)
         
@@ -141,7 +141,7 @@ final class ProjectTemplateServiceTests: XCTestCase {
     
     func testPublicationsSubfoldersHaveCorrectParentReferences() throws {
         // Given a project with default folders
-        let project = Project(name: "Test Project", type: .drama)
+        let project = Project(name: "Test Project", type: .script)
         modelContext.insert(project)
         ProjectTemplateService.createDefaultFolders(for: project, in: modelContext)
         
@@ -183,7 +183,7 @@ final class ProjectTemplateServiceTests: XCTestCase {
     
     func testCompleteHierarchyIsCreated() throws {
         // Given a project
-        let project = Project(name: "Test Project", type: .prose)
+        let project = Project(name: "Test Project", type: .blank)
         modelContext.insert(project)
         
         // When creating default folders
@@ -224,7 +224,7 @@ final class ProjectTemplateServiceTests: XCTestCase {
     func testMultipleProjectsHaveIndependentFolders() throws {
         // Given two projects
         let project1 = Project(name: "Project 1", type: .poetry)
-        let project2 = Project(name: "Project 2", type: .prose)
+        let project2 = Project(name: "Project 2", type: .blank)
         modelContext.insert(project1)
         modelContext.insert(project2)
         
@@ -267,7 +267,7 @@ final class ProjectTemplateServiceTests: XCTestCase {
     func testProjectTypeExtension() {
         // Test folder name generation for each type
         XCTAssertEqual(ProjectType.poetry.typeFolderName, "Your Poetry")
-        XCTAssertEqual(ProjectType.prose.typeFolderName, "Your Prose")
-        XCTAssertEqual(ProjectType.drama.typeFolderName, "Your Drama")
+        XCTAssertEqual(ProjectType.blank.typeFolderName, "Your Prose")
+        XCTAssertEqual(ProjectType.script.typeFolderName, "Your Drama")
     }
 }
