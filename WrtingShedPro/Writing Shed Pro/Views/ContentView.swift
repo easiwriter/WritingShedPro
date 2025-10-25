@@ -124,6 +124,14 @@ struct ContentView: View {
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
             }
+            .onChange(of: projects.count) { oldCount, newCount in
+                // Exit edit mode when all projects are deleted
+                if newCount == 0 && editMode?.wrappedValue == .active {
+                    withAnimation {
+                        editMode?.wrappedValue = .inactive
+                    }
+                }
+            }
         }
     }
     
