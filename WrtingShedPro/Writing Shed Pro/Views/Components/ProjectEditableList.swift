@@ -57,7 +57,12 @@ struct ProjectEditableList: View {
                         Button(action: {
                             selectedSortOrder = option.order
                         }) {
-                            Label(option.title, systemImage: selectedSortOrder == option.order ? "checkmark" : "")
+                            HStack {
+                                Text(option.title)
+                                if selectedSortOrder == option.order {
+                                    Image(systemName: "checkmark")
+                                }
+                            }
                         }
                     }
                 } label: {

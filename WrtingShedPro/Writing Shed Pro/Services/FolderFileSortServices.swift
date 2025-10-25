@@ -38,30 +38,30 @@ struct FolderSortService {
 enum FileSortOrder: String, CaseIterable {
     case byName = "name"
     case byCreationDate = "creationDate"
-    case bySize = "size"
+    case byModifiedDate = "modifiedDate"
+    case byUserOrder = "userOrder"
 }
 
 struct FileSortService {
     static func sort(_ files: [File], by order: FileSortOrder) -> [File] {
         switch order {
         case .byName:
-            return files.sorted { ($0.name ?? "") < ($1.name ?? "") }
+            return files.sorted { ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending }
         case .byCreationDate:
-            return files.sorted { ($0.id.uuidString) < ($1.id.uuidString) } // Approximate creation order
-        case .bySize:
-            return files.sorted { 
-                let size1 = $0.content?.count ?? 0
-                let size2 = $1.content?.count ?? 0
-                return size1 > size2
-            }
+            return files.sorted { $0.createdDate > $1.createdDate }
+        case .byModifiedDate:
+            return files.sorted { $0.modifiedDate > $1.modifiedDate }
+        case .byUserOrder:
+            return files.sorted { ($0.userOrder ?? Int.max) < ($1.userOrder ?? Int.max) }
         }
     }
     
     static func sortOptions() -> [SortOption<FileSortOrder>] {
         [
-            SortOption(.byName, title: NSLocalizedString("sort.byName", comment: "Sort by name")),
-            SortOption(.byCreationDate, title: NSLocalizedString("sort.byCreationDate", comment: "Sort by creation date")),
-            SortOption(.bySize, title: NSLocalizedString("sort.bySize", comment: "Sort by size"))
+            SortOption(.byName, title: NSLocalizedString("folderList.sortByName", comment: "Sort by name")),
+            SortOption(.byCreationDate, title: NSLocalizedString("folderList.sortByCreated", comment: "Sort by created date")),
+            SortOption(.byModifiedDate, title: NSLocalizedString("folderList.sortByModified", comment: "Sort by modified date")),
+            SortOption(.byUserOrder, title: NSLocalizedString("contentView.sortByUserOrder", comment: "Sort by user's order"))
         ]
     }
 }

@@ -10,17 +10,16 @@ struct FolderCapabilityService {
         "Collections", "Submissions", "Chapters", "Acts"
     ]
     
-    /// Folders that can contain BOTH subfolders and files
-    /// These provide organizational flexibility
-    private static let mixedCapabilityFolders: Set<String> = [
-        "Draft", "Scenes", "Characters", "Locations"
+    /// Folders that can ONLY contain files (no subfolders)
+    /// Users can manually add files to these folders
+    private static let fileOnlyFolders: Set<String> = [
+        "Files", "Draft", "Research", "Scenes", "Characters", "Locations"
     ]
     
-    /// Folders that can ONLY contain files (no subfolders)
-    /// All other template folders fall into this category
-    private static let fileOnlyFolders: Set<String> = [
-        "All", "Ready", "Set Aside", "Published", "Research",
-        "Novel", "Script", "Trash"
+    /// Folders that receive content from elsewhere (no manual additions)
+    /// These folders are populated automatically by the system
+    private static let readOnlyFolders: Set<String> = [
+        "All", "Ready", "Set Aside", "Published", "Trash", "Novel", "Script"
     ]
     
     // MARK: - Capability Checks
@@ -29,33 +28,38 @@ struct FolderCapabilityService {
     static func canAddSubfolder(to folder: Folder) -> Bool {
         guard let folderName = folder.name else { return false }
         
-        // User-created folders (not template folders) can always contain subfolders
-        if !isTemplateFolder(folderName) {
-            return true
+        // Template folders can only contain subfolders if explicitly allowed
+        if isTemplateFolder(folderName) {
+            return subfolderOnlyFolders.contains(folderName)
         }
         
-        // Template folders can only contain subfolders if explicitly allowed
-        return subfolderOnlyFolders.contains(folderName) || mixedCapabilityFolders.contains(folderName)
+        // User-created folders cannot contain subfolders
+        return false
     }
     
     /// Determines if a folder can contain files
     static func canAddFile(to folder: Folder) -> Bool {
         guard let folderName = folder.name else { return false }
         
-        // User-created folders (not template folders) can always contain files
-        if !isTemplateFolder(folderName) {
-            return true
+        // Read-only folders cannot have files added manually
+        if readOnlyFolders.contains(folderName) {
+            return false
         }
         
         // Template folders can only contain files if explicitly allowed
-        return fileOnlyFolders.contains(folderName) || mixedCapabilityFolders.contains(folderName)
+        if isTemplateFolder(folderName) {
+            return fileOnlyFolders.contains(folderName)
+        }
+        
+        // User-created folders can always contain files
+        return true
     }
     
     /// Determines if a folder is a root-level template folder (not user-created)
     static func isTemplateFolder(_ folderName: String) -> Bool {
         return subfolderOnlyFolders.contains(folderName) ||
-               mixedCapabilityFolders.contains(folderName) ||
-               fileOnlyFolders.contains(folderName)
+               fileOnlyFolders.contains(folderName) ||
+               readOnlyFolders.contains(folderName)
     }
     
     /// Returns a user-friendly message explaining why an operation is not allowed

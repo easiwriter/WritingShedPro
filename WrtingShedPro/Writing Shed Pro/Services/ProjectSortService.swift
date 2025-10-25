@@ -3,6 +3,7 @@ import Foundation
 enum SortOrder {
     case byName
     case byCreationDate
+    case byModifiedDate
     case byUserOrder
 }
 
@@ -13,6 +14,8 @@ struct ProjectSortService {
             return projects.sorted { ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending }
         case .byCreationDate:
             return projects.sorted { ($0.creationDate ?? Date.distantPast) < ($1.creationDate ?? Date.distantPast) }
+        case .byModifiedDate:
+            return projects.sorted { ($0.modifiedDate ?? Date.distantPast) > ($1.modifiedDate ?? Date.distantPast) }
         case .byUserOrder:
             return projects.sorted { ($0.userOrder ?? Int.max) < ($1.userOrder ?? Int.max) }
         }
@@ -35,6 +38,7 @@ struct ProjectSortService {
         [
             SortOption(.byName, title: NSLocalizedString("contentView.sortByName", comment: "Sort by name")),
             SortOption(.byCreationDate, title: NSLocalizedString("contentView.sortByDate", comment: "Sort by creation date")),
+            SortOption(.byModifiedDate, title: NSLocalizedString("contentView.sortByModified", comment: "Sort by modified date")),
             SortOption(.byUserOrder, title: NSLocalizedString("contentView.sortByUserOrder", comment: "Sort by user's order"))
         ]
     }

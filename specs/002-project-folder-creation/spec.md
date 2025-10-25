@@ -66,18 +66,17 @@ The folder navigation displays a hierarchical structure organized by category wi
 **Folder Capability Legend:**
 All folders are initially created at the project root level (flat structure). The icons indicate what users can ADD to each folder after creation:
 - 📁 **Subfolder-only**: Users can add subfolders but NOT files
-- 📄 **File-only**: Users can add files but NOT subfolders  
-- 📁📄 **Mixed**: Users can add both subfolders and files
+- 📄 **File-only**: Users can add files but NOT subfolders
 
 ---
 
 #### BLANK Project Type
-- All: `globe` 📄
+- Files: `globe` 📄
 - Trash: `trash` 📄
 
 #### POETRY Project Type  
 - All: `globe` 📄
-- Draft: `doc.badge.ellipsis` 📁📄
+- Draft: `doc.badge.ellipsis` 📄
 - Ready: `checkmark.circle` 📄
 - Set Aside: `archivebox` 📄
 - Published: `book.circle` 📄
@@ -88,11 +87,12 @@ All folders are initially created at the project root level (flat structure). Th
 - Competitions: `medal` 📁
 - Commissions: `person.2` 📁
 - Other: `tray` 📁
+
 - Trash: `trash` 📄
 
 #### SHORT STORY Project Type
 - All: `globe` 📄
-- Draft: `doc.badge.ellipsis` 📁📄
+- Draft: `doc.badge.ellipsis` 📄
 - Ready: `checkmark.circle` 📄
 - Set Aside: `archivebox` 📄
 - Published: `book.circle` 📄
@@ -103,32 +103,35 @@ All folders are initially created at the project root level (flat structure). Th
 - Competitions: `medal` 📁
 - Commissions: `person.2` 📁
 - Other: `tray` 📁
+
 - Trash: `trash` 📄
 
 #### NOVEL Project Type
 - Novel: `book.closed.fill` 📄
 - Chapters: `document.on.document` 📁
-- Scenes: `document.badge.plus` 📁📄
-- Characters: `person.circle` 📁📄
-- Locations: `mountain.2` 📁📄
+- Scenes: `document.badge.plus` 📄
+- Characters: `person.circle` 📄
+- Locations: `mountain.2` 📄
 - Set Aside: `archivebox` 📄
 - Research: `magnifyingglass` 📄
 - Competitions: `medal` 📁
 - Commissions: `person.2` 📁
 - Other: `tray` 📁
+
 - Trash: `trash` 📄
 
 #### SCRIPT Project Type
 - Script: `book.closed.fill` 📄
 - Acts: `document.on.document` 📁
-- Scenes: `document.badge.plus` 📁📄
-- Characters: `person.circle` 📁📄
-- Locations: `mountain.2` 📁📄
+- Scenes: `document.badge.plus` 
+- Characters: `person.circle` 📄
+- Locations: `mountain.2` 📄
 - Set Aside: `archivebox` 📄
 - Research: `magnifyingglass` 📄
 - Competitions: `medal` 📁
 - Commissions: `person.2` 📁
 - Other: `tray` 📁
+
 - Trash: `trash` 📄
 
 **Common UI Elements:**
@@ -147,9 +150,9 @@ All folders are initially created at the project root level (flat structure). Th
 5. **CloudKit sync**: All folder structures sync across devices
 6. **Folder structure consistency**: Each project type creates a standard set of folders at the project root (flat structure) with selective nesting capabilities enforced after creation:
     - **Subfolder-only folders**: Magazines, Competitions, Commissions, Other, Collections, Submissions, Chapters, Acts (users can only add subfolders, not files)
-    - **File-only folders**: All, Ready, Set Aside, Published, Research, Novel, Script, Trash (users can only add files, not subfolders)
-    - **Mixed capability folders**: Draft, Scenes, Characters, Locations (users can add both files and subfolders)
-    - **User-created folders**: Always have mixed capability (can contain both)
+    - **File-only folders (manual entry)**: Files, Draft, Research, Scenes, Characters, Locations (users can manually add files)
+    - **Read-only folders (auto-populated)**: All, Ready, Set Aside, Published, Trash, Novel, Script (content comes from elsewhere, no manual additions)
+    - **User-created folders**: Always file-only (can contain files but not subfolders)
 
 ### Non-Goals (Future Phases)
 - File creation within folders (Phase 003)
@@ -173,7 +176,7 @@ All folders are initially created at the project root level (flat structure). Th
 **So that** I have an organized structure ready for my writing type
 
 **Acceptance Criteria:**
-- BLANK projects create minimal folder structure (BLANK section + Trash)
+- BLANK projects create minimal folder structure (Files + Trash)
 - POETRY projects create poetry-specific folders (Draft, Ready, Set Aside, etc.)
 - NOVEL projects create novel-specific folders (Chapters, Characters, Locations, etc.)
 - SCRIPT projects create script-specific folders (Acts, Scenes, Characters, etc.)
@@ -228,7 +231,7 @@ All folders are initially created at the project root level (flat structure). Th
 - **FR2.6:** Toolbar buttons (Add Folder, Add File) are shown/hidden based on folder capabilities from FolderCapabilityService
 
 ### FR3: Project Type Mapping
-- **FR3.1:** BLANK: Creates All, Trash folders only
+- **FR3.1:** BLANK: Creates Files, Trash folders only
 - **FR3.2:** POETRY: Creates All, Draft, Ready, Set Aside, Published, Collections, Submissions, Research, Magazines, Competitions, Commissions, Other, Trash (in that display order)
 - **FR3.3:** NOVEL: Creates Novel, Chapters, Scenes, Characters, Locations, Set Aside, Research, Competitions, Commissions, Other, Trash (in that display order)
 - **FR3.4:** SCRIPT: Creates Script, Acts, Scenes, Characters, Locations, Set Aside, Research, Competitions, Commissions, Other, Trash (in that display order)
@@ -296,10 +299,11 @@ All folders are initially created at the project root level (flat structure). Th
 3. **Icon Mapping:** SF Symbols are mapped per project type in FolderItemView based on folder names
 
 4. **Flat Structure with Capability Controls:** All folders are created at the project root level. FolderListView displays folders in workflow order with toolbar buttons dynamically shown/hidden based on FolderCapabilityService:
-   - Subfolder-only folders (Magazines, Competitions, etc.) - show "Add Folder" button only
-   - File-only folders (All, Ready, Published, etc.) - show "Add File" button only
-   - Mixed capability folders (Draft, Scenes, Characters, Locations) - show both "Add Folder" and "Add File" buttons
-   - User-created folders always show both buttons
+   - Subfolder-only folders (Magazines, Competitions, Commissions, Other, Collections, Submissions, Chapters, Acts) - show "+" button for adding subfolders
+   - File-only folders (Files, Draft, Research, Scenes, Characters, Locations) - show "+" button for adding files
+   - Read-only folders (All, Ready, Set Aside, Published, Trash, Novel, Script) - no "+" button (content populated elsewhere)
+   - User-created folders always show "+" button for adding files only
+   - Location field removed from add dialogs for simplicity
 
 5. **Data Persistence:** Explicit modelContext.save() ensures immediate persistence of folder structures
 

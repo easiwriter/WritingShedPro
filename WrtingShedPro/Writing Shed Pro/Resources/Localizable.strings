@@ -16,6 +16,7 @@
 "contentView.sortBy" = "Sort by";
 "contentView.sortByName" = "Name";
 "contentView.sortByDate" = "Creation Date";
+"contentView.sortByModified" = "Date Modified";
 "contentView.sortByUserOrder" = "User's Order";
 "contentView.sortAccessibility" = "Sort projects";
 "contentView.addProjectAccessibility" = "Add new project";
@@ -88,6 +89,13 @@
 "folderList.emptyFolder" = "This folder is empty";
 "folderList.tapAddFolderHint" = "Tap + to add your first folder";
 "folderList.tapAddContentHint" = "Tap + to add folders or files";
+"folderList.edit" = "Edit";
+"folderList.done" = "Done";
+"folderList.sortBy" = "Sort by";
+"folderList.sortByName" = "Name";
+"folderList.sortByModified" = "Date Modified";
+"folderList.sortByCreated" = "Date Created";
+"folderList.sortAccessibility" = "Sort files";
 
 /* AddFolderSheet */
 "addFolder.title" = "New Folder";
@@ -155,6 +163,7 @@
 
 /* Default folder names */
 "folder.all" = "All";
+"folder.files" = "Files";
 "folder.draft" = "Draft";
 "folder.ready" = "Ready";
 "folder.setAside" = "Set Aside";
@@ -230,6 +239,13 @@
 "folderList.mixedCount" = "%d folders, %d files";
 "folderList.foldersHeader" = "Folders";
 "folderList.parentFolder" = "Parent Folder";
+"folderList.untitledFile" = "Untitled File";
+
+/* FileEditView */
+"fileEdit.untitledFile" = "Untitled File";
+"fileEdit.done" = "Done";
+"fileEdit.deleteVersionTitle" = "Delete Version?";
+"fileEdit.deleteVersionMessage" = "Please confirm that you want to delete this version. This action cannot be undone.";
 
 /* Add folder */
 "addFolder.parentFolder" = "In Folder";

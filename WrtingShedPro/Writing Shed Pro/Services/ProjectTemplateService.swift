@@ -53,7 +53,7 @@ struct ProjectTemplateService {
         
         switch project.type {
         case .blank:
-            folderKeys = ["folder.all"]
+            folderKeys = ["folder.files"]
             
         case .poetry, .shortStory:
             folderKeys = [

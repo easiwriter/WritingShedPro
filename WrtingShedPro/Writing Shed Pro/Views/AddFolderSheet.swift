@@ -19,24 +19,6 @@ struct AddFolderSheet: View {
                     TextField(NSLocalizedString("addFolder.folderName", comment: "Folder name field"), text: $folderName)
                         .accessibilityLabel(NSLocalizedString("addFolder.folderNameAccessibility", comment: "Folder name accessibility"))
                 }
-                
-                Section {
-                    if let parentFolder = parentFolder {
-                        HStack {
-                            Text(NSLocalizedString("addFolder.parentFolder", comment: "Parent folder label"))
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                            Text(parentFolder.name ?? "")
-                        }
-                    } else {
-                        HStack {
-                            Text(NSLocalizedString("addFolder.projectName", comment: "Project name label"))
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                            Text(project.name ?? "")
-                        }
-                    }
-                }
             }
             .navigationTitle(NSLocalizedString("addFolder.title", comment: "Add folder title"))
             .navigationBarTitleDisplayMode(.inline)

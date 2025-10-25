@@ -7,7 +7,6 @@ struct FolderListView: View {
     
     @Environment(\.modelContext) var modelContext
     @State private var showAddFolderSheet = false
-    @State private var showAddFileSheet = false
     
     init(project: Project, selectedFolder: Folder? = nil) {
         self.project = project
@@ -33,7 +32,7 @@ struct FolderListView: View {
     private func folderOrderForProjectType(_ type: ProjectType) -> [String] {
         switch type {
         case .blank:
-            return ["All", "Trash"]
+            return ["Files", "Trash"]
             
         case .poetry, .shortStory:
             return [
@@ -61,10 +60,16 @@ struct FolderListView: View {
         }
     }
     
-    // Get files for the selected folder
-    var currentFiles: [File] {
-        guard let selectedFolder = selectedFolder else { return [] }
-        return (selectedFolder.files ?? []).sorted(by: { ($0.name ?? "") < ($1.name ?? "") })
+    // Determines if spacing should be added after this folder
+    private func shouldAddSpacingAfter(folder: Folder) -> Bool {
+        // Don't add spacing for blank projects
+        guard project.type != .blank else { return false }
+        
+        let folderName = folder.name ?? ""
+        
+        // Add spacing after "Research" (separates writing folders from organizational folders)
+        // and after "Other" (separates organizational folders from Trash)
+        return folderName == "Research" || folderName == "Other"
     }
     
     // Get subfolders for the selected folder
@@ -78,8 +83,32 @@ struct FolderListView: View {
             if selectedFolder == nil {
                 // Show all project folders in a simple list
                 ForEach(projectFolders) { folder in
-                    NavigationLink(destination: FolderListView(project: project, selectedFolder: folder)) {
-                        FolderRowView(folder: folder)
+                    // Navigate to subfolders OR to file list based on folder capabilities
+                    let canAddFolder = FolderCapabilityService.canAddSubfolder(to: folder)
+                    let canAddFile = FolderCapabilityService.canAddFile(to: folder)
+                    
+                    if canAddFolder {
+                        // This folder contains subfolders - navigate to FolderListView
+                        NavigationLink(destination: FolderListView(project: project, selectedFolder: folder)) {
+                            FolderRowView(folder: folder)
+                        }
+                    } else if canAddFile {
+                        // This folder contains files - navigate to FileEditableList
+                        NavigationLink(destination: FileEditableList(folder: folder)) {
+                            FolderRowView(folder: folder)
+                        }
+                    } else {
+                        // Read-only folder - navigate to FileEditableList
+                        NavigationLink(destination: FileEditableList(folder: folder)) {
+                            FolderRowView(folder: folder)
+                        }
+                    }
+                    
+                    // Add spacing before Trash folder (except for blank projects)
+                    if shouldAddSpacingAfter(folder: folder) {
+                        Divider()
+                            .listRowBackground(Color.clear)
+                            .listRowInsets(EdgeInsets())
                     }
                 }
             } else {
@@ -87,8 +116,25 @@ struct FolderListView: View {
                 if !currentSubfolders.isEmpty {
                     Section {
                         ForEach(currentSubfolders) { subfolder in
-                            NavigationLink(destination: FolderListView(project: project, selectedFolder: subfolder)) {
-                                FolderRowView(folder: subfolder)
+                            // Navigate to subfolders OR to file list based on folder capabilities
+                            let canAddFolder = FolderCapabilityService.canAddSubfolder(to: subfolder)
+                            let canAddFile = FolderCapabilityService.canAddFile(to: subfolder)
+                            
+                            if canAddFolder {
+                                // This folder contains subfolders - navigate to FolderListView
+                                NavigationLink(destination: FolderListView(project: project, selectedFolder: subfolder)) {
+                                    FolderRowView(folder: subfolder)
+                                }
+                            } else if canAddFile {
+                                // This folder contains files - navigate to FileEditableList
+                                NavigationLink(destination: FileEditableList(folder: subfolder)) {
+                                    FolderRowView(folder: subfolder)
+                                }
+                            } else {
+                                // Read-only folder - navigate to FileEditableList
+                                NavigationLink(destination: FileEditableList(folder: subfolder)) {
+                                    FolderRowView(folder: subfolder)
+                                }
                             }
                         }
                     } header: {
@@ -96,19 +142,8 @@ struct FolderListView: View {
                     }
                 }
                 
-                // Show files within the selected folder
-                if !currentFiles.isEmpty {
-                    Section {
-                        ForEach(currentFiles) { file in
-                            FileRowView(file: file)
-                        }
-                    } header: {
-                        Text(NSLocalizedString("folderList.filesHeader", comment: "Files section header"))
-                    }
-                }
-                
-                // Show empty state only if no subfolders and no files
-                if currentSubfolders.isEmpty && currentFiles.isEmpty {
+                // Show empty state only if no subfolders
+                if currentSubfolders.isEmpty {
                     EmptyFolderView(folder: selectedFolder!)
                 }
             }
@@ -117,39 +152,15 @@ struct FolderListView: View {
         .navigationBarTitleDisplayMode(selectedFolder == nil ? .large : .inline)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                // Show add buttons based on folder capabilities
+                // Show add button for folders only
                 if let selectedFolder = selectedFolder {
                     let canAddFolder = FolderCapabilityService.canAddSubfolder(to: selectedFolder)
-                    let canAddFile = FolderCapabilityService.canAddFile(to: selectedFolder)
                     
-                    if canAddFolder && canAddFile {
-                        // Both operations allowed - show menu
-                        Menu {
-                            Button(action: { showAddFolderSheet = true }) {
-                                Label(NSLocalizedString("folderList.addFolder", comment: "Add folder button"), systemImage: "folder.badge.plus")
-                            }
-                            
-                            Button(action: { showAddFileSheet = true }) {
-                                Label(NSLocalizedString("folderList.addFile", comment: "Add file button"), systemImage: "doc.badge.plus")
-                            }
-                        } label: {
-                            Image(systemName: "plus")
-                                .accessibilityHidden(true)
-                        }
-                        .accessibilityLabel(NSLocalizedString("folderList.addAccessibility", comment: "Add button"))
-                        .accessibilityHint("Double tap to add a folder or file")
-                    } else if canAddFolder {
-                        // Only folders allowed
+                    if canAddFolder {
                         Button(action: { showAddFolderSheet = true }) {
-                            Image(systemName: "folder.badge.plus")
+                            Image(systemName: "plus")
                         }
                         .accessibilityLabel(NSLocalizedString("folderList.addFolder", comment: "Add folder button"))
-                    } else if canAddFile {
-                        // Only files allowed
-                        Button(action: { showAddFileSheet = true }) {
-                            Image(systemName: "doc.badge.plus")
-                        }
-                        .accessibilityLabel(NSLocalizedString("folderList.addFile", comment: "Add file button"))
                     }
                 }
             }
@@ -161,15 +172,6 @@ struct FolderListView: View {
                 parentFolder: selectedFolder,
                 existingFolders: selectedFolder != nil ? currentSubfolders : projectFolders
             )
-        }
-        .sheet(isPresented: $showAddFileSheet) {
-            if let selectedFolder = selectedFolder {
-                AddFileSheet(
-                    isPresented: $showAddFileSheet,
-                    parentFolder: selectedFolder,
-                    existingFiles: currentFiles
-                )
-            }
         }
     }
 }
@@ -220,6 +222,8 @@ struct FolderRowView: View {
         // Type-specific subfolder icons
         switch name {
         case "All":
+            return "globe"
+        case "Files":
             return "globe"
         case "Draft":
             return "doc.badge.ellipsis"
@@ -296,42 +300,6 @@ struct FolderRowView: View {
         }
         
         return label
-    }
-}
-
-// MARK: - File Row View
-
-struct FileRowView: View {
-    let file: File
-    
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "doc.text")
-                .foregroundStyle(.gray)
-                .font(.title2)
-                .accessibilityHidden(true)
-            
-            VStack(alignment: .leading, spacing: 4) {
-                Text(file.name ?? NSLocalizedString("folderList.untitledFile", comment: "Untitled file"))
-                    .font(.body)
-                
-                if let content = file.content, !content.isEmpty {
-                    Text(contentPreview(content))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-            }
-            
-            Spacer()
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(file.name ?? NSLocalizedString("folderList.untitledFile", comment: "Untitled file"))
-    }
-    
-    private func contentPreview(_ content: String) -> String {
-        let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? NSLocalizedString("folderList.emptyFile", comment: "Empty file") : trimmed
     }
 }
 

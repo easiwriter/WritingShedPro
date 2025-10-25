@@ -18,15 +18,6 @@ struct AddFileSheet: View {
                     TextField(NSLocalizedString("addFile.fileName", comment: "File name field"), text: $fileName)
                         .accessibilityLabel(NSLocalizedString("addFile.fileNameAccessibility", comment: "File name accessibility"))
                 }
-                
-                Section {
-                    HStack {
-                        Text(NSLocalizedString("addFile.location", comment: "Location label"))
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                        Text(parentFolder.name ?? "")
-                    }
-                }
             }
             .navigationTitle(NSLocalizedString("addFile.title", comment: "Add file title"))
             .navigationBarTitleDisplayMode(.inline)
