@@ -39,8 +39,8 @@ final class TextFileUndoManager: ObservableObject {
     /// Timer for typing coalescing
     private var typingTimer: Timer?
     
-    /// Time interval for grouping typing (default 0.5 seconds)
-    private let typingGroupInterval: TimeInterval = 0.5
+    /// Time interval for grouping typing (default 2.0 seconds - groups continuous typing)
+    private let typingGroupInterval: TimeInterval = 2.0
     
     // MARK: - Initialization
     
@@ -126,6 +126,8 @@ final class TextFileUndoManager: ObservableObject {
     func flushTypingBuffer() {
         guard let buffer = typingBuffer else { return }
         
+        print("🗂️ Flushing typing buffer: '\(buffer.text)' (\(buffer.text.count) chars)")
+        
         // Don't execute - the text is already in the document from live typing
         // Just add to undo stack for potential undo
         undoStack.append(buffer)
@@ -159,6 +161,7 @@ final class TextFileUndoManager: ObservableObject {
            buffer.targetFile === command.targetFile {
             // Coalesce: append to existing buffer
             let newText = buffer.text + command.text
+            print("✨ Coalescing: '\(buffer.text)' + '\(command.text)' = '\(newText)'")
             typingBuffer = TextInsertCommand(
                 id: buffer.id,
                 timestamp: buffer.timestamp,
@@ -175,9 +178,11 @@ final class TextFileUndoManager: ObservableObject {
         } else {
             // Flush old buffer if exists
             if typingBuffer != nil {
+                print("⏰ Timer expired or position mismatch - flushing old buffer")
                 flushTypingBuffer()
             }
             
+            print("🆕 Starting new typing buffer: '\(command.text)'")
             // Start new buffer - don't execute, text is already there
             typingBuffer = command
             
