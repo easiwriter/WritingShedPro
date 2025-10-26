@@ -73,8 +73,8 @@ final class TextFileUndoManager: ObservableObject {
             return
         }
         
-        // Execute the command
-        command.execute()
+        // Don't execute the command - the content is already updated by handleTextChange
+        // Just add it to the undo stack for potential undo
         
         // Clear redo stack when new action performed
         redoStack.removeAll()
@@ -126,8 +126,8 @@ final class TextFileUndoManager: ObservableObject {
     func flushTypingBuffer() {
         guard let buffer = typingBuffer else { return }
         
-        // Execute and add to undo stack
-        buffer.execute()
+        // Don't execute - the text is already in the document from live typing
+        // Just add to undo stack for potential undo
         undoStack.append(buffer)
         
         // Trim if exceeds max size
@@ -168,8 +168,7 @@ final class TextFileUndoManager: ObservableObject {
                 targetFile: buffer.targetFile
             )
             
-            // Execute the command immediately
-            command.execute()
+            // Don't execute - the text is already in the document from the TextEditor binding
             
             // Reset timer
             startTypingTimer()
@@ -179,8 +178,7 @@ final class TextFileUndoManager: ObservableObject {
                 flushTypingBuffer()
             }
             
-            // Start new buffer
-            command.execute()
+            // Start new buffer - don't execute, text is already there
             typingBuffer = command
             
             // Clear redo stack
