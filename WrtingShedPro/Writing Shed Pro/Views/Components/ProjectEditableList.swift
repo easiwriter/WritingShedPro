@@ -41,33 +41,33 @@ struct ProjectEditableList: View {
         .environment(\.editMode, .constant(isEditMode ? .active : .inactive))
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                HStack(spacing: 16) {
-                    // Sort Menu
-                    Menu {
-                        ForEach(ProjectSortService.sortOptions(), id: \.order) { option in
-                            Button(action: {
-                                selectedSortOrder = option.order
-                            }) {
-                                HStack {
-                                    Text(option.title)
-                                    if selectedSortOrder == option.order {
-                                        Image(systemName: "checkmark")
-                                    }
+                // Sort Menu
+                Menu {
+                    ForEach(ProjectSortService.sortOptions(), id: \.order) { option in
+                        Button(action: {
+                            selectedSortOrder = option.order
+                        }) {
+                            HStack {
+                                Text(option.title)
+                                if selectedSortOrder == option.order {
+                                    Image(systemName: "checkmark")
                                 }
                             }
                         }
-                    } label: {
-                        Image(systemName: "arrow.up.arrow.down")
                     }
-                    
-                    // Edit Button
-                    Button(isEditMode ? "Done" : "Edit") {
-                        withAnimation {
-                            isEditMode.toggle()
-                        }
-                    }
-                    .disabled(projects.isEmpty)
+                } label: {
+                    Image(systemName: "arrow.up.arrow.down")
                 }
+            }
+            
+            ToolbarItem(placement: .navigationBarTrailing) {
+                // Edit Button
+                Button(isEditMode ? "Done" : "Edit") {
+                    withAnimation {
+                        isEditMode.toggle()
+                    }
+                }
+                .disabled(projects.isEmpty)
             }
         }
         .onChange(of: projects.isEmpty) { _, isEmpty in
