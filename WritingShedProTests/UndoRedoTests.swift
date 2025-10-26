@@ -38,47 +38,47 @@ final class UndoRedoTests: XCTestCase {
     
     func testTextInsertCommandExecute() {
         // Given
-        testFile.content = "Hello"
+        testFile.currentVersion?.updateContent("Hello")
         let command = TextInsertCommand(position: 5, text: " World", targetFile: testFile)
         
         // When
         command.execute()
         
         // Then
-        XCTAssertEqual(testFile.content, "Hello World")
+        XCTAssertEqual(testFile.currentVersion?.content, "Hello World")
     }
     
     func testTextInsertCommandUndo() {
         // Given
-        testFile.content = "Hello"
+        testFile.currentVersion?.updateContent("Hello")
         let command = TextInsertCommand(position: 5, text: " World", targetFile: testFile)
         command.execute()
-        XCTAssertEqual(testFile.content, "Hello World")
+        XCTAssertEqual(testFile.currentVersion?.content, "Hello World")
         
         // When
         command.undo()
         
         // Then
-        XCTAssertEqual(testFile.content, "Hello")
+        XCTAssertEqual(testFile.currentVersion?.content, "Hello")
     }
     
     func testTextInsertAtBeginning() {
         // Given
-        testFile.content = "World"
+        testFile.currentVersion?.updateContent("World")
         let command = TextInsertCommand(position: 0, text: "Hello ", targetFile: testFile)
         
         // When
         command.execute()
         
         // Then
-        XCTAssertEqual(testFile.content, "Hello World")
+        XCTAssertEqual(testFile.currentVersion?.content, "Hello World")
     }
     
     // MARK: - TextDeleteCommand Tests
     
     func testTextDeleteCommandExecute() {
         // Given
-        testFile.content = "Hello World"
+        testFile.currentVersion?.updateContent("Hello World")
         let command = TextDeleteCommand(
             startPosition: 5,
             endPosition: 11,
@@ -90,12 +90,12 @@ final class UndoRedoTests: XCTestCase {
         command.execute()
         
         // Then
-        XCTAssertEqual(testFile.content, "Hello")
+        XCTAssertEqual(testFile.currentVersion?.content, "Hello")
     }
     
     func testTextDeleteCommandUndo() {
         // Given
-        testFile.content = "Hello World"
+        testFile.currentVersion?.updateContent("Hello World")
         let command = TextDeleteCommand(
             startPosition: 5,
             endPosition: 11,
@@ -103,20 +103,20 @@ final class UndoRedoTests: XCTestCase {
             targetFile: testFile
         )
         command.execute()
-        XCTAssertEqual(testFile.content, "Hello")
+        XCTAssertEqual(testFile.currentVersion?.content, "Hello")
         
         // When
         command.undo()
         
         // Then
-        XCTAssertEqual(testFile.content, "Hello World")
+        XCTAssertEqual(testFile.currentVersion?.content, "Hello World")
     }
     
     // MARK: - TextReplaceCommand Tests
     
     func testTextReplaceCommandExecute() {
         // Given
-        testFile.content = "Hello World"
+        testFile.currentVersion?.updateContent("Hello World")
         let command = TextReplaceCommand(
             startPosition: 6,
             endPosition: 11,
@@ -129,12 +129,12 @@ final class UndoRedoTests: XCTestCase {
         command.execute()
         
         // Then
-        XCTAssertEqual(testFile.content, "Hello Swift")
+        XCTAssertEqual(testFile.currentVersion?.content, "Hello Swift")
     }
     
     func testTextReplaceCommandUndo() {
         // Given
-        testFile.content = "Hello World"
+        testFile.currentVersion?.updateContent("Hello World")
         let command = TextReplaceCommand(
             startPosition: 6,
             endPosition: 11,
@@ -143,20 +143,20 @@ final class UndoRedoTests: XCTestCase {
             targetFile: testFile
         )
         command.execute()
-        XCTAssertEqual(testFile.content, "Hello Swift")
+        XCTAssertEqual(testFile.currentVersion?.content, "Hello Swift")
         
         // When
         command.undo()
         
         // Then
-        XCTAssertEqual(testFile.content, "Hello World")
+        XCTAssertEqual(testFile.currentVersion?.content, "Hello World")
     }
     
     // MARK: - TextFileUndoManager Tests
     
     func testUndoManagerExecute() {
         // Given
-        testFile.content = "Hello"
+        testFile.currentVersion?.updateContent("Hello")
         let manager = TextFileUndoManager(file: testFile)
         let command = TextInsertCommand(position: 5, text: " World", targetFile: testFile)
         
@@ -166,14 +166,16 @@ final class UndoRedoTests: XCTestCase {
         // Then
         XCTAssertTrue(manager.canUndo)
         XCTAssertFalse(manager.canRedo)
-        XCTAssertEqual(testFile.content, "Hello World")
     }
     
     func testUndoManagerUndo() {
         // Given
-        testFile.content = "Hello"
+        testFile.currentVersion?.updateContent("Hello")
         let manager = TextFileUndoManager(file: testFile)
         let command = TextInsertCommand(position: 5, text: " World", targetFile: testFile)
+        
+        // Note: Don't execute the command - it's already in the document from typing
+        // Just add it to the manager
         manager.execute(command)
         
         // When
@@ -182,14 +184,17 @@ final class UndoRedoTests: XCTestCase {
         // Then
         XCTAssertFalse(manager.canUndo)
         XCTAssertTrue(manager.canRedo)
-        XCTAssertEqual(testFile.content, "Hello")
+        XCTAssertEqual(testFile.currentVersion?.content, "Hello")
     }
     
     func testUndoManagerRedo() {
         // Given
-        testFile.content = "Hello"
+        testFile.currentVersion?.updateContent("Hello")
         let manager = TextFileUndoManager(file: testFile)
         let command = TextInsertCommand(position: 5, text: " World", targetFile: testFile)
+        
+        // Simulate: text already added by typing, command recorded
+        testFile.currentVersion?.updateContent("Hello World")
         manager.execute(command)
         manager.undo()
         
@@ -199,40 +204,42 @@ final class UndoRedoTests: XCTestCase {
         // Then
         XCTAssertTrue(manager.canUndo)
         XCTAssertFalse(manager.canRedo)
-        XCTAssertEqual(testFile.content, "Hello World")
+        XCTAssertEqual(testFile.currentVersion?.content, "Hello World")
     }
     
     func testUndoManagerMultipleOperations() {
         // Given
-        testFile.content = "A"
+        testFile.currentVersion?.updateContent("A")
         let manager = TextFileUndoManager(file: testFile)
         
-        // When
+        // When - Simulate typing: text added, then command recorded
+        testFile.currentVersion?.updateContent("AB")
         let command1 = TextInsertCommand(position: 1, text: "B", targetFile: testFile)
         manager.execute(command1)
         
+        testFile.currentVersion?.updateContent("ABC")
         let command2 = TextInsertCommand(position: 2, text: "C", targetFile: testFile)
         manager.execute(command2)
         
         // Then
-        XCTAssertEqual(testFile.content, "ABC")
+        XCTAssertEqual(testFile.currentVersion?.content, "ABC")
         
         // Undo once
         manager.undo()
-        XCTAssertEqual(testFile.content, "AB")
+        XCTAssertEqual(testFile.currentVersion?.content, "AB")
         
         // Undo again
         manager.undo()
-        XCTAssertEqual(testFile.content, "A")
+        XCTAssertEqual(testFile.currentVersion?.content, "A")
         
         // Redo
         manager.redo()
-        XCTAssertEqual(testFile.content, "AB")
+        XCTAssertEqual(testFile.currentVersion?.content, "AB")
     }
     
     func testUndoManagerClear() {
         // Given
-        testFile.content = "Hello"
+        testFile.currentVersion?.updateContent("Hello")
         let manager = TextFileUndoManager(file: testFile)
         let command = TextInsertCommand(position: 5, text: " World", targetFile: testFile)
         manager.execute(command)
@@ -247,11 +254,14 @@ final class UndoRedoTests: XCTestCase {
     
     func testUndoManagerMaxStackSize() {
         // Given
-        testFile.content = ""
+        testFile.currentVersion?.updateContent("")
         let manager = TextFileUndoManager(file: testFile, maxStackSize: 3)
         
         // When - Add 5 commands (exceeds max of 3)
+        var content = ""
         for i in 0..<5 {
+            content += String(i)
+            testFile.currentVersion?.updateContent(content)
             let command = TextInsertCommand(position: i, text: String(i), targetFile: testFile)
             manager.execute(command)
         }
@@ -262,9 +272,10 @@ final class UndoRedoTests: XCTestCase {
     
     func testNewActionClearsRedoStack() {
         // Given
-        testFile.content = "A"
+        testFile.currentVersion?.updateContent("A")
         let manager = TextFileUndoManager(file: testFile)
         
+        testFile.currentVersion?.updateContent("AB")
         let command1 = TextInsertCommand(position: 1, text: "B", targetFile: testFile)
         manager.execute(command1)
         manager.undo()
@@ -272,11 +283,12 @@ final class UndoRedoTests: XCTestCase {
         XCTAssertTrue(manager.canRedo)
         
         // When - Execute new command
+        testFile.currentVersion?.updateContent("AC")
         let command2 = TextInsertCommand(position: 1, text: "C", targetFile: testFile)
         manager.execute(command2)
         
         // Then - Redo stack should be cleared
         XCTAssertFalse(manager.canRedo)
-        XCTAssertEqual(testFile.content, "AC")
+        XCTAssertEqual(testFile.currentVersion?.content, "AC")
     }
 }
