@@ -112,7 +112,7 @@ struct FileEditableList: View {
                 let count = offsets.count
                 if count == 1 {
                     let fileName = sortedFiles[offsets.first ?? 0].name ?? NSLocalizedString("file.untitled", comment: "Untitled File")
-                    return Text(String(format: NSLocalizedString("contentView.deleteConfirmOne", comment: "Delete confirmation"), fileName))
+                    return Text(String(format: NSLocalizedString("fileList.deleteConfirmOne", comment: "Delete file confirmation"), fileName))
                 } else {
                     return Text(String(format: NSLocalizedString("fileList.deleteFile.message", comment: "Delete multiple files"), count))
                 }

@@ -155,6 +155,9 @@
 "fileDetail.cancel" = "Cancel";
 "fileDetail.deleteWarning" = "This file will be permanently deleted. This action cannot be undone.";
 
+/* File list deletion */
+"fileList.deleteConfirmOne" = "Are you sure you want to delete \"%@\"? This will permanently delete the file. This action cannot be undone.";
+
 /* Validation errors */
 "validation.emptyProjectName" = "Project name cannot be empty.";
 "validation.emptyFileName" = "File name cannot be empty.";
