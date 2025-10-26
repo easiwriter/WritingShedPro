@@ -9,6 +9,7 @@ struct FileEditView: View {
     @State private var previousContent: String = ""
     @State private var presentDeleteAlert = false
     @State private var isPerformingUndoRedo = false // Flag to prevent re-entrancy
+    @State private var refreshTrigger = UUID() // Force TextEditor refresh
     @StateObject private var undoManager: TextFileUndoManager
     
     @Environment(\.modelContext) private var modelContext
@@ -41,6 +42,7 @@ struct FileEditView: View {
             TextEditor(text: $content)
                 .font(.body)
                 .padding()
+                .id(refreshTrigger) // Force refresh when UUID changes
                 .onChange(of: content) { oldValue, newValue in
                     handleTextChange(from: oldValue, to: newValue)
                 }
@@ -48,17 +50,6 @@ struct FileEditView: View {
                     // Set initial previousContent
                     previousContent = content
                 }
-                // Disable system undo by setting a nil undo manager
-                #if os(macOS)
-                .onAppear {
-                    // Disable TextEditor's built-in undo manager
-                    DispatchQueue.main.async {
-                        if let textView = NSApp.keyWindow?.firstResponder as? NSTextView {
-                            textView.allowsUndo = false
-                        }
-                    }
-                }
-                #endif
             
             ToolbarView(
                 label: file.versionLabel(),
@@ -180,9 +171,10 @@ struct FileEditView: View {
         // Get new content
         let newContent = file.currentVersion?.content ?? ""
         
-        // Update state directly - this triggers TextEditor refresh
+        // Update state and force refresh
         content = newContent
         previousContent = newContent
+        refreshTrigger = UUID() // Force TextEditor to rebuild
         
         // Reset flag after UI cycle completes
         DispatchQueue.main.async {
@@ -200,9 +192,10 @@ struct FileEditView: View {
         // Get new content
         let newContent = file.currentVersion?.content ?? ""
         
-        // Update state directly - this triggers TextEditor refresh
+        // Update state and force refresh
         content = newContent
         previousContent = newContent
+        refreshTrigger = UUID() // Force TextEditor to rebuild
         
         // Reset flag after UI cycle completes
         DispatchQueue.main.async {

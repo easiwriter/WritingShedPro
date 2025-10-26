@@ -35,10 +35,22 @@ struct Write_App: App {
         }
         .modelContainer(sharedModelContainer)
         .commands {
-            // Remove default undo/redo commands from Edit menu
-            CommandGroup(replacing: .undoRedo) {
-                EmptyView()
-            }
+            // Remove standard Mac menus
+            CommandGroup(replacing: .appInfo) { }
+            CommandGroup(replacing: .appSettings) { }
+            CommandGroup(replacing: .systemServices) { }
+            CommandGroup(replacing: .appVisibility) { }
+            CommandGroup(replacing: .appTermination) { }
+            CommandGroup(replacing: .newItem) { }
+            CommandGroup(replacing: .undoRedo) { }
+            CommandGroup(replacing: .pasteboard) { }
+            CommandGroup(replacing: .textEditing) { }
+            CommandGroup(replacing: .textFormatting) { }
+            CommandGroup(replacing: .toolbar) { }
+            CommandGroup(replacing: .sidebar) { }
+            CommandGroup(replacing: .windowSize) { }
+            CommandGroup(replacing: .windowArrangement) { }
+            CommandGroup(replacing: .help) { }
         }
     }
 }
