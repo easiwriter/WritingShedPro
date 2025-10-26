@@ -34,25 +34,6 @@ struct Write_App: App {
             ContentView()
         }
         .modelContainer(sharedModelContainer)
-        .commands {
-            // Remove File menu items
-            CommandGroup(replacing: .newItem) { }
-            
-            // Remove Edit menu items
-            CommandGroup(replacing: .undoRedo) { }
-            CommandGroup(replacing: .pasteboard) { }
-            CommandGroup(replacing: .textEditing) { }
-            
-            // Remove View menu items
-            CommandGroup(replacing: .toolbar) { }
-            CommandGroup(replacing: .sidebar) { }
-            
-            // Remove Window menu items
-            CommandGroup(replacing: .windowSize) { }
-            CommandGroup(replacing: .windowArrangement) { }
-            
-            // Remove Help menu
-            CommandGroup(replacing: .help) { }
-        }
+        .commandsRemoved()
     }
 }
