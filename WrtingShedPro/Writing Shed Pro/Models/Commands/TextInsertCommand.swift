@@ -35,7 +35,7 @@ final class TextInsertCommand: UndoableCommand {
     
     func execute() {
         guard let file = targetFile,
-              let content = file.content,
+              let content = file.currentVersion?.content,
               position >= 0,
               position <= content.count else {
             return
@@ -44,13 +44,13 @@ final class TextInsertCommand: UndoableCommand {
         let index = content.index(content.startIndex, offsetBy: position)
         var newContent = content
         newContent.insert(contentsOf: text, at: index)
-        file.content = newContent
+        file.currentVersion?.updateContent(newContent)
         file.modifiedDate = Date()
     }
     
     func undo() {
         guard let file = targetFile,
-              let content = file.content,
+              let content = file.currentVersion?.content,
               position >= 0,
               position + text.count <= content.count else {
             return
@@ -60,7 +60,7 @@ final class TextInsertCommand: UndoableCommand {
         let endIndex = content.index(startIndex, offsetBy: text.count)
         var newContent = content
         newContent.removeSubrange(startIndex..<endIndex)
-        file.content = newContent
+        file.currentVersion?.updateContent(newContent)
         file.modifiedDate = Date()
     }
     

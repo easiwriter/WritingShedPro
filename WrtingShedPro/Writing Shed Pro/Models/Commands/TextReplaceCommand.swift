@@ -45,7 +45,7 @@ final class TextReplaceCommand: UndoableCommand {
     
     func execute() {
         guard let file = targetFile,
-              let content = file.content,
+              let content = file.currentVersion?.content,
               startPosition >= 0,
               endPosition <= content.count,
               startPosition < endPosition else {
@@ -56,13 +56,13 @@ final class TextReplaceCommand: UndoableCommand {
         let endIndex = content.index(content.startIndex, offsetBy: endPosition)
         var newContent = content
         newContent.replaceSubrange(startIndex..<endIndex, with: newText)
-        file.content = newContent
+        file.currentVersion?.updateContent(newContent)
         file.modifiedDate = Date()
     }
     
     func undo() {
         guard let file = targetFile,
-              let content = file.content,
+              let content = file.currentVersion?.content,
               startPosition >= 0,
               startPosition + newText.count <= content.count else {
             return
@@ -72,7 +72,7 @@ final class TextReplaceCommand: UndoableCommand {
         let endIndex = content.index(startIndex, offsetBy: newText.count)
         var newContent = content
         newContent.replaceSubrange(startIndex..<endIndex, with: oldText)
-        file.content = newContent
+        file.currentVersion?.updateContent(newContent)
         file.modifiedDate = Date()
     }
     
