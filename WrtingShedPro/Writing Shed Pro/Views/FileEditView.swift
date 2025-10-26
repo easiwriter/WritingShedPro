@@ -48,6 +48,17 @@ struct FileEditView: View {
                     // Set initial previousContent
                     previousContent = content
                 }
+                // Disable system undo by setting a nil undo manager
+                #if os(macOS)
+                .onAppear {
+                    // Disable TextEditor's built-in undo manager
+                    DispatchQueue.main.async {
+                        if let textView = NSApp.keyWindow?.firstResponder as? NSTextView {
+                            textView.allowsUndo = false
+                        }
+                    }
+                }
+                #endif
             
             ToolbarView(
                 label: file.versionLabel(),
@@ -166,18 +177,16 @@ struct FileEditView: View {
         // Perform undo
         undoManager.undo()
         
-        // Force update content binding
+        // Get new content
         let newContent = file.currentVersion?.content ?? ""
         
-        // Update content which will trigger UI refresh
+        // Update state directly - this triggers TextEditor refresh
+        content = newContent
+        previousContent = newContent
+        
+        // Reset flag after UI cycle completes
         DispatchQueue.main.async {
-            self.content = newContent
-            self.previousContent = newContent
-            
-            // Reset flag
-            DispatchQueue.main.async {
-                self.isPerformingUndoRedo = false
-            }
+            self.isPerformingUndoRedo = false
         }
     }
     
@@ -188,18 +197,16 @@ struct FileEditView: View {
         // Perform redo
         undoManager.redo()
         
-        // Force update content binding
+        // Get new content
         let newContent = file.currentVersion?.content ?? ""
         
-        // Update content which will trigger UI refresh
+        // Update state directly - this triggers TextEditor refresh
+        content = newContent
+        previousContent = newContent
+        
+        // Reset flag after UI cycle completes
         DispatchQueue.main.async {
-            self.content = newContent
-            self.previousContent = newContent
-            
-            // Reset flag
-            DispatchQueue.main.async {
-                self.isPerformingUndoRedo = false
-            }
+            self.isPerformingUndoRedo = false
         }
     }
     
