@@ -35,21 +35,23 @@ struct Write_App: App {
         }
         .modelContainer(sharedModelContainer)
         .commands {
-            // Remove standard Mac menus
-            CommandGroup(replacing: .appInfo) { }
-            CommandGroup(replacing: .appSettings) { }
-            CommandGroup(replacing: .systemServices) { }
-            CommandGroup(replacing: .appVisibility) { }
-            CommandGroup(replacing: .appTermination) { }
+            // Remove File menu items
             CommandGroup(replacing: .newItem) { }
+            
+            // Remove Edit menu items
             CommandGroup(replacing: .undoRedo) { }
             CommandGroup(replacing: .pasteboard) { }
             CommandGroup(replacing: .textEditing) { }
-            CommandGroup(replacing: .textFormatting) { }
+            
+            // Remove View menu items
             CommandGroup(replacing: .toolbar) { }
             CommandGroup(replacing: .sidebar) { }
+            
+            // Remove Window menu items
             CommandGroup(replacing: .windowSize) { }
             CommandGroup(replacing: .windowArrangement) { }
+            
+            // Remove Help menu
             CommandGroup(replacing: .help) { }
         }
     }
