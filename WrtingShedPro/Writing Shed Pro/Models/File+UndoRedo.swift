@@ -56,20 +56,14 @@ extension File {
             // Create undo manager
             let undoManager = TextFileUndoManager(file: self, maxStackSize: undoStackMaxSize)
             
-            // Restore commands
-            for serializedCommand in undoCommands {
-                if let command = serializedCommand.toCommand(file: self) {
-                    undoManager.undoStack.append(command)
-                }
-            }
+            // Convert serialized commands to actual commands
+            let restoredUndoCommands = undoCommands.compactMap { $0.toCommand(file: self) }
+            let restoredRedoCommands = redoCommands.compactMap { $0.toCommand(file: self) }
             
-            for serializedCommand in redoCommands {
-                if let command = serializedCommand.toCommand(file: self) {
-                    undoManager.redoStack.append(command)
-                }
-            }
+            // Restore the stacks
+            undoManager.restoreStacks(undoCommands: restoredUndoCommands, redoCommands: restoredRedoCommands)
             
-            print("✅ Restored undo state: \(undoManager.undoStack.count) undo, \(undoManager.redoStack.count) redo commands")
+            print("✅ Restored undo state: \(restoredUndoCommands.count) undo, \(restoredRedoCommands.count) redo commands")
             return undoManager
         } catch {
             print("❌ Failed to restore undo state: \(error)")

@@ -140,6 +140,16 @@ final class TextFileUndoManager: ObservableObject {
         updateState()
     }
     
+    /// Restore stacks from serialized commands (used for persistence)
+    /// - Parameters:
+    ///   - undoCommands: Commands to restore to undo stack
+    ///   - redoCommands: Commands to restore to redo stack
+    func restoreStacks(undoCommands: [UndoableCommand], redoCommands: [UndoableCommand]) {
+        self.undoStack = undoCommands
+        self.redoStack = redoCommands
+        updateState()
+    }
+    
     // MARK: - Private Methods
     
     private func handleInsertCommand(_ command: TextInsertCommand) {
