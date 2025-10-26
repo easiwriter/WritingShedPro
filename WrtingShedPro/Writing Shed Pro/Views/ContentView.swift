@@ -14,12 +14,14 @@ struct ContentView: View {
             }
             .navigationTitle(NSLocalizedString("contentView.title", comment: "Title of projects list"))
             .toolbar {
-                ToolbarItemGroup(placement: .navigationBarLeading) {
+                ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: {}) {
                         Label(NSLocalizedString("contentView.import", comment: "Import button label"), systemImage: "arrow.down.doc")
                     }
                     .accessibilityLabel(NSLocalizedString("contentView.importAccessibility", comment: "Accessibility label for import button"))
-                    
+                }
+                
+                ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: { showAddProject = true }) {
                         Label(NSLocalizedString("contentView.addProject", comment: "Button to add new project"), systemImage: "plus")
                     }
