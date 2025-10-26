@@ -32,8 +32,11 @@ struct FileEditView: View {
         // Try to restore undo manager from saved state, or create new one
         if let restoredManager = file.restoreUndoState() {
             _undoManager = StateObject(wrappedValue: restoredManager)
+            print("📋 Restored undo manager - canUndo: \(restoredManager.canUndo), canRedo: \(restoredManager.canRedo)")
         } else {
-            _undoManager = StateObject(wrappedValue: TextFileUndoManager(file: file))
+            let newManager = TextFileUndoManager(file: file)
+            _undoManager = StateObject(wrappedValue: newManager)
+            print("📋 Created new undo manager - canUndo: \(newManager.canUndo), canRedo: \(newManager.canRedo)")
         }
     }
     
@@ -162,6 +165,8 @@ struct FileEditView: View {
     }
     
     private func performUndo() {
+        print("🔄 performUndo called - canUndo: \(undoManager.canUndo), undoStack: \(undoManager.undoStack.count)")
+        
         // Set flag to prevent onChange from creating new commands
         isPerformingUndoRedo = true
         
@@ -170,6 +175,8 @@ struct FileEditView: View {
         
         // Get new content
         let newContent = file.currentVersion?.content ?? ""
+        
+        print("🔄 After undo - content length: \(newContent.count)")
         
         // Update state and force refresh
         content = newContent
@@ -183,6 +190,8 @@ struct FileEditView: View {
     }
     
     private func performRedo() {
+        print("🔄 performRedo called - canRedo: \(undoManager.canRedo), redoStack: \(undoManager.redoStack.count)")
+        
         // Set flag to prevent onChange from creating new commands
         isPerformingUndoRedo = true
         
@@ -191,6 +200,8 @@ struct FileEditView: View {
         
         // Get new content
         let newContent = file.currentVersion?.content ?? ""
+        
+        print("🔄 After redo - content length: \(newContent.count)")
         
         // Update state and force refresh
         content = newContent
