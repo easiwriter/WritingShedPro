@@ -10,6 +10,8 @@ import SwiftData
 
 @main
 struct Write_App: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             Project.self,
@@ -34,6 +36,5 @@ struct Write_App: App {
             ContentView()
         }
         .modelContainer(sharedModelContainer)
-        .commandsRemoved()
     }
 }
