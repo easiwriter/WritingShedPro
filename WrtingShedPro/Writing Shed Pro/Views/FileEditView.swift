@@ -8,6 +8,7 @@ struct FileEditView: View {
     @State private var content: String
     @State private var previousContent: String = ""
     @State private var presentDeleteAlert = false
+    @State private var isPerformingUndoRedo = false // Flag to prevent re-entrancy
     @StateObject private var undoManager: TextFileUndoManager
     
     @Environment(\.modelContext) private var modelContext
@@ -134,6 +135,9 @@ struct FileEditView: View {
     }
     
     private func handleTextChange(from oldValue: String, to newValue: String) {
+        // Skip if performing undo/redo (prevents re-entrancy)
+        guard !isPerformingUndoRedo else { return }
+        
         // Skip if content hasn't really changed
         guard oldValue != newValue else { return }
         
@@ -156,17 +160,37 @@ struct FileEditView: View {
     }
     
     private func performUndo() {
+        // Set flag to prevent onChange from creating new commands
+        isPerformingUndoRedo = true
+        
+        // Perform undo
         undoManager.undo()
+        
         // Reload content from file after undo
         content = file.currentVersion?.content ?? ""
         previousContent = content
+        
+        // Reset flag after a brief delay to ensure UI updates
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
+            isPerformingUndoRedo = false
+        }
     }
     
     private func performRedo() {
+        // Set flag to prevent onChange from creating new commands
+        isPerformingUndoRedo = true
+        
+        // Perform redo
         undoManager.redo()
+        
         // Reload content from file after redo
         content = file.currentVersion?.content ?? ""
         previousContent = content
+        
+        // Reset flag after a brief delay to ensure UI updates
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
+            isPerformingUndoRedo = false
+        }
     }
     
     private func handleVersionAction(_ action: VersionAction) {
@@ -187,7 +211,13 @@ struct FileEditView: View {
     }
     
     private func loadCurrentVersion() {
+        isPerformingUndoRedo = true
         content = file.currentVersion?.content ?? ""
+        previousContent = content
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
+            isPerformingUndoRedo = false
+        }
     }
     
     private func saveChanges() {
