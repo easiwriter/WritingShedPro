@@ -15,19 +15,19 @@ extension File {
                 try SerializedCommand.from(command)
             }
             
-            let redoCommands = try undoManager.redoStack.map { command -> SerializedCommand in
-                try SerializedCommand.from(command)
-            }
+            // Note: We intentionally do NOT save the redo stack
+            // Redo commands are only valid during an active editing session
+            // When reopening a file, we start fresh with no redo history
             
             // Encode to JSON
             let encoder = JSONEncoder()
             encoder.dateEncodingStrategy = .iso8601
             
             undoStackData = try encoder.encode(undoCommands)
-            redoStackData = try encoder.encode(redoCommands)
+            redoStackData = nil // Clear redo stack on save
             lastUndoSaveDate = Date()
             
-            print("✅ Saved undo state: \(undoCommands.count) undo, \(redoCommands.count) redo commands")
+            print("✅ Saved undo state: \(undoCommands.count) undo commands (redo stack not saved)")
         } catch {
             print("❌ Failed to save undo state: \(error)")
         }
@@ -45,29 +45,23 @@ extension File {
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .iso8601
             
-            // Decode commands
+            // Decode undo commands only (redo stack is never saved/restored)
             let undoCommands = try decoder.decode([SerializedCommand].self, from: undoData)
-            
-            var redoCommands: [SerializedCommand] = []
-            if let redoData = redoStackData {
-                redoCommands = try decoder.decode([SerializedCommand].self, from: redoData)
-            }
             
             // Create undo manager
             let undoManager = TextFileUndoManager(file: self, maxStackSize: undoStackMaxSize)
             
             // Convert serialized commands to actual commands
             let restoredUndoCommands = undoCommands.compactMap { $0.toCommand(file: self) }
-            let restoredRedoCommands = redoCommands.compactMap { $0.toCommand(file: self) }
             
-            // Restore the stacks
-            undoManager.restoreStacks(undoCommands: restoredUndoCommands, redoCommands: restoredRedoCommands)
+            // Restore only the undo stack (redo stack starts empty)
+            undoManager.restoreStacks(undoCommands: restoredUndoCommands, redoCommands: [])
             
-            print("✅ Restored undo state: \(restoredUndoCommands.count) undo, \(restoredRedoCommands.count) redo commands")
+            print("✅ Restored undo state: \(restoredUndoCommands.count) undo commands, 0 redo commands")
             return undoManager
         } catch {
             print("❌ Failed to restore undo state: \(error)")
-            // Return fresh undo manager on error
+            // Return nil on error so a fresh manager is created
             return nil
         }
     }
