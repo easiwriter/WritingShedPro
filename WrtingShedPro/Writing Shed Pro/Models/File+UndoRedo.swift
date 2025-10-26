@@ -27,9 +27,9 @@ extension File {
             redoStackData = nil // Clear redo stack on save
             lastUndoSaveDate = Date()
             
-            print("✅ Saved undo state: \(undoCommands.count) undo commands (redo stack not saved)")
+            // print("✅ Saved undo state: \(undoCommands.count) undo commands (redo stack not saved)")
         } catch {
-            print("❌ Failed to save undo state: \(error)")
+            // print("❌ Failed to save undo state: \(error)")
         }
     }
     
@@ -37,7 +37,7 @@ extension File {
     /// - Returns: A new undo manager with restored state, or nil if no saved state
     func restoreUndoState() -> TextFileUndoManager? {
         guard let undoData = undoStackData else {
-            print("ℹ️ No undo state to restore")
+            // print("ℹ️ No undo state to restore")
             return nil
         }
         
@@ -57,10 +57,10 @@ extension File {
             // Restore only the undo stack (redo stack starts empty)
             undoManager.restoreStacks(undoCommands: restoredUndoCommands, redoCommands: [])
             
-            print("✅ Restored undo state: \(restoredUndoCommands.count) undo commands, 0 redo commands")
+            // print("✅ Restored undo state: \(restoredUndoCommands.count) undo commands, 0 redo commands")
             return undoManager
         } catch {
-            print("❌ Failed to restore undo state: \(error)")
+            // print("❌ Failed to restore undo state: \(error)")
             // Return nil on error so a fresh manager is created
             return nil
         }
@@ -71,6 +71,6 @@ extension File {
         undoStackData = nil
         redoStackData = nil
         lastUndoSaveDate = nil
-        print("✅ Cleared undo history")
+        // print("✅ Cleared undo history")
     }
 }

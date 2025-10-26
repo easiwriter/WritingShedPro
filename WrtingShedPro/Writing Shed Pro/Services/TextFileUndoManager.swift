@@ -126,7 +126,7 @@ final class TextFileUndoManager: ObservableObject {
     func flushTypingBuffer() {
         guard let buffer = typingBuffer else { return }
         
-        print("🗂️ Flushing typing buffer: '\(buffer.text)' (\(buffer.text.count) chars)")
+        // print("🗂️ Flushing typing buffer: '\(buffer.text)' (\(buffer.text.count) chars)")
         
         // Don't execute - the text is already in the document from live typing
         // Just add to undo stack for potential undo
@@ -161,7 +161,7 @@ final class TextFileUndoManager: ObservableObject {
            buffer.targetFile === command.targetFile {
             // Coalesce: append to existing buffer
             let newText = buffer.text + command.text
-            print("✨ Coalescing: '\(buffer.text)' + '\(command.text)' = '\(newText)'")
+            // print("✨ Coalescing: '\(buffer.text)' + '\(command.text)' = '\(newText)'")
             typingBuffer = TextInsertCommand(
                 id: buffer.id,
                 timestamp: buffer.timestamp,
@@ -178,11 +178,11 @@ final class TextFileUndoManager: ObservableObject {
         } else {
             // Flush old buffer if exists
             if typingBuffer != nil {
-                print("⏰ Timer expired or position mismatch - flushing old buffer")
+                // print("⏰ Timer expired or position mismatch - flushing old buffer")
                 flushTypingBuffer()
             }
             
-            print("🆕 Starting new typing buffer: '\(command.text)'")
+            // print("🆕 Starting new typing buffer: '\(command.text)'")
             // Start new buffer - don't execute, text is already there
             typingBuffer = command
             

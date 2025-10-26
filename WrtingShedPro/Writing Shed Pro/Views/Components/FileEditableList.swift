@@ -45,6 +45,14 @@ struct FileEditableList: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack(spacing: 16) {
+                    // Add file button (only if folder allows it)
+                    if FolderCapabilityService.canAddFile(to: folder) {
+                        Button(action: { showAddFileSheet = true }) {
+                            Image(systemName: "plus")
+                        }
+                        .accessibilityLabel(NSLocalizedString("folderList.addFile", comment: "Add file"))
+                    }
+                    
                     // Sort Menu
                     Menu {
                         ForEach(FileSortService.sortOptions(), id: \.order) { option in
@@ -63,14 +71,6 @@ struct FileEditableList: View {
                         Image(systemName: "arrow.up.arrow.down")
                     }
                     .accessibilityLabel(NSLocalizedString("folderList.sortAccessibility", comment: "Sort files"))
-                    
-                    // Add file button (only if folder allows it)
-                    if FolderCapabilityService.canAddFile(to: folder) {
-                        Button(action: { showAddFileSheet = true }) {
-                            Image(systemName: "plus")
-                        }
-                        .accessibilityLabel(NSLocalizedString("folderList.addFile", comment: "Add file"))
-                    }
                     
                     // Edit Button
                     Button(isEditMode ? NSLocalizedString("folderList.done", comment: "Done") : NSLocalizedString("folderList.edit", comment: "Edit")) {
