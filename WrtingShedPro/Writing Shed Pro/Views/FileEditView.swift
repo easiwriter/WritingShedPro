@@ -166,13 +166,18 @@ struct FileEditView: View {
         // Perform undo
         undoManager.undo()
         
-        // Reload content from file after undo
-        content = file.currentVersion?.content ?? ""
-        previousContent = content
+        // Force update content binding
+        let newContent = file.currentVersion?.content ?? ""
         
-        // Reset flag after a brief delay to ensure UI updates
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
-            isPerformingUndoRedo = false
+        // Update content which will trigger UI refresh
+        DispatchQueue.main.async {
+            self.content = newContent
+            self.previousContent = newContent
+            
+            // Reset flag
+            DispatchQueue.main.async {
+                self.isPerformingUndoRedo = false
+            }
         }
     }
     
@@ -183,13 +188,18 @@ struct FileEditView: View {
         // Perform redo
         undoManager.redo()
         
-        // Reload content from file after redo
-        content = file.currentVersion?.content ?? ""
-        previousContent = content
+        // Force update content binding
+        let newContent = file.currentVersion?.content ?? ""
         
-        // Reset flag after a brief delay to ensure UI updates
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
-            isPerformingUndoRedo = false
+        // Update content which will trigger UI refresh
+        DispatchQueue.main.async {
+            self.content = newContent
+            self.previousContent = newContent
+            
+            // Reset flag
+            DispatchQueue.main.async {
+                self.isPerformingUndoRedo = false
+            }
         }
     }
     

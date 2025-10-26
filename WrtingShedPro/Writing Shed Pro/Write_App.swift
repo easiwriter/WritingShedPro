@@ -34,5 +34,11 @@ struct Write_App: App {
             ContentView()
         }
         .modelContainer(sharedModelContainer)
+        .commands {
+            // Remove default undo/redo commands from Edit menu
+            CommandGroup(replacing: .undoRedo) {
+                EmptyView()
+            }
+        }
     }
 }
