@@ -178,14 +178,17 @@ struct FileEditView: View {
         
         print("🔄 After undo - content length: \(newContent.count)")
         
-        // Update state and force refresh
-        content = newContent
-        previousContent = newContent
-        refreshTrigger = UUID() // Force TextEditor to rebuild
-        
-        // Reset flag after UI cycle completes
+        // Force content update through temporary empty state to trigger view refresh
+        content = ""
         DispatchQueue.main.async {
-            self.isPerformingUndoRedo = false
+            self.content = newContent
+            self.previousContent = newContent
+            self.refreshTrigger = UUID()
+            
+            // Reset flag
+            DispatchQueue.main.async {
+                self.isPerformingUndoRedo = false
+            }
         }
     }
     
@@ -203,14 +206,17 @@ struct FileEditView: View {
         
         print("🔄 After redo - content length: \(newContent.count)")
         
-        // Update state and force refresh
-        content = newContent
-        previousContent = newContent
-        refreshTrigger = UUID() // Force TextEditor to rebuild
-        
-        // Reset flag after UI cycle completes
+        // Force content update through temporary empty state to trigger view refresh
+        content = ""
         DispatchQueue.main.async {
-            self.isPerformingUndoRedo = false
+            self.content = newContent
+            self.previousContent = newContent
+            self.refreshTrigger = UUID()
+            
+            // Reset flag
+            DispatchQueue.main.async {
+                self.isPerformingUndoRedo = false
+            }
         }
     }
     
