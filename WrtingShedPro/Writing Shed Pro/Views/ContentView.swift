@@ -14,7 +14,7 @@ struct ContentView: View {
             }
             .navigationTitle(NSLocalizedString("contentView.title", comment: "Title of projects list"))
             .toolbar {
-                ToolbarItemGroup(placement: .primaryAction) {
+                ToolbarItemGroup(placement: .navigationBarLeading) {
                     Button(action: {}) {
                         Label(NSLocalizedString("contentView.import", comment: "Import button label"), systemImage: "arrow.down.doc")
                     }
