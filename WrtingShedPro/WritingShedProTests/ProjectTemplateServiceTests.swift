@@ -59,7 +59,7 @@ final class ProjectTemplateServiceTests: XCTestCase {
         XCTAssertEqual(folders.count, 2, "Should have 2 folders for blank project")
         
         let folderNames = Set(folders.compactMap { $0.name })
-        let expectedNames: Set<String> = ["All", "Trash"]
+        let expectedNames: Set<String> = ["Files", "Trash"]
         XCTAssertEqual(folderNames, expectedNames, "Should have correct folder names")
     }
     
@@ -176,8 +176,8 @@ final class ProjectTemplateServiceTests: XCTestCase {
         modelContext.insert(project)
         ProjectTemplateService.createDefaultFolders(for: project, in: modelContext)
         
-        // Then verify file-only folders from spec
-        let fileOnlyNames = ["All", "Ready", "Set Aside", "Published", "Research", "Trash"]
+        // Then verify file-only folders from FolderCapabilityService
+        let fileOnlyNames = ["Draft", "Research"]
         
         let folders = project.folders ?? []
         for name in fileOnlyNames {
@@ -196,16 +196,16 @@ final class ProjectTemplateServiceTests: XCTestCase {
         modelContext.insert(project)
         ProjectTemplateService.createDefaultFolders(for: project, in: modelContext)
         
-        // Then verify mixed capability folders from spec
-        let mixedNames = ["Draft"]
+        // Then verify read-only folders cannot have files added
+        let readOnlyNames = ["All", "Ready", "Set Aside", "Published", "Trash"]
         
         let folders = project.folders ?? []
-        for name in mixedNames {
+        for name in readOnlyNames {
             if let folder = folders.first(where: { $0.name == name }) {
-                XCTAssertTrue(FolderCapabilityService.canAddSubfolder(to: folder), 
-                            "\(name) should allow subfolders (📁📄)")
-                XCTAssertTrue(FolderCapabilityService.canAddFile(to: folder), 
-                            "\(name) should allow files (📁📄)")
+                XCTAssertFalse(FolderCapabilityService.canAddSubfolder(to: folder), 
+                            "\(name) should NOT allow subfolders (read-only)")
+                XCTAssertFalse(FolderCapabilityService.canAddFile(to: folder), 
+                            "\(name) should NOT allow files (read-only)")
             }
         }
     }
@@ -228,7 +228,7 @@ final class ProjectTemplateServiceTests: XCTestCase {
         }
         
         // Verify file-only (📄)
-        let fileOnly = ["Novel", "Set Aside", "Research", "Trash"]
+        let fileOnly = ["Scenes", "Characters", "Locations", "Research"]
         for name in fileOnly {
             if let folder = folders.first(where: { $0.name == name }) {
                 XCTAssertFalse(FolderCapabilityService.canAddSubfolder(to: folder))
@@ -236,12 +236,12 @@ final class ProjectTemplateServiceTests: XCTestCase {
             }
         }
         
-        // Verify mixed (📁📄)
-        let mixed = ["Scenes", "Characters", "Locations"]
-        for name in mixed {
+        // Verify read-only (no manual additions)
+        let readOnly = ["Novel", "Set Aside", "Trash"]
+        for name in readOnly {
             if let folder = folders.first(where: { $0.name == name }) {
-                XCTAssertTrue(FolderCapabilityService.canAddSubfolder(to: folder))
-                XCTAssertTrue(FolderCapabilityService.canAddFile(to: folder))
+                XCTAssertFalse(FolderCapabilityService.canAddSubfolder(to: folder))
+                XCTAssertFalse(FolderCapabilityService.canAddFile(to: folder))
             }
         }
     }
@@ -264,7 +264,7 @@ final class ProjectTemplateServiceTests: XCTestCase {
         }
         
         // Verify file-only (📄)
-        let fileOnly = ["Script", "Set Aside", "Research", "Trash"]
+        let fileOnly = ["Scenes", "Characters", "Locations", "Research"]
         for name in fileOnly {
             if let folder = folders.first(where: { $0.name == name }) {
                 XCTAssertFalse(FolderCapabilityService.canAddSubfolder(to: folder))
@@ -272,12 +272,12 @@ final class ProjectTemplateServiceTests: XCTestCase {
             }
         }
         
-        // Verify mixed (📁📄)
-        let mixed = ["Scenes", "Characters", "Locations"]
-        for name in mixed {
+        // Verify read-only (no manual additions)
+        let readOnly = ["Script", "Set Aside", "Trash"]
+        for name in readOnly {
             if let folder = folders.first(where: { $0.name == name }) {
-                XCTAssertTrue(FolderCapabilityService.canAddSubfolder(to: folder))
-                XCTAssertTrue(FolderCapabilityService.canAddFile(to: folder))
+                XCTAssertFalse(FolderCapabilityService.canAddSubfolder(to: folder))
+                XCTAssertFalse(FolderCapabilityService.canAddFile(to: folder))
             }
         }
     }

@@ -62,7 +62,7 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
             XCTAssertEqual(folder.project, project, "Folder should reference project")
             
             // Verify blank project has expected folders
-            XCTAssertTrue(["All", "Trash"].contains(folder.name), "Should be expected folder name")
+            XCTAssertTrue(["Files", "Trash"].contains(folder.name), "Should be expected folder name")
         }
     }
     
@@ -113,7 +113,7 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
         XCTAssert(poetryFolderNames.contains("Published"), "Poetry project should have Published folder")
         
         XCTAssertFalse(proseFolderNames.contains("Magazines"), "Blank project should not have Magazines folder")
-        XCTAssertEqual(proseFolderNames, ["All", "Trash"], "Blank project should only have All and Trash")
+        XCTAssertEqual(proseFolderNames, ["Files", "Trash"], "Blank project should only have Files and Trash")
     }
     
     func testDeletingProjectCascadeDeletesFolders() throws {

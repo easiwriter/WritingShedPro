@@ -217,9 +217,15 @@ final class UndoRedoTests: XCTestCase {
         let command1 = TextInsertCommand(position: 1, text: "B", targetFile: testFile)
         manager.execute(command1)
         
+        // Flush to make commands separate (typing coalescing would normally merge them)
+        manager.flushTypingBuffer()
+        
         testFile.currentVersion?.updateContent("ABC")
         let command2 = TextInsertCommand(position: 2, text: "C", targetFile: testFile)
         manager.execute(command2)
+        
+        // Flush to finalize second command
+        manager.flushTypingBuffer()
         
         // Then
         XCTAssertEqual(testFile.currentVersion?.content, "ABC")
@@ -264,6 +270,8 @@ final class UndoRedoTests: XCTestCase {
             testFile.currentVersion?.updateContent(content)
             let command = TextInsertCommand(position: i, text: String(i), targetFile: testFile)
             manager.execute(command)
+            // Flush each command to prevent coalescing
+            manager.flushTypingBuffer()
         }
         
         // Then - Only 3 should remain
