@@ -10,6 +10,7 @@ struct FileEditView: View {
     @State private var presentDeleteAlert = false
     @State private var isPerformingUndoRedo = false // Flag to prevent re-entrancy
     @State private var refreshTrigger = UUID() // Force TextEditor refresh
+    @State private var forceRefresh = false // Additional toggle to force refresh
     @StateObject private var undoManager: TextFileUndoManager
     
     @Environment(\.modelContext) private var modelContext
@@ -42,17 +43,24 @@ struct FileEditView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            TextEditor(text: $content)
-                .font(.body)
-                .padding()
-                .id(refreshTrigger) // Force refresh when UUID changes
-                .onChange(of: content) { oldValue, newValue in
-                    handleTextChange(from: oldValue, to: newValue)
-                }
-                .onAppear {
-                    // Set initial previousContent
-                    previousContent = content
-                }
+            // Wrap TextEditor in a conditional to force recreation
+            if forceRefresh {
+                TextEditor(text: $content)
+                    .font(.body)
+                    .padding()
+                    .id(refreshTrigger)
+                    .onChange(of: content) { oldValue, newValue in
+                        handleTextChange(from: oldValue, to: newValue)
+                    }
+            } else {
+                TextEditor(text: $content)
+                    .font(.body)
+                    .padding()
+                    .id(refreshTrigger)
+                    .onChange(of: content) { oldValue, newValue in
+                        handleTextChange(from: oldValue, to: newValue)
+                    }
+            }
             
             ToolbarView(
                 label: file.versionLabel(),
@@ -128,8 +136,13 @@ struct FileEditView: View {
             }
         }
         .onDisappear {
+            print("👋 View disappearing - flushing and saving")
+            print("📚 Before flush - undo stack: \(undoManager.undoStack.count), redo stack: \(undoManager.redoStack.count)")
+            
             // Flush undo buffer and auto-save when view disappears
             undoManager.flushTypingBuffer()
+            
+            print("📚 After flush - undo stack: \(undoManager.undoStack.count), redo stack: \(undoManager.redoStack.count)")
             
             // Save undo state to file
             file.saveUndoState(undoManager)
@@ -141,10 +154,18 @@ struct FileEditView: View {
     
     private func handleTextChange(from oldValue: String, to newValue: String) {
         // Skip if performing undo/redo (prevents re-entrancy)
-        guard !isPerformingUndoRedo else { return }
+        guard !isPerformingUndoRedo else {
+            print("⏭️ Skipping text change - performing undo/redo")
+            return
+        }
         
         // Skip if content hasn't really changed
-        guard oldValue != newValue else { return }
+        guard oldValue != newValue else {
+            print("⏭️ Skipping text change - content unchanged")
+            return
+        }
+        
+        print("✏️ Text changed - old: \(oldValue.count) chars, new: \(newValue.count) chars")
         
         // Update file content immediately
         file.currentVersion?.updateContent(newValue)
@@ -154,10 +175,16 @@ struct FileEditView: View {
         if let change = TextDiffService.diff(from: oldValue, to: newValue) {
             let command = TextDiffService.createCommand(from: change, file: file)
             
+            print("📝 Created command: \(command.description)")
+            
             // Execute command adds it to undo stack
             // The command's execute() will be called, but since we already updated the content above,
             // it will just set it to the same value (no-op in effect)
             undoManager.execute(command)
+            
+            print("📚 Undo stack size: \(undoManager.undoStack.count), canUndo: \(undoManager.canUndo)")
+        } else {
+            print("⚠️ No diff detected for text change")
         }
         
         // Update tracking
@@ -178,17 +205,15 @@ struct FileEditView: View {
         
         print("🔄 After undo - content length: \(newContent.count)")
         
-        // Force content update through temporary empty state to trigger view refresh
-        content = ""
+        // Update content and force complete view refresh
+        content = newContent
+        previousContent = newContent
+        forceRefresh.toggle() // Toggle to force view recreation
+        refreshTrigger = UUID()
+        
+        // Reset flag after UI cycle completes
         DispatchQueue.main.async {
-            self.content = newContent
-            self.previousContent = newContent
-            self.refreshTrigger = UUID()
-            
-            // Reset flag
-            DispatchQueue.main.async {
-                self.isPerformingUndoRedo = false
-            }
+            self.isPerformingUndoRedo = false
         }
     }
     
@@ -206,17 +231,15 @@ struct FileEditView: View {
         
         print("🔄 After redo - content length: \(newContent.count)")
         
-        // Force content update through temporary empty state to trigger view refresh
-        content = ""
+        // Update content and force complete view refresh
+        content = newContent
+        previousContent = newContent
+        forceRefresh.toggle() // Toggle to force view recreation
+        refreshTrigger = UUID()
+        
+        // Reset flag after UI cycle completes
         DispatchQueue.main.async {
-            self.content = newContent
-            self.previousContent = newContent
-            self.refreshTrigger = UUID()
-            
-            // Reset flag
-            DispatchQueue.main.async {
-                self.isPerformingUndoRedo = false
-            }
+            self.isPerformingUndoRedo = false
         }
     }
     
