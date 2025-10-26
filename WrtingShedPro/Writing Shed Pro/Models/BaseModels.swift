@@ -71,6 +71,12 @@ final class File {
     var currentVersionIndex: Int = 0
     var parentFolder: Folder?
     
+    // Undo/Redo support
+    var undoStackData: Data?
+    var redoStackData: Data?
+    var undoStackMaxSize: Int = 100
+    var lastUndoSaveDate: Date?
+    
     @Relationship(deleteRule: .cascade, inverse: \Version.file) var versions: [Version]?
     
     init(name: String?, content: String? = nil, userOrder: Int? = nil) {

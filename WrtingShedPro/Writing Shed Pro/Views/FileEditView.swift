@@ -6,7 +6,10 @@ struct FileEditView: View {
     let file: File
     
     @State private var content: String
+    @State private var previousContent: String = ""
     @State private var presentDeleteAlert = false
+    @StateObject private var undoManager: TextFileUndoManager
+    
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     
@@ -20,7 +23,16 @@ struct FileEditView: View {
     init(file: File) {
         self.file = file
         // Load content from current version
-        _content = State(initialValue: file.currentVersion?.content ?? "")
+        let initialContent = file.currentVersion?.content ?? ""
+        _content = State(initialValue: initialContent)
+        _previousContent = State(initialValue: initialContent)
+        
+        // Try to restore undo manager from saved state, or create new one
+        if let restoredManager = file.restoreUndoState() {
+            _undoManager = StateObject(wrappedValue: restoredManager)
+        } else {
+            _undoManager = StateObject(wrappedValue: TextFileUndoManager(file: file))
+        }
     }
     
     var body: some View {
@@ -28,10 +40,12 @@ struct FileEditView: View {
             TextEditor(text: $content)
                 .font(.body)
                 .padding()
-                .onChange(of: content) { _, newValue in
-                    // Auto-save content to current version as user types
-                    file.currentVersion?.updateContent(newValue)
-                    file.modifiedDate = Date()
+                .onChange(of: content) { oldValue, newValue in
+                    handleTextChange(from: oldValue, to: newValue)
+                }
+                .onAppear {
+                    // Set initial previousContent
+                    previousContent = content
                 }
             
             ToolbarView(
@@ -79,17 +93,80 @@ struct FileEditView: View {
         .navigationTitle(file.name ?? NSLocalizedString("fileEdit.untitledFile", comment: "Untitled file"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .confirmationAction) {
-                Button(NSLocalizedString("fileEdit.done", comment: "Done button")) {
-                    saveChanges()
-                    dismiss()
+            ToolbarItem(placement: .navigationBarTrailing) {
+                HStack(spacing: 16) {
+                    // Undo button
+                    Button(action: {
+                        performUndo()
+                    }) {
+                        Image(systemName: "arrow.uturn.backward")
+                    }
+                    .disabled(!undoManager.canUndo)
+                    .accessibilityLabel("Undo")
+                    
+                    // Redo button
+                    Button(action: {
+                        performRedo()
+                    }) {
+                        Image(systemName: "arrow.uturn.forward")
+                    }
+                    .disabled(!undoManager.canRedo)
+                    .accessibilityLabel("Redo")
+                    
+                    // Done button
+                    Button(NSLocalizedString("fileEdit.done", comment: "Done button")) {
+                        saveChanges()
+                        dismiss()
+                    }
                 }
             }
         }
         .onDisappear {
-            // Auto-save when view disappears
+            // Flush undo buffer and auto-save when view disappears
+            undoManager.flushTypingBuffer()
+            
+            // Save undo state to file
+            file.saveUndoState(undoManager)
+            
+            // Save changes
             saveChanges()
         }
+    }
+    
+    private func handleTextChange(from oldValue: String, to newValue: String) {
+        // Skip if content hasn't really changed
+        guard oldValue != newValue else { return }
+        
+        // Update file content immediately
+        file.currentVersion?.updateContent(newValue)
+        file.modifiedDate = Date()
+        
+        // Compute diff and create command for undo tracking
+        if let change = TextDiffService.diff(from: oldValue, to: newValue) {
+            let command = TextDiffService.createCommand(from: change, file: file)
+            
+            // Execute command adds it to undo stack
+            // The command's execute() will be called, but since we already updated the content above,
+            // it will just set it to the same value (no-op in effect)
+            undoManager.execute(command)
+        }
+        
+        // Update tracking
+        previousContent = newValue
+    }
+    
+    private func performUndo() {
+        undoManager.undo()
+        // Reload content from file after undo
+        content = file.currentVersion?.content ?? ""
+        previousContent = content
+    }
+    
+    private func performRedo() {
+        undoManager.redo()
+        // Reload content from file after redo
+        content = file.currentVersion?.content ?? ""
+        previousContent = content
     }
     
     private func handleVersionAction(_ action: VersionAction) {

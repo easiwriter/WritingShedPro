@@ -43,44 +43,42 @@ struct FileEditableList: View {
             initializeUserOrderIfNeeded()
         }
         .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                // Custom Edit Button
-                Button(isEditMode ? NSLocalizedString("folderList.done", comment: "Done") : NSLocalizedString("folderList.edit", comment: "Edit")) {
-                    withAnimation {
-                        isEditMode.toggle()
-                    }
-                }
-                .disabled(files.isEmpty)
-            }
-            
             ToolbarItem(placement: .navigationBarTrailing) {
-                // Sort Menu
-                Menu {
-                    ForEach(FileSortService.sortOptions(), id: \.order) { option in
-                        Button(action: {
-                            selectedSortOrder = option.order
-                        }) {
-                            HStack {
-                                Text(option.title)
-                                if selectedSortOrder == option.order {
-                                    Image(systemName: "checkmark")
+                HStack(spacing: 16) {
+                    // Sort Menu
+                    Menu {
+                        ForEach(FileSortService.sortOptions(), id: \.order) { option in
+                            Button(action: {
+                                selectedSortOrder = option.order
+                            }) {
+                                HStack {
+                                    Text(option.title)
+                                    if selectedSortOrder == option.order {
+                                        Image(systemName: "checkmark")
+                                    }
                                 }
                             }
                         }
+                    } label: {
+                        Image(systemName: "arrow.up.arrow.down")
                     }
-                } label: {
-                    Image(systemName: "arrow.up.arrow.down")
-                }
-                .accessibilityLabel(NSLocalizedString("folderList.sortAccessibility", comment: "Sort files"))
-            }
-            
-            ToolbarItem(placement: .primaryAction) {
-                // Add file button (only if folder allows it)
-                if FolderCapabilityService.canAddFile(to: folder) {
-                    Button(action: { showAddFileSheet = true }) {
-                        Image(systemName: "plus")
+                    .accessibilityLabel(NSLocalizedString("folderList.sortAccessibility", comment: "Sort files"))
+                    
+                    // Add file button (only if folder allows it)
+                    if FolderCapabilityService.canAddFile(to: folder) {
+                        Button(action: { showAddFileSheet = true }) {
+                            Image(systemName: "plus")
+                        }
+                        .accessibilityLabel(NSLocalizedString("folderList.addFile", comment: "Add file"))
                     }
-                    .accessibilityLabel(NSLocalizedString("folderList.addFile", comment: "Add file"))
+                    
+                    // Edit Button
+                    Button(isEditMode ? NSLocalizedString("folderList.done", comment: "Done") : NSLocalizedString("folderList.edit", comment: "Edit")) {
+                        withAnimation {
+                            isEditMode.toggle()
+                        }
+                    }
+                    .disabled(files.isEmpty)
                 }
             }
         }
@@ -192,21 +190,9 @@ struct FileEditableList: View {
 struct FileRowView: View {
     let file: File
     
-    private var relativeTime: String {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .abbreviated
-        return formatter.localizedString(for: file.modifiedDate, relativeTo: Date())
-    }
-    
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(file.name ?? NSLocalizedString("folderList.untitledFile", comment: "Untitled File"))
-                .font(.body)
-            
-            Text(relativeTime)
-                .font(.caption)
-                .foregroundColor(.secondary)
-        }
-        .padding(.vertical, 4)
+        Text(file.name ?? NSLocalizedString("folderList.untitledFile", comment: "Untitled File"))
+            .font(.body)
+            .padding(.vertical, 4)
     }
 }
