@@ -10,7 +10,9 @@ import SwiftData
 
 @main
 struct Write_App: App {
-    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    #if os(macOS)
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    #endif
     
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([

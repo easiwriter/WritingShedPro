@@ -5,23 +5,22 @@
 //  Created on 26/10/2025.
 //
 
-import UIKit
+import SwiftUI
 
-class AppDelegate: NSObject, UIApplicationDelegate {
-    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
-        return true
-    }
-    
-    override func buildMenu(with builder: UIMenuBuilder) {
-        super.buildMenu(with: builder)
-        
-        // Remove all standard menus
-        builder.remove(menu: .file)
-        builder.remove(menu: .edit)
-        builder.remove(menu: .view)
-        builder.remove(menu: .window)
-        builder.remove(menu: .help)
-        builder.remove(menu: .format)
-        builder.remove(menu: .services)
+#if os(macOS)
+import AppKit
+
+class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        // Remove standard menus
+        if let mainMenu = NSApplication.shared.mainMenu {
+            // Remove menus by title (keeping only the app menu at index 0)
+            // Work backwards to avoid index issues
+            for index in stride(from: mainMenu.items.count - 1, through: 1, by: -1) {
+                mainMenu.removeItem(at: index)
+            }
+        }
     }
 }
+#endif
+
