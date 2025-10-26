@@ -42,7 +42,7 @@ First, and this is not really formatting, selecting some text, either by double 
 
  The Edit Styles command displays a style editing view where all the attributes of the paragraph can be changed.
 
-![Style Editor Interface](../../images/Paragraph%20Style%20Editor.png)
+<img src="../../images/Paragraph%20Style%20Editor.png" alt="Style Editor Interface" width="30%">
 
 *Figure 1: Style editor showing font, size, formatting options (Bold, Italic, Underline, Strikethrough), text color, text alignment, indentation, margins, and spacing controls.*
 
