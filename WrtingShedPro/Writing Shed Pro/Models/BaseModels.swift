@@ -166,6 +166,10 @@ final class Version {
     var versionNumber: Int = 1
     var comment: String?
     
+    // MARK: - Text Formatting (Phase 005)
+    /// Formatted content stored as RTF data
+    var formattedContent: Data?
+    
     // SwiftData Relationships
     var textFile: TextFile?
     var file: File?
@@ -179,6 +183,51 @@ final class Version {
     
     func updateContent(_ newContent: String) {
         self.content = newContent
+    }
+    
+    // MARK: - Formatted Content Support
+    
+    /// Computed property for working with NSAttributedString
+    var attributedContent: NSAttributedString? {
+        get {
+            guard let data = formattedContent else {
+                // Fall back to plain text if no formatted content
+                return NSAttributedString(string: content)
+            }
+            // Convert RTF data to NSAttributedString
+            do {
+                return try NSAttributedString(
+                    data: data,
+                    options: [.documentType: NSAttributedString.DocumentType.rtf],
+                    documentAttributes: nil
+                )
+            } catch {
+                print("⚠️ Error loading formatted content: \(error.localizedDescription)")
+                // Fall back to plain text on error
+                return NSAttributedString(string: content)
+            }
+        }
+        set {
+            if let attributed = newValue {
+                // Store as RTF data
+                let range = NSRange(location: 0, length: attributed.length)
+                do {
+                    formattedContent = try attributed.data(
+                        from: range,
+                        documentAttributes: [.documentType: NSAttributedString.DocumentType.rtf]
+                    )
+                    // Also update plain text for search/compatibility
+                    content = attributed.string
+                } catch {
+                    print("⚠️ Error storing formatted content: \(error.localizedDescription)")
+                    // Fall back to plain text
+                    content = attributed.string
+                    formattedContent = nil
+                }
+            } else {
+                formattedContent = nil
+            }
+        }
     }
 }
 

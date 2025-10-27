@@ -6,11 +6,13 @@ struct FileEditView: View {
     let file: File
     
     @State private var content: String
+    @State private var attributedContent: NSAttributedString
+    @State private var selectedRange: NSRange = NSRange(location: 0, length: 0)
     @State private var previousContent: String = ""
     @State private var presentDeleteAlert = false
-    @State private var isPerformingUndoRedo = false // Flag to prevent re-entrancy
-    @State private var refreshTrigger = UUID() // Force TextEditor refresh
-    @State private var forceRefresh = false // Additional toggle to force refresh
+    @State private var isPerformingUndoRedo = false
+    @State private var refreshTrigger = UUID()
+    @State private var forceRefresh = false
     @StateObject private var undoManager: TextFileUndoManager
     
     @Environment(\.modelContext) private var modelContext
@@ -25,41 +27,47 @@ struct FileEditView: View {
     
     init(file: File) {
         self.file = file
-        // Load content from current version
         let initialContent = file.currentVersion?.content ?? ""
         _content = State(initialValue: initialContent)
         _previousContent = State(initialValue: initialContent)
         
-        // Try to restore undo manager from saved state, or create new one
+        // Initialize attributed content
+        let initialAttributed = file.currentVersion?.attributedContent ?? NSAttributedString(
+            string: initialContent,
+            attributes: [.font: UIFont.preferredFont(forTextStyle: .body)]
+        )
+        _attributedContent = State(initialValue: initialAttributed)
+        
+        // Try to restore undo manager or create new one
         if let restoredManager = file.restoreUndoState() {
             _undoManager = StateObject(wrappedValue: restoredManager)
-            // print("📋 Restored undo manager - canUndo: \(restoredManager.canUndo), canRedo: \(restoredManager.canRedo)")
         } else {
             let newManager = TextFileUndoManager(file: file)
             _undoManager = StateObject(wrappedValue: newManager)
-            // print("📋 Created new undo manager - canUndo: \(newManager.canUndo), canRedo: \(newManager.canRedo)")
         }
     }
     
     var body: some View {
         VStack(spacing: 0) {
-            // Wrap TextEditor in a conditional to force recreation
+            // Use FormattedTextEditor instead of TextEditor
             if forceRefresh {
-                TextEditor(text: $content)
-                    .font(.body)
-                    .padding()
-                    .id(refreshTrigger)
-                    .onChange(of: content) { oldValue, newValue in
-                        handleTextChange(from: oldValue, to: newValue)
+                FormattedTextEditor(
+                    attributedText: $attributedContent,
+                    selectedRange: $selectedRange,
+                    onTextChange: { newText in
+                        handleAttributedTextChange(newText)
                     }
+                )
+                .id(refreshTrigger)
             } else {
-                TextEditor(text: $content)
-                    .font(.body)
-                    .padding()
-                    .id(refreshTrigger)
-                    .onChange(of: content) { oldValue, newValue in
-                        handleTextChange(from: oldValue, to: newValue)
+                FormattedTextEditor(
+                    attributedText: $attributedContent,
+                    selectedRange: $selectedRange,
+                    onTextChange: { newText in
+                        handleAttributedTextChange(newText)
                     }
+                )
+                .id(refreshTrigger)
             }
             
             ToolbarView(
@@ -115,7 +123,7 @@ struct FileEditView: View {
                     }) {
                         Image(systemName: "arrow.uturn.backward")
                     }
-                    .disabled(!undoManager.canUndo)
+                    .disabled(!undoManager.canUndo || isPerformingUndoRedo)
                     .accessibilityLabel("Undo")
                     
                     // Redo button
@@ -124,7 +132,7 @@ struct FileEditView: View {
                     }) {
                         Image(systemName: "arrow.uturn.forward")
                     }
-                    .disabled(!undoManager.canRedo)
+                    .disabled(!undoManager.canRedo || isPerformingUndoRedo)
                     .accessibilityLabel("Redo")
                     
                     // Done button
@@ -136,112 +144,132 @@ struct FileEditView: View {
             }
         }
         .onDisappear {
-            // print("👋 View disappearing - flushing and saving")
-            // print("📚 Before flush - undo stack: \(undoManager.undoStack.count), redo stack: \(undoManager.redoStack.count)")
-            
-            // Flush undo buffer and auto-save when view disappears
-            undoManager.flushTypingBuffer()
-            
-            // print("📚 After flush - undo stack: \(undoManager.undoStack.count), redo stack: \(undoManager.redoStack.count)")
-            
-            // Save undo state to file
-            file.saveUndoState(undoManager)
-            
-            // Save changes
-            saveChanges()
+            saveUndoState()
         }
     }
     
-    private func handleTextChange(from oldValue: String, to newValue: String) {
-        // Skip if performing undo/redo (prevents re-entrancy)
-        guard !isPerformingUndoRedo else {
-            // print("⏭️ Skipping text change - performing undo/redo")
-            return
+    // MARK: - Attributed Text Handling
+    
+    private func handleAttributedTextChange(_ newAttributedText: NSAttributedString) {
+        guard !isPerformingUndoRedo else { return }
+        
+        let newContent = newAttributedText.string
+        
+        // Only register change if content actually changed
+        guard newContent != previousContent else { return }
+        
+        // Update state
+        content = newContent
+        
+        // Create and execute undo command
+        if let change = TextDiffService.diff(from: previousContent, to: newContent) {
+            let command = TextDiffService.createCommand(from: change, file: file)
+            undoManager.execute(command)
         }
         
-        // Skip if content hasn't really changed
-        guard oldValue != newValue else {
-            // print("⏭️ Skipping text change - content unchanged")
-            return
-        }
+        // Update previous content for next comparison
+        previousContent = newContent
         
-        // print("✏️ Text changed - old: \(oldValue.count) chars, new: \(newValue.count) chars")
-        
-        // Update file content immediately
-        file.currentVersion?.updateContent(newValue)
+        // Save to model
+        file.currentVersion?.content = newContent
+        file.currentVersion?.attributedContent = newAttributedText
         file.modifiedDate = Date()
         
-        // Compute diff and create command for undo tracking
-        if let change = TextDiffService.diff(from: oldValue, to: newValue) {
-            let command = TextDiffService.createCommand(from: change, file: file)
-            
-            // print("📝 Created command: \(command.description)")
-            
-            // Execute command adds it to undo stack
-            // The command's execute() will be called, but since we already updated the content above,
-            // it will just set it to the same value (no-op in effect)
-            undoManager.execute(command)
-            
-            // print("📚 Undo stack size: \(undoManager.undoStack.count), canUndo: \(undoManager.canUndo)")
-        } else {
-            // print("⚠️ No diff detected for text change")
+        // Save context
+        do {
+            try modelContext.save()
+        } catch {
+            print("Error saving context: \(error)")
         }
-        
-        // Update tracking
-        previousContent = newValue
     }
     
+    // MARK: - Undo/Redo
+    
     private func performUndo() {
-        // print("🔄 performUndo called - canUndo: \(undoManager.canUndo), undoStack: \(undoManager.undoStack.count)")
+        print("🔄 performUndo called - canUndo: \(undoManager.canUndo)")
+        guard undoManager.canUndo else { return }
         
-        // Set flag to prevent onChange from creating new commands
         isPerformingUndoRedo = true
         
-        // Perform undo
         undoManager.undo()
         
-        // Get new content
         let newContent = file.currentVersion?.content ?? ""
+        print("🔄 After undo - new content: '\(newContent)' (length: \(newContent.count))")
         
-        // print("🔄 After undo - content length: \(newContent.count)")
+        // Create new attributed string from plain text
+        let newAttributedContent = NSAttributedString(
+            string: newContent,
+            attributes: [.font: UIFont.preferredFont(forTextStyle: .body)]
+        )
+        print("🔄 Created new attributed string from plain text")
         
-        // Update content and force complete view refresh
+        // Update all state
         content = newContent
+        attributedContent = newAttributedContent
         previousContent = newContent
-        forceRefresh.toggle() // Toggle to force view recreation
+        
+        // FIX: Position cursor at end of new content
+        selectedRange = NSRange(location: newContent.count, length: 0)
+        print("🔄 Set selectedRange to end: \(selectedRange)")
+        
+        // Save the attributed content to the version
+        file.currentVersion?.attributedContent = newAttributedContent
+        print("🔄 Updated attributedContent and saved RTF")
+        
+        // Force refresh
+        forceRefresh.toggle()
         refreshTrigger = UUID()
         
-        // Reset flag after UI cycle completes
-        DispatchQueue.main.async {
+        // Reset flag after UI has updated
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             self.isPerformingUndoRedo = false
+            print("🔄 Reset isPerformingUndoRedo flag")
         }
     }
     
     private func performRedo() {
-        // print("🔄 performRedo called - canRedo: \(undoManager.canRedo), redoStack: \(undoManager.redoStack.count)")
+        print("� performRedo called - canRedo: \(undoManager.canRedo)")
+        guard undoManager.canRedo else { return }
         
-        // Set flag to prevent onChange from creating new commands
         isPerformingUndoRedo = true
         
-        // Perform redo
         undoManager.redo()
         
-        // Get new content
         let newContent = file.currentVersion?.content ?? ""
+        print("🔄 After redo - new content: '\(newContent)' (length: \(newContent.count))")
         
-        // print("🔄 After redo - content length: \(newContent.count)")
+        // Create new attributed string from plain text
+        let newAttributedContent = NSAttributedString(
+            string: newContent,
+            attributes: [.font: UIFont.preferredFont(forTextStyle: .body)]
+        )
+        print("🔄 Created new attributed string from plain text")
         
-        // Update content and force complete view refresh
+        // Update all state
         content = newContent
+        attributedContent = newAttributedContent
         previousContent = newContent
-        forceRefresh.toggle() // Toggle to force view recreation
+        
+        // FIX: Position cursor at end of new content
+        selectedRange = NSRange(location: newContent.count, length: 0)
+        print("🔄 Set selectedRange to end: \(selectedRange)")
+        
+        // Save the attributed content to the version
+        file.currentVersion?.attributedContent = newAttributedContent
+        print("🔄 Updated attributedContent and saved RTF")
+        
+        // Force refresh
+        forceRefresh.toggle()
         refreshTrigger = UUID()
         
-        // Reset flag after UI cycle completes
-        DispatchQueue.main.async {
+        // Reset flag after UI has updated
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             self.isPerformingUndoRedo = false
+            print("🔄 Reset isPerformingUndoRedo flag")
         }
     }
+    
+    // MARK: - Version Management
     
     private func handleVersionAction(_ action: VersionAction) {
         switch action {
@@ -261,27 +289,55 @@ struct FileEditView: View {
     }
     
     private func loadCurrentVersion() {
-        isPerformingUndoRedo = true
-        content = file.currentVersion?.content ?? ""
-        previousContent = content
+        let newContent = file.currentVersion?.content ?? ""
+        let newAttributedContent = file.currentVersion?.attributedContent ?? NSAttributedString(
+            string: newContent,
+            attributes: [.font: UIFont.preferredFont(forTextStyle: .body)]
+        )
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
-            isPerformingUndoRedo = false
-        }
+        content = newContent
+        attributedContent = newAttributedContent
+        previousContent = newContent
+        selectedRange = NSRange(location: newContent.count, length: 0)
+        
+        forceRefresh.toggle()
+        refreshTrigger = UUID()
+    }
+    
+    // MARK: - Persistence
+    
+    private func saveUndoState() {
+        undoManager.flushTypingBuffer()
+        file.saveUndoState(undoManager)
+        saveChanges()
     }
     
     private func saveChanges() {
         do {
             try modelContext.save()
-            // print("✅ File versions saved: \(file.name ?? "Unknown")")
         } catch {
-            // print("❌ Error saving file: \(error)")
+            print("Error saving context: \(error)")
         }
     }
 }
 
 #Preview {
-    NavigationStack {
-        FileEditView(file: File(name: "Test File", content: "This is some test content."))
+    do {
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: Project.self, File.self, configurations: config)
+        let context = container.mainContext
+        
+        let project = Project(name: "Sample Project", type: .novel)
+        context.insert(project)
+        
+        let file = File(name: "Chapter 1", content: "Once upon a time...")
+        context.insert(file)
+        
+        return NavigationStack {
+            FileEditView(file: file)
+                .modelContainer(container)
+        }
+    } catch {
+        return Text("Failed to create preview: \(error.localizedDescription)")
     }
 }
