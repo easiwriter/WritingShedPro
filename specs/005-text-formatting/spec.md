@@ -35,16 +35,17 @@ First, and this is not really formatting, selecting some text, either by double 
  - I for italic
  - U (underlined) for underline
  - S (with a bar through it) for strike out
- - the symbol for a bulleted list
- - the symbol denoting insertion of such things as page break, footnote etc
+ - the symbol denoting insertion of such things as page break, footnote, index, comment (annotation) etc
 
- The paragraph command displays a popup list of NSFont.TextStyle constants. Choosing one of these formats the current paragraph according to the attributes of the selected text style. The default style for a new document is body, 
+ The paragraph command displays a popup list of NSFont.TextStyle constants. The default style for a new document is body, 
 
  The Edit Styles command displays a style editing view where all the attributes of the paragraph can be changed.
 
 <img src="../../images/Paragraph%20Style%20Editor.png" alt="Style Editor Interface" width="30%">
 
 *Figure 1: Style editor showing font, size, formatting options (Bold, Italic, Underline, Strikethrough), text color, text alignment, indentation, margins, and spacing controls.*
+
+In addition to these attributes add a number format dropdown showing a list of number formats. If the style is a footnote then a list of standard foootnote symbols should be offered. If the style is a list then a list of bullet symbols should be offered.
 
 ## Scope
 
@@ -59,14 +60,22 @@ First, and this is not really formatting, selecting some text, either by double 
 **Formatting Toolbar (Above Keyboard)**
 - Paragraph style picker (UIFont.TextStyle options)
 - Character formatting: Bold, Italic, Underline, Strikethrough
-- List formatting: Bulleted lists
-- Insertions: Page breaks, footnotes, etc.
+- Insertions: Page breaks, footnotes, index entries, comments (annotations)
+  - **Note**: Insertions are placeholders for Phase 006+; toolbar button present but shows "Coming Soon" dialog
 
 **Style Editor**
 - Font family and typeface selection
 - Font size control
 - Character attributes: Bold, Italic, Underline, Strikethrough
 - Text color selection
+- Number format dropdown:
+  - None (default for body text)
+  - Decimal (1, 2, 3...)
+  - Roman (i, ii, iii... or I, II, III...)
+  - Letter (a, b, c... or A, B, C...)
+  - Footnote symbols (*, †, ‡, §, ¶)
+  - Bullet symbols (•, ◦, ▪, ▫, ▸)
+  - **Note**: Number format stored as attribute; automatic numbering/list management deferred to Phase 006
 - Paragraph alignment: Left, Center, Right, Justified
 - First line indent
 - Left and right margins
@@ -86,12 +95,16 @@ First, and this is not really formatting, selecting some text, either by double 
 
 ### Out of Scope
 
-- Tables
-- Images inline in text
+- Automatic list numbering and management (Phase 006)
+- Comments/annotations functionality (Phase 007+)
+- Index generation and management (Phase 007+)
+- Page break rendering (Phase 007+)
+- Footnote management and rendering (Phase 007+)
+- Tables (future phase)
+- Images inline in text (future phase)
 - Custom fonts beyond system fonts
 - Columns
 - Track changes
-- Comments/annotations
 - Export to Word/PDF (future phase)
 
 ## Technical Approach
@@ -105,11 +118,13 @@ First, and this is not really formatting, selecting some text, either by double 
 ### Data Storage
 - **NSAttributedString** for in-memory representation
 - **Serialization Format**:
-  - Option 1: NSKeyedArchiver (native, but binary)
-  - Option 2: Custom JSON with format runs
-  - Option 3: RTF (readable, widely supported)
-- Store in Version model (new property: `formattedContent`)
-- Maintain plain text `content` for backward compatibility
+  - **Recommended**: RTF (readable, widely supported, preserves formatting)
+  - Alternative: NSKeyedArchiver (native, but binary)
+  - Alternative: Custom JSON with format runs
+- Store in Version model:
+  - New property: `formattedContent: Data?` (RTF data)
+  - Keep existing: `content: String?` (plain text for search/compatibility)
+- **Migration**: Files without formattedContent treated as plain text
 
 ### Formatting Application
 - **Character Attributes**: Apply to selected range
@@ -124,6 +139,7 @@ First, and this is not really formatting, selecting some text, either by double 
   - Alignment: `.paragraphStyle.alignment`
   - Indents: `.paragraphStyle.firstLineHeadIndent`, `.headIndent`, `.tailIndent`
   - Spacing: `.paragraphStyle.lineSpacing`, `.paragraphSpacing`, `.paragraphSpacingBefore`
+  - Number format: Custom attribute (stored but not automatically applied in Phase 005)
 
 ### Undo/Redo Integration
 - Use existing Command pattern
@@ -144,7 +160,10 @@ First, and this is not really formatting, selecting some text, either by double 
 - Uses `.textSelection()` or UIMenuController customization
 
 ### Formatting Toolbar
-- **Position**: InputAccessoryView (above keyboard on iOS)
+- **Position**: 
+  - iOS with on-screen keyboard: InputAccessoryView (above keyboard)
+  - iOS with external keyboard: Bottom toolbar (fixed position)
+  - Mac Catalyst: Top toolbar (below window title bar)
 - **Layout**: Horizontal scroll if needed
 - **Buttons**:
   1. **Paragraph Style** (¶ icon) → Shows style picker sheet
@@ -152,8 +171,7 @@ First, and this is not really formatting, selecting some text, either by double 
   3. **Italic** (I) → Toggle italic on selection
   4. **Underline** (U) → Toggle underline on selection
   5. **Strikethrough** (S̶) → Toggle strikethrough on selection
-  6. **Bullet List** (•) → Toggle bullet list for paragraph
-  7. **Insert** (+) → Show insertion menu
+  6. **Insert** (+) → Show insertion menu (Phase 006+ placeholder)
 
 ### Style Picker Sheet
 - Modal sheet from bottom
@@ -170,6 +188,7 @@ First, and this is not really formatting, selecting some text, either by double 
   - Alignment
   - Indentation & Margins
   - Spacing
+  - Numbering
 - Live preview at top
 - Cancel/Done buttons
 
@@ -186,7 +205,6 @@ First, and this is not really formatting, selecting some text, either by double 
 2. **Attributed String Persistence**
    - NSAttributedString isn't directly Codable
    - Need custom serialization
-   - Consider RTF format for human-readability
    - Must work with SwiftData and CloudKit
 
 3. **Typing Coalescing with Formatting**
@@ -208,10 +226,7 @@ First, and this is not really formatting, selecting some text, either by double 
 
 ### Backward Compatibility
 
-- Existing files have plain `content` only
-- New files will have both `content` (plain) and `formattedContent`
-- On first edit, convert plain to attributed
-- Always maintain plain text version for search/export
+- New files will have `formattedContent`
 
 ## Testing Strategy
 
