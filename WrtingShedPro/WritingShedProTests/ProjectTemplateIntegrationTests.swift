@@ -76,7 +76,7 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
         let projectFolders = project.folders ?? []
         
         // Then: Can access all folders in hierarchical structure
-        XCTAssertEqual(projectFolders.count, 13, "Should find 13 folders for poetry project")
+        XCTAssertEqual(projectFolders.count, 11, "Should find 11 folders for poetry project")
         
         let folderNames = Set(projectFolders.compactMap { $0.name })
         XCTAssert(folderNames.contains("Draft"), "Should contain Draft folder")

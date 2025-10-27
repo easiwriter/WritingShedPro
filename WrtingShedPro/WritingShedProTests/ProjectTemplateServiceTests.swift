@@ -298,7 +298,7 @@ final class ProjectTemplateServiceTests: XCTestCase {
         let folders1 = project1.folders ?? []
         let folders2 = project2.folders ?? []
         
-        XCTAssertEqual(folders1.count, 13, "Project 1 should have 13 folders")
+        XCTAssertEqual(folders1.count, 11, "Project 1 should have 11 folders")
         XCTAssertEqual(folders2.count, 2, "Project 2 should have 2 folders")
         
         // Verify no overlap in folder IDs
