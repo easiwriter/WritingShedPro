@@ -7,7 +7,7 @@ struct FolderCapabilityService {
     /// These are organizational containers
     private static let subfolderOnlyFolders: Set<String> = [
         "Magazines", "Competitions", "Commissions", "Other",
-        "Collections", "Submissions", "Chapters", "Acts"
+        "Chapters", "Acts"
     ]
     
     /// Folders that can ONLY contain files (no subfolders)

@@ -34,12 +34,12 @@ final class ProjectTemplateServiceTests: XCTestCase {
         // Then verify 13 folders exist in flat structure
         let folders = project.folders ?? []
         
-        XCTAssertEqual(folders.count, 13, "Should have 13 folders for poetry project")
+        XCTAssertEqual(folders.count, 11, "Should have 11 folders for poetry project")
         
         let folderNames = Set(folders.compactMap { $0.name })
         let expectedNames: Set<String> = [
-            "All", "Draft", "Ready", "Set Aside", "Published", "Collections",
-            "Submissions", "Research", "Magazines", "Competitions", "Commissions",
+            "All", "Draft", "Ready", "Set Aside", "Published",
+            "Research", "Magazines", "Competitions", "Commissions",
             "Other", "Trash"
         ]
         XCTAssertEqual(folderNames, expectedNames, "Should have correct folder names")
@@ -113,15 +113,15 @@ final class ProjectTemplateServiceTests: XCTestCase {
         // When creating default folders
         ProjectTemplateService.createDefaultFolders(for: project, in: modelContext)
         
-        // Then verify 13 folders exist in flat structure (same as poetry)
+        // Then verify 11 folders exist in flat structure (same as poetry)
         let folders = project.folders ?? []
         
-        XCTAssertEqual(folders.count, 13, "Should have 13 folders for short story project")
+        XCTAssertEqual(folders.count, 11, "Should have 11 folders for short story project")
         
         let folderNames = Set(folders.compactMap { $0.name })
         let expectedNames: Set<String> = [
-            "All", "Draft", "Ready", "Set Aside", "Published", "Collections",
-            "Submissions", "Research", "Magazines", "Competitions", "Commissions",
+            "All", "Draft", "Ready", "Set Aside", "Published",
+            "Research", "Magazines", "Competitions", "Commissions",
             "Other", "Trash"
         ]
         XCTAssertEqual(folderNames, expectedNames, "Should have correct folder names")
@@ -156,8 +156,7 @@ final class ProjectTemplateServiceTests: XCTestCase {
         ProjectTemplateService.createDefaultFolders(for: project, in: modelContext)
         
         // Then verify subfolder-only folders from spec
-        let subfolderOnlyNames = ["Magazines", "Competitions", "Commissions", "Other", 
-                                  "Collections", "Submissions"]
+        let subfolderOnlyNames = ["Magazines", "Competitions", "Commissions", "Other"]
         
         let folders = project.folders ?? []
         for name in subfolderOnlyNames {

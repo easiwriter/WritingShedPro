@@ -33,13 +33,13 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
         
         // Then: Verify folders are created (hierarchical structure)
         let projectFolders = newProject.folders ?? []
-        XCTAssertEqual(projectFolders.count, 13, "Should create 13 folders for poetry project (hierarchical structure)")
+        XCTAssertEqual(projectFolders.count, 11, "Should create 11 folders for poetry project (hierarchical structure)")
         
         // Verify expected folder names exist
         let folderNames = Set(projectFolders.compactMap { $0.name })
         let expectedFolders: Set<String> = [
-            "All", "Draft", "Ready", "Set Aside", "Published", "Collections", 
-            "Submissions", "Research", "Magazines", "Competitions", "Commissions", 
+            "All", "Draft", "Ready", "Set Aside", "Published",
+            "Research", "Magazines", "Competitions", "Commissions", 
             "Other", "Trash"
         ]
         XCTAssertEqual(folderNames, expectedFolders, "Should have correct folder names")
@@ -102,7 +102,7 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
         let proseFolders = proseProject.folders ?? []
         
         // Then: Each has its own folder structure
-        XCTAssertEqual(poetryFolders.count, 13, "Poetry project should have 13 folders")
+        XCTAssertEqual(poetryFolders.count, 11, "Poetry project should have 11 folders")
         XCTAssertEqual(proseFolders.count, 2, "Blank project should have 2 folders")
         
         // Verify type-specific folders
@@ -145,12 +145,12 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
         let folders = project.folders ?? []
         
         // Then: Verify flat structure matches spec (all folders at root level)
-        XCTAssertEqual(folders.count, 13, "Should have 13 folders total for poetry project")
+        XCTAssertEqual(folders.count, 11, "Should have 11 folders total for poetry project")
         
         let folderNames = Set(folders.compactMap { $0.name })
         let expectedNames = Set([
-            "All", "Draft", "Ready", "Set Aside", "Published", 
-            "Collections", "Submissions", "Research", 
+            "All", "Draft", "Ready", "Set Aside", "Published",
+            "Research", 
             "Magazines", "Competitions", "Commissions", "Other", 
             "Trash"
         ])

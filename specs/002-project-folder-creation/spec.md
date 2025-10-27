@@ -80,8 +80,6 @@ All folders are initially created at the project root level (flat structure). Th
 - Ready: `checkmark.circle` 📄
 - Set Aside: `archivebox` 📄
 - Published: `book.circle` 📄
-- Collections: `books.vertical` 📁
-- Submissions: `paperplane` 📁
 - Research: `magnifyingglass` 📄
 - Magazines: `magazine` 📁
 - Competitions: `medal` 📁
@@ -96,8 +94,6 @@ All folders are initially created at the project root level (flat structure). Th
 - Ready: `checkmark.circle` 📄
 - Set Aside: `archivebox` 📄
 - Published: `book.circle` 📄
-- Collections: `books.vertical` 📁
-- Submissions: `paperplane` 📁
 - Research: `magnifyingglass` 📄
 - Magazines: `magazine` 📁
 - Competitions: `medal` 📁
@@ -149,7 +145,7 @@ All folders are initially created at the project root level (flat structure). Th
 4. **SF Symbol integration**: Each folder type has an appropriate SF Symbol icon
 5. **CloudKit sync**: All folder structures sync across devices
 6. **Folder structure consistency**: Each project type creates a standard set of folders at the project root (flat structure) with selective nesting capabilities enforced after creation:
-    - **Subfolder-only folders**: Magazines, Competitions, Commissions, Other, Collections, Submissions, Chapters, Acts (users can only add subfolders, not files)
+    - **Subfolder-only folders**: Magazines, Competitions, Commissions, Other, Chapters, Acts (users can only add subfolders, not files)
     - **File-only folders (manual entry)**: Files, Draft, Research, Scenes, Characters, Locations (users can manually add files)
     - **Read-only folders (auto-populated)**: All, Ready, Set Aside, Published, Trash, Novel, Script (content comes from elsewhere, no manual additions)
     - **User-created folders**: Always file-only (can contain files but not subfolders)
@@ -232,10 +228,10 @@ All folders are initially created at the project root level (flat structure). Th
 
 ### FR3: Project Type Mapping
 - **FR3.1:** BLANK: Creates Files, Trash folders only
-- **FR3.2:** POETRY: Creates All, Draft, Ready, Set Aside, Published, Collections, Submissions, Research, Magazines, Competitions, Commissions, Other, Trash (in that display order)
+- **FR3.2:** POETRY: Creates All, Draft, Ready, Set Aside, Published, Research, Magazines, Competitions, Commissions, Other, Trash (in that display order)
 - **FR3.3:** NOVEL: Creates Novel, Chapters, Scenes, Characters, Locations, Set Aside, Research, Competitions, Commissions, Other, Trash (in that display order)
 - **FR3.4:** SCRIPT: Creates Script, Acts, Scenes, Characters, Locations, Set Aside, Research, Competitions, Commissions, Other, Trash (in that display order)
-- **FR3.5:** SHORT STORY: Same as Poetry - All, Draft, Ready, Set Aside, Published, Collections, Submissions, Research, Magazines, Competitions, Commissions, Other, Trash (in that display order)
+- **FR3.5:** SHORT STORY: Same as Poetry - All, Draft, Ready, Set Aside, Published, Research, Magazines, Competitions, Commissions, Other, Trash (in that display order)
 
 ### FR4: Data Persistence
 - **FR4.1:** All folders persist to SwiftData immediately upon creation
@@ -299,7 +295,7 @@ All folders are initially created at the project root level (flat structure). Th
 3. **Icon Mapping:** SF Symbols are mapped per project type in FolderItemView based on folder names
 
 4. **Flat Structure with Capability Controls:** All folders are created at the project root level. FolderListView displays folders in workflow order with toolbar buttons dynamically shown/hidden based on FolderCapabilityService:
-   - Subfolder-only folders (Magazines, Competitions, Commissions, Other, Collections, Submissions, Chapters, Acts) - show "+" button for adding subfolders
+   - Subfolder-only folders (Magazines, Competitions, Commissions, Other, Chapters, Acts) - show "+" button for adding subfolders
    - File-only folders (Files, Draft, Research, Scenes, Characters, Locations) - show "+" button for adding files
    - Read-only folders (All, Ready, Set Aside, Published, Trash, Novel, Script) - no "+" button (content populated elsewhere)
    - User-created folders always show "+" button for adding files only

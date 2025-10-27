@@ -37,7 +37,7 @@ struct FolderListView: View {
         case .poetry, .shortStory:
             return [
                 "All", "Draft", "Ready", "Set Aside", "Published",
-                "Collections", "Submissions", "Research",
+                "Research",
                 "Magazines", "Competitions", "Commissions", "Other",
                 "Trash"
             ]
@@ -233,10 +233,6 @@ struct FolderRowView: View {
             return "archivebox"
         case "Published":
             return "book.circle"
-        case "Collections":
-            return "books.vertical"
-        case "Submissions":
-            return "paperplane"
         case "Research":
             return "magnifyingglass"
         case "Magazines":

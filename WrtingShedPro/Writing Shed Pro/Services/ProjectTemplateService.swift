@@ -62,8 +62,6 @@ struct ProjectTemplateService {
                 "folder.ready",
                 "folder.setAside", 
                 "folder.published",
-                "folder.collections",
-                "folder.submissions",
                 "folder.research"
             ]
             
