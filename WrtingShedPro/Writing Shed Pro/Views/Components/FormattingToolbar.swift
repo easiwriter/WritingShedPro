@@ -58,24 +58,26 @@ struct FormattingToolbar: View {
                 onStylePicker?()
             }) {
                 Image(systemName: "paragraph")
-                    .frame(width: 44, height: 44)
+                    .font(.system(size: 20))
+                    .imageScale(.large)
+                    .frame(width: 44, height: 36)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .help("Paragraph Style")
             
             Divider()
-                .frame(height: 30)
+                .frame(height: 24)
             
             // Bold button
             Button(action: {
                 onToggleBold?()
             }) {
-                Text("B")
-                    .font(.system(size: 17, weight: .bold))
-                    .frame(width: 44, height: 44)
-                    .background(isBoldActive ? Color.accentColor.opacity(0.2) : Color.clear)
-                    .cornerRadius(8)
+                Image(systemName: "bold")
+                    .font(.system(size: 20, weight: .regular))
+                    .imageScale(.large)
+                    .foregroundColor(isBoldActive ? Color.accentColor : Color.primary)
+                    .frame(width: 44, height: 36)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -85,11 +87,11 @@ struct FormattingToolbar: View {
             Button(action: {
                 onToggleItalic?()
             }) {
-                Text("I")
-                    .font(.system(size: 17).italic())
-                    .frame(width: 44, height: 44)
-                    .background(isItalicActive ? Color.accentColor.opacity(0.2) : Color.clear)
-                    .cornerRadius(8)
+                Image(systemName: "italic")
+                    .font(.system(size: 20, weight: .regular))
+                    .imageScale(.large)
+                    .foregroundColor(isItalicActive ? Color.accentColor : Color.primary)
+                    .frame(width: 44, height: 36)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -99,12 +101,11 @@ struct FormattingToolbar: View {
             Button(action: {
                 onToggleUnderline?()
             }) {
-                Text("U")
-                    .font(.system(size: 17))
-                    .underline()
-                    .frame(width: 44, height: 44)
-                    .background(isUnderlineActive ? Color.accentColor.opacity(0.2) : Color.clear)
-                    .cornerRadius(8)
+                Image(systemName: "underline")
+                    .font(.system(size: 20, weight: .regular))
+                    .imageScale(.large)
+                    .foregroundColor(isUnderlineActive ? Color.accentColor : Color.primary)
+                    .frame(width: 44, height: 36)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -114,26 +115,27 @@ struct FormattingToolbar: View {
             Button(action: {
                 onToggleStrikethrough?()
             }) {
-                Text("S")
-                    .font(.system(size: 17))
-                    .strikethrough()
-                    .frame(width: 44, height: 44)
-                    .background(isStrikethroughActive ? Color.accentColor.opacity(0.2) : Color.clear)
-                    .cornerRadius(8)
+                Image(systemName: "strikethrough")
+                    .font(.system(size: 20, weight: .regular))
+                    .imageScale(.large)
+                    .foregroundColor(isStrikethroughActive ? Color.accentColor : Color.primary)
+                    .frame(width: 44, height: 36)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .help("Strikethrough")
             
             Divider()
-                .frame(height: 30)
+                .frame(height: 24)
             
             // Insert button (Coming Soon)
             Button(action: {
                 showComingSoonAlert = true
             }) {
                 Image(systemName: "plus.circle")
-                    .frame(width: 44, height: 44)
+                    .font(.system(size: 20))
+                    .imageScale(.large)
+                    .frame(width: 44, height: 36)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -141,15 +143,7 @@ struct FormattingToolbar: View {
             
             Spacer()
         }
-        .padding(.horizontal, 8)
-        .frame(height: 50)
-        .background(Color(uiColor: .systemBackground))
-        .overlay(
-            Rectangle()
-                .frame(height: 0.5)
-                .foregroundColor(Color(uiColor: .separator)),
-            alignment: .top
-        )
+        .frame(height: 44)
         .onChange(of: selectedRange) { _, _ in
             Task { @MainActor in
                 updateButtonStates()
@@ -190,9 +184,19 @@ struct FormattingToolbar: View {
         // For range selection, check if entire range has the attribute
         let checkRange: NSRange
         if selectedRange.length == 0 {
-            // Cursor position - check character before cursor (or 0 if at start)
-            let location = max(0, selectedRange.location - 1)
-            checkRange = NSRange(location: location, length: min(1, attributedText.length - location))
+            // Cursor position - only show state if cursor is after a character
+            // Don't show state when cursor is at position 0 (start of document)
+            guard selectedRange.location > 0 else {
+                isBoldActive = false
+                isItalicActive = false
+                isUnderlineActive = false
+                isStrikethroughActive = false
+                return
+            }
+            
+            // Check character before cursor
+            let location = selectedRange.location - 1
+            checkRange = NSRange(location: location, length: 1)
         } else {
             checkRange = selectedRange
         }

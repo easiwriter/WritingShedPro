@@ -49,49 +49,7 @@ struct FileEditView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // Use FormattedTextEditor instead of TextEditor
-            if forceRefresh {
-                FormattedTextEditor(
-                    attributedText: $attributedContent,
-                    selectedRange: $selectedRange,
-                    onTextChange: { newText in
-                        handleAttributedTextChange(newText)
-                    }
-                )
-                .id(refreshTrigger)
-            } else {
-                FormattedTextEditor(
-                    attributedText: $attributedContent,
-                    selectedRange: $selectedRange,
-                    onTextChange: { newText in
-                        handleAttributedTextChange(newText)
-                    }
-                )
-                .id(refreshTrigger)
-            }
-            
-            // Formatting Toolbar
-            FormattingToolbar(
-                selectedRange: $selectedRange,
-                attributedText: $attributedContent,
-                onStylePicker: {
-                    // TODO: Phase 4 - Show style picker sheet
-                    print("Style picker tapped")
-                },
-                onToggleBold: {
-                    applyFormatting(.bold)
-                },
-                onToggleItalic: {
-                    applyFormatting(.italic)
-                },
-                onToggleUnderline: {
-                    applyFormatting(.underline)
-                },
-                onToggleStrikethrough: {
-                    applyFormatting(.strikethrough)
-                }
-            )
-            
+            // Version Navigator at top
             ToolbarView(
                 label: file.versionLabel(),
                 items: [
@@ -131,8 +89,61 @@ struct FileEditView: View {
                     secondaryButton: .cancel()
                 )
             }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 10)
+            .padding(.horizontal, 8)
+            .padding(.top, 8)
+            .padding(.bottom, 8)
+            
+            // Text Editor
+            if forceRefresh {
+                FormattedTextEditor(
+                    attributedText: $attributedContent,
+                    selectedRange: $selectedRange,
+                    onTextChange: { newText in
+                        handleAttributedTextChange(newText)
+                    }
+                )
+                .id(refreshTrigger)
+            } else {
+                FormattedTextEditor(
+                    attributedText: $attributedContent,
+                    selectedRange: $selectedRange,
+                    onTextChange: { newText in
+                        handleAttributedTextChange(newText)
+                    }
+                )
+                .id(refreshTrigger)
+            }
+            
+            // Formatting Toolbar at bottom - near keyboard (Pages style)
+            FormattingToolbar(
+                selectedRange: $selectedRange,
+                attributedText: $attributedContent,
+                onStylePicker: {
+                    print("Style picker tapped")
+                },
+                onToggleBold: {
+                    applyFormatting(.bold)
+                },
+                onToggleItalic: {
+                    applyFormatting(.italic)
+                },
+                onToggleUnderline: {
+                    applyFormatting(.underline)
+                },
+                onToggleStrikethrough: {
+                    applyFormatting(.strikethrough)
+                }
+            )
+            .padding(.horizontal, 8)
+            .padding(.vertical, 2)
+            .background(Color(UIColor.secondarySystemBackground))
+            .overlay(
+                VStack(spacing: 0) {
+                    Divider()
+                    Spacer()
+                    Divider()
+                }
+            )
         }
         .navigationTitle(file.name ?? NSLocalizedString("fileEdit.untitledFile", comment: "Untitled file"))
         .navigationBarTitleDisplayMode(.inline)
@@ -357,15 +368,13 @@ struct FileEditView: View {
         print("🎨 Format applied successfully")
         
         // Update local state immediately for instant UI feedback
-        // DON'T save to model yet - that will encode/decode and change fonts!
         attributedContent = newAttributedContent
         content = newAttributedContent.string
         
         print("🎨 Updated local state with formatted content")
         
-        // TODO: Save to model only on file close or explicit save
-        // For now, formatting is ephemeral (lost on app restart)
-        // Phase 6 will add proper persistence with undo/redo
+        // Formatting is saved to the model when the file is closed (in saveChanges)
+        // This avoids triggering encode/decode on every formatting change
         
         // TODO: Phase 6 - Add formatting command to undo stack
         // For now, formatting changes don't go into undo history
@@ -416,8 +425,14 @@ struct FileEditView: View {
     }
     
     private func saveChanges() {
+        // Save the current attributed content to the model
+        file.currentVersion?.attributedContent = attributedContent
+        file.currentVersion?.content = content
+        file.modifiedDate = Date()
+        
         do {
             try modelContext.save()
+            print("💾 Saved attributed content on file close")
         } catch {
             print("Error saving context: \(error)")
         }

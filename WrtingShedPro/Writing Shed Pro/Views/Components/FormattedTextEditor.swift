@@ -35,6 +35,9 @@ struct FormattedTextEditor: UIViewRepresentable {
     /// Whether the text view is editable
     var isEditable: Bool
     
+    /// Optional input accessory view (toolbar shown above keyboard)
+    var inputAccessoryView: UIView?
+    
     // MARK: - Initialization
     
     init(
@@ -45,6 +48,7 @@ struct FormattedTextEditor: UIViewRepresentable {
         backgroundColor: UIColor = .systemBackground,
         textContainerInset: UIEdgeInsets = UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8),
         isEditable: Bool = true,
+        inputAccessoryView: UIView? = nil,
         onTextChange: ((NSAttributedString) -> Void)? = nil,
         onSelectionChange: ((NSRange) -> Void)? = nil
     ) {
@@ -55,6 +59,7 @@ struct FormattedTextEditor: UIViewRepresentable {
         self.backgroundColor = backgroundColor
         self.textContainerInset = textContainerInset
         self.isEditable = isEditable
+        self.inputAccessoryView = inputAccessoryView
         self.onTextChange = onTextChange
         self.onSelectionChange = onSelectionChange
     }
@@ -62,7 +67,12 @@ struct FormattedTextEditor: UIViewRepresentable {
     // MARK: - UIViewRepresentable
     
     func makeUIView(context: Context) -> UITextView {
-        let textView = UITextView()
+        let textView = CustomTextView() // Use custom subclass to support inputAccessoryView
+        
+        // Set input accessory view if provided
+        if let accessoryView = inputAccessoryView {
+            textView.customAccessoryView = accessoryView
+        }
         
         // Configure appearance
         // NOTE: Don't set textView.font - it overrides attributed string fonts!
@@ -337,6 +347,29 @@ struct FormattedTextEditor: UIViewRepresentable {
         @objc func keyboardWillHide(_ notification: Notification) {
             // Handle keyboard dismissal if needed
         }
+    }
+}
+
+// MARK: - Custom UITextView
+
+/// Custom UITextView subclass that supports a custom input accessory view  
+/// We use an associated object pattern to work around inputAccessoryView being read-only
+private class CustomTextView: UITextView {
+    private static var customAccessoryViewKey: UInt8 = 0
+    
+    var customAccessoryView: UIView? {
+        get {
+            return objc_getAssociatedObject(self, &Self.customAccessoryViewKey) as? UIView
+        }
+        set {
+            objc_setAssociatedObject(self, &Self.customAccessoryViewKey, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+            reloadInputViews()
+        }
+    }
+    
+    override var inputAccessoryView: UIView? {
+        get { return customAccessoryView }
+        set { customAccessoryView = newValue }
     }
 }
 
