@@ -65,13 +65,20 @@ struct FormattedTextEditor: UIViewRepresentable {
         let textView = UITextView()
         
         // Configure appearance
-        textView.font = font
+        // NOTE: Don't set textView.font - it overrides attributed string fonts!
+        // The font parameter is only used as fallback in updateUIView
         textView.textColor = textColor
         textView.backgroundColor = backgroundColor
         textView.textContainerInset = textContainerInset
         textView.isEditable = isEditable
         textView.isSelectable = true
         textView.isScrollEnabled = true
+        
+        // Disable autocorrect and text suggestions to prevent unwanted text insertion
+        // This prevents iOS from inserting spaces when dismissing autocomplete
+        textView.autocorrectionType = .no
+        textView.autocapitalizationType = .sentences
+        textView.spellCheckingType = .yes  // Keep spell checking, just disable autocorrect
         
         // Configure text container for proper layout
         textView.textContainer.lineFragmentPadding = 0
@@ -121,19 +128,68 @@ struct FormattedTextEditor: UIViewRepresentable {
         print("📝 Current text: '\(textView.attributedText.string.prefix(50))'")
         print("📝 New text: '\(attributedText.string.prefix(50))'")
         
-        // Only update if the string content actually changed
-        // This prevents overwriting user typing with stale state
-        if textView.attributedText.string != attributedText.string {
-            print("📝 Content different - updating text view")
+        // Check if attributed text actually changed (either content OR formatting)
+        // We need to update if either the string OR the attributes changed
+        guard let textViewAttrs = textView.attributedText else {
+            // If textView has no attributed text, we definitely need to update
+            print("📝 Text view has no attributed text - updating")
+            context.coordinator.isUpdatingFromSwiftUI = true
+            defer {
+                print("📝 Reset isUpdatingFromSwiftUI flag")
+                context.coordinator.isUpdatingFromSwiftUI = false
+            }
+            textView.attributedText = attributedText
+            return
+        }
+        
+        let textViewString = textViewAttrs.string
+        let newString = attributedText.string
+        let stringsMatch = textViewString == newString
+        
+        // If strings match, check if attributes changed
+        let attributesChanged = !stringsMatch || !textViewAttrs.isEqual(to: attributedText)
+        
+        #if DEBUG
+        print("📝 Strings match: \(stringsMatch)")
+        print("📝 Attributes changed: \(attributesChanged)")
+        if stringsMatch && attributesChanged && textViewAttrs.length > 0 && attributedText.length > 0 {
+            print("📝 Current attributes at 0: \(textViewAttrs.attributes(at: 0, effectiveRange: nil))")
+            print("📝 New attributes at 0: \(attributedText.attributes(at: 0, effectiveRange: nil))")
+            if attributedText.length >= 11 {
+                print("📝 New attributes at 10: \(attributedText.attributes(at: 10, effectiveRange: nil))")
+            }
+        }
+        #endif
+        
+        if attributesChanged {
+            if stringsMatch {
+                print("📝 Formatting changed - updating attributes only")
+            } else {
+                print("📝 Content different - updating text view")
+            }
             
             // Set flag to prevent feedback from delegate
             context.coordinator.isUpdatingFromSwiftUI = true
             
             let oldSelectedRange = textView.selectedRange
-            textView.attributedText = attributedText
             
-            // Force layout update after text change
+            // Update text storage directly for better control
+            // This ensures attributes are properly applied
+            textView.textStorage.setAttributedString(attributedText)
+            
+            // Critical: Tell text storage that attributes changed
+            textView.textStorage.edited(.editedAttributes, range: NSRange(location: 0, length: textView.textStorage.length), changeInLength: 0)
+            
+            // Force layout update
             textView.layoutManager.ensureLayout(for: textView.textContainer)
+            
+            // Invalidate and force redraw
+            let fullRange = NSRange(location: 0, length: textView.textStorage.length)
+            textView.layoutManager.invalidateDisplay(forCharacterRange: fullRange)
+            textView.layoutManager.invalidateLayout(forCharacterRange: fullRange, actualCharacterRange: nil)
+            
+            // Force immediate redraw
+            textView.setNeedsDisplay()
             
             // Restore selection if it's still valid
             if oldSelectedRange.location <= attributedText.length {
@@ -164,12 +220,15 @@ struct FormattedTextEditor: UIViewRepresentable {
             // User is typing normally - let UITextView handle cursor naturally
         }
         
-        // Update appearance properties
-        textView.font = font
+        // Update appearance properties (but NOT font - that comes from attributed string!)
         textView.textColor = textColor
         textView.backgroundColor = backgroundColor
         textView.textContainerInset = textContainerInset
         textView.isEditable = isEditable
+        
+        // Ensure autocorrect stays disabled
+        textView.autocorrectionType = .no
+        textView.spellCheckingType = .yes
     }
     
     func makeCoordinator() -> Coordinator {
@@ -213,9 +272,15 @@ struct FormattedTextEditor: UIViewRepresentable {
         func textViewDidChange(_ textView: UITextView) {
             guard !isUpdatingFromSwiftUI else { return }
             
+            #if DEBUG
+            print("📝 textViewDidChange called - text: '\(textView.attributedText?.string.prefix(50) ?? "")'")
+            #endif
+            
             // Update the binding so SwiftUI state stays in sync
-            // This is safe because updateUIView checks object identity
+            // Update if either content OR formatting changed
             if let attributedText = textView.attributedText {
+                // Always update - could be text change or formatting change
+                print("📝 Text or formatting changed - updating binding")
                 parent.attributedText = attributedText
                 parent.onTextChange?(attributedText)
             }
@@ -228,13 +293,20 @@ struct FormattedTextEditor: UIViewRepresentable {
             // This helps with tap-to-position accuracy
             textView.layoutManager.ensureLayout(for: textView.textContainer)
             
-            // Only notify via callback - do NOT update the binding here
             let newRange = textView.selectedRange
             
             #if DEBUG
             print("📍 Selection changed to: {\(newRange.location), \(newRange.length)}")
             #endif
             
+            // Only update the binding if it actually changed
+            // This prevents unnecessary view updates
+            if parent.selectedRange.location != newRange.location || 
+               parent.selectedRange.length != newRange.length {
+                parent.selectedRange = newRange
+            }
+            
+            // Also notify via callback
             parent.onSelectionChange?(newRange)
         }
         

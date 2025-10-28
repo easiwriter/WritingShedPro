@@ -70,6 +70,28 @@ struct FileEditView: View {
                 .id(refreshTrigger)
             }
             
+            // Formatting Toolbar
+            FormattingToolbar(
+                selectedRange: $selectedRange,
+                attributedText: $attributedContent,
+                onStylePicker: {
+                    // TODO: Phase 4 - Show style picker sheet
+                    print("Style picker tapped")
+                },
+                onToggleBold: {
+                    applyFormatting(.bold)
+                },
+                onToggleItalic: {
+                    applyFormatting(.italic)
+                },
+                onToggleUnderline: {
+                    applyFormatting(.underline)
+                },
+                onToggleStrikethrough: {
+                    applyFormatting(.strikethrough)
+                }
+            )
+            
             ToolbarView(
                 label: file.versionLabel(),
                 items: [
@@ -151,12 +173,30 @@ struct FileEditView: View {
     // MARK: - Attributed Text Handling
     
     private func handleAttributedTextChange(_ newAttributedText: NSAttributedString) {
-        guard !isPerformingUndoRedo else { return }
+        #if DEBUG
+        print("🔄 handleAttributedTextChange called")
+        print("🔄 isPerformingUndoRedo: \(isPerformingUndoRedo)")
+        #endif
+        
+        guard !isPerformingUndoRedo else {
+            print("🔄 Skipping - performing undo/redo")
+            return
+        }
         
         let newContent = newAttributedText.string
         
+        #if DEBUG
+        print("🔄 Previous: '\(previousContent)'")
+        print("🔄 New: '\(newContent)'")
+        #endif
+        
         // Only register change if content actually changed
-        guard newContent != previousContent else { return }
+        guard newContent != previousContent else {
+            print("🔄 Content unchanged - skipping")
+            return
+        }
+        
+        print("🔄 Content changed - registering with undo manager")
         
         // Update state
         content = newContent
@@ -269,7 +309,70 @@ struct FileEditView: View {
         }
     }
     
+    // MARK: - Formatting
+    
+    /// Format types that can be applied
+    private enum FormatType {
+        case bold
+        case italic
+        case underline
+        case strikethrough
+    }
+    
+    /// Apply formatting to the current selection
+    private func applyFormatting(_ formatType: FormatType) {
+        #if DEBUG
+        print("🎨 applyFormatting(\(formatType)) called")
+        print("🎨 selectedRange: {\(selectedRange.location), \(selectedRange.length)}")
+        #endif
+        
+        // Ensure we have a valid selection
+        guard selectedRange.location != NSNotFound else {
+            print("⚠️ selectedRange.location is NSNotFound")
+            return
+        }
+        
+        // If no text is selected (cursor only), do nothing
+        // User must select text to apply formatting
+        guard selectedRange.length > 0 else {
+            print("⚠️ No text selected - formatting requires text selection")
+            return
+        }
+        
+        print("🎨 Applying \(formatType) to range {\(selectedRange.location), \(selectedRange.length)}")
+        
+        // Apply the appropriate formatting
+        let newAttributedContent: NSAttributedString
+        switch formatType {
+        case .bold:
+            newAttributedContent = TextFormatter.toggleBold(in: attributedContent, range: selectedRange)
+        case .italic:
+            newAttributedContent = TextFormatter.toggleItalic(in: attributedContent, range: selectedRange)
+        case .underline:
+            newAttributedContent = TextFormatter.toggleUnderline(in: attributedContent, range: selectedRange)
+        case .strikethrough:
+            newAttributedContent = TextFormatter.toggleStrikethrough(in: attributedContent, range: selectedRange)
+        }
+        
+        print("🎨 Format applied successfully")
+        
+        // Update local state immediately for instant UI feedback
+        // DON'T save to model yet - that will encode/decode and change fonts!
+        attributedContent = newAttributedContent
+        content = newAttributedContent.string
+        
+        print("🎨 Updated local state with formatted content")
+        
+        // TODO: Save to model only on file close or explicit save
+        // For now, formatting is ephemeral (lost on app restart)
+        // Phase 6 will add proper persistence with undo/redo
+        
+        // TODO: Phase 6 - Add formatting command to undo stack
+        // For now, formatting changes don't go into undo history
+    }
+    
     // MARK: - Version Management
+
     
     private func handleVersionAction(_ action: VersionAction) {
         switch action {
