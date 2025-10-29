@@ -52,96 +52,113 @@ struct FormattingToolbar: View {
     // MARK: - Body
     
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 0) {
+            // Left spacing
+            Spacer()
+//                .frame(width: 16)
+            
             // Paragraph Style button
             Button(action: {
                 onStylePicker?()
             }) {
                 Image(systemName: "paragraph")
-                    .font(.system(size: 20))
                     .imageScale(.large)
-                    .frame(width: 44, height: 36)
-                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .help("Paragraph Style")
             
+            Spacer()
+                .frame(width: 20)
+            
             Divider()
                 .frame(height: 24)
+            
+            Spacer()
+                .frame(width: 20)
             
             // Bold button
             Button(action: {
                 onToggleBold?()
             }) {
                 Image(systemName: "bold")
-                    .font(.system(size: 20, weight: .regular))
                     .imageScale(.large)
-                    .foregroundColor(isBoldActive ? Color.accentColor : Color.primary)
-                    .frame(width: 44, height: 36)
+                    .foregroundColor(isBoldActive ? .accentColor : .primary)
+                    .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .help("Bold")
+            
+            Spacer()
+                .frame(width: 20)
             
             // Italic button
             Button(action: {
                 onToggleItalic?()
             }) {
                 Image(systemName: "italic")
-                    .font(.system(size: 20, weight: .regular))
                     .imageScale(.large)
-                    .foregroundColor(isItalicActive ? Color.accentColor : Color.primary)
-                    .frame(width: 44, height: 36)
+                    .foregroundColor(isItalicActive ? .accentColor : .primary)
+                    .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .help("Italic")
+            
+            Spacer()
+                .frame(width: 20)
             
             // Underline button
             Button(action: {
                 onToggleUnderline?()
             }) {
                 Image(systemName: "underline")
-                    .font(.system(size: 20, weight: .regular))
                     .imageScale(.large)
-                    .foregroundColor(isUnderlineActive ? Color.accentColor : Color.primary)
-                    .frame(width: 44, height: 36)
+                    .foregroundColor(isUnderlineActive ? .accentColor : .primary)
+                    .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .help("Underline")
+            
+            Spacer()
+                .frame(width: 20)
             
             // Strikethrough button
             Button(action: {
                 onToggleStrikethrough?()
             }) {
                 Image(systemName: "strikethrough")
-                    .font(.system(size: 20, weight: .regular))
                     .imageScale(.large)
-                    .foregroundColor(isStrikethroughActive ? Color.accentColor : Color.primary)
-                    .frame(width: 44, height: 36)
+                    .foregroundColor(isStrikethroughActive ? .accentColor : .primary)
+                    .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .help("Strikethrough")
             
+            Spacer()
+                .frame(width: 20)
+            
             Divider()
                 .frame(height: 24)
+            
+            Spacer()
+                .frame(width: 20)
             
             // Insert button (Coming Soon)
             Button(action: {
                 showComingSoonAlert = true
             }) {
                 Image(systemName: "plus.circle")
-                    .font(.system(size: 20))
                     .imageScale(.large)
-                    .frame(width: 44, height: 36)
-                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .help("Insert (Coming Soon)")
             
+            // Right spacing
             Spacer()
+//                .frame(width: 16)
         }
         .frame(height: 44)
         .onChange(of: selectedRange) { _, _ in

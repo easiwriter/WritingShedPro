@@ -18,6 +18,9 @@ struct FormattedTextEditor: UIViewRepresentable {
     /// Optional callback when selection changes
     var onSelectionChange: ((NSRange) -> Void)?
     
+    /// Coordinator for managing textView reference
+    var textViewCoordinator: TextViewCoordinator?
+    
     // MARK: - Configuration
     
     /// Font to use for new text (when no formatting is applied)
@@ -43,6 +46,7 @@ struct FormattedTextEditor: UIViewRepresentable {
     init(
         attributedText: Binding<NSAttributedString>,
         selectedRange: Binding<NSRange> = .constant(NSRange(location: 0, length: 0)),
+        textViewCoordinator: TextViewCoordinator? = nil,
         font: UIFont = .preferredFont(forTextStyle: .body),
         textColor: UIColor = .label,
         backgroundColor: UIColor = .systemBackground,
@@ -54,6 +58,7 @@ struct FormattedTextEditor: UIViewRepresentable {
     ) {
         self._attributedText = attributedText
         self._selectedRange = selectedRange
+        self.textViewCoordinator = textViewCoordinator
         self.font = font
         self.textColor = textColor
         self.backgroundColor = backgroundColor
@@ -68,6 +73,10 @@ struct FormattedTextEditor: UIViewRepresentable {
     
     func makeUIView(context: Context) -> UITextView {
         let textView = CustomTextView() // Use custom subclass to support inputAccessoryView
+        
+        // Store reference to textView in coordinator (if provided)
+        context.coordinator.textView = textView
+        textViewCoordinator?.textView = textView
         
         // Set input accessory view if provided
         if let accessoryView = inputAccessoryView {
@@ -268,6 +277,7 @@ struct FormattedTextEditor: UIViewRepresentable {
     class Coordinator: NSObject, UITextViewDelegate {
         var parent: FormattedTextEditor
         var isUpdatingFromSwiftUI = false
+        weak var textView: UITextView?
         
         init(_ parent: FormattedTextEditor) {
             self.parent = parent

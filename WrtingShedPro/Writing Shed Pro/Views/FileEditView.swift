@@ -5,7 +5,6 @@ import ToolbarSUI
 struct FileEditView: View {
     let file: File
     
-    @State private var content: String
     @State private var attributedContent: NSAttributedString
     @State private var selectedRange: NSRange = NSRange(location: 0, length: 0)
     @State private var previousContent: String = ""
@@ -14,6 +13,7 @@ struct FileEditView: View {
     @State private var refreshTrigger = UUID()
     @State private var forceRefresh = false
     @StateObject private var undoManager: TextFileUndoManager
+    @StateObject private var textViewCoordinator = TextViewCoordinator()
     
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -27,16 +27,14 @@ struct FileEditView: View {
     
     init(file: File) {
         self.file = file
-        let initialContent = file.currentVersion?.content ?? ""
-        _content = State(initialValue: initialContent)
-        _previousContent = State(initialValue: initialContent)
         
-        // Initialize attributed content
+        // Initialize attributed content (the single source of truth)
         let initialAttributed = file.currentVersion?.attributedContent ?? NSAttributedString(
-            string: initialContent,
+            string: "",
             attributes: [.font: UIFont.preferredFont(forTextStyle: .body)]
         )
         _attributedContent = State(initialValue: initialAttributed)
+        _previousContent = State(initialValue: initialAttributed.string)
         
         // Try to restore undo manager or create new one
         if let restoredManager = file.restoreUndoState() {
@@ -98,6 +96,7 @@ struct FileEditView: View {
                 FormattedTextEditor(
                     attributedText: $attributedContent,
                     selectedRange: $selectedRange,
+                    textViewCoordinator: textViewCoordinator,
                     onTextChange: { newText in
                         handleAttributedTextChange(newText)
                     }
@@ -107,6 +106,7 @@ struct FileEditView: View {
                 FormattedTextEditor(
                     attributedText: $attributedContent,
                     selectedRange: $selectedRange,
+                    textViewCoordinator: textViewCoordinator,
                     onTextChange: { newText in
                         handleAttributedTextChange(newText)
                     }
@@ -115,35 +115,47 @@ struct FileEditView: View {
             }
             
             // Formatting Toolbar at bottom - near keyboard (Pages style)
-            FormattingToolbar(
-                selectedRange: $selectedRange,
-                attributedText: $attributedContent,
-                onStylePicker: {
-                    print("Style picker tapped")
-                },
-                onToggleBold: {
-                    applyFormatting(.bold)
-                },
-                onToggleItalic: {
-                    applyFormatting(.italic)
-                },
-                onToggleUnderline: {
-                    applyFormatting(.underline)
-                },
-                onToggleStrikethrough: {
-                    applyFormatting(.strikethrough)
+            // Using UIKit toolbar to preserve keyboard focus
+            if let textView = textViewCoordinator.textView {
+                FormattingToolbarView(textView: textView) { action in
+                    switch action {
+                    case .paragraphStyle:
+                        print("Paragraph style picker tapped")
+                    case .bold:
+                        applyFormatting(.bold)
+                    case .italic:
+                        applyFormatting(.italic)
+                    case .underline:
+                        applyFormatting(.underline)
+                    case .strikethrough:
+                        applyFormatting(.strikethrough)
+                    case .insert:
+                        print("Insert button tapped")
+                    }
                 }
-            )
-            .padding(.horizontal, 8)
-            .padding(.vertical, 2)
-            .background(Color(UIColor.secondarySystemBackground))
-            .overlay(
-                VStack(spacing: 0) {
-                    Divider()
-                    Spacer()
-                    Divider()
-                }
-            )
+                .frame(height: 44)
+                #if targetEnvironment(macCatalyst)
+                .padding(.vertical, 2)
+                #endif
+                .background(
+                    Color(UIColor.secondarySystemBackground)
+                        .ignoresSafeArea(edges: .horizontal)
+                )
+                .overlay(
+                    VStack(spacing: 0) {
+                        Divider()
+                            .ignoresSafeArea(edges: .horizontal)
+                        Spacer()
+                        Divider()
+                            .ignoresSafeArea(edges: .horizontal)
+                    }
+                )
+            } else {
+                // Fallback while textView is being created
+                Color(UIColor.secondarySystemBackground)
+                    .frame(height: 44)
+                    .ignoresSafeArea(edges: .horizontal)
+            }
         }
         .navigationTitle(file.name ?? NSLocalizedString("fileEdit.untitledFile", comment: "Untitled file"))
         .navigationBarTitleDisplayMode(.inline)
@@ -179,6 +191,21 @@ struct FileEditView: View {
         .onDisappear {
             saveUndoState()
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("UndoRedoContentRestored"))) { notification in
+            // Handle formatting undo/redo - restore attributed content
+            guard let restoredContent = notification.userInfo?["content"] as? NSAttributedString else { return }
+            
+            #if DEBUG
+            print("🔄 Received UndoRedoContentRestored notification")
+            #endif
+            
+            // Update local state with restored content
+            attributedContent = restoredContent
+            
+            // Force UI refresh
+            forceRefresh.toggle()
+            refreshTrigger = UUID()
+        }
     }
     
     // MARK: - Attributed Text Handling
@@ -209,9 +236,6 @@ struct FileEditView: View {
         
         print("🔄 Content changed - registering with undo manager")
         
-        // Update state
-        content = newContent
-        
         // Create and execute undo command
         if let change = TextDiffService.diff(from: previousContent, to: newContent) {
             let command = TextDiffService.createCommand(from: change, file: file)
@@ -221,8 +245,7 @@ struct FileEditView: View {
         // Update previous content for next comparison
         previousContent = newContent
         
-        // Save to model
-        file.currentVersion?.content = newContent
+        // Save to model (attributedContent setter automatically syncs plain text)
         file.currentVersion?.attributedContent = newAttributedText
         file.modifiedDate = Date()
         
@@ -244,28 +267,21 @@ struct FileEditView: View {
         
         undoManager.undo()
         
-        let newContent = file.currentVersion?.content ?? ""
-        print("🔄 After undo - new content: '\(newContent)' (length: \(newContent.count))")
-        
-        // Create new attributed string from plain text
-        let newAttributedContent = NSAttributedString(
-            string: newContent,
+        // Reload from model (attributedContent getter handles plain text fallback)
+        let newAttributedContent = file.currentVersion?.attributedContent ?? NSAttributedString(
+            string: "",
             attributes: [.font: UIFont.preferredFont(forTextStyle: .body)]
         )
-        print("🔄 Created new attributed string from plain text")
+        
+        print("🔄 After undo - new content: '\(newAttributedContent.string)' (length: \(newAttributedContent.string.count))")
         
         // Update all state
-        content = newContent
         attributedContent = newAttributedContent
-        previousContent = newContent
+        previousContent = newAttributedContent.string
         
         // FIX: Position cursor at end of new content
-        selectedRange = NSRange(location: newContent.count, length: 0)
+        selectedRange = NSRange(location: newAttributedContent.string.count, length: 0)
         print("🔄 Set selectedRange to end: \(selectedRange)")
-        
-        // Save the attributed content to the version
-        file.currentVersion?.attributedContent = newAttributedContent
-        print("🔄 Updated attributedContent and saved RTF")
         
         // Force refresh
         forceRefresh.toggle()
@@ -286,28 +302,21 @@ struct FileEditView: View {
         
         undoManager.redo()
         
-        let newContent = file.currentVersion?.content ?? ""
-        print("🔄 After redo - new content: '\(newContent)' (length: \(newContent.count))")
-        
-        // Create new attributed string from plain text
-        let newAttributedContent = NSAttributedString(
-            string: newContent,
+        // Reload from model (attributedContent getter handles plain text fallback)
+        let newAttributedContent = file.currentVersion?.attributedContent ?? NSAttributedString(
+            string: "",
             attributes: [.font: UIFont.preferredFont(forTextStyle: .body)]
         )
-        print("🔄 Created new attributed string from plain text")
+        
+        print("🔄 After redo - new content: '\(newAttributedContent.string)' (length: \(newAttributedContent.string.count))")
         
         // Update all state
-        content = newContent
         attributedContent = newAttributedContent
-        previousContent = newContent
+        previousContent = newAttributedContent.string
         
         // FIX: Position cursor at end of new content
-        selectedRange = NSRange(location: newContent.count, length: 0)
+        selectedRange = NSRange(location: newAttributedContent.string.count, length: 0)
         print("🔄 Set selectedRange to end: \(selectedRange)")
-        
-        // Save the attributed content to the version
-        file.currentVersion?.attributedContent = newAttributedContent
-        print("🔄 Updated attributedContent and saved RTF")
         
         // Force refresh
         forceRefresh.toggle()
@@ -343,41 +352,114 @@ struct FileEditView: View {
             return
         }
         
-        // If no text is selected (cursor only), do nothing
-        // User must select text to apply formatting
-        guard selectedRange.length > 0 else {
-            print("⚠️ No text selected - formatting requires text selection")
+        // If no text is selected (cursor only), modify typing attributes
+        if selectedRange.length == 0 {
+            print("🎨 Modifying typing attributes for \(formatType)")
+            modifyTypingAttributes(formatType)
             return
         }
         
         print("🎨 Applying \(formatType) to range {\(selectedRange.location), \(selectedRange.length)}")
         
+        // Store before state for undo
+        let beforeContent = attributedContent
+        
         // Apply the appropriate formatting
         let newAttributedContent: NSAttributedString
+        let actionDescription: String
         switch formatType {
         case .bold:
             newAttributedContent = TextFormatter.toggleBold(in: attributedContent, range: selectedRange)
+            actionDescription = "Bold"
         case .italic:
             newAttributedContent = TextFormatter.toggleItalic(in: attributedContent, range: selectedRange)
+            actionDescription = "Italic"
         case .underline:
             newAttributedContent = TextFormatter.toggleUnderline(in: attributedContent, range: selectedRange)
+            actionDescription = "Underline"
         case .strikethrough:
             newAttributedContent = TextFormatter.toggleStrikethrough(in: attributedContent, range: selectedRange)
+            actionDescription = "Strikethrough"
         }
         
         print("🎨 Format applied successfully")
         
         // Update local state immediately for instant UI feedback
         attributedContent = newAttributedContent
-        content = newAttributedContent.string
         
         print("🎨 Updated local state with formatted content")
         
-        // Formatting is saved to the model when the file is closed (in saveChanges)
-        // This avoids triggering encode/decode on every formatting change
+        // Create formatting command for undo/redo
+        let command = FormatApplyCommand(
+            description: actionDescription,
+            range: selectedRange,
+            beforeContent: beforeContent,
+            afterContent: newAttributedContent,
+            targetFile: file
+        )
         
-        // TODO: Phase 6 - Add formatting command to undo stack
-        // For now, formatting changes don't go into undo history
+        // Execute command through undo manager
+        undoManager.execute(command)
+        
+        print("🎨 Formatting command added to undo stack")
+    }
+    
+    /// Modify typing attributes at cursor position
+    private func modifyTypingAttributes(_ formatType: FormatType) {
+        // Use coordinator to modify typing attributes without triggering view updates
+        textViewCoordinator.modifyTypingAttributes { textView in
+            // Get current typing attributes
+            var typingAttributes = textView.typingAttributes
+            
+            // Get or create font attribute
+            let currentFont = typingAttributes[.font] as? UIFont ?? UIFont.preferredFont(forTextStyle: .body)
+            
+            // Modify based on format type
+            switch formatType {
+            case .bold:
+                let traits = currentFont.fontDescriptor.symbolicTraits
+                let newTraits = traits.contains(.traitBold) ?
+                    traits.subtracting(.traitBold) :
+                    traits.union(.traitBold)
+                
+                if let descriptor = currentFont.fontDescriptor.withSymbolicTraits(newTraits) {
+                    typingAttributes[.font] = UIFont(descriptor: descriptor, size: currentFont.pointSize)
+                }
+                
+            case .italic:
+                let traits = currentFont.fontDescriptor.symbolicTraits
+                let newTraits = traits.contains(.traitItalic) ?
+                    traits.subtracting(.traitItalic) :
+                    traits.union(.traitItalic)
+                
+                if let descriptor = currentFont.fontDescriptor.withSymbolicTraits(newTraits) {
+                    typingAttributes[.font] = UIFont(descriptor: descriptor, size: currentFont.pointSize)
+                }
+                
+            case .underline:
+                if let currentStyle = typingAttributes[.underlineStyle] as? Int, currentStyle != 0 {
+                    typingAttributes[.underlineStyle] = 0
+                } else {
+                    typingAttributes[.underlineStyle] = NSUnderlineStyle.single.rawValue
+                }
+                
+            case .strikethrough:
+                if let currentStyle = typingAttributes[.strikethroughStyle] as? Int, currentStyle != 0 {
+                    typingAttributes[.strikethroughStyle] = 0
+                } else {
+                    typingAttributes[.strikethroughStyle] = NSUnderlineStyle.single.rawValue
+                }
+            }
+            
+            // Apply the modified typing attributes
+            textView.typingAttributes = typingAttributes
+            
+            print("🎨 Modified typing attributes for \(formatType)")
+            print("🎨 New typing attributes: \(typingAttributes)")
+        }
+        
+        // DON'T trigger refresh - it dismisses the keyboard
+        // The toolbar will check typing attributes directly when selection changes
     }
     
     // MARK: - Version Management
@@ -401,16 +483,14 @@ struct FileEditView: View {
     }
     
     private func loadCurrentVersion() {
-        let newContent = file.currentVersion?.content ?? ""
         let newAttributedContent = file.currentVersion?.attributedContent ?? NSAttributedString(
-            string: newContent,
+            string: "",
             attributes: [.font: UIFont.preferredFont(forTextStyle: .body)]
         )
         
-        content = newContent
         attributedContent = newAttributedContent
-        previousContent = newContent
-        selectedRange = NSRange(location: newContent.count, length: 0)
+        previousContent = newAttributedContent.string
+        selectedRange = NSRange(location: newAttributedContent.string.count, length: 0)
         
         forceRefresh.toggle()
         refreshTrigger = UUID()
@@ -426,8 +506,8 @@ struct FileEditView: View {
     
     private func saveChanges() {
         // Save the current attributed content to the model
+        // The attributedContent setter automatically syncs plain text content
         file.currentVersion?.attributedContent = attributedContent
-        file.currentVersion?.content = content
         file.modifiedDate = Date()
         
         do {

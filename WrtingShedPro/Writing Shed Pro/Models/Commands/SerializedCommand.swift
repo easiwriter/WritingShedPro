@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 /// Serializable wrapper for persisting commands
 struct SerializedCommand: Codable {
@@ -20,7 +21,7 @@ struct SerializedCommand: Codable {
         case textInsert(position: Int, text: String)
         case textDelete(startPosition: Int, endPosition: Int, deletedText: String)
         case textReplace(startPosition: Int, endPosition: Int, oldText: String, newText: String)
-        case formatApply(startPosition: Int, endPosition: Int, attributes: [String: String], previousAttributes: [String: String]?)
+        case formatApply(range: [String: Int], beforeContentData: Data, beforeContentText: String, afterContentData: Data, afterContentText: String)
         case formatRemove(startPosition: Int, endPosition: Int, attributeKeys: [String], previousAttributes: [String: String])
     }
     
@@ -59,12 +60,22 @@ struct SerializedCommand: Codable {
             )
             
         case let cmd as FormatApplyCommand:
+            let rangeDict = ["location": cmd.range.location, "length": cmd.range.length]
+            let beforeData = AttributedStringSerializer.encode(cmd.beforeContent)
+            let afterData = AttributedStringSerializer.encode(cmd.afterContent)
+            
             return SerializedCommand(
                 id: id,
                 type: .formatApply,
                 timestamp: timestamp,
                 description: description,
-                data: .formatApply(startPosition: cmd.startPosition, endPosition: cmd.endPosition, attributes: cmd.attributes, previousAttributes: cmd.previousAttributes)
+                data: .formatApply(
+                    range: rangeDict,
+                    beforeContentData: beforeData,
+                    beforeContentText: cmd.beforeContent.string,
+                    afterContentData: afterData,
+                    afterContentText: cmd.afterContent.string
+                )
             )
             
         case let cmd as FormatRemoveCommand:
@@ -117,15 +128,20 @@ struct SerializedCommand: Codable {
                 targetFile: file
             )
             
-        case .formatApply(let startPosition, let endPosition, let attributes, let previousAttributes):
+        case .formatApply(let rangeDict, let beforeContentData, let beforeContentText, let afterContentData, let afterContentText):
+            let location = rangeDict["location"] ?? 0
+            let length = rangeDict["length"] ?? 0
+            let range = NSRange(location: location, length: length)
+            let beforeContent = AttributedStringSerializer.decode(beforeContentData, text: beforeContentText)
+            let afterContent = AttributedStringSerializer.decode(afterContentData, text: afterContentText)
+            
             return FormatApplyCommand(
                 id: id,
                 timestamp: timestamp,
                 description: description,
-                startPosition: startPosition,
-                endPosition: endPosition,
-                attributes: attributes,
-                previousAttributes: previousAttributes,
+                range: range,
+                beforeContent: beforeContent,
+                afterContent: afterContent,
                 targetFile: file
             )
             
