@@ -19,8 +19,8 @@ import UIKit
 @Model
 final class StyleSheet {
     var id: UUID = UUID()
-    var name: String
-    var isSystemStyleSheet: Bool
+    var name: String = ""
+    var isSystemStyleSheet: Bool = false
     var createdDate: Date = Date()
     var modifiedDate: Date = Date()
     
@@ -55,39 +55,39 @@ final class StyleSheet {
 @Model
 final class TextStyleModel {
     var id: UUID = UUID()
-    var name: String  // "body", "title1", "headline", "custom-quote", etc.
-    var displayName: String  // "Body", "Title 1", "Headline", "Block Quote"
-    var displayOrder: Int  // For sorting in UI
+    var name: String = ""  // "body", "title1", "headline", "custom-quote", etc.
+    var displayName: String = ""  // "Body", "Title 1", "Headline", "Block Quote"
+    var displayOrder: Int = 0  // For sorting in UI
     
     // MARK: - Font Attributes
     var fontFamily: String?  // nil = use system font
-    var fontSize: CGFloat
-    var isBold: Bool
-    var isItalic: Bool
-    var isUnderlined: Bool
-    var isStrikethrough: Bool
+    var fontSize: CGFloat = 17
+    var isBold: Bool = false
+    var isItalic: Bool = false
+    var isUnderlined: Bool = false
+    var isStrikethrough: Bool = false
     var textColorHex: String?  // Hex color string, nil = default
     
     // MARK: - Paragraph Attributes
-    var alignmentRaw: Int  // NSTextAlignment raw value
-    var lineSpacing: CGFloat
-    var paragraphSpacingBefore: CGFloat
-    var paragraphSpacingAfter: CGFloat
-    var firstLineIndent: CGFloat
-    var headIndent: CGFloat  // Left margin
-    var tailIndent: CGFloat  // Right margin
+    var alignmentRaw: Int = 0  // NSTextAlignment raw value
+    var lineSpacing: CGFloat = 0
+    var paragraphSpacingBefore: CGFloat = 0
+    var paragraphSpacingAfter: CGFloat = 0
+    var firstLineIndent: CGFloat = 0
+    var headIndent: CGFloat = 0  // Left margin
+    var tailIndent: CGFloat = 0  // Right margin
     
     // MARK: - Line Height
-    var lineHeightMultiple: CGFloat
-    var minimumLineHeight: CGFloat
-    var maximumLineHeight: CGFloat
+    var lineHeightMultiple: CGFloat = 0
+    var minimumLineHeight: CGFloat = 0
+    var maximumLineHeight: CGFloat = 0
     
     // MARK: - Numbering/Bullets
-    var numberFormatRaw: String  // NumberFormat.rawValue
+    var numberFormatRaw: String = "none"  // NumberFormat.rawValue
     
     // MARK: - Style Classification
-    var styleCategoryRaw: String  // "text", "list", "footnote", "heading"
-    var isSystemStyle: Bool  // true for built-in UIFont.TextStyle equivalents
+    var styleCategoryRaw: String = "text"  // "text", "list", "footnote", "heading"
+    var isSystemStyle: Bool = false  // true for built-in UIFont.TextStyle equivalents
     
     // MARK: - Metadata
     var createdDate: Date = Date()
