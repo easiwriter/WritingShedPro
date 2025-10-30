@@ -35,12 +35,15 @@
 "addProject.projectInfo" = "Project Information";
 "addProject.projectName" = "Project Name";
 "addProject.type" = "Type";
+"addProject.stylesheet" = "Stylesheet";
+"addProject.stylesheetPicker" = "Choose Stylesheet";
 "addProject.details" = "Details";
 "addProject.error" = "Error";
 "addProject.ok" = "OK";
 "addProject.duplicateName" = "A project with this name already exists.";
 "addProject.projectNameAccessibility" = "Enter project name";
 "addProject.typeAccessibility" = "Select project type";
+"addProject.stylesheetAccessibility" = "Select stylesheet for text formatting";
 "addProject.detailsAccessibility" = "Enter project details";
 
 /* ProjectDetailView */

@@ -8,6 +8,8 @@ struct AddProjectSheet: View {
     @State var details = ""
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
+    @State private var selectedStyleSheet: StyleSheet?
+    @State private var availableStyleSheets: [StyleSheet] = []
     @Environment(\.modelContext) var modelContext
     let projects: [Project]
     
@@ -24,6 +26,16 @@ struct AddProjectSheet: View {
                     }
                     .accessibilityLabel(NSLocalizedString("addProject.typeAccessibility", comment: "Accessibility label for project type picker"))
                 }
+                
+                Section(NSLocalizedString("addProject.stylesheet", comment: "Section header for stylesheet selection")) {
+                    Picker(NSLocalizedString("addProject.stylesheetPicker", comment: "Field label for stylesheet picker"), selection: $selectedStyleSheet) {
+                        ForEach(availableStyleSheets, id: \.id) { sheet in
+                            Text(sheet.name).tag(sheet as StyleSheet?)
+                        }
+                    }
+                    .accessibilityLabel(NSLocalizedString("addProject.stylesheetAccessibility", comment: "Accessibility label for stylesheet picker"))
+                }
+                
                 Section(NSLocalizedString("addProject.details", comment: "Section header for project details")) {
                     TextEditor(text: $details)
                         .frame(height: 100)
@@ -32,6 +44,9 @@ struct AddProjectSheet: View {
             }
             .navigationTitle(NSLocalizedString("addProject.title", comment: "Title for add project sheet"))
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear {
+                loadStyleSheets()
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(NSLocalizedString("addProject.cancel", comment: "Cancel button")) {
@@ -77,11 +92,28 @@ struct AddProjectSheet: View {
             details: details.isEmpty ? nil : details,
             userOrder: projects.count // Place new project at the end
         )
+        
+        // Assign selected stylesheet
+        newProject.styleSheet = selectedStyleSheet
+        
         modelContext.insert(newProject)
         
         // Create default folder structure
         ProjectTemplateService.createDefaultFolders(for: newProject, in: modelContext)
         
         isPresented = false
+    }
+    
+    private func loadStyleSheets() {
+        let descriptor = FetchDescriptor<StyleSheet>(
+            sortBy: [SortDescriptor(\.name)]
+        )
+        
+        if let sheets = try? modelContext.fetch(descriptor) {
+            availableStyleSheets = sheets
+            
+            // Select default stylesheet by default
+            selectedStyleSheet = sheets.first(where: { $0.isSystemStyleSheet })
+        }
     }
 }
