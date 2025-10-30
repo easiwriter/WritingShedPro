@@ -21,6 +21,7 @@ struct AttributeValues: Codable {
     var tailIndent: CGFloat?
     var maxLineHeight: CGFloat?
     var minLineHeight: CGFloat?
+    var textStyle: String?  // Stores UIFont.TextStyle.rawValue
 }
 
 /// Service for converting between NSAttributedString and storable formats
@@ -105,6 +106,13 @@ struct AttributedStringSerializer {
                         if let minHeight = ps?.minimumLineHeight, minHeight > 0 {
                             attributes.minLineHeight = minHeight
                         }
+                    
+                    case .textStyle:
+                        // Store the text style raw value
+                        if let styleValue = value as? String {
+                            attributes.textStyle = styleValue
+                            print("💾 ENCODE textStyle at \(range.location): \(styleValue)")
+                        }
                         
                     default:
                         break
@@ -128,7 +136,14 @@ struct AttributedStringSerializer {
     ///   - text: The plain text content
     /// - Returns: Reconstructed NSAttributedString
     static func decode(_ data: Data, text: String) -> NSAttributedString {
-        let result = NSMutableAttributedString(string: text)
+        // Start with body font and textStyle as default
+        let result = NSMutableAttributedString(
+            string: text,
+            attributes: [
+                .font: UIFont.preferredFont(forTextStyle: .body),
+                .textStyle: UIFont.TextStyle.body.attributeValue
+            ]
+        )
         
         guard result.length > 0, !data.isEmpty else {
             return result
@@ -182,6 +197,11 @@ struct AttributedStringSerializer {
                 // Strikethrough
                 if let strikethrough = jsonAttributes.strikethrough, strikethrough > 0 {
                     attributes[.strikethroughStyle] = strikethrough
+                }
+                
+                // Text style - restore the stored style name
+                if let textStyleValue = jsonAttributes.textStyle {
+                    attributes[.textStyle] = textStyleValue
                 }
                 
                 // Paragraph style - only add if we have non-default values

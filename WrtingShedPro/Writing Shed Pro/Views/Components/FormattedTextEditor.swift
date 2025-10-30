@@ -120,6 +120,18 @@ struct FormattedTextEditor: UIViewRepresentable {
         // Set initial content - this should be done AFTER layout configuration
         textView.attributedText = attributedText
         
+        // Set typing attributes to match the content
+        // This ensures that when typing in an empty document or at the end,
+        // the correct font is used
+        if attributedText.length > 0 {
+            // Get attributes from the start of the text
+            let attrs = attributedText.attributes(at: 0, effectiveRange: nil)
+            textView.typingAttributes = attrs
+        } else {
+            // Empty document - use body font
+            textView.typingAttributes = [.font: font]
+        }
+        
         // Force layout before setting selection
         textView.layoutManager.ensureLayout(for: textView.textContainer)
         

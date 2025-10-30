@@ -12,6 +12,8 @@ struct FileEditView: View {
     @State private var isPerformingUndoRedo = false
     @State private var refreshTrigger = UUID()
     @State private var forceRefresh = false
+    @State private var showStylePicker = false
+    @State private var currentParagraphStyle: UIFont.TextStyle? = .body
     @StateObject private var undoManager: TextFileUndoManager
     @StateObject private var textViewCoordinator = TextViewCoordinator()
     
@@ -35,6 +37,10 @@ struct FileEditView: View {
         )
         _attributedContent = State(initialValue: initialAttributed)
         _previousContent = State(initialValue: initialAttributed.string)
+        
+        // Position cursor at end of text (where user likely wants to continue writing)
+        let textLength = initialAttributed.length
+        _selectedRange = State(initialValue: NSRange(location: textLength, length: 0))
         
         // Try to restore undo manager or create new one
         if let restoredManager = file.restoreUndoState() {
@@ -120,7 +126,7 @@ struct FileEditView: View {
                 FormattingToolbarView(textView: textView) { action in
                     switch action {
                     case .paragraphStyle:
-                        print("Paragraph style picker tapped")
+                        showStylePicker = true
                     case .bold:
                         applyFormatting(.bold)
                     case .italic:
@@ -165,6 +171,7 @@ struct FileEditView: View {
                     // Undo button
                     Button(action: {
                         performUndo()
+                        restoreKeyboardFocus()
                     }) {
                         Image(systemName: "arrow.uturn.backward")
                     }
@@ -174,6 +181,7 @@ struct FileEditView: View {
                     // Redo button
                     Button(action: {
                         performRedo()
+                        restoreKeyboardFocus()
                     }) {
                         Image(systemName: "arrow.uturn.forward")
                     }
@@ -191,6 +199,19 @@ struct FileEditView: View {
         .onDisappear {
             saveUndoState()
         }
+        .onAppear {
+            // Show keyboard/cursor when opening file
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                self.textViewCoordinator.textView?.becomeFirstResponder()
+            }
+            
+            // Update current style from content
+            updateCurrentParagraphStyle()
+        }
+        .onChange(of: selectedRange) { oldValue, newValue in
+            // Update style when selection changes
+            updateCurrentParagraphStyle()
+        }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("UndoRedoContentRestored"))) { notification in
             // Handle formatting undo/redo - restore attributed content
             guard let restoredContent = notification.userInfo?["content"] as? NSAttributedString else { return }
@@ -205,6 +226,14 @@ struct FileEditView: View {
             // Force UI refresh
             forceRefresh.toggle()
             refreshTrigger = UUID()
+        }
+        .sheet(isPresented: $showStylePicker) {
+            StylePickerSheet(
+                currentStyle: $currentParagraphStyle,
+                onStyleSelected: { style in
+                    applyParagraphStyle(style)
+                }
+            )
         }
     }
     
@@ -462,6 +491,90 @@ struct FileEditView: View {
         // The toolbar will check typing attributes directly when selection changes
     }
     
+    /// Update the current paragraph style state by checking the attributed content
+    private func updateCurrentParagraphStyle() {
+        if let style = TextFormatter.getCurrentStyle(in: attributedContent, at: selectedRange) {
+            currentParagraphStyle = style
+        }
+    }
+    
+    /// Apply a paragraph style to the current selection
+    private func applyParagraphStyle(_ style: UIFont.TextStyle) {
+        #if DEBUG
+        print("📝 applyParagraphStyle(\(style)) called")
+        print("📝 selectedRange: {\(selectedRange.location), \(selectedRange.length)}")
+        #endif
+        
+        // Ensure we have a valid location
+        guard selectedRange.location != NSNotFound else {
+            print("⚠️ selectedRange.location is NSNotFound")
+            return
+        }
+        
+        // Special handling for empty text
+        if attributedContent.length == 0 {
+            print("📝 Text is empty - creating attributed string with style: \(style)")
+            
+            // Create an empty attributed string with the style attributes
+            // This allows the style picker to detect the current style
+            let typingAttrs = TextFormatter.getTypingAttributes(for: style)
+            let styledEmptyString = NSAttributedString(string: "", attributes: typingAttrs)
+            
+            // Update the attributed content
+            attributedContent = styledEmptyString
+            
+            // Update the current style state
+            currentParagraphStyle = style
+            
+            // Also set typing attributes for when user starts typing
+            textViewCoordinator.modifyTypingAttributes { textView in
+                textView.typingAttributes = typingAttrs
+            }
+            
+            print("📝 Empty text styled - picker should update")
+            return
+        }
+        
+        // Store before state for undo
+        let beforeContent = attributedContent
+        
+        // Apply the style using TextFormatter
+        let newAttributedContent = TextFormatter.applyStyle(style, to: attributedContent, range: selectedRange)
+        
+        print("📝 Paragraph style applied successfully")
+        
+        // Update local state immediately for instant UI feedback
+        attributedContent = newAttributedContent
+        
+        // Update the current style state
+        currentParagraphStyle = style
+        
+        // Also update typing attributes so new text in this paragraph uses the style
+        // This is especially important for empty paragraphs or when cursor is at paragraph end
+        textViewCoordinator.modifyTypingAttributes { textView in
+            textView.typingAttributes = TextFormatter.getTypingAttributes(for: style)
+        }
+        
+        print("📝 Updated local state with styled content")
+        
+        // Create formatting command for undo/redo
+        let command = FormatApplyCommand(
+            description: "Paragraph Style",
+            range: selectedRange,
+            beforeContent: beforeContent,
+            afterContent: newAttributedContent,
+            targetFile: file
+        )
+        
+        // Execute command through undo manager
+        undoManager.execute(command)
+        
+        print("📝 Paragraph style command added to undo stack")
+        
+        // Restore keyboard focus after applying style
+        restoreKeyboardFocus()
+    }
+    
     // MARK: - Version Management
 
     
@@ -515,6 +628,16 @@ struct FileEditView: View {
             print("💾 Saved attributed content on file close")
         } catch {
             print("Error saving context: \(error)")
+        }
+    }
+    
+    // MARK: - Keyboard Management
+    
+    /// Restore keyboard focus after undo/redo button taps
+    /// SwiftUI buttons dismiss keyboard, so we restore it with a brief flicker
+    private func restoreKeyboardFocus() {
+        DispatchQueue.main.async {
+            self.textViewCoordinator.textView?.becomeFirstResponder()
         }
     }
 }
