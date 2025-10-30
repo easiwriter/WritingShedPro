@@ -83,6 +83,11 @@ final class File {
     
     @Relationship(deleteRule: .cascade, inverse: \Version.file) var versions: [Version]?
     
+    /// Get the project this file belongs to (via parent folder)
+    var project: Project? {
+        return parentFolder?.project
+    }
+    
     init(name: String?, content: String? = nil, userOrder: Int? = nil) {
         self.name = name
         self.content = content

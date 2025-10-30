@@ -493,6 +493,19 @@ struct FileEditView: View {
     
     /// Update the current paragraph style state by checking the attributed content
     private func updateCurrentParagraphStyle() {
+        // Try model-based lookup if we have a project
+        if let project = file.project,
+           let styleName = TextFormatter.getCurrentStyleName(
+               in: attributedContent,
+               at: selectedRange,
+               project: project,
+               context: modelContext
+           ) {
+            currentParagraphStyle = UIFont.TextStyle(rawValue: styleName)
+            return
+        }
+        
+        // Fallback to direct UIFont.TextStyle lookup
         if let style = TextFormatter.getCurrentStyle(in: attributedContent, at: selectedRange) {
             currentParagraphStyle = style
         }
@@ -511,6 +524,77 @@ struct FileEditView: View {
             return
         }
         
+        // Try to use model-based formatting if we have a project
+        let newAttributedContent: NSAttributedString
+        if let project = file.project {
+            // Special handling for empty text (model-based)
+            if attributedContent.length == 0 {
+                print("📝 Text is empty - creating attributed string with style: \(style)")
+                
+                let typingAttrs = TextFormatter.getTypingAttributes(
+                    forStyleNamed: style.rawValue,
+                    project: project,
+                    context: modelContext
+                )
+                let styledEmptyString = NSAttributedString(string: "", attributes: typingAttrs)
+                
+                attributedContent = styledEmptyString
+                currentParagraphStyle = style
+                
+                textViewCoordinator.modifyTypingAttributes { textView in
+                    textView.typingAttributes = typingAttrs
+                }
+                
+                print("📝 Empty text styled with model - picker should update")
+                return
+            }
+            
+            // Store before state for undo
+            let beforeContent = attributedContent
+            
+            // Apply the style using model-based TextFormatter
+            newAttributedContent = TextFormatter.applyStyle(
+                named: style.rawValue,
+                to: attributedContent,
+                range: selectedRange,
+                project: project,
+                context: modelContext
+            )
+            
+            print("📝 Paragraph style applied successfully (model-based)")
+            
+            // Update local state immediately for instant UI feedback
+            attributedContent = newAttributedContent
+            currentParagraphStyle = style
+            
+            // Update typing attributes
+            let typingAttrs = TextFormatter.getTypingAttributes(
+                forStyleNamed: style.rawValue,
+                project: project,
+                context: modelContext
+            )
+            textViewCoordinator.modifyTypingAttributes { textView in
+                textView.typingAttributes = typingAttrs
+            }
+            
+            print("📝 Updated local state with styled content (model-based)")
+            
+            // Create formatting command for undo/redo
+            let command = FormatApplyCommand(
+                description: "Paragraph Style",
+                range: selectedRange,
+                beforeContent: beforeContent,
+                afterContent: newAttributedContent,
+                targetFile: file
+            )
+            
+            undoManager.execute(command)
+            print("📝 Paragraph style command added to undo stack")
+            restoreKeyboardFocus()
+            return
+        }
+        
+        // Fallback to direct UIFont.TextStyle (for files not in a project)
         // Special handling for empty text
         if attributedContent.length == 0 {
             print("📝 Text is empty - creating attributed string with style: \(style)")
@@ -539,7 +623,7 @@ struct FileEditView: View {
         let beforeContent = attributedContent
         
         // Apply the style using TextFormatter
-        let newAttributedContent = TextFormatter.applyStyle(style, to: attributedContent, range: selectedRange)
+        newAttributedContent = TextFormatter.applyStyle(style, to: attributedContent, range: selectedRange)
         
         print("📝 Paragraph style applied successfully")
         
