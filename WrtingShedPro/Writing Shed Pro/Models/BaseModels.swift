@@ -14,6 +14,9 @@ final class Project {
     var userOrder: Int?
     @Relationship(deleteRule: .cascade, inverse: \Folder.project) var folders: [Folder]?
     
+    // Style sheet reference (Phase 5)
+    var styleSheet: StyleSheet?
+    
     var type: ProjectType {
         get {
             guard let typeRaw = typeRaw, let projectType = ProjectType(rawValue: typeRaw) else {
@@ -26,7 +29,7 @@ final class Project {
         }
     }
     
-    init(name: String?, type: ProjectType = ProjectType.blank, creationDate: Date? = Date(), details: String? = nil, notes: String? = nil, userOrder: Int? = nil) {
+    init(name: String?, type: ProjectType = ProjectType.blank, creationDate: Date? = Date(), details: String? = nil, notes: String? = nil, userOrder: Int? = nil, styleSheet: StyleSheet? = nil) {
         self.name = name
         self.typeRaw = type.rawValue
         self.creationDate = creationDate
