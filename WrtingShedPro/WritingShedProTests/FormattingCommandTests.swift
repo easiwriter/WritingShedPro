@@ -579,4 +579,100 @@ final class FormattingCommandTests: XCTestCase {
         XCTAssertEqual(result.string, "Hello 👋 World 🌍", "Should preserve emoji")
         XCTAssertTrue(isBold(in: result, range: range), "Emoji should be bold")
     }
+    
+    // MARK: - Font Preservation Tests
+    
+    func testFormatApplyCommand_PreservesFontFamily() {
+        // Given: Text with Helvetica font
+        let helvetica = UIFont(name: "Helvetica", size: 17) ?? UIFont.systemFont(ofSize: 17)
+        let originalContent = NSAttributedString(
+            string: "Hello World",
+            attributes: [.font: helvetica]
+        )
+        testFile.currentVersion?.attributedContent = originalContent
+        
+        // When: Apply bold
+        let range = NSRange(location: 0, length: 5)
+        let formattedContent = TextFormatter.toggleBold(in: originalContent, range: range)
+        
+        let command = FormatApplyCommand(
+            description: "Bold",
+            range: range,
+            beforeContent: originalContent,
+            afterContent: formattedContent,
+            targetFile: testFile
+        )
+        command.execute()
+        
+        // Then: Font family should still be Helvetica
+        let result = testFile.currentVersion?.attributedContent ?? NSAttributedString()
+        let attributes = result.attributes(at: 0, effectiveRange: nil)
+        let resultFont = attributes[.font] as? UIFont
+        
+        XCTAssertNotNil(resultFont, "Font should exist")
+        XCTAssertTrue(resultFont!.fontName.contains("Helvetica"), "Font family should be Helvetica, got \(resultFont!.fontName)")
+        XCTAssertEqual(resultFont!.pointSize, 17, "Font size should be preserved")
+        XCTAssertTrue(isBold(in: result, range: range), "Text should be bold")
+    }
+    
+    func testFormatApplyCommand_PreservesFontSize() {
+        // Given: Text with size 24
+        let largeFont = UIFont.systemFont(ofSize: 24)
+        let originalContent = NSAttributedString(
+            string: "Hello World",
+            attributes: [.font: largeFont]
+        )
+        testFile.currentVersion?.attributedContent = originalContent
+        
+        // When: Apply italic
+        let range = NSRange(location: 6, length: 5)
+        let formattedContent = TextFormatter.toggleItalic(in: originalContent, range: range)
+        
+        let command = FormatApplyCommand(
+            description: "Italic",
+            range: range,
+            beforeContent: originalContent,
+            afterContent: formattedContent,
+            targetFile: testFile
+        )
+        command.execute()
+        
+        // Then: Font size should still be 24
+        let result = testFile.currentVersion?.attributedContent ?? NSAttributedString()
+        let attributes = result.attributes(at: 6, effectiveRange: nil)
+        let resultFont = attributes[.font] as? UIFont
+        
+        XCTAssertNotNil(resultFont, "Font should exist")
+        XCTAssertEqual(resultFont!.pointSize, 24, "Font size should be preserved at 24")
+        XCTAssertTrue(isItalic(in: result, range: range), "Text should be italic")
+    }
+    
+    func testFormatApplyCommand_PreservesFontWithBoldAndItalic() {
+        // Given: Text with Times New Roman
+        let times = UIFont(name: "TimesNewRomanPSMT", size: 18) ?? UIFont.systemFont(ofSize: 18)
+        let originalContent = NSAttributedString(
+            string: "Test",
+            attributes: [.font: times]
+        )
+        testFile.currentVersion?.attributedContent = originalContent
+        
+        // When: Apply bold then italic
+        let range = NSRange(location: 0, length: 4)
+        var content = originalContent
+        content = TextFormatter.toggleBold(in: content, range: range)
+        content = TextFormatter.toggleItalic(in: content, range: range)
+        
+        testFile.currentVersion?.attributedContent = content
+        
+        // Then: Font should still be Times New Roman (or variant), size 18, bold+italic
+        let result = testFile.currentVersion?.attributedContent ?? NSAttributedString()
+        let attributes = result.attributes(at: 0, effectiveRange: nil)
+        let resultFont = attributes[.font] as? UIFont
+        
+        XCTAssertNotNil(resultFont, "Font should exist")
+        XCTAssertTrue(resultFont!.familyName.contains("Times"), "Font family should be Times, got \(resultFont!.familyName)")
+        XCTAssertEqual(resultFont!.pointSize, 18, "Font size should be preserved at 18")
+        XCTAssertTrue(isBold(in: result, range: range), "Text should be bold")
+        XCTAssertTrue(isItalic(in: result, range: range), "Text should be italic")
+    }
 }

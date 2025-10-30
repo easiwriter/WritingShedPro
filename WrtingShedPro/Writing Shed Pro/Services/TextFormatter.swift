@@ -50,14 +50,26 @@ struct TextFormatter {
         let hasBold = checkForBold(in: cleanedText, range: range)
         
         // Apply or remove bold using font traits
-        mutableText.enumerateAttribute(.font, in: range, options: []) { value, subrange, stop in
-            let currentFont = (value as? UIFont) ?? UIFont.preferredFont(forTextStyle: .body)
+        mutableText.enumerateAttribute(.font, in: range, options: []) { value, subrange, _ in
+            // Every paragraph MUST have a font attribute (text style)
+            // If missing, it's a bug - but we handle it gracefully with .body default
+            guard let currentFont = value as? UIFont else {
+                #if DEBUG
+                print("⚠️ TextFormatter.toggleBold: Missing font attribute at range \(subrange) - using .body as fallback")
+                #endif
+                // Apply body style with trait as fallback
+                let bodyFont = UIFont.preferredFont(forTextStyle: .body)
+                if let descriptor = bodyFont.fontDescriptor.withSymbolicTraits(hasBold ? [] : .traitBold) {
+                    let newFont = UIFont(descriptor: descriptor, size: bodyFont.pointSize)
+                    mutableText.addAttribute(.font, value: newFont, range: subrange)
+                }
+                return
+            }
             
-            // Get current traits
+            // Get current traits and preserve them (except bold which we're toggling)
             let currentTraits = currentFont.fontDescriptor.symbolicTraits
-            let hasItalic = currentTraits.contains(.traitItalic)
             
-            // Use the font descriptor to create a new font with traits
+            // Create new traits by toggling bold while preserving font family and size
             var newTraits = currentTraits
             if !hasBold {
                 newTraits.insert(.traitBold)
@@ -65,6 +77,7 @@ struct TextFormatter {
                 newTraits.remove(.traitBold)
             }
             
+            // Apply new traits - this preserves the font family and size
             if let newDescriptor = currentFont.fontDescriptor.withSymbolicTraits(newTraits) {
                 let newFont = UIFont(descriptor: newDescriptor, size: currentFont.pointSize)
                 mutableText.addAttribute(.font, value: newFont, range: subrange)
@@ -85,13 +98,26 @@ struct TextFormatter {
         let mutableText = NSMutableAttributedString(attributedString: cleanedText)
         let hasItalic = checkForItalic(in: cleanedText, range: range)
         
-        mutableText.enumerateAttribute(.font, in: range, options: []) { value, subrange, stop in
-            let currentFont = (value as? UIFont) ?? UIFont.preferredFont(forTextStyle: .body)
+        mutableText.enumerateAttribute(.font, in: range, options: []) { value, subrange, _ in
+            // Every paragraph MUST have a font attribute (text style)
+            // If missing, it's a bug - but we handle it gracefully with .body default
+            guard let currentFont = value as? UIFont else {
+                #if DEBUG
+                print("⚠️ TextFormatter.toggleItalic: Missing font attribute at range \(subrange) - using .body as fallback")
+                #endif
+                // Apply body style with trait as fallback
+                let bodyFont = UIFont.preferredFont(forTextStyle: .body)
+                if let descriptor = bodyFont.fontDescriptor.withSymbolicTraits(hasItalic ? [] : .traitItalic) {
+                    let newFont = UIFont(descriptor: descriptor, size: bodyFont.pointSize)
+                    mutableText.addAttribute(.font, value: newFont, range: subrange)
+                }
+                return
+            }
             
-            // Get current traits
+            // Get current traits and preserve them (except italic which we're toggling)
             let currentTraits = currentFont.fontDescriptor.symbolicTraits
             
-            // Use the font descriptor to create a new font with traits
+            // Create new traits by toggling italic while preserving font family and size
             var newTraits = currentTraits
             if !hasItalic {
                 newTraits.insert(.traitItalic)
@@ -99,6 +125,7 @@ struct TextFormatter {
                 newTraits.remove(.traitItalic)
             }
             
+            // Apply new traits - this preserves the font family and size
             if let newDescriptor = currentFont.fontDescriptor.withSymbolicTraits(newTraits) {
                 let newFont = UIFont(descriptor: newDescriptor, size: currentFont.pointSize)
                 mutableText.addAttribute(.font, value: newFont, range: subrange)
