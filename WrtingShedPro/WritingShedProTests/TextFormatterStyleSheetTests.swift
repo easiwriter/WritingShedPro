@@ -49,7 +49,7 @@ final class TextFormatterStyleSheetTests: XCTestCase {
     func testGetTypingAttributesForBodyStyle() throws {
         // When
         let attrs = TextFormatter.getTypingAttributes(
-            forStyleNamed: "body",
+            forStyleNamed: UIFont.TextStyle.body.rawValue,
             project: project,
             context: context
         )
@@ -68,7 +68,7 @@ final class TextFormatterStyleSheetTests: XCTestCase {
     func testGetTypingAttributesForHeadlineStyle() throws {
         // When
         let attrs = TextFormatter.getTypingAttributes(
-            forStyleNamed: "headline",
+            forStyleNamed: UIFont.TextStyle.headline.rawValue,
             project: project,
             context: context
         )
@@ -108,7 +108,7 @@ final class TextFormatterStyleSheetTests: XCTestCase {
         
         // When
         let result = TextFormatter.applyStyle(
-            named: "title1",
+            named: UIFont.TextStyle.title1.rawValue,
             to: text,
             range: range,
             project: project,
@@ -134,7 +134,7 @@ final class TextFormatterStyleSheetTests: XCTestCase {
         
         // When
         let result = TextFormatter.applyStyle(
-            named: "body",
+            named: UIFont.TextStyle.body.rawValue,
             to: mutableText,
             range: NSRange(location: 0, length: mutableText.length),
             project: project,
@@ -157,7 +157,7 @@ final class TextFormatterStyleSheetTests: XCTestCase {
         
         // When
         let result = TextFormatter.applyStyle(
-            named: "headline",
+            named: UIFont.TextStyle.headline.rawValue,
             to: emptyText,
             range: NSRange(location: 0, length: 0),
             project: project,
@@ -178,7 +178,7 @@ final class TextFormatterStyleSheetTests: XCTestCase {
         
         // When
         let result = TextFormatter.applyStyle(
-            named: "body",
+            named: UIFont.TextStyle.body.rawValue,
             to: text,
             range: NSRange(location: 0, length: text.length),
             project: project,
@@ -195,7 +195,7 @@ final class TextFormatterStyleSheetTests: XCTestCase {
     func testGetCurrentStyleNameFromAttributedText() throws {
         // Given
         let attrs = TextFormatter.getTypingAttributes(
-            forStyleNamed: "title1",
+            forStyleNamed: UIFont.TextStyle.title1.rawValue,
             project: project,
             context: context
         )
@@ -233,8 +233,8 @@ final class TextFormatterStyleSheetTests: XCTestCase {
         // Given
         let mutableText = NSMutableAttributedString()
         
-        let bodyAttrs = TextFormatter.getTypingAttributes(forStyleNamed: "body", project: project, context: context)
-        let titleAttrs = TextFormatter.getTypingAttributes(forStyleNamed: "title1", project: project, context: context)
+        let bodyAttrs = TextFormatter.getTypingAttributes(forStyleNamed: UIFont.TextStyle.body.rawValue, project: project, context: context)
+        let titleAttrs = TextFormatter.getTypingAttributes(forStyleNamed: UIFont.TextStyle.title1.rawValue, project: project, context: context)
         
         mutableText.append(NSAttributedString(string: "Body text\n", attributes: bodyAttrs))
         mutableText.append(NSAttributedString(string: "Title text", attributes: titleAttrs))
@@ -304,7 +304,7 @@ final class TextFormatterStyleSheetTests: XCTestCase {
         // When - Try to apply "body" style
         let text = NSAttributedString(string: "Test")
         let result = TextFormatter.applyStyle(
-            named: "body",
+            named: UIFont.TextStyle.body.rawValue,
             to: text,
             range: NSRange(location: 0, length: text.length),
             project: project,
@@ -324,7 +324,7 @@ final class TextFormatterStyleSheetTests: XCTestCase {
         
         // When - Apply style
         let styledText = TextFormatter.applyStyle(
-            named: "headline",
+            named: UIFont.TextStyle.headline.rawValue,
             to: originalText,
             range: NSRange(location: 0, length: originalText.length),
             project: project,
@@ -348,7 +348,7 @@ final class TextFormatterStyleSheetTests: XCTestCase {
         
         // When - Apply multiple styles in sequence
         text = TextFormatter.applyStyle(
-            named: "body",
+            named: UIFont.TextStyle.body.rawValue,
             to: text,
             range: NSRange(location: 0, length: text.length),
             project: project,
@@ -356,7 +356,7 @@ final class TextFormatterStyleSheetTests: XCTestCase {
         )
         
         text = TextFormatter.applyStyle(
-            named: "headline",
+            named: UIFont.TextStyle.headline.rawValue,
             to: text,
             range: NSRange(location: 0, length: text.length),
             project: project,
@@ -364,7 +364,7 @@ final class TextFormatterStyleSheetTests: XCTestCase {
         )
         
         text = TextFormatter.applyStyle(
-            named: "caption1",
+            named: UIFont.TextStyle.caption1.rawValue,
             to: text,
             range: NSRange(location: 0, length: text.length),
             project: project,
