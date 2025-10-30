@@ -16,7 +16,9 @@ struct Write_App: App {
         let schema = Schema([
             Project.self,
             File.self,
-            Folder.self
+            Folder.self,
+            StyleSheet.self,
+            TextStyleModel.self
         ])
         let modelConfiguration = ModelConfiguration(
             schema: schema,
@@ -25,7 +27,13 @@ struct Write_App: App {
         )
 
         do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
+            let container = try ModelContainer(for: schema, configurations: [modelConfiguration])
+            
+            // Initialize default stylesheets on first launch
+            let context = container.mainContext
+            StyleSheetService.initializeStyleSheetsIfNeeded(context: context)
+            
+            return container
         } catch {
             fatalError("Could not create ModelContainer: \(error)")
         }

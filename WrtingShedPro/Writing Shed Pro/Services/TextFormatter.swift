@@ -1,5 +1,6 @@
 import Foundation
 import UIKit
+import SwiftData
 
 /// Service for applying and removing text formatting to NSAttributedString
 struct TextFormatter {
@@ -470,4 +471,151 @@ struct TextFormatter {
         // Default to body if no close match
         return .body
     }
+    
+    // MARK: - Model-Based Paragraph Formatting (Phase 5)
+    
+    /// Get typing attributes for a style from the database
+    /// - Parameters:
+    ///   - styleName: Name of the style (e.g., "body", "title1")
+    ///   - project: The project to resolve styles from
+    ///   - context: ModelContext for database access
+    /// - Returns: Dictionary of attributes suitable for typing
+    static func getTypingAttributes(
+        forStyleNamed styleName: String,
+        project: Project,
+        context: ModelContext
+    ) -> [NSAttributedString.Key: Any] {
+        // Resolve style from database
+        guard let textStyle = StyleSheetService.resolveStyle(named: styleName, for: project, context: context) else {
+            // Fallback to body style
+            return getTypingAttributes(for: .body)
+        }
+        
+        return textStyle.generateAttributes()
+    }
+    
+    /// Apply a style from the database to the given range
+    /// - Parameters:
+    ///   - styleName: Name of the style to apply
+    ///   - attributedText: The attributed string to modify
+    ///   - range: The range to apply the style to
+    ///   - project: The project to resolve styles from
+    ///   - context: ModelContext for database access
+    /// - Returns: A new attributed string with the style applied
+    static func applyStyle(
+        named styleName: String,
+        to attributedText: NSAttributedString,
+        range: NSRange,
+        project: Project,
+        context: ModelContext
+    ) -> NSAttributedString {
+        guard range.location != NSNotFound,
+              range.location <= attributedText.length else {
+            return attributedText
+        }
+        
+        // Resolve style from database
+        guard let textStyle = StyleSheetService.resolveStyle(named: styleName, for: project, context: context) else {
+            print("⚠️ Could not resolve style '\(styleName)' - using body as fallback")
+            return applyStyle(.body, to: attributedText, range: range)
+        }
+        
+        // Special case: empty text
+        if attributedText.length == 0 {
+            let attrs = textStyle.generateAttributes()
+            return NSAttributedString(string: "", attributes: attrs)
+        }
+        
+        // Clean invalid paragraph styles first
+        let cleanedText = cleanParagraphStyles(in: attributedText)
+        let mutableText = NSMutableAttributedString(attributedString: cleanedText)
+        
+        // Expand range to paragraph boundaries
+        let paragraphRange = getParagraphRange(for: range, in: mutableText.string)
+        
+        // Get base attributes from the style model
+        let baseAttributes = textStyle.generateAttributes()
+        guard let baseFont = baseAttributes[NSAttributedString.Key.font] as? UIFont else {
+            print("⚠️ Style '\(styleName)' has no font - using existing method")
+            return applyStyle(.body, to: attributedText, range: range)
+        }
+        
+        // Apply the style to each character in the paragraph range
+        // while preserving character-level formatting (bold, italic, etc.)
+        mutableText.enumerateAttributes(in: paragraphRange, options: []) { attributes, subrange, _ in
+            var newAttributes = baseAttributes
+            
+            // Get existing font to check for traits
+            let existingFont = attributes[.font] as? UIFont ?? baseFont
+            let existingTraits = existingFont.fontDescriptor.symbolicTraits
+            
+            // If there were existing traits (bold, italic), preserve them
+            if !existingTraits.isEmpty {
+                if let descriptor = baseFont.fontDescriptor.withSymbolicTraits(existingTraits) {
+                    newAttributes[.font] = UIFont(descriptor: descriptor, size: 0) // 0 means use descriptor's size
+                } else {
+                    newAttributes[.font] = baseFont
+                }
+            }
+            
+            // Preserve existing foreground color if it exists and is different from base
+            if let existingColor = attributes[.foregroundColor] as? UIColor,
+               let baseColor = baseAttributes[.foregroundColor] as? UIColor,
+               existingColor != baseColor {
+                newAttributes[.foregroundColor] = existingColor
+            }
+            
+            mutableText.setAttributes(newAttributes, range: subrange)
+        }
+        
+        return mutableText
+    }
+    
+    /// Get the current style name at the given range
+    /// - Parameters:
+    ///   - attributedText: The attributed string to check
+    ///   - range: The range to check
+    ///   - project: The project to resolve styles from
+    ///   - context: ModelContext for database access
+    /// - Returns: The style name if detected, nil otherwise
+    static func getCurrentStyleName(
+        in attributedText: NSAttributedString,
+        at range: NSRange,
+        project: Project,
+        context: ModelContext
+    ) -> String? {
+        guard range.location != NSNotFound else {
+            return nil
+        }
+        
+        // If text is empty, return body as default
+        guard attributedText.length > 0 else {
+            return UIFont.TextStyle.body.rawValue
+        }
+        
+        // Determine which character to check
+        let checkLocation: Int
+        if range.location >= attributedText.length {
+            checkLocation = attributedText.length - 1
+        } else if range.location > 0 && range.length == 0 {
+            checkLocation = range.location - 1
+        } else {
+            checkLocation = range.location
+        }
+        
+        // First, try to get the stored text style attribute
+        if let styleValue = attributedText.attribute(.textStyle, at: checkLocation, effectiveRange: nil),
+           let style = UIFont.TextStyle.from(attributeValue: styleValue) {
+            return style.rawValue
+        }
+        
+        // Fallback: try to match font to style
+        if let font = attributedText.attribute(.font, at: checkLocation, effectiveRange: nil) as? UIFont {
+            let matchedStyle = matchFontToStyle(font)
+            return matchedStyle.rawValue
+        }
+        
+        return UIFont.TextStyle.body.rawValue
+    }
 }
+
