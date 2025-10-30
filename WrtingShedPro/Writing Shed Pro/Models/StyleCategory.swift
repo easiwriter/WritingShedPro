@@ -8,7 +8,7 @@
 import Foundation
 
 /// Categories for organizing text styles in the style sheet
-enum StyleCategory: String, Codable {
+enum StyleCategory: String, Codable, CaseIterable {
     case text       // Body text, captions
     case heading    // Titles, headings
     case list       // Numbered and bulleted lists

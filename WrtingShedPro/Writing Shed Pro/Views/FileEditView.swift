@@ -232,6 +232,10 @@ struct FileEditView: View {
                 currentStyle: $currentParagraphStyle,
                 onStyleSelected: { style in
                     applyParagraphStyle(style)
+                },
+                project: file.project,
+                onReapplyStyles: {
+                    reapplyAllStyles()
                 }
             )
         }
@@ -508,6 +512,132 @@ struct FileEditView: View {
         // Fallback to direct UIFont.TextStyle lookup
         if let style = TextFormatter.getCurrentStyle(in: attributedContent, at: selectedRange) {
             currentParagraphStyle = style
+        }
+    }
+    
+    /// Reapply all text styles in the document with updated definitions from the database
+    /// This is called when the user chooses "Apply Now" after editing styles
+    private func reapplyAllStyles() {
+        #if DEBUG
+        print("🔄 reapplyAllStyles called")
+        #endif
+        
+        // Need a project to resolve styles
+        guard let project = file.project else {
+            print("⚠️ No project - cannot reapply styles")
+            return
+        }
+        
+        // If document is empty, nothing to reapply
+        guard attributedContent.length > 0 else {
+            print("📝 Document is empty - nothing to reapply")
+            return
+        }
+        
+        let mutableText = NSMutableAttributedString(attributedString: attributedContent)
+        var hasChanges = false
+        
+        // Walk through entire document and reapply all text styles
+        mutableText.enumerateAttribute(
+            NSAttributedString.Key(rawValue: "TextStyle"),
+            in: NSRange(location: 0, length: mutableText.length),
+            options: []
+        ) { value, range, _ in
+            guard let styleName = value as? String else { return }
+            
+            #if DEBUG
+            print("🔄 Found style '\(styleName)' at range {\(range.location), \(range.length)}")
+            #endif
+            
+            // Re-fetch the style from database to get latest changes
+            guard let updatedStyle = StyleSheetService.resolveStyle(
+                named: styleName,
+                for: project,
+                context: modelContext
+            ) else {
+                print("⚠️ Could not resolve style '\(styleName)'")
+                return
+            }
+            
+            // Get updated attributes from the style
+            let baseAttributes = updatedStyle.generateAttributes()
+            guard let baseFont = baseAttributes[NSAttributedString.Key.font] as? UIFont else {
+                print("⚠️ Style '\(styleName)' has no font")
+                return
+            }
+            
+            // Apply updated style while preserving character-level formatting
+            mutableText.enumerateAttributes(in: range, options: []) { attributes, subrange, _ in
+                var newAttributes = baseAttributes
+                
+                // Preserve bold/italic traits
+                let existingFont = attributes[.font] as? UIFont ?? baseFont
+                let existingTraits = existingFont.fontDescriptor.symbolicTraits
+                
+                if !existingTraits.isEmpty {
+                    if let descriptor = baseFont.fontDescriptor.withSymbolicTraits(existingTraits) {
+                        newAttributes[.font] = UIFont(descriptor: descriptor, size: 0)
+                    }
+                }
+                
+                // Preserve custom colors that differ from base
+                if let existingColor = attributes[.foregroundColor] as? UIColor,
+                   let baseColor = baseAttributes[.foregroundColor] as? UIColor,
+                   existingColor != baseColor {
+                    newAttributes[.foregroundColor] = existingColor
+                }
+                
+                mutableText.setAttributes(newAttributes, range: subrange)
+                hasChanges = true
+            }
+        }
+        
+        // Update document if any changes were made
+        if hasChanges {
+            let beforeContent = attributedContent
+            attributedContent = mutableText
+            
+            #if DEBUG
+            print("✅ Reapplied all styles successfully")
+            #endif
+            
+            // Create undo command
+            let command = FormatApplyCommand(
+                description: "Reapply All Styles",
+                range: NSRange(location: 0, length: mutableText.length),
+                beforeContent: beforeContent,
+                afterContent: mutableText,
+                targetFile: file
+            )
+            
+            undoManager.execute(command)
+            
+            // Update typing attributes for current position
+            if selectedRange.location != NSNotFound,
+               selectedRange.location <= attributedContent.length {
+                // Get the style name at current position
+                if let styleName = TextFormatter.getCurrentStyleName(
+                    in: attributedContent,
+                    at: selectedRange,
+                    project: project,
+                    context: modelContext
+                ) {
+                    let typingAttrs = TextFormatter.getTypingAttributes(
+                        forStyleNamed: styleName,
+                        project: project,
+                        context: modelContext
+                    )
+                    textViewCoordinator.modifyTypingAttributes { textView in
+                        textView.typingAttributes = typingAttrs
+                    }
+                }
+            }
+            
+            restoreKeyboardFocus()
+        } else {
+            #if DEBUG
+            print("📝 No styles found to reapply")
+            #endif
         }
     }
     

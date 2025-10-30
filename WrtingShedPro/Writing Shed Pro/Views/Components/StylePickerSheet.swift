@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import SwiftData
 
 /// A sheet that displays all available UIFont.TextStyle options with previews
 /// Allows users to select a paragraph style for their text
@@ -8,6 +9,7 @@ struct StylePickerSheet: View {
     // MARK: - Environment
     
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
     
     // MARK: - Properties
     
@@ -16,6 +18,17 @@ struct StylePickerSheet: View {
     
     /// Callback when user selects a style
     let onStyleSelected: (UIFont.TextStyle) -> Void
+    
+    /// The project to get stylesheet from (optional)
+    var project: Project?
+    
+    /// Callback to reapply all styles in the document
+    var onReapplyStyles: (() -> Void)?
+    
+    @State private var showingStyleEditor = false
+    @State private var styleToEdit: TextStyleModel?
+    @State private var stylesWereModified = false
+    @State private var showingApplyChangesAlert = false
     
     // MARK: - Available Styles
     
@@ -69,14 +82,64 @@ struct StylePickerSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
+                    Button("Done") {
+                        handleDismiss()
                     }
                 }
+                
+                ToolbarItem(placement: .primaryAction) {
+                    Button(action: {
+                        // Find the current style in the database
+                        if let currentStyle = currentStyle,
+                           let project = project {
+                            let styleName = currentStyle.rawValue
+                            if let textStyle = StyleSheetService.resolveStyle(named: styleName, for: project, context: modelContext) {
+                                styleToEdit = textStyle
+                                showingStyleEditor = true
+                            }
+                        }
+                    }) {
+                        Label("Edit Style", systemImage: "slider.horizontal.3")
+                    }
+                    .disabled(currentStyle == nil || project == nil)
+                }
+            }
+            .sheet(item: $styleToEdit) { style in
+                NavigationStack {
+                    TextStyleEditorView(
+                        style: style,
+                        isNewStyle: false,
+                        onSave: {
+                            stylesWereModified = true
+                        }
+                    )
+                }
+            }
+            .alert("Apply Style Changes?", isPresented: $showingApplyChangesAlert) {
+                Button("Apply Now") {
+                    onReapplyStyles?()
+                    dismiss()
+                }
+                Button("Apply on Reopen") {
+                    dismiss()
+                }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text("You've made changes to text styles. Would you like to apply these changes to the document now, or wait until you reopen it?")
             }
         }
         .presentationDetents([.medium])
         .presentationDragIndicator(.visible)
+    }
+    
+    // MARK: - Helper Methods
+    
+    private func handleDismiss() {
+        if stylesWereModified {
+            showingApplyChangesAlert = true
+        } else {
+            dismiss()
+        }
     }
 }
 

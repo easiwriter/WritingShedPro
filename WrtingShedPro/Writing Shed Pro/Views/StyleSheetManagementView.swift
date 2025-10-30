@@ -21,44 +21,48 @@ struct StyleSheetManagementView: View {
         NavigationStack {
             List {
                 ForEach(styleSheets, id: \.id) { sheet in
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(sheet.name)
-                                .font(.headline)
-                            
-                            if sheet.isSystemStyleSheet {
-                                Text("System Default")
+                    NavigationLink {
+                        StyleSheetDetailView(styleSheet: sheet)
+                    } label: {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(sheet.name)
+                                    .font(.headline)
+                                
+                                if sheet.isSystemStyleSheet {
+                                    Text("System Default")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                
+                                Text("\(sheet.textStyles?.count ?? 0) styles")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
                             
-                            Text("\(sheet.textStyles?.count ?? 0) styles")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        
-                        Spacer()
-                        
-                        if !sheet.isSystemStyleSheet {
-                            Button(action: {
-                                duplicateStyleSheet(sheet)
-                            }) {
-                                Label("Duplicate", systemImage: "doc.on.doc")
-                                    .labelStyle(.iconOnly)
-                            }
-                            .buttonStyle(.plain)
+                            Spacer()
                             
-                            Button(role: .destructive, action: {
-                                sheetToDelete = sheet
-                                showDeleteAlert = true
-                            }) {
-                                Label("Delete", systemImage: "trash")
-                                    .labelStyle(.iconOnly)
+                            if !sheet.isSystemStyleSheet {
+                                Button(action: {
+                                    duplicateStyleSheet(sheet)
+                                }) {
+                                    Label("Duplicate", systemImage: "doc.on.doc")
+                                        .labelStyle(.iconOnly)
+                                }
+                                .buttonStyle(.plain)
+                                
+                                Button(role: .destructive, action: {
+                                    sheetToDelete = sheet
+                                    showDeleteAlert = true
+                                }) {
+                                    Label("Delete", systemImage: "trash")
+                                        .labelStyle(.iconOnly)
+                                }
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
                         }
+                        .padding(.vertical, 4)
                     }
-                    .padding(.vertical, 4)
                 }
             }
             .navigationTitle("Stylesheets")

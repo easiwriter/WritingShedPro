@@ -88,12 +88,24 @@ struct StyleSheetService {
     
     /// Initialize stylesheets in the model context if none exist
     static func initializeStyleSheetsIfNeeded(context: ModelContext) {
-        // Check if we already have stylesheets
-        let descriptor = FetchDescriptor<StyleSheet>()
-        let existingSheets = (try? context.fetch(descriptor)) ?? []
+        // Check if we already have a system stylesheet
+        let systemDescriptor = FetchDescriptor<StyleSheet>(
+            predicate: #Predicate { $0.isSystemStyleSheet == true }
+        )
+        let existingSystemSheets = (try? context.fetch(systemDescriptor)) ?? []
         
-        guard existingSheets.isEmpty else {
-            print("📐 StyleSheets already exist - skipping initialization")
+        // Remove duplicates if they exist
+        if existingSystemSheets.count > 1 {
+            print("⚠️ Found \(existingSystemSheets.count) system stylesheets - removing duplicates")
+            // Keep the first one, delete the rest
+            for i in 1..<existingSystemSheets.count {
+                context.delete(existingSystemSheets[i])
+            }
+            try? context.save()
+        }
+        
+        guard existingSystemSheets.isEmpty else {
+            print("📐 System stylesheet already exists - skipping initialization")
             return
         }
         
