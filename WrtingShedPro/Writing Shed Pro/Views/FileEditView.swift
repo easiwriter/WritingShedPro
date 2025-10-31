@@ -660,40 +660,22 @@ struct FileEditView: View {
             print("✅ Resolved style '\(styleName)': fontSize=\(updatedStyle.fontSize), bold=\(updatedStyle.isBold), italic=\(updatedStyle.isItalic)")
             
             // Get updated attributes from the style
-            let baseAttributes = updatedStyle.generateAttributes()
-            guard let baseFont = baseAttributes[NSAttributedString.Key.font] as? UIFont else {
+            let newAttributes = updatedStyle.generateAttributes()
+            guard let newFont = newAttributes[NSAttributedString.Key.font] as? UIFont else {
                 print("⚠️ Style '\(styleName)' has no font in generated attributes")
                 return
             }
             
-            print("📝 Base font: \(baseFont.fontName) \(baseFont.pointSize)pt")
-            
-            // Apply updated style while preserving character-level formatting
-            mutableText.enumerateAttributes(in: range, options: []) { attributes, subrange, _ in
-                var newAttributes = baseAttributes
-                
-                // Preserve bold/italic traits
-                let existingFont = attributes[.font] as? UIFont ?? baseFont
-                let existingTraits = existingFont.fontDescriptor.symbolicTraits
-                
-                if !existingTraits.isEmpty {
-                    print("📝 Preserving traits: \(existingTraits)")
-                    if let descriptor = baseFont.fontDescriptor.withSymbolicTraits(existingTraits) {
-                        newAttributes[.font] = UIFont(descriptor: descriptor, size: 0)
-                    }
-                }
-                
-                // Preserve custom colors that differ from base
-                if let existingColor = attributes[.foregroundColor] as? UIColor,
-                   let baseColor = baseAttributes[.foregroundColor] as? UIColor,
-                   existingColor != baseColor {
-                    print("📝 Preserving custom color")
-                    newAttributes[.foregroundColor] = existingColor
-                }
-                
-                mutableText.setAttributes(newAttributes, range: subrange)
-                hasChanges = true
+            print("📝 New font: \(newFont.fontName) \(newFont.pointSize)pt, bold=\(updatedStyle.isBold), italic=\(updatedStyle.isItalic)")
+            if let color = newAttributes[.foregroundColor] as? UIColor {
+                print("📝 New color: \(color)")
             }
+            
+            // Completely replace attributes with fresh stylesheet values
+            // This ensures stylesheet changes fully propagate to documents
+            print("✅ Applying new attributes to range {\(range.location), \(range.length)}")
+            mutableText.setAttributes(newAttributes, range: range)
+            hasChanges = true
         }
         
         print("🔄 Total styles found and processed: \(stylesFound)")
