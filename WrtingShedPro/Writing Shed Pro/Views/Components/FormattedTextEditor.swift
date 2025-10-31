@@ -239,6 +239,23 @@ struct FormattedTextEditor: UIViewRepresentable {
                 // If selection is invalid, move to end
                 textView.selectedRange = NSRange(location: attributedText.length, length: 0)
             }
+            
+            // CRITICAL: Update typing attributes to match the formatting at the cursor
+            // Without this, UITextView reverts to default color (labelColor) for new text
+            if textView.selectedRange.location > 0 && textView.selectedRange.location <= textView.textStorage.length {
+                // Get attributes from character before cursor (where we'll continue typing)
+                let attrs = textView.textStorage.attributes(at: textView.selectedRange.location - 1, effectiveRange: nil)
+                textView.typingAttributes = attrs
+                #if DEBUG
+                if let color = attrs[.foregroundColor] as? UIColor {
+                    print("📝 Set typing attributes from position \(textView.selectedRange.location - 1), color: \(color.toHex())")
+                }
+                #endif
+            } else if textView.textStorage.length > 0 {
+                // At start of document, use attributes from first character
+                let attrs = textView.textStorage.attributes(at: 0, effectiveRange: nil)
+                textView.typingAttributes = attrs
+            }
             print("📝 Text view updated")
             
             // Reset flag after a short delay to allow delegate callbacks to settle
