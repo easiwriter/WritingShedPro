@@ -562,9 +562,6 @@ struct FileEditView: View {
         print("🔄 reapplyAllStyles called")
         #endif
         
-        // Refresh the modelContext to get latest changes from database
-        modelContext.refreshAllObjects()
-        
         // Need a project to resolve styles
         guard let project = file.project else {
             print("⚠️ No project - cannot reapply styles")
