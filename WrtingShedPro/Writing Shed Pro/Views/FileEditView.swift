@@ -208,18 +208,40 @@ struct FileEditView: View {
             // Update current style from content
             updateCurrentParagraphStyle()
             
-            // IMPORTANT: Set typing attributes from stylesheet for empty/new documents
-            // This ensures that typing in a new document uses the project's Body style
+            // IMPORTANT: Initialize empty documents with project stylesheet Body style
+            // This ensures new documents have the correct formatting from the start
             if attributedContent.length == 0, let project = file.project {
-                let typingAttrs = TextFormatter.getTypingAttributes(
+                // Get Body style attributes from project stylesheet
+                let bodyAttrs = TextFormatter.getTypingAttributes(
                     forStyleNamed: UIFont.TextStyle.body.rawValue,
                     project: project,
                     context: modelContext
                 )
-                textViewCoordinator.modifyTypingAttributes { textView in
-                    textView.typingAttributes = typingAttrs
+                
+                // Debug: Log what attributes we're using
+                print("📝 Initializing empty document with Body style:")
+                for (key, value) in bodyAttrs {
+                    if key == .font {
+                        print("  - font: \(value)")
+                    } else if key == .foregroundColor {
+                        let color = value as? UIColor
+                        print("  - foregroundColor: \(color?.toHex() ?? "nil")")
+                    } else if key == .textStyle {
+                        print("  - textStyle: \(value)")
+                    } else {
+                        print("  - \(key.rawValue): \(value)")
+                    }
                 }
-                print("📝 Set initial typing attributes from project stylesheet for empty document")
+                
+                // Create empty attributed string with Body style attributes
+                let emptyAttributed = NSAttributedString(string: "", attributes: bodyAttrs)
+                attributedContent = emptyAttributed
+                
+                // Also set typing attributes so new text uses the correct style
+                textViewCoordinator.modifyTypingAttributes { textView in
+                    textView.typingAttributes = bodyAttrs
+                    print("📝 Typing attributes set to Body style from project stylesheet")
+                }
             }
         }
         .onChange(of: selectedRange) { oldValue, newValue in

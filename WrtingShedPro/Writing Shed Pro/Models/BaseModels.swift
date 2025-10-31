@@ -189,16 +189,8 @@ final class Version {
         self.comment = comment
         self.createdDate = Date()
         
-        // Initialize with Body style formatting if content is empty
-        // This ensures new documents have proper style attributes for reapplication
-        if content.isEmpty {
-            let bodyAttrs: [NSAttributedString.Key: Any] = [
-                .font: UIFont.preferredFont(forTextStyle: .body),
-                .textStyle: UIFont.TextStyle.body.attributeValue
-            ]
-            let emptyAttributed = NSAttributedString(string: "", attributes: bodyAttrs)
-            self.formattedContent = AttributedStringSerializer.encode(emptyAttributed)
-        }
+        // Don't set formattedContent here - it will be initialized from the project's
+        // stylesheet when the file is first opened in FileEditView
     }
     
     func updateContent(_ newContent: String) {
