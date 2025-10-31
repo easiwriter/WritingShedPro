@@ -46,6 +46,7 @@ struct StyleSheetService {
                 fontSize: font.pointSize,
                 isBold: traits.contains(.traitBold),
                 isItalic: traits.contains(.traitItalic),
+                alignment: .left,  // Explicitly set left alignment for system styles
                 styleCategory: category,
                 isSystemStyle: true
             )
@@ -67,6 +68,7 @@ struct StyleSheetService {
                 displayName: displayName,
                 displayOrder: order,
                 fontSize: 17,
+                alignment: .left,  // Explicitly set left alignment for list styles
                 numberFormat: numberFormat,
                 styleCategory: .list,
                 isSystemStyle: false

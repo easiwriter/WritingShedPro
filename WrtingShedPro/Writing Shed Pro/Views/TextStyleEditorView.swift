@@ -40,19 +40,22 @@ struct TextStyleEditorView: View {
                 }
             }
             
-            styleNameSection
-            Divider()
-            fontSettingsSection
-            Divider()
-            textColourSection
-            Divider()
-            paragraphSettingsSection
-            Divider()
-            if style.styleCategory == .list {
-                listFormatSection
+            Group {
+                styleNameSection
                 Divider()
+                fontSettingsSection
+                Divider()
+                textColourSection
+                Divider()
+                paragraphSettingsSection
+                Divider()
+                if style.styleCategory == .list {
+                    listFormatSection
+                    Divider()
+                }
+                previewSection
             }
-            previewSection
+            .disabled(style.styleSheet?.isSystemStyleSheet == true)
         }
         .navigationTitle(style.styleSheet?.isSystemStyleSheet == true ? "View Style" : "Edit Style")
         .toolbar {
@@ -72,7 +75,6 @@ struct TextStyleEditorView: View {
                 }
             }
         }
-        .disabled(style.styleSheet?.isSystemStyleSheet == true)
         .sheet(isPresented: $showingFontPicker) {
             FontPickerView(selectedFontFamily: Binding(
                 get: { style.fontFamily },
