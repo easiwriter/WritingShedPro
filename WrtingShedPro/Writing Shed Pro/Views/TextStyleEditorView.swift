@@ -26,6 +26,20 @@ struct TextStyleEditorView: View {
     
     var body: some View {
         Form {
+            // Show read-only banner if this is a system stylesheet
+            if style.styleSheet?.isSystemStyleSheet == true {
+                Section {
+                    HStack {
+                        Image(systemName: "lock.fill")
+                            .foregroundStyle(.secondary)
+                        Text("This is a system default style and cannot be edited. Create a custom stylesheet to modify styles.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+            
             styleNameSection
             Divider()
             fontSettingsSection
@@ -40,22 +54,25 @@ struct TextStyleEditorView: View {
             }
             previewSection
         }
-        .navigationTitle("Edit Style")
+        .navigationTitle(style.styleSheet?.isSystemStyleSheet == true ? "View Style" : "Edit Style")
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button("Cancel") {
+                Button(style.styleSheet?.isSystemStyleSheet == true ? "Done" : "Cancel") {
                     dismiss()
                 }
             }
             
-            ToolbarItem(placement: .confirmationAction) {
-                Button("Save") {
-                    saveChanges()
-                    dismiss()
+            if style.styleSheet?.isSystemStyleSheet != true {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        saveChanges()
+                        dismiss()
+                    }
+                    .disabled(!hasUnsavedChanges || editedDisplayName.isEmpty)
                 }
-                .disabled(!hasUnsavedChanges || editedDisplayName.isEmpty)
             }
         }
+        .disabled(style.styleSheet?.isSystemStyleSheet == true)
         .sheet(isPresented: $showingFontPicker) {
             FontPickerView(selectedFontFamily: Binding(
                 get: { style.fontFamily },
