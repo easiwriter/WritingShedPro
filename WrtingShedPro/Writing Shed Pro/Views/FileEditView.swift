@@ -14,7 +14,6 @@ struct FileEditView: View {
     @State private var forceRefresh = false
     @State private var showStylePicker = false
     @State private var currentParagraphStyle: UIFont.TextStyle? = .body
-    @State private var projectStyleSheetID: UUID? = nil
     @StateObject private var undoManager: TextFileUndoManager
     @StateObject private var textViewCoordinator = TextViewCoordinator()
     
@@ -206,9 +205,6 @@ struct FileEditView: View {
                 self.textViewCoordinator.textView?.becomeFirstResponder()
             }
             
-            // Initialize tracked stylesheet ID
-            projectStyleSheetID = file.project?.styleSheet?.id
-            
             // Update current style from content
             updateCurrentParagraphStyle()
         }
@@ -216,22 +212,24 @@ struct FileEditView: View {
             // Update style when selection changes
             updateCurrentParagraphStyle()
         }
-        .onChange(of: file.project?.styleSheet?.id) { oldValue, newValue in
-            // When project's stylesheet changes, update our tracked ID and reapply styles
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ProjectStyleSheetChanged"))) { notification in
+            // When a project's stylesheet changes, check if it's our project and reapply styles
+            guard let notifiedProjectID = notification.userInfo?["projectID"] as? UUID,
+                  let ourProjectID = file.project?.id,
+                  notifiedProjectID == ourProjectID else {
+                return
+            }
+            
             #if DEBUG
-            print("📋 Project stylesheet changed from \(oldValue?.uuidString ?? "nil") to \(newValue?.uuidString ?? "nil")")
+            print("📋 Received ProjectStyleSheetChanged notification for our project")
             #endif
             
-            if oldValue != newValue, newValue != nil {
-                projectStyleSheetID = newValue
-                
-                // Reapply all styles with the new stylesheet
-                if attributedContent.length > 0 {
-                    #if DEBUG
-                    print("📋 Reapplying all styles due to stylesheet change")
-                    #endif
-                    reapplyAllStyles()
-                }
+            // Reapply all styles with the new stylesheet
+            if attributedContent.length > 0 {
+                #if DEBUG
+                print("📋 Reapplying all styles due to stylesheet change")
+                #endif
+                reapplyAllStyles()
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("UndoRedoContentRestored"))) { notification in

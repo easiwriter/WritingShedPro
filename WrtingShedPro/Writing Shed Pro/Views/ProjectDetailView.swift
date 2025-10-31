@@ -177,6 +177,15 @@ struct ProjectInfoSheet: View {
                         .pickerStyle(.menu)
                         .onChange(of: selectedStyleSheet) { oldValue, newValue in
                             project.styleSheet = newValue
+                            
+                            // Notify open documents that the stylesheet has changed
+                            if let projectID = project.id {
+                                NotificationCenter.default.post(
+                                    name: NSNotification.Name("ProjectStyleSheetChanged"),
+                                    object: nil,
+                                    userInfo: ["projectID": projectID]
+                                )
+                            }
                         }
                         .accessibilityLabel(NSLocalizedString("projectDetail.stylesheet", comment: "Stylesheet picker"))
                         .accessibilityHint(NSLocalizedString("projectDetail.stylesheetAccessibility", comment: "Stylesheet picker hint"))
