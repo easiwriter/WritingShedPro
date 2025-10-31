@@ -36,16 +36,19 @@ struct StyleSheetService {
         
         for (textStyle, displayName, category, order) in systemStyles {
             let font = UIFont.preferredFont(forTextStyle: textStyle)
-            let descriptor = font.fontDescriptor
-            let traits = descriptor.symbolicTraits
+            
+            // Set bold/italic explicitly based on style type
+            // Headline should be bold, everything else plain
+            let isBold = (textStyle == .headline)
+            let isItalic = false
             
             let style = TextStyleModel(
                 name: textStyle.rawValue,
                 displayName: displayName,
                 displayOrder: order,
                 fontSize: font.pointSize,
-                isBold: traits.contains(.traitBold),
-                isItalic: traits.contains(.traitItalic),
+                isBold: isBold,
+                isItalic: isItalic,
                 alignment: .left,  // Explicitly set left alignment for system styles
                 styleCategory: category,
                 isSystemStyle: true
