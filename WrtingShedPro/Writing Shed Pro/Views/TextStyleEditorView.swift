@@ -355,6 +355,15 @@ struct TextStyleEditorView: View {
         do {
             try modelContext.save()
             onSave?() // Notify that changes were saved
+            
+            // Notify that a style in the stylesheet has been modified
+            if let stylesheetID = style.styleSheet?.id {
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("StyleSheetModified"),
+                    object: nil,
+                    userInfo: ["stylesheetID": stylesheetID]
+                )
+            }
         } catch {
             print("Error saving style: \(error)")
         }

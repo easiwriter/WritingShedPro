@@ -232,6 +232,26 @@ struct FileEditView: View {
                 reapplyAllStyles()
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("StyleSheetModified"))) { notification in
+            // When a stylesheet is modified, check if it's our project's stylesheet and reapply styles
+            guard let modifiedStylesheetID = notification.userInfo?["stylesheetID"] as? UUID,
+                  let ourStylesheetID = file.project?.styleSheet?.id,
+                  modifiedStylesheetID == ourStylesheetID else {
+                return
+            }
+            
+            #if DEBUG
+            print("📋 Received StyleSheetModified notification for our project's stylesheet")
+            #endif
+            
+            // Reapply all styles with the updated style definitions
+            if attributedContent.length > 0 {
+                #if DEBUG
+                print("📋 Reapplying all styles due to style modification")
+                #endif
+                reapplyAllStyles()
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("UndoRedoContentRestored"))) { notification in
             // Handle formatting undo/redo - restore attributed content
             guard let restoredContent = notification.userInfo?["content"] as? NSAttributedString else { return }
@@ -541,6 +561,9 @@ struct FileEditView: View {
         #if DEBUG
         print("🔄 reapplyAllStyles called")
         #endif
+        
+        // Refresh the modelContext to get latest changes from database
+        modelContext.refreshAllObjects()
         
         // Need a project to resolve styles
         guard let project = file.project else {
