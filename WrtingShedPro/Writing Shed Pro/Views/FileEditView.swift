@@ -213,44 +213,80 @@ struct FileEditView: View {
             updateCurrentParagraphStyle()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ProjectStyleSheetChanged"))) { notification in
+            print("📋 ========== ProjectStyleSheetChanged NOTIFICATION ==========")
+            print("📋 Notification userInfo: \(notification.userInfo ?? [:])")
+            
             // When a project's stylesheet changes, check if it's our project and reapply styles
-            guard let notifiedProjectID = notification.userInfo?["projectID"] as? UUID,
-                  let ourProjectID = file.project?.id,
-                  notifiedProjectID == ourProjectID else {
+            guard let notifiedProjectID = notification.userInfo?["projectID"] as? UUID else {
+                print("⚠️ No projectID in notification")
+                print("📋 ========== END ==========")
                 return
             }
             
-            #if DEBUG
+            guard let ourProjectID = file.project?.id else {
+                print("⚠️ Our file has no project")
+                print("📋 ========== END ==========")
+                return
+            }
+            
+            print("📋 Notified project ID: \(notifiedProjectID.uuidString)")
+            print("📋 Our project ID: \(ourProjectID.uuidString)")
+            print("📋 Match: \(notifiedProjectID == ourProjectID)")
+            
+            guard notifiedProjectID == ourProjectID else {
+                print("📋 Not for us - ignoring")
+                print("📋 ========== END ==========")
+                return
+            }
+            
             print("📋 Received ProjectStyleSheetChanged notification for our project")
-            #endif
             
             // Reapply all styles with the new stylesheet
             if attributedContent.length > 0 {
-                #if DEBUG
                 print("📋 Reapplying all styles due to stylesheet change")
-                #endif
                 reapplyAllStyles()
+            } else {
+                print("📋 Document is empty, skipping reapply")
             }
+            print("📋 ========== END ==========")
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("StyleSheetModified"))) { notification in
+            print("📋 ========== StyleSheetModified NOTIFICATION ==========")
+            print("📋 Notification userInfo: \(notification.userInfo ?? [:])")
+            
             // When a stylesheet is modified, check if it's our project's stylesheet and reapply styles
-            guard let modifiedStylesheetID = notification.userInfo?["stylesheetID"] as? UUID,
-                  let ourStylesheetID = file.project?.styleSheet?.id,
-                  modifiedStylesheetID == ourStylesheetID else {
+            guard let modifiedStylesheetID = notification.userInfo?["stylesheetID"] as? UUID else {
+                print("⚠️ No stylesheetID in notification")
+                print("📋 ========== END ==========")
                 return
             }
             
-            #if DEBUG
+            guard let ourStylesheetID = file.project?.styleSheet?.id else {
+                print("⚠️ Our project has no stylesheet")
+                print("📋 ========== END ==========")
+                return
+            }
+            
+            print("📋 Modified stylesheet ID: \(modifiedStylesheetID.uuidString)")
+            print("📋 Our stylesheet ID: \(ourStylesheetID.uuidString)")
+            print("📋 Match: \(modifiedStylesheetID == ourStylesheetID)")
+            
+            guard modifiedStylesheetID == ourStylesheetID else {
+                print("📋 Not for us - ignoring")
+                print("📋 ========== END ==========")
+                return
+            }
+            
             print("📋 Received StyleSheetModified notification for our project's stylesheet")
-            #endif
             
             // Reapply all styles with the updated style definitions
             if attributedContent.length > 0 {
-                #if DEBUG
                 print("📋 Reapplying all styles due to style modification")
-                #endif
                 reapplyAllStyles()
+            } else {
+                print("📋 Document is empty, skipping reapply")
             }
+            print("📋 ========== END ==========")
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("UndoRedoContentRestored"))) { notification in
             // Handle formatting undo/redo - restore attributed content
@@ -558,24 +594,30 @@ struct FileEditView: View {
     /// Reapply all text styles in the document with updated definitions from the database
     /// This is called when the user chooses "Apply Now" after editing styles
     private func reapplyAllStyles() {
-        #if DEBUG
-        print("🔄 reapplyAllStyles called")
-        #endif
+        print("🔄 ========== REAPPLY ALL STYLES START ==========")
+        print("🔄 Document length: \(attributedContent.length)")
         
         // Need a project to resolve styles
         guard let project = file.project else {
             print("⚠️ No project - cannot reapply styles")
+            print("🔄 ========== REAPPLY ALL STYLES END (NO PROJECT) ==========")
             return
         }
+        
+        print("🔄 Project: \(project.name ?? "unnamed")")
+        print("🔄 Stylesheet: \(project.styleSheet?.name ?? "none")")
+        print("🔄 Stylesheet ID: \(project.styleSheet?.id.uuidString ?? "none")")
         
         // If document is empty, nothing to reapply
         guard attributedContent.length > 0 else {
             print("📝 Document is empty - nothing to reapply")
+            print("🔄 ========== REAPPLY ALL STYLES END (EMPTY) ==========")
             return
         }
         
         let mutableText = NSMutableAttributedString(attributedString: attributedContent)
         var hasChanges = false
+        var stylesFound = 0
         
         // Walk through entire document and reapply all text styles
         mutableText.enumerateAttribute(
@@ -583,11 +625,13 @@ struct FileEditView: View {
             in: NSRange(location: 0, length: mutableText.length),
             options: []
         ) { value, range, _ in
-            guard let styleName = value as? String else { return }
+            guard let styleName = value as? String else { 
+                print("⚠️ Found TextStyle attribute but value is not a string: \(String(describing: value))")
+                return 
+            }
             
-            #if DEBUG
-            print("🔄 Found style '\(styleName)' at range {\(range.location), \(range.length)}")
-            #endif
+            stylesFound += 1
+            print("🔄 [\(stylesFound)] Found style '\(styleName)' at range {\(range.location), \(range.length)}")
             
             // Re-fetch the style from database to get latest changes
             guard let updatedStyle = StyleSheetService.resolveStyle(
@@ -595,16 +639,20 @@ struct FileEditView: View {
                 for: project,
                 context: modelContext
             ) else {
-                print("⚠️ Could not resolve style '\(styleName)'")
+                print("⚠️ Could not resolve style '\(styleName)' for project '\(project.name ?? "unnamed")'")
                 return
             }
+            
+            print("✅ Resolved style '\(styleName)': fontSize=\(updatedStyle.fontSize), bold=\(updatedStyle.isBold), italic=\(updatedStyle.isItalic)")
             
             // Get updated attributes from the style
             let baseAttributes = updatedStyle.generateAttributes()
             guard let baseFont = baseAttributes[NSAttributedString.Key.font] as? UIFont else {
-                print("⚠️ Style '\(styleName)' has no font")
+                print("⚠️ Style '\(styleName)' has no font in generated attributes")
                 return
             }
+            
+            print("📝 Base font: \(baseFont.fontName) \(baseFont.pointSize)pt")
             
             // Apply updated style while preserving character-level formatting
             mutableText.enumerateAttributes(in: range, options: []) { attributes, subrange, _ in
@@ -615,6 +663,7 @@ struct FileEditView: View {
                 let existingTraits = existingFont.fontDescriptor.symbolicTraits
                 
                 if !existingTraits.isEmpty {
+                    print("📝 Preserving traits: \(existingTraits)")
                     if let descriptor = baseFont.fontDescriptor.withSymbolicTraits(existingTraits) {
                         newAttributes[.font] = UIFont(descriptor: descriptor, size: 0)
                     }
@@ -624,6 +673,7 @@ struct FileEditView: View {
                 if let existingColor = attributes[.foregroundColor] as? UIColor,
                    let baseColor = baseAttributes[.foregroundColor] as? UIColor,
                    existingColor != baseColor {
+                    print("📝 Preserving custom color")
                     newAttributes[.foregroundColor] = existingColor
                 }
                 
@@ -632,14 +682,16 @@ struct FileEditView: View {
             }
         }
         
+        print("🔄 Total styles found and processed: \(stylesFound)")
+        print("🔄 Has changes: \(hasChanges)")
+        
         // Update document if any changes were made
         if hasChanges {
             let beforeContent = attributedContent
             attributedContent = mutableText
             
-            #if DEBUG
+            print("✅ Updated attributedContent with new styles")
             print("✅ Reapplied all styles successfully")
-            #endif
             
             // Create undo command
             let command = FormatApplyCommand(
@@ -651,6 +703,7 @@ struct FileEditView: View {
             )
             
             undoManager.execute(command)
+            print("✅ Added undo command")
             
             // Update typing attributes for current position
             if selectedRange.location != NSNotFound,
@@ -670,15 +723,17 @@ struct FileEditView: View {
                     textViewCoordinator.modifyTypingAttributes { textView in
                         textView.typingAttributes = typingAttrs
                     }
+                    print("✅ Updated typing attributes")
                 }
             }
             
             restoreKeyboardFocus()
+            print("✅ Restored keyboard focus")
         } else {
-            #if DEBUG
-            print("📝 No styles found to reapply")
-            #endif
+            print("📝 No styles found to reapply - hasChanges is false")
         }
+        
+        print("🔄 ========== REAPPLY ALL STYLES END ==========")
     }
     
     /// Apply a paragraph style to the current selection
