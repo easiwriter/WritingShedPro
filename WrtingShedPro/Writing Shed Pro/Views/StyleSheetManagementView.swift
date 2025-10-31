@@ -73,6 +73,16 @@ struct StyleSheetManagementView: View {
                     }
                 }
                 
+                #if DEBUG
+                ToolbarItem(placement: .topBarLeading) {
+                    Button(action: {
+                        resetDatabase()
+                    }) {
+                        Label("Reset DB", systemImage: "arrow.clockwise")
+                    }
+                }
+                #endif
+                
                 ToolbarItem(placement: .primaryAction) {
                     Button(action: {
                         showCreateSheet = true
@@ -178,6 +188,43 @@ struct StyleSheetManagementView: View {
             print("❌ Error deleting stylesheet: \(error)")
         }
     }
+    
+    #if DEBUG
+    /// Debug function to reset database to only have default stylesheet
+    private func resetDatabase() {
+        print("🔄 Resetting database...")
+        
+        // Delete all non-system stylesheets
+        let descriptor = FetchDescriptor<StyleSheet>()
+        if let sheets = try? modelContext.fetch(descriptor) {
+            for sheet in sheets where !sheet.isSystemStyleSheet {
+                print("🗑️ Deleting stylesheet: \(sheet.name)")
+                modelContext.delete(sheet)
+            }
+        }
+        
+        // Delete all projects
+        let projectDescriptor = FetchDescriptor<Project>()
+        if let projects = try? modelContext.fetch(projectDescriptor) {
+            for project in projects {
+                print("🗑️ Deleting project: \(project.name ?? "unnamed")")
+                modelContext.delete(project)
+            }
+        }
+        
+        do {
+            try modelContext.save()
+            print("✅ Database reset complete")
+            
+            // Ensure default stylesheet exists
+            StyleSheetService.ensureDefaultStyleSheetExists(in: modelContext)
+            
+            loadStyleSheets()
+        } catch {
+            print("❌ Error resetting database: \(error)")
+        }
+    }
+    #endif
 }
 
 // MARK: - Create Stylesheet View
