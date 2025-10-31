@@ -10,12 +10,25 @@ import UIKit
 extension UIColor {
     /// Convert UIColor to hex string
     func toHex() -> String? {
-        guard let components = cgColor.components else { return nil }
+        guard let components = cgColor.components, components.count >= 1 else { return nil }
         
-        let r = Float(components[0])
-        let g = Float(components[1])
-        let b = Float(components[2])
-        let a = Float(components.count >= 4 ? components[3] : 1.0)
+        let r, g, b, a: Float
+        
+        if components.count == 2 {
+            // Grayscale color (white, alpha)
+            r = Float(components[0])
+            g = Float(components[0])
+            b = Float(components[0])
+            a = Float(components[1])
+        } else if components.count >= 3 {
+            // RGB color
+            r = Float(components[0])
+            g = Float(components[1])
+            b = Float(components[2])
+            a = Float(components.count >= 4 ? components[3] : 1.0)
+        } else {
+            return nil
+        }
         
         if a == 1.0 {
             return String(format: "#%02lX%02lX%02lX",
