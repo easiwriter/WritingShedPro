@@ -128,8 +128,18 @@ struct FormattedTextEditor: UIViewRepresentable {
             let attrs = attributedText.attributes(at: 0, effectiveRange: nil)
             textView.typingAttributes = attrs
         } else {
-            // Empty document - use body font
-            textView.typingAttributes = [.font: font]
+            // Empty document - use attributes from attributed string if available
+            // This preserves style information even in empty documents
+            var attrs: [NSAttributedString.Key: Any] = [:]
+            attributedText.enumerateAttributes(in: NSRange(location: 0, length: 0), options: []) { attributes, _, _ in
+                attrs = attributes
+            }
+            if !attrs.isEmpty {
+                textView.typingAttributes = attrs
+            } else {
+                // Final fallback - use body font
+                textView.typingAttributes = [.font: font]
+            }
         }
         
         // Force layout before setting selection

@@ -207,6 +207,20 @@ struct FileEditView: View {
             
             // Update current style from content
             updateCurrentParagraphStyle()
+            
+            // IMPORTANT: Set typing attributes from stylesheet for empty/new documents
+            // This ensures that typing in a new document uses the project's Body style
+            if attributedContent.length == 0, let project = file.project {
+                let typingAttrs = TextFormatter.getTypingAttributes(
+                    forStyleNamed: UIFont.TextStyle.body.rawValue,
+                    project: project,
+                    context: modelContext
+                )
+                textViewCoordinator.modifyTypingAttributes { textView in
+                    textView.typingAttributes = typingAttrs
+                }
+                print("📝 Set initial typing attributes from project stylesheet for empty document")
+            }
         }
         .onChange(of: selectedRange) { oldValue, newValue in
             // Update style when selection changes
