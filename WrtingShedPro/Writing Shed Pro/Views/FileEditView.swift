@@ -635,7 +635,7 @@ struct FileEditView: View {
         
         // Walk through entire document and reapply all text styles
         mutableText.enumerateAttribute(
-            NSAttributedString.Key(rawValue: "TextStyle"),
+            .textStyle,  // Use the defined constant, not a raw string
             in: NSRange(location: 0, length: mutableText.length),
             options: []
         ) { value, range, _ in
