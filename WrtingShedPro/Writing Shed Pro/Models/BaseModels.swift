@@ -188,6 +188,17 @@ final class Version {
         self.versionNumber = versionNumber
         self.comment = comment
         self.createdDate = Date()
+        
+        // Initialize with Body style formatting if content is empty
+        // This ensures new documents have proper style attributes for reapplication
+        if content.isEmpty {
+            let bodyAttrs: [NSAttributedString.Key: Any] = [
+                .font: UIFont.preferredFont(forTextStyle: .body),
+                .textStyle: UIFont.TextStyle.body.attributeValue
+            ]
+            let emptyAttributed = NSAttributedString(string: "", attributes: bodyAttrs)
+            self.formattedContent = AttributedStringSerializer.encode(emptyAttributed)
+        }
     }
     
     func updateContent(_ newContent: String) {
