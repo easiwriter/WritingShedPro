@@ -217,7 +217,7 @@ struct StyleSheetManagementView: View {
             print("✅ Database reset complete")
             
             // Ensure default stylesheet exists
-            StyleSheetService.ensureDefaultStyleSheetExists(in: modelContext)
+            StyleSheetService.initializeStyleSheetsIfNeeded(context: modelContext)
             
             loadStyleSheets()
         } catch {
