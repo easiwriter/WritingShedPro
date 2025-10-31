@@ -208,39 +208,25 @@ struct FileEditView: View {
             // Update current style from content
             updateCurrentParagraphStyle()
             
-            // IMPORTANT: Initialize empty documents with project stylesheet Body style
-            // This ensures new documents have the correct formatting from the start
-            if attributedContent.length == 0, let project = file.project {
-                // Get Body style attributes from project stylesheet
-                let bodyAttrs = TextFormatter.getTypingAttributes(
-                    forStyleNamed: UIFont.TextStyle.body.rawValue,
-                    project: project,
-                    context: modelContext
-                )
-                
-                // Debug: Log what attributes we're using
-                print("📝 Initializing empty document with Body style:")
-                for (key, value) in bodyAttrs {
-                    if key == .font {
-                        print("  - font: \(value)")
-                    } else if key == .foregroundColor {
-                        let color = value as? UIColor
-                        print("  - foregroundColor: \(color?.toHex() ?? "nil")")
-                    } else if key == .textStyle {
-                        print("  - textStyle: \(value)")
-                    } else {
-                        print("  - \(key.rawValue): \(value)")
+            // Set typing attributes from current content or stylesheet
+            if let project = file.project {
+                if attributedContent.length > 0 {
+                    // Use attributes from existing content
+                    let attrs = attributedContent.attributes(at: 0, effectiveRange: nil)
+                    textViewCoordinator.modifyTypingAttributes { textView in
+                        textView.typingAttributes = attrs
                     }
-                }
-                
-                // Create empty attributed string with Body style attributes
-                let emptyAttributed = NSAttributedString(string: "", attributes: bodyAttrs)
-                attributedContent = emptyAttributed
-                
-                // Also set typing attributes so new text uses the correct style
-                textViewCoordinator.modifyTypingAttributes { textView in
-                    textView.typingAttributes = bodyAttrs
-                    print("📝 Typing attributes set to Body style from project stylesheet")
+                } else {
+                    // Empty document - set typing attributes from stylesheet
+                    let bodyAttrs = TextFormatter.getTypingAttributes(
+                        forStyleNamed: UIFont.TextStyle.body.rawValue,
+                        project: project,
+                        context: modelContext
+                    )
+                    textViewCoordinator.modifyTypingAttributes { textView in
+                        textView.typingAttributes = bodyAttrs
+                    }
+                    print("📝 onAppear: Set typing attributes for empty document from stylesheet")
                 }
             }
         }
@@ -923,10 +909,30 @@ struct FileEditView: View {
     }
     
     private func loadCurrentVersion() {
-        let newAttributedContent = file.currentVersion?.attributedContent ?? NSAttributedString(
-            string: "",
-            attributes: [.font: UIFont.preferredFont(forTextStyle: .body)]
-        )
+        var newAttributedContent: NSAttributedString
+        
+        if let versionContent = file.currentVersion?.attributedContent {
+            // Version has saved content - use it
+            newAttributedContent = versionContent
+        } else {
+            // New/empty version - initialize with Body style from project stylesheet
+            if let project = file.project {
+                let bodyAttrs = TextFormatter.getTypingAttributes(
+                    forStyleNamed: UIFont.TextStyle.body.rawValue,
+                    project: project,
+                    context: modelContext
+                )
+                newAttributedContent = NSAttributedString(string: "", attributes: bodyAttrs)
+                print("📝 loadCurrentVersion: Initialized empty version with project Body style")
+            } else {
+                // Fallback if no project (shouldn't happen)
+                newAttributedContent = NSAttributedString(
+                    string: "",
+                    attributes: [.font: UIFont.preferredFont(forTextStyle: .body)]
+                )
+                print("⚠️ loadCurrentVersion: No project found, using system body font")
+            }
+        }
         
         attributedContent = newAttributedContent
         previousContent = newAttributedContent.string
