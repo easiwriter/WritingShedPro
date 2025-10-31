@@ -190,15 +190,15 @@ struct StyleSheetManagementView: View {
     }
     
     #if DEBUG
-    /// Debug function to reset database to only have default stylesheet
+    /// Debug function to reset database to clean state with fresh default stylesheet
     private func resetDatabase() {
         print("🔄 Resetting database...")
         
-        // Delete all non-system stylesheets
+        // Delete ALL stylesheets (including system default - we'll recreate it)
         let descriptor = FetchDescriptor<StyleSheet>()
         if let sheets = try? modelContext.fetch(descriptor) {
-            for sheet in sheets where !sheet.isSystemStyleSheet {
-                print("🗑️ Deleting stylesheet: \(sheet.name)")
+            for sheet in sheets {
+                print("🗑️ Deleting stylesheet: \(sheet.name) (isSystem: \(sheet.isSystemStyleSheet))")
                 modelContext.delete(sheet)
             }
         }
@@ -214,12 +214,14 @@ struct StyleSheetManagementView: View {
         
         do {
             try modelContext.save()
-            print("✅ Database reset complete")
+            print("✅ Database cleared")
             
-            // Ensure default stylesheet exists
+            // Recreate fresh default stylesheet with correct values
+            print("📐 Creating fresh default stylesheet...")
             StyleSheetService.initializeStyleSheetsIfNeeded(context: modelContext)
             
             loadStyleSheets()
+            print("✅ Reset complete")
         } catch {
             print("❌ Error resetting database: \(error)")
         }
