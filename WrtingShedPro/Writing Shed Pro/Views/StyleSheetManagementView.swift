@@ -236,7 +236,6 @@ struct CreateStyleSheetView: View {
     @Environment(\.dismiss) private var dismiss
     
     @State private var name: String = ""
-    @State private var copyFromDefault: Bool = true
     @State private var showError: Bool = false
     @State private var errorMessage: String = ""
     
@@ -245,14 +244,12 @@ struct CreateStyleSheetView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Stylesheet Name") {
-                    TextField("Name", text: $name)
-                }
-                
                 Section {
-                    Toggle("Copy styles from system default", isOn: $copyFromDefault)
+                    TextField("Name", text: $name)
+                } header: {
+                    Text("Stylesheet Name")
                 } footer: {
-                    Text("If enabled, the new stylesheet will include all styles from the system default. Otherwise, it will start empty.")
+                    Text("New stylesheets start with all default styles which you can then customize.")
                 }
             }
             .navigationTitle("New Stylesheet")
@@ -299,40 +296,38 @@ struct CreateStyleSheetView: View {
             isSystemStyleSheet: false
         )
         
-        // Copy from default if requested
-        if copyFromDefault {
-            if let defaultSheet = StyleSheetService.getDefaultStyleSheet(context: modelContext),
-               let defaultStyles = defaultSheet.textStyles {
+        // Always copy styles from default stylesheet
+        if let defaultSheet = StyleSheetService.getDefaultStyleSheet(context: modelContext),
+           let defaultStyles = defaultSheet.textStyles {
+            
+            for style in defaultStyles {
+                let newStyle = TextStyleModel(
+                    name: style.name,
+                    displayName: style.displayName,
+                    displayOrder: style.displayOrder
+                )
                 
-                for style in defaultStyles {
-                    let newStyle = TextStyleModel(
-                        name: style.name,
-                        displayName: style.displayName,
-                        displayOrder: style.displayOrder
-                    )
-                    
-                    // Copy all attributes
-                    newStyle.fontSize = style.fontSize
-                    newStyle.fontFamily = style.fontFamily
-                    newStyle.isBold = style.isBold
-                    newStyle.isItalic = style.isItalic
-                    newStyle.isUnderlined = style.isUnderlined
-                    newStyle.isStrikethrough = style.isStrikethrough
-                    newStyle.textColor = style.textColor
-                    newStyle.alignment = style.alignment
-                    newStyle.lineSpacing = style.lineSpacing
-                    newStyle.paragraphSpacingBefore = style.paragraphSpacingBefore
-                    newStyle.paragraphSpacingAfter = style.paragraphSpacingAfter
-                    newStyle.firstLineIndent = style.firstLineIndent
-                    newStyle.headIndent = style.headIndent
-                    newStyle.tailIndent = style.tailIndent
-                    newStyle.lineHeightMultiple = style.lineHeightMultiple
-                    newStyle.minimumLineHeight = style.minimumLineHeight
-                    newStyle.maximumLineHeight = style.maximumLineHeight
-                    newStyle.numberFormat = style.numberFormat
-                    
-                    newStyle.styleSheet = newSheet
-                }
+                // Copy all attributes
+                newStyle.fontSize = style.fontSize
+                newStyle.fontFamily = style.fontFamily
+                newStyle.isBold = style.isBold
+                newStyle.isItalic = style.isItalic
+                newStyle.isUnderlined = style.isUnderlined
+                newStyle.isStrikethrough = style.isStrikethrough
+                newStyle.textColor = style.textColor
+                newStyle.alignment = style.alignment
+                newStyle.lineSpacing = style.lineSpacing
+                newStyle.paragraphSpacingBefore = style.paragraphSpacingBefore
+                newStyle.paragraphSpacingAfter = style.paragraphSpacingAfter
+                newStyle.firstLineIndent = style.firstLineIndent
+                newStyle.headIndent = style.headIndent
+                newStyle.tailIndent = style.tailIndent
+                newStyle.lineHeightMultiple = style.lineHeightMultiple
+                newStyle.minimumLineHeight = style.minimumLineHeight
+                newStyle.maximumLineHeight = style.maximumLineHeight
+                newStyle.numberFormat = style.numberFormat
+                
+                newStyle.styleSheet = newSheet
             }
         }
         
