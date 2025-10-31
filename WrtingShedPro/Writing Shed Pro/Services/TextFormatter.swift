@@ -522,7 +522,8 @@ struct TextFormatter {
         
         // Special case: empty text
         if attributedText.length == 0 {
-            let attrs = textStyle.generateAttributes()
+            var attrs = textStyle.generateAttributes()
+            attrs[.textStyle] = styleName  // Add TextStyle attribute
             return NSAttributedString(string: "", attributes: attrs)
         }
         
@@ -544,6 +545,9 @@ struct TextFormatter {
         // while preserving character-level formatting (bold, italic, etc.)
         mutableText.enumerateAttributes(in: paragraphRange, options: []) { attributes, subrange, _ in
             var newAttributes = baseAttributes
+            
+            // CRITICAL: Add the TextStyle attribute so reapplyAllStyles() can find it
+            newAttributes[.textStyle] = styleName
             
             // Get existing font to check for traits
             let existingFont = attributes[.font] as? UIFont ?? baseFont
