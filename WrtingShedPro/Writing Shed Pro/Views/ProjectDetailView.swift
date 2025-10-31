@@ -72,6 +72,7 @@ struct ProjectInfoSheet: View {
     let project: Project
     @Environment(\.modelContext) var modelContext
     @Query private var allProjects: [Project]
+    @Query(sort: \StyleSheet.name) private var allStyleSheets: [StyleSheet]
     @Binding var isPresented: Bool
     @Binding var showDeleteConfirmation: Bool
     @Binding var errorMessage: String
@@ -80,6 +81,8 @@ struct ProjectInfoSheet: View {
     @State private var originalName = ""
     @State private var notesText = ""
     @State private var originalNotes = ""
+    @State private var selectedStyleSheet: StyleSheet?
+    @State private var originalStyleSheet: StyleSheet?
     @State private var hasInitialized = false
     @State private var nameValidationError = ""
     
@@ -95,6 +98,9 @@ struct ProjectInfoSheet: View {
                     }
                     if editedName != originalName {
                         project.name = originalName
+                    }
+                    if selectedStyleSheet?.id != originalStyleSheet?.id {
+                        project.styleSheet = originalStyleSheet
                     }
                     isPresented = false 
                 }) {
@@ -147,6 +153,33 @@ struct ProjectInfoSheet: View {
                         Text(NSLocalizedString("projectDetail.created", comment: "Field label for creation date"))
                         Spacer()
                         Text((project.creationDate ?? Date()).formatted(date: .abbreviated, time: .shortened))
+                    }
+                    
+                    Divider()
+                    
+                    // Stylesheet Picker
+                    HStack {
+                        Text(NSLocalizedString("projectDetail.stylesheet", comment: "Field label for stylesheet"))
+                        Spacer()
+                        Picker("Stylesheet", selection: $selectedStyleSheet) {
+                            ForEach(allStyleSheets, id: \.id) { sheet in
+                                HStack {
+                                    Text(sheet.name)
+                                    if sheet.isSystemStyleSheet {
+                                        Image(systemName: "star.fill")
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                .tag(sheet as StyleSheet?)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .onChange(of: selectedStyleSheet) { oldValue, newValue in
+                            project.styleSheet = newValue
+                        }
+                        .accessibilityLabel(NSLocalizedString("projectDetail.stylesheet", comment: "Stylesheet picker"))
+                        .accessibilityHint(NSLocalizedString("projectDetail.stylesheetAccessibility", comment: "Stylesheet picker hint"))
                     }
                     
                     Divider()
@@ -209,6 +242,19 @@ struct ProjectInfoSheet: View {
             editedName = project.name ?? ""
             originalName = project.name ?? ""
             nameValidationError = ""
+            
+            // Initialize stylesheet selection
+            if let currentStyleSheet = project.styleSheet {
+                selectedStyleSheet = currentStyleSheet
+                originalStyleSheet = currentStyleSheet
+            } else {
+                // If no stylesheet, try to get the default one
+                if let defaultSheet = StyleSheetService.getDefaultStyleSheet(context: modelContext) {
+                    selectedStyleSheet = defaultSheet
+                    originalStyleSheet = defaultSheet
+                    project.styleSheet = defaultSheet
+                }
+            }
         }
         .onChange(of: project.id) { oldValue, newValue in
             // When a different project is selected, update the data
@@ -217,6 +263,19 @@ struct ProjectInfoSheet: View {
             editedName = project.name ?? ""
             originalName = project.name ?? ""
             nameValidationError = ""
+            
+            // Update stylesheet selection
+            if let currentStyleSheet = project.styleSheet {
+                selectedStyleSheet = currentStyleSheet
+                originalStyleSheet = currentStyleSheet
+            } else {
+                // If no stylesheet, try to get the default one
+                if let defaultSheet = StyleSheetService.getDefaultStyleSheet(context: modelContext) {
+                    selectedStyleSheet = defaultSheet
+                    originalStyleSheet = defaultSheet
+                    project.styleSheet = defaultSheet
+                }
+            }
         }
     }
     

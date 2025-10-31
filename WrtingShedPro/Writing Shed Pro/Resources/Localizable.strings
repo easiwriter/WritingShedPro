@@ -51,6 +51,8 @@
 "projectDetail.name" = "Name:";
 "projectDetail.type" = "Type:";
 "projectDetail.created" = "Created:";
+"projectDetail.stylesheet" = "Stylesheet:";
+"projectDetail.stylesheetAccessibility" = "Select stylesheet for text formatting";
 "projectDetail.details" = "Details";
 "projectDetail.notes" = "Notes";
 "projectDetail.notesAccessibility" = "Edit project notes";
