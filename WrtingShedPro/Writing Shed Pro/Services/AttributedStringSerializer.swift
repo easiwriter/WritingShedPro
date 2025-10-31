@@ -22,6 +22,7 @@ struct AttributeValues: Codable {
     var maxLineHeight: CGFloat?
     var minLineHeight: CGFloat?
     var textStyle: String?  // Stores UIFont.TextStyle.rawValue
+    var textColorHex: String?  // Stores text color as hex string
 }
 
 /// Service for converting between NSAttributedString and storable formats
@@ -70,6 +71,13 @@ struct AttributedStringSerializer {
                         
                     case .strikethroughStyle:
                         attributes.strikethrough = value as? CGFloat
+                    
+                    case .foregroundColor:
+                        // Store text color as hex string
+                        if let color = value as? UIColor {
+                            attributes.textColorHex = color.toHex()
+                            print("💾 ENCODE color at \(range.location): \(color.toHex() ?? "nil")")
+                        }
                         
                     case .paragraphStyle:
                         let ps = value as? NSParagraphStyle
@@ -197,6 +205,13 @@ struct AttributedStringSerializer {
                 // Strikethrough
                 if let strikethrough = jsonAttributes.strikethrough, strikethrough > 0 {
                     attributes[.strikethroughStyle] = strikethrough
+                }
+                
+                // Text color
+                if let colorHex = jsonAttributes.textColorHex,
+                   let color = UIColor(hex: colorHex) {
+                    attributes[.foregroundColor] = color
+                    print("💾 DECODE color at \(location): \(colorHex)")
                 }
                 
                 // Text style - restore the stored style name
