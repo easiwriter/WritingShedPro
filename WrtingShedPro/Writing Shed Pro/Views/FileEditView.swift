@@ -914,6 +914,7 @@ struct FileEditView: View {
         if let versionContent = file.currentVersion?.attributedContent {
             // Version has saved content - use it
             newAttributedContent = versionContent
+            print("📝 loadCurrentVersion: Loaded existing content, length: \(versionContent.length)")
         } else {
             // New/empty version - initialize with Body style from project stylesheet
             if let project = file.project {
@@ -922,8 +923,23 @@ struct FileEditView: View {
                     project: project,
                     context: modelContext
                 )
+                
+                // Debug: Log what we're initializing with
+                print("📝 loadCurrentVersion: Initializing with Body style from stylesheet '\(project.styleSheet?.name ?? "none")'")
+                for (key, value) in bodyAttrs {
+                    if key == .font {
+                        let font = value as? UIFont
+                        print("  - font: \(font?.fontName ?? "nil") \(font?.pointSize ?? 0)pt")
+                    } else if key == .foregroundColor {
+                        let color = value as? UIColor
+                        print("  - foregroundColor: \(color?.toHex() ?? "nil")")
+                    } else if key == .textStyle {
+                        print("  - textStyle: \(value)")
+                    }
+                }
+                
                 newAttributedContent = NSAttributedString(string: "", attributes: bodyAttrs)
-                print("📝 loadCurrentVersion: Initialized empty version with project Body style")
+                print("📝 loadCurrentVersion: Created empty attributed string with Body style")
             } else {
                 // Fallback if no project (shouldn't happen)
                 newAttributedContent = NSAttributedString(
