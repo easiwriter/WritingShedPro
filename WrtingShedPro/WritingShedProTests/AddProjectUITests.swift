@@ -9,8 +9,7 @@ final class AddProjectUITests: XCTestCase {
         // This test verifies the AddProjectSheet struct can be instantiated
         let isPresented = true
         let sheet = AddProjectSheet(
-            isPresented: .constant(isPresented),
-            projects: []
+            isPresented: .constant(isPresented)
         )
         
         XCTAssertNotNil(sheet)
@@ -19,8 +18,7 @@ final class AddProjectUITests: XCTestCase {
     func testAddProjectSheetInitializesWithEmptyName() {
         let isPresented = true
         let sheet = AddProjectSheet(
-            isPresented: .constant(isPresented),
-            projects: []
+            isPresented: .constant(isPresented)
         )
         
         // Verify sheet has empty initial state

@@ -11,7 +11,7 @@ struct AddProjectSheet: View {
     @State private var selectedStyleSheet: StyleSheet?
     @State private var availableStyleSheets: [StyleSheet] = []
     @Environment(\.modelContext) var modelContext
-    let projects: [Project]
+    @Query private var allProjects: [Project]
     
     var body: some View {
         NavigationStack {
@@ -79,7 +79,7 @@ struct AddProjectSheet: View {
         }
         
         // Check uniqueness
-        if !UniquenessChecker.isProjectNameUnique(projectName, in: projects) {
+        if !UniquenessChecker.isProjectNameUnique(projectName, in: allProjects) {
             errorMessage = NSLocalizedString("addProject.duplicateName", comment: "Error when project name already exists")
             showErrorAlert = true
             return
@@ -90,7 +90,7 @@ struct AddProjectSheet: View {
             name: projectName,
             type: selectedType,
             details: details.isEmpty ? nil : details,
-            userOrder: projects.count // Place new project at the end
+            userOrder: allProjects.count // Place new project at the end
         )
         
         // Assign selected stylesheet

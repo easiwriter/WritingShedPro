@@ -40,7 +40,7 @@ struct ContentView: View {
                 }
             }
             .sheet(isPresented: $showAddProject) {
-                AddProjectSheet(isPresented: $showAddProject, projects: projects)
+                AddProjectSheet(isPresented: $showAddProject)
             }
             .sheet(isPresented: $showStyleSheetManagement) {
                 StyleSheetManagementView()
