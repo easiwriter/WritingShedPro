@@ -562,12 +562,9 @@ struct TextFormatter {
                 }
             }
             
-            // Preserve existing foreground color if it exists and is different from base
-            if let existingColor = attributes[.foregroundColor] as? UIColor,
-               let baseColor = baseAttributes[.foregroundColor] as? UIColor,
-               existingColor != baseColor {
-                newAttributes[.foregroundColor] = existingColor
-            }
+            // NOTE: We intentionally DO NOT preserve existing foreground color
+            // When applying a paragraph style, we want the style's color to be applied
+            // This ensures the style definition is fully respected
             
             mutableText.setAttributes(newAttributes, range: subrange)
         }
