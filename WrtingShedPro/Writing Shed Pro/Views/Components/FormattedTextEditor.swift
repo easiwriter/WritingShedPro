@@ -84,9 +84,8 @@ struct FormattedTextEditor: UIViewRepresentable {
         }
         
         // Configure appearance
-        // NOTE: Don't set textView.font - it overrides attributed string fonts!
-        // The font parameter is only used as fallback in updateUIView
-        textView.textColor = textColor
+        // NOTE: Don't set textView.font or textView.textColor - they override attributed string attributes!
+        // The font and textColor parameters are only used for fallback in typing attributes
         textView.backgroundColor = backgroundColor
         textView.textContainerInset = textContainerInset
         textView.isEditable = isEditable
@@ -278,8 +277,9 @@ struct FormattedTextEditor: UIViewRepresentable {
             // User is typing normally - let UITextView handle cursor naturally
         }
         
-        // Update appearance properties (but NOT font - that comes from attributed string!)
-        textView.textColor = textColor
+        // Update appearance properties
+        // NOTE: Don't set textView.textColor - it overrides attributed string colors!
+        // Colors should come from the attributed string's .foregroundColor attribute
         textView.backgroundColor = backgroundColor
         textView.textContainerInset = textContainerInset
         textView.isEditable = isEditable
