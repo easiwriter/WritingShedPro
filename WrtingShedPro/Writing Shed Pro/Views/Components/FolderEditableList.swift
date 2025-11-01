@@ -115,6 +115,8 @@ struct FolderItemView: View {
     let folder: Folder
     let project: Project?
     
+    @State private var fileCount: Int = 0
+    
     private var folderIcon: String {
         guard let project = project else { return "folder" }
         
@@ -177,13 +179,15 @@ struct FolderItemView: View {
                 Spacer()
                 
                 // Show file count
-                let fileCount = folder.files?.count ?? 0
                 if fileCount > 0 {
                     Text("\(fileCount)")
                         .foregroundColor(.secondary)
                         .font(.caption)
                 }
             }
+        }
+        .task {
+            fileCount = folder.files?.count ?? 0
         }
     }
 }

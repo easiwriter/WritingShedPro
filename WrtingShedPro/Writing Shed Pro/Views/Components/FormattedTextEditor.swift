@@ -248,7 +248,7 @@ struct FormattedTextEditor: UIViewRepresentable {
                 textView.typingAttributes = attrs
                 #if DEBUG
                 if let color = attrs[.foregroundColor] as? UIColor {
-                    print("📝 Set typing attributes from position \(textView.selectedRange.location - 1), color: \(color.toHex())")
+                    print("📝 Set typing attributes from position \(textView.selectedRange.location - 1), color: \(color.toHex() ?? "nil")")
                 }
                 #endif
             } else if textView.textStorage.length > 0 {

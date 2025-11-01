@@ -11,6 +11,8 @@ struct FolderDetailView: View {
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
     @State private var showDeleteConfirmation = false
+    @State private var subfolderCount: Int = 0
+    @State private var fileCount: Int = 0
     
     init(folder: Folder) {
         self.folder = folder
@@ -28,9 +30,6 @@ struct FolderDetailView: View {
             }
             
             Section {
-                let subfolderCount = folder.folders?.count ?? 0
-                let fileCount = folder.files?.count ?? 0
-                
                 if subfolderCount > 0 && fileCount > 0 {
                     // Show both subfolders and files
                     HStack {
@@ -99,11 +98,13 @@ struct FolderDetailView: View {
         } message: {
             Text(deleteConfirmationMessage)
         }
+        .task {
+            subfolderCount = folder.folders?.count ?? 0
+            fileCount = folder.files?.count ?? 0
+        }
     }
     
     private var deleteConfirmationMessage: String {
-        let subfolderCount = folder.folders?.count ?? 0
-        let fileCount = folder.files?.count ?? 0
         
         if subfolderCount > 0 && fileCount > 0 {
             // Has both subfolders and files

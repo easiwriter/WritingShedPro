@@ -183,6 +183,9 @@ struct FolderListView: View {
 struct FolderRowView: View {
     let folder: Folder
     
+    @State private var fileCount: Int = 0
+    @State private var subfolderCount: Int = 0
+    
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: folderIcon)
@@ -205,6 +208,10 @@ struct FolderRowView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)
+        .task {
+            fileCount = folder.files?.count ?? 0
+            subfolderCount = folder.folders?.count ?? 0
+        }
     }
     
     private var folderIcon: String {
@@ -260,8 +267,6 @@ struct FolderRowView: View {
         case "Acts":
             return "document.on.document"
         default:
-            let fileCount = folder.files?.count ?? 0
-            
             if fileCount > 0 {
                 return "folder.fill"
             } else {
@@ -271,9 +276,6 @@ struct FolderRowView: View {
     }
     
     private var folderContentCount: String? {
-        let fileCount = folder.files?.count ?? 0
-        let subfolderCount = folder.folders?.count ?? 0
-        
         if subfolderCount > 0 && fileCount > 0 {
             let format = NSLocalizedString("folderList.mixedCount", comment: "Folder and file count")
             return String(format: format, subfolderCount, fileCount)
