@@ -360,11 +360,15 @@ struct TextStyleEditorView: View {
             
             // Notify that a style in the stylesheet has been modified
             if let stylesheetID = style.styleSheet?.id {
+                print("📤 Posting StyleSheetModified notification for stylesheet: \(stylesheetID.uuidString)")
                 NotificationCenter.default.post(
                     name: NSNotification.Name("StyleSheetModified"),
                     object: nil,
                     userInfo: ["stylesheetID": stylesheetID]
                 )
+                print("✅ StyleSheetModified notification posted")
+            } else {
+                print("⚠️ Style has no stylesheet - cannot post notification")
             }
         } catch {
             print("Error saving style: \(error)")
