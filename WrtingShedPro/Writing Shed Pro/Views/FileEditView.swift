@@ -211,6 +211,11 @@ struct FileEditView: View {
             // Set typing attributes from current content or stylesheet
             if let project = file.project {
                 if attributedContent.length > 0 {
+                    // Reapply all styles to pick up any style definition changes
+                    // This ensures the document reflects the latest style settings
+                    print("📝 onAppear: Reapplying styles to pick up any changes")
+                    reapplyAllStyles()
+                    
                     // Use attributes from existing content
                     let attrs = attributedContent.attributes(at: 0, effectiveRange: nil)
                     textViewCoordinator.modifyTypingAttributes { textView in
