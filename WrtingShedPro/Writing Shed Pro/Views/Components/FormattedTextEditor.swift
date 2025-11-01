@@ -198,6 +198,13 @@ struct FormattedTextEditor: UIViewRepresentable {
             if attributedText.length >= 11 {
                 print("📝 New attributes at 10: \(attributedText.attributes(at: 10, effectiveRange: nil))")
             }
+            // Log paragraph styles specifically
+            if let currentPS = textViewAttrs.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle {
+                print("📝 Current paragraph style at 0: alignment=\(currentPS.alignment.rawValue)")
+            }
+            if let newPS = attributedText.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle {
+                print("📝 New paragraph style at 0: alignment=\(newPS.alignment.rawValue)")
+            }
         }
         #endif
         
@@ -217,6 +224,17 @@ struct FormattedTextEditor: UIViewRepresentable {
             // This ensures attributes are properly applied
             textView.textStorage.setAttributedString(attributedText)
             
+            #if DEBUG
+            // Check if paragraph style survived the setAttributedString
+            if textView.textStorage.length > 0 {
+                if let ps = textView.textStorage.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle {
+                    print("📝 After setAttributedString, paragraph style at 0: alignment=\(ps.alignment.rawValue)")
+                } else {
+                    print("⚠️ After setAttributedString, NO paragraph style at 0!")
+                }
+            }
+            #endif
+            
             // Critical: Tell text storage that attributes changed
             textView.textStorage.edited(.editedAttributes, range: NSRange(location: 0, length: textView.textStorage.length), changeInLength: 0)
             
@@ -227,6 +245,17 @@ struct FormattedTextEditor: UIViewRepresentable {
             let fullRange = NSRange(location: 0, length: textView.textStorage.length)
             textView.layoutManager.invalidateDisplay(forCharacterRange: fullRange)
             textView.layoutManager.invalidateLayout(forCharacterRange: fullRange, actualCharacterRange: nil)
+            
+            #if DEBUG
+            // Check if paragraph style survived the layout operations
+            if textView.textStorage.length > 0 {
+                if let ps = textView.textStorage.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle {
+                    print("📝 After layout operations, paragraph style at 0: alignment=\(ps.alignment.rawValue)")
+                } else {
+                    print("⚠️ After layout operations, NO paragraph style at 0!")
+                }
+            }
+            #endif
             
             // Force immediate redraw
             textView.setNeedsDisplay()
