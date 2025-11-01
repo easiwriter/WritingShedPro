@@ -22,14 +22,24 @@ struct TextFormatter {
         
         mutableText.enumerateAttribute(.paragraphStyle, in: fullRange, options: []) { value, range, _ in
             if let paragraphStyle = value as? NSParagraphStyle {
-                // Check if this paragraph style has invalid line heights (both 0)
-                // These cause NaN errors when CoreGraphics tries to divide by line height
-                if paragraphStyle.maximumLineHeight == 0 && paragraphStyle.minimumLineHeight == 0 {
+                // Only remove paragraph styles that are truly problematic:
+                // - Both line heights are 0 AND
+                // - It's the default paragraph style (no custom alignment, spacing, etc.)
+                let isDefaultStyle = paragraphStyle.alignment == .natural &&
+                                    paragraphStyle.lineSpacing == 0 &&
+                                    paragraphStyle.paragraphSpacing == 0 &&
+                                    paragraphStyle.paragraphSpacingBefore == 0 &&
+                                    paragraphStyle.headIndent == 0 &&
+                                    paragraphStyle.tailIndent == 0 &&
+                                    paragraphStyle.firstLineHeadIndent == 0
+                
+                if paragraphStyle.maximumLineHeight == 0 && 
+                   paragraphStyle.minimumLineHeight == 0 &&
+                   isDefaultStyle {
                     #if DEBUG
-                    print("🧹 cleanParagraphStyles: Removing invalid paragraph style at range {\(range.location), \(range.length)}")
+                    print("🧹 cleanParagraphStyles: Removing default paragraph style at range {\(range.location), \(range.length)}")
                     removedCount += 1
                     #endif
-                    // Remove the paragraph style to avoid NaN errors
                     mutableText.removeAttribute(.paragraphStyle, range: range)
                 }
             }
@@ -37,7 +47,7 @@ struct TextFormatter {
         
         #if DEBUG
         if removedCount > 0 {
-            print("🧹 cleanParagraphStyles: Removed \(removedCount) invalid paragraph styles")
+            print("🧹 cleanParagraphStyles: Removed \(removedCount) default paragraph styles")
         } else {
             print("🧹 cleanParagraphStyles: No invalid styles to remove")
         }
