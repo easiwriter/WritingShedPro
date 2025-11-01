@@ -158,14 +158,14 @@ private struct StylePreviewRow: View {
     
     // Get styled attributes from project stylesheet
     private var styledAttributes: (font: UIFont, color: UIColor) {
-        guard let project = project else {
+        guard let project = project,
+              let textStyle = StyleSheetService.resolveStyle(named: style.rawValue, for: project, context: modelContext) else {
             return (UIFont.preferredFont(forTextStyle: style), .label)
         }
         
-        let textStyle = StyleSheetService.resolveStyle(named: style.rawValue, for: project, context: modelContext)
         let attrs = textStyle.generateAttributes()
-        let font = attrs[.font] as? UIFont ?? UIFont.preferredFont(forTextStyle: style)
-        let color = attrs[.foregroundColor] as? UIColor ?? .label
+        let font = attrs[NSAttributedString.Key.font] as? UIFont ?? UIFont.preferredFont(forTextStyle: style)
+        let color = attrs[NSAttributedString.Key.foregroundColor] as? UIColor ?? .label
         
         return (font, color)
     }
