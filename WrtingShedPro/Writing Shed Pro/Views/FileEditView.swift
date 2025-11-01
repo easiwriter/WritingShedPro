@@ -743,13 +743,31 @@ struct FileEditView: View {
     /// Apply a paragraph style to the current selection
     private func applyParagraphStyle(_ style: UIFont.TextStyle) {
         #if DEBUG
-        print("📝 applyParagraphStyle(\(style)) called")
+        print("📝 ========== APPLY PARAGRAPH STYLE START ==========")
+        print("📝 Style: \(style.rawValue)")
         print("📝 selectedRange: {\(selectedRange.location), \(selectedRange.length)}")
+        print("📝 Document length: \(attributedContent.length)")
+        
+        // Log current attributes at selection
+        if attributedContent.length > 0 && selectedRange.location < attributedContent.length {
+            let attrs = attributedContent.attributes(at: selectedRange.location, effectiveRange: nil)
+            print("📝 Current attributes at selection:")
+            if let color = attrs[.foregroundColor] as? UIColor {
+                print("   Color: \(color.toHex() ?? "unknown")")
+            }
+            if let paragraphStyle = attrs[.paragraphStyle] as? NSParagraphStyle {
+                print("   Alignment: \(paragraphStyle.alignment.rawValue)")
+            }
+            if let textStyle = attrs[.textStyle] as? String {
+                print("   TextStyle attribute: \(textStyle)")
+            }
+        }
         #endif
         
         // Ensure we have a valid location
         guard selectedRange.location != NSNotFound else {
             print("⚠️ selectedRange.location is NSNotFound")
+            print("📝 ========== END ==========")
             return
         }
         
@@ -792,6 +810,23 @@ struct FileEditView: View {
             
             print("📝 Paragraph style applied successfully (model-based)")
             
+            // Log what we got back
+            #if DEBUG
+            if newAttributedContent.length > 0 && selectedRange.location < newAttributedContent.length {
+                let attrs = newAttributedContent.attributes(at: selectedRange.location, effectiveRange: nil)
+                print("📝 New attributes at selection after applying style:")
+                if let color = attrs[.foregroundColor] as? UIColor {
+                    print("   Color: \(color.toHex() ?? "unknown")")
+                }
+                if let paragraphStyle = attrs[.paragraphStyle] as? NSParagraphStyle {
+                    print("   Alignment: \(paragraphStyle.alignment.rawValue)")
+                }
+                if let textStyle = attrs[.textStyle] as? String {
+                    print("   TextStyle attribute: \(textStyle)")
+                }
+            }
+            #endif
+            
             // Update local state immediately for instant UI feedback
             attributedContent = newAttributedContent
             currentParagraphStyle = style
@@ -819,6 +854,7 @@ struct FileEditView: View {
             
             undoManager.execute(command)
             print("📝 Paragraph style command added to undo stack")
+            print("📝 ========== APPLY PARAGRAPH STYLE END ==========")
             restoreKeyboardFocus()
             return
         }

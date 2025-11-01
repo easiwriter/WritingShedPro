@@ -509,8 +509,15 @@ struct TextFormatter {
         project: Project,
         context: ModelContext
     ) -> NSAttributedString {
+        print("🎨 ========== APPLY STYLE START ==========")
+        print("🎨 Style name: '\(styleName)'")
+        print("🎨 Range: {\(range.location), \(range.length)}")
+        print("🎨 Document length: \(attributedText.length)")
+        
         guard range.location != NSNotFound,
               range.location <= attributedText.length else {
+            print("⚠️ Invalid range")
+            print("🎨 ========== END ==========")
             return attributedText
         }
         
@@ -520,10 +527,23 @@ struct TextFormatter {
             return applyStyle(.body, to: attributedText, range: range)
         }
         
+        print("✅ Style resolved from database")
+        print("   Font: \(textStyle.fontFamily ?? "default") \(textStyle.fontSize)pt")
+        print("   Bold: \(textStyle.isBold), Italic: \(textStyle.isItalic)")
+        print("   Underline: \(textStyle.isUnderlined), Strikethrough: \(textStyle.isStrikethrough)")
+        if let color = textStyle.textColor {
+            print("   Color: \(color.toHex() ?? "unknown")")
+        } else {
+            print("   Color: none (will use default)")
+        }
+        print("   Alignment: \(textStyle.alignment)")
+        
         // Special case: empty text
         if attributedText.length == 0 {
             var attrs = textStyle.generateAttributes()
             attrs[.textStyle] = styleName  // Add TextStyle attribute
+            print("📝 Empty text - returning styled empty string")
+            print("🎨 ========== END ==========")
             return NSAttributedString(string: "", attributes: attrs)
         }
         
@@ -533,6 +553,7 @@ struct TextFormatter {
         
         // Expand range to paragraph boundaries
         let paragraphRange = getParagraphRange(for: range, in: mutableText.string)
+        print("📍 Expanded to paragraph range: {\(paragraphRange.location), \(paragraphRange.length)}")
         
         // Get base attributes from the style model
         let baseAttributes = textStyle.generateAttributes()
@@ -541,9 +562,29 @@ struct TextFormatter {
             return applyStyle(.body, to: attributedText, range: range)
         }
         
+        print("📦 Base attributes from style:")
+        if let color = baseAttributes[.foregroundColor] as? UIColor {
+            print("   Color: \(color.toHex() ?? "unknown")")
+        }
+        if let paragraphStyle = baseAttributes[.paragraphStyle] as? NSParagraphStyle {
+            print("   Alignment: \(paragraphStyle.alignment.rawValue)")
+        }
+        
         // Apply the style to each character in the paragraph range
         // while preserving character-level formatting (bold, italic, etc.)
+        var charCount = 0
         mutableText.enumerateAttributes(in: paragraphRange, options: []) { attributes, subrange, _ in
+            charCount += 1
+            if charCount == 1 {
+                print("🔍 Before applying to first character:")
+                if let existingColor = attributes[.foregroundColor] as? UIColor {
+                    print("   Existing color: \(existingColor.toHex() ?? "unknown")")
+                }
+                if let existingParagraphStyle = attributes[.paragraphStyle] as? NSParagraphStyle {
+                    print("   Existing alignment: \(existingParagraphStyle.alignment.rawValue)")
+                }
+            }
+            
             var newAttributes = baseAttributes
             
             // CRITICAL: Add the TextStyle attribute so reapplyAllStyles() can find it
@@ -566,8 +607,21 @@ struct TextFormatter {
             // When applying a paragraph style, we want the style's color to be applied
             // This ensures the style definition is fully respected
             
+            if charCount == 1 {
+                print("✅ After applying to first character:")
+                if let newColor = newAttributes[.foregroundColor] as? UIColor {
+                    print("   New color: \(newColor.toHex() ?? "unknown")")
+                }
+                if let newParagraphStyle = newAttributes[.paragraphStyle] as? NSParagraphStyle {
+                    print("   New alignment: \(newParagraphStyle.alignment.rawValue)")
+                }
+            }
+            
             mutableText.setAttributes(newAttributes, range: subrange)
         }
+        
+        print("✅ Applied style to \(charCount) character ranges")
+        print("🎨 ========== APPLY STYLE END ==========")
         
         return mutableText
     }
