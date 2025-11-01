@@ -39,18 +39,7 @@ struct ContentView: View {
                 AddProjectSheet(isPresented: $showAddProject)
             }
             .sheet(isPresented: $showManageStyles) {
-                NavigationStack {
-                    StyleSheetListView()
-                        .navigationTitle("Manage Stylesheets")
-                        .navigationBarTitleDisplayMode(.inline)
-                        .toolbar {
-                            ToolbarItem(placement: .confirmationAction) {
-                                Button("Done") {
-                                    showManageStyles = false
-                                }
-                            }
-                        }
-                }
+                StyleSheetListView()
             }
         }
     }
