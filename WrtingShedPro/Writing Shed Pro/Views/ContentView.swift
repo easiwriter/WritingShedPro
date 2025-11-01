@@ -4,7 +4,6 @@ import SwiftData
 struct ContentView: View {
     @Query var projects: [Project]
     @State private var showAddProject = false
-    @State private var showStyleSheetManagement = false
     @Environment(\.modelContext) var modelContext
     
     var body: some View {
@@ -16,12 +15,8 @@ struct ContentView: View {
             .navigationTitle(NSLocalizedString("contentView.title", comment: "Title of projects list"))
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Menu {
-                        Button(action: { showStyleSheetManagement = true }) {
-                            Label("Manage Stylesheets", systemImage: "paintbrush")
-                        }
-                    } label: {
-                        Label("Settings", systemImage: "gear")
+                    NavigationLink(destination: StyleSheetListView()) {
+                        Label("Manage Stylesheets", systemImage: "paintbrush")
                     }
                 }
                 
@@ -41,9 +36,6 @@ struct ContentView: View {
             }
             .sheet(isPresented: $showAddProject) {
                 AddProjectSheet(isPresented: $showAddProject)
-            }
-            .sheet(isPresented: $showStyleSheetManagement) {
-                StyleSheetManagementView()
             }
         }
     }

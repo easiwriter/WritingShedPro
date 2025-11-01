@@ -8,6 +8,9 @@
 import SwiftUI
 import SwiftData
 
+// Alias for consistency
+typealias StyleSheetListView = StyleSheetManagementView
+
 struct StyleSheetManagementView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -29,12 +32,6 @@ struct StyleSheetManagementView: View {
                                 Text(sheet.name)
                                     .font(.headline)
                                 
-                                if sheet.isSystemStyleSheet {
-                                    Text("System Default")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                                
                                 Text("\(sheet.textStyles?.count ?? 0) styles")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
@@ -42,24 +39,22 @@ struct StyleSheetManagementView: View {
                             
                             Spacer()
                             
-                            if !sheet.isSystemStyleSheet {
-                                Button(action: {
-                                    duplicateStyleSheet(sheet)
-                                }) {
-                                    Label("Duplicate", systemImage: "doc.on.doc")
-                                        .labelStyle(.iconOnly)
-                                }
-                                .buttonStyle(.plain)
-                                
-                                Button(role: .destructive, action: {
-                                    sheetToDelete = sheet
-                                    showDeleteAlert = true
-                                }) {
-                                    Label("Delete", systemImage: "trash")
-                                        .labelStyle(.iconOnly)
-                                }
-                                .buttonStyle(.plain)
+                            Button(action: {
+                                duplicateStyleSheet(sheet)
+                            }) {
+                                Label("Duplicate", systemImage: "doc.on.doc")
+                                    .labelStyle(.iconOnly)
                             }
+                            .buttonStyle(.plain)
+                            
+                            Button(role: .destructive, action: {
+                                sheetToDelete = sheet
+                                showDeleteAlert = true
+                            }) {
+                                Label("Delete", systemImage: "trash")
+                                    .labelStyle(.iconOnly)
+                            }
+                            .buttonStyle(.plain)
                         }
                         .padding(.vertical, 4)
                     }
@@ -117,15 +112,13 @@ struct StyleSheetManagementView: View {
     private func loadStyleSheets() {
         var descriptor = FetchDescriptor<StyleSheet>()
         descriptor.sortBy = [SortDescriptor(\.name)]
+        // Filter out system stylesheets - users can only manage custom ones
+        descriptor.predicate = #Predicate<StyleSheet> { sheet in
+            sheet.isSystemStyleSheet == false
+        }
         
         if let sheets = try? modelContext.fetch(descriptor) {
-            // Sort with system sheets first
-            styleSheets = sheets.sorted { first, second in
-                if first.isSystemStyleSheet != second.isSystemStyleSheet {
-                    return first.isSystemStyleSheet
-                }
-                return first.name < second.name
-            }
+            styleSheets = sheets
         }
     }
     

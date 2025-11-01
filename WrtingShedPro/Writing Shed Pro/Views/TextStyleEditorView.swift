@@ -42,18 +42,13 @@ struct TextStyleEditorView: View {
             
             Group {
                 styleNameSection
-                Divider()
+                previewSection
                 fontSettingsSection
-                Divider()
                 textColourSection
-                Divider()
                 paragraphSettingsSection
-                Divider()
                 if style.styleCategory == .list {
                     listFormatSection
-                    Divider()
                 }
-                previewSection
             }
             .disabled(style.styleSheet?.isSystemStyleSheet == true)
         }
@@ -92,19 +87,16 @@ struct TextStyleEditorView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Style Name")
                 .font(.headline)
-                .padding(.top)
             
             TextField("Style Name", text: $editedDisplayName)
                 .onChange(of: editedDisplayName) { hasUnsavedChanges = true }
         }
-        .padding(.bottom, 8)
     }
     
     private var fontSettingsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Font Settings")
                 .font(.headline)
-                .padding(.top)
                 
                 // Font Family Picker Button
                 Button(action: {
@@ -230,14 +222,12 @@ struct TextStyleEditorView: View {
                 }
                 .frame(maxWidth: .infinity)
         }
-        .padding(.bottom, 8)
     }
     
     private var textColourSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Text Colour")
                 .font(.headline)
-                .padding(.top)
                 
                 ColorPicker("Text Color", selection: Binding(
                     get: {
@@ -252,14 +242,12 @@ struct TextStyleEditorView: View {
                     }
                 ))
         }
-        .padding(.bottom, 8)
     }
     
     private var paragraphSettingsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Paragraph Settings")
                 .font(.headline)
-                .padding(.top)
                 
                 Picker("Alignment", selection: Binding(
                     get: { style.alignment },
@@ -326,14 +314,12 @@ struct TextStyleEditorView: View {
                         .frame(width: 60)
                 }
         }
-        .padding(.bottom, 8)
     }
     
     private var listFormatSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("List Format")
                 .font(.headline)
-                .padding(.top)
             
             Picker("Number Format", selection: Binding(
                 get: { style.numberFormat },
@@ -344,14 +330,12 @@ struct TextStyleEditorView: View {
                 }
             }
         }
-        .padding(.bottom, 8)
     }
     
     private var previewSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Preview")
                 .font(.headline)
-                .padding(.top)
                 
                 Text("The quick brown fox jumps over the lazy dog")
                     .font(Font(style.generateFont()))
@@ -363,7 +347,6 @@ struct TextStyleEditorView: View {
                     .background(Color.secondary.opacity(0.1))
                     .cornerRadius(8)
         }
-        .padding(.bottom, 8)
     }
     
     // MARK: - Save

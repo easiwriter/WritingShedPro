@@ -62,7 +62,9 @@ struct StylePickerSheet: View {
                                 style: item.style,
                                 name: item.name,
                                 description: item.description,
-                                isSelected: currentStyle == item.style
+                                isSelected: currentStyle == item.style,
+                                project: project,
+                                modelContext: modelContext
                             )
                         }
                         .buttonStyle(.plain)
@@ -151,26 +153,36 @@ private struct StylePreviewRow: View {
     let name: String
     let description: String
     let isSelected: Bool
+    let project: Project?
+    let modelContext: ModelContext
+    
+    // Get styled attributes from project stylesheet
+    private var styledAttributes: (font: UIFont, color: UIColor) {
+        guard let project = project else {
+            return (UIFont.preferredFont(forTextStyle: style), .label)
+        }
+        
+        let textStyle = StyleSheetService.resolveStyle(named: style.rawValue, for: project, context: modelContext)
+        let attrs = textStyle.generateAttributes()
+        let font = attrs[.font] as? UIFont ?? UIFont.preferredFont(forTextStyle: style)
+        let color = attrs[.foregroundColor] as? UIColor ?? .label
+        
+        return (font, color)
+    }
     
     var body: some View {
         HStack(alignment: .top, spacing: 16) {
-            // Preview text using the actual style
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Sample")
-                    .font(.init(UIFont.preferredFont(forTextStyle: style)))
-                    .foregroundColor(.primary)
-                
+            // Preview: Style name with actual styling, description below
+            VStack(alignment: .leading, spacing: 6) {
                 Text(name)
-                    .font(.caption)
+                    .font(.init(styledAttributes.font).weight(.medium))
+                    .foregroundColor(Color(styledAttributes.color))
+                
+                Text(description)
+                    .font(.subheadline)
                     .foregroundColor(.secondary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            
-            // Description
-            Text(description)
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
             
             // Checkmark if selected
             if isSelected {
@@ -179,7 +191,7 @@ private struct StylePreviewRow: View {
                     .font(.system(size: 16, weight: .semibold))
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 8)
         .contentShape(Rectangle())
     }
 }
