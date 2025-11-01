@@ -16,16 +16,32 @@ struct TextFormatter {
         let mutableText = NSMutableAttributedString(attributedString: attributedText)
         let fullRange = NSRange(location: 0, length: mutableText.length)
         
+        #if DEBUG
+        var removedCount = 0
+        #endif
+        
         mutableText.enumerateAttribute(.paragraphStyle, in: fullRange, options: []) { value, range, _ in
             if let paragraphStyle = value as? NSParagraphStyle {
                 // Check if this paragraph style has invalid line heights (both 0)
                 // These cause NaN errors when CoreGraphics tries to divide by line height
                 if paragraphStyle.maximumLineHeight == 0 && paragraphStyle.minimumLineHeight == 0 {
+                    #if DEBUG
+                    print("🧹 cleanParagraphStyles: Removing invalid paragraph style at range {\(range.location), \(range.length)}")
+                    removedCount += 1
+                    #endif
                     // Remove the paragraph style to avoid NaN errors
                     mutableText.removeAttribute(.paragraphStyle, range: range)
                 }
             }
         }
+        
+        #if DEBUG
+        if removedCount > 0 {
+            print("🧹 cleanParagraphStyles: Removed \(removedCount) invalid paragraph styles")
+        } else {
+            print("🧹 cleanParagraphStyles: No invalid styles to remove")
+        }
+        #endif
         
         return mutableText
     }
@@ -621,6 +637,27 @@ struct TextFormatter {
         }
         
         print("✅ Applied style to \(charCount) character ranges")
+        
+        #if DEBUG
+        // Log what we're returning
+        if mutableText.length > 0 {
+            print("📤 Returning attributed string:")
+            print("   Length: \(mutableText.length)")
+            if let ps0 = mutableText.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle {
+                print("   Position 0 has paragraph style: alignment=\(ps0.alignment.rawValue)")
+            } else {
+                print("   ⚠️ Position 0 has NO paragraph style!")
+            }
+            if mutableText.length > 20 {
+                if let ps20 = mutableText.attribute(.paragraphStyle, at: 20, effectiveRange: nil) as? NSParagraphStyle {
+                    print("   Position 20 has paragraph style: alignment=\(ps20.alignment.rawValue)")
+                } else {
+                    print("   ⚠️ Position 20 has NO paragraph style!")
+                }
+            }
+        }
+        #endif
+        
         print("🎨 ========== APPLY STYLE END ==========")
         
         return mutableText

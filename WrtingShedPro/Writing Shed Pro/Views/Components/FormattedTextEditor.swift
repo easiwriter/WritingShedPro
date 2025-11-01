@@ -238,13 +238,13 @@ struct FormattedTextEditor: UIViewRepresentable {
             // Critical: Tell text storage that attributes changed
             textView.textStorage.edited(.editedAttributes, range: NSRange(location: 0, length: textView.textStorage.length), changeInLength: 0)
             
-            // Force layout update
-            textView.layoutManager.ensureLayout(for: textView.textContainer)
-            
-            // Invalidate and force redraw
+            // Invalidate layout and display FIRST
             let fullRange = NSRange(location: 0, length: textView.textStorage.length)
-            textView.layoutManager.invalidateDisplay(forCharacterRange: fullRange)
             textView.layoutManager.invalidateLayout(forCharacterRange: fullRange, actualCharacterRange: nil)
+            textView.layoutManager.invalidateDisplay(forCharacterRange: fullRange)
+            
+            // THEN force layout update - this makes UITextView recalculate paragraph layout
+            textView.layoutManager.ensureLayout(for: textView.textContainer)
             
             #if DEBUG
             // Check if paragraph style survived the layout operations
@@ -257,8 +257,10 @@ struct FormattedTextEditor: UIViewRepresentable {
             }
             #endif
             
-            // Force immediate redraw
+            // Force the text view itself to update its display
             textView.setNeedsDisplay()
+            textView.setNeedsLayout()
+            textView.layoutIfNeeded()
             
             // Restore selection if it's still valid
             if oldSelectedRange.location <= attributedText.length {
