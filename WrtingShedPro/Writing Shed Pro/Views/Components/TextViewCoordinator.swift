@@ -22,7 +22,9 @@ class TextViewCoordinator: NSObject, ObservableObject, UIDocumentPickerDelegate 
     // MARK: - UIDocumentPickerDelegate
     
     func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+        print("📄 Document picker selected \(urls.count) files")
         guard let url = urls.first else { return }
+        print("📄 Calling onImagePicked with: \(url.lastPathComponent)")
         onImagePicked?(url)
     }
     

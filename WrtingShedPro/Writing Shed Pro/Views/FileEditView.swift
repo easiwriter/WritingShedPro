@@ -978,13 +978,18 @@ struct FileEditView: View {
     // MARK: - Image Insertion
     
     private func showImagePicker() {
+        print("🖼️ showImagePicker() called")
+        
         // Create a document picker for images
         let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.image])
         picker.allowsMultipleSelection = false
         picker.delegate = textViewCoordinator
         
+        print("🖼️ Document picker created, setting callback...")
+        
         // Store reference for when document is picked
         textViewCoordinator.onImagePicked = { url in
+            print("🖼️ onImagePicked callback triggered")
             self.handleImageSelection(url: url)
         }
         
@@ -995,17 +1000,38 @@ struct FileEditView: View {
             while let presented = topController.presentedViewController {
                 topController = presented
             }
+            print("🖼️ Presenting document picker...")
             topController.present(picker, animated: true)
+        } else {
+            print("❌ Failed to find root view controller")
         }
     }
     
     private func handleImageSelection(url: URL) {
+        print("🖼️ Image selected: \(url.lastPathComponent)")
+        
+        // Start accessing security-scoped resource
+        guard url.startAccessingSecurityScopedResource() else {
+            print("❌ Failed to access security-scoped resource")
+            return
+        }
+        
+        defer {
+            url.stopAccessingSecurityScopedResource()
+        }
+        
         do {
             let imageData = try Data(contentsOf: url)
+            print("🖼️ Image data loaded: \(imageData.count) bytes")
+            
             // Compress the image
             if let compressedData = compressImageData(imageData) {
+                print("🖼️ Image compressed: \(compressedData.count) bytes")
                 selectedImageData = compressedData
                 showImageStyleEditor = true
+                print("🖼️ Showing style editor...")
+            } else {
+                print("❌ Failed to compress image")
             }
         } catch {
             print("❌ Error loading image: \(error)")
