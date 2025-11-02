@@ -190,14 +190,14 @@ final class FormattingUndoRedoTests: XCTestCase {
     // MARK: - Color Change Undo/Redo
     
     func testColorChangeUndoRedo() {
-        // Given - Use explicit RGB colors to avoid color space issues
-        let blackColor = UIColor(red: 0, green: 0, blue: 0, alpha: 1)
+        // Given - Use a custom color and red (adaptive colors like black are now stripped)
+        let cyanColor = UIColor(red: 0.00392157, green: 0.780392, blue: 0.988235, alpha: 1) // Custom color
         let redColor = UIColor(red: 1, green: 0, blue: 0, alpha: 1)
         let font = UIFont.systemFont(ofSize: 17)
         
         let text1 = NSMutableAttributedString(string: "Text", attributes: [
             .font: font,
-            .foregroundColor: blackColor
+            .foregroundColor: cyanColor
         ])
         version.attributedContent = text1
         
@@ -222,13 +222,14 @@ final class FormattingUndoRedoTests: XCTestCase {
         // When - Undo
         undoManager.undo()
         
-        // Then - Should be black
+        // Then - Should be cyan (the original custom color)
         content = version.attributedContent
         color = content?.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? UIColor
-        // Compare RGB components (both colors are in RGB color space)
-        XCTAssertEqual(color?.cgColor.components?[0] ?? 1, 0, accuracy: 0.01, "Red component should be 0")
-        XCTAssertEqual(color?.cgColor.components?[1] ?? 1, 0, accuracy: 0.01, "Green component should be 0")
-        XCTAssertEqual(color?.cgColor.components?[2] ?? 1, 0, accuracy: 0.01, "Blue component should be 0")
+        XCTAssertNotNil(color, "Color should be restored")
+        // Compare RGB components (both colors are in extended sRGB color space)
+        XCTAssertEqual(color?.cgColor.components?[0] ?? 0, 0.00392157, accuracy: 0.01, "Red component should match cyan")
+        XCTAssertEqual(color?.cgColor.components?[1] ?? 0, 0.780392, accuracy: 0.01, "Green component should match cyan")
+        XCTAssertEqual(color?.cgColor.components?[2] ?? 0, 0.988235, accuracy: 0.01, "Blue component should match cyan")
         
         // When - Redo
         undoManager.redo()
