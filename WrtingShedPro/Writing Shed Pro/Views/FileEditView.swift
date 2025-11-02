@@ -346,25 +346,29 @@ struct FileEditView: View {
             )
         }
         .sheet(isPresented: $showImageStyleEditor) {
-            ImageStyleEditorView(
-                imageData: selectedImageData,
-                scale: 1.0,
-                alignment: .center,
-                hasCaption: false,
-                captionText: "",
-                captionStyle: "caption1",
-                availableCaptionStyles: ["body", "caption1", "caption2", "footnote"],
-                onApply: { imageData, scale, alignment, hasCaption, captionText, captionStyle in
-                    insertImage(
-                        imageData: imageData,
-                        scale: scale,
-                        alignment: alignment,
-                        hasCaption: hasCaption,
-                        captionText: captionText,
-                        captionStyle: captionStyle
-                    )
-                }
-            )
+            if let imageData = selectedImageData {
+                ImageStyleEditorView(
+                    imageData: imageData,
+                    scale: 1.0,
+                    alignment: .center,
+                    hasCaption: false,
+                    captionText: "",
+                    captionStyle: "caption1",
+                    availableCaptionStyles: ["body", "caption1", "caption2", "footnote"],
+                    onApply: { imageData, scale, alignment, hasCaption, captionText, captionStyle in
+                        insertImage(
+                            imageData: imageData,
+                            scale: scale,
+                            alignment: alignment,
+                            hasCaption: hasCaption,
+                            captionText: captionText,
+                            captionStyle: captionStyle
+                        )
+                    }
+                )
+            } else {
+                Text("Loading image...")
+            }
         }
     }
     
@@ -1076,7 +1080,22 @@ struct FileEditView: View {
         }
         
         // Create attributed string with the attachment
-        let attachmentString = NSAttributedString(attachment: attachment)
+        let attachmentString = NSMutableAttributedString(attachment: attachment)
+        
+        // Apply paragraph alignment based on image alignment
+        let paragraphStyle = NSMutableParagraphStyle()
+        switch alignment {
+        case .left:
+            paragraphStyle.alignment = .left
+        case .center:
+            paragraphStyle.alignment = .center
+        case .right:
+            paragraphStyle.alignment = .right
+        case .inline:
+            paragraphStyle.alignment = .natural
+        }
+        
+        attachmentString.addAttribute(.paragraphStyle, value: paragraphStyle, range: NSRange(location: 0, length: attachmentString.length))
         
         // Get the insertion point
         let insertionPoint = selectedRange.location

@@ -9,6 +9,7 @@ struct ImageStyleEditorView: View {
     // Image data and properties
     let imageData: Data?
     @State private var scale: CGFloat
+    @State private var scaleText: String
     @State private var alignment: ImageAttachment.ImageAlignment
     @State private var hasCaption: Bool
     @State private var captionText: String
@@ -30,8 +31,10 @@ struct ImageStyleEditorView: View {
         availableCaptionStyles: [String] = ["body", "caption1", "caption2", "footnote"],
         onApply: @escaping (Data?, CGFloat, ImageAttachment.ImageAlignment, Bool, String, String) -> Void
     ) {
+        print("🎨 ImageStyleEditorView.init called with imageData: \(imageData?.count ?? 0) bytes")
         self.imageData = imageData
         self._scale = State(initialValue: scale)
+        self._scaleText = State(initialValue: "\(Int(scale * 100))")
         self._alignment = State(initialValue: alignment)
         self._hasCaption = State(initialValue: hasCaption)
         self._captionText = State(initialValue: captionText)
@@ -41,6 +44,8 @@ struct ImageStyleEditorView: View {
     }
     
     var body: some View {
+        let _ = print("🎨 ImageStyleEditorView.body rendering, imageData: \(imageData?.count ?? 0) bytes")
+        
         NavigationView {
             Form {
                 // Image Preview Section
@@ -75,9 +80,17 @@ struct ImageStyleEditorView: View {
                         .disabled(scale <= 0.1)
                         .buttonStyle(.plain)
                         
-                        Text("\(Int(scale * 100))%")
+                        TextField("100", text: $scaleText)
                             .font(.headline)
-                            .frame(width: 60)
+                            .frame(width: 50)
+                            .multilineTextAlignment(.trailing)
+                            .textFieldStyle(.roundedBorder)
+                            .onChange(of: scaleText) { oldValue, newValue in
+                                updateScaleFromText(newValue)
+                            }
+                        
+                        Text("%")
+                            .font(.headline)
                         
                         Button(action: {
                             incrementScale()
@@ -165,11 +178,29 @@ struct ImageStyleEditorView: View {
     private func incrementScale() {
         let newScale = min(scale + 0.05, 2.0)
         scale = (newScale * 100).rounded() / 100 // Round to 2 decimal places
+        scaleText = "\(Int(scale * 100))"
     }
     
     private func decrementScale() {
         let newScale = max(scale - 0.05, 0.1)
         scale = (newScale * 100).rounded() / 100 // Round to 2 decimal places
+        scaleText = "\(Int(scale * 100))"
+    }
+    
+    private func updateScaleFromText(_ text: String) {
+        // Remove any non-numeric characters
+        let filtered = text.filter { $0.isNumber }
+        
+        if let percentage = Int(filtered) {
+            // Convert percentage to scale (10-200%)
+            let clampedPercentage = max(10, min(200, percentage))
+            scale = CGFloat(clampedPercentage) / 100.0
+            
+            // Update text to show clamped value if different
+            if percentage != clampedPercentage {
+                scaleText = "\(clampedPercentage)"
+            }
+        }
     }
 }
 
