@@ -23,6 +23,16 @@ struct AttributeValues: Codable {
     var minLineHeight: CGFloat?
     var textStyle: String?  // Stores UIFont.TextStyle.rawValue
     var textColorHex: String?  // Stores text color as hex string
+    
+    // Image attachment properties
+    var isImageAttachment: Bool?
+    var imageID: String?
+    var imageData: String?  // Base64-encoded image data
+    var imageScale: CGFloat?
+    var imageAlignment: String?
+    var hasCaption: Bool?
+    var captionText: String?
+    var captionStyle: String?
 }
 
 /// Service for converting between NSAttributedString and storable formats
@@ -233,6 +243,26 @@ struct AttributedStringSerializer {
                             attributes.textStyle = styleValue
                             print("💾 ENCODE textStyle at \(range.location): \(styleValue)")
                         }
+                    
+                    case .attachment:
+                        // Handle image attachments
+                        if let imageAttachment = value as? ImageAttachment {
+                            attributes.isImageAttachment = true
+                            attributes.imageID = imageAttachment.imageID.uuidString
+                            
+                            // Encode image data as base64
+                            if let imageData = imageAttachment.imageData {
+                                attributes.imageData = imageData.base64EncodedString()
+                            }
+                            
+                            attributes.imageScale = imageAttachment.scale
+                            attributes.imageAlignment = imageAttachment.alignment.rawValue
+                            attributes.hasCaption = imageAttachment.hasCaption
+                            attributes.captionText = imageAttachment.captionText
+                            attributes.captionStyle = imageAttachment.captionStyle
+                            
+                            print("💾 ENCODE image at \(range.location): id=\(imageAttachment.imageID), scale=\(imageAttachment.scale), alignment=\(imageAttachment.alignment.rawValue)")
+                        }
                         
                     default:
                         break
@@ -379,6 +409,45 @@ struct AttributedStringSerializer {
                 // Only add paragraph style if we actually have custom values
                 if hasParagraphStyleAttributes {
                     attributes[.paragraphStyle] = paragraphStyle
+                }
+                
+                // Image attachment - reconstruct ImageAttachment
+                if let isImage = jsonAttributes.isImageAttachment, isImage,
+                   let imageIDString = jsonAttributes.imageID,
+                   let imageID = UUID(uuidString: imageIDString) {
+                    
+                    // Create ImageAttachment
+                    let attachment = ImageAttachment()
+                    attachment.imageID = imageID
+                    
+                    // Decode image data from base64
+                    if let imageDataString = jsonAttributes.imageData,
+                       let imageData = Data(base64Encoded: imageDataString) {
+                        attachment.imageData = imageData
+                        attachment.image = UIImage(data: imageData)
+                    }
+                    
+                    // Restore scale and alignment
+                    if let scale = jsonAttributes.imageScale {
+                        attachment.scale = scale
+                    }
+                    
+                    if let alignmentString = jsonAttributes.imageAlignment,
+                       let alignment = ImageAttachment.ImageAlignment(rawValue: alignmentString) {
+                        attachment.alignment = alignment
+                    }
+                    
+                    // Restore caption
+                    attachment.hasCaption = jsonAttributes.hasCaption ?? false
+                    attachment.captionText = jsonAttributes.captionText
+                    attachment.captionStyle = jsonAttributes.captionStyle
+                    
+                    // Update bounds
+                    attachment.bounds = CGRect(origin: .zero, size: attachment.displaySize)
+                    
+                    attributes[.attachment] = attachment
+                    
+                    print("💾 DECODE image at \(location): id=\(imageID), scale=\(attachment.scale), alignment=\(attachment.alignment.rawValue)")
                 }
                 
                 result.addAttributes(attributes, range: NSRange(location: location, length: length))
