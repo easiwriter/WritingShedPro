@@ -535,9 +535,10 @@ private class CustomTextView: UITextView {
         set { customAccessoryView = newValue }
     }
     
-    // Disable system formatting menu since we have our own toolbar
+    // Completely disable the editing menu (the B/I/U/S popup)
     override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
-        // Disable system formatting actions (Bold, Italic, Underline, etc.)
+        // Check if this is the system's formatting menu
+        // We want to disable formatting actions that appear in the menu above the keyboard
         let formattingActions: [Selector] = [
             #selector(toggleBoldface(_:)),
             #selector(toggleItalics(_:)),
@@ -553,6 +554,16 @@ private class CustomTextView: UITextView {
         
         // Allow standard editing actions (cut, copy, paste, select, etc.)
         return super.canPerformAction(action, withSender: sender)
+    }
+    
+    // Override to prevent the editing menu from showing for formatting
+    override func buildMenu(with builder: UIMenuBuilder) {
+        super.buildMenu(with: builder)
+        
+        // Remove format menu from the editing menu
+        if #available(iOS 16.0, macCatalyst 16.0, *) {
+            builder.remove(menu: .format)
+        }
     }
 }
 
