@@ -544,6 +544,14 @@ private class CustomTextView: UITextView {
         set { customAccessoryView = newValue }
     }
     
+    // CRITICAL: Disable the shortcuts bar that appears on iPad with external keyboard
+    override var inputAssistantItem: UITextInputAssistantItem {
+        let item = super.inputAssistantItem
+        item.leadingBarButtonGroups = []
+        item.trailingBarButtonGroups = []
+        return item
+    }
+    
     // Disable the editing menu (B/I/U/S) that appears above keyboard on iPad
     @available(iOS 16.0, macCatalyst 16.0, *)
     override var editingInteractionConfiguration: UIEditingInteractionConfiguration {
