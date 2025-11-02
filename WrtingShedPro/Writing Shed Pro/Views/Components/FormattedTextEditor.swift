@@ -531,7 +531,16 @@ private class CustomTextView: UITextView {
     }
     
     override var inputAccessoryView: UIView? {
-        get { return customAccessoryView }
+        get {
+            // Return custom view if set, otherwise return an empty view to suppress system default
+            if let customView = customAccessoryView {
+                return customView
+            }
+            // Return an empty view with zero height to suppress the system's default input accessory
+            let emptyView = UIView(frame: CGRect(x: 0, y: 0, width: 0, height: 0))
+            emptyView.isHidden = true
+            return emptyView
+        }
         set { customAccessoryView = newValue }
     }
     
