@@ -1066,53 +1066,29 @@ struct FileEditView: View {
     ) {
         guard let imageData = imageData else { return }
         
-        // Create the ImageAttachment
-        guard let attachment = ImageAttachment.from(imageData: imageData) else {
-            print("❌ Failed to create ImageAttachment from data")
-            return
-        }
-        
-        // Set properties
-        attachment.scale = scale
-        attachment.alignment = alignment
-        if hasCaption {
-            attachment.setCaption(text: captionText, style: captionStyle)
-        }
-        
-        // Create attributed string with the attachment
-        let attachmentString = NSMutableAttributedString(attachment: attachment)
-        
-        // Apply paragraph alignment based on image alignment
-        let paragraphStyle = NSMutableParagraphStyle()
-        switch alignment {
-        case .left:
-            paragraphStyle.alignment = .left
-        case .center:
-            paragraphStyle.alignment = .center
-        case .right:
-            paragraphStyle.alignment = .right
-        case .inline:
-            paragraphStyle.alignment = .natural
-        }
-        
-        attachmentString.addAttribute(.paragraphStyle, value: paragraphStyle, range: NSRange(location: 0, length: attachmentString.length))
-        
         // Get the insertion point
         let insertionPoint = selectedRange.location
         
-        // Create mutable copy of current content
-        let mutableContent = NSMutableAttributedString(attributedString: attributedContent)
+        // Create and execute undo command
+        let command = InsertImageCommand(
+            position: insertionPoint,
+            imageData: imageData,
+            scale: scale,
+            alignment: alignment,
+            hasCaption: hasCaption,
+            captionText: captionText,
+            captionStyle: captionStyle,
+            targetFile: file
+        )
         
-        // Insert the image at cursor position
-        mutableContent.insert(attachmentString, at: insertionPoint)
+        undoManager.execute(command)
         
-        // Update the attributed content
-        attributedContent = mutableContent
+        // Update local state to reflect the change
+        attributedContent = file.currentVersion?.attributedContent ?? NSAttributedString()
         
         // Move cursor after the inserted image
         selectedRange = NSRange(location: insertionPoint + 1, length: 0)
         
-        // TODO: Add undo command for image insertion
         print("🖼️ Image inserted at position \(insertionPoint) with scale \(scale)")
         
         // Restore keyboard focus

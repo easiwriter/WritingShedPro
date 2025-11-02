@@ -1,0 +1,171 @@
+import Foundation
+import UIKit
+
+/// Command for inserting an image at a specific position
+final class InsertImageCommand: UndoableCommand {
+    let id: UUID
+    let timestamp: Date
+    let description: String
+    
+    /// The position where the image should be inserted
+    let position: Int
+    
+    /// The image data (JPEG/PNG)
+    let imageData: Data
+    
+    /// Image scale (0.1 to 2.0)
+    let scale: CGFloat
+    
+    /// Image alignment
+    let alignment: ImageAttachment.ImageAlignment
+    
+    /// Whether image has a caption
+    let hasCaption: Bool
+    
+    /// Caption text (if hasCaption is true)
+    let captionText: String
+    
+    /// Caption style name (if hasCaption is true)
+    let captionStyle: String
+    
+    /// Reference to the target file (weak to prevent retain cycles)
+    weak var targetFile: File?
+    
+    // MARK: - Initialization
+    
+    init(
+        id: UUID = UUID(),
+        timestamp: Date = Date(),
+        description: String = "Insert Image",
+        position: Int,
+        imageData: Data,
+        scale: CGFloat,
+        alignment: ImageAttachment.ImageAlignment,
+        hasCaption: Bool,
+        captionText: String,
+        captionStyle: String,
+        targetFile: File?
+    ) {
+        self.id = id
+        self.timestamp = timestamp
+        self.description = description
+        self.position = position
+        self.imageData = imageData
+        self.scale = scale
+        self.alignment = alignment
+        self.hasCaption = hasCaption
+        self.captionText = captionText
+        self.captionStyle = captionStyle
+        self.targetFile = targetFile
+    }
+    
+    // MARK: - UndoableCommand
+    
+    func execute() {
+        guard let file = targetFile,
+              let currentVersion = file.currentVersion else {
+            return
+        }
+        
+        let content = currentVersion.attributedContent ?? NSAttributedString()
+        guard position >= 0, position <= content.length else {
+            return
+        }
+        
+        // Create the ImageAttachment
+        guard let attachment = ImageAttachment.from(imageData: imageData) else {
+            print("❌ Failed to create ImageAttachment from data")
+            return
+        }
+        
+        // Set properties
+        attachment.scale = scale
+        attachment.alignment = alignment
+        if hasCaption {
+            attachment.setCaption(text: captionText, style: captionStyle)
+        }
+        
+        // Create attributed string with the attachment
+        let attachmentString = NSMutableAttributedString(attachment: attachment)
+        
+        // Apply paragraph alignment based on image alignment
+        let paragraphStyle = NSMutableParagraphStyle()
+        switch alignment {
+        case .left:
+            paragraphStyle.alignment = .left
+        case .center:
+            paragraphStyle.alignment = .center
+        case .right:
+            paragraphStyle.alignment = .right
+        case .inline:
+            paragraphStyle.alignment = .natural
+        }
+        
+        attachmentString.addAttribute(.paragraphStyle, value: paragraphStyle, range: NSRange(location: 0, length: attachmentString.length))
+        
+        // Create mutable copy and insert
+        let mutableContent = NSMutableAttributedString(attributedString: content)
+        mutableContent.insert(attachmentString, at: position)
+        
+        // Update the version's content
+        currentVersion.attributedContent = mutableContent
+        file.modifiedDate = Date()
+    }
+    
+    func undo() {
+        guard let file = targetFile,
+              let currentVersion = file.currentVersion else {
+            return
+        }
+        
+        let content = currentVersion.attributedContent ?? NSAttributedString()
+        guard position >= 0, position + 1 <= content.length else {
+            return
+        }
+        
+        // Remove the image (attachments take up 1 character position)
+        let mutableContent = NSMutableAttributedString(attributedString: content)
+        mutableContent.deleteCharacters(in: NSRange(location: position, length: 1))
+        
+        // Update the version's content
+        currentVersion.attributedContent = mutableContent
+        file.modifiedDate = Date()
+    }
+    
+    // MARK: - Codable
+    
+    enum CodingKeys: String, CodingKey {
+        case id, timestamp, description, position, imageData, scale, alignment
+        case hasCaption, captionText, captionStyle
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(timestamp, forKey: .timestamp)
+        try container.encode(description, forKey: .description)
+        try container.encode(position, forKey: .position)
+        try container.encode(imageData, forKey: .imageData)
+        try container.encode(scale, forKey: .scale)
+        try container.encode(alignment.rawValue, forKey: .alignment)
+        try container.encode(hasCaption, forKey: .hasCaption)
+        try container.encode(captionText, forKey: .captionText)
+        try container.encode(captionStyle, forKey: .captionStyle)
+    }
+    
+    required init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        timestamp = try container.decode(Date.self, forKey: .timestamp)
+        description = try container.decode(String.self, forKey: .description)
+        position = try container.decode(Int.self, forKey: .position)
+        imageData = try container.decode(Data.self, forKey: .imageData)
+        scale = try container.decode(CGFloat.self, forKey: .scale)
+        let alignmentRaw = try container.decode(String.self, forKey: .alignment)
+        alignment = ImageAttachment.ImageAlignment(rawValue: alignmentRaw) ?? .inline
+        hasCaption = try container.decode(Bool.self, forKey: .hasCaption)
+        captionText = try container.decode(String.self, forKey: .captionText)
+        captionStyle = try container.decode(String.self, forKey: .captionStyle)
+        // Note: targetFile will be set when command is deserialized
+    }
+}
