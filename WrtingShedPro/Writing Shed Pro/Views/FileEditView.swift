@@ -1027,9 +1027,18 @@ struct FileEditView: View {
             // Compress the image
             if let compressedData = compressImageData(imageData) {
                 print("🖼️ Image compressed: \(compressedData.count) bytes")
-                selectedImageData = compressedData
-                showImageStyleEditor = true
-                print("🖼️ Showing style editor...")
+                
+                // Update state on main thread and wait for next run loop
+                DispatchQueue.main.async {
+                    self.selectedImageData = compressedData
+                    print("🖼️ selectedImageData set: \(compressedData.count) bytes")
+                    
+                    // Small delay to ensure SwiftUI state updates propagate
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        self.showImageStyleEditor = true
+                        print("🖼️ Showing style editor with imageData: \(self.selectedImageData != nil)")
+                    }
+                }
             } else {
                 print("❌ Failed to compress image")
             }
