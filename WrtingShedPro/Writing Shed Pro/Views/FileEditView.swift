@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import ToolbarSUI
+import UniformTypeIdentifiers
 
 struct FileEditView: View {
     let file: File
@@ -13,6 +14,8 @@ struct FileEditView: View {
     @State private var refreshTrigger = UUID()
     @State private var forceRefresh = false
     @State private var showStylePicker = false
+    @State private var showImageStyleEditor = false
+    @State private var selectedImageData: Data?
     @State private var currentParagraphStyle: UIFont.TextStyle? = .body
     @StateObject private var undoManager: TextFileUndoManager
     @StateObject private var textViewCoordinator = TextViewCoordinator()
@@ -136,7 +139,7 @@ struct FileEditView: View {
                     case .strikethrough:
                         applyFormatting(.strikethrough)
                     case .insert:
-                        print("Insert button tapped")
+                        showImagePicker()
                     }
                 }
                 .frame(height: 44)
@@ -339,6 +342,27 @@ struct FileEditView: View {
                 project: file.project,
                 onReapplyStyles: {
                     reapplyAllStyles()
+                }
+            )
+        }
+        .sheet(isPresented: $showImageStyleEditor) {
+            ImageStyleEditorView(
+                imageData: selectedImageData,
+                scale: 1.0,
+                alignment: .center,
+                hasCaption: false,
+                captionText: "",
+                captionStyle: "caption1",
+                availableCaptionStyles: ["body", "caption1", "caption2", "footnote"],
+                onApply: { imageData, scale, alignment, hasCaption, captionText, captionStyle in
+                    insertImage(
+                        imageData: imageData,
+                        scale: scale,
+                        alignment: alignment,
+                        hasCaption: hasCaption,
+                        captionText: captionText,
+                        captionStyle: captionStyle
+                    )
                 }
             )
         }
@@ -948,6 +972,96 @@ struct FileEditView: View {
         print("📝 Paragraph style command added to undo stack")
         
         // Restore keyboard focus after applying style
+        restoreKeyboardFocus()
+    }
+    
+    // MARK: - Image Insertion
+    
+    private func showImagePicker() {
+        // Create a document picker for images
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.image])
+        picker.allowsMultipleSelection = false
+        picker.delegate = textViewCoordinator
+        
+        // Store reference for when document is picked
+        textViewCoordinator.onImagePicked = { url in
+            self.handleImageSelection(url: url)
+        }
+        
+        // Present the picker
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let rootViewController = windowScene.windows.first?.rootViewController {
+            var topController = rootViewController
+            while let presented = topController.presentedViewController {
+                topController = presented
+            }
+            topController.present(picker, animated: true)
+        }
+    }
+    
+    private func handleImageSelection(url: URL) {
+        do {
+            let imageData = try Data(contentsOf: url)
+            // Compress the image
+            if let compressedData = compressImageData(imageData) {
+                selectedImageData = compressedData
+                showImageStyleEditor = true
+            }
+        } catch {
+            print("❌ Error loading image: \(error)")
+        }
+    }
+    
+    private func compressImageData(_ data: Data) -> Data? {
+        guard let uiImage = UIImage(data: data) else { return nil }
+        return ImageAttachment.compressImage(uiImage)
+    }
+    
+    private func insertImage(
+        imageData: Data?,
+        scale: CGFloat,
+        alignment: ImageAttachment.ImageAlignment,
+        hasCaption: Bool,
+        captionText: String,
+        captionStyle: String
+    ) {
+        guard let imageData = imageData else { return }
+        
+        // Create the ImageAttachment
+        guard let attachment = ImageAttachment.from(imageData: imageData) else {
+            print("❌ Failed to create ImageAttachment from data")
+            return
+        }
+        
+        // Set properties
+        attachment.scale = scale
+        attachment.alignment = alignment
+        if hasCaption {
+            attachment.setCaption(text: captionText, style: captionStyle)
+        }
+        
+        // Create attributed string with the attachment
+        let attachmentString = NSAttributedString(attachment: attachment)
+        
+        // Get the insertion point
+        let insertionPoint = selectedRange.location
+        
+        // Create mutable copy of current content
+        let mutableContent = NSMutableAttributedString(attributedString: attributedContent)
+        
+        // Insert the image at cursor position
+        mutableContent.insert(attachmentString, at: insertionPoint)
+        
+        // Update the attributed content
+        attributedContent = mutableContent
+        
+        // Move cursor after the inserted image
+        selectedRange = NSRange(location: insertionPoint + 1, length: 0)
+        
+        // TODO: Add undo command for image insertion
+        print("🖼️ Image inserted at position \(insertionPoint) with scale \(scale)")
+        
+        // Restore keyboard focus
         restoreKeyboardFocus()
     }
     

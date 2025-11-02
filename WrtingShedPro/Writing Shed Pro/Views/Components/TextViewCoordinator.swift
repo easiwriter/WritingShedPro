@@ -2,8 +2,9 @@ import UIKit
 import Combine
 
 /// Coordinator to manage UITextView reference and typing attributes
-class TextViewCoordinator: ObservableObject {
+class TextViewCoordinator: NSObject, ObservableObject, UIDocumentPickerDelegate {
     weak var textView: UITextView?
+    var onImagePicked: ((URL) -> Void)?
     
     /// Modify typing attributes without triggering SwiftUI updates
     func modifyTypingAttributes(_ modifier: @escaping (UITextView) -> Void) {
@@ -16,5 +17,16 @@ class TextViewCoordinator: ObservableObject {
         DispatchQueue.main.async {
             modifier(textView)
         }
+    }
+    
+    // MARK: - UIDocumentPickerDelegate
+    
+    func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+        guard let url = urls.first else { return }
+        onImagePicked?(url)
+    }
+    
+    func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+        print("📄 Image picker was cancelled")
     }
 }
