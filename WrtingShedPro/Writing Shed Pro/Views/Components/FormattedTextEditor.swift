@@ -535,6 +535,12 @@ private class CustomTextView: UITextView {
         set { customAccessoryView = newValue }
     }
     
+    // Disable the editing menu (B/I/U/S) that appears above keyboard on iPad
+    @available(iOS 16.0, macCatalyst 16.0, *)
+    override var editingInteractionConfiguration: UIEditingInteractionConfiguration {
+        return .none
+    }
+    
     // Completely disable the editing menu (the B/I/U/S popup)
     override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
         // Check if this is the system's formatting menu
