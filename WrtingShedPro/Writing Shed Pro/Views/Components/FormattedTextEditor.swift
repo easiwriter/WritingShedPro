@@ -534,6 +534,26 @@ private class CustomTextView: UITextView {
         get { return customAccessoryView }
         set { customAccessoryView = newValue }
     }
+    
+    // Disable system formatting menu since we have our own toolbar
+    override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
+        // Disable system formatting actions (Bold, Italic, Underline, etc.)
+        let formattingActions: [Selector] = [
+            #selector(toggleBoldface(_:)),
+            #selector(toggleItalics(_:)),
+            #selector(toggleUnderline(_:)),
+            Selector(("_toggleStrikethrough:")),
+            #selector(UIResponderStandardEditActions.increaseSize(_:)),
+            #selector(UIResponderStandardEditActions.decreaseSize(_:))
+        ]
+        
+        if formattingActions.contains(action) {
+            return false
+        }
+        
+        // Allow standard editing actions (cut, copy, paste, select, etc.)
+        return super.canPerformAction(action, withSender: sender)
+    }
 }
 
 // MARK: - Preview
