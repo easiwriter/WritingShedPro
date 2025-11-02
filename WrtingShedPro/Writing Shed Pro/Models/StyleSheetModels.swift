@@ -214,8 +214,21 @@ final class TextStyleModel {
         attrs[.textStyle] = name
         
         // Text color
+        // ONLY include color if it's set AND it's not a pure black/white/gray
+        // (those should adapt to appearance mode)
         if let color = textColor {
-            attrs[.foregroundColor] = color
+            // Check if this is a color that should adapt to appearance
+            if !AttributedStringSerializer.isAdaptiveSystemColor(color) && 
+               !AttributedStringSerializer.isFixedBlackOrWhite(color) {
+                // It's a real custom color (red, blue, cyan, etc.) - include it
+                attrs[.foregroundColor] = color
+            } else {
+                // It's a black/white/gray that should adapt - use .label
+                attrs[.foregroundColor] = UIColor.label
+            }
+        } else {
+            // No color set in stylesheet - use adaptive .label
+            attrs[.foregroundColor] = UIColor.label
         }
         
         // Underline

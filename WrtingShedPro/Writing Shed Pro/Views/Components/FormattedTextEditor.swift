@@ -124,7 +124,37 @@ struct FormattedTextEditor: UIViewRepresentable {
         // the correct font is used
         if attributedText.length > 0 {
             // Get attributes from the start of the text
-            let attrs = attributedText.attributes(at: 0, effectiveRange: nil)
+            var attrs = attributedText.attributes(at: 0, effectiveRange: nil)
+            
+            #if DEBUG
+            print("🎨 Setting typing attributes from position 0")
+            if let color = attrs[.foregroundColor] as? UIColor {
+                print("   Original color: \(color.toHex() ?? "unknown")")
+            } else {
+                print("   Original color: NONE")
+            }
+            #endif
+            
+            // CRITICAL: Remove foregroundColor if it's an adaptive color (black/white)
+            // This allows text to adapt to light/dark mode automatically
+            if let color = attrs[.foregroundColor] as? UIColor {
+                if AttributedStringSerializer.isAdaptiveSystemColor(color) || 
+                   AttributedStringSerializer.isFixedBlackOrWhite(color) {
+                    attrs.removeValue(forKey: .foregroundColor)
+                    #if DEBUG
+                    print("   🧹 Removed adaptive color from typing attributes")
+                    #endif
+                }
+            }
+            
+            #if DEBUG
+            if let color = attrs[.foregroundColor] as? UIColor {
+                print("   Final color after filter: \(color.toHex() ?? "unknown")")
+            } else {
+                print("   Final color after filter: NONE (will use system default)")
+            }
+            #endif
+            
             textView.typingAttributes = attrs
         } else {
             // Empty document - use attributes from attributed string if available
@@ -133,6 +163,18 @@ struct FormattedTextEditor: UIViewRepresentable {
             attributedText.enumerateAttributes(in: NSRange(location: 0, length: 0), options: []) { attributes, _, _ in
                 attrs = attributes
             }
+            
+            // CRITICAL: Remove foregroundColor if it's an adaptive color
+            if let color = attrs[.foregroundColor] as? UIColor {
+                if AttributedStringSerializer.isAdaptiveSystemColor(color) || 
+                   AttributedStringSerializer.isFixedBlackOrWhite(color) {
+                    attrs.removeValue(forKey: .foregroundColor)
+                    #if DEBUG
+                    print("🎨 Removed adaptive color from empty doc typing attributes")
+                    #endif
+                }
+            }
+            
             if !attrs.isEmpty {
                 textView.typingAttributes = attrs
             } else {
@@ -274,16 +316,39 @@ struct FormattedTextEditor: UIViewRepresentable {
             // Without this, UITextView reverts to default color (labelColor) for new text
             if textView.selectedRange.location > 0 && textView.selectedRange.location <= textView.textStorage.length {
                 // Get attributes from character before cursor (where we'll continue typing)
-                let attrs = textView.textStorage.attributes(at: textView.selectedRange.location - 1, effectiveRange: nil)
-                textView.typingAttributes = attrs
-                #if DEBUG
+                var attrs = textView.textStorage.attributes(at: textView.selectedRange.location - 1, effectiveRange: nil)
+                
+                // CRITICAL: Remove adaptive colors from typing attributes
                 if let color = attrs[.foregroundColor] as? UIColor {
-                    print("📝 Set typing attributes from position \(textView.selectedRange.location - 1), color: \(color.toHex() ?? "nil")")
+                    if AttributedStringSerializer.isAdaptiveSystemColor(color) || 
+                       AttributedStringSerializer.isFixedBlackOrWhite(color) {
+                        attrs.removeValue(forKey: .foregroundColor)
+                        #if DEBUG
+                        print("📝 Removed adaptive color \(color.toHex() ?? "nil") from typing attributes at position \(textView.selectedRange.location - 1)")
+                        #endif
+                    } else {
+                        #if DEBUG
+                        print("📝 Keeping explicit color \(color.toHex() ?? "nil") in typing attributes")
+                        #endif
+                    }
                 }
-                #endif
+                
+                textView.typingAttributes = attrs
             } else if textView.textStorage.length > 0 {
                 // At start of document, use attributes from first character
-                let attrs = textView.textStorage.attributes(at: 0, effectiveRange: nil)
+                var attrs = textView.textStorage.attributes(at: 0, effectiveRange: nil)
+                
+                // CRITICAL: Remove adaptive colors from typing attributes
+                if let color = attrs[.foregroundColor] as? UIColor {
+                    if AttributedStringSerializer.isAdaptiveSystemColor(color) || 
+                       AttributedStringSerializer.isFixedBlackOrWhite(color) {
+                        attrs.removeValue(forKey: .foregroundColor)
+                        #if DEBUG
+                        print("📝 Removed adaptive color from typing attributes at document start")
+                        #endif
+                    }
+                }
+                
                 textView.typingAttributes = attrs
             }
             print("📝 Text view updated")
@@ -364,6 +429,24 @@ struct FormattedTextEditor: UIViewRepresentable {
             
             #if DEBUG
             print("📝 textViewDidChange called - text: '\(textView.attributedText?.string.prefix(50) ?? "")'")
+            
+            // Log color information at the start of text
+            if let attrText = textView.attributedText, attrText.length > 0 {
+                let attrs = attrText.attributes(at: 0, effectiveRange: nil)
+                if let color = attrs[.foregroundColor] as? UIColor {
+                    print("   Text has color at position 0: \(color.toHex() ?? "unknown")")
+                } else {
+                    print("   Text has NO color at position 0 (will use default)")
+                }
+            }
+            
+            // Log current typing attributes
+            print("   Current typingAttributes:")
+            if let color = textView.typingAttributes[.foregroundColor] as? UIColor {
+                print("      foregroundColor: \(color.toHex() ?? "unknown")")
+            } else {
+                print("      foregroundColor: NONE")
+            }
             #endif
             
             // Update the binding so SwiftUI state stays in sync

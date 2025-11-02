@@ -102,7 +102,7 @@ final class StyleReapplicationTests: XCTestCase {
         XCTAssertEqual(paragraphStyle?.tailIndent, -15.0)
         
         // Verify style identifier
-        let styleIdentifier = attributes[NSAttributedString.Key(rawValue: "TextStyle")] as? String
+        let styleIdentifier = attributes[.textStyle] as? String
         XCTAssertEqual(styleIdentifier, "test-style")
     }
     
@@ -223,7 +223,7 @@ final class StyleReapplicationTests: XCTestCase {
         let color = attributes[.foregroundColor] as? UIColor
         XCTAssertNotNil(color)
         
-        let styleIdentifier = attributes[NSAttributedString.Key(rawValue: "TextStyle")] as? String
+        let styleIdentifier = attributes[.textStyle] as? String
         XCTAssertEqual(styleIdentifier, UIFont.TextStyle.body.rawValue)
     }
     
@@ -363,14 +363,14 @@ final class StyleReapplicationTests: XCTestCase {
         let reappliedDocument = NSMutableAttributedString(attributedString: document)
         
         // Reapply title style
-        if let styleName = titleAttrs[NSAttributedString.Key(rawValue: "TextStyle")] as? String,
+        if let styleName = titleAttrs[.textStyle] as? String,
            let updatedStyle = StyleSheetService.resolveStyle(named: styleName, for: project, context: context) {
             let newAttrs = updatedStyle.generateAttributes()
             reappliedDocument.setAttributes(newAttrs, range: NSRange(location: 0, length: 6))
         }
         
         // Reapply body style
-        if let styleName = bodyAttrs[NSAttributedString.Key(rawValue: "TextStyle")] as? String,
+        if let styleName = bodyAttrs[.textStyle] as? String,
            let updatedStyle = StyleSheetService.resolveStyle(named: styleName, for: project, context: context) {
             let newAttrs = updatedStyle.generateAttributes()
             reappliedDocument.setAttributes(newAttrs, range: NSRange(location: 6, length: reappliedDocument.length - 6))
@@ -498,7 +498,7 @@ final class StyleReapplicationTests: XCTestCase {
         // When - Enumerate styles
         var foundStyles: [String: NSRange] = [:]
         document.enumerateAttribute(
-            NSAttributedString.Key(rawValue: "TextStyle"),
+            .textStyle,
             in: NSRange(location: 0, length: document.length),
             options: []
         ) { value, range, _ in

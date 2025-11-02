@@ -300,3 +300,4 @@ final class UndoRedoTests: XCTestCase {
         XCTAssertEqual(testFile.currentVersion?.content, "AC")
     }
 }
+

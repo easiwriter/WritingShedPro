@@ -682,12 +682,34 @@ struct FileEditView: View {
             print("📝 New font: \(newFont.fontName) \(newFont.pointSize)pt, bold=\(updatedStyle.isBold), italic=\(updatedStyle.isItalic)")
             if let color = newAttributes[.foregroundColor] as? UIColor {
                 print("📝 New color: \(color)")
+            } else {
+                print("📝 New color: NONE (will use system default)")
+            }
+            
+            // Log what color is CURRENTLY in the text before we change it
+            if range.location < mutableText.length {
+                let oldAttrs = mutableText.attributes(at: range.location, effectiveRange: nil)
+                if let oldColor = oldAttrs[.foregroundColor] as? UIColor {
+                    print("   🔍 OLD color in document: \(oldColor.toHex() ?? "unknown")")
+                } else {
+                    print("   🔍 OLD color in document: NONE")
+                }
             }
             
             // Completely replace attributes with fresh stylesheet values
             // This ensures stylesheet changes fully propagate to documents
             print("✅ Applying new attributes to range {\(range.location), \(range.length)}")
             mutableText.setAttributes(newAttributes, range: range)
+            
+            // Log what color is ACTUALLY in the text after we set it
+            if range.location < mutableText.length {
+                let finalAttrs = mutableText.attributes(at: range.location, effectiveRange: nil)
+                if let finalColor = finalAttrs[.foregroundColor] as? UIColor {
+                    print("   🔍 FINAL color after setAttributes: \(finalColor.toHex() ?? "unknown")")
+                } else {
+                    print("   🔍 FINAL color after setAttributes: NONE ✅ (will adapt!)")
+                }
+            }
             hasChanges = true
         }
         

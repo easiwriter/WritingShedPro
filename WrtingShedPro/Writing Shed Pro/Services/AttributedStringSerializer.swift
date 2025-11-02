@@ -28,6 +28,110 @@ struct AttributeValues: Codable {
 /// Service for converting between NSAttributedString and storable formats
 struct AttributedStringSerializer {
     
+    // MARK: - Adaptive Color Detection
+    
+    /// Check if a color is an adaptive system color that should not be serialized
+    /// These colors automatically adapt to light/dark mode
+    /// - Parameter color: The UIColor to check
+    /// - Returns: true if this is an adaptive system color
+    static func isAdaptiveSystemColor(_ color: UIColor) -> Bool {
+        // CRITICAL: Can't use color == .label because dynamic colors don't compare correctly
+        // Instead, check if the color resolves to pure black or white, which indicates
+        // it's likely a system adaptive color
+        
+        // Get the hex value of the resolved color
+        guard let hex = color.toHex() else {
+            print("🔍 isAdaptiveSystemColor: Failed to convert color to hex")
+            return false
+        }
+        let upperHex = hex.uppercased()
+        
+        print("🔍 isAdaptiveSystemColor: Checking color with hex=\(upperHex)")
+        
+        // If it's pure black or white, treat it as adaptive
+        // This catches both .label in light mode (black) and dark mode (white)
+        if upperHex == "#000000" || upperHex == "#000000FF" ||
+           upperHex == "#FFFFFF" || upperHex == "#FFFFFFFF" {
+            print("   ✅ IS adaptive (black or white)")
+            return true
+        }
+        
+        // Also check for gray colors that might be .secondaryLabel, etc.
+        // These resolve to various shades of gray
+        if upperHex.hasPrefix("#") {
+            let hexWithoutHash = String(upperHex.dropFirst())
+            // Extract RGB components
+            if hexWithoutHash.count >= 6 {
+                let r = hexWithoutHash.prefix(2)
+                let g = hexWithoutHash.dropFirst(2).prefix(2)
+                let b = hexWithoutHash.dropFirst(4).prefix(2)
+                
+                // If R, G, B are all equal (gray), likely a system label color
+                if r == g && g == b {
+                    print("   ✅ IS adaptive (gray R=G=B)")
+                    return true
+                }
+            }
+        }
+        
+        print("   ❌ NOT adaptive (user color)")
+        return false
+    }
+    
+    /// Check if a color is a fixed black or white that should be treated as adaptive
+    /// This handles colors from old documents that have fixed black/white
+    /// - Parameter color: The UIColor to check
+    /// - Returns: true if this is pure black or white
+    static func isFixedBlackOrWhite(_ color: UIColor) -> Bool {
+        guard let hex = color.toHex() else {
+            print("🔍 isFixedBlackOrWhite: Failed to convert color to hex")
+            return false
+        }
+        // Check for pure black or white (with or without alpha)
+        let upperHex = hex.uppercased()
+        let result = upperHex == "#000000" || upperHex == "#000000FF" ||
+                     upperHex == "#FFFFFF" || upperHex == "#FFFFFFFF"
+        print("🔍 isFixedBlackOrWhite: hex=\(upperHex) result=\(result)")
+        return result
+    }
+    
+    /// Strip adaptive colors from an attributed string
+    /// This removes .foregroundColor attributes that are system adaptive colors or pure black/white
+    /// Allows the text to adapt to the current appearance mode
+    /// - Parameter attributedString: The attributed string to clean
+    /// - Returns: A new attributed string without adaptive colors
+    static func stripAdaptiveColors(from attributedString: NSAttributedString) -> NSAttributedString {
+        let mutableString = NSMutableAttributedString(attributedString: attributedString)
+        let fullRange = NSRange(location: 0, length: mutableString.length)
+        
+        var rangesToStrip: [(NSRange, UIColor)] = []
+        
+        // Find all color attributes that should be stripped
+        mutableString.enumerateAttribute(.foregroundColor, in: fullRange, options: []) { value, range, _ in
+            if let color = value as? UIColor {
+                if isAdaptiveSystemColor(color) || isFixedBlackOrWhite(color) {
+                    rangesToStrip.append((range, color))
+                }
+            }
+        }
+        
+        // Remove adaptive colors
+        for (range, color) in rangesToStrip {
+            mutableString.removeAttribute(.foregroundColor, range: range)
+            #if DEBUG
+            print("🧹 Stripped adaptive color \(color.toHex() ?? "unknown") from range {\(range.location), \(range.length)}")
+            #endif
+        }
+        
+        #if DEBUG
+        if !rangesToStrip.isEmpty {
+            print("🧹 Stripped \(rangesToStrip.count) adaptive color ranges - text will now adapt to appearance mode")
+        }
+        #endif
+        
+        return mutableString
+    }
+    
     // MARK: - Attribute-based Encoding/Decoding
     
     /// Encode NSAttributedString to Data by extracting font traits
@@ -73,10 +177,18 @@ struct AttributedStringSerializer {
                         attributes.strikethrough = value as? CGFloat
                     
                     case .foregroundColor:
-                        // Store text color as hex string
+                        // CRITICAL: Only store explicitly set colors, NOT system adaptive colors
+                        // System colors like .label adapt to light/dark mode automatically
+                        // If we serialize them, they become fixed black/white and break appearance switching
                         if let color = value as? UIColor {
-                            attributes.textColorHex = color.toHex()
-                            print("💾 ENCODE color at \(range.location): \(color.toHex() ?? "nil")")
+                            // Use helper to check if this should be skipped
+                            if !isAdaptiveSystemColor(color) && !isFixedBlackOrWhite(color) {
+                                // Only serialize non-adaptive colors (user-selected colors)
+                                attributes.textColorHex = color.toHex()
+                                print("💾 ENCODE color at \(range.location): \(color.toHex() ?? "nil") (explicit color)")
+                            } else {
+                                print("💾 SKIP color at \(range.location): adaptive/black/white color (will adapt to appearance)")
+                            }
                         }
                         
                     case .paragraphStyle:
@@ -275,7 +387,9 @@ struct AttributedStringSerializer {
             print("❌ Error decoding attributed string: \(error)")
         }
         
-        return result
+        // CRITICAL: Strip adaptive colors after decoding
+        // This handles old documents that have fixed black/white colors
+        return stripAdaptiveColors(from: result)
     }
     
     // MARK: - RTF Conversion
