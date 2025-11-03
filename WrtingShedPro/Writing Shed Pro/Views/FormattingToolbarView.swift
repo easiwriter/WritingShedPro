@@ -48,10 +48,9 @@ struct FormattingToolbarView: UIViewRepresentable {
             coordinator: context.coordinator
         )
         
-        // Create insert button (non-highlighting)
-        let insertButton = createStandardButton(
+        // Create insert button with menu
+        let insertButton = createMenuButton(
             systemName: "plus.circle",
-            action: #selector(context.coordinator.showInsert),
             coordinator: context.coordinator
         )
         
@@ -171,6 +170,36 @@ struct FormattingToolbarView: UIViewRepresentable {
         return button
     }
     
+    // Menu button for insert options
+    private func createMenuButton(systemName: String, coordinator: Coordinator) -> UIButton {
+        let button = UIButton(type: .system)
+        button.setImage(UIImage(systemName: systemName, withConfiguration: UIImage.SymbolConfiguration(scale: .large)), for: .normal)
+        button.frame = CGRect(x: 0, y: 0, width: 44, height: 44)
+        button.showsMenuAsPrimaryAction = true
+        
+        // Create menu
+        let imageAction = UIAction(title: "Image", image: UIImage(systemName: "photo")) { _ in
+            coordinator.onFormatAction(.insert)
+        }
+        
+        let listAction = UIAction(title: "List", image: UIImage(systemName: "list.bullet"), attributes: .disabled) { _ in }
+        let footnoteAction = UIAction(title: "Footnote", image: UIImage(systemName: "text.append"), attributes: .disabled) { _ in }
+        let endnoteAction = UIAction(title: "Endnote", image: UIImage(systemName: "text.append"), attributes: .disabled) { _ in }
+        let commentAction = UIAction(title: "Comment", image: UIImage(systemName: "text.bubble"), attributes: .disabled) { _ in }
+        let indexAction = UIAction(title: "Index Item", image: UIImage(systemName: "tag"), attributes: .disabled) { _ in }
+        
+        button.menu = UIMenu(title: "", children: [
+            imageAction,
+            listAction,
+            footnoteAction,
+            endnoteAction,
+            commentAction,
+            indexAction
+        ])
+        
+        return button
+    }
+    
     class Coordinator: NSObject {
         weak var textView: UITextView?
         let onFormatAction: (FormattingAction) -> Void
@@ -224,6 +253,8 @@ struct FormattingToolbarView: UIViewRepresentable {
         }
         
         @objc func showInsert() {
+            print("🎯 showInsert() called")
+            // Just trigger the insert action - let SwiftUI handle the menu
             onFormatAction(.insert)
         }
         
@@ -278,6 +309,19 @@ struct FormattingToolbarView: UIViewRepresentable {
         private func hasItalicTrait(attributes: [NSAttributedString.Key: Any]) -> Bool {
             guard let font = attributes[.font] as? UIFont else { return false }
             return font.fontDescriptor.symbolicTraits.contains(.traitItalic)
+        }
+    }
+}
+
+// Helper extension to find view controller
+extension UIView {
+    func findViewController() -> UIViewController? {
+        if let nextResponder = self.next as? UIViewController {
+            return nextResponder
+        } else if let nextResponder = self.next as? UIView {
+            return nextResponder.findViewController()
+        } else {
+            return nil
         }
     }
 }

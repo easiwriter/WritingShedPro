@@ -472,6 +472,9 @@ struct FormattedTextEditor: UIViewRepresentable {
             print("📍 Selection changed to: {\(newRange.location), \(newRange.length)}")
             #endif
             
+            // Check if we're selecting or near an image attachment
+            checkForImageAttachment(at: newRange, in: textView)
+            
             // Only update the binding if it actually changed
             // This prevents unnecessary view updates
             if parent.selectedRange.location != newRange.location || 
@@ -483,10 +486,99 @@ struct FormattedTextEditor: UIViewRepresentable {
             parent.onSelectionChange?(newRange)
         }
         
+        /// Check if the selection is on or near an image attachment
+        private func checkForImageAttachment(at range: NSRange, in textView: UITextView) {
+            guard let attributedText = textView.attributedText else { return }
+            
+            // Check multiple positions: selection start, selection end, and position before cursor
+            let positionsToCheck = [
+                range.location,
+                range.location > 0 ? range.location - 1 : -1,
+                range.location + range.length < attributedText.length ? range.location + range.length : -1
+            ].compactMap { $0 >= 0 && $0 < attributedText.length ? $0 : nil }
+            
+            for position in positionsToCheck {
+                let attrs = attributedText.attributes(at: position, effectiveRange: nil)
+                if let attachment = attrs[.attachment] as? ImageAttachment {
+                    print("🖼️ Image attachment found at position \(position)")
+                    // Notify parent view through a callback
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("ImageAttachmentSelected"),
+                        object: nil,
+                        userInfo: ["attachment": attachment, "position": position]
+                    )
+                    return
+                }
+            }
+        }
+        
         func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
             // Don't allow changes while updating from SwiftUI
             if isUpdatingFromSwiftUI {
                 return false
+            }
+            
+            // If user is pressing Enter (newline)
+            if text == "\n" {
+                print("📝 ========== ENTER PRESSED ==========")
+                print("📝 Range: \(range)")
+                print("📝 Current selection: \(textView.selectedRange)")
+                
+                // Check if the character before cursor is an image attachment
+                if range.location > 0,
+                   let attributedText = textView.attributedText {
+                    let checkPos = range.location - 1
+                    let attrs = attributedText.attributes(at: checkPos, effectiveRange: nil)
+                    
+                    print("📝 Checking position \(checkPos) for attachment")
+                    if let paragraphStyle = attrs[.paragraphStyle] as? NSParagraphStyle {
+                        print("📝 Current paragraph style alignment: \(paragraphStyle.alignment.rawValue)")
+                    }
+                    
+                    if attrs[.attachment] as? ImageAttachment != nil {
+                        print("📝 ✅ Found image attachment before cursor")
+                        print("📝 STRATEGY: Insert newline + invisible character with explicit left alignment")
+                        
+                        // Paragraph styles in iOS apply to the ENTIRE paragraph, not individual characters.
+                        // The image has center alignment, which affects its whole paragraph.
+                        // To create a NEW paragraph with left alignment, we need to:
+                        // 1. Insert a newline to end the image's paragraph
+                        // 2. Insert an invisible character (zero-width space) with EXPLICIT left alignment
+                        //    to establish the new paragraph's style
+                        
+                        let defaultParagraphStyle = NSMutableParagraphStyle()
+                        defaultParagraphStyle.alignment = .left
+                        
+                        // Get typing attributes but override paragraph style
+                        var newParagraphAttrs = textView.typingAttributes
+                        newParagraphAttrs[.paragraphStyle] = defaultParagraphStyle
+                        
+                        // Create newline + zero-width space with left alignment
+                        // The zero-width space establishes the paragraph style
+                        let newParagraphString = NSAttributedString(string: "\n\u{200B}", attributes: newParagraphAttrs)
+                        
+                        // Insert it
+                        let mutableText = NSMutableAttributedString(attributedString: textView.attributedText)
+                        mutableText.insert(newParagraphString, at: range.location)
+                        
+                        print("📝 Inserted newline + zero-width space with left alignment")
+                        
+                        // Update both text view and binding
+                        textView.attributedText = mutableText
+                        parent.attributedText = mutableText
+                        
+                        // Move cursor to after the zero-width space
+                        textView.selectedRange = NSRange(location: range.location + 2, length: 0)
+                        
+                        print("📝 Cursor at position \(textView.selectedRange.location)")
+                        print("📝 ========== END ==========")
+                        
+                        return false
+                    } else {
+                        print("📝 ❌ No image attachment found before cursor")
+                    }
+                }
+                print("📝 ========== END (allowing default) ==========")
             }
             
             // Log text changes for debugging
@@ -577,6 +669,179 @@ private class CustomTextView: UITextView {
         
         // Allow standard editing actions (cut, copy, paste, select, etc.)
         return super.canPerformAction(action, withSender: sender)
+    }
+    
+    override func paste(_ sender: Any?) {
+        print("📋 PASTE: Custom paste handler called")
+        
+        // Get the pasteboard content
+        let pasteboard = UIPasteboard.general
+        
+        print("📋 PASTE: Available types: \(pasteboard.types)")
+        
+        // Try to get attributed string - check for RTFD first, then RTF, then plain text
+        var attributedString: NSAttributedString?
+        
+        // Try RTFD (RTF with attachments) first
+        if pasteboard.contains(pasteboardTypes: ["com.apple.flat-rtfd"]) {
+            if let rtfdData = pasteboard.data(forPasteboardType: "com.apple.flat-rtfd") {
+                print("📋 PASTE: Got RTFD data, length: \(rtfdData.count)")
+                attributedString = try? NSAttributedString(
+                    data: rtfdData,
+                    options: [.documentType: NSAttributedString.DocumentType.rtfd],
+                    documentAttributes: nil
+                )
+            }
+        }
+        
+        // Try RTF if RTFD didn't work
+        if attributedString == nil && pasteboard.contains(pasteboardTypes: ["public.rtf"]) {
+            if let rtfData = pasteboard.data(forPasteboardType: "public.rtf") {
+                print("📋 PASTE: Got RTF data, length: \(rtfData.count)")
+                attributedString = try? NSAttributedString(
+                    data: rtfData,
+                    options: [.documentType: NSAttributedString.DocumentType.rtf],
+                    documentAttributes: nil
+                )
+            }
+        }
+        
+        // Fallback: try string
+        if attributedString == nil, let string = pasteboard.string {
+            print("📋 PASTE: Got plain string, length: \(string.count)")
+            attributedString = NSAttributedString(string: string)
+        }
+        
+        if let attributedString = attributedString {
+            print("📋 PASTE: Processing attributed string, length: \(attributedString.length)")
+            
+            // Walk through and fix any NSTextAttachment that should be ImageAttachment
+            let mutableString = NSMutableAttributedString(attributedString: attributedString)
+            var foundAttachments = false
+            
+            mutableString.enumerateAttribute(NSAttributedString.Key.attachment, in: NSRange(location: 0, length: mutableString.length)) { value, range, _ in
+                if let attachment = value as? NSTextAttachment {
+                    foundAttachments = true
+                    print("📋 PASTE: Found attachment at \(range.location), type: \(type(of: attachment))")
+                    
+                    // Check if it's already an ImageAttachment
+                    if let imageAttachment = attachment as? ImageAttachment {
+                        print("📋 PASTE: Already an ImageAttachment - scale: \(imageAttachment.scale), alignment: \(imageAttachment.alignment)")
+                        // Nothing to do, it's already our custom type
+                    } else {
+                        // It's a generic NSTextAttachment - try to decode it as an ImageAttachment
+                        print("📋 PASTE: Attempting to decode ImageAttachment properties...")
+                        
+                        // Try to unarchive the attachment as an ImageAttachment to preserve properties
+                        var restoredAttachment: ImageAttachment?
+                        
+                        // Try to get archived data from fileWrapper
+                        if let fileWrapper = attachment.fileWrapper,
+                           let data = fileWrapper.regularFileContents {
+                            print("📋 PASTE: Found fileWrapper data (\(data.count) bytes)")
+                            
+                            // Try to unarchive as ImageAttachment
+                            do {
+                                if let unarchived = try NSKeyedUnarchiver.unarchivedObject(
+                                    ofClass: ImageAttachment.self,
+                                    from: data
+                                ) {
+                                    restoredAttachment = unarchived
+                                    print("📋 PASTE: ✅ Successfully decoded ImageAttachment from fileWrapper!")
+                                    print("📋 PASTE:    scale=\(unarchived.scale), alignment=\(unarchived.alignment)")
+                                    print("📋 PASTE:    imageStyleName=\(unarchived.imageStyleName)")
+                                }
+                            } catch {
+                                print("📋 PASTE: Could not unarchive as ImageAttachment: \(error)")
+                            }
+                        }
+                        
+                        // If we couldn't restore the ImageAttachment, create a new one from the image
+                        if restoredAttachment == nil {
+                            print("📋 PASTE: Creating new ImageAttachment from image data...")
+                            var image: UIImage? = attachment.image
+                            
+                            // If image is nil, try to load from contents or fileWrapper
+                            if image == nil, let contents = attachment.contents {
+                                print("📋 PASTE: No .image, trying to load from contents (\(contents.count) bytes)")
+                                image = UIImage(data: contents)
+                            }
+                            
+                            if image == nil, let fileWrapper = attachment.fileWrapper, let data = fileWrapper.regularFileContents {
+                                print("📋 PASTE: No .image, trying to load from fileWrapper (\(data.count) bytes)")
+                                image = UIImage(data: data)
+                            }
+                            
+                            if let image = image {
+                                print("📋 PASTE: Image size: \(image.size)")
+                                
+                                // Create a new ImageAttachment with the image
+                                let imageAttachment = ImageAttachment()
+                                imageAttachment.image = image
+                                
+                                // Try to get the image data
+                                if let imageData = image.jpegData(compressionQuality: 0.8) {
+                                    imageAttachment.imageData = imageData
+                                    print("📋 PASTE: Saved image data: \(imageData.count) bytes")
+                                } else if let imageData = image.pngData() {
+                                    imageAttachment.imageData = imageData
+                                    print("📋 PASTE: Saved image data (PNG): \(imageData.count) bytes")
+                                }
+                                
+                                // Use sensible defaults for pasted images
+                                // Note: We use 0.25 (25%) as default since full-size images are usually too large
+                                // The user can adjust via the image style settings if needed
+                                imageAttachment.scale = 0.25
+                                imageAttachment.alignment = .center
+                                imageAttachment.imageStyleName = "Images" // Default style
+                                imageAttachment.updateBounds()
+                                
+                                print("📋 PASTE: Created ImageAttachment with defaults: scale=\(imageAttachment.scale), alignment=\(imageAttachment.alignment)")
+                                
+                                restoredAttachment = imageAttachment
+                            }
+                        }
+                        
+                        // If we have a restored or newly created attachment, use it
+                        if let imageAttachment = restoredAttachment {
+                            // Replace the generic NSTextAttachment with our ImageAttachment
+                            mutableString.removeAttribute(NSAttributedString.Key.attachment, range: range)
+                            mutableString.addAttribute(NSAttributedString.Key.attachment, value: imageAttachment, range: range)
+                            print("📋 PASTE: ✅ Replaced NSTextAttachment with ImageAttachment")
+                        } else {
+                            print("📋 PASTE: ⚠️ Could not create ImageAttachment - skipping")
+                        }
+                    }
+                }
+            }
+            
+            if foundAttachments {
+                print("📋 PASTE: Found attachments - using custom insertion")
+                // Insert the fixed attributed string
+                let selectedRange = self.selectedRange
+                let mutableText = NSMutableAttributedString(attributedString: self.attributedText)
+                mutableText.replaceCharacters(in: selectedRange, with: mutableString)
+                self.attributedText = mutableText
+                
+                // Update selection
+                self.selectedRange = NSRange(location: selectedRange.location + mutableString.length, length: 0)
+                
+                print("📋 PASTE: Inserted content at position \(selectedRange.location)")
+                
+                // Notify the delegate to update the SwiftUI binding
+                self.delegate?.textViewDidChange?(self)
+                
+                return
+            } else {
+                print("📋 PASTE: No attachments found - using default paste")
+            }
+        } else {
+            print("📋 PASTE: No attributed string found in pasteboard")
+        }
+        
+        // Fall back to default paste behavior
+        print("📋 PASTE: Using default paste behavior")
+        super.paste(sender)
     }
     
     // Override to prevent the editing menu from showing for formatting

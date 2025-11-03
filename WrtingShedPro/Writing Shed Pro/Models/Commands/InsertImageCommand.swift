@@ -62,13 +62,19 @@ final class InsertImageCommand: UndoableCommand {
     // MARK: - UndoableCommand
     
     func execute() {
+        print("🖼️💾 InsertImageCommand.execute() called")
         guard let file = targetFile,
               let currentVersion = file.currentVersion else {
+            print("❌ No file or current version")
             return
         }
         
         let content = currentVersion.attributedContent ?? NSAttributedString()
+        print("🖼️💾 Current content length: \(content.length)")
+        print("🖼️💾 Insert position: \(position)")
+        
         guard position >= 0, position <= content.length else {
+            print("❌ Invalid position: \(position), content length: \(content.length)")
             return
         }
         
@@ -77,6 +83,8 @@ final class InsertImageCommand: UndoableCommand {
             print("❌ Failed to create ImageAttachment from data")
             return
         }
+        
+        print("🖼️💾 Created ImageAttachment: \(attachment)")
         
         // Set properties
         attachment.scale = scale
@@ -87,6 +95,7 @@ final class InsertImageCommand: UndoableCommand {
         
         // Create attributed string with the attachment
         let attachmentString = NSMutableAttributedString(attachment: attachment)
+        print("🖼️💾 Created attachment string, length: \(attachmentString.length)")
         
         // Apply paragraph alignment based on image alignment
         let paragraphStyle = NSMutableParagraphStyle()
@@ -105,10 +114,23 @@ final class InsertImageCommand: UndoableCommand {
         
         // Create mutable copy and insert
         let mutableContent = NSMutableAttributedString(attributedString: content)
+        print("🖼️💾 Before insert - mutableContent length: \(mutableContent.length)")
         mutableContent.insert(attachmentString, at: position)
+        print("🖼️💾 After insert - mutableContent length: \(mutableContent.length)")
+        
+        // Verify the attachment is there
+        if mutableContent.length > position {
+            let attrs = mutableContent.attributes(at: position, effectiveRange: nil)
+            if let att = attrs[.attachment] {
+                print("🖼️💾 ✅ Attachment verified at position \(position): \(type(of: att))")
+            } else {
+                print("❌ NO attachment at position \(position) after insert!")
+            }
+        }
         
         // Update the version's content
         currentVersion.attributedContent = mutableContent
+        print("🖼️💾 Set currentVersion.attributedContent")
         file.modifiedDate = Date()
     }
     

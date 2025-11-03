@@ -5,11 +5,27 @@
 //  Custom NSTextAttachment for handling images in text documents
 //  Supports scaling, alignment, and captions
 //
+//  **Design Note: Instance Properties vs Stylesheet Defaults**
+//  Each ImageAttachment stores its own scale, alignment, and caption properties.
+//  These are INSTANCE values that can be customized per image by the user.
+//  - Initial values come from ImageStyle (stylesheet template)
+//  - User edits are saved on this specific attachment
+//  - Changing ImageStyle in stylesheet does NOT update existing images
+//  This ensures user customizations are preserved across stylesheet changes.
+//
 
 import UIKit
 
 /// Custom NSTextAttachment for handling images with advanced features
+/// Each instance maintains its own scale, alignment, and caption settings
 class ImageAttachment: NSTextAttachment {
+    
+    // MARK: - NSSecureCoding Support
+    
+    /// Declare support for NSSecureCoding to enable proper copy/paste
+    override class var supportsSecureCoding: Bool {
+        return true
+    }
     
     // MARK: - Properties
     
@@ -39,6 +55,9 @@ class ImageAttachment: NSTextAttachment {
     
     /// Caption style name (from stylesheet)
     var captionStyle: String?
+    
+    /// Image style name (from stylesheet) - references an ImageStyle
+    var imageStyleName: String = "default"
     
     /// Maximum width for images (prevents oversized images)
     static let maxWidth: CGFloat = 2048
@@ -76,7 +95,67 @@ class ImageAttachment: NSTextAttachment {
     
     required init?(coder: NSCoder) {
         super.init(coder: coder)
-        setupDefaults()
+        
+        // Decode our custom properties from the archive
+        // If properties don't exist in the archive, use defaults
+        if let imageIDString = coder.decodeObject(of: NSString.self, forKey: "imageID") as? String,
+           let uuid = UUID(uuidString: imageIDString) {
+            self.imageID = uuid
+        } else {
+            self.imageID = UUID()
+        }
+        
+        self.scale = CGFloat(coder.decodeDouble(forKey: "scale"))
+        if self.scale == 0 { self.scale = 1.0 } // Default if not found
+        
+        if let alignmentString = coder.decodeObject(of: NSString.self, forKey: "alignment") as? String,
+           let decodedAlignment = ImageAlignment(rawValue: alignmentString) {
+            self.alignment = decodedAlignment
+        } else {
+            self.alignment = .left
+        }
+        
+        self.hasCaption = coder.decodeBool(forKey: "hasCaption")
+        
+        // Decode optional properties
+        self.captionText = coder.decodeObject(of: NSString.self, forKey: "captionText") as? String
+        self.captionStyle = coder.decodeObject(of: NSString.self, forKey: "captionStyle") as? String
+        
+        // Decode imageStyleName - not optional, but provide default if missing
+        if let styleName = coder.decodeObject(of: NSString.self, forKey: "imageStyleName") as? String {
+            self.imageStyleName = styleName
+        } else {
+            self.imageStyleName = "default"
+        }
+        
+        if let imageDataDecoded = coder.decodeObject(of: NSData.self, forKey: "imageData") as? Data {
+            self.imageData = imageDataDecoded
+            self.image = UIImage(data: imageDataDecoded)
+        }
+        
+        updateBounds()
+    }
+    
+    override func encode(with coder: NSCoder) {
+        super.encode(with: coder)
+        
+        // Encode all our custom properties so they survive copy/paste
+        coder.encode(imageID.uuidString, forKey: "imageID")
+        coder.encode(Double(scale), forKey: "scale")
+        coder.encode(alignment.rawValue, forKey: "alignment")
+        coder.encode(hasCaption, forKey: "hasCaption")
+        coder.encode(imageStyleName, forKey: "imageStyleName") // Not optional
+        
+        // Encode optional properties only if they exist
+        if let captionText = captionText {
+            coder.encode(captionText, forKey: "captionText")
+        }
+        if let captionStyle = captionStyle {
+            coder.encode(captionStyle, forKey: "captionStyle")
+        }
+        if let imageData = imageData {
+            coder.encode(imageData, forKey: "imageData")
+        }
     }
     
     convenience init() {
@@ -126,7 +205,8 @@ class ImageAttachment: NSTextAttachment {
     }
     
     /// Update bounds based on current image and scale
-    private func updateBounds() {
+    /// Update the bounds based on current scale and original image size
+    func updateBounds() {
         bounds = CGRect(origin: .zero, size: displaySize)
     }
     

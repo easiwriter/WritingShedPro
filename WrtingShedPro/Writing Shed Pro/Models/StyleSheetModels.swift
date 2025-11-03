@@ -27,6 +27,9 @@ final class StyleSheet {
     @Relationship(deleteRule: .cascade, inverse: \TextStyleModel.styleSheet)
     var textStyles: [TextStyleModel]?
     
+    @Relationship(deleteRule: .cascade, inverse: \ImageStyle.styleSheet)
+    var imageStyles: [ImageStyle]?
+    
     @Relationship(inverse: \Project.styleSheet)
     var projects: [Project]?
     
@@ -37,16 +40,36 @@ final class StyleSheet {
         self.name = name
         self.isSystemStyleSheet = isSystemStyleSheet
         self.textStyles = []
+        self.imageStyles = []
     }
     
-    /// Get a style by name
+    /// Get a text style by name
     func style(named name: String) -> TextStyleModel? {
         return textStyles?.first(where: { $0.name == name })
+    }
+    
+    /// Get an image style by name
+    func imageStyle(named name: String) -> ImageStyle? {
+        return imageStyles?.first(where: { $0.name == name })
+    }
+    
+    /// Get default image style (first in list or create one)
+    func defaultImageStyle() -> ImageStyle {
+        if let first = imageStyles?.first {
+            return first
+        }
+        // Return a temporary default if none exists
+        return ImageStyle.createDefault()
     }
     
     /// Get all styles sorted by display order
     var sortedStyles: [TextStyleModel] {
         return textStyles?.sorted(by: { $0.displayOrder < $1.displayOrder }) ?? []
+    }
+    
+    /// Get all image styles sorted by display order
+    var sortedImageStyles: [ImageStyle] {
+        return imageStyles?.sorted(by: { $0.displayOrder < $1.displayOrder }) ?? []
     }
 }
 
@@ -265,5 +288,85 @@ final class TextStyleModel {
         attrs[.numberFormat] = numberFormat.rawValue
         
         return attrs
+    }
+}
+
+// MARK: - ImageStyle Model
+
+/// Defines default properties for images in a stylesheet
+///
+/// **Design Note: Template vs Instance Properties**
+/// ImageStyle serves as a TEMPLATE for newly inserted images.
+/// - When a user inserts an image, it gets these default values
+/// - When a user edits an image, those changes are saved on the ImageAttachment instance
+/// - Changing ImageStyle properties only affects NEW images, not existing ones
+/// - Similar to text styles: changing "Body" style doesn't affect manually bolded text
+///
+/// This design ensures:
+/// - Consistent defaults for new images across a document
+/// - User customizations are preserved and never overwritten by stylesheet changes
+/// - Predictable behavior familiar from word processors
+@Model
+final class ImageStyle {
+    var id: UUID = UUID()
+    var name: String = ""  // "default", "figure", "photo", "diagram", etc.
+    var displayName: String = ""  // "Default", "Figure", "Photo", "Diagram"
+    var displayOrder: Int = 0  // For sorting in UI
+    
+    // MARK: - Default Image Properties
+    var defaultScale: CGFloat = 1.0  // 0.1 to 2.0
+    var defaultAlignmentRaw: String = "center"  // ImageAlignment raw value
+    var hasCaptionByDefault: Bool = false
+    var defaultCaptionStyle: String = "caption1"  // References a TextStyle name
+    
+    // MARK: - Metadata
+    var createdDate: Date = Date()
+    var modifiedDate: Date = Date()
+    var isSystemStyle: Bool = false
+    
+    // MARK: - Relationships
+    var styleSheet: StyleSheet?
+    
+    // MARK: - Computed Properties
+    
+    var defaultAlignment: ImageAttachment.ImageAlignment {
+        get { ImageAttachment.ImageAlignment(rawValue: defaultAlignmentRaw) ?? .center }
+        set { defaultAlignmentRaw = newValue.rawValue }
+    }
+    
+    // MARK: - Initialization
+    
+    init(
+        name: String,
+        displayName: String,
+        displayOrder: Int = 0,
+        defaultScale: CGFloat = 1.0,
+        defaultAlignment: ImageAttachment.ImageAlignment = .center,
+        hasCaptionByDefault: Bool = false,
+        defaultCaptionStyle: String = "caption1",
+        isSystemStyle: Bool = false
+    ) {
+        self.name = name
+        self.displayName = displayName
+        self.displayOrder = displayOrder
+        self.defaultScale = defaultScale
+        self.defaultAlignment = defaultAlignment
+        self.hasCaptionByDefault = hasCaptionByDefault
+        self.defaultCaptionStyle = defaultCaptionStyle
+        self.isSystemStyle = isSystemStyle
+    }
+    
+    /// Create default image style
+    static func createDefault() -> ImageStyle {
+        return ImageStyle(
+            name: "default",
+            displayName: "Default",
+            displayOrder: 0,
+            defaultScale: 1.0,
+            defaultAlignment: .center,
+            hasCaptionByDefault: false,
+            defaultCaptionStyle: "caption1",
+            isSystemStyle: true
+        )
     }
 }

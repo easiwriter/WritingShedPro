@@ -246,6 +246,7 @@ struct AttributedStringSerializer {
                     
                     case .attachment:
                         // Handle image attachments
+                        print("💾 ENCODE: Found attachment at \(range.location), type: \(type(of: value))")
                         if let imageAttachment = value as? ImageAttachment {
                             attributes.isImageAttachment = true
                             attributes.imageID = imageAttachment.imageID.uuidString
@@ -262,6 +263,8 @@ struct AttributedStringSerializer {
                             attributes.captionStyle = imageAttachment.captionStyle
                             
                             print("💾 ENCODE image at \(range.location): id=\(imageAttachment.imageID), scale=\(imageAttachment.scale), alignment=\(imageAttachment.alignment.rawValue)")
+                        } else {
+                            print("💾 ⚠️ ENCODE: Attachment is NOT an ImageAttachment - skipping image properties")
                         }
                         
                     default:

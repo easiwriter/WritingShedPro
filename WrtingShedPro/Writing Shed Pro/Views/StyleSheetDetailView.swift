@@ -20,6 +20,11 @@ struct StyleSheetDetailView: View {
         return styles.sorted { $0.displayOrder < $1.displayOrder }
     }
     
+    private var sortedImageStyles: [ImageStyle] {
+        guard let styles = styleSheet.imageStyles else { return [] }
+        return styles.sorted { $0.displayOrder < $1.displayOrder }
+    }
+    
     var body: some View {
         List {
             // Stylesheet Info
@@ -68,6 +73,29 @@ struct StyleSheetDetailView: View {
                     }
                 }
             }
+            
+            // Image Styles
+            Section("Image Styles") {
+                if sortedImageStyles.isEmpty {
+                    Text("No image styles")
+                        .foregroundStyle(.secondary)
+                        .italic()
+                } else {
+                    ForEach(sortedImageStyles, id: \.id) { imageStyle in
+                        if imageStyle.isSystemStyle && styleSheet.isSystemStyleSheet {
+                            // System style in system stylesheet - not editable
+                            ImageStyleRow(imageStyle: imageStyle)
+                        } else {
+                            // User stylesheet or editable style - make it a navigation link
+                            NavigationLink {
+                                ImageStyleSheetEditorView(imageStyle: imageStyle)
+                            } label: {
+                                ImageStyleRow(imageStyle: imageStyle)
+                            }
+                        }
+                    }
+                }
+            }
         }
         .navigationTitle(styleSheet.name)
         .navigationBarTitleDisplayMode(.inline)
@@ -98,6 +126,64 @@ struct StyleSheetDetailView: View {
         style.styleSheet = styleSheet
         modelContext.insert(style)
         newStyle = style
+    }
+}
+
+// MARK: - Image Style Row
+
+private struct ImageStyleRow: View {
+    let imageStyle: ImageStyle
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(imageStyle.displayName)
+                    .font(.headline)
+                
+                if imageStyle.isSystemStyle {
+                    Image(systemName: "lock.fill")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            
+            HStack(spacing: 12) {
+                // Scale
+                Text(String(format: "%.0f%%", imageStyle.defaultScale * 100))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                
+                // Alignment
+                Text(alignmentName(for: imageStyle.defaultAlignment))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                
+                // Caption
+                if imageStyle.hasCaptionByDefault {
+                    Text("Caption: \(imageStyle.defaultCaptionStyle)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("No caption")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .padding(.vertical, 4)
+    }
+    
+    private func alignmentName(for alignment: ImageAttachment.ImageAlignment) -> String {
+        switch alignment {
+        case .left:
+            return "Left"
+        case .center:
+            return "Center"
+        case .right:
+            return "Right"
+        case .inline:
+            return "Inline"
+        }
     }
 }
 

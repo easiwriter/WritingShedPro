@@ -73,8 +73,11 @@ final class TextFileUndoManager: ObservableObject {
             return
         }
         
-        // Don't execute the command - the content is already updated by handleTextChange
-        // Just add it to the undo stack for potential undo
+        // For non-text commands (like InsertImageCommand, FormattingCommand, etc.),
+        // we need to actually execute them
+        if !(command is TextInsertCommand || command is TextDeleteCommand) {
+            command.execute()
+        }
         
         // Clear redo stack when new action performed
         redoStack.removeAll()

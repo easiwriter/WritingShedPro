@@ -46,7 +46,7 @@ struct ImageStyleEditorView: View {
     var body: some View {
         let _ = print("🎨 ImageStyleEditorView.body rendering, imageData: \(imageData?.count ?? 0) bytes")
         
-        NavigationView {
+        NavigationStack {
             Form {
                 // Image Preview Section
                 if let imageData = imageData,
@@ -60,6 +60,11 @@ struct ImageStyleEditorView: View {
                                 .frame(maxHeight: 200)
                             Spacer()
                         }
+                    }
+                } else {
+                    Section("Preview") {
+                        Text("No image data")
+                            .foregroundColor(.secondary)
                     }
                 }
                 

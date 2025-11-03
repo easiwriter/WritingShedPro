@@ -81,10 +81,15 @@ struct StyleSheetService {
         
         sheet.textStyles = styles
         
-        // Set relationships
+        // Set relationships for text styles
         for style in styles {
             style.styleSheet = sheet
         }
+        
+        // Add default image style
+        let defaultImageStyle = ImageStyle.createDefault()
+        defaultImageStyle.styleSheet = sheet
+        sheet.imageStyles = [defaultImageStyle]
         
         return sheet
     }
@@ -109,8 +114,33 @@ struct StyleSheetService {
             try? context.save()
         }
         
-        guard existingSystemSheets.isEmpty else {
-            print("📐 System stylesheet already exists - skipping initialization")
+        // If we have an existing system stylesheet, check if it has image styles
+        if let existingSheet = existingSystemSheets.first {
+            print("📐 System stylesheet already exists")
+            
+            // Check if it has image styles
+            if existingSheet.imageStyles?.isEmpty ?? true {
+                print("📐 Adding default image style to existing stylesheet...")
+                
+                let defaultImageStyle = ImageStyle.createDefault()
+                defaultImageStyle.styleSheet = existingSheet
+                context.insert(defaultImageStyle)
+                
+                if existingSheet.imageStyles == nil {
+                    existingSheet.imageStyles = [defaultImageStyle]
+                } else {
+                    existingSheet.imageStyles?.append(defaultImageStyle)
+                }
+                
+                do {
+                    try context.save()
+                    print("✅ Added default image style to existing stylesheet")
+                } catch {
+                    print("❌ Error saving image style: \(error)")
+                }
+            } else {
+                print("📐 System stylesheet already has \(existingSheet.imageStyles?.count ?? 0) image styles")
+            }
             return
         }
         
@@ -120,10 +150,24 @@ struct StyleSheetService {
         let defaultSheet = createDefaultStyleSheet()
         context.insert(defaultSheet)
         
+        // Insert all text styles into context
+        if let textStyles = defaultSheet.textStyles {
+            for style in textStyles {
+                context.insert(style)
+            }
+        }
+        
+        // Insert all image styles into context
+        if let imageStyles = defaultSheet.imageStyles {
+            for style in imageStyles {
+                context.insert(style)
+            }
+        }
+        
         // Save context
         do {
             try context.save()
-            print("📐 Default stylesheet created successfully")
+            print("📐 Default stylesheet created successfully with \(defaultSheet.textStyles?.count ?? 0) text styles and \(defaultSheet.imageStyles?.count ?? 0) image styles")
         } catch {
             print("❌ Error saving default stylesheet: \(error)")
         }

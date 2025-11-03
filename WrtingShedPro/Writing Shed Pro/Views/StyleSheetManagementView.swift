@@ -290,37 +290,57 @@ struct CreateStyleSheetView: View {
         )
         
         // Always copy styles from default stylesheet
-        if let defaultSheet = StyleSheetService.getDefaultStyleSheet(context: modelContext),
-           let defaultStyles = defaultSheet.textStyles {
+        if let defaultSheet = StyleSheetService.getDefaultStyleSheet(context: modelContext) {
+            // Copy text styles
+            if let defaultStyles = defaultSheet.textStyles {
+                for style in defaultStyles {
+                    let newStyle = TextStyleModel(
+                        name: style.name,
+                        displayName: style.displayName,
+                        displayOrder: style.displayOrder
+                    )
+                    
+                    // Copy all attributes
+                    newStyle.fontSize = style.fontSize
+                    newStyle.fontFamily = style.fontFamily
+                    newStyle.isBold = style.isBold
+                    newStyle.isItalic = style.isItalic
+                    newStyle.isUnderlined = style.isUnderlined
+                    newStyle.isStrikethrough = style.isStrikethrough
+                    newStyle.textColor = style.textColor
+                    newStyle.alignment = style.alignment
+                    newStyle.lineSpacing = style.lineSpacing
+                    newStyle.paragraphSpacingBefore = style.paragraphSpacingBefore
+                    newStyle.paragraphSpacingAfter = style.paragraphSpacingAfter
+                    newStyle.firstLineIndent = style.firstLineIndent
+                    newStyle.headIndent = style.headIndent
+                    newStyle.tailIndent = style.tailIndent
+                    newStyle.lineHeightMultiple = style.lineHeightMultiple
+                    newStyle.minimumLineHeight = style.minimumLineHeight
+                    newStyle.maximumLineHeight = style.maximumLineHeight
+                    newStyle.numberFormat = style.numberFormat
+                    
+                    newStyle.styleSheet = newSheet
+                }
+            }
             
-            for style in defaultStyles {
-                let newStyle = TextStyleModel(
-                    name: style.name,
-                    displayName: style.displayName,
-                    displayOrder: style.displayOrder
-                )
-                
-                // Copy all attributes
-                newStyle.fontSize = style.fontSize
-                newStyle.fontFamily = style.fontFamily
-                newStyle.isBold = style.isBold
-                newStyle.isItalic = style.isItalic
-                newStyle.isUnderlined = style.isUnderlined
-                newStyle.isStrikethrough = style.isStrikethrough
-                newStyle.textColor = style.textColor
-                newStyle.alignment = style.alignment
-                newStyle.lineSpacing = style.lineSpacing
-                newStyle.paragraphSpacingBefore = style.paragraphSpacingBefore
-                newStyle.paragraphSpacingAfter = style.paragraphSpacingAfter
-                newStyle.firstLineIndent = style.firstLineIndent
-                newStyle.headIndent = style.headIndent
-                newStyle.tailIndent = style.tailIndent
-                newStyle.lineHeightMultiple = style.lineHeightMultiple
-                newStyle.minimumLineHeight = style.minimumLineHeight
-                newStyle.maximumLineHeight = style.maximumLineHeight
-                newStyle.numberFormat = style.numberFormat
-                
-                newStyle.styleSheet = newSheet
+            // Copy image styles
+            if let defaultImageStyles = defaultSheet.imageStyles {
+                for imageStyle in defaultImageStyles {
+                    let newImageStyle = ImageStyle(
+                        name: imageStyle.name,
+                        displayName: imageStyle.displayName,
+                        displayOrder: imageStyle.displayOrder,
+                        defaultScale: imageStyle.defaultScale,
+                        defaultAlignment: imageStyle.defaultAlignment,
+                        hasCaptionByDefault: imageStyle.hasCaptionByDefault,
+                        defaultCaptionStyle: imageStyle.defaultCaptionStyle,
+                        isSystemStyle: false  // User stylesheets should have editable styles
+                    )
+                    
+                    newImageStyle.styleSheet = newSheet
+                    modelContext.insert(newImageStyle)
+                }
             }
         }
         

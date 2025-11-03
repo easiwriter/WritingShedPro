@@ -5,6 +5,7 @@ import Combine
 class TextViewCoordinator: NSObject, ObservableObject, UIDocumentPickerDelegate {
     weak var textView: UITextView?
     var onImagePicked: ((URL) -> Void)?
+    weak var presentingViewController: UIViewController?
     
     /// Modify typing attributes without triggering SwiftUI updates
     func modifyTypingAttributes(_ modifier: @escaping (UITextView) -> Void) {
@@ -25,7 +26,14 @@ class TextViewCoordinator: NSObject, ObservableObject, UIDocumentPickerDelegate 
         print("📄 Document picker selected \(urls.count) files")
         guard let url = urls.first else { return }
         print("📄 Calling onImagePicked with: \(url.lastPathComponent)")
-        onImagePicked?(url)
+        
+        // The document picker will dismiss itself automatically
+        // We need to wait for both the dismissal animation AND the presentation system to settle
+        // before trying to present another sheet from SwiftUI
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            print("📄 Calling onImagePicked after dismissal delay")
+            self.onImagePicked?(url)
+        }
     }
     
     func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {

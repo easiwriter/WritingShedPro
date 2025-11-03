@@ -1,48 +1,60 @@
 # Phase 006: Image Support Specification
 
 ## Overview
-Add support for inline images within text documents, allowing users to insert, resize, and align images alongside their text content. Images will be stored efficiently and persist across sessions.
+Add support for inline images within text documents, allowing users to insert images alongside their text content. Images will use styles defined in the project's stylesheet, with image properties (scale, alignment, captions) controlled through tapping on images.
 
 ## Feature Priority
 **HIGH** - Requested by user as next feature after text formatting
 
+## Change Log
+- **2025-11-03**: Updated to use Insert menu for images and other content types
+- **2025-11-03**: Changed to use stylesheet-based image styles instead of inline style editor
+- **2025-11-03**: Image properties edited by tapping on images
+
 ## User Stories
 
-### US-001: Insert Image
+### US-001: Insert Image via Menu
 **As a** writer  
-**I want to** insert images into my documents  
-**So that** I can include illustrations, photos, or diagrams with my text
+**I want to** insert images from an Insert menu  
+**So that** I can add illustrations, photos, or diagrams to my text
 
 **Acceptance Criteria:**
-- Toolbar button for inserting images
+- Toolbar has "Insert" button that shows menu
+- Menu contains: Image, List, Footnote, Endnote, Comment, Index Item
+- Selecting "Image" opens file picker
 - File picker supports common image formats (PNG, JPEG, HEIC, GIF)
-- Image appears inline at cursor position
+- Image appears inline at cursor position using default image style from stylesheet
 - Image can be inserted in any paragraph
 - Undo/redo works for image insertion
 
-### US-002: Scale Images
+### US-002: Edit Image Properties
 **As a** writer  
-**I want to** scale images in my document  
-**So that** I can control their visual impact and layout
+**I want to** tap on an image to edit its properties  
+**So that** I can adjust scale, alignment, and captions
 
 **Acceptance Criteria:**
-- Click image to show style editor
-- Scale control with +/- buttons and percentage display
-- Scale from 10% to 200%
-- Undo/redo works for scaling
-- Images maintain aspect ratio automatically
+- Tap image to show image property editor
+- Can change scale (10% to 200%)
+- Can change alignment (left, center, right, inline)
+- Can toggle caption on/off
+- Can edit caption text
+- Can select caption style from available styles
+- Changes apply immediately
+- Undo/redo works for all property changes
 
-### US-003: Image Alignment
+### US-003: Image Styles in Stylesheet
 **As a** writer  
-**I want to** align images within the text  
-**So that** I can control layout and text flow
+**I want to** define image styles in my project's stylesheet  
+**So that** all images have consistent formatting
 
 **Acceptance Criteria:**
-- Left-align (default)
-- Center-align
-- Right-align
-- Inline with text baseline
-- Undo/redo works for alignment changes
+- Stylesheet contains "Image Styles" section
+- Default image style includes: scale, alignment, caption style, has caption
+- Can create multiple image styles (e.g., "Figure", "Photo", "Diagram")
+- Tapping image shows current style
+- Can change image to different style from stylesheet
+- All images using a style update when style is changed
+- Image style persists with document
 
 ### US-004: Image Persistence
 **As a** writer  
@@ -73,13 +85,31 @@ Add support for inline images within text documents, allowing users to insert, r
 **So that** I can provide context and descriptions
 
 **Acceptance Criteria:**
-- Option to enable/disable caption for each image
+- Image style can specify if captions are shown by default
+- Option to enable/disable caption for individual images
 - Caption text editable inline below image
 - Caption styles from stylesheet (like text styles)
 - Multiple caption styles available (caption1, caption2, etc.)
-- "noCaption" option to hide caption
 - Captions persist with document
 - Undo/redo works for caption changes
+
+### US-007: Insert Menu for Content Types
+**As a** writer  
+**I want to** access an Insert menu for various content types  
+**So that** I can add structured content to my documents
+
+**Acceptance Criteria:**
+- Toolbar "Insert" button opens menu
+- Menu items:
+  - Image (implemented)
+  - List (future)
+  - Footnote (future)
+  - Endnote (future)
+  - Comment (future)
+  - Index Item (future)
+- Only implemented items are enabled
+- Menu closes after selection
+- Menu can be dismissed without selection
 
 ## Technical Design
 
@@ -88,16 +118,37 @@ Add support for inline images within text documents, allowing users to insert, r
 ```
 ┌─────────────────────────────────────────────────┐
 │               FileEditView.swift                │
-│  - Toolbar button for image insertion          │
-│  - File picker integration                      │
+│  - Insert menu button in toolbar               │
+│  - Menu: Image, List, Footnote, etc.           │
+│  - Image selection opens file picker            │
 └────────────────┬────────────────────────────────┘
                  │
                  ▼
 ┌─────────────────────────────────────────────────┐
 │          FormattedTextEditor.swift              │
 │  - UITextView with NSTextAttachment support     │
-│  - Image selection and interaction              │
+│  - Tap image to show property editor            │
 └────────────────┬────────────────────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────────────────────┐
+│         ImageAttachment.swift                   │
+│  - Custom NSTextAttachment subclass             │
+│  - Properties: imageData, scale, alignment      │
+│  - Caption text and style                       │
+│  - Reference to image style name                │
+└────────────────┬────────────────────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────────────────────┐
+│           StyleSheet Model                      │
+│  - Text styles (existing)                       │
+│  - Image styles (new)                           │
+│    * Default scale, alignment                   │
+│    * Default caption settings                   │
+│    * Caption style reference                    │
+└─────────────────────────────────────────────────┘
+```
                  │
                  ▼
 ┌─────────────────────────────────────────────────┐
@@ -118,35 +169,49 @@ Add support for inline images within text documents, allowing users to insert, r
 
 ### Data Model
 
-#### ImageAttachment Class
+### Data Models
+
+#### ImageAttachment (NSTextAttachment subclass)
 ```swift
 class ImageAttachment: NSTextAttachment {
-    // Properties
-    var imageData: Data?           // Original image data
-    var scale: CGFloat = 1.0       // Scale percentage (0.1 to 2.0 = 10% to 200%)
-    var alignment: ImageAlignment  // Left/Center/Right
-    var imageID: UUID              // Unique identifier
-    var captionText: String?       // Optional caption text
-    var captionStyle: String?      // Caption style name (from stylesheet)
-    var hasCaption: Bool = false   // Whether to show caption
+    var imageData: Data
+    var scale: CGFloat = 1.0          // 0.1 to 2.0
+    var alignment: ImageAlignment = .center
+    var captionText: String?
+    var captionStyle: String = "caption1"
+    var hasCaption: Bool = false
+    var imageStyleName: String = "default" // References stylesheet
     
-    enum ImageAlignment: String {
-        case left
-        case center
-        case right
-        case inline
+    enum ImageAlignment: String, Codable {
+        case left, center, right, inline
     }
+}
+```
+
+#### ImageStyle (in StyleSheet)
+```swift
+struct ImageStyle: Codable, Identifiable {
+    var id: UUID
+    var name: String              // e.g., "Figure", "Photo", "Diagram"
+    var defaultScale: CGFloat     // Default: 1.0
+    var defaultAlignment: ImageAlignment  // Default: .center
+    var hasCaptionByDefault: Bool // Default: false
+    var defaultCaptionStyle: String // Default: "caption1"
+}
+```
+
+#### StyleSheet (extended)
+```swift
+class StyleSheet {
+    // Existing
+    var textStyles: [TextStyle]
     
-    // Computed properties
-    var displaySize: CGSize {
-        // Calculate from original image size * scale
+    // New
+    var imageStyles: [ImageStyle]
+    
+    func defaultImageStyle() -> ImageStyle {
+        return imageStyles.first ?? ImageStyle.defaultStyle()
     }
-    
-    // Methods
-    func setScale(_ scale: CGFloat)
-    func setAlignment(_ alignment: ImageAlignment)
-    func setCaption(_ text: String?, style: String?)
-    func getOptimizedImage() -> UIImage?
 }
 ```
 
@@ -175,14 +240,60 @@ Images will be embedded in the attributed string JSON format:
 
 ### UI Components
 
-#### Toolbar Button
-- Icon: SF Symbol "photo" or "photo.on.rectangle"
-- Position: After color picker button
-- Action: Opens image style sheet (like text formatting)
+#### Toolbar Insert Button
+- Icon: SF Symbol "plus" or "plus.circle"
+- Position: After formatting buttons
+- Action: Opens Insert menu
 
-#### Image Style Editor (Sheet/Popover)
-Based on user's reference implementation:
-- **Title**: Shows current image name or "Image Settings"
+#### Insert Menu
+- **Trigger**: Toolbar "Insert" button
+- **Menu Items**:
+  1. Image (icon: photo, enabled)
+  2. List (icon: list.bullet, disabled - future)
+  3. Footnote (icon: text.append, disabled - future)
+  4. Endnote (icon: text.append, disabled - future)
+  5. Comment (icon: text.bubble, disabled - future)
+  6. Index Item (icon: tag, disabled - future)
+- **Behavior**:
+  - Menu opens as popover (iPad/Mac) or action sheet (iPhone)
+  - Selecting "Image" opens file picker
+  - Disabled items show as grayed out
+  - Menu dismisses after selection
+
+#### File Picker
+- Supports: .png, .jpg, .jpeg, .heic, .gif
+- macOS: NSOpenPanel
+- iOS: UIDocumentPickerViewController
+- Single selection only
+
+#### Image Property Editor Sheet
+Presented when user taps on an image:
+- **Title**: "Image Properties"
+- **Sections**:
+  1. **Preview**: Shows the image at current scale
+  2. **Style** (if multiple styles available):
+     - Picker showing available image styles from stylesheet
+     - Shows current style with checkmark
+     - Changing style applies all properties from that style
+  3. **Scale**:
+     - Slider or stepper (10% to 200%)
+     - Text field showing current percentage
+     - +/- buttons for 10% increments
+  4. **Alignment**:
+     - Button row: Left, Center, Right, Inline
+     - Current selection highlighted
+  5. **Caption**:
+     - Toggle: "Show Caption"
+     - Text field: Caption text (if enabled)
+     - Picker: Caption style (if enabled)
+- **Navigation**:
+  - "Cancel" button (left) - discards changes
+  - "Apply" button (right) - saves changes via undo command
+
+#### Image Tap Interaction
+- Single tap on image: Show property editor
+- Double tap on caption: Edit caption text inline
+- Long press: Context menu (Edit Properties, Copy, Delete)
 - **Scale Control**:
   - Label: "Scale" with icon
   - +/- buttons for increment/decrement
@@ -372,41 +483,44 @@ struct DeleteImageCommand: UndoableCommand {
 
 ## Implementation Plan
 
-### Phase 1: Basic Image Insertion (MVP - Days 1-3)
-1. Create ImageAttachment class with scale and alignment
-2. Add toolbar button (opens style editor, not file picker directly)
-3. Implement image style editor sheet
-4. Insert image at cursor position with default settings
-5. Basic serialization (embed in JSON with scale/alignment)
+### Phase 1: Insert Menu & Basic Image Insertion (Days 1-2)
+1. Replace toolbar image button with "Insert" button
+2. Create Insert menu with all items (Image enabled, others disabled)
+3. Create ImageAttachment class with basic properties
+4. Insert image at cursor position with default style from stylesheet
+5. Basic image display in text view
 6. Undo/redo for insertion
 
-### Phase 2: Image Style Editor (Days 4-5)
-1. Create ImageStyleEditorView (SwiftUI sheet)
-2. Add scale control (+/- buttons, percentage display)
-3. Add alignment control (three button selector)
-4. Implement file picker within style editor
-5. Update image on style changes
-6. Undo/redo for scale and alignment
+### Phase 2: Stylesheet Image Styles (Days 3-4)
+1. Add ImageStyle struct to StyleSheet model
+2. Add image styles section to stylesheet editor
+3. Create default image style for projects
+4. Store imageStyleName in ImageAttachment
+5. Apply style properties when inserting images
+6. Serialization of image styles with stylesheet
 
-### Phase 3: Caption Support (Days 6-7)
-1. Add caption properties to ImageAttachment
-2. Add caption style selector to style editor
-3. Implement caption rendering below image
-4. Make caption text editable inline
-5. Load caption styles from stylesheet
+### Phase 3: Image Property Editor (Days 5-6)
+1. Detect taps on images in text view
+2. Create ImagePropertyEditorView (SwiftUI sheet)
+3. Show current image properties
+4. Allow editing: scale, alignment, caption toggle
+5. Apply changes via undo commands
+6. Update image display after changes
+
+### Phase 4: Caption Support (Days 7-8)
+1. Add caption rendering below images
+2. Caption text editable inline
+3. Caption style from stylesheet
+4. Toggle caption on/off in property editor
+5. Serialization of caption data
 6. Undo/redo for caption changes
 
-### Phase 4: Image Management (Day 8)
-1. Delete images
-2. Copy/paste images with captions
-3. Image compression
-4. Performance optimization
-
-### Phase 5: Polish (Day 9)
-1. Context menu actions
-2. Error handling
-3. Accessibility support
+### Phase 5: Polish & Testing (Day 9)
+1. Context menu for images
+2. Error handling and validation
+3. Performance optimization
 4. Comprehensive testing
+5. Documentation updates
 
 ## Testing Strategy
 
@@ -442,12 +556,16 @@ struct DeleteImageCommand: UndoableCommand {
 - Test appearance mode with captions
 
 ## Success Metrics
-- ✅ Can insert images via style editor + file picker
-- ✅ Images display inline with text
-- ✅ Can scale images from 10% to 200%
-- ✅ Can align images (left/center/right)
+- ✅ Can insert images via Insert menu
+- ✅ Insert menu shows all planned content types
+- ✅ Images use default style from stylesheet
+- ✅ Can tap image to edit properties
+- ✅ Can change image scale (10% to 200%)
+- ✅ Can change image alignment (left/center/right)
 - ✅ Can add/edit/remove captions
 - ✅ Caption styles from stylesheet work correctly
+- ✅ Image styles defined in stylesheet
+- ✅ All images using a style update when style changes
 - ✅ Images + captions persist across app restarts
 - ✅ Undo/redo works for all image operations
 - ✅ No performance degradation with 10+ images
@@ -473,24 +591,27 @@ struct DeleteImageCommand: UndoableCommand {
 ## Notes
 - Images will use NSTextAttachment (native UIKit/AppKit)
 - This is well-supported and integrates seamlessly with UITextView
-- Alternative (custom rendering) would be more complex
 - Base64 encoding increases size by ~33% but simplifies storage
 - Consider external file storage if documents routinely exceed 50MB
-- **Caption integration**: Captions are separate text runs with special formatting
-- **Style editor pattern**: Following user's reference design with sheet/popover UI
-- **Scale vs Resize**: Using percentage scale (like reference) instead of pixel dimensions
-- **Caption styles**: Reusing existing stylesheet system, no new style infrastructure needed
+- **Insert menu pattern**: Follows standard word processor pattern (Word, Pages)
+- **Stylesheet integration**: Image styles work like text styles for consistency
+- **Tap to edit**: Intuitive interaction - tap image to modify properties
+- **Caption integration**: Captions are part of the attachment, not separate text runs
+- **Scale vs Resize**: Using percentage scale instead of pixel dimensions
+- **Future insert items**: List, Footnote, Endnote, Comment, Index Item planned
 
 ## Open Questions
 1. ~~Should we support image captions in Phase 1?~~ **Decision: Yes, captions are core feature**
 2. ~~Max image size limit?~~ **Decision: 2048px width, downscale larger**
 3. ~~Support for SVG images?~~ **Decision: No, raster only for Phase 1**
 4. ~~Should images be copyable as files?~~ **Decision: Yes, via context menu**
-5. How to handle caption text selection vs image selection? **Decision: Tap image for style editor, tap caption for text editing**
-6. Should caption styles be editable per-image or only via stylesheet? **Decision: Via stylesheet only, keeps consistency**
+5. ~~How to handle caption text selection vs image selection?~~ **Decision: Tap image for property editor, double-tap caption for editing**
+6. ~~Should caption styles be editable per-image or only via stylesheet?~~ **Decision: Via stylesheet only for consistency**
+7. ~~Should we use a style editor or properties per image?~~ **Decision: Both - styles in stylesheet, tap image to override**
+8. Should all Insert menu items be visible but disabled, or hidden? **Decision: Visible but disabled to show roadmap**
 
 ---
-**Status**: Draft  
+**Status**: Updated  
 **Created**: 2025-11-02  
-**Last Updated**: 2025-11-02  
-**Version**: 1.0
+**Last Updated**: 2025-11-03  
+**Version**: 2.0

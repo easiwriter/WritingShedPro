@@ -14,8 +14,9 @@ struct FileEditView: View {
     @State private var refreshTrigger = UUID()
     @State private var forceRefresh = false
     @State private var showStylePicker = false
-    @State private var showImageStyleEditor = false
-    @State private var selectedImageData: Data?
+    @State private var showImageEditor = false
+    @State private var imageToEdit: ImageAttachment?
+    @State private var lastImageInsertTime: Date?
     @State private var currentParagraphStyle: UIFont.TextStyle? = .body
     @StateObject private var undoManager: TextFileUndoManager
     @StateObject private var textViewCoordinator = TextViewCoordinator()
@@ -38,6 +39,12 @@ struct FileEditView: View {
             string: "",
             attributes: [.font: UIFont.preferredFont(forTextStyle: .body)]
         )
+        print("📂 FileEditView.init - Loading file '\(file.name ?? "untitled")'")
+        print("📂 Initial content length: \(initialAttributed.length)")
+        if initialAttributed.length > 0 {
+            print("📂 Content preview: '\(initialAttributed.string.prefix(50))'")
+        }
+        
         _attributedContent = State(initialValue: initialAttributed)
         _previousContent = State(initialValue: initialAttributed.string)
         
@@ -190,19 +197,29 @@ struct FileEditView: View {
                     }
                     .disabled(!undoManager.canRedo || isPerformingUndoRedo)
                     .accessibilityLabel("Redo")
-                    
-                    // Done button
-                    Button(NSLocalizedString("fileEdit.done", comment: "Done button")) {
-                        saveChanges()
-                        dismiss()
-                    }
                 }
             }
         }
         .onDisappear {
+            // Auto-save when leaving the editor (back button, etc.)
+            saveChanges()
             saveUndoState()
         }
         .onAppear {
+            // Reload content from database in case it was updated
+            // This ensures we always show the latest saved content
+            if let savedContent = file.currentVersion?.attributedContent {
+                print("📂 onAppear: Reloading content from database, length: \(savedContent.length)")
+                if savedContent.length != attributedContent.length || savedContent.string != attributedContent.string {
+                    print("📂 Content changed - updating attributedContent")
+                    attributedContent = savedContent
+                    // Update previous content to match
+                    previousContent = savedContent.string
+                } else {
+                    print("📂 Content unchanged - keeping current state")
+                }
+            }
+            
             // Show keyboard/cursor when opening file
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                 self.textViewCoordinator.textView?.becomeFirstResponder()
@@ -241,6 +258,24 @@ struct FileEditView: View {
         .onChange(of: selectedRange) { oldValue, newValue in
             // Update style when selection changes
             updateCurrentParagraphStyle()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ImageAttachmentSelected"))) { notification in
+            print("🖼️ Received ImageAttachmentSelected notification")
+            if let attachment = notification.userInfo?["attachment"] as? ImageAttachment {
+                // Don't show editor if we just inserted this image
+                // (give a grace period to avoid showing editor immediately after insert)
+                if let lastInsertTime = lastImageInsertTime,
+                   Date().timeIntervalSince(lastInsertTime) < 1.0 {
+                    print("🖼️ Ignoring - image was just inserted")
+                    return
+                }
+                
+                imageToEdit = attachment
+                // Small delay to avoid conflicts with text view gestures
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    self.showImageEditor = true
+                }
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ProjectStyleSheetChanged"))) { notification in
             print("📋 ========== ProjectStyleSheetChanged NOTIFICATION ==========")
@@ -345,29 +380,30 @@ struct FileEditView: View {
                 }
             )
         }
-        .sheet(isPresented: $showImageStyleEditor) {
-            if let imageData = selectedImageData {
-                ImageStyleEditorView(
-                    imageData: imageData,
-                    scale: 1.0,
-                    alignment: .center,
-                    hasCaption: false,
-                    captionText: "",
-                    captionStyle: "caption1",
-                    availableCaptionStyles: ["body", "caption1", "caption2", "footnote"],
-                    onApply: { imageData, scale, alignment, hasCaption, captionText, captionStyle in
-                        insertImage(
-                            imageData: imageData,
-                            scale: scale,
-                            alignment: alignment,
-                            hasCaption: hasCaption,
-                            captionText: captionText,
-                            captionStyle: captionStyle
-                        )
-                    }
-                )
-            } else {
-                Text("Loading image...")
+        .sheet(isPresented: $showImageEditor) {
+            if let imageAttachment = imageToEdit,
+               let imageData = imageAttachment.imageData {
+                NavigationStack {
+                    ImageStyleEditorView(
+                        imageData: imageData,
+                        scale: imageAttachment.scale,
+                        alignment: imageAttachment.alignment,
+                        hasCaption: imageAttachment.hasCaption,
+                        captionText: imageAttachment.captionText ?? "",
+                        captionStyle: imageAttachment.captionStyle ?? "caption1",
+                        availableCaptionStyles: ["caption1", "caption2", "footnote"],
+                        onApply: { imageData, scale, alignment, hasCaption, captionText, captionStyle in
+                            updateImage(
+                                attachment: imageAttachment,
+                                scale: scale,
+                                alignment: alignment,
+                                hasCaption: hasCaption,
+                                captionText: captionText,
+                                captionStyle: captionStyle
+                            )
+                        }
+                    )
+                }
             }
         }
     }
@@ -648,6 +684,13 @@ struct FileEditView: View {
     
     /// Reapply all text styles in the document with updated definitions from the database
     /// This is called when the user chooses "Apply Now" after editing styles
+    ///
+    /// **Design Note**: This function only reapplies TEXT styles from the stylesheet.
+    /// Image properties (scale, alignment) are stored per-instance on ImageAttachment objects
+    /// and are NOT updated when stylesheet ImageStyles change. This means:
+    /// - Changing ImageStyle in stylesheet affects only NEW images
+    /// - Existing images retain their custom scale/alignment settings
+    /// - Similar to how manually bolded text keeps its formatting even if Body style changes
     private func reapplyAllStyles() {
         print("🔄 ========== REAPPLY ALL STYLES START ==========")
         print("🔄 Document length: \(attributedContent.length)")
@@ -724,10 +767,63 @@ struct FileEditView: View {
                 }
             }
             
-            // Completely replace attributes with fresh stylesheet values
-            // This ensures stylesheet changes fully propagate to documents
+            // Check if this range contains an image attachment
+            var attachmentPosition: Int? = nil
+            var preservedParagraphStyle: NSParagraphStyle?
+            
+            // Check EVERY position in the range for attachments
+            for pos in range.location..<min(range.location + range.length, mutableText.length) {
+                let existingAttrs = mutableText.attributes(at: pos, effectiveRange: nil)
+                if existingAttrs[.attachment] != nil {
+                    attachmentPosition = pos
+                    // Preserve the attachment's paragraph style
+                    preservedParagraphStyle = existingAttrs[.paragraphStyle] as? NSParagraphStyle
+                    print("   🖼️ Found attachment at position \(pos) within range {\(range.location), \(range.length)}")
+                    break
+                }
+            }
+            
+            // Apply attributes based on whether we have an attachment
             print("✅ Applying new attributes to range {\(range.location), \(range.length)}")
-            mutableText.setAttributes(newAttributes, range: range)
+            if let attachmentPos = attachmentPosition {
+                print("   🖼️ Range contains attachment at position \(attachmentPos) - using selective application")
+                
+                // Apply text attributes (without paragraph style) to the entire range
+                var attributesToAdd = newAttributes
+                attributesToAdd.removeValue(forKey: .paragraphStyle)
+                mutableText.addAttributes(attributesToAdd, range: range)
+                
+                // Apply default left-aligned paragraph style to text portions
+                let defaultParagraphStyle = NSMutableParagraphStyle()
+                defaultParagraphStyle.alignment = .left
+                
+                // Apply to text BEFORE the image
+                if attachmentPos > range.location {
+                    let beforeRange = NSRange(location: range.location, length: attachmentPos - range.location)
+                    mutableText.addAttribute(.paragraphStyle, value: defaultParagraphStyle, range: beforeRange)
+                    print("   📝 Applied left alignment to text before image: range {\(beforeRange.location), \(beforeRange.length)}")
+                }
+                
+                // Apply to text AFTER the image
+                if attachmentPos < range.location + range.length - 1 {
+                    let afterStart = attachmentPos + 1
+                    let afterLength = (range.location + range.length) - afterStart
+                    if afterLength > 0 {
+                        let afterRange = NSRange(location: afterStart, length: afterLength)
+                        mutableText.addAttribute(.paragraphStyle, value: defaultParagraphStyle, range: afterRange)
+                        print("   📝 Applied left alignment to text after image: range {\(afterRange.location), \(afterRange.length)}")
+                    }
+                }
+                
+                // Preserve the image's original paragraph style
+                if let paragraphStyle = preservedParagraphStyle {
+                    mutableText.addAttribute(.paragraphStyle, value: paragraphStyle, range: NSRange(location: attachmentPos, length: 1))
+                    print("   🖼️ Preserved image paragraph alignment at position \(attachmentPos)")
+                }
+            } else {
+                // No attachment - apply all attributes including paragraph style normally
+                mutableText.setAttributes(newAttributes, range: range)
+            }
             
             // Log what color is ACTUALLY in the text after we set it
             if range.location < mutableText.length {
@@ -989,6 +1085,14 @@ struct FileEditView: View {
         picker.allowsMultipleSelection = false
         picker.delegate = textViewCoordinator
         
+        // Hide the navigation bar to remove the "Done" button
+        // The picker dismisses automatically when a file is selected
+        picker.modalPresentationStyle = .pageSheet
+        if let sheet = picker.sheetPresentationController {
+            sheet.prefersGrabberVisible = true
+            sheet.detents = [.medium(), .large()]
+        }
+        
         print("🖼️ Document picker created, setting callback...")
         
         // Store reference for when document is picked
@@ -1032,16 +1136,38 @@ struct FileEditView: View {
             if let compressedData = compressImageData(imageData) {
                 print("🖼️ Image compressed: \(compressedData.count) bytes")
                 
-                // Update state on main thread and wait for next run loop
+                // Insert image immediately with default settings from stylesheet
                 DispatchQueue.main.async {
-                    self.selectedImageData = compressedData
-                    print("🖼️ selectedImageData set: \(compressedData.count) bytes")
+                    // Get default image style from project's stylesheet
+                    // These values serve as INITIAL settings for the new image
+                    // Once inserted, the image's properties can be customized independently
+                    var scale: CGFloat = 1.0
+                    var alignment: ImageAttachment.ImageAlignment = .center
+                    var hasCaption = false
+                    var captionStyle = "caption1"
                     
-                    // Small delay to ensure SwiftUI state updates propagate
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        self.showImageStyleEditor = true
-                        print("🖼️ Showing style editor with imageData: \(self.selectedImageData != nil)")
+                    if let project = self.file.project,
+                       let stylesheet = project.styleSheet,
+                       let imageStyles = stylesheet.imageStyles,
+                       let defaultStyle = imageStyles.first(where: { $0.name == "default" }) {
+                        scale = defaultStyle.defaultScale
+                        alignment = defaultStyle.defaultAlignment
+                        hasCaption = defaultStyle.hasCaptionByDefault
+                        captionStyle = defaultStyle.defaultCaptionStyle
+                        print("🖼️ Using image style '\(defaultStyle.displayName)': scale=\(scale), alignment=\(alignment.rawValue)")
+                    } else {
+                        print("🖼️ Using hardcoded defaults: scale=1.0, alignment=center")
                     }
+                    
+                    print("🖼️ Inserting image with settings from stylesheet")
+                    self.insertImage(
+                        imageData: compressedData,
+                        scale: scale,
+                        alignment: alignment,
+                        hasCaption: hasCaption,
+                        captionText: "",
+                        captionStyle: captionStyle
+                    )
                 }
             } else {
                 print("❌ Failed to compress image")
@@ -1083,16 +1209,40 @@ struct FileEditView: View {
         
         undoManager.execute(command)
         
+        // Mark the time of insertion to prevent immediate editor popup
+        lastImageInsertTime = Date()
+        
         // Update local state to reflect the change
-        attributedContent = file.currentVersion?.attributedContent ?? NSAttributedString()
+        let newContent = file.currentVersion?.attributedContent ?? NSAttributedString()
+        print("🖼️ Before update - attributedContent length: \(attributedContent.length)")
+        print("🖼️ After command - newContent length: \(newContent.length)")
+        
+        // Check if there's an attachment at the insertion point
+        if newContent.length > insertionPoint {
+            let attrs = newContent.attributes(at: insertionPoint, effectiveRange: nil)
+            if let attachment = attrs[.attachment] as? NSTextAttachment {
+                print("🖼️ Found attachment at position \(insertionPoint): \(type(of: attachment))")
+            } else {
+                print("⚠️ NO attachment found at position \(insertionPoint)")
+                print("⚠️ Character at \(insertionPoint): '\(newContent.string[newContent.string.index(newContent.string.startIndex, offsetBy: insertionPoint)])'")
+            }
+        }
+        
+        attributedContent = newContent
         
         // Move cursor after the inserted image
         selectedRange = NSRange(location: insertionPoint + 1, length: 0)
         
         print("🖼️ Image inserted at position \(insertionPoint) with scale \(scale)")
         
-        // Restore keyboard focus
-        restoreKeyboardFocus()
+        // Force refresh to ensure UI updates
+        forceRefresh.toggle()
+        refreshTrigger = UUID()
+        
+        // Restore keyboard focus after a slight delay to allow UI to update
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            restoreKeyboardFocus()
+        }
     }
     
     // MARK: - Version Management
@@ -1195,6 +1345,78 @@ struct FileEditView: View {
         DispatchQueue.main.async {
             self.textViewCoordinator.textView?.becomeFirstResponder()
         }
+    }
+    
+    // MARK: - Image Editing
+    
+    /// Update an existing image attachment with new properties
+    private func updateImage(
+        attachment: ImageAttachment,
+        scale: CGFloat,
+        alignment: ImageAttachment.ImageAlignment,
+        hasCaption: Bool,
+        captionText: String,
+        captionStyle: String
+    ) {
+        print("🖼️ Updating image: scale=\(scale), alignment=\(alignment.rawValue)")
+        
+        // Find the attachment in the content
+        guard let position = findAttachmentPosition(attachment) else {
+            print("❌ Could not find attachment in content")
+            return
+        }
+        
+        // Update the attachment properties
+        attachment.scale = scale
+        attachment.alignment = alignment
+        attachment.hasCaption = hasCaption
+        attachment.captionText = captionText
+        attachment.captionStyle = captionStyle
+        
+        // Update the paragraph alignment to match image alignment
+        let mutableContent = NSMutableAttributedString(attributedString: attributedContent)
+        let paragraphStyle = NSMutableParagraphStyle()
+        switch alignment {
+        case .left:
+            paragraphStyle.alignment = .left
+        case .center:
+            paragraphStyle.alignment = .center
+        case .right:
+            paragraphStyle.alignment = .right
+        case .inline:
+            paragraphStyle.alignment = .natural
+        }
+        
+        mutableContent.addAttribute(.paragraphStyle, value: paragraphStyle, range: NSRange(location: position, length: 1))
+        
+        // Update the content
+        attributedContent = mutableContent
+        file.currentVersion?.attributedContent = mutableContent
+        file.modifiedDate = Date()
+        
+        do {
+            try modelContext.save()
+            print("✅ Image updated and saved")
+        } catch {
+            print("❌ Error saving image update: \(error)")
+        }
+        
+        // Close the editor
+        showImageEditor = false
+        imageToEdit = nil
+    }
+    
+    /// Find the position of an attachment in the attributed content
+    private func findAttachmentPosition(_ targetAttachment: ImageAttachment) -> Int? {
+        var position: Int?
+        attributedContent.enumerateAttribute(.attachment, in: NSRange(location: 0, length: attributedContent.length)) { value, range, stop in
+            if let attachment = value as? ImageAttachment,
+               attachment.imageID == targetAttachment.imageID {
+                position = range.location
+                stop.pointee = true
+            }
+        }
+        return position
     }
 }
 
