@@ -116,6 +116,17 @@ struct FormattedTextEditor: UIViewRepresentable {
         // Configure for rich text
         textView.allowsEditingTextAttributes = true
         
+        // TODO: Suppress drag handles on images/attachments
+        // The drag handles (lollipop handles) appear when tapping on images in iOS
+        // Attempted solutions that didn't work:
+        // - textView.textDragOptions = [] (iOS 15+) - doesn't suppress handles on attachments
+        // Possible future approaches:
+        // - Custom UITextView subclass overriding canPerformAction for drag/drop
+        // - Disable textView.textDragInteraction or textView.interactions
+        // - Custom gesture recognizer to intercept taps on images
+        // - Override selectionRectsForRange to hide selection UI on attachments
+        // For now, drag handles remain visible but don't interfere with functionality
+        
         // Set initial content - this should be done AFTER layout configuration
         textView.attributedText = attributedText
         
@@ -459,6 +470,9 @@ struct FormattedTextEditor: UIViewRepresentable {
             }
         }
         
+        // Handle taps on text attachments (images)
+        }
+        
         func textViewDidChangeSelection(_ textView: UITextView) {
             guard !isUpdatingFromSwiftUI else { return }
             
@@ -472,9 +486,6 @@ struct FormattedTextEditor: UIViewRepresentable {
             print("📍 Selection changed to: {\(newRange.location), \(newRange.length)}")
             #endif
             
-            // Check if we're selecting or near an image attachment
-            checkForImageAttachment(at: newRange, in: textView)
-            
             // Only update the binding if it actually changed
             // This prevents unnecessary view updates
             if parent.selectedRange.location != newRange.location || 
@@ -484,32 +495,6 @@ struct FormattedTextEditor: UIViewRepresentable {
             
             // Also notify via callback
             parent.onSelectionChange?(newRange)
-        }
-        
-        /// Check if the selection is on or near an image attachment
-        private func checkForImageAttachment(at range: NSRange, in textView: UITextView) {
-            guard let attributedText = textView.attributedText else { return }
-            
-            // Check multiple positions: selection start, selection end, and position before cursor
-            let positionsToCheck = [
-                range.location,
-                range.location > 0 ? range.location - 1 : -1,
-                range.location + range.length < attributedText.length ? range.location + range.length : -1
-            ].compactMap { $0 >= 0 && $0 < attributedText.length ? $0 : nil }
-            
-            for position in positionsToCheck {
-                let attrs = attributedText.attributes(at: position, effectiveRange: nil)
-                if let attachment = attrs[.attachment] as? ImageAttachment {
-                    print("🖼️ Image attachment found at position \(position)")
-                    // Notify parent view through a callback
-                    NotificationCenter.default.post(
-                        name: NSNotification.Name("ImageAttachmentSelected"),
-                        object: nil,
-                        userInfo: ["attachment": attachment, "position": position]
-                    )
-                    return
-                }
-            }
         }
         
         func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
@@ -679,6 +664,13 @@ private class CustomTextView: UITextView {
         
         print("📋 PASTE: Available types: \(pasteboard.types)")
         
+        // Check if there's an image directly on the pasteboard (e.g., copied from Finder)
+        if let image = pasteboard.image {
+            print("📋 PASTE: Found direct image on pasteboard: \(image.size)")
+            insertPastedImage(image)
+            return
+        }
+        
         // Try to get attributed string - check for RTFD first, then RTF, then plain text
         var attributedString: NSAttributedString?
         
@@ -842,6 +834,74 @@ private class CustomTextView: UITextView {
         // Fall back to default paste behavior
         print("📋 PASTE: Using default paste behavior")
         super.paste(sender)
+    }
+    
+    /// Insert a pasted image at the current cursor position
+    private func insertPastedImage(_ image: UIImage) {
+        print("📋 PASTE: Inserting pasted image: \(image.size)")
+        
+        // Create a new ImageAttachment
+        let imageAttachment = ImageAttachment()
+        imageAttachment.image = image
+        
+        // Try to get the image data
+        if let imageData = image.jpegData(compressionQuality: 0.8) {
+            imageAttachment.imageData = imageData
+            print("📋 PASTE: Saved image data: \(imageData.count) bytes")
+        } else if let imageData = image.pngData() {
+            imageAttachment.imageData = imageData
+            print("📋 PASTE: Saved image data (PNG): \(imageData.count) bytes")
+        }
+        
+        // Use sensible defaults for pasted images
+        // Note: We use 0.25 (25%) as default since full-size images are usually too large
+        imageAttachment.scale = 0.25
+        imageAttachment.alignment = .center
+        imageAttachment.imageStyleName = "Images" // Default style
+        imageAttachment.updateBounds()
+        
+        print("📋 PASTE: Created ImageAttachment with defaults: scale=\(imageAttachment.scale), alignment=\(imageAttachment.alignment)")
+        
+        // Create attributed string with attachment and apply paragraph style for alignment
+        let attachmentString = NSMutableAttributedString(attachment: imageAttachment)
+        
+        // Apply paragraph style to make the image centered
+        let paragraphStyle = NSMutableParagraphStyle()
+        paragraphStyle.alignment = .center
+        attachmentString.addAttribute(.paragraphStyle, value: paragraphStyle, range: NSRange(location: 0, length: 1))
+        
+        print("📋 PASTE: Applied center paragraph style to attachment string")
+        
+        // Insert at current cursor position
+        let mutableText = NSMutableAttributedString(attributedString: self.attributedText ?? NSAttributedString())
+        let cursorLocation = self.selectedRange.location
+        mutableText.insert(attachmentString, at: cursorLocation)
+        
+        // Verify the paragraph style was preserved after insertion
+        let attrs = mutableText.attributes(at: cursorLocation, effectiveRange: nil)
+        if let ps = attrs[.paragraphStyle] as? NSParagraphStyle {
+            print("📋 PASTE: After insertion, paragraph style alignment = \(ps.alignment.rawValue)")
+        } else {
+            print("📋 PASTE: WARNING - No paragraph style found after insertion!")
+        }
+        
+        // Update the text view
+        self.attributedText = mutableText
+        
+        // Notify that we just inserted an image (prevents editor from auto-opening)
+        NotificationCenter.default.post(
+            name: NSNotification.Name("ImageWasPasted"),
+            object: nil,
+            userInfo: nil
+        )
+        
+        // Move cursor after the image
+        self.selectedRange = NSRange(location: cursorLocation + 1, length: 0)
+        
+        // Notify delegate
+        self.delegate?.textViewDidChange?(self)
+        
+        print("📋 PASTE: Image inserted successfully with center alignment")
     }
     
     // Override to prevent the editing menu from showing for formatting

@@ -178,9 +178,15 @@ struct FormattingToolbarView: UIViewRepresentable {
         button.showsMenuAsPrimaryAction = true
         
         // Create menu
+        #if targetEnvironment(macCatalyst)
+        // On Mac Catalyst, UIDocumentPickerViewController delegate doesn't work
+        // Users should use copy/paste instead (Cmd+C image in Finder, then Cmd+V in document)
+        let imageAction = UIAction(title: "Image (use copy/paste)", image: UIImage(systemName: "photo"), attributes: .disabled) { _ in }
+        #else
         let imageAction = UIAction(title: "Image", image: UIImage(systemName: "photo")) { _ in
             coordinator.onFormatAction(.insert)
         }
+        #endif
         
         let listAction = UIAction(title: "List", image: UIImage(systemName: "list.bullet"), attributes: .disabled) { _ in }
         let footnoteAction = UIAction(title: "Footnote", image: UIImage(systemName: "text.append"), attributes: .disabled) { _ in }

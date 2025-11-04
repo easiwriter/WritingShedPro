@@ -18,6 +18,9 @@ struct FileEditView: View {
     @State private var imageToEdit: ImageAttachment?
     @State private var lastImageInsertTime: Date?
     @State private var currentParagraphStyle: UIFont.TextStyle? = .body
+    @State private var documentPicker: UIDocumentPickerViewController? // Strong reference for Mac Catalyst
+    @State private var showFileImporter = false // For SwiftUI file importer
+    @State private var showDocumentPicker = false // For UIViewControllerRepresentable picker
     @StateObject private var undoManager: TextFileUndoManager
     @StateObject private var textViewCoordinator = TextViewCoordinator()
     
@@ -259,26 +262,12 @@ struct FileEditView: View {
             // Update style when selection changes
             updateCurrentParagraphStyle()
         }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ImageAttachmentSelected"))) { notification in
-            print("🖼️ Received ImageAttachmentSelected notification")
-            if let attachment = notification.userInfo?["attachment"] as? ImageAttachment {
-                // Don't show editor if we just inserted this image
-                // (give a grace period to avoid showing editor immediately after insert)
-                if let lastInsertTime = lastImageInsertTime,
-                   Date().timeIntervalSince(lastInsertTime) < 1.0 {
-                    print("🖼️ Ignoring - image was just inserted")
-                    return
-                }
-                
-                imageToEdit = attachment
-                // Small delay to avoid conflicts with text view gestures
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    self.showImageEditor = true
-                }
-            }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ImageWasPasted"))) { _ in
+            print("🖼️ Received ImageWasPasted notification - updating lastImageInsertTime")
+            lastImageInsertTime = Date()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ProjectStyleSheetChanged"))) { notification in
-            print("📋 ========== ProjectStyleSheetChanged NOTIFICATION ==========")
+            print("📋 ========== ProjectStyleSheetChanged NOTIFICATION ===========")
             print("📋 Notification userInfo: \(notification.userInfo ?? [:])")
             
             // When a project's stylesheet changes, check if it's our project and reapply styles
@@ -406,6 +395,35 @@ struct FileEditView: View {
                 }
             }
         }
+        .fileImporter(
+            isPresented: $showFileImporter,
+            allowedContentTypes: [.image],
+            allowsMultipleSelection: false
+        ) { result in
+            print("🖼️ File importer completed")
+            switch result {
+            case .success(let urls):
+                print("🖼️ File importer success with \(urls.count) URLs")
+                guard let url = urls.first else {
+                    print("❌ No URL in file importer result")
+                    return
+                }
+                print("🖼️ File importer selected: \(url.lastPathComponent)")
+                print("🖼️ File path: \(url.path)")
+                handleImageSelection(url: url)
+            case .failure(let error):
+                print("❌ File importer error: \(error.localizedDescription)")
+            }
+        }
+        .background(
+            DocumentPickerView(
+                isPresented: $showDocumentPicker,
+                contentTypes: [.image]
+            ) { url in
+                print("🖼️ Document picker view selected: \(url.lastPathComponent)")
+                handleImageSelection(url: url)
+            }
+        )
     }
     
     // MARK: - Attributed Text Handling
@@ -1079,19 +1097,31 @@ struct FileEditView: View {
     
     private func showImagePicker() {
         print("🖼️ showImagePicker() called")
+        showDocumentPicker = true
+    }
+    
+    private func showIOSImagePicker() {
+        print("🖼️ Using iOS UIDocumentPickerViewController")
         
         // Create a document picker for images
         let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.image])
         picker.allowsMultipleSelection = false
         picker.delegate = textViewCoordinator
         
-        // Hide the navigation bar to remove the "Done" button
-        // The picker dismisses automatically when a file is selected
+        // Store strong reference in coordinator to prevent deallocation (needed for Mac Catalyst)
+        textViewCoordinator.documentPicker = picker
+        
+        // Configure presentation style
+        // On Mac Catalyst, sheetPresentationController with detents can cause immediate dismissal
+        #if targetEnvironment(macCatalyst)
+        picker.modalPresentationStyle = .formSheet
+        #else
         picker.modalPresentationStyle = .pageSheet
         if let sheet = picker.sheetPresentationController {
             sheet.prefersGrabberVisible = true
             sheet.detents = [.medium(), .large()]
         }
+        #endif
         
         print("🖼️ Document picker created, setting callback...")
         
@@ -1099,6 +1129,9 @@ struct FileEditView: View {
         textViewCoordinator.onImagePicked = { url in
             print("🖼️ onImagePicked callback triggered")
             self.handleImageSelection(url: url)
+            // Clear references after selection
+            self.textViewCoordinator.documentPicker = nil
+            self.documentPicker = nil
         }
         
         // Present the picker
