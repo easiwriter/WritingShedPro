@@ -62,6 +62,29 @@ struct FormattingToolbarView: UIViewRepresentable {
             coordinator: context.coordinator
         )
         
+        // Create cursor movement buttons
+        let leftArrowButton = createStandardButton(
+            systemName: "chevron.left",
+            action: #selector(context.coordinator.moveCursorLeft),
+            coordinator: context.coordinator
+        )
+        leftArrowButton.accessibilityLabel = NSLocalizedString("toolbar.moveCursorLeft", comment: "Move cursor left")
+        
+        let rightArrowButton = createStandardButton(
+            systemName: "chevron.right",
+            action: #selector(context.coordinator.moveCursorRight),
+            coordinator: context.coordinator
+        )
+        rightArrowButton.accessibilityLabel = NSLocalizedString("toolbar.moveCursorRight", comment: "Move cursor right")
+        
+        // Create keyboard dismiss button
+        let keyboardDismissButton = createStandardButton(
+            systemName: "keyboard.chevron.compact.down",
+            action: #selector(context.coordinator.dismissKeyboard),
+            coordinator: context.coordinator
+        )
+        keyboardDismissButton.accessibilityLabel = NSLocalizedString("toolbar.dismissKeyboard", comment: "Dismiss keyboard")
+        
         // Store button views in coordinator for state updates
         context.coordinator.boldButton = boldButton
         context.coordinator.italicButton = italicButton
@@ -77,6 +100,9 @@ struct FormattingToolbarView: UIViewRepresentable {
         let strikethroughBarItem = UIBarButtonItem(customView: strikethroughButton)
         let imageStyleBarItem = UIBarButtonItem(customView: imageStyleButton)
         let insertBarItem = UIBarButtonItem(customView: insertButton)
+        let leftArrowBarItem = UIBarButtonItem(customView: leftArrowButton)
+        let rightArrowBarItem = UIBarButtonItem(customView: rightArrowButton)
+        let keyboardDismissBarItem = UIBarButtonItem(customView: keyboardDismissButton)
         
         // Create individual spacing items
         func createSpace(_ width: CGFloat = 16) -> UIBarButtonItem {
@@ -96,7 +122,7 @@ struct FormattingToolbarView: UIViewRepresentable {
         
         let flexSpace = UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil)
         
-        // Layout: [flex] ¶ [20] | [20] 📷 [20] | [20] B [20] I [20] U [20] S [20] | [20] + [flex]
+        // Layout: [flex] ¶ [20] | [20] 📷 [20] | [20] B [20] I [20] U [20] S [20] | [20] + [20] | [20] ← [20] → [20] | [20] ⌨︎↓ [flex]
         toolbar.items = [
             flexSpace,
             paragraphBarItem,
@@ -118,6 +144,16 @@ struct FormattingToolbarView: UIViewRepresentable {
             createDivider(),
             createSpace(20),
             insertBarItem,
+            createSpace(20),
+            createDivider(),
+            createSpace(20),
+            leftArrowBarItem,
+            createSpace(20),
+            rightArrowBarItem,
+            createSpace(20),
+            createDivider(),
+            createSpace(20),
+            keyboardDismissBarItem,
             flexSpace
         ]
         
@@ -282,6 +318,38 @@ struct FormattingToolbarView: UIViewRepresentable {
             print("🎯 showInsert() called")
             // Just trigger the insert action - let SwiftUI handle the menu
             onFormatAction(.insert)
+        }
+        
+        @objc func moveCursorLeft() {
+            guard let textView = textView else { return }
+            
+            let currentPosition = textView.selectedRange.location
+            if currentPosition > 0 {
+                let newPosition = currentPosition - 1
+                textView.selectedRange = NSRange(location: newPosition, length: 0)
+                
+                // Scroll to make cursor visible
+                textView.scrollRangeToVisible(NSRange(location: newPosition, length: 0))
+            }
+        }
+        
+        @objc func moveCursorRight() {
+            guard let textView = textView else { return }
+            
+            let currentPosition = textView.selectedRange.location
+            let textLength = textView.text.count
+            
+            if currentPosition < textLength {
+                let newPosition = currentPosition + 1
+                textView.selectedRange = NSRange(location: newPosition, length: 0)
+                
+                // Scroll to make cursor visible
+                textView.scrollRangeToVisible(NSRange(location: newPosition, length: 0))
+            }
+        }
+        
+        @objc func dismissKeyboard() {
+            textView?.resignFirstResponder()
         }
         
         func updateButtonStates() {

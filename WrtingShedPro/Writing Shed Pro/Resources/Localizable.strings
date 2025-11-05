@@ -295,3 +295,8 @@
 /* Common */
 "common.cancel" = "Cancel";
 "common.done" = "Done";
+
+/* Formatting Toolbar */
+"toolbar.moveCursorLeft" = "Move cursor left";
+"toolbar.moveCursorRight" = "Move cursor right";
+"toolbar.dismissKeyboard" = "Hide keyboard";
