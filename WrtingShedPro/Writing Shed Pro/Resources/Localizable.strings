@@ -257,3 +257,41 @@
 
 /* Add folder */
 "addFolder.parentFolder" = "In Folder";
+
+/* Page Setup */
+"pageSetup.title" = "Page Setup";
+"pageSetup.measurementUnits" = "Measurement Units";
+"pageSetup.orientation" = "Orientation";
+"pageSetup.orientationPicker" = "Portrait/Landscape";
+"pageSetup.paperSize" = "Paper Size";
+"pageSetup.paperSizePicker" = "Paper Size";
+"pageSetup.customSize" = "Custom Size";
+"pageSetup.margins" = "Page Margins";
+"pageSetup.marginTop" = "Top";
+"pageSetup.marginLeft" = "Left";
+"pageSetup.marginBottom" = "Bottom";
+"pageSetup.marginRight" = "Right";
+"pageSetup.headers" = "Headers";
+"pageSetup.footers" = "Footers";
+"pageSetup.depth" = "Depth";
+"pageSetup.facingPages" = "Facing Pages";
+
+/* Units */
+"units.points" = "Points";
+"units.millimetres" = "Millimetres";
+"units.inches" = "Inches";
+
+/* Orientation */
+"orientation.portrait" = "Portrait";
+"orientation.landscape" = "Landscape";
+
+/* Paper Sizes */
+"paperSize.letter" = "Letter";
+"paperSize.legal" = "Legal";
+"paperSize.a4" = "A4";
+"paperSize.a5" = "A5";
+"paperSize.custom" = "Custom";
+
+/* Common */
+"common.cancel" = "Cancel";
+"common.done" = "Done";

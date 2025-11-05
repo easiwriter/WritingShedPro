@@ -18,7 +18,9 @@ struct Write_App: App {
             File.self,
             Folder.self,
             StyleSheet.self,
-            TextStyleModel.self
+            TextStyleModel.self,
+            PageSetup.self,
+            PrinterPaper.self
         ])
         let modelConfiguration = ModelConfiguration(
             schema: schema,

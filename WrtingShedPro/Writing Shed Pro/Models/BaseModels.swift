@@ -17,6 +17,10 @@ final class Project {
     // Style sheet reference (Phase 5)
     var styleSheet: StyleSheet?
     
+    // Page setup reference
+    @Relationship(deleteRule: .cascade, inverse: \PageSetup.project)
+    var pageSetup: PageSetup?
+    
     var type: ProjectType {
         get {
             guard let typeRaw = typeRaw, let projectType = ProjectType(rawValue: typeRaw) else {
@@ -37,6 +41,9 @@ final class Project {
         self.details = details
         self.notes = notes
         self.userOrder = userOrder
+        
+        // Create default page setup with region-appropriate paper size
+        self.pageSetup = PageSetup()
     }
 }
 
