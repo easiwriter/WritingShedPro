@@ -91,6 +91,9 @@ struct FormattingToolbarView: UIViewRepresentable {
         context.coordinator.underlineButton = underlineButton
         context.coordinator.strikethroughButton = strikethroughButton
         context.coordinator.imageStyleButton = imageStyleButton
+        context.coordinator.leftArrowButton = leftArrowButton
+        context.coordinator.rightArrowButton = rightArrowButton
+        context.coordinator.keyboardToggleButton = keyboardDismissButton
         
         // Wrap buttons in UIBarButtonItems
         let paragraphBarItem = UIBarButtonItem(customView: paragraphButton)
@@ -103,6 +106,19 @@ struct FormattingToolbarView: UIViewRepresentable {
         let leftArrowBarItem = UIBarButtonItem(customView: leftArrowButton)
         let rightArrowBarItem = UIBarButtonItem(customView: rightArrowButton)
         let keyboardDismissBarItem = UIBarButtonItem(customView: keyboardDismissButton)
+        
+        // Store bar items in coordinator for dynamic updates
+        context.coordinator.paragraphBarItem = paragraphBarItem
+        context.coordinator.boldBarItem = boldBarItem
+        context.coordinator.italicBarItem = italicBarItem
+        context.coordinator.underlineBarItem = underlineBarItem
+        context.coordinator.strikethroughBarItem = strikethroughBarItem
+        context.coordinator.imageStyleBarItem = imageStyleBarItem
+        context.coordinator.insertBarItem = insertBarItem
+        context.coordinator.leftArrowBarItem = leftArrowBarItem
+        context.coordinator.rightArrowBarItem = rightArrowBarItem
+        context.coordinator.keyboardToggleBarItem = keyboardDismissBarItem
+        context.coordinator.toolbar = toolbar
         
         // Create individual spacing items
         func createSpace(_ width: CGFloat = 16) -> UIBarButtonItem {
@@ -122,40 +138,59 @@ struct FormattingToolbarView: UIViewRepresentable {
         
         let flexSpace = UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil)
         
-        // Layout: [flex] ¶ [20] | [20] 📷 [20] | [20] B [20] I [20] U [20] S [20] | [20] + [20] | [20] ← [20] → [20] | [20] ⌨︎↓ [flex]
-        toolbar.items = [
-            flexSpace,
-            paragraphBarItem,
-            createSpace(20),
-            createDivider(),
-            createSpace(20),
-            imageStyleBarItem,
-            createSpace(20),
-            createDivider(),
-            createSpace(20),
-            boldBarItem,
-            createSpace(20),
-            italicBarItem,
-            createSpace(20),
-            underlineBarItem,
-            createSpace(20),
-            strikethroughBarItem,
-            createSpace(20),
-            createDivider(),
-            createSpace(20),
-            insertBarItem,
-            createSpace(20),
-            createDivider(),
-            createSpace(20),
-            leftArrowBarItem,
-            createSpace(20),
-            rightArrowBarItem,
-            createSpace(20),
-            createDivider(),
-            createSpace(20),
-            keyboardDismissBarItem,
-            flexSpace
-        ]
+        // Store toolbar building function in coordinator
+        context.coordinator.buildToolbarItems = { hasHardwareKeyboard, keyboardVisible in
+            var items: [UIBarButtonItem] = [
+                flexSpace,
+                paragraphBarItem,
+                createSpace(20),
+                createDivider(),
+                createSpace(20),
+                imageStyleBarItem,
+                createSpace(20),
+                createDivider(),
+                createSpace(20),
+                boldBarItem,
+                createSpace(20),
+                italicBarItem,
+                createSpace(20),
+                underlineBarItem,
+                createSpace(20),
+                strikethroughBarItem,
+                createSpace(20),
+                createDivider(),
+                createSpace(20),
+                insertBarItem
+            ]
+            
+            // Only show cursor arrows when there's NO hardware keyboard
+            if !hasHardwareKeyboard {
+                items.append(contentsOf: [
+                    createSpace(20),
+                    createDivider(),
+                    createSpace(20),
+                    leftArrowBarItem,
+                    createSpace(20),
+                    rightArrowBarItem
+                ])
+            }
+            
+            // Only show keyboard toggle when there's NO hardware keyboard
+            if !hasHardwareKeyboard {
+                items.append(contentsOf: [
+                    createSpace(20),
+                    createDivider(),
+                    createSpace(20),
+                    keyboardDismissBarItem
+                ])
+            }
+            
+            items.append(flexSpace)
+            return items
+        }
+        
+        // Initial layout
+        toolbar.items = context.coordinator.buildToolbarItems?(false, true) ?? []
         
         return toolbar
     }
@@ -185,6 +220,27 @@ struct FormattingToolbarView: UIViewRepresentable {
                 context.coordinator.updateButtonStates()
             }
         }
+        
+        // Listen for keyboard show/hide notifications
+        if context.coordinator.keyboardWillShowObserver == nil {
+            context.coordinator.keyboardWillShowObserver = NotificationCenter.default.addObserver(
+                forName: UIResponder.keyboardWillShowNotification,
+                object: nil,
+                queue: .main
+            ) { notification in
+                context.coordinator.handleKeyboardWillShow(notification)
+            }
+        }
+        
+        if context.coordinator.keyboardWillHideObserver == nil {
+            context.coordinator.keyboardWillHideObserver = NotificationCenter.default.addObserver(
+                forName: UIResponder.keyboardWillHideNotification,
+                object: nil,
+                queue: .main
+            ) { notification in
+                context.coordinator.handleKeyboardWillHide(notification)
+            }
+        }
     }
     
     static func dismantleUIView(_ toolbar: UIToolbar, coordinator: Coordinator) {
@@ -193,6 +249,12 @@ struct FormattingToolbarView: UIViewRepresentable {
             NotificationCenter.default.removeObserver(observer)
         }
         if let observer = coordinator.selectionObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        if let observer = coordinator.keyboardWillShowObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        if let observer = coordinator.keyboardWillHideObserver {
             NotificationCenter.default.removeObserver(observer)
         }
     }
@@ -261,12 +323,34 @@ struct FormattingToolbarView: UIViewRepresentable {
         let onFormatAction: (FormattingAction) -> Void
         var textChangeObserver: NSObjectProtocol?
         var selectionObserver: NSObjectProtocol?
+        var keyboardWillShowObserver: NSObjectProtocol?
+        var keyboardWillHideObserver: NSObjectProtocol?
         
         weak var boldButton: UIButton?
         weak var italicButton: UIButton?
         weak var underlineButton: UIButton?
         weak var strikethroughButton: UIButton?
         weak var imageStyleButton: UIButton?
+        weak var leftArrowButton: UIButton?
+        weak var rightArrowButton: UIButton?
+        weak var keyboardToggleButton: UIButton?
+        
+        weak var toolbar: UIToolbar?
+        weak var paragraphBarItem: UIBarButtonItem?
+        weak var boldBarItem: UIBarButtonItem?
+        weak var italicBarItem: UIBarButtonItem?
+        weak var underlineBarItem: UIBarButtonItem?
+        weak var strikethroughBarItem: UIBarButtonItem?
+        weak var imageStyleBarItem: UIBarButtonItem?
+        weak var insertBarItem: UIBarButtonItem?
+        weak var leftArrowBarItem: UIBarButtonItem?
+        weak var rightArrowBarItem: UIBarButtonItem?
+        weak var keyboardToggleBarItem: UIBarButtonItem?
+        
+        var buildToolbarItems: ((Bool, Bool) -> [UIBarButtonItem])?
+        
+        var isKeyboardVisible = false
+        var hasHardwareKeyboard = false
         
         init(onFormatAction: @escaping (FormattingAction) -> Void) {
             self.onFormatAction = onFormatAction
@@ -349,7 +433,54 @@ struct FormattingToolbarView: UIViewRepresentable {
         }
         
         @objc func dismissKeyboard() {
-            textView?.resignFirstResponder()
+            if isKeyboardVisible {
+                // Hide keyboard
+                textView?.resignFirstResponder()
+            } else {
+                // Show keyboard
+                textView?.becomeFirstResponder()
+            }
+        }
+        
+        func handleKeyboardWillShow(_ notification: Notification) {
+            isKeyboardVisible = true
+            
+            // Detect if this is a hardware keyboard
+            // Hardware keyboard will have endFrame height of 0 or very small
+            if let userInfo = notification.userInfo,
+               let endFrame = userInfo[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect {
+                hasHardwareKeyboard = endFrame.height < 100
+            }
+            
+            updateToolbarLayout()
+            updateKeyboardButtonIcon()
+        }
+        
+        func handleKeyboardWillHide(_ notification: Notification) {
+            isKeyboardVisible = false
+            updateKeyboardButtonIcon()
+        }
+        
+        func updateToolbarLayout() {
+            guard let toolbar = toolbar,
+                  let buildToolbarItems = buildToolbarItems else { return }
+            
+            toolbar.items = buildToolbarItems(hasHardwareKeyboard, isKeyboardVisible)
+        }
+        
+        func updateKeyboardButtonIcon() {
+            guard let button = keyboardToggleButton else { return }
+            
+            let symbolName = isKeyboardVisible ? "keyboard.chevron.compact.down" : "keyboard"
+            let accessibilityLabel = isKeyboardVisible ? 
+                NSLocalizedString("toolbar.dismissKeyboard", comment: "Dismiss keyboard") :
+                NSLocalizedString("toolbar.showKeyboard", comment: "Show keyboard")
+            
+            button.setImage(
+                UIImage(systemName: symbolName, withConfiguration: UIImage.SymbolConfiguration(scale: .large)),
+                for: .normal
+            )
+            button.accessibilityLabel = accessibilityLabel
         }
         
         func updateButtonStates() {

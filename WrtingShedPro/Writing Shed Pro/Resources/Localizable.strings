@@ -300,3 +300,4 @@
 "toolbar.moveCursorLeft" = "Move cursor left";
 "toolbar.moveCursorRight" = "Move cursor right";
 "toolbar.dismissKeyboard" = "Hide keyboard";
+"toolbar.showKeyboard" = "Show keyboard";
