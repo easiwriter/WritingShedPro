@@ -35,7 +35,7 @@ final class PageSetup {
     var scaleFactor: Double = 96.0  // Default to inches
     
     // Relationships
-    @Relationship(deleteRule: .nullify, inverse: \Project.pageSetup)
+    @Relationship(inverse: \Project.pageSetup)
     var project: Project?
     
     @Relationship(deleteRule: .cascade, inverse: \PrinterPaper.pageSetup)
