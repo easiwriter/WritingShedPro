@@ -85,7 +85,6 @@ struct ProjectInfoSheet: View {
     @State private var originalStyleSheet: StyleSheet?
     @State private var hasInitialized = false
     @State private var nameValidationError = ""
-    @State private var showPageSetup = false
     
     var body: some View {
         VStack(spacing: 0) {
@@ -208,14 +207,6 @@ struct ProjectInfoSheet: View {
                 .padding()
             }
             
-            // Page Setup button
-            Button(action: { showPageSetup = true }) {
-                Label(NSLocalizedString("projectItem.pageSetup", comment: "Page setup"), systemImage: "doc.richtext")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.bordered)
-            .padding(.horizontal)
-            
             Button(action: { 
                 // Validate and save name change
                 let trimmedName: String = editedName.trimmingCharacters(in: .whitespaces)
@@ -251,9 +242,6 @@ struct ProjectInfoSheet: View {
             .padding()
         }
         .id(project.id)
-        .sheet(isPresented: $showPageSetup) {
-            PageSetupForm(project: project)
-        }
         .onAppear {
             // Force initialization on appearance
             notesText = project.notes ?? ""
