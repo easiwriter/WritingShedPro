@@ -6,6 +6,7 @@ struct ProjectItemView: View {
     let onInfoTapped: () -> Void
     
     @Environment(\.modelContext) var modelContext
+    @State private var showPageSetup = false
     
     var body: some View {
         HStack {
@@ -34,7 +35,7 @@ struct ProjectItemView: View {
                     Label(NSLocalizedString("projectItem.exportProject", comment: "Export project"), systemImage: "arrow.up.doc")
                 }
                 
-                Button(action: {}) {
+                Button(action: { showPageSetup = true }) {
                     Label(NSLocalizedString("projectItem.pageSetup", comment: "Page setup"), systemImage: "doc.richtext")
                 }
             } label: {
@@ -51,6 +52,9 @@ struct ProjectItemView: View {
         .accessibilityLabel("Project: \(project.name ?? NSLocalizedString("projectItem.untitledProject", comment: "Untitled project"))")
         .accessibilityValue(project.type.rawValue.capitalized)
         .accessibilityHint("Double tap to view project details")
+        .sheet(isPresented: $showPageSetup) {
+            PageSetupForm(project: project)
+        }
     }
 }
 
