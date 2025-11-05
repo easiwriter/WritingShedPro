@@ -18,7 +18,7 @@ final class Project {
     var styleSheet: StyleSheet?
     
     // Page setup reference
-    @Relationship(deleteRule: .cascade, inverse: \PageSetup.project)
+    @Relationship(deleteRule: .cascade)
     var pageSetup: PageSetup?
     
     var type: ProjectType {
