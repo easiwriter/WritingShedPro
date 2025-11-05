@@ -115,7 +115,47 @@ final class InsertImageCommand: UndoableCommand {
         // Create mutable copy and insert
         let mutableContent = NSMutableAttributedString(attributedString: content)
         print("🖼️💾 Before insert - mutableContent length: \(mutableContent.length)")
-        mutableContent.insert(attachmentString, at: position)
+        
+        // For center/right aligned images, wrap in newlines to isolate the paragraph
+        if alignment == .center || alignment == .right {
+            // Check if we need newline before
+            let needsNewlineBefore = position > 0 && 
+                                    mutableContent.string[mutableContent.string.index(mutableContent.string.startIndex, offsetBy: position - 1)] != "\n"
+            
+            // Check if we need newline after
+            let needsNewlineAfter = position < mutableContent.length &&
+                                   mutableContent.string[mutableContent.string.index(mutableContent.string.startIndex, offsetBy: position)] != "\n"
+            
+            var insertPosition = position
+            
+            // Create a text paragraph style to prevent image line height from bleeding
+            let textParagraphStyle = NSMutableParagraphStyle()
+            textParagraphStyle.alignment = .left
+            textParagraphStyle.lineHeightMultiple = 1.0
+            
+            // Insert newline before if needed
+            if needsNewlineBefore {
+                let newline = NSMutableAttributedString(string: "\n")
+                newline.addAttribute(.paragraphStyle, value: textParagraphStyle, range: NSRange(location: 0, length: 1))
+                mutableContent.insert(newline, at: insertPosition)
+                insertPosition += 1
+            }
+            
+            // Insert the attachment
+            mutableContent.insert(attachmentString, at: insertPosition)
+            insertPosition += 1
+            
+            // Insert newline after if needed
+            if needsNewlineAfter {
+                let newline = NSMutableAttributedString(string: "\n")
+                newline.addAttribute(.paragraphStyle, value: textParagraphStyle, range: NSRange(location: 0, length: 1))
+                mutableContent.insert(newline, at: insertPosition)
+            }
+        } else {
+            // For left/inline aligned images, just insert directly
+            mutableContent.insert(attachmentString, at: position)
+        }
+        
         print("🖼️💾 After insert - mutableContent length: \(mutableContent.length)")
         
         // Verify the attachment is there

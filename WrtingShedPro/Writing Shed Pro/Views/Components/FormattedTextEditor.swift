@@ -18,6 +18,12 @@ struct FormattedTextEditor: UIViewRepresentable {
     /// Optional callback when selection changes
     var onSelectionChange: ((NSRange) -> Void)?
     
+    /// Optional callback when user taps on an image
+    var onImageTapped: ((ImageAttachment, CGRect, Int) -> Void)?
+    
+    /// Optional callback when image selection should be cleared (cursor moved away)
+    var onClearImageSelection: (() -> Void)?
+    
     /// Coordinator for managing textView reference
     var textViewCoordinator: TextViewCoordinator?
     
@@ -54,7 +60,9 @@ struct FormattedTextEditor: UIViewRepresentable {
         isEditable: Bool = true,
         inputAccessoryView: UIView? = nil,
         onTextChange: ((NSAttributedString) -> Void)? = nil,
-        onSelectionChange: ((NSRange) -> Void)? = nil
+        onSelectionChange: ((NSRange) -> Void)? = nil,
+        onImageTapped: ((ImageAttachment, CGRect, Int) -> Void)? = nil,
+        onClearImageSelection: (() -> Void)? = nil
     ) {
         self._attributedText = attributedText
         self._selectedRange = selectedRange
@@ -67,6 +75,8 @@ struct FormattedTextEditor: UIViewRepresentable {
         self.inputAccessoryView = inputAccessoryView
         self.onTextChange = onTextChange
         self.onSelectionChange = onSelectionChange
+        self.onImageTapped = onImageTapped
+        self.onClearImageSelection = onClearImageSelection
     }
     
     // MARK: - UIViewRepresentable
@@ -112,6 +122,11 @@ struct FormattedTextEditor: UIViewRepresentable {
         
         // Set delegate
         textView.delegate = context.coordinator
+        
+        // Add tap gesture recognizer for image selection
+        let tapGesture = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleTap(_:)))
+        tapGesture.delegate = context.coordinator
+        textView.addGestureRecognizer(tapGesture)
         
         // Configure for rich text
         textView.allowsEditingTextAttributes = true
@@ -420,10 +435,11 @@ struct FormattedTextEditor: UIViewRepresentable {
     
     // MARK: - Coordinator
     
-    class Coordinator: NSObject, UITextViewDelegate {
+    class Coordinator: NSObject, UITextViewDelegate, UIGestureRecognizerDelegate {
         var parent: FormattedTextEditor
         var isUpdatingFromSwiftUI = false
         weak var textView: UITextView?
+        var previousSelection: NSRange = NSRange(location: 0, length: 0)
         
         init(_ parent: FormattedTextEditor) {
             self.parent = parent
@@ -470,110 +486,375 @@ struct FormattedTextEditor: UIViewRepresentable {
             }
         }
         
-        // Handle taps on text attachments (images)
-        }
-        
         func textViewDidChangeSelection(_ textView: UITextView) {
             guard !isUpdatingFromSwiftUI else { return }
             
-            // Ensure layout is complete before trusting the selection
-            // This helps with tap-to-position accuracy
             textView.layoutManager.ensureLayout(for: textView.textContainer)
             
             let newRange = textView.selectedRange
+            let textLength = textView.attributedText?.length ?? 0
             
             #if DEBUG
-            print("📍 Selection changed to: {\(newRange.location), \(newRange.length)}")
+            print("📍 textViewDidChangeSelection: position=\(newRange.location), length=\(newRange.length), textLength=\(textLength)")
             #endif
             
-            // Only update the binding if it actually changed
-            // This prevents unnecessary view updates
-            if parent.selectedRange.location != newRange.location || 
-               parent.selectedRange.length != newRange.length {
-                parent.selectedRange = newRange
-            }
-            
-            // Also notify via callback
-            parent.onSelectionChange?(newRange)
-        }
-        
-        func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
-            // Don't allow changes while updating from SwiftUI
-            if isUpdatingFromSwiftUI {
-                return false
-            }
-            
-            // If user is pressing Enter (newline)
-            if text == "\n" {
-                print("📝 ========== ENTER PRESSED ==========")
-                print("📝 Range: \(range)")
-                print("📝 Current selection: \(textView.selectedRange)")
-                
-                // Check if the character before cursor is an image attachment
-                if range.location > 0,
-                   let attributedText = textView.attributedText {
-                    let checkPos = range.location - 1
-                    let attrs = attributedText.attributes(at: checkPos, effectiveRange: nil)
+            // Check if cursor landed on a zero-width space
+            if newRange.length == 0, newRange.location > 0, newRange.location < textLength {
+                if let attributedText = textView.attributedText {
+                    let stringIndex = attributedText.string.index(attributedText.string.startIndex, offsetBy: newRange.location)
+                    let char = attributedText.string[stringIndex]
                     
-                    print("📝 Checking position \(checkPos) for attachment")
-                    if let paragraphStyle = attrs[.paragraphStyle] as? NSParagraphStyle {
-                        print("📝 Current paragraph style alignment: \(paragraphStyle.alignment.rawValue)")
-                    }
-                    
-                    if attrs[.attachment] as? ImageAttachment != nil {
-                        print("📝 ✅ Found image attachment before cursor")
-                        print("📝 STRATEGY: Insert newline + invisible character with explicit left alignment")
+                    if char == "\u{200B}" {
+                        #if DEBUG
+                        print("📍 Cursor on zero-width space at position \(newRange.location)")
+                        #endif
                         
-                        // Paragraph styles in iOS apply to the ENTIRE paragraph, not individual characters.
-                        // The image has center alignment, which affects its whole paragraph.
-                        // To create a NEW paragraph with left alignment, we need to:
-                        // 1. Insert a newline to end the image's paragraph
-                        // 2. Insert an invisible character (zero-width space) with EXPLICIT left alignment
-                        //    to establish the new paragraph's style
+                        // Determine direction: are we moving forward or backward?
+                        let movingForward = newRange.location > previousSelection.location
                         
-                        let defaultParagraphStyle = NSMutableParagraphStyle()
-                        defaultParagraphStyle.alignment = .left
-                        
-                        // Get typing attributes but override paragraph style
-                        var newParagraphAttrs = textView.typingAttributes
-                        newParagraphAttrs[.paragraphStyle] = defaultParagraphStyle
-                        
-                        // Create newline + zero-width space with left alignment
-                        // The zero-width space establishes the paragraph style
-                        let newParagraphString = NSAttributedString(string: "\n\u{200B}", attributes: newParagraphAttrs)
-                        
-                        // Insert it
-                        let mutableText = NSMutableAttributedString(attributedString: textView.attributedText)
-                        mutableText.insert(newParagraphString, at: range.location)
-                        
-                        print("📝 Inserted newline + zero-width space with left alignment")
-                        
-                        // Update both text view and binding
-                        textView.attributedText = mutableText
-                        parent.attributedText = mutableText
-                        
-                        // Move cursor to after the zero-width space
-                        textView.selectedRange = NSRange(location: range.location + 2, length: 0)
-                        
-                        print("📝 Cursor at position \(textView.selectedRange.location)")
-                        print("📝 ========== END ==========")
-                        
-                        return false
-                    } else {
-                        print("📝 ❌ No image attachment found before cursor")
+                        if movingForward {
+                            // Moving forward (right arrow) - skip to next position
+                            #if DEBUG
+                            print("📍 Moving forward - skipping to position \(newRange.location + 1)")
+                            #endif
+                            let nextPosition = newRange.location + 1
+                            if nextPosition <= textLength {
+                                isUpdatingFromSwiftUI = true
+                                textView.selectedRange = NSRange(location: nextPosition, length: 0)
+                                previousSelection = NSRange(location: nextPosition, length: 0)
+                                parent.selectedRange = NSRange(location: nextPosition, length: 0)
+                                parent.onSelectionChange?(NSRange(location: nextPosition, length: 0))
+                                DispatchQueue.main.async {
+                                    self.isUpdatingFromSwiftUI = false
+                                }
+                                return
+                            }
+                        } else {
+                            // Moving backward (left arrow/backspace) - skip back to find the image
+                            // Zero-width space structure: [image][newline][zero-width-space]
+                            // We need to skip back 2 positions to get to the image
+                            #if DEBUG
+                            print("📍 Moving backward - checking for image before zero-width space")
+                            #endif
+                            
+                            // Check position - 2 for image (skip newline at position - 1)
+                            let imagePosition = newRange.location - 2
+                            if imagePosition >= 0,
+                               let attributedText = textView.attributedText,
+                               attributedText.attribute(.attachment, at: imagePosition, effectiveRange: nil) is ImageAttachment {
+                                
+                                #if DEBUG
+                                print("📍 Found image at position \(imagePosition) - selecting it")
+                                #endif
+                                
+                                // Select the image directly (don't just place cursor, select with length=1)
+                                isUpdatingFromSwiftUI = true
+                                selectImage(at: imagePosition, in: textView)
+                                DispatchQueue.main.async {
+                                    self.isUpdatingFromSwiftUI = false
+                                }
+                                return
+                            }
+                        }
                     }
                 }
-                print("📝 ========== END (allowing default) ==========")
             }
             
-            // Log text changes for debugging
-            #if DEBUG
-            if !text.isEmpty && text != "\n" {
-                print("📝 shouldChange - range: \(range), text: '\(text)', length: \(text.count)")
+            // Check if cursor is directly ON an image
+            // Only check for images if it's a zero-length selection (cursor, not selection)
+            // and the position is valid (not at end of document)
+            if newRange.length == 0, newRange.location < textLength {
+                #if DEBUG
+                print("📍 Checking position \(newRange.location): has attachment? \(textView.attributedText?.attribute(.attachment, at: newRange.location, effectiveRange: nil) != nil)")
+                #endif
+                
+                // Get the character at the cursor position to check for attachment
+                if let attributedText = textView.attributedText,
+                   let attachment = attributedText.attribute(.attachment, at: newRange.location, effectiveRange: nil) as? ImageAttachment {
+                    
+                    // Check if this image was already selected (previous selection was length=1 at this position)
+                    // If so, move BEFORE the image instead of re-selecting it
+                    if previousSelection.length == 1 && previousSelection.location == newRange.location {
+                        #if DEBUG
+                        print("📍 Image was already selected - moving before it to position \(newRange.location - 1)")
+                        #endif
+                        
+                        let beforeImagePosition = newRange.location - 1
+                        if beforeImagePosition >= 0 {
+                            isUpdatingFromSwiftUI = true
+                            
+                            // Restore cursor visibility immediately
+                            textView.tintColor = .systemBlue
+                            
+                            textView.selectedRange = NSRange(location: beforeImagePosition, length: 0)
+                            previousSelection = NSRange(location: beforeImagePosition, length: 0)
+                            parent.selectedRange = NSRange(location: beforeImagePosition, length: 0)
+                            parent.onSelectionChange?(NSRange(location: beforeImagePosition, length: 0))
+                            
+                            // Clear image selection
+                            DispatchQueue.main.async {
+                                self.parent.onClearImageSelection?()
+                                self.isUpdatingFromSwiftUI = false
+                            }
+                            return
+                        }
+                    }
+                    
+                    #if DEBUG
+                    print("📍 Cursor navigated to image at position \(newRange.location) - selecting it")
+                    #endif
+                    
+                    // Cursor landed directly on an image character
+                    // Select the image (which includes calling the tap handler)
+                    selectImage(at: newRange.location, in: textView)
+                    return
+                }
             }
+            
+            // Check if cursor moved away from an image (to clear selection)
+            // Only do this if:
+            // 1. The selection length is 0 (it's a cursor, not a selection)
+            // 2. The previous selection was length 1 (was on an image)
+            // 3. The position has changed
+            if newRange.length == 0 && previousSelection.length == 1 && newRange.location != previousSelection.location {
+                #if DEBUG
+                print("📍 Cursor moved away from image - clearing selection")
+                #endif
+                
+                // Check if moving forward from image - if so, skip past the newline and zero-width space
+                let movingForward = newRange.location > previousSelection.location
+                if movingForward {
+                    // Moving forward from image position (e.g., from position 2 to 3)
+                    // We want to skip: position 3 (newline) and position 4 (zero-width space)
+                    // and go directly to position 5
+                    let targetPosition = previousSelection.location + 3  // Skip image (1) + newline (1) + zero-width space (1)
+                    if targetPosition < textView.attributedText.length {
+                        #if DEBUG
+                        print("📍 Moving forward from image - skipping to position \(targetPosition)")
+                        #endif
+                        
+                        isUpdatingFromSwiftUI = true
+                        textView.selectedRange = NSRange(location: targetPosition, length: 0)
+                        previousSelection = NSRange(location: targetPosition, length: 0)
+                        parent.selectedRange = NSRange(location: targetPosition, length: 0)
+                        parent.onSelectionChange?(NSRange(location: targetPosition, length: 0))
+                        
+                        // Clear image selection and restore cursor
+                        textView.tintColor = .systemBlue
+                        DispatchQueue.main.async {
+                            self.parent.onClearImageSelection?()
+                            self.isUpdatingFromSwiftUI = false
+                        }
+                        return
+                    }
+                }
+                
+                // Not moving forward, or target position invalid - just clear selection normally
+                DispatchQueue.main.async {
+                    self.parent.onClearImageSelection?()
+                }
+                
+                // Make sure cursor is visible again
+                textView.tintColor = .systemBlue
+                #if DEBUG
+                print("📍 Cursor visibility restored")
+                #endif
+            }
+            
+            // Check if we have a length-1 selection and cursor moved away
+            // This handles the case where image was selected but user moved cursor
+            if newRange.length == 0 && previousSelection.length == 1 {
+                // Cursor was on an image, now moved away
+                // Restore cursor visibility
+                textView.tintColor = .systemBlue
+                #if DEBUG
+                print("📍 Cursor visibility restored, moved to position \(newRange.location)")
+                #endif
+            }
+            
+            // Update stored previous selection
+            previousSelection = newRange
+            
+            // Check if position is out of bounds
+            if newRange.location >= textLength {
+                #if DEBUG
+                print("📍 Position \(newRange.location) >= textLength \(textLength), skipping image check")
+                #endif
+                DispatchQueue.main.async {
+                    self.parent.selectedRange = newRange
+                    self.parent.onSelectionChange?(newRange)
+                }
+                #if DEBUG
+                print("📍 Selection changed to: \(newRange)")
+                #endif
+                return
+            }
+            
+            // If we have a length-1 range (which happens when image is selected),
+            // don't process further - the image is already selected
+            if newRange.length == 1 {
+                #if DEBUG
+                print("📍 Range has length 1, skipping image check")
+                #endif
+                DispatchQueue.main.async {
+                    self.parent.selectedRange = newRange
+                    self.parent.onSelectionChange?(newRange)
+                }
+                #if DEBUG
+                print("📍 Selection changed to: \(newRange)")
+                #endif
+                return
+            }
+            
+            // Normal cursor movement - update binding
+            DispatchQueue.main.async {
+                self.parent.selectedRange = newRange
+                self.parent.onSelectionChange?(newRange)
+            }
+            #if DEBUG
+            print("📍 Selection changed to: \(newRange)")
+            #endif
+        }
+        
+        private func selectImage(at position: Int, in textView: UITextView) {
+            guard let attributedText = textView.attributedText,
+                  position < attributedText.length,
+                  let attachment = attributedText.attribute(.attachment, at: position, effectiveRange: nil) as? ImageAttachment else {
+                return
+            }
+            
+            #if DEBUG
+            print("🖼️ ========== IMAGE TAP HANDLER ==========")
+            print("🖼️ Image selected at position \(position)")
             #endif
             
-            // Allow all user-initiated changes
+            // Get the image bounds
+            textView.layoutManager.ensureLayout(for: textView.textContainer)
+            
+            let glyphRange = textView.layoutManager.glyphRange(forCharacterRange: NSRange(location: position, length: 1), actualCharacterRange: nil)
+            let imageBounds = textView.layoutManager.boundingRect(forGlyphRange: glyphRange, in: textView.textContainer)
+            
+            // Adjust for text container insets
+            let adjustedBounds = CGRect(
+                x: imageBounds.origin.x + textView.textContainerInset.left,
+                y: imageBounds.origin.y + textView.textContainerInset.top,
+                width: imageBounds.width,
+                height: imageBounds.height
+            )
+            
+            #if DEBUG
+            print("🖼️ Frame: \(adjustedBounds)")
+            print("🖼️ Attachment: \(attachment)")
+            #endif
+            
+            // Call the image tapped callback
+            parent.onImageTapped?(attachment, adjustedBounds, position)
+            
+            #if DEBUG
+            print("🖼️ State updated - selectedImage: true")
+            print("🖼️ State updated - selectedImageFrame: \(adjustedBounds)")
+            #endif
+            
+            // Select the attachment character to prevent text insertion
+            // CRITICAL: Setting selectedRange here triggers textViewDidChangeSelection again!
+            // That's why we check previousSelection above to prevent infinite loop
+            let imageRange = NSRange(location: position, length: 1)
+            textView.selectedRange = imageRange
+            parent.selectedRange = imageRange
+            parent.onSelectionChange?(imageRange)
+            previousSelection = imageRange  // Update previous AFTER setting new range
+            
+            // Hide cursor by making tint color clear
+            // This prevents the blinking cursor from appearing over the image
+            textView.tintColor = .clear
+            
+            #if DEBUG
+            print("🖼️ Cursor hidden, range set to \(imageRange)")
+            print("🖼️ ========== END ==========")
+            #endif
+        }
+        
+        @objc func handleTap(_ gesture: UITapGestureRecognizer) {
+            guard let textView = gesture.view as? UITextView else { return }
+            
+            let location = gesture.location(in: textView)
+            
+            // Ensure layout is up to date
+            textView.layoutManager.ensureLayout(for: textView.textContainer)
+            
+            // Adjust location for text container insets
+            let adjustedLocation = CGPoint(
+                x: location.x - textView.textContainerInset.left,
+                y: location.y - textView.textContainerInset.top
+            )
+            
+            // Find the character index at the tap location
+            let characterIndex = textView.layoutManager.characterIndex(
+                for: adjustedLocation,
+                in: textView.textContainer,
+                fractionOfDistanceBetweenInsertionPoints: nil
+            )
+            
+            // Check if there's an image at this position
+            guard let attributedText = textView.attributedText,
+                  characterIndex < attributedText.length,
+                  let attachment = attributedText.attribute(.attachment, at: characterIndex, effectiveRange: nil) as? ImageAttachment else {
+                // Not on an image - let text view handle normally
+                return
+            }
+            
+            #if DEBUG
+            print("🖼️ ========== IMAGE TAP HANDLER ==========")
+            print("🖼️ Tap location: \(location)")
+            print("🖼️ Adjusted location: \(adjustedLocation)")
+            print("🖼️ Character index: \(characterIndex)")
+            print("🖼️ Attachment: \(attachment)")
+            #endif
+            
+            // Get the glyph range for the attachment
+            let glyphRange = textView.layoutManager.glyphRange(forCharacterRange: NSRange(location: characterIndex, length: 1), actualCharacterRange: nil)
+            let imageBounds = textView.layoutManager.boundingRect(forGlyphRange: glyphRange, in: textView.textContainer)
+            
+            // Adjust for text container insets
+            let adjustedBounds = CGRect(
+                x: imageBounds.origin.x + textView.textContainerInset.left,
+                y: imageBounds.origin.y + textView.textContainerInset.top,
+                width: imageBounds.width,
+                height: imageBounds.height
+            )
+            
+            #if DEBUG
+            print("🖼️ Image bounds: \(adjustedBounds)")
+            #endif
+            
+            // Call the image tapped callback
+            parent.onImageTapped?(attachment, adjustedBounds, characterIndex)
+            
+            #if DEBUG
+            print("🖼️ State updated - selectedImage: true")
+            print("🖼️ State updated - selectedImageFrame: \(adjustedBounds)")
+            #endif
+            
+            // Select the attachment character
+            let imageRange = NSRange(location: characterIndex, length: 1)
+            textView.selectedRange = imageRange
+            parent.selectedRange = imageRange
+            parent.onSelectionChange?(imageRange)
+            previousSelection = imageRange
+            
+            // Hide cursor by making tint color clear
+            textView.tintColor = .clear
+            
+            #if DEBUG
+            print("🖼️ Cursor hidden, range set to \(imageRange)")
+            print("🖼️ ========== END ==========")
+            #endif
+        }
+        
+        // MARK: - UIGestureRecognizerDelegate
+        
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+            // Allow our tap gesture to work alongside the text view's built-in gestures
             return true
         }
         
@@ -581,7 +862,6 @@ struct FormattedTextEditor: UIViewRepresentable {
         
         @objc func keyboardWillShow(_ notification: Notification) {
             // Handle keyboard appearance if needed
-            // Can be used to adjust content insets or scroll position
         }
         
         @objc func keyboardWillHide(_ notification: Notification) {
@@ -592,381 +872,16 @@ struct FormattedTextEditor: UIViewRepresentable {
 
 // MARK: - Custom UITextView
 
-/// Custom UITextView subclass that supports a custom input accessory view  
-/// We use an associated object pattern to work around inputAccessoryView being read-only
+/// Custom UITextView subclass to support inputAccessoryView
 private class CustomTextView: UITextView {
-    private static var customAccessoryViewKey: UInt8 = 0
-    
-    var customAccessoryView: UIView? {
-        get {
-            return objc_getAssociatedObject(self, &Self.customAccessoryViewKey) as? UIView
-        }
-        set {
-            objc_setAssociatedObject(self, &Self.customAccessoryViewKey, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
-            reloadInputViews()
-        }
-    }
+    var customAccessoryView: UIView?
     
     override var inputAccessoryView: UIView? {
         get {
-            // Return custom view if set, otherwise return an empty view to suppress system default
-            if let customView = customAccessoryView {
-                return customView
-            }
-            // Return an empty view with zero height to suppress the system's default input accessory
-            let emptyView = UIView(frame: CGRect(x: 0, y: 0, width: 0, height: 0))
-            emptyView.isHidden = true
-            return emptyView
+            return customAccessoryView
         }
-        set { customAccessoryView = newValue }
-    }
-    
-    // CRITICAL: Disable the shortcuts bar that appears on iPad with external keyboard
-    override var inputAssistantItem: UITextInputAssistantItem {
-        let item = super.inputAssistantItem
-        item.leadingBarButtonGroups = []
-        item.trailingBarButtonGroups = []
-        return item
-    }
-    
-    // Disable the editing menu (B/I/U/S) that appears above keyboard on iPad
-    @available(iOS 16.0, macCatalyst 16.0, *)
-    override var editingInteractionConfiguration: UIEditingInteractionConfiguration {
-        return .none
-    }
-    
-    // Completely disable the editing menu (the B/I/U/S popup)
-    override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
-        // Check if this is the system's formatting menu
-        // We want to disable formatting actions that appear in the menu above the keyboard
-        let formattingActions: [Selector] = [
-            #selector(toggleBoldface(_:)),
-            #selector(toggleItalics(_:)),
-            #selector(toggleUnderline(_:)),
-            Selector(("_toggleStrikethrough:")),
-            #selector(UIResponderStandardEditActions.increaseSize(_:)),
-            #selector(UIResponderStandardEditActions.decreaseSize(_:))
-        ]
-        
-        if formattingActions.contains(action) {
-            return false
-        }
-        
-        // Allow standard editing actions (cut, copy, paste, select, etc.)
-        return super.canPerformAction(action, withSender: sender)
-    }
-    
-    override func paste(_ sender: Any?) {
-        print("📋 PASTE: Custom paste handler called")
-        
-        // Get the pasteboard content
-        let pasteboard = UIPasteboard.general
-        
-        print("📋 PASTE: Available types: \(pasteboard.types)")
-        
-        // Check if there's an image directly on the pasteboard (e.g., copied from Finder)
-        if let image = pasteboard.image {
-            print("📋 PASTE: Found direct image on pasteboard: \(image.size)")
-            insertPastedImage(image)
-            return
-        }
-        
-        // Try to get attributed string - check for RTFD first, then RTF, then plain text
-        var attributedString: NSAttributedString?
-        
-        // Try RTFD (RTF with attachments) first
-        if pasteboard.contains(pasteboardTypes: ["com.apple.flat-rtfd"]) {
-            if let rtfdData = pasteboard.data(forPasteboardType: "com.apple.flat-rtfd") {
-                print("📋 PASTE: Got RTFD data, length: \(rtfdData.count)")
-                attributedString = try? NSAttributedString(
-                    data: rtfdData,
-                    options: [.documentType: NSAttributedString.DocumentType.rtfd],
-                    documentAttributes: nil
-                )
-            }
-        }
-        
-        // Try RTF if RTFD didn't work
-        if attributedString == nil && pasteboard.contains(pasteboardTypes: ["public.rtf"]) {
-            if let rtfData = pasteboard.data(forPasteboardType: "public.rtf") {
-                print("📋 PASTE: Got RTF data, length: \(rtfData.count)")
-                attributedString = try? NSAttributedString(
-                    data: rtfData,
-                    options: [.documentType: NSAttributedString.DocumentType.rtf],
-                    documentAttributes: nil
-                )
-            }
-        }
-        
-        // Fallback: try string
-        if attributedString == nil, let string = pasteboard.string {
-            print("📋 PASTE: Got plain string, length: \(string.count)")
-            attributedString = NSAttributedString(string: string)
-        }
-        
-        if let attributedString = attributedString {
-            print("📋 PASTE: Processing attributed string, length: \(attributedString.length)")
-            
-            // Walk through and fix any NSTextAttachment that should be ImageAttachment
-            let mutableString = NSMutableAttributedString(attributedString: attributedString)
-            var foundAttachments = false
-            
-            mutableString.enumerateAttribute(NSAttributedString.Key.attachment, in: NSRange(location: 0, length: mutableString.length)) { value, range, _ in
-                if let attachment = value as? NSTextAttachment {
-                    foundAttachments = true
-                    print("📋 PASTE: Found attachment at \(range.location), type: \(type(of: attachment))")
-                    
-                    // Check if it's already an ImageAttachment
-                    if let imageAttachment = attachment as? ImageAttachment {
-                        print("📋 PASTE: Already an ImageAttachment - scale: \(imageAttachment.scale), alignment: \(imageAttachment.alignment)")
-                        // Nothing to do, it's already our custom type
-                    } else {
-                        // It's a generic NSTextAttachment - try to decode it as an ImageAttachment
-                        print("📋 PASTE: Attempting to decode ImageAttachment properties...")
-                        
-                        // Try to unarchive the attachment as an ImageAttachment to preserve properties
-                        var restoredAttachment: ImageAttachment?
-                        
-                        // Try to get archived data from fileWrapper
-                        if let fileWrapper = attachment.fileWrapper,
-                           let data = fileWrapper.regularFileContents {
-                            print("📋 PASTE: Found fileWrapper data (\(data.count) bytes)")
-                            
-                            // Try to unarchive as ImageAttachment
-                            do {
-                                if let unarchived = try NSKeyedUnarchiver.unarchivedObject(
-                                    ofClass: ImageAttachment.self,
-                                    from: data
-                                ) {
-                                    restoredAttachment = unarchived
-                                    print("📋 PASTE: ✅ Successfully decoded ImageAttachment from fileWrapper!")
-                                    print("📋 PASTE:    scale=\(unarchived.scale), alignment=\(unarchived.alignment)")
-                                    print("📋 PASTE:    imageStyleName=\(unarchived.imageStyleName)")
-                                }
-                            } catch {
-                                print("📋 PASTE: Could not unarchive as ImageAttachment: \(error)")
-                            }
-                        }
-                        
-                        // If we couldn't restore the ImageAttachment, create a new one from the image
-                        if restoredAttachment == nil {
-                            print("📋 PASTE: Creating new ImageAttachment from image data...")
-                            var image: UIImage? = attachment.image
-                            
-                            // If image is nil, try to load from contents or fileWrapper
-                            if image == nil, let contents = attachment.contents {
-                                print("📋 PASTE: No .image, trying to load from contents (\(contents.count) bytes)")
-                                image = UIImage(data: contents)
-                            }
-                            
-                            if image == nil, let fileWrapper = attachment.fileWrapper, let data = fileWrapper.regularFileContents {
-                                print("📋 PASTE: No .image, trying to load from fileWrapper (\(data.count) bytes)")
-                                image = UIImage(data: data)
-                            }
-                            
-                            if let image = image {
-                                print("📋 PASTE: Image size: \(image.size)")
-                                
-                                // Create a new ImageAttachment with the image
-                                let imageAttachment = ImageAttachment()
-                                imageAttachment.image = image
-                                
-                                // Try to get the image data
-                                if let imageData = image.jpegData(compressionQuality: 0.8) {
-                                    imageAttachment.imageData = imageData
-                                    print("📋 PASTE: Saved image data: \(imageData.count) bytes")
-                                } else if let imageData = image.pngData() {
-                                    imageAttachment.imageData = imageData
-                                    print("📋 PASTE: Saved image data (PNG): \(imageData.count) bytes")
-                                }
-                                
-                                // Use sensible defaults for pasted images
-                                // Note: We use 0.25 (25%) as default since full-size images are usually too large
-                                // The user can adjust via the image style settings if needed
-                                imageAttachment.scale = 0.25
-                                imageAttachment.alignment = .center
-                                imageAttachment.imageStyleName = "Images" // Default style
-                                imageAttachment.updateBounds()
-                                
-                                print("📋 PASTE: Created ImageAttachment with defaults: scale=\(imageAttachment.scale), alignment=\(imageAttachment.alignment)")
-                                
-                                restoredAttachment = imageAttachment
-                            }
-                        }
-                        
-                        // If we have a restored or newly created attachment, use it
-                        if let imageAttachment = restoredAttachment {
-                            // Replace the generic NSTextAttachment with our ImageAttachment
-                            mutableString.removeAttribute(NSAttributedString.Key.attachment, range: range)
-                            mutableString.addAttribute(NSAttributedString.Key.attachment, value: imageAttachment, range: range)
-                            print("📋 PASTE: ✅ Replaced NSTextAttachment with ImageAttachment")
-                        } else {
-                            print("📋 PASTE: ⚠️ Could not create ImageAttachment - skipping")
-                        }
-                    }
-                }
-            }
-            
-            if foundAttachments {
-                print("📋 PASTE: Found attachments - using custom insertion")
-                // Insert the fixed attributed string
-                let selectedRange = self.selectedRange
-                let mutableText = NSMutableAttributedString(attributedString: self.attributedText)
-                mutableText.replaceCharacters(in: selectedRange, with: mutableString)
-                self.attributedText = mutableText
-                
-                // Update selection
-                self.selectedRange = NSRange(location: selectedRange.location + mutableString.length, length: 0)
-                
-                print("📋 PASTE: Inserted content at position \(selectedRange.location)")
-                
-                // Notify the delegate to update the SwiftUI binding
-                self.delegate?.textViewDidChange?(self)
-                
-                return
-            } else {
-                print("📋 PASTE: No attachments found - using default paste")
-            }
-        } else {
-            print("📋 PASTE: No attributed string found in pasteboard")
-        }
-        
-        // Fall back to default paste behavior
-        print("📋 PASTE: Using default paste behavior")
-        super.paste(sender)
-    }
-    
-    /// Insert a pasted image at the current cursor position
-    private func insertPastedImage(_ image: UIImage) {
-        print("📋 PASTE: Inserting pasted image: \(image.size)")
-        
-        // Create a new ImageAttachment
-        let imageAttachment = ImageAttachment()
-        imageAttachment.image = image
-        
-        // Try to get the image data
-        if let imageData = image.jpegData(compressionQuality: 0.8) {
-            imageAttachment.imageData = imageData
-            print("📋 PASTE: Saved image data: \(imageData.count) bytes")
-        } else if let imageData = image.pngData() {
-            imageAttachment.imageData = imageData
-            print("📋 PASTE: Saved image data (PNG): \(imageData.count) bytes")
-        }
-        
-        // Use sensible defaults for pasted images
-        // Note: We use 0.25 (25%) as default since full-size images are usually too large
-        imageAttachment.scale = 0.25
-        imageAttachment.alignment = .center
-        imageAttachment.imageStyleName = "Images" // Default style
-        imageAttachment.updateBounds()
-        
-        print("📋 PASTE: Created ImageAttachment with defaults: scale=\(imageAttachment.scale), alignment=\(imageAttachment.alignment)")
-        
-        // Create attributed string with attachment and apply paragraph style for alignment
-        let attachmentString = NSMutableAttributedString(attachment: imageAttachment)
-        
-        // Apply paragraph style to make the image centered
-        let paragraphStyle = NSMutableParagraphStyle()
-        paragraphStyle.alignment = .center
-        attachmentString.addAttribute(.paragraphStyle, value: paragraphStyle, range: NSRange(location: 0, length: 1))
-        
-        print("📋 PASTE: Applied center paragraph style to attachment string")
-        
-        // Insert at current cursor position
-        let mutableText = NSMutableAttributedString(attributedString: self.attributedText ?? NSAttributedString())
-        let cursorLocation = self.selectedRange.location
-        mutableText.insert(attachmentString, at: cursorLocation)
-        
-        // Verify the paragraph style was preserved after insertion
-        let attrs = mutableText.attributes(at: cursorLocation, effectiveRange: nil)
-        if let ps = attrs[.paragraphStyle] as? NSParagraphStyle {
-            print("📋 PASTE: After insertion, paragraph style alignment = \(ps.alignment.rawValue)")
-        } else {
-            print("📋 PASTE: WARNING - No paragraph style found after insertion!")
-        }
-        
-        // Update the text view
-        self.attributedText = mutableText
-        
-        // Notify that we just inserted an image (prevents editor from auto-opening)
-        NotificationCenter.default.post(
-            name: NSNotification.Name("ImageWasPasted"),
-            object: nil,
-            userInfo: nil
-        )
-        
-        // Move cursor after the image
-        self.selectedRange = NSRange(location: cursorLocation + 1, length: 0)
-        
-        // Notify delegate
-        self.delegate?.textViewDidChange?(self)
-        
-        print("📋 PASTE: Image inserted successfully with center alignment")
-    }
-    
-    // Override to prevent the editing menu from showing for formatting
-    override func buildMenu(with builder: UIMenuBuilder) {
-        super.buildMenu(with: builder)
-        
-        // Remove format menu from the editing menu
-        if #available(iOS 16.0, macCatalyst 16.0, *) {
-            builder.remove(menu: .format)
+        set {
+            customAccessoryView = newValue
         }
     }
-}
-
-// MARK: - Preview
-
-#Preview {
-    struct PreviewWrapper: View {
-        @State private var attributedText: NSAttributedString = {
-            let text = "Hello, World!\n\nThis is a formatted text editor."
-            let mutableAttrString = NSMutableAttributedString(string: text)
-            
-            // Make "Hello, World!" bold
-            mutableAttrString.addAttribute(
-                .font,
-                value: UIFont.boldSystemFont(ofSize: 17),
-                range: NSRange(location: 0, length: 13)
-            )
-            
-            // Make "formatted" italic
-            let formattedRange = (text as NSString).range(of: "formatted")
-            if formattedRange.location != NSNotFound {
-                mutableAttrString.addAttribute(
-                    .font,
-                    value: UIFont.italicSystemFont(ofSize: 17),
-                    range: formattedRange
-                )
-            }
-            
-            return mutableAttrString
-        }()
-        
-        @State private var selectedRange = NSRange(location: 0, length: 0)
-        
-        var body: some View {
-            VStack {
-                FormattedTextEditor(
-                    attributedText: $attributedText,
-                    selectedRange: $selectedRange,
-                    onTextChange: { newText in
-                        print("Text changed: \(newText.string.prefix(50))...")
-                    },
-                    onSelectionChange: { newRange in
-                        print("Selection: \(newRange)")
-                    }
-                )
-                .frame(height: 300)
-                .border(Color.gray, width: 1)
-                
-                Text("Selection: \(selectedRange.location), \(selectedRange.length)")
-                    .font(.caption)
-                    .padding()
-            }
-            .padding()
-        }
-    }
-    
-    return PreviewWrapper()
 }

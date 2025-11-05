@@ -17,6 +17,9 @@ struct FileEditView: View {
     @State private var showImageEditor = false
     @State private var imageToEdit: ImageAttachment?
     @State private var lastImageInsertTime: Date?
+    @State private var selectedImage: ImageAttachment?
+    @State private var selectedImageFrame: CGRect = .zero
+    @State private var selectedImagePosition: Int = -1
     @State private var currentParagraphStyle: UIFont.TextStyle? = .body
     @State private var documentPicker: UIDocumentPickerViewController? // Strong reference for Mac Catalyst
     @State private var showFileImporter = false // For SwiftUI file importer
@@ -64,53 +67,57 @@ struct FileEditView: View {
         }
     }
     
-    var body: some View {
-        VStack(spacing: 0) {
-            // Version Navigator at top
-            ToolbarView(
-                label: file.versionLabel(),
-                items: [
-                    SUIToolbarItem(
-                        icon: "chevron.left.circle",
-                        title: "Show previous version",
-                        disabled: file.atFirstVersion()
-                    ),
-                    SUIToolbarItem(
-                        icon: "chevron.right.circle",
-                        title: "Show next version",
-                        disabled: file.atLastVersion()
-                    ),
-                    SUIToolbarItem(
-                        icon: "plus.circle",
-                        title: "Duplicate this version",
-                        disabled: false
-                    ),
-                    SUIToolbarItem(
-                        icon: "trash.circle",
-                        title: "Delete this version",
-                        disabled: (file.versions?.count ?? 0) <= 1
-                    )
-                ]
-            ) { action in
-                handleVersionAction(VersionAction(rawValue: action) ?? .next)
-            }
-            .alert(isPresented: $presentDeleteAlert) {
-                Alert(
-                    title: Text(NSLocalizedString("fileEdit.deleteVersionTitle", comment: "Delete Version?")),
-                    message: Text(NSLocalizedString("fileEdit.deleteVersionMessage", comment: "Please confirm that you want to delete this version")),
-                    primaryButton: .destructive(Text(NSLocalizedString("contentView.delete", comment: "Delete"))) {
-                        file.deleteVersion()
-                        loadCurrentVersion()
-                        saveChanges()
-                    },
-                    secondaryButton: .cancel()
-                )
-            }
-            .padding(.horizontal, 8)
-            .padding(.top, 8)
-            .padding(.bottom, 8)
-            
-            // Text Editor
+    // MARK: - Body Components
+    
+    private func versionToolbar() -> some View {
+        let versionItems: [SUIToolbarItem] = [
+            SUIToolbarItem(
+                icon: "chevron.left.circle",
+                title: "Show previous version",
+                disabled: file.atFirstVersion()
+            ),
+            SUIToolbarItem(
+                icon: "chevron.right.circle",
+                title: "Show next version",
+                disabled: file.atLastVersion()
+            ),
+            SUIToolbarItem(
+                icon: "plus.circle",
+                title: "Duplicate this version",
+                disabled: false
+            ),
+            SUIToolbarItem(
+                icon: "trash.circle",
+                title: "Delete this version",
+                disabled: (file.versions?.count ?? 0) <= 1
+            )
+        ]
+        
+        return ToolbarView(
+            label: file.versionLabel(),
+            items: versionItems
+        ) { action in
+            handleVersionAction(VersionAction(rawValue: action) ?? .next)
+        }
+        .alert(isPresented: $presentDeleteAlert) {
+            Alert(
+                title: Text(NSLocalizedString("fileEdit.deleteVersionTitle", comment: "Delete Version?")),
+                message: Text(NSLocalizedString("fileEdit.deleteVersionMessage", comment: "Please confirm that you want to delete this version")),
+                primaryButton: .destructive(Text(NSLocalizedString("contentView.delete", comment: "Delete"))) {
+                    file.deleteVersion()
+                    loadCurrentVersion()
+                    saveChanges()
+                },
+                secondaryButton: .cancel()
+            )
+        }
+        .padding(.horizontal, 8)
+        .padding(.top, 8)
+        .padding(.bottom, 8)
+    }
+    
+    private func textEditorSection() -> some View {
+        ZStack(alignment: .topLeading) {
             if forceRefresh {
                 FormattedTextEditor(
                     attributedText: $attributedContent,
@@ -118,6 +125,14 @@ struct FileEditView: View {
                     textViewCoordinator: textViewCoordinator,
                     onTextChange: { newText in
                         handleAttributedTextChange(newText)
+                    },
+                    onImageTapped: { attachment, frame, position in
+                        handleImageTap(attachment: attachment, frame: frame, position: position)
+                    },
+                    onClearImageSelection: {
+                        selectedImage = nil
+                        selectedImageFrame = .zero
+                        selectedImagePosition = -1
                     }
                 )
                 .id(refreshTrigger)
@@ -128,53 +143,80 @@ struct FileEditView: View {
                     textViewCoordinator: textViewCoordinator,
                     onTextChange: { newText in
                         handleAttributedTextChange(newText)
+                    },
+                    onImageTapped: { attachment, frame, position in
+                        handleImageTap(attachment: attachment, frame: frame, position: position)
+                    },
+                    onClearImageSelection: {
+                        selectedImage = nil
+                        selectedImageFrame = .zero
+                        selectedImagePosition = -1
                     }
                 )
                 .id(refreshTrigger)
             }
             
-            // Formatting Toolbar at bottom - near keyboard (Pages style)
-            // Using UIKit toolbar to preserve keyboard focus
-            if let textView = textViewCoordinator.textView {
-                FormattingToolbarView(textView: textView) { action in
-                    switch action {
-                    case .paragraphStyle:
-                        showStylePicker = true
-                    case .bold:
-                        applyFormatting(.bold)
-                    case .italic:
-                        applyFormatting(.italic)
-                    case .underline:
-                        applyFormatting(.underline)
-                    case .strikethrough:
-                        applyFormatting(.strikethrough)
-                    case .insert:
-                        showImagePicker()
-                    }
-                }
-                .frame(height: 44)
-                #if targetEnvironment(macCatalyst)
-                .padding(.vertical, 2)
-                #endif
-                .background(
-                    Color(UIColor.secondarySystemBackground)
-                        .ignoresSafeArea(edges: .horizontal)
-                )
-                .overlay(
-                    VStack(spacing: 0) {
-                        Divider()
-                            .ignoresSafeArea(edges: .horizontal)
-                        Spacer()
-                        Divider()
-                            .ignoresSafeArea(edges: .horizontal)
-                    }
-                )
-            } else {
-                // Fallback while textView is being created
-                Color(UIColor.secondarySystemBackground)
-                    .frame(height: 44)
-                    .ignoresSafeArea(edges: .horizontal)
+            // Show blue border around selected image
+            if let _ = selectedImage, selectedImageFrame != .zero {
+                Rectangle()
+                    .stroke(Color.blue, lineWidth: 4)
+                    .frame(width: selectedImageFrame.width, height: selectedImageFrame.height)
+                    .position(x: selectedImageFrame.midX, y: selectedImageFrame.midY)
+                    .allowsHitTesting(false)
             }
+        }
+    }
+    
+    @ViewBuilder
+    private func formattingToolbar() -> some View {
+        if let textView = textViewCoordinator.textView {
+            FormattingToolbarView(textView: textView) { action in
+                switch action {
+                case .paragraphStyle:
+                    showStylePicker = true
+                case .bold:
+                    applyFormatting(.bold)
+                case .italic:
+                    applyFormatting(.italic)
+                case .underline:
+                    applyFormatting(.underline)
+                case .strikethrough:
+                    applyFormatting(.strikethrough)
+                case .imageStyle:
+                    break // Image style handled separately
+                case .insert:
+                    showImagePicker()
+                }
+            }
+            .frame(height: 44)
+            #if targetEnvironment(macCatalyst)
+            .padding(.vertical, 2)
+            #endif
+            .background(
+                Color(UIColor.secondarySystemBackground)
+                    .ignoresSafeArea(edges: .horizontal)
+            )
+            .overlay(
+                VStack(spacing: 0) {
+                    Divider()
+                        .ignoresSafeArea(edges: .horizontal)
+                    Spacer()
+                    Divider()
+                        .ignoresSafeArea(edges: .horizontal)
+                }
+            )
+        } else {
+            Color(UIColor.secondarySystemBackground)
+                .frame(height: 44)
+                .ignoresSafeArea(edges: .horizontal)
+        }
+    }
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            versionToolbar()
+            textEditorSection()
+            formattingToolbar()
         }
         .navigationTitle(file.name ?? NSLocalizedString("fileEdit.untitledFile", comment: "Untitled file"))
         .navigationBarTitleDisplayMode(.inline)
@@ -452,6 +494,16 @@ struct FileEditView: View {
             return
         }
         
+        // Clear image selection when text changes
+        selectedImage = nil
+        selectedImageFrame = .zero
+        selectedImagePosition = -1
+        
+        // Restore cursor visibility
+        if let textView = textViewCoordinator.textView {
+            textView.tintColor = .label
+        }
+        
         print("🔄 Content changed - registering with undo manager")
         
         // Create and execute undo command
@@ -473,6 +525,32 @@ struct FileEditView: View {
         } catch {
             print("Error saving context: \(error)")
         }
+    }
+    
+    // MARK: - Image Selection
+    
+    private func handleImageTap(attachment: ImageAttachment, frame: CGRect, position: Int) {
+        print("🖼️ ========== IMAGE TAP HANDLER ==========")
+        print("🖼️ Image selected at position \(position)")
+        print("🖼️ Frame: \(frame)")
+        print("🖼️ Attachment: \(attachment)")
+        
+        selectedImage = attachment
+        selectedImageFrame = frame
+        selectedImagePosition = position
+        
+        print("🖼️ State updated - selectedImage: \(selectedImage != nil)")
+        print("🖼️ State updated - selectedImageFrame: \(selectedImageFrame)")
+        
+        // Select the image character so backspace/delete will remove it
+        if let textView = textViewCoordinator.textView {
+            textView.selectedRange = NSRange(location: position, length: 1)
+            textView.tintColor = .clear // Hide cursor when image is selected
+            print("🖼️ Cursor hidden, range set to {\(position), 1}")
+        } else {
+            print("⚠️ No textView available!")
+        }
+        print("🖼️ ========== END ==========")
     }
     
     // MARK: - Undo/Redo

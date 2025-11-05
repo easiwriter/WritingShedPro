@@ -12,6 +12,7 @@ struct FormattingToolbarView: UIViewRepresentable {
         case italic
         case underline
         case strikethrough
+        case imageStyle
         case insert
     }
     
@@ -48,6 +49,13 @@ struct FormattingToolbarView: UIViewRepresentable {
             coordinator: context.coordinator
         )
         
+        // Create image style button (only enabled when image is selected)
+        let imageStyleButton = createStandardButton(
+            systemName: "photo",
+            action: #selector(context.coordinator.showImageStyle),
+            coordinator: context.coordinator
+        )
+        
         // Create insert button with menu
         let insertButton = createMenuButton(
             systemName: "plus.circle",
@@ -59,6 +67,7 @@ struct FormattingToolbarView: UIViewRepresentable {
         context.coordinator.italicButton = italicButton
         context.coordinator.underlineButton = underlineButton
         context.coordinator.strikethroughButton = strikethroughButton
+        context.coordinator.imageStyleButton = imageStyleButton
         
         // Wrap buttons in UIBarButtonItems
         let paragraphBarItem = UIBarButtonItem(customView: paragraphButton)
@@ -66,6 +75,7 @@ struct FormattingToolbarView: UIViewRepresentable {
         let italicBarItem = UIBarButtonItem(customView: italicButton)
         let underlineBarItem = UIBarButtonItem(customView: underlineButton)
         let strikethroughBarItem = UIBarButtonItem(customView: strikethroughButton)
+        let imageStyleBarItem = UIBarButtonItem(customView: imageStyleButton)
         let insertBarItem = UIBarButtonItem(customView: insertButton)
         
         // Create individual spacing items
@@ -86,10 +96,14 @@ struct FormattingToolbarView: UIViewRepresentable {
         
         let flexSpace = UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil)
         
-        // Layout matching original: [flex] ¶ [20] | [20] B [20] I [20] U [20] S [20] | [20] + [flex]
+        // Layout: [flex] ¶ [20] | [20] 📷 [20] | [20] B [20] I [20] U [20] S [20] | [20] + [flex]
         toolbar.items = [
             flexSpace,
             paragraphBarItem,
+            createSpace(20),
+            createDivider(),
+            createSpace(20),
+            imageStyleBarItem,
             createSpace(20),
             createDivider(),
             createSpace(20),
@@ -216,6 +230,7 @@ struct FormattingToolbarView: UIViewRepresentable {
         weak var italicButton: UIButton?
         weak var underlineButton: UIButton?
         weak var strikethroughButton: UIButton?
+        weak var imageStyleButton: UIButton?
         
         init(onFormatAction: @escaping (FormattingAction) -> Void) {
             self.onFormatAction = onFormatAction
@@ -258,6 +273,11 @@ struct FormattingToolbarView: UIViewRepresentable {
             }
         }
         
+        @objc func showImageStyle() {
+            print("🖼️ showImageStyle() called")
+            onFormatAction(.imageStyle)
+        }
+        
         @objc func showInsert() {
             print("🎯 showInsert() called")
             // Just trigger the insert action - let SwiftUI handle the menu
@@ -286,11 +306,22 @@ struct FormattingToolbarView: UIViewRepresentable {
             let isUnderlined = attributes[.underlineStyle] as? Int ?? 0 > 0
             let isStrikethrough = attributes[.strikethroughStyle] as? Int ?? 0 > 0
             
+            // Check if cursor is on an image
+            var isOnImage = false
+            if selectedRange.location < attributedString.length {
+                let attrs = attributedString.attributes(at: selectedRange.location, effectiveRange: nil)
+                isOnImage = attrs[.attachment] as? ImageAttachment != nil
+            }
+            
             // Update button backgrounds (like Writing Shed)
             updateButtonAppearance(boldButton, isActive: isBold)
             updateButtonAppearance(italicButton, isActive: isItalic)
             updateButtonAppearance(underlineButton, isActive: isUnderlined)
             updateButtonAppearance(strikethroughButton, isActive: isStrikethrough)
+            
+            // Enable/disable image style button based on image selection
+            imageStyleButton?.isEnabled = isOnImage
+            imageStyleButton?.alpha = isOnImage ? 1.0 : 0.4
         }
         
         private func updateButtonAppearance(_ button: UIButton?, isActive: Bool) {

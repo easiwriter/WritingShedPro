@@ -5,6 +5,8 @@ import UIKit
 /// Presented as a sheet when inserting or editing images
 struct ImageStyleEditorView: View {
     @Environment(\.dismiss) private var dismiss
+    @FocusState private var isScaleFieldFocused: Bool
+    @State private var showInvalidScaleAlert = false
     
     // Image data and properties
     let imageData: Data?
@@ -87,11 +89,18 @@ struct ImageStyleEditorView: View {
                         
                         TextField("100", text: $scaleText)
                             .font(.headline)
-                            .frame(width: 50)
+                            .frame(width: 60)
                             .multilineTextAlignment(.trailing)
                             .textFieldStyle(.roundedBorder)
-                            .onChange(of: scaleText) { oldValue, newValue in
-                                updateScaleFromText(newValue)
+                            .focused($isScaleFieldFocused)
+                            .onSubmit {
+                                commitScaleFromText()
+                            }
+                            .onChange(of: isScaleFieldFocused) { oldValue, newValue in
+                                // When field loses focus, commit the value
+                                if !newValue {
+                                    commitScaleFromText()
+                                }
                             }
                         
                         Text("%")
@@ -176,6 +185,14 @@ struct ImageStyleEditorView: View {
                 }
             }
         }
+        .alert("Invalid Scale", isPresented: $showInvalidScaleAlert) {
+            Button("OK", role: .cancel) {
+                // Reset to current scale
+                scaleText = "\(Int(scale * 100))"
+            }
+        } message: {
+            Text("Please enter a number between 10 and 200")
+        }
     }
     
     // MARK: - Helper Methods
@@ -184,27 +201,39 @@ struct ImageStyleEditorView: View {
         let newScale = min(scale + 0.05, 2.0)
         scale = (newScale * 100).rounded() / 100 // Round to 2 decimal places
         scaleText = "\(Int(scale * 100))"
+        isScaleFieldFocused = false // Dismiss keyboard
     }
     
     private func decrementScale() {
         let newScale = max(scale - 0.05, 0.1)
         scale = (newScale * 100).rounded() / 100 // Round to 2 decimal places
         scaleText = "\(Int(scale * 100))"
+        isScaleFieldFocused = false // Dismiss keyboard
     }
     
-    private func updateScaleFromText(_ text: String) {
-        // Remove any non-numeric characters
-        let filtered = text.filter { $0.isNumber }
+    private func commitScaleFromText() {
+        // Trim whitespace
+        let trimmed = scaleText.trimmingCharacters(in: .whitespaces)
         
-        if let percentage = Int(filtered) {
-            // Convert percentage to scale (10-200%)
-            let clampedPercentage = max(10, min(200, percentage))
-            scale = CGFloat(clampedPercentage) / 100.0
-            
-            // Update text to show clamped value if different
-            if percentage != clampedPercentage {
-                scaleText = "\(clampedPercentage)"
+        // Empty string is invalid - show alert
+        if trimmed.isEmpty {
+            showInvalidScaleAlert = true
+            return
+        }
+        
+        // Try to parse as integer
+        if let percentage = Int(trimmed) {
+            // Check if in valid range (10-200%)
+            if percentage >= 10 && percentage <= 200 {
+                scale = CGFloat(percentage) / 100.0
+                scaleText = "\(percentage)"
+            } else {
+                // Out of range - show alert
+                showInvalidScaleAlert = true
             }
+        } else {
+            // Not a valid number - show alert
+            showInvalidScaleAlert = true
         }
     }
 }

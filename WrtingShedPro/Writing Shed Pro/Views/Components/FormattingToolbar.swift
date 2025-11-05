@@ -29,8 +29,14 @@ struct FormattingToolbar: View {
     /// Called when user toggles strikethrough
     var onToggleStrikethrough: (() -> Void)?
     
+    /// Called when user taps image style button
+    var onImageStyle: (() -> Void)?
+    
     /// Called when user taps insert button (shows "Coming Soon")
     var onInsert: (() -> Void)?
+    
+    /// Whether an image is currently selected
+    var isImageSelected: Bool = false
     
     // MARK: - State
     
@@ -136,6 +142,29 @@ struct FormattingToolbar: View {
             }
             .buttonStyle(.plain)
             .help("Strikethrough")
+            
+            Spacer()
+                .frame(width: 20)
+            
+            Divider()
+                .frame(height: 24)
+            
+            Spacer()
+                .frame(width: 20)
+            
+            // Image Style button
+            Button(action: {
+                onImageStyle?()
+            }) {
+                Image(systemName: "photo")
+                    .imageScale(.large)
+                    .foregroundColor(isImageSelected ? .accentColor : .secondary)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(!isImageSelected)
+            .help("Image Style")
             
             Spacer()
                 .frame(width: 20)
