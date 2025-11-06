@@ -757,17 +757,22 @@ struct FormattedTextEditor: UIViewRepresentable {
             textView.layoutManager.ensureLayout(for: textView.textContainer)
             
             let glyphRange = textView.layoutManager.glyphRange(forCharacterRange: NSRange(location: position, length: 1), actualCharacterRange: nil)
-            let imageBounds = textView.layoutManager.boundingRect(forGlyphRange: glyphRange, in: textView.textContainer)
+            let glyphBounds = textView.layoutManager.boundingRect(forGlyphRange: glyphRange, in: textView.textContainer)
             
-            // Adjust for text container insets
+            // Use the attachment's actual bounds for accurate size
+            let imageSize = attachment.bounds.size
+            
+            // Calculate position from glyph bounds, but use attachment size
             let adjustedBounds = CGRect(
-                x: imageBounds.origin.x + textView.textContainerInset.left,
-                y: imageBounds.origin.y + textView.textContainerInset.top,
-                width: imageBounds.width,
-                height: imageBounds.height
+                x: glyphBounds.origin.x + textView.textContainerInset.left,
+                y: glyphBounds.origin.y + textView.textContainerInset.top,
+                width: imageSize.width,
+                height: imageSize.height
             )
             
             #if DEBUG
+            print("🖼️ Glyph bounds: \(glyphBounds)")
+            print("🖼️ Attachment size: \(imageSize)")
             print("🖼️ Frame: \(adjustedBounds)")
             print("🖼️ Attachment: \(attachment)")
             #endif
@@ -843,18 +848,24 @@ struct FormattedTextEditor: UIViewRepresentable {
             
             // Get the glyph range for the attachment
             let glyphRange = textView.layoutManager.glyphRange(forCharacterRange: NSRange(location: characterIndex, length: 1), actualCharacterRange: nil)
-            let imageBounds = textView.layoutManager.boundingRect(forGlyphRange: glyphRange, in: textView.textContainer)
+            let glyphBounds = textView.layoutManager.boundingRect(forGlyphRange: glyphRange, in: textView.textContainer)
             
-            // Adjust for text container insets
+            // Use the attachment's actual bounds for accurate size
+            // The attachment.bounds has the correct displaySize based on scale
+            let imageSize = attachment.bounds.size
+            
+            // Calculate position from glyph bounds, but use attachment size
             let adjustedBounds = CGRect(
-                x: imageBounds.origin.x + textView.textContainerInset.left,
-                y: imageBounds.origin.y + textView.textContainerInset.top,
-                width: imageBounds.width,
-                height: imageBounds.height
+                x: glyphBounds.origin.x + textView.textContainerInset.left,
+                y: glyphBounds.origin.y + textView.textContainerInset.top,
+                width: imageSize.width,
+                height: imageSize.height
             )
             
             #if DEBUG
-            print("🖼️ Image bounds: \(adjustedBounds)")
+            print("🖼️ Glyph bounds: \(glyphBounds)")
+            print("🖼️ Attachment size: \(imageSize)")
+            print("🖼️ Final bounds: \(adjustedBounds)")
             #endif
             
             // Call the image tapped callback
