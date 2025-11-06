@@ -177,15 +177,9 @@ struct FileEditView: View {
                     applyFormatting(.strikethrough)
                 case .imageStyle:
                     // Show image style editor for selected image
-                    print("🖼️ imageStyle action handler called")
-                    print("🖼️ selectedImage: \(selectedImage != nil)")
                     if let image = selectedImage {
-                        print("🖼️ Setting imageToEdit and showImageEditor")
                         imageToEdit = image
                         showImageEditor = true
-                        print("🖼️ showImageEditor set to: \(showImageEditor)")
-                    } else {
-                        print("⚠️ No selectedImage available")
                     }
                 case .insert:
                     showImagePicker()
@@ -435,16 +429,6 @@ struct FileEditView: View {
                             )
                         }
                     )
-                }
-            }
-        }
-        .onChange(of: showImageEditor) { oldValue, newValue in
-            print("🖼️ showImageEditor changed from \(oldValue) to \(newValue)")
-            if newValue {
-                print("🖼️ imageToEdit: \(imageToEdit != nil)")
-                if let img = imageToEdit {
-                    print("🖼️ imageData: \(img.imageData?.count ?? 0) bytes")
-                    print("🖼️ image: \(img.image != nil)")
                 }
             }
         }
