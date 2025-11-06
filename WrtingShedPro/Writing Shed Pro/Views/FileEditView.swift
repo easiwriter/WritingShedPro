@@ -153,7 +153,7 @@ struct FileEditView: View {
                 Rectangle()
                     .stroke(Color.blue, lineWidth: 4)
                     .frame(width: selectedImageFrame.width, height: selectedImageFrame.height)
-                    .position(x: selectedImageFrame.midX, y: selectedImageFrame.midY)
+                    .offset(x: selectedImageFrame.minX, y: selectedImageFrame.minY)
                     .allowsHitTesting(false)
             }
         }
@@ -403,8 +403,7 @@ struct FileEditView: View {
             )
         }
         .sheet(isPresented: $showImageEditor) {
-            if let imageAttachment = imageToEdit,
-               let imageData = imageAttachment.imageData {
+            if let imageAttachment = imageToEdit {
                 NavigationStack {
                     ImageStyleEditorView(
                         imageData: imageAttachment.imageData ?? imageAttachment.image?.pngData(),
