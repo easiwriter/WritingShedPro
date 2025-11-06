@@ -161,7 +161,7 @@ struct FileEditView: View {
                 Rectangle()
                     .stroke(Color.blue, lineWidth: 4)
                     .frame(width: selectedImageFrame.width, height: selectedImageFrame.height)
-                    .position(x: selectedImageFrame.midX, y: selectedImageFrame.midY)
+                    .offset(x: selectedImageFrame.minX, y: selectedImageFrame.minY)
                     .allowsHitTesting(false)
             }
         }
@@ -183,7 +183,11 @@ struct FileEditView: View {
                 case .strikethrough:
                     applyFormatting(.strikethrough)
                 case .imageStyle:
-                    break // Image style handled separately
+                    // Show image style editor for selected image
+                    if let image = selectedImage {
+                        imageToEdit = image
+                        showImageEditor = true
+                    }
                 case .insert:
                     showImagePicker()
                 }
