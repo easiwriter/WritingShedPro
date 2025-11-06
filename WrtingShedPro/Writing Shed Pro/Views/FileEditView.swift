@@ -232,7 +232,7 @@ struct FileEditView: View {
         }
         .navigationTitle(file.name ?? NSLocalizedString("fileEdit.untitledFile", comment: "Untitled file"))
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
+        .toolbar(content: {
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack(spacing: 16) {
                     // Undo button
@@ -256,7 +256,7 @@ struct FileEditView: View {
                     .accessibilityLabel("Redo")
                 }
             }
-        }
+        })
         .onDisappear {
             // Auto-save when leaving the editor (back button, etc.)
             saveChanges()
