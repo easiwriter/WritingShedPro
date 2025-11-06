@@ -586,9 +586,10 @@ struct FormattedTextEditor: UIViewRepresentable {
                             // Restore cursor visibility immediately
                             textView.tintColor = .systemBlue
                             
-                            // Clear image selection flag
+                            // Clear image selection flag and hide border
                             if let customTextView = textView as? CustomTextView {
                                 customTextView.isImageSelected = false
+                                customTextView.hideSelectionBorder()
                             }
                             
                             textView.selectedRange = NSRange(location: beforeImagePosition, length: 0)
@@ -647,9 +648,10 @@ struct FormattedTextEditor: UIViewRepresentable {
                         // Clear image selection and restore cursor
                         textView.tintColor = .systemBlue
                         
-                        // Clear image selection flag
+                        // Clear image selection flag and hide border
                         if let customTextView = textView as? CustomTextView {
                             customTextView.isImageSelected = false
+                            customTextView.hideSelectionBorder()
                         }
                         
                         DispatchQueue.main.async {
@@ -665,9 +667,10 @@ struct FormattedTextEditor: UIViewRepresentable {
                     self.parent.onClearImageSelection?()
                 }
                 
-                // Clear image selection flag
+                // Clear image selection flag and hide border
                 if let customTextView = textView as? CustomTextView {
                     customTextView.isImageSelected = false
+                    customTextView.hideSelectionBorder()
                 }
                 
                 // Make sure cursor is visible again
@@ -681,9 +684,10 @@ struct FormattedTextEditor: UIViewRepresentable {
             // This handles the case where image was selected but user moved cursor
             if newRange.length == 0 && previousSelection.length == 1 {
                 // Cursor was on an image, now moved away
-                // Clear image selection flag
+                // Clear image selection flag and hide border
                 if let customTextView = textView as? CustomTextView {
                     customTextView.isImageSelected = false
+                    customTextView.hideSelectionBorder()
                 }
                 
                 // Restore cursor visibility
@@ -871,6 +875,8 @@ struct FormattedTextEditor: UIViewRepresentable {
             // Mark that an image is selected to suppress selection UI
             if let customTextView = textView as? CustomTextView {
                 customTextView.isImageSelected = true
+                // Show blue border around the image
+                customTextView.showSelectionBorder(at: adjustedBounds)
             }
             
             // Hide cursor by making tint color clear
@@ -907,6 +913,38 @@ struct FormattedTextEditor: UIViewRepresentable {
 private class CustomTextView: UITextView {
     var customAccessoryView: UIView?
     var isImageSelected: Bool = false
+    
+    // Selection border view for images
+    private let selectionBorderView: UIView = {
+        let view = UIView()
+        view.layer.borderColor = UIColor.systemBlue.cgColor
+        view.layer.borderWidth = 3
+        view.layer.cornerRadius = 4
+        view.backgroundColor = .clear
+        view.isUserInteractionEnabled = false
+        view.isHidden = true
+        return view
+    }()
+    
+    override init(frame: CGRect, textContainer: NSTextContainer?) {
+        super.init(frame: frame, textContainer: textContainer)
+        addSubview(selectionBorderView)
+    }
+    
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        addSubview(selectionBorderView)
+    }
+    
+    // Show/hide selection border
+    func showSelectionBorder(at frame: CGRect) {
+        selectionBorderView.frame = frame
+        selectionBorderView.isHidden = false
+    }
+    
+    func hideSelectionBorder() {
+        selectionBorderView.isHidden = true
+    }
     
     override var inputAccessoryView: UIView? {
         get {
