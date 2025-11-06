@@ -163,6 +163,8 @@ struct FormattingToolbarView: UIViewRepresentable {
                 insertBarItem
             ]
             
+            // Only show cursor arrows and keyboard toggle on iOS (not Mac Catalyst)
+            #if !targetEnvironment(macCatalyst)
             // Only show cursor arrows when there's NO hardware keyboard
             if !hasHardwareKeyboard {
                 items.append(contentsOf: [
@@ -184,13 +186,19 @@ struct FormattingToolbarView: UIViewRepresentable {
                     keyboardDismissBarItem
                 ])
             }
+            #endif
             
             items.append(flexSpace)
             return items
         }
         
-        // Initial layout
+        // Initial layout - start with keyboard visible on iOS
+        #if targetEnvironment(macCatalyst)
+        toolbar.items = context.coordinator.buildToolbarItems?(true, false) ?? []
+        #else
         toolbar.items = context.coordinator.buildToolbarItems?(false, true) ?? []
+        context.coordinator.isKeyboardVisible = true
+        #endif
         
         return toolbar
     }
@@ -458,6 +466,8 @@ struct FormattingToolbarView: UIViewRepresentable {
         
         func handleKeyboardWillHide(_ notification: Notification) {
             isKeyboardVisible = false
+            // Don't rebuild toolbar layout - keep buttons visible
+            // Just update the keyboard button icon
             updateKeyboardButtonIcon()
         }
         
@@ -521,6 +531,13 @@ struct FormattingToolbarView: UIViewRepresentable {
             // Enable/disable image style button based on image selection
             imageStyleButton?.isEnabled = isOnImage
             imageStyleButton?.alpha = isOnImage ? 1.0 : 0.4
+            
+            // Cursor buttons should always be enabled on iOS (not Catalyst)
+            #if !targetEnvironment(macCatalyst)
+            leftArrowButton?.isEnabled = true
+            rightArrowButton?.isEnabled = true
+            keyboardToggleButton?.isEnabled = true
+            #endif
         }
         
         private func updateButtonAppearance(_ button: UIButton?, isActive: Bool) {
