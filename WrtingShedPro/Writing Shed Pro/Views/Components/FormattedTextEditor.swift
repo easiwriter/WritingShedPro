@@ -379,6 +379,34 @@ struct FormattedTextEditor: UIViewRepresentable {
             }
             print("📝 Text view updated")
             
+            // If there's a selected image, recalculate its frame and update the border
+            if let customTextView = textView as? CustomTextView,
+               customTextView.isImageSelected,
+               textView.selectedRange.length == 1,
+               textView.selectedRange.location < textView.textStorage.length,
+               let attachment = textView.textStorage.attribute(.attachment, at: textView.selectedRange.location, effectiveRange: nil) as? ImageAttachment {
+                
+                // Recalculate the image frame with the new scale
+                let glyphRange = textView.layoutManager.glyphRange(forCharacterRange: textView.selectedRange, actualCharacterRange: nil)
+                let glyphBounds = textView.layoutManager.boundingRect(forGlyphRange: glyphRange, in: textView.textContainer)
+                let imageSize = attachment.bounds.size
+                
+                let adjustedBounds = CGRect(
+                    x: glyphBounds.origin.x + textView.textContainerInset.left,
+                    y: glyphBounds.origin.y + textView.textContainerInset.top,
+                    width: imageSize.width,
+                    height: imageSize.height
+                )
+                
+                #if DEBUG
+                print("🖼️ Recalculating selection border after content update")
+                print("🖼️ New frame: \(adjustedBounds)")
+                #endif
+                
+                // Update the selection border with the new frame (visual only, don't trigger state changes)
+                customTextView.showSelectionBorder(at: adjustedBounds)
+            }
+            
             // Reset flag after a short delay to allow delegate callbacks to settle
             DispatchQueue.main.async {
                 context.coordinator.isUpdatingFromSwiftUI = false
@@ -987,5 +1015,43 @@ private class CustomTextView: UITextView {
             return false
         }
         return super.canPerformAction(action, withSender: sender)
+    }
+    
+    // Update selection border position when layout changes (e.g., rotation)
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        
+        // If we have a visible selection border and an image is selected, recalculate its position
+        if isImageSelected && !selectionBorderView.isHidden {
+            recalculateSelectionBorder()
+        }
+    }
+    
+    private func recalculateSelectionBorder() {
+        // Find the selected range
+        let selectedRange = self.selectedRange
+        guard selectedRange.length == 1 else { return }
+        
+        let position = selectedRange.location
+        guard position < textStorage.length else { return }
+        
+        // Check if there's an attachment at this position
+        guard let attachment = textStorage.attribute(.attachment, at: position, effectiveRange: nil) as? ImageAttachment else {
+            return
+        }
+        
+        // Recalculate the frame for the attachment
+        let glyphRange = layoutManager.glyphRange(forCharacterRange: NSRange(location: position, length: 1), actualCharacterRange: nil)
+        let glyphBounds = layoutManager.boundingRect(forGlyphRange: glyphRange, in: textContainer)
+        
+        let adjustedBounds = CGRect(
+            x: glyphBounds.origin.x + textContainerInset.left,
+            y: glyphBounds.origin.y + textContainerInset.top,
+            width: attachment.bounds.size.width,
+            height: attachment.bounds.size.height
+        )
+        
+        // Update the selection border frame
+        selectionBorderView.frame = adjustedBounds
     }
 }

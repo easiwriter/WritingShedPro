@@ -18,7 +18,7 @@ import UIKit
 
 /// Custom NSTextAttachment for handling images with advanced features
 /// Each instance maintains its own scale, alignment, and caption settings
-class ImageAttachment: NSTextAttachment {
+class ImageAttachment: NSTextAttachment, Identifiable {
     
     // MARK: - NSSecureCoding Support
     
@@ -26,6 +26,10 @@ class ImageAttachment: NSTextAttachment {
     override class var supportsSecureCoding: Bool {
         return true
     }
+    
+    // MARK: - Identifiable
+    
+    var id: UUID { imageID }
     
     // MARK: - Properties
     

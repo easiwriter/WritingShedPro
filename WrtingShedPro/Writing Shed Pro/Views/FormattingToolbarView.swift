@@ -165,8 +165,8 @@ struct FormattingToolbarView: UIViewRepresentable {
             
             // Only show cursor arrows and keyboard toggle on iOS (not Mac Catalyst)
             #if !targetEnvironment(macCatalyst)
-            // Only show cursor arrows when there's NO hardware keyboard
-            if !hasHardwareKeyboard {
+            // Only show cursor arrows when there's NO hardware keyboard AND keyboard is visible
+            if !hasHardwareKeyboard && keyboardVisible {
                 items.append(contentsOf: [
                     createSpace(20),
                     createDivider(),
@@ -466,8 +466,8 @@ struct FormattingToolbarView: UIViewRepresentable {
         
         func handleKeyboardWillHide(_ notification: Notification) {
             isKeyboardVisible = false
-            // Don't rebuild toolbar layout - keep buttons visible
-            // Just update the keyboard button icon
+            // Update toolbar layout to hide cursor keys when keyboard is hidden
+            updateToolbarLayout()
             updateKeyboardButtonIcon()
         }
         

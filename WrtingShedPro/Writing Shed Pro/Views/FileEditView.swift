@@ -178,8 +178,12 @@ struct FileEditView: View {
                 case .imageStyle:
                     // Show image style editor for selected image
                     if let image = selectedImage {
+                        print("🖼️ imageStyle: selectedImage.imageData = \(image.imageData?.count ?? 0) bytes")
+                        print("🖼️ imageStyle: selectedImage.image = \(image.image != nil)")
+                        if let imgData = image.imageData {
+                            print("🖼️ imageStyle: Can create UIImage from imageData: \(UIImage(data: imgData) != nil)")
+                        }
                         imageToEdit = image
-                        showImageEditor = true
                     }
                 case .insert:
                     showImagePicker()
@@ -407,30 +411,29 @@ struct FileEditView: View {
                 }
             )
         }
-        .sheet(isPresented: $showImageEditor) {
-            if let imageAttachment = imageToEdit {
-                NavigationStack {
-                    ImageStyleEditorView(
-                        imageData: imageAttachment.imageData ?? imageAttachment.image?.pngData(),
-                        scale: imageAttachment.scale,
-                        alignment: imageAttachment.alignment,
-                        hasCaption: imageAttachment.hasCaption,
-                        captionText: imageAttachment.captionText ?? "",
-                        captionStyle: imageAttachment.captionStyle ?? "caption1",
-                        availableCaptionStyles: ["caption1", "caption2", "footnote"],
-                        onApply: { imageData, scale, alignment, hasCaption, captionText, captionStyle in
-                            updateImage(
-                                attachment: imageAttachment,
-                                scale: scale,
-                                alignment: alignment,
-                                hasCaption: hasCaption,
-                                captionText: captionText,
-                                captionStyle: captionStyle
-                            )
-                        }
+        .sheet(item: $imageToEdit) { imageAttachment in
+            let imageData = imageAttachment.imageData ?? imageAttachment.image?.pngData()
+            
+            ImageStyleEditorView(
+                imageData: imageData,
+                scale: imageAttachment.scale,
+                alignment: imageAttachment.alignment,
+                hasCaption: imageAttachment.hasCaption,
+                captionText: imageAttachment.captionText ?? "",
+                captionStyle: imageAttachment.captionStyle ?? "caption1",
+                availableCaptionStyles: ["caption1", "caption2", "footnote"],
+                onApply: { imageData, scale, alignment, hasCaption, captionText, captionStyle in
+                    updateImage(
+                        attachment: imageAttachment,
+                        scale: scale,
+                        alignment: alignment,
+                        hasCaption: hasCaption,
+                        captionText: captionText,
+                        captionStyle: captionStyle
                     )
+                    imageToEdit = nil
                 }
-            }
+            )
         }
         .fileImporter(
             isPresented: $showFileImporter,
@@ -1507,8 +1510,11 @@ struct FileEditView: View {
             print("❌ Error saving image update: \(error)")
         }
         
+        // Keep the image selected and update the selection border to match new size
+        // The selection border will be recalculated when the text view updates
+        selectedImage = attachment
+        
         // Close the editor
-        showImageEditor = false
         imageToEdit = nil
     }
     

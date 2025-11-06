@@ -178,7 +178,7 @@ struct AttributedStringSerializer {
                         let isItalic = desc?.symbolicTraits.contains(.traitItalic) ?? false
                         attributes.bold = isBold
                         attributes.italic = isItalic
-                        print("💾 ENCODE at \(range.location): font=\(attributes.fontName ?? "nil"), bold=\(isBold), italic=\(isItalic)")
+                        // print("💾 ENCODE at \(range.location): font=\(attributes.fontName ?? "nil"), bold=\(isBold), italic=\(isItalic)")
                         
                     case .underlineStyle:
                         attributes.underline = value as? CGFloat
@@ -195,9 +195,9 @@ struct AttributedStringSerializer {
                             if !isAdaptiveSystemColor(color) && !isFixedBlackOrWhite(color) {
                                 // Only serialize non-adaptive colors (user-selected colors)
                                 attributes.textColorHex = color.toHex()
-                                print("💾 ENCODE color at \(range.location): \(color.toHex() ?? "nil") (explicit color)")
+                                // print("💾 ENCODE color at \(range.location): \(color.toHex() ?? "nil") (explicit color)")
                             } else {
-                                print("💾 SKIP color at \(range.location): adaptive/black/white color (will adapt to appearance)")
+                                // print("💾 SKIP color at \(range.location): adaptive/black/white color (will adapt to appearance)")
                             }
                         }
                         
@@ -241,12 +241,12 @@ struct AttributedStringSerializer {
                         // Store the text style raw value
                         if let styleValue = value as? String {
                             attributes.textStyle = styleValue
-                            print("💾 ENCODE textStyle at \(range.location): \(styleValue)")
+                            // print("💾 ENCODE textStyle at \(range.location): \(styleValue)")
                         }
                     
                     case .attachment:
                         // Handle image attachments
-                        print("💾 ENCODE: Found attachment at \(range.location), type: \(type(of: value))")
+                        // print("💾 ENCODE: Found attachment at \(range.location), type: \(type(of: value))")
                         if let imageAttachment = value as? ImageAttachment {
                             attributes.isImageAttachment = true
                             attributes.imageID = imageAttachment.imageID.uuidString
@@ -262,9 +262,10 @@ struct AttributedStringSerializer {
                             attributes.captionText = imageAttachment.captionText
                             attributes.captionStyle = imageAttachment.captionStyle
                             
-                            print("💾 ENCODE image at \(range.location): id=\(imageAttachment.imageID), scale=\(imageAttachment.scale), alignment=\(imageAttachment.alignment.rawValue)")
+                            // Logging commented out to reduce console spam during undo/version saves
+                            // print("💾 ENCODE image at \(range.location): id=\(imageAttachment.imageID), scale=\(imageAttachment.scale), alignment=\(imageAttachment.alignment.rawValue)")
                         } else {
-                            print("💾 ⚠️ ENCODE: Attachment is NOT an ImageAttachment - skipping image properties")
+                            // print("💾 ⚠️ ENCODE: Attachment is NOT an ImageAttachment - skipping image properties")
                         }
                         
                     default:
