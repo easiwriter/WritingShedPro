@@ -20,6 +20,7 @@ struct FileEditView: View {
     @State private var selectedImage: ImageAttachment?
     @State private var selectedImageFrame: CGRect = .zero
     @State private var selectedImagePosition: Int = -1
+    @State private var textViewInitialized = false
     @State private var currentParagraphStyle: UIFont.TextStyle? = .body
     @State private var documentPicker: UIDocumentPickerViewController? // Strong reference for Mac Catalyst
     @State private var showFileImporter = false // For SwiftUI file importer
@@ -136,6 +137,9 @@ struct FileEditView: View {
                     }
                 )
                 .id(refreshTrigger)
+                .onAppear {
+                    textViewInitialized = true
+                }
             } else {
                 FormattedTextEditor(
                     attributedText: $attributedContent,
@@ -154,6 +158,9 @@ struct FileEditView: View {
                     }
                 )
                 .id(refreshTrigger)
+                .onAppear {
+                    textViewInitialized = true
+                }
             }
             
             // Show blue border around selected image
@@ -172,7 +179,10 @@ struct FileEditView: View {
     
     @ViewBuilder
     private func formattingToolbar() -> some View {
-        if let textView = textViewCoordinator.textView {
+        // Show toolbar once text view has been initialized
+        // Don't make it conditional on textView being non-nil because that can
+        // cause it to flicker during view updates
+        if textViewInitialized, let textView = textViewCoordinator.textView {
             FormattingToolbarView(textView: textView) { action in
                 switch action {
                 case .paragraphStyle:
