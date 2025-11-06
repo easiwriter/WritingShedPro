@@ -322,8 +322,6 @@ struct AttributedStringSerializer {
                     let isBold = jsonAttributes.bold ?? false
                     let isItalic = jsonAttributes.italic ?? false
                     
-                    print("💾 DECODE at \(location): fontName=\(fontName), bold=\(isBold), italic=\(isItalic)")
-                    
                     // Check if this is a dynamic type font (UICTFont)
                     if fontName.contains("UICT") || fontName.contains("TextStyle") {
                         // Use dynamic type font - preserves size category preferences
@@ -336,8 +334,6 @@ struct AttributedStringSerializer {
                         // Use the font name directly with traits
                         font = UIFont.fontWithNameAndTraits(fontName, size: fontSize, bold: isBold, italic: isItalic)
                     }
-                    
-                    print("💾   Final font: \(font.fontName)")
                     
                     attributes[.font] = font
                 }
@@ -356,7 +352,6 @@ struct AttributedStringSerializer {
                 if let colorHex = jsonAttributes.textColorHex,
                    let color = UIColor(hex: colorHex) {
                     attributes[.foregroundColor] = color
-                    print("💾 DECODE color at \(location): \(colorHex)")
                 }
                 
                 // Text style - restore the stored style name
@@ -449,8 +444,6 @@ struct AttributedStringSerializer {
                     attachment.bounds = CGRect(origin: .zero, size: attachment.displaySize)
                     
                     attributes[.attachment] = attachment
-                    
-                    print("💾 DECODE image at \(location): id=\(imageID), scale=\(attachment.scale), alignment=\(attachment.alignment.rawValue)")
                 }
                 
                 result.addAttributes(attributes, range: NSRange(location: location, length: length))

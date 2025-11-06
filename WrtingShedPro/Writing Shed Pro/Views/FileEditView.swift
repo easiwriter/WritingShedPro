@@ -157,16 +157,11 @@ struct FileEditView: View {
             
             // Show blue border around selected image
             if let _ = selectedImage, selectedImageFrame != .zero {
-                GeometryReader { geometry in
-                    Rectangle()
-                        .stroke(Color.blue, lineWidth: 4)
-                        .frame(width: selectedImageFrame.width, height: selectedImageFrame.height)
-                        .position(
-                            x: selectedImageFrame.minX + selectedImageFrame.width / 2,
-                            y: selectedImageFrame.minY + selectedImageFrame.height / 2
-                        )
-                        .allowsHitTesting(false)
-                }
+                Rectangle()
+                    .stroke(Color.blue, lineWidth: 4)
+                    .frame(width: selectedImageFrame.width, height: selectedImageFrame.height)
+                    .position(x: selectedImageFrame.midX, y: selectedImageFrame.midY)
+                    .allowsHitTesting(false)
             }
         }
     }
@@ -423,12 +418,9 @@ struct FileEditView: View {
         }
         .sheet(isPresented: $showImageEditor) {
             if let imageAttachment = imageToEdit {
-                // Get image data - either from imageData property or extract from image
-                let imageData = imageAttachment.imageData ?? imageAttachment.image?.pngData()
-                
                 NavigationStack {
                     ImageStyleEditorView(
-                        imageData: imageData,
+                        imageData: imageAttachment.imageData ?? imageAttachment.image?.pngData(),
                         scale: imageAttachment.scale,
                         alignment: imageAttachment.alignment,
                         hasCaption: imageAttachment.hasCaption,
