@@ -161,7 +161,10 @@ struct FileEditView: View {
                 Rectangle()
                     .stroke(Color.blue, lineWidth: 4)
                     .frame(width: selectedImageFrame.width, height: selectedImageFrame.height)
-                    .offset(x: selectedImageFrame.minX, y: selectedImageFrame.minY)
+                    .position(
+                        x: selectedImageFrame.midX,
+                        y: selectedImageFrame.midY
+                    )
                     .allowsHitTesting(false)
             }
         }
