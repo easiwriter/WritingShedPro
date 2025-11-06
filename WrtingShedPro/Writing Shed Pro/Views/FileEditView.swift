@@ -156,11 +156,13 @@ struct FileEditView: View {
             }
             
             // Show blue border around selected image
+            // The frame we get from UITextView is in text view coordinates
+            // We need to overlay it exactly where the image appears
             if let _ = selectedImage, selectedImageFrame != .zero {
                 Rectangle()
                     .stroke(Color.blue, lineWidth: 4)
                     .frame(width: selectedImageFrame.width, height: selectedImageFrame.height)
-                    .position(x: selectedImageFrame.midX, y: selectedImageFrame.midY)
+                    .offset(x: selectedImageFrame.minX, y: selectedImageFrame.minY)
                     .allowsHitTesting(false)
             }
         }
@@ -187,8 +189,12 @@ struct FileEditView: View {
                 case .imageStyle:
                     // Show image style editor for selected image
                     if let image = selectedImage {
+                        print("🖼️ Setting imageToEdit and showImageEditor for image at position \(selectedImagePosition)")
                         imageToEdit = image
                         showImageEditor = true
+                        print("🖼️ imageToEdit set: \(imageToEdit != nil), showImageEditor: \(showImageEditor)")
+                    } else {
+                        print("⚠️ imageStyle tapped but selectedImage is nil!")
                     }
                 case .insert:
                     showImagePicker()
@@ -417,7 +423,9 @@ struct FileEditView: View {
             )
         }
         .sheet(isPresented: $showImageEditor) {
+            print("🖼️ Sheet presented block executed, showImageEditor: \(showImageEditor)")
             if let imageAttachment = imageToEdit {
+                print("🖼️ imageToEdit found, imageData bytes: \(imageAttachment.imageData?.count ?? 0), image: \(imageAttachment.image != nil)")
                 NavigationStack {
                     ImageStyleEditorView(
                         imageData: imageAttachment.imageData ?? imageAttachment.image?.pngData(),
