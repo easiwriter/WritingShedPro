@@ -41,23 +41,15 @@ struct FileEditView: View {
     init(file: File) {
         self.file = file
         
-        // Initialize attributed content (the single source of truth)
-        let initialAttributed = file.currentVersion?.attributedContent ?? NSAttributedString(
+        // Initialize with empty content - will load in onAppear to avoid repeated init calls
+        let emptyAttributed = NSAttributedString(
             string: "",
             attributes: [.font: UIFont.preferredFont(forTextStyle: .body)]
         )
-        print("📂 FileEditView.init - Loading file '\(file.name ?? "untitled")'")
-        print("📂 Initial content length: \(initialAttributed.length)")
-        if initialAttributed.length > 0 {
-            print("📂 Content preview: '\(initialAttributed.string.prefix(50))'")
-        }
         
-        _attributedContent = State(initialValue: initialAttributed)
-        _previousContent = State(initialValue: initialAttributed.string)
-        
-        // Position cursor at end of text (where user likely wants to continue writing)
-        let textLength = initialAttributed.length
-        _selectedRange = State(initialValue: NSRange(location: textLength, length: 0))
+        _attributedContent = State(initialValue: emptyAttributed)
+        _previousContent = State(initialValue: "")
+        _selectedRange = State(initialValue: NSRange(location: 0, length: 0))
         
         // Try to restore undo manager or create new one
         if let restoredManager = file.restoreUndoState() {
@@ -165,14 +157,16 @@ struct FileEditView: View {
             
             // Show blue border around selected image
             if let _ = selectedImage, selectedImageFrame != .zero {
-                Rectangle()
-                    .stroke(Color.blue, lineWidth: 4)
-                    .frame(width: selectedImageFrame.width, height: selectedImageFrame.height)
-                    .position(
-                        x: selectedImageFrame.midX,
-                        y: selectedImageFrame.midY
-                    )
-                    .allowsHitTesting(false)
+                GeometryReader { geometry in
+                    Rectangle()
+                        .stroke(Color.blue, lineWidth: 4)
+                        .frame(width: selectedImageFrame.width, height: selectedImageFrame.height)
+                        .position(
+                            x: selectedImageFrame.minX + selectedImageFrame.width / 2,
+                            y: selectedImageFrame.minY + selectedImageFrame.height / 2
+                        )
+                        .allowsHitTesting(false)
+                }
             }
         }
     }
@@ -268,18 +262,17 @@ struct FileEditView: View {
             saveUndoState()
         }
         .onAppear {
-            // Reload content from database in case it was updated
-            // This ensures we always show the latest saved content
-            if let savedContent = file.currentVersion?.attributedContent {
-                print("📂 onAppear: Reloading content from database, length: \(savedContent.length)")
-                if savedContent.length != attributedContent.length || savedContent.string != attributedContent.string {
-                    print("📂 Content changed - updating attributedContent")
-                    attributedContent = savedContent
-                    // Update previous content to match
-                    previousContent = savedContent.string
-                } else {
-                    print("📂 Content unchanged - keeping current state")
-                }
+            // Load content from database on first appearance
+            // We initialize with empty content in init() to avoid repeated decoding
+            // during SwiftUI view updates, then load the real content here once
+            if attributedContent.length == 0, let savedContent = file.currentVersion?.attributedContent {
+                print("📂 onAppear: Initial load of content, length: \(savedContent.length)")
+                attributedContent = savedContent
+                previousContent = savedContent.string
+                
+                // Position cursor at end of text
+                let textLength = savedContent.length
+                selectedRange = NSRange(location: textLength, length: 0)
             }
             
             // Show keyboard/cursor when opening file
@@ -429,8 +422,10 @@ struct FileEditView: View {
             )
         }
         .sheet(isPresented: $showImageEditor) {
-            if let imageAttachment = imageToEdit,
-               let imageData = imageAttachment.imageData {
+            if let imageAttachment = imageToEdit {
+                // Get image data - either from imageData property or extract from image
+                let imageData = imageAttachment.imageData ?? imageAttachment.image?.pngData()
+                
                 NavigationStack {
                     ImageStyleEditorView(
                         imageData: imageData,

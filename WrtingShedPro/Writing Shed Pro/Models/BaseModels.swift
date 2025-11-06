@@ -209,15 +209,8 @@ final class Version {
     /// Computed property for working with NSAttributedString
     var attributedContent: NSAttributedString? {
         get {
-            #if DEBUG
-            print("📖 Version.attributedContent getter - formattedContent is \(formattedContent == nil ? "nil" : "set"), isEmpty: \(formattedContent?.isEmpty ?? true)")
-            #endif
-            
             guard let data = formattedContent, !data.isEmpty else {
                 // Fall back to plain text with body font and textStyle attribute if no formatted content
-                #if DEBUG
-                print("📖 Using fallback - creating attributed string with .body font and textStyle")
-                #endif
                 return NSAttributedString(
                     string: content,
                     attributes: [
@@ -227,27 +220,11 @@ final class Version {
                 )
             }
             
-            #if DEBUG
-            print("📖 Decoding formatted content")
-            #endif
-            
             // Decode using AttributedStringSerializer
             return AttributedStringSerializer.decode(data, text: content)
         }
         set {
             if let attributed = newValue {
-                #if DEBUG
-                print("💾 Setting attributedContent - encoding for storage")
-                print("💾 String: '\(attributed.string)'")
-                print("💾 Length: \(attributed.length)")
-                if attributed.length > 0 {
-                    let attrs = attributed.attributes(at: 0, effectiveRange: nil)
-                    if let font = attrs[.font] as? UIFont {
-                        print("💾 Font at position 0: \(font.fontName) size: \(font.pointSize)")
-                    }
-                }
-                #endif
-                
                 // Encode using AttributedStringSerializer (extracts font traits)
                 formattedContent = AttributedStringSerializer.encode(attributed)
                 
