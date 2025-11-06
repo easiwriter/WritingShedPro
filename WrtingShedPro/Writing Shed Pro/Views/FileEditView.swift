@@ -175,7 +175,11 @@ struct FileEditView: View {
                 case .strikethrough:
                     applyFormatting(.strikethrough)
                 case .imageStyle:
-                    break // Image style handled separately
+                    // Show image style editor for selected image
+                    if let image = selectedImage {
+                        imageToEdit = image
+                        showImageEditor = true
+                    }
                 case .insert:
                     showImagePicker()
                 }
