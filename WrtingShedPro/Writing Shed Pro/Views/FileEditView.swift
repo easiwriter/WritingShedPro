@@ -225,14 +225,15 @@ struct FileEditView: View {
     }
     
     var body: some View {
-        VStack(spacing: 0) {
+        let content = VStack(spacing: 0) {
             versionToolbar()
             textEditorSection()
             formattingToolbar()
         }
         .navigationTitle(file.name ?? NSLocalizedString("fileEdit.untitledFile", comment: "Untitled file"))
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar(content: {
+        
+        return content.toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack(spacing: 16) {
                     // Undo button
@@ -256,7 +257,7 @@ struct FileEditView: View {
                     .accessibilityLabel("Redo")
                 }
             }
-        })
+        }
         .onDisappear {
             // Auto-save when leaving the editor (back button, etc.)
             saveChanges()
