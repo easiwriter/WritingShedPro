@@ -586,6 +586,11 @@ struct FormattedTextEditor: UIViewRepresentable {
                             // Restore cursor visibility immediately
                             textView.tintColor = .systemBlue
                             
+                            // Clear image selection flag
+                            if let customTextView = textView as? CustomTextView {
+                                customTextView.isImageSelected = false
+                            }
+                            
                             textView.selectedRange = NSRange(location: beforeImagePosition, length: 0)
                             previousSelection = NSRange(location: beforeImagePosition, length: 0)
                             parent.selectedRange = NSRange(location: beforeImagePosition, length: 0)
@@ -641,6 +646,12 @@ struct FormattedTextEditor: UIViewRepresentable {
                         
                         // Clear image selection and restore cursor
                         textView.tintColor = .systemBlue
+                        
+                        // Clear image selection flag
+                        if let customTextView = textView as? CustomTextView {
+                            customTextView.isImageSelected = false
+                        }
+                        
                         DispatchQueue.main.async {
                             self.parent.onClearImageSelection?()
                             self.isUpdatingFromSwiftUI = false
@@ -654,6 +665,11 @@ struct FormattedTextEditor: UIViewRepresentable {
                     self.parent.onClearImageSelection?()
                 }
                 
+                // Clear image selection flag
+                if let customTextView = textView as? CustomTextView {
+                    customTextView.isImageSelected = false
+                }
+                
                 // Make sure cursor is visible again
                 textView.tintColor = .systemBlue
                 #if DEBUG
@@ -665,6 +681,11 @@ struct FormattedTextEditor: UIViewRepresentable {
             // This handles the case where image was selected but user moved cursor
             if newRange.length == 0 && previousSelection.length == 1 {
                 // Cursor was on an image, now moved away
+                // Clear image selection flag
+                if let customTextView = textView as? CustomTextView {
+                    customTextView.isImageSelected = false
+                }
+                
                 // Restore cursor visibility
                 textView.tintColor = .systemBlue
                 #if DEBUG
@@ -764,6 +785,11 @@ struct FormattedTextEditor: UIViewRepresentable {
             parent.onSelectionChange?(imageRange)
             previousSelection = imageRange  // Update previous AFTER setting new range
             
+            // Mark that an image is selected to suppress selection UI
+            if let customTextView = textView as? CustomTextView {
+                customTextView.isImageSelected = true
+            }
+            
             // Hide cursor by making tint color clear
             // This prevents the blinking cursor from appearing over the image
             textView.tintColor = .clear
@@ -842,6 +868,11 @@ struct FormattedTextEditor: UIViewRepresentable {
             parent.onSelectionChange?(imageRange)
             previousSelection = imageRange
             
+            // Mark that an image is selected to suppress selection UI
+            if let customTextView = textView as? CustomTextView {
+                customTextView.isImageSelected = true
+            }
+            
             // Hide cursor by making tint color clear
             textView.tintColor = .clear
             
@@ -875,6 +906,7 @@ struct FormattedTextEditor: UIViewRepresentable {
 /// Custom UITextView subclass to support inputAccessoryView
 private class CustomTextView: UITextView {
     var customAccessoryView: UIView?
+    var isImageSelected: Bool = false
     
     override var inputAccessoryView: UIView? {
         get {
@@ -883,5 +915,28 @@ private class CustomTextView: UITextView {
         set {
             customAccessoryView = newValue
         }
+    }
+    
+    // Hide selection UI (drag handles) when an image is selected
+    override func selectionRects(for range: UITextRange) -> [UITextSelectionRect] {
+        // If an image is selected, return empty array to hide selection UI
+        if isImageSelected {
+            return []
+        }
+        return super.selectionRects(for: range)
+    }
+    
+    // Also hide the selection grabbers/handles
+    override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
+        // Disable selection actions when image is selected
+        if isImageSelected {
+            // Still allow delete/cut to remove the image
+            if action == #selector(UIResponderStandardEditActions.delete(_:)) ||
+               action == #selector(UIResponderStandardEditActions.cut(_:)) {
+                return true
+            }
+            return false
+        }
+        return super.canPerformAction(action, withSender: sender)
     }
 }
