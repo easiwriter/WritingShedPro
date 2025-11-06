@@ -20,7 +20,6 @@ struct FileEditView: View {
     @State private var selectedImage: ImageAttachment?
     @State private var selectedImageFrame: CGRect = .zero
     @State private var selectedImagePosition: Int = -1
-    @State private var textViewInitialized = false
     @State private var currentParagraphStyle: UIFont.TextStyle? = .body
     @State private var documentPicker: UIDocumentPickerViewController? // Strong reference for Mac Catalyst
     @State private var showFileImporter = false // For SwiftUI file importer
@@ -129,9 +128,6 @@ struct FileEditView: View {
                     }
                 )
                 .id(refreshTrigger)
-                .onAppear {
-                    textViewInitialized = true
-                }
             } else {
                 FormattedTextEditor(
                     attributedText: $attributedContent,
@@ -150,19 +146,14 @@ struct FileEditView: View {
                     }
                 )
                 .id(refreshTrigger)
-                .onAppear {
-                    textViewInitialized = true
-                }
             }
             
             // Show blue border around selected image
-            // The frame we get from UITextView is in text view coordinates
-            // We need to overlay it exactly where the image appears
             if let _ = selectedImage, selectedImageFrame != .zero {
                 Rectangle()
                     .stroke(Color.blue, lineWidth: 4)
                     .frame(width: selectedImageFrame.width, height: selectedImageFrame.height)
-                    .offset(x: selectedImageFrame.minX, y: selectedImageFrame.minY)
+                    .position(x: selectedImageFrame.midX, y: selectedImageFrame.midY)
                     .allowsHitTesting(false)
             }
         }
@@ -170,10 +161,7 @@ struct FileEditView: View {
     
     @ViewBuilder
     private func formattingToolbar() -> some View {
-        // Show toolbar once text view has been initialized
-        // Don't make it conditional on textView being non-nil because that can
-        // cause it to flicker during view updates
-        if textViewInitialized, let textView = textViewCoordinator.textView {
+        if let textView = textViewCoordinator.textView {
             FormattingToolbarView(textView: textView) { action in
                 switch action {
                 case .paragraphStyle:
@@ -187,15 +175,7 @@ struct FileEditView: View {
                 case .strikethrough:
                     applyFormatting(.strikethrough)
                 case .imageStyle:
-                    // Show image style editor for selected image
-                    if let image = selectedImage {
-                        print("🖼️ Setting imageToEdit and showImageEditor for image at position \(selectedImagePosition)")
-                        imageToEdit = image
-                        showImageEditor = true
-                        print("🖼️ imageToEdit set: \(imageToEdit != nil), showImageEditor: \(showImageEditor)")
-                    } else {
-                        print("⚠️ imageStyle tapped but selectedImage is nil!")
-                    }
+                    break // Image style handled separately
                 case .insert:
                     showImagePicker()
                 }
@@ -225,15 +205,14 @@ struct FileEditView: View {
     }
     
     var body: some View {
-        let content = VStack(spacing: 0) {
+        VStack(spacing: 0) {
             versionToolbar()
             textEditorSection()
             formattingToolbar()
         }
         .navigationTitle(file.name ?? NSLocalizedString("fileEdit.untitledFile", comment: "Untitled file"))
         .navigationBarTitleDisplayMode(.inline)
-        
-        return content.toolbar {
+        .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack(spacing: 16) {
                     // Undo button
@@ -424,9 +403,8 @@ struct FileEditView: View {
             )
         }
         .sheet(isPresented: $showImageEditor) {
-            print("🖼️ Sheet presented block executed, showImageEditor: \(showImageEditor)")
-            if let imageAttachment = imageToEdit {
-                print("🖼️ imageToEdit found, imageData bytes: \(imageAttachment.imageData?.count ?? 0), image: \(imageAttachment.image != nil)")
+            if let imageAttachment = imageToEdit,
+               let imageData = imageAttachment.imageData {
                 NavigationStack {
                     ImageStyleEditorView(
                         imageData: imageAttachment.imageData ?? imageAttachment.image?.pngData(),
