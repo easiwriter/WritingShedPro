@@ -428,6 +428,7 @@ xcodebuild archive -scheme Write!
 - **Build problems**: See QUICK_REFERENCE.md troubleshooting
 - **Test failures**: Run `⌘+U`, check CloudKit entitlements
 - **Runtime crashes**: Add debug prints, run in Xcode console
+- **CloudKit sync issues**: See `CLOUDKIT_QUICK_FIX.md` (⚡ Quick reset usually fixes it!)
 
 ### For Questions
 1. Check IMPLEMENTATION_GUIDE.md (most detailed)

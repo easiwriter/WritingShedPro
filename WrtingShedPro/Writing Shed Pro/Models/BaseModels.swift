@@ -329,3 +329,49 @@ final class TextFile {
     }
 }
 
+// MARK: - TrashItem (Feature 008a: File Movement System)
+
+/// Represents a deleted file in the Trash with metadata for restoration
+@Model
+final class TrashItem {
+    var id: UUID = UUID()
+    var deletedDate: Date = Date()
+    
+    // SwiftData Relationships
+    /// The file that was deleted
+    @Relationship(deleteRule: .cascade)
+    var textFile: TextFile?
+    
+    /// The folder the file originally came from (for Put Back)
+    @Relationship(deleteRule: .nullify)
+    var originalFolder: Folder?
+    
+    /// The project this trash item belongs to
+    @Relationship(deleteRule: .nullify)
+    var project: Project?
+    
+    init(textFile: TextFile, originalFolder: Folder?, project: Project?) {
+        self.textFile = textFile
+        self.originalFolder = originalFolder
+        self.project = project
+        self.deletedDate = Date()
+    }
+    
+    // MARK: - Computed Properties
+    
+    /// Display name for the trashed file
+    var displayName: String {
+        return textFile?.name ?? "Unknown File"
+    }
+    
+    /// Original folder name for display ("From: Draft")
+    var originalFolderName: String {
+        return originalFolder?.name ?? "Unknown"
+    }
+    
+    /// Returns true if the original folder still exists
+    var canRestoreToOriginal: Bool {
+        return originalFolder != nil
+    }
+}
+
