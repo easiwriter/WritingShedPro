@@ -187,7 +187,7 @@ struct FolderItemView: View {
             }
         }
         .task {
-            fileCount = folder.files?.count ?? 0
+            fileCount = folder.textFiles?.count ?? 0
         }
     }
 }

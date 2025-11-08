@@ -17,7 +17,7 @@ final class FormatApplyCommand: UndoableCommand {
     let afterContent: NSAttributedString
     
     /// Reference to the target file (weak to prevent retain cycles)
-    weak var targetFile: File?
+    weak var targetFile: TextFile?
     
     // MARK: - Initialization
     
@@ -27,7 +27,7 @@ final class FormatApplyCommand: UndoableCommand {
          range: NSRange,
          beforeContent: NSAttributedString,
          afterContent: NSAttributedString,
-         targetFile: File?) {
+         targetFile: TextFile?) {
         self.id = id
         self.timestamp = timestamp
         self.description = description

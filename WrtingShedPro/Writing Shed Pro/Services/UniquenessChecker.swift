@@ -34,7 +34,7 @@ struct UniquenessChecker {
     }
     
     static func isFileNameUnique(_ name: String, in folder: Folder) -> Bool {
-        let files = folder.files ?? []
+        let files = folder.textFiles ?? []
         return !files.contains { ($0.name ?? "").caseInsensitiveCompare(name) == .orderedSame }
     }
 }

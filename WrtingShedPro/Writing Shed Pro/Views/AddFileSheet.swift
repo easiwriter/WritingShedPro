@@ -8,7 +8,7 @@ struct AddFileSheet: View {
     
     @State private var fileName = ""
     @State private var showErrorAlert = false
-    @antml:parameter name="errorMessage = ""
+    @State private var errorMessage = ""
     @Environment(\.modelContext) var modelContext
     
     var body: some View {

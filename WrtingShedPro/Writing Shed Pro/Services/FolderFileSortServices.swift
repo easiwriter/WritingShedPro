@@ -17,8 +17,8 @@ struct FolderSortService {
             return folders.sorted { ($0.id.uuidString) < ($1.id.uuidString) } // Approximate creation order
         case .byItemCount:
             return folders.sorted { 
-                let count1 = $0.files?.count ?? 0
-                let count2 = $1.files?.count ?? 0
+                let count1 = $0.textFiles?.count ?? 0
+                let count2 = $1.textFiles?.count ?? 0
                 return count1 > count2
             }
         }

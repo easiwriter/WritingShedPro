@@ -2,7 +2,7 @@ import SwiftUI
 import SwiftData
 
 struct FileDetailView: View {
-    @Bindable var file: File
+    @Bindable var file: TextFile
     
     @Environment(\.modelContext) var modelContext
     @Environment(\.dismiss) var dismiss
@@ -13,10 +13,10 @@ struct FileDetailView: View {
     @State private var errorMessage = ""
     @State private var showDeleteConfirmation = false
     
-    init(file: File) {
+    init(file: TextFile) {
         self.file = file
         _editedName = State(initialValue: file.name ?? "")
-        _editedContent = State(initialValue: file.content ?? "")
+        _editedContent = State(initialValue: file.currentVersion?.content ?? "")
     }
     
     var body: some View {
@@ -37,7 +37,7 @@ struct FileDetailView: View {
                 .padding(.horizontal)
                 .accessibilityLabel(NSLocalizedString("fileDetail.contentAccessibility", comment: "File content accessibility"))
                 .onChange(of: editedContent) { oldValue, newValue in
-                    file.content = newValue
+                    file.currentVersion?.updateContent(newValue)
                 }
         }
         .navigationTitle(NSLocalizedString("fileDetail.title", comment: "File details title"))
@@ -96,7 +96,7 @@ struct FileDetailView: View {
         // Check uniqueness in parent folder
         if let parentFolder = file.parentFolder {
             // Get sibling files (excluding current file)
-            let siblings = (parentFolder.files ?? []).filter { $0.id != file.id }
+            let siblings = (parentFolder.textFiles ?? []).filter { $0.id != file.id }
             if siblings.contains(where: { ($0.name ?? "").caseInsensitiveCompare(trimmedName) == .orderedSame }) {
                 errorMessage = NSLocalizedString("fileDetail.duplicateName", comment: "Duplicate file name error")
                 showErrorAlert = true

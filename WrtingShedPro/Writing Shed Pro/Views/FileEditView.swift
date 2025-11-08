@@ -1535,13 +1535,16 @@ struct FileEditView: View {
 #Preview {
     do {
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try ModelContainer(for: Project.self, File.self, configurations: config)
+        let container = try ModelContainer(for: Project.self, Folder.self, TextFile.self, configurations: config)
         let context = container.mainContext
         
         let project = Project(name: "Sample Project", type: .novel)
         context.insert(project)
         
-        let file = File(name: "Chapter 1", content: "Once upon a time...")
+        let folder = Folder(name: "Draft", project: project)
+        context.insert(folder)
+        
+        let file = TextFile(name: "Chapter 1", initialContent: "Once upon a time...", parentFolder: folder)
         context.insert(file)
         
         return NavigationStack {

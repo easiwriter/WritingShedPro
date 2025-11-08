@@ -29,7 +29,7 @@ final class InsertImageCommand: UndoableCommand {
     let captionStyle: String
     
     /// Reference to the target file (weak to prevent retain cycles)
-    weak var targetFile: File?
+    weak var targetFile: TextFile?
     
     // MARK: - Initialization
     
@@ -44,7 +44,7 @@ final class InsertImageCommand: UndoableCommand {
         hasCaption: Bool,
         captionText: String,
         captionStyle: String,
-        targetFile: File?
+        targetFile: TextFile?
     ) {
         self.id = id
         self.timestamp = timestamp
@@ -160,8 +160,9 @@ final class InsertImageCommand: UndoableCommand {
         
         // Verify the attachment is there
         if mutableContent.length > position {
-            let attrs = mutableContent.attributes(at: position, effectiveRange: nil)
-            if let att = attrs[.attachment] {
+            var effectiveRange = NSRange(location: 0, length: 0)
+            let attrs = mutableContent.attributes(at: position, effectiveRange: &effectiveRange)
+            if let att = attrs[NSAttributedString.Key.attachment] {
                 print("🖼️💾 ✅ Attachment verified at position \(position): \(type(of: att))")
             } else {
                 print("❌ NO attachment at position \(position) after insert!")

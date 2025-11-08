@@ -93,7 +93,7 @@ struct SerializedCommand: Codable {
     }
     
     /// Convert to an UndoableCommand
-    func toCommand(file: File) -> UndoableCommand? {
+    func toCommand(file: TextFile) -> UndoableCommand? {
         switch data {
         case .textInsert(let position, let text):
             return TextInsertCommand(
