@@ -53,8 +53,9 @@ struct FileListView: View {
     /// Edit mode state - read from environment (set by parent view with EditButton)
     @Environment(\.editMode) private var editMode
     
-    /// Currently selected files for multi-select operations
-    @State private var selectedFiles: Set<TextFile> = []
+    /// Currently selected file IDs for multi-select operations
+    /// Using UUID instead of TextFile for selection to work with List
+    @State private var selectedFileIDs: Set<UUID> = []
     
     /// Controls delete confirmation alert
     @State private var showDeleteConfirmation = false
@@ -64,9 +65,9 @@ struct FileListView: View {
     
     // MARK: - Computed Properties
     
-    /// Array of selected files for operations
-    private var selectedFilesArray: [TextFile] {
-        Array(selectedFiles)
+    /// Selected files based on selectedFileIDs
+    private var selectedFiles: [TextFile] {
+        files.filter { selectedFileIDs.contains($0.id) }
     }
     
     /// Whether edit mode is currently active
@@ -76,15 +77,16 @@ struct FileListView: View {
     
     /// Whether toolbar should be visible (edit mode + items selected)
     private var showToolbar: Bool {
-        isEditMode && !selectedFiles.isEmpty
+        isEditMode && !selectedFileIDs.isEmpty
     }
     
     // MARK: - Body
     
     var body: some View {
-        List(selection: $selectedFiles) {
+        List(selection: $selectedFileIDs) {
             ForEach(files) { file in
                 fileRow(for: file)
+                    .tag(file.id)
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                         if !isEditMode {
                             swipeActionButtons(for: file)
@@ -100,11 +102,14 @@ struct FileListView: View {
         .onChange(of: editMode?.wrappedValue) { oldValue, newValue in
             print("🔧 FileListView: editMode changed from \(String(describing: oldValue)) to \(String(describing: newValue))")
             print("🔧 FileListView: files count = \(files.count)")
-            print("🔧 FileListView: selectedFiles count = \(selectedFiles.count)")
+            print("🔧 FileListView: selectedFileIDs count = \(selectedFileIDs.count)")
         }
-        .onChange(of: selectedFiles) { oldValue, newValue in
-            print("🔧 FileListView: selectedFiles changed from \(oldValue.count) to \(newValue.count)")
-            print("🔧 FileListView: selected file names: \(newValue.map { $0.name ?? "Untitled" })")
+        .onChange(of: selectedFileIDs) { oldValue, newValue in
+            print("🔧 FileListView: selectedFileIDs changed from \(oldValue.count) to \(newValue.count)")
+            if !newValue.isEmpty {
+                let names = files.filter { newValue.contains($0.id) }.map { $0.name ?? "Untitled" }
+                print("🔧 FileListView: selected file names: \(names)")
+            }
         }
         .toolbar {
             // Bottom toolbar for multi-select actions (only in edit mode)
@@ -130,7 +135,7 @@ struct FileListView: View {
         .onChange(of: editMode?.wrappedValue) { _, newValue in
             // Clear selection when exiting edit mode
             if newValue == .inactive {
-                selectedFiles.removeAll()
+                selectedFileIDs.removeAll()
             }
         }
     }
@@ -186,27 +191,27 @@ struct FileListView: View {
     @ViewBuilder
     private var bottomToolbarContent: some View {
         Button {
-            onMove(selectedFilesArray)
+            onMove(selectedFiles)
             exitEditMode()
         } label: {
             Label(
-                "Move \(selectedFilesArray.count)",
+                "Move \(selectedFiles.count)",
                 systemImage: "folder"
             )
         }
-        .disabled(selectedFilesArray.isEmpty)
+        .disabled(selectedFiles.isEmpty)
         
         Spacer()
         
         Button(role: .destructive) {
-            prepareDelete(selectedFilesArray)
+            prepareDelete(selectedFiles)
         } label: {
             Label(
-                "Delete \(selectedFilesArray.count)",
+                "Delete \(selectedFiles.count)",
                 systemImage: "trash"
             )
         }
-        .disabled(selectedFilesArray.isEmpty)
+        .disabled(selectedFiles.isEmpty)
     }
     
     /// Context menu items for macOS right-click
