@@ -49,12 +49,10 @@ final class TrashItemTests: XCTestCase {
         // Given
         let project = Project(name: "Test Project")
         let folder = Folder(name: "Documents", project: project)
-        let file = File(name: "Test.txt", folder: folder)
-        let textFile = TextFile(file: file)
+        let textFile = TextFile(name: "Test.txt", parentFolder: folder)
         
         modelContext.insert(project)
         modelContext.insert(folder)
-        modelContext.insert(file)
         modelContext.insert(textFile)
         
         // When
@@ -77,12 +75,10 @@ final class TrashItemTests: XCTestCase {
         // Given
         let project = Project(name: "Test Project")
         let folder = Folder(name: "Documents", project: project)
-        let file = File(name: "Test.txt", folder: folder)
-        let textFile = TextFile(file: file)
+        let textFile = TextFile(name: "Test.txt", parentFolder: folder)
         
         modelContext.insert(project)
         modelContext.insert(folder)
-        modelContext.insert(file)
         modelContext.insert(textFile)
         
         let beforeDate = Date()
@@ -109,12 +105,10 @@ final class TrashItemTests: XCTestCase {
         // Given
         let project = Project(name: "Test Project")
         let folder = Folder(name: "Documents", project: project)
-        let file = File(name: "MyDocument.txt", folder: folder)
-        let textFile = TextFile(file: file)
+        let textFile = TextFile(name: "MyDocument.txt", parentFolder: folder)
         
         modelContext.insert(project)
         modelContext.insert(folder)
-        modelContext.insert(file)
         modelContext.insert(textFile)
         
         let trashItem = TrashItem(
@@ -132,12 +126,10 @@ final class TrashItemTests: XCTestCase {
         // Given
         let project = Project(name: "Test Project")
         let folder = Folder(name: "Documents", project: project)
-        let file = File(name: "Test.txt", folder: folder)
-        let textFile = TextFile(file: file)
+        let textFile = TextFile(name: "Test.txt", parentFolder: folder)
         
         modelContext.insert(project)
         modelContext.insert(folder)
-        modelContext.insert(file)
         modelContext.insert(textFile)
         
         let trashItem = TrashItem(
@@ -158,12 +150,10 @@ final class TrashItemTests: XCTestCase {
         // Given
         let project = Project(name: "Test Project")
         let folder = Folder(name: "Documents", project: project)
-        let file = File(name: "Test.txt", folder: folder)
-        let textFile = TextFile(file: file)
+        let textFile = TextFile(name: "Test.txt", parentFolder: folder)
         
         modelContext.insert(project)
         modelContext.insert(folder)
-        modelContext.insert(file)
         modelContext.insert(textFile)
         
         let trashItem = TrashItem(
@@ -181,12 +171,10 @@ final class TrashItemTests: XCTestCase {
         // Given
         let project = Project(name: "Test Project")
         let folder = Folder(name: "Documents", project: project)
-        let file = File(name: "Test.txt", folder: folder)
-        let textFile = TextFile(file: file)
+        let textFile = TextFile(name: "Test.txt", parentFolder: folder)
         
         modelContext.insert(project)
         modelContext.insert(folder)
-        modelContext.insert(file)
         modelContext.insert(textFile)
         
         let trashItem = TrashItem(
@@ -207,12 +195,10 @@ final class TrashItemTests: XCTestCase {
         // Given
         let project = Project(name: "Test Project")
         let folder = Folder(name: "Documents", project: project)
-        let file = File(name: "Test.txt", folder: folder)
-        let textFile = TextFile(file: file)
+        let textFile = TextFile(name: "Test.txt", parentFolder: folder)
         
         modelContext.insert(project)
         modelContext.insert(folder)
-        modelContext.insert(file)
         modelContext.insert(textFile)
         
         let trashItem = TrashItem(
@@ -230,12 +216,10 @@ final class TrashItemTests: XCTestCase {
         // Given
         let project = Project(name: "Test Project")
         let folder = Folder(name: "Documents", project: project)
-        let file = File(name: "Test.txt", folder: folder)
-        let textFile = TextFile(file: file)
+        let textFile = TextFile(name: "Test.txt", parentFolder: folder)
         
         modelContext.insert(project)
         modelContext.insert(folder)
-        modelContext.insert(file)
         modelContext.insert(textFile)
         
         let trashItem = TrashItem(
@@ -258,12 +242,10 @@ final class TrashItemTests: XCTestCase {
         // Given
         let project = Project(name: "Test Project")
         let folder = Folder(name: "Documents", project: project)
-        let file = File(name: "Test.txt", folder: folder)
-        let textFile = TextFile(file: file)
+        let textFile = TextFile(name: "Test.txt", parentFolder: folder)
         
         modelContext.insert(project)
         modelContext.insert(folder)
-        modelContext.insert(file)
         modelContext.insert(textFile)
         
         let trashItem = TrashItem(
@@ -282,12 +264,10 @@ final class TrashItemTests: XCTestCase {
         // Given
         let project = Project(name: "Test Project")
         let folder = Folder(name: "Documents", project: project)
-        let file = File(name: "Test.txt", folder: folder)
-        let textFile = TextFile(file: file)
+        let textFile = TextFile(name: "Test.txt", parentFolder: folder)
         
         modelContext.insert(project)
         modelContext.insert(folder)
-        modelContext.insert(file)
         modelContext.insert(textFile)
         
         let trashItem = TrashItem(
@@ -331,12 +311,10 @@ final class TrashItemTests: XCTestCase {
         // Given
         let project = Project(name: "Test Project")
         let folder = Folder(name: "Documents", project: project)
-        let file = File(name: "Test.txt", folder: folder)
-        let textFile = TextFile(file: file)
+        let textFile = TextFile(name: "Test.txt", parentFolder: folder)
         
         modelContext.insert(project)
         modelContext.insert(folder)
-        modelContext.insert(file)
         modelContext.insert(textFile)
         
         let trashItem = TrashItem(

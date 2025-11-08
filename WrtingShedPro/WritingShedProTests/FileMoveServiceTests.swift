@@ -61,9 +61,7 @@ final class FileMoveServiceTests: XCTestCase {
     }
     
     func createTestFile(name: String, folder: Folder) -> TextFile {
-        let file = File(name: name, folder: folder)
-        let textFile = TextFile(file: file)
-        modelContext.insert(file)
+        let textFile = TextFile(name: name, parentFolder: folder)
         modelContext.insert(textFile)
         return textFile
     }
@@ -81,9 +79,9 @@ final class FileMoveServiceTests: XCTestCase {
         try service.moveFile(textFile, to: destFolder)
         
         // Then
-        XCTAssertEqual(textFile.file?.folder, destFolder, "File should be moved to destination folder")
-        XCTAssertFalse(sourceFolder.files.contains(textFile.file!), "File should be removed from source folder")
-        XCTAssertTrue(destFolder.files.contains(textFile.file!), "File should be added to destination folder")
+        XCTAssertEqual(textFile.parentFolder, destFolder, "File should be moved to destination folder")
+        XCTAssertFalse(sourceFolder.textFiles.contains(where: { $0.id == textFile.id }), "File should be removed from source folder")
+        XCTAssertTrue(destFolder.textFiles.contains(where: { $0.id == textFile.id }), "File should be added to destination folder")
     }
     
     func testMoveFileToSameFolder() throws {
@@ -94,7 +92,7 @@ final class FileMoveServiceTests: XCTestCase {
         
         // When/Then - Should not throw error
         try service.moveFile(textFile, to: folder)
-        XCTAssertEqual(textFile.file?.folder, folder, "File should remain in same folder")
+        XCTAssertEqual(textFile.parentFolder, folder, "File should remain in same folder")
     }
     
     func testMoveFileWithNameConflict() throws {
@@ -109,8 +107,8 @@ final class FileMoveServiceTests: XCTestCase {
         try service.moveFile(textFile, to: destFolder)
         
         // Then
-        XCTAssertEqual(textFile.file?.name, "Test (2).txt", "File should be renamed to avoid conflict")
-        XCTAssertEqual(textFile.file?.folder, destFolder, "File should be moved to destination folder")
+        XCTAssertEqual(textFile.name, "Test (2).txt", "File should be renamed to avoid conflict")
+        XCTAssertEqual(textFile.parentFolder, destFolder, "File should be moved to destination folder")
     }
     
     func testMoveFileAcrossProjectsThrowsError() throws {
@@ -163,10 +161,10 @@ final class FileMoveServiceTests: XCTestCase {
         try service.moveFiles([file1, file2, file3], to: destFolder)
         
         // Then
-        XCTAssertEqual(file1.file?.folder, destFolder, "File1 should be moved")
-        XCTAssertEqual(file2.file?.folder, destFolder, "File2 should be moved")
-        XCTAssertEqual(file3.file?.folder, destFolder, "File3 should be moved")
-        XCTAssertEqual(destFolder.files.count, 3, "Destination should have 3 files")
+        XCTAssertEqual(file1.parentFolder, destFolder, "File1 should be moved")
+        XCTAssertEqual(file2.parentFolder, destFolder, "File2 should be moved")
+        XCTAssertEqual(file3.parentFolder, destFolder, "File3 should be moved")
+        XCTAssertEqual(destFolder.textFiles.count, 3, "Destination should have 3 files")
     }
     
     func testMoveMultipleFilesRollsBackOnError() throws {
@@ -189,8 +187,8 @@ final class FileMoveServiceTests: XCTestCase {
         }
         
         // Verify rollback
-        XCTAssertEqual(file1.file?.folder, sourceFolder1, "File1 should be rolled back to source")
-        XCTAssertEqual(file2.file?.folder, sourceFolder2, "File2 should remain in source")
+        XCTAssertEqual(file1.parentFolder, sourceFolder1, "File1 should be rolled back to source")
+        XCTAssertEqual(file2.parentFolder, sourceFolder2, "File2 should remain in source")
     }
     
     // MARK: - Delete File Tests
@@ -205,7 +203,7 @@ final class FileMoveServiceTests: XCTestCase {
         try service.deleteFile(textFile)
         
         // Then
-        XCTAssertNil(textFile.file?.folder, "File should be removed from folder")
+        XCTAssertNil(textFile.parentFolder, "File should be removed from folder")
         
         // Verify TrashItem created
         let descriptor = FetchDescriptor<TrashItem>(
@@ -231,9 +229,9 @@ final class FileMoveServiceTests: XCTestCase {
         try service.deleteFiles([file1, file2, file3])
         
         // Then
-        XCTAssertNil(file1.file?.folder, "File1 should be removed from folder")
-        XCTAssertNil(file2.file?.folder, "File2 should be removed from folder")
-        XCTAssertNil(file3.file?.folder, "File3 should be removed from folder")
+        XCTAssertNil(file1.parentFolder, "File1 should be removed from folder")
+        XCTAssertNil(file2.parentFolder, "File2 should be removed from folder")
+        XCTAssertNil(file3.parentFolder, "File3 should be removed from folder")
         
         // Verify TrashItems created
         let descriptor = FetchDescriptor<TrashItem>()
@@ -264,7 +262,7 @@ final class FileMoveServiceTests: XCTestCase {
         try service.putBack(trashItem)
         
         // Then
-        XCTAssertEqual(textFile.file?.folder, folder, "File should be restored to original folder")
+        XCTAssertEqual(textFile.parentFolder, folder, "File should be restored to original folder")
         
         // Verify TrashItem deleted
         let remainingTrash = try modelContext.fetch(descriptor)
@@ -296,7 +294,7 @@ final class FileMoveServiceTests: XCTestCase {
         try service.putBack(trashItem)
         
         // Then
-        XCTAssertEqual(textFile.file?.folder, draftFolder, "File should be restored to Draft folder")
+        XCTAssertEqual(textFile.parentFolder, draftFolder, "File should be restored to Draft folder")
         
         // Verify TrashItem deleted
         let remainingTrash = try modelContext.fetch(descriptor)
@@ -356,8 +354,8 @@ final class FileMoveServiceTests: XCTestCase {
         try service.putBack(trashItem)
         
         // Then
-        XCTAssertEqual(textFile.file?.name, "Test (2).txt", "File should be renamed to avoid conflict")
-        XCTAssertEqual(textFile.file?.folder, folder, "File should be restored to original folder")
+        XCTAssertEqual(textFile.name, "Test (2).txt", "File should be renamed to avoid conflict")
+        XCTAssertEqual(textFile.parentFolder, folder, "File should be restored to original folder")
     }
     
     func testPutBackMultipleFiles() throws {
@@ -377,9 +375,9 @@ final class FileMoveServiceTests: XCTestCase {
         try service.putBackMultiple(trashItems)
         
         // Then
-        XCTAssertEqual(file1.file?.folder, folder, "File1 should be restored")
-        XCTAssertEqual(file2.file?.folder, folder, "File2 should be restored")
-        XCTAssertEqual(file3.file?.folder, folder, "File3 should be restored")
+        XCTAssertEqual(file1.parentFolder, folder, "File1 should be restored")
+        XCTAssertEqual(file2.parentFolder, folder, "File2 should be restored")
+        XCTAssertEqual(file3.parentFolder, folder, "File3 should be restored")
         
         // Verify all TrashItems deleted
         let remainingTrash = try modelContext.fetch(descriptor)
