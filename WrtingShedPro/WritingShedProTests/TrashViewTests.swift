@@ -196,8 +196,9 @@ final class TrashViewTests: XCTestCase {
         XCTAssertEqual(testFile1.parentFolder?.id, draftFolder.id, "File should be restored to original folder")
         
         // Verify trash item is deleted
+        let trashItemID = trashItem1.id
         let fetchDescriptor = FetchDescriptor<TrashItem>(
-            predicate: #Predicate { $0.id == trashItem1.id }
+            predicate: #Predicate { $0.id == trashItemID }
         )
         let remainingItems = try modelContext.fetch(fetchDescriptor)
         XCTAssertTrue(remainingItems.isEmpty, "TrashItem should be deleted after Put Back")
@@ -374,13 +375,21 @@ final class TrashViewTests: XCTestCase {
         XCTAssertNotNil(view, "Should handle trash item with nil original folder")
     }
     
-    func testHandlesNilTextFile() throws {
-        trashItem1 = TrashItem(textFile: nil, originalFolder: draftFolder, project: testProject)
+    func testHandlesDeletedTextFile() throws {
+        // Create trash item with valid file first
+        testFile1 = TextFile(name: "Test File", parentFolder: nil)
+        modelContext.insert(testFile1)
+        
+        trashItem1 = TrashItem(textFile: testFile1, originalFolder: draftFolder, project: testProject)
         modelContext.insert(trashItem1)
         try modelContext.save()
         
+        // Now delete the text file to simulate orphaned trash item
+        modelContext.delete(testFile1)
+        try modelContext.save()
+        
         let view = createTrashView()
-        XCTAssertNotNil(view, "Should handle trash item with nil text file")
+        XCTAssertNotNil(view, "Should handle trash item with deleted text file")
     }
     
     func testMultipleProjectsFiltering() throws {
