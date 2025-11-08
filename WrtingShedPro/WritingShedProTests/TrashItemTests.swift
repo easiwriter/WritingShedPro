@@ -293,14 +293,15 @@ final class TrashItemTests: XCTestCase {
             XCTFail("Failed to save after delete: \(error)")
         }
         
-        // Then - TrashItem should be cascade deleted
+        // Then - TrashItem should have null textFile reference (cascade delete from TrashItem side)
         let descriptor = FetchDescriptor<TrashItem>(
             predicate: #Predicate { $0.id == trashItemID }
         )
         
         do {
             let results = try modelContext.fetch(descriptor)
-            XCTAssertTrue(results.isEmpty, "TrashItem should be cascade deleted when TextFile is deleted")
+            XCTAssertEqual(results.count, 1, "TrashItem should still exist")
+            XCTAssertNil(results.first?.textFile, "TrashItem.textFile should be nil after TextFile deleted")
         } catch {
             XCTFail("Failed to fetch TrashItem: \(error)")
         }

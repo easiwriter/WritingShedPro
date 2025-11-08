@@ -343,7 +343,7 @@ final class TrashItem {
     
     // SwiftData Relationships
     /// The file that was deleted
-    @Relationship(deleteRule: .cascade, inverse: \TextFile.trashItem)
+    @Relationship(deleteRule: .nullify, inverse: \TextFile.trashItem)
     var textFile: TextFile?
     
     /// The folder the file originally came from (for Put Back)
@@ -365,7 +365,7 @@ final class TrashItem {
     
     /// Display name for the trashed file
     var displayName: String {
-        return textFile?.name ?? "Unknown File"
+        return textFile?.name ?? "Unknown"
     }
     
     /// Original folder name for display ("From: Draft")

@@ -29,6 +29,11 @@ class FileMoveService {
     func moveFile(_ file: TextFile, to destination: Folder) throws {
         try validateMove(file, to: destination)
         
+        // Check for name conflict and auto-rename if needed
+        if destination.textFiles?.contains(where: { $0.name == file.name && $0.id != file.id }) == true {
+            file.name = generateUniqueName(baseName: file.name, in: destination)
+        }
+        
         // Perform the move
         file.parentFolder = destination
         file.modifiedDate = Date()
@@ -138,6 +143,10 @@ class FileMoveService {
         // Try to restore to original folder
         if let originalFolder = trashItem.originalFolder {
             // Original folder still exists - restore there
+            // Handle name conflict
+            if originalFolder.textFiles?.contains(where: { $0.name == file.name && $0.id != file.id }) == true {
+                file.name = generateUniqueName(baseName: file.name, in: originalFolder)
+            }
             file.parentFolder = originalFolder
             file.modifiedDate = Date()
             modelContext.delete(trashItem)
@@ -147,6 +156,10 @@ class FileMoveService {
             // Original folder deleted - restore to Draft as fallback
             let draftFolder = try findDraftFolder(in: project)
             
+            // Handle name conflict in Draft folder
+            if draftFolder.textFiles?.contains(where: { $0.name == file.name && $0.id != file.id }) == true {
+                file.name = generateUniqueName(baseName: file.name, in: draftFolder)
+            }
             file.parentFolder = draftFolder
             file.modifiedDate = Date()
             modelContext.delete(trashItem)
@@ -203,13 +216,6 @@ class FileMoveService {
         // Check if destination is Trash (can't manually move to Trash - use deleteFile instead)
         if isTrashFolder(destination) {
             throw FileMoveError.cannotMoveToTrash
-        }
-        
-        // Check for name conflict
-        if let conflictingFile = destination.textFiles?.first(where: { $0.name == file.name && $0.id != file.id }) {
-            // Generate suggested name
-            let suggestedName = generateUniqueName(baseName: file.name, in: destination)
-            throw FileMoveError.nameConflict(suggestedName: suggestedName)
         }
     }
     
