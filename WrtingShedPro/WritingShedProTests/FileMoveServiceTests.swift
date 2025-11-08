@@ -80,8 +80,8 @@ final class FileMoveServiceTests: XCTestCase {
         
         // Then
         XCTAssertEqual(textFile.parentFolder, destFolder, "File should be moved to destination folder")
-        XCTAssertFalse(sourceFolder.textFiles.contains(where: { $0.id == textFile.id }), "File should be removed from source folder")
-        XCTAssertTrue(destFolder.textFiles.contains(where: { $0.id == textFile.id }), "File should be added to destination folder")
+        XCTAssertFalse(sourceFolder.textFiles?.contains(where: { $0.id == textFile.id }) ?? false, "File should be removed from source folder")
+        XCTAssertTrue(destFolder.textFiles?.contains(where: { $0.id == textFile.id }) ?? false, "File should be added to destination folder")
     }
     
     func testMoveFileToSameFolder() throws {
@@ -164,7 +164,7 @@ final class FileMoveServiceTests: XCTestCase {
         XCTAssertEqual(file1.parentFolder, destFolder, "File1 should be moved")
         XCTAssertEqual(file2.parentFolder, destFolder, "File2 should be moved")
         XCTAssertEqual(file3.parentFolder, destFolder, "File3 should be moved")
-        XCTAssertEqual(destFolder.textFiles.count, 3, "Destination should have 3 files")
+        XCTAssertEqual(destFolder.textFiles?.count, 3, "Destination should have 3 files")
     }
     
     func testMoveMultipleFilesRollsBackOnError() throws {
@@ -206,8 +206,10 @@ final class FileMoveServiceTests: XCTestCase {
         XCTAssertNil(textFile.parentFolder, "File should be removed from folder")
         
         // Verify TrashItem created
+        let textFileID = textFile.id
+        let textFileID = textFile.id
         let descriptor = FetchDescriptor<TrashItem>(
-            predicate: #Predicate { $0.textFile == textFile }
+            predicate: #Predicate { $0.textFile?.id == textFileID }
         )
         let trashItems = try modelContext.fetch(descriptor)
         
@@ -234,6 +236,7 @@ final class FileMoveServiceTests: XCTestCase {
         XCTAssertNil(file3.parentFolder, "File3 should be removed from folder")
         
         // Verify TrashItems created
+        let textFileID = textFile.id
         let descriptor = FetchDescriptor<TrashItem>()
         let trashItems = try modelContext.fetch(descriptor)
         
@@ -249,8 +252,9 @@ final class FileMoveServiceTests: XCTestCase {
         let textFile = createTestFile(name: "Test.txt", folder: folder)
         try service.deleteFile(textFile)
         
+        let textFileID = textFile.id
         let descriptor = FetchDescriptor<TrashItem>(
-            predicate: #Predicate { $0.textFile == textFile }
+            predicate: #Predicate { $0.textFile?.id == textFileID }
         )
         let trashItems = try modelContext.fetch(descriptor)
         guard let trashItem = trashItems.first else {
@@ -277,8 +281,9 @@ final class FileMoveServiceTests: XCTestCase {
         let textFile = createTestFile(name: "Test.txt", folder: folder)
         try service.deleteFile(textFile)
         
+        let textFileID = textFile.id
         let descriptor = FetchDescriptor<TrashItem>(
-            predicate: #Predicate { $0.textFile == textFile }
+            predicate: #Predicate { $0.textFile?.id == textFileID }
         )
         let trashItems = try modelContext.fetch(descriptor)
         guard let trashItem = trashItems.first else {
@@ -308,8 +313,9 @@ final class FileMoveServiceTests: XCTestCase {
         let textFile = createTestFile(name: "Test.txt", folder: folder)
         try service.deleteFile(textFile)
         
+        let textFileID = textFile.id
         let descriptor = FetchDescriptor<TrashItem>(
-            predicate: #Predicate { $0.textFile == textFile }
+            predicate: #Predicate { $0.textFile?.id == textFileID }
         )
         let trashItems = try modelContext.fetch(descriptor)
         guard let trashItem = trashItems.first else {
@@ -341,8 +347,9 @@ final class FileMoveServiceTests: XCTestCase {
         // Create a new file with the same name
         let _ = createTestFile(name: "Test.txt", folder: folder)
         
+        let textFileID = textFile.id
         let descriptor = FetchDescriptor<TrashItem>(
-            predicate: #Predicate { $0.textFile == textFile }
+            predicate: #Predicate { $0.textFile?.id == textFileID }
         )
         let trashItems = try modelContext.fetch(descriptor)
         guard let trashItem = trashItems.first else {
@@ -368,6 +375,7 @@ final class FileMoveServiceTests: XCTestCase {
         
         try service.deleteFiles([file1, file2, file3])
         
+        let textFileID = textFile.id
         let descriptor = FetchDescriptor<TrashItem>()
         let trashItems = try modelContext.fetch(descriptor)
         

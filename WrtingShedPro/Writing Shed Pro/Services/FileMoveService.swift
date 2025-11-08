@@ -145,9 +145,7 @@ class FileMoveService {
             return (true, originalFolder)
         } else {
             // Original folder deleted - restore to Draft as fallback
-            guard let draftFolder = findDraftFolder(in: project) else {
-                throw FileMoveError.draftFolderNotFound
-            }
+            let draftFolder = try findDraftFolder(in: project)
             
             file.parentFolder = draftFolder
             file.modifiedDate = Date()
@@ -220,14 +218,17 @@ class FileMoveService {
     /// Finds the Draft folder in a project
     /// - Parameter project: The Project to search
     /// - Returns: The Draft Folder, or nil if not found
-    private func findDraftFolder(in project: Project) -> Folder? {
-        return project.folders?.first { $0.name?.lowercased() == "draft" }
+    func findDraftFolder(in project: Project) throws -> Folder {
+        guard let draftFolder = project.folders?.first(where: { $0.name?.lowercased() == "draft" }) else {
+            throw FileMoveError.noDraftFolder
+        }
+        return draftFolder
     }
     
     /// Checks if a folder is the Trash folder
     /// - Parameter folder: The Folder to check
     /// - Returns: True if folder is Trash
-    private func isTrashFolder(_ folder: Folder) -> Bool {
+    func isTrashFolder(_ folder: Folder) -> Bool {
         return folder.name?.lowercased() == "trash"
     }
     
@@ -237,7 +238,7 @@ class FileMoveService {
     ///   - baseName: The original file name
     ///   - folder: The destination folder
     /// - Returns: A unique name
-    private func generateUniqueName(baseName: String, in folder: Folder) -> String {
+    func generateUniqueName(baseName: String, in folder: Folder) -> String {
         var counter = 2
         var newName = baseName
         
@@ -258,7 +259,7 @@ class FileMoveService {
 // MARK: - FileMoveError
 
 /// Errors that can occur during file movement operations
-enum FileMoveError: LocalizedError {
+enum FileMoveError: LocalizedError, Equatable {
     case fileNotFound
     case folderNotFound
     case projectNotFound
@@ -267,7 +268,7 @@ enum FileMoveError: LocalizedError {
     case crossProjectMove
     case nameConflict(suggestedName: String)
     case cannotMoveToTrash
-    case draftFolderNotFound
+    case noDraftFolder
     
     var errorDescription: String? {
         switch self {
@@ -287,7 +288,7 @@ enum FileMoveError: LocalizedError {
             return "A file with this name already exists. Suggested name: \(suggestedName)"
         case .cannotMoveToTrash:
             return "Cannot move files directly to Trash. Use the Delete action instead."
-        case .draftFolderNotFound:
+        case .noDraftFolder:
             return "Could not find Draft folder for file restoration"
         }
     }
@@ -300,7 +301,7 @@ enum FileMoveError: LocalizedError {
             return "Rename the file to '\(suggestedName)' or choose a different name."
         case .cannotMoveToTrash:
             return "Use the Delete button to move files to Trash."
-        case .draftFolderNotFound:
+        case .noDraftFolder:
             return "File will be restored to Draft folder, but Draft folder could not be found. Please create a Draft folder in your project."
         default:
             return nil

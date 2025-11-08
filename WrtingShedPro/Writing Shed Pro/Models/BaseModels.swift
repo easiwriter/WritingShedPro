@@ -252,6 +252,9 @@ final class TextFile {
     @Relationship(deleteRule: .cascade, inverse: \Version.textFile) 
     var versions: [Version]? = nil
     
+    @Relationship(deleteRule: .cascade, inverse: \TrashItem.textFile)
+    var trashItem: TrashItem?
+    
     init(name: String = "", initialContent: String = "", parentFolder: Folder? = nil) {
         self.name = name
         self.createdDate = Date()
