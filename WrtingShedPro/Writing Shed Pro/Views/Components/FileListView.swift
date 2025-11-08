@@ -137,29 +137,6 @@ struct FileListView: View {
     /// File row view - behavior changes based on edit mode
     @ViewBuilder
     private func fileRow(for file: TextFile) -> some View {
-        if isEditMode {
-            // Edit mode: Tapping toggles selection, no navigation
-            fileRowContent(for: file)
-                .tag(file)
-                .contextMenu {
-                    contextMenuItems(for: file)
-                }
-        } else {
-            // Normal mode: Tapping navigates to file
-            Button {
-                onFileSelected(file)
-            } label: {
-                fileRowContent(for: file)
-            }
-            .contextMenu {
-                contextMenuItems(for: file)
-            }
-        }
-    }
-    
-    /// File row content - common layout for both modes
-    @ViewBuilder
-    private func fileRowContent(for file: TextFile) -> some View {
         HStack {
             Image(systemName: "doc.text")
                 .foregroundStyle(.secondary)
@@ -168,7 +145,17 @@ struct FileListView: View {
             
             Spacer()
         }
-        .contentShape(Rectangle()) // Make entire row tappable
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if !isEditMode {
+                // Normal mode: navigate to file
+                onFileSelected(file)
+            }
+            // Edit mode: let List handle selection automatically
+        }
+        .contextMenu {
+            contextMenuItems(for: file)
+        }
     }
     
     /// Swipe action buttons (only shown in normal mode)
