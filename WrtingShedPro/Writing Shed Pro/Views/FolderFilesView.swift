@@ -71,7 +71,17 @@ struct FolderFilesView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack(spacing: 16) {
-                    // Manual Edit/Done button (replaces SwiftUI's EditButton which isn't working)
+                    // Add file button (left of Edit)
+                    if FolderCapabilityService.canAddFile(to: folder) {
+                        Button {
+                            showAddFileSheet = true
+                        } label: {
+                            Image(systemName: "plus")
+                        }
+                        .accessibilityLabel("Add file")
+                    }
+                    
+                    // Manual Edit/Done button on far right (replaces SwiftUI's EditButton which isn't working)
                     if let files = folder.textFiles, !files.isEmpty {
                         Button {
                             print("🔴 Manual Edit button tapped, current mode: \(editMode)")
@@ -82,16 +92,6 @@ struct FolderFilesView: View {
                         } label: {
                             Text(editMode == .inactive ? "Edit" : "Done")
                         }
-                    }
-                    
-                    // Add file button
-                    if FolderCapabilityService.canAddFile(to: folder) {
-                        Button {
-                            showAddFileSheet = true
-                        } label: {
-                            Image(systemName: "plus")
-                        }
-                        .accessibilityLabel("Add file")
                     }
                 }
             }

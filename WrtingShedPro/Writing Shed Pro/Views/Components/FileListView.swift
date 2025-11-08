@@ -266,10 +266,20 @@ struct FileListView: View {
     /// Handles drag-to-reorder operation
     /// Updates userOrder for files when user manually reorders them
     private func handleMove(from source: IndexSet, to destination: Int) {
-        // Note: Actual userOrder persistence would be handled by parent view
-        // This just provides the reordering UI in edit mode
-        // Parent view should observe onMove callback to persist changes
-        print("Move from \(source) to \(destination)")
+        print("🔧 handleMove: from \(source) to \(destination)")
+        
+        // Create mutable copy of files array to reorder
+        var reorderedFiles = files
+        reorderedFiles.move(fromOffsets: source, toOffset: destination)
+        
+        // Update userOrder for all files based on new positions
+        for (index, file) in reorderedFiles.enumerated() {
+            file.userOrder = index
+            print("🔧 Set userOrder for '\(file.name ?? "Untitled")' = \(index)")
+        }
+        
+        // Note: TextFile is a SwiftData @Model (reference type), so changes persist automatically
+        // Parent view's files array will reflect new order on next refresh
     }
 }
 
