@@ -34,7 +34,7 @@ struct TrashView: View {
     
     // MARK: - State
     
-    /// Edit mode state for multi-select
+    /// Edit mode state for multi-select (manual button instead of EditButton)
     @State private var editMode: EditMode = .inactive
     
     /// Selected trash item IDs
@@ -108,8 +108,18 @@ struct TrashView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                EditButton()
-                    .disabled(allTrashItems.isEmpty)
+                // Manual Edit/Done button (EditButton doesn't work with local @State)
+                if !allTrashItems.isEmpty {
+                    Button {
+                        print("🗑️ TrashView: Edit button tapped, current mode: \(editMode)")
+                        withAnimation {
+                            editMode = editMode == .inactive ? .active : .inactive
+                        }
+                        print("🗑️ TrashView: After toggle, new mode: \(editMode)")
+                    } label: {
+                        Text(editMode == .inactive ? "Edit" : "Done")
+                    }
+                }
             }
             
             // Bottom toolbar for multi-select actions
@@ -171,6 +181,7 @@ struct TrashView: View {
         List(selection: $selectedItemIDs) {
             ForEach(allTrashItems) { item in
                 trashItemRow(for: item)
+                    .tag(item.id)
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                         if !isEditMode {
                             swipeActionButtons(for: item)
@@ -182,6 +193,7 @@ struct TrashView: View {
             }
         }
         .environment(\.editMode, $editMode)
+        .listStyle(.plain)
     }
     
     /// Row for a single trash item
