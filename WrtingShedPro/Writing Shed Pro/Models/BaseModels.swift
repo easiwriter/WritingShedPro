@@ -14,9 +14,6 @@ final class Project {
     var userOrder: Int?
     @Relationship(deleteRule: .cascade, inverse: \Folder.project) var folders: [Folder]?
     
-    /// Trash items associated with this project
-    @Relationship(deleteRule: .cascade, inverse: \TrashItem.project) var trashedItems: [TrashItem]?
-    
     // Style sheet reference (Phase 5)
     var styleSheet: StyleSheet?
     
@@ -63,9 +60,6 @@ final class Folder {
     @Relationship(deleteRule: .cascade) var textFiles: [TextFile]?  // Inverse is TextFile.parentFolder
     @Relationship(inverse: \Folder.folders) var parentFolder: Folder?  // Inverse is folders
     var project: Project?
-    
-    /// Trash items that originally came from this folder
-    @Relationship(deleteRule: .nullify, inverse: \TrashItem.originalFolder) var trashedItems: [TrashItem]?
     
     init(name: String?, project: Project? = nil, parentFolder: Folder? = nil) {
         self.name = name
@@ -352,11 +346,11 @@ final class TrashItem {
     var textFile: TextFile?
     
     /// The folder the file originally came from (for Put Back)
-    @Relationship(deleteRule: .nullify, inverse: \Folder.trashedItems)
+    @Relationship(deleteRule: .nullify)
     var originalFolder: Folder?
     
     /// The project this trash item belongs to
-    @Relationship(deleteRule: .nullify, inverse: \Project.trashedItems)
+    @Relationship(deleteRule: .nullify)
     var project: Project?
     
     init(textFile: TextFile, originalFolder: Folder?, project: Project?) {
