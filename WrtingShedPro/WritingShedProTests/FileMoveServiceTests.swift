@@ -207,7 +207,6 @@ final class FileMoveServiceTests: XCTestCase {
         
         // Verify TrashItem created
         let textFileID = textFile.id
-        let textFileID = textFile.id
         let descriptor = FetchDescriptor<TrashItem>(
             predicate: #Predicate { $0.textFile?.id == textFileID }
         )
@@ -236,7 +235,6 @@ final class FileMoveServiceTests: XCTestCase {
         XCTAssertNil(file3.parentFolder, "File3 should be removed from folder")
         
         // Verify TrashItems created
-        let textFileID = textFile.id
         let descriptor = FetchDescriptor<TrashItem>()
         let trashItems = try modelContext.fetch(descriptor)
         
@@ -375,7 +373,6 @@ final class FileMoveServiceTests: XCTestCase {
         
         try service.deleteFiles([file1, file2, file3])
         
-        let textFileID = textFile.id
         let descriptor = FetchDescriptor<TrashItem>()
         let trashItems = try modelContext.fetch(descriptor)
         
