@@ -31,7 +31,7 @@ final class TextFileUndoManager: ObservableObject {
     private let maxStackSize: Int
     
     /// Reference to the file being edited
-    private weak var file: File?
+    private weak var file: TextFile?
     
     /// Buffer for typing coalescing
     private var typingBuffer: TextInsertCommand?
@@ -48,7 +48,7 @@ final class TextFileUndoManager: ObservableObject {
     /// - Parameters:
     ///   - file: The file to manage undo/redo for
     ///   - maxStackSize: Maximum number of commands to keep (default 100)
-    init(file: File, maxStackSize: Int = 100) {
+    init(file: TextFile, maxStackSize: Int = 100) {
         self.file = file
         self.maxStackSize = maxStackSize
     }

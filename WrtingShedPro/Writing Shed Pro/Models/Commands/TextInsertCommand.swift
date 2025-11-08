@@ -13,7 +13,7 @@ final class TextInsertCommand: UndoableCommand {
     let text: String
     
     /// Reference to the target file (weak to prevent retain cycles)
-    weak var targetFile: File?
+    weak var targetFile: TextFile?
     
     // MARK: - Initialization
     
@@ -22,7 +22,7 @@ final class TextInsertCommand: UndoableCommand {
          description: String = "Typing",
          position: Int, 
          text: String, 
-         targetFile: File?) {
+         targetFile: TextFile?) {
         self.id = id
         self.timestamp = timestamp
         self.description = description

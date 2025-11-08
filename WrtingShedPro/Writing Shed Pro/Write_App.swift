@@ -15,8 +15,10 @@ struct Write_App: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             Project.self,
-            File.self,
             Folder.self,
+            TextFile.self,
+            Version.self,
+            TrashItem.self,
             StyleSheet.self,
             TextStyleModel.self,
             PageSetup.self,

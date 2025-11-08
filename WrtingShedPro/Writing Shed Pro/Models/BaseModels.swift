@@ -56,7 +56,6 @@ enum ProjectType: String, Codable, CaseIterable {
 final class Folder {
     var id: UUID = UUID()
     var name: String?
-    @Relationship(deleteRule: .cascade, inverse: \File.parentFolder) var files: [File]?
     @Relationship(deleteRule: .cascade) var folders: [Folder]?  // Inverse is parentFolder
     @Relationship(deleteRule: .cascade) var textFiles: [TextFile]?  // Inverse is TextFile.parentFolder
     @Relationship(inverse: \Folder.folders) var parentFolder: Folder?  // Inverse is folders
@@ -67,112 +66,8 @@ final class Folder {
         self.name = name
         self.project = project
         self.parentFolder = parentFolder
-        self.files = []
         self.folders = []
         self.textFiles = []
-    }
-}
-
-@Model
-final class File {
-    var id: UUID = UUID()
-    var name: String?
-    var content: String? // Legacy - will be migrated to versions
-    var createdDate: Date = Date()
-    var modifiedDate: Date = Date()
-    var userOrder: Int?
-    var currentVersionIndex: Int = 0
-    var parentFolder: Folder?
-    
-    // Undo/Redo support
-    var undoStackData: Data?
-    var redoStackData: Data?
-    var undoStackMaxSize: Int = 100
-    var lastUndoSaveDate: Date?
-    
-    @Relationship(deleteRule: .cascade, inverse: \Version.file) var versions: [Version]?
-    
-    /// Get the project this file belongs to (via parent folder)
-    var project: Project? {
-        return parentFolder?.project
-    }
-    
-    init(name: String?, content: String? = nil, userOrder: Int? = nil) {
-        self.name = name
-        self.content = content
-        self.createdDate = Date()
-        self.modifiedDate = Date()
-        self.userOrder = userOrder
-        self.currentVersionIndex = 0
-        
-        // Create initial version
-        let initialVersion = Version(content: content ?? "", versionNumber: 1)
-        self.versions = [initialVersion]
-    }
-    
-    // MARK: - Version Management
-    
-    /// Returns the current version label for display (e.g., "Version 1/3")
-    func versionLabel() -> String {
-        let total = versions?.count ?? 0
-        let current = currentVersionIndex + 1
-        return "Version \(current)/\(total)"
-    }
-    
-    /// Returns the currently active version
-    var currentVersion: Version? {
-        guard let versions = versions, !versions.isEmpty, currentVersionIndex < versions.count else {
-            return nil
-        }
-        return versions.sorted(by: { $0.versionNumber < $1.versionNumber })[currentVersionIndex]
-    }
-    
-    /// Check if we're at the first version
-    func atFirstVersion() -> Bool {
-        return currentVersionIndex == 0
-    }
-    
-    /// Check if we're at the last version
-    func atLastVersion() -> Bool {
-        return currentVersionIndex >= (versions?.count ?? 1) - 1
-    }
-    
-    /// Navigate between versions
-    func changeVersion(by offset: Int) {
-        let newIndex = currentVersionIndex + offset
-        let maxIndex = (versions?.count ?? 1) - 1
-        currentVersionIndex = max(0, min(newIndex, maxIndex))
-    }
-    
-    /// Add a new version (duplicate current)
-    func addVersion() {
-        guard let currentVersion = currentVersion else { return }
-        let newVersionNumber = (versions?.count ?? 0) + 1
-        let newVersion = Version(
-            content: currentVersion.content,
-            versionNumber: newVersionNumber,
-            comment: "Duplicated from Version \(currentVersion.versionNumber)"
-        )
-        versions?.append(newVersion)
-        currentVersionIndex = (versions?.count ?? 1) - 1
-        modifiedDate = Date()
-    }
-    
-    /// Delete the current version
-    func deleteVersion() {
-        guard let versions = versions, versions.count > 1 else { return }
-        let sortedVersions = versions.sorted(by: { $0.versionNumber < $1.versionNumber })
-        let versionToDelete = sortedVersions[currentVersionIndex]
-        
-        // Remove from array
-        self.versions?.removeAll { $0.id == versionToDelete.id }
-        
-        // Adjust current index if needed
-        if currentVersionIndex >= (self.versions?.count ?? 0) {
-            currentVersionIndex = max(0, (self.versions?.count ?? 1) - 1)
-        }
-        
-        modifiedDate = Date()
     }
 }
 
@@ -190,7 +85,6 @@ final class Version {
     
     // SwiftData Relationships
     var textFile: TextFile?
-    var file: File?
     
     init(content: String = "", versionNumber: Int = 1, comment: String? = nil) {
         self.content = content
@@ -246,6 +140,13 @@ final class TextFile {
     var createdDate: Date = Date()
     var modifiedDate: Date = Date()
     var currentVersionIndex: Int = 0
+    var userOrder: Int?
+    
+    // Undo/Redo support (for TextFileUndoManager)
+    var undoStackData: Data?
+    var redoStackData: Data?
+    var undoStackMaxSize: Int = 100
+    var lastUndoSaveDate: Date?
     
     // SwiftData Relationships - all must be optional for CloudKit
     @Relationship(deleteRule: .nullify, inverse: \Folder.textFiles) 
@@ -255,6 +156,11 @@ final class TextFile {
     var versions: [Version]? = nil
     
     var trashItem: TrashItem? // Inverse for TrashItem.textFile
+    
+    /// Get the project this file belongs to (via parent folder)
+    var project: Project? {
+        return parentFolder?.project
+    }
     
     init(name: String = "", initialContent: String = "", parentFolder: Folder? = nil) {
         self.name = name

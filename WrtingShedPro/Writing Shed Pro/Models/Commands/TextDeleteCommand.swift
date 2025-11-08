@@ -16,7 +16,7 @@ final class TextDeleteCommand: UndoableCommand {
     let deletedText: String
     
     /// Reference to the target file (weak to prevent retain cycles)
-    weak var targetFile: File?
+    weak var targetFile: TextFile?
     
     // MARK: - Initialization
     
@@ -26,7 +26,7 @@ final class TextDeleteCommand: UndoableCommand {
          startPosition: Int,
          endPosition: Int,
          deletedText: String,
-         targetFile: File?) {
+         targetFile: TextFile?) {
         self.id = id
         self.timestamp = timestamp
         self.description = description
