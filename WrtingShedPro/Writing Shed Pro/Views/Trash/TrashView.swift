@@ -176,6 +176,9 @@ struct TrashView: View {
                             swipeActionButtons(for: item)
                         }
                     }
+                    .contextMenu {
+                        contextMenuItems(for: item)
+                    }
             }
         }
         .environment(\.editMode, $editMode)
@@ -248,6 +251,30 @@ struct TrashView: View {
             )
         }
         .disabled(selectedItems.isEmpty)
+    }
+    
+    /// Context menu items for macOS right-click
+    @ViewBuilder
+    private func contextMenuItems(for item: TrashItem) -> some View {
+        #if targetEnvironment(macCatalyst)
+        // macOS: Show context menu
+        Button {
+            preparePutBack([item])
+        } label: {
+            Label("Put Back", systemImage: "arrow.uturn.backward")
+        }
+        
+        Divider()
+        
+        Button(role: .destructive) {
+            preparePermanentDelete([item])
+        } label: {
+            Label("Delete Forever", systemImage: "trash")
+        }
+        #else
+        // iOS: Context menu disabled (use swipe actions instead)
+        EmptyView()
+        #endif
     }
     
     // MARK: - Actions

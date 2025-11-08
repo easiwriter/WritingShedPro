@@ -3,7 +3,7 @@
 //  Writing Shed Pro
 //
 //  Created on 2025-11-08.
-//  Feature: 008a-file-movement - Phase 2
+//  Feature: 008a-file-movement - Phase 2, 6
 //
 
 import SwiftUI
@@ -16,6 +16,7 @@ import SwiftData
 /// - Swipe actions for quick single-file operations (normal mode only)
 /// - Bottom toolbar with Move/Delete for multiple selections
 /// - iOS-standard pattern following Mail/Files/Photos apps
+/// - **Mac Catalyst**: Cmd+Click multi-select, right-click context menu
 ///
 /// **Usage:**
 /// ```swift
@@ -134,12 +135,18 @@ struct FileListView: View {
         if isEditMode {
             // Edit mode: Tapping toggles selection, no navigation
             fileRowContent(for: file)
+                .contextMenu {
+                    contextMenuItems(for: file)
+                }
         } else {
             // Normal mode: Tapping navigates to file
             Button {
                 onFileSelected(file)
             } label: {
                 fileRowContent(for: file)
+            }
+            .contextMenu {
+                contextMenuItems(for: file)
             }
         }
     }
@@ -201,6 +208,38 @@ struct FileListView: View {
             )
         }
         .disabled(selectedFiles.isEmpty)
+    }
+    
+    /// Context menu items for macOS right-click
+    @ViewBuilder
+    private func contextMenuItems(for file: TextFile) -> some View {
+        #if targetEnvironment(macCatalyst)
+        // macOS: Show context menu
+        Button {
+            onFileSelected(file)
+        } label: {
+            Label("Open", systemImage: "doc")
+        }
+        
+        Divider()
+        
+        Button {
+            onMove([file])
+        } label: {
+            Label("Move To...", systemImage: "folder")
+        }
+        
+        Divider()
+        
+        Button(role: .destructive) {
+            prepareDelete([file])
+        } label: {
+            Label("Delete", systemImage: "trash")
+        }
+        #else
+        // iOS: Context menu disabled (use swipe actions instead)
+        EmptyView()
+        #endif
     }
     
     // MARK: - Actions
