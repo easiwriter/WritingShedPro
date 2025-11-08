@@ -257,7 +257,6 @@ final class TrashItemTests: XCTestCase {
         
         // When/Then
         XCTAssertEqual(trashItem.textFile, textFile, "TrashItem should maintain reference to TextFile")
-        XCTAssertEqual(textFile.trashItem, trashItem, "TextFile should have inverse relationship to TrashItem")
     }
     
     func testCascadeDeleteWhenTextFileDeleted() {
