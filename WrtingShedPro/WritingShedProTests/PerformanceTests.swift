@@ -16,7 +16,7 @@ final class PerformanceTests: XCTestCase {
     var modelContext: ModelContext!
     
     override func setUp() async throws {
-        let schema = Schema([File.self, Version.self, StyleSheet.self, TextStyleModel.self])
+        let schema = Schema([Project.self, Folder.self, TextFile.self, Version.self, TrashItem.self, StyleSheet.self, TextStyleModel.self])
         let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
         modelContainer = try ModelContainer(for: schema, configurations: [configuration])
         modelContext = modelContainer.mainContext
@@ -191,13 +191,13 @@ final class PerformanceTests: XCTestCase {
     
     func testUndoStackPerformance() {
         // Given
-        let file = File(name: "Test", content: "")
-        let version = Version(content: "", versionNumber: 1)
-        version.file = file
-        file.versions = [version]
+        let folder = Folder(name: "Test Folder", project: nil)
+        modelContext.insert(folder)
         
+        let file = TextFile(name: "Test", initialContent: "", parentFolder: folder)
         modelContext.insert(file)
-        modelContext.insert(version)
+        
+        let version = file.currentVersion!
         
         // When - Perform many operations
         measure {
@@ -209,13 +209,13 @@ final class PerformanceTests: XCTestCase {
     
     func testUndoRedoWithFormatting() {
         // Given
-        let file = File(name: "Test", content: "")
-        let version = Version(content: "", versionNumber: 1)
-        version.file = file
-        file.versions = [version]
+        let folder = Folder(name: "Test Folder", project: nil)
+        modelContext.insert(folder)
         
+        let file = TextFile(name: "Test", initialContent: "", parentFolder: folder)
         modelContext.insert(file)
-        modelContext.insert(version)
+        
+        let version = file.currentVersion!
         
         let text = NSMutableAttributedString(string: "Test Text")
         version.attributedContent = text

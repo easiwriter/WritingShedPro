@@ -6,22 +6,27 @@ final class FormattingCommandTests: XCTestCase {
     
     var modelContainer: ModelContainer!
     var modelContext: ModelContext!
-    var testFile: File!
+    var testFile: TextFile!
+    var testFolder: Folder!
     var undoManager: TextFileUndoManager!
     
     override func setUp() {
         super.setUp()
         
         // Create in-memory model container for testing
-        let schema = Schema([Project.self, Folder.self, File.self, Version.self, TextFile.self])
+        let schema = Schema([Project.self, Folder.self, Version.self, TextFile.self, TrashItem.self])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
         
         do {
             modelContainer = try ModelContainer(for: schema, configurations: [modelConfiguration])
             modelContext = ModelContext(modelContainer)
             
+            // Create test folder
+            testFolder = Folder(name: "Test Folder", project: nil)
+            modelContext.insert(testFolder)
+            
             // Create test file with attributed content
-            testFile = File(name: "Test File", content: "Hello World")
+            testFile = TextFile(name: "Test File", initialContent: "Hello World", parentFolder: testFolder)
             modelContext.insert(testFile)
             
             // Create undo manager
@@ -33,6 +38,7 @@ final class FormattingCommandTests: XCTestCase {
     
     override func tearDown() {
         undoManager = nil
+        testFolder = nil
         testFile = nil
         modelContext = nil
         modelContainer = nil
@@ -606,8 +612,9 @@ final class FormattingCommandTests: XCTestCase {
         
         // Then: Font family should still be Helvetica
         let result = testFile.currentVersion?.attributedContent ?? NSAttributedString()
-        let attributes = result.attributes(at: 0, effectiveRange: nil)
-        let resultFont = attributes[.font] as? UIFont
+        var effectiveRange = NSRange(location: 0, length: 0)
+        let attributes = result.attributes(at: 0, effectiveRange: &effectiveRange)
+        let resultFont = attributes[NSAttributedString.Key.font] as? UIFont
         
         XCTAssertNotNil(resultFont, "Font should exist")
         XCTAssertTrue(resultFont!.fontName.contains("Helvetica"), "Font family should be Helvetica, got \(resultFont!.fontName)")
@@ -639,8 +646,9 @@ final class FormattingCommandTests: XCTestCase {
         
         // Then: Font size should still be 24
         let result = testFile.currentVersion?.attributedContent ?? NSAttributedString()
-        let attributes = result.attributes(at: 6, effectiveRange: nil)
-        let resultFont = attributes[.font] as? UIFont
+        var effectiveRange = NSRange(location: 0, length: 0)
+        let attributes = result.attributes(at: 6, effectiveRange: &effectiveRange)
+        let resultFont = attributes[NSAttributedString.Key.font] as? UIFont
         
         XCTAssertNotNil(resultFont, "Font should exist")
         XCTAssertEqual(resultFont!.pointSize, 24, "Font size should be preserved at 24")
@@ -666,8 +674,9 @@ final class FormattingCommandTests: XCTestCase {
         
         // Then: Font should still be Times New Roman (or variant), size 18, bold+italic
         let result = testFile.currentVersion?.attributedContent ?? NSAttributedString()
-        let attributes = result.attributes(at: 0, effectiveRange: nil)
-        let resultFont = attributes[.font] as? UIFont
+        var effectiveRange = NSRange(location: 0, length: 0)
+        let attributes = result.attributes(at: 0, effectiveRange: &effectiveRange)
+        let resultFont = attributes[NSAttributedString.Key.font] as? UIFont
         
         XCTAssertNotNil(resultFont, "Font should exist")
         XCTAssertTrue(resultFont!.familyName.contains("Times"), "Font family should be Times, got \(resultFont!.familyName)")

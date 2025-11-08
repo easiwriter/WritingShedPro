@@ -21,7 +21,6 @@ final class TrashItemTests: XCTestCase {
         let schema = Schema([
             Project.self,
             Folder.self,
-            File.self,
             TextFile.self,
             Version.self,
             TrashItem.self

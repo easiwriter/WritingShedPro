@@ -82,9 +82,7 @@ final class UniquenessCheckerTests: XCTestCase {
     func testIsFileNameUniqueDuplicateReturnsFalse() {
         let project = Project(name: "Project", type: .blank)
         let folder = Folder(name: "Folder", project: project)
-        let file = File(name: "chapter.txt")
-        file.parentFolder = folder
-        folder.files = [file]
+        let file = TextFile(name: "chapter.txt", initialContent: "", parentFolder: folder)
         
         XCTAssertFalse(UniquenessChecker.isFileNameUnique("chapter.txt", in: folder))
     }

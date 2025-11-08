@@ -9,7 +9,7 @@ final class ProjectTemplateServiceTests: XCTestCase {
     override func setUp() {
         super.setUp()
         // Create in-memory model container for testing
-        let schema = Schema([Project.self, Folder.self, File.self])
+        let schema = Schema([Project.self, Folder.self, TextFile.self, Version.self, TrashItem.self])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         modelContainer = try! ModelContainer(for: schema, configurations: config)
         modelContext = ModelContext(modelContainer)
