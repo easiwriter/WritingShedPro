@@ -28,7 +28,7 @@ struct FolderFilesView: View {
     @State private var navigateToFile = false
     
     var body: some View {
-        ZStack {
+        Group {
             if let files = folder.textFiles, !files.isEmpty {
                 // Show FileListView with files
                 FileListView(
@@ -56,6 +56,11 @@ struct FolderFilesView: View {
         }
         .navigationTitle(folder.name ?? "Files")
         .navigationBarTitleDisplayMode(.inline)
+        .navigationDestination(isPresented: $navigateToFile) {
+            if let file = selectedFile {
+                FileEditView(file: file)
+            }
+        }
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 if FolderCapabilityService.canAddFile(to: folder) {
@@ -66,11 +71,6 @@ struct FolderFilesView: View {
                     }
                     .accessibilityLabel("Add file")
                 }
-            }
-        }
-        .navigationDestination(isPresented: $navigateToFile) {
-            if let file = selectedFile {
-                FileEditView(file: file)
             }
         }
         .sheet(isPresented: $showMoveDestinationPicker) {
