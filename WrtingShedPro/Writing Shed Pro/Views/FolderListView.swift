@@ -83,19 +83,26 @@ struct FolderListView: View {
             if selectedFolder == nil {
                 // Show all project folders in a simple list
                 ForEach(projectFolders) { folder in
-                    // Navigate to subfolders OR to file list based on folder capabilities
-                    let canAddFolder = FolderCapabilityService.canAddSubfolder(to: folder)
-                    let canAddFile = FolderCapabilityService.canAddFile(to: folder)
-                    
-                    if canAddFolder {
-                        // This folder contains subfolders - navigate to FolderListView
-                        NavigationLink(destination: FolderListView(project: project, selectedFolder: folder)) {
+                    // Special handling for Trash folder
+                    if folder.name == "Trash" {
+                        NavigationLink(destination: TrashView(project: project)) {
                             FolderRowView(folder: folder)
                         }
                     } else {
-                        // This folder contains files - navigate to FolderFilesView
-                        NavigationLink(destination: FolderFilesView(folder: folder)) {
-                            FolderRowView(folder: folder)
+                        // Navigate to subfolders OR to file list based on folder capabilities
+                        let canAddFolder = FolderCapabilityService.canAddSubfolder(to: folder)
+                        let canAddFile = FolderCapabilityService.canAddFile(to: folder)
+                        
+                        if canAddFolder {
+                            // This folder contains subfolders - navigate to FolderListView
+                            NavigationLink(destination: FolderListView(project: project, selectedFolder: folder)) {
+                                FolderRowView(folder: folder)
+                            }
+                        } else {
+                            // This folder contains files - navigate to FolderFilesView
+                            NavigationLink(destination: FolderFilesView(folder: folder)) {
+                                FolderRowView(folder: folder)
+                            }
                         }
                     }
                     
