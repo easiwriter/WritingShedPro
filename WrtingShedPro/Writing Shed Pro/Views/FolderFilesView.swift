@@ -65,6 +65,9 @@ struct FolderFilesView: View {
             }
         }
         .environment(\.editMode, $editMode)
+        .onChange(of: editMode) { oldValue, newValue in
+            print("🔴 FolderFilesView: editMode changed from \(oldValue) to \(newValue)")
+        }
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
                 if let files = folder.textFiles, !files.isEmpty {
