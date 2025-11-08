@@ -50,10 +50,10 @@ struct FileListView: View {
     
     // MARK: - State
     
-    /// Edit mode state - .inactive (normal) or .active (edit mode with selections)
-    @State private var editMode: EditMode = .inactive
+    /// Edit mode state - read from environment (set by parent view with EditButton)
+    @Environment(\.editMode) private var editMode
     
-    /// Currently selected files for multi-select operations (SwiftUI List selection requires PersistentIdentifier for SwiftData models)
+    /// Currently selected files for multi-select operations
     @State private var selectedFiles: Set<TextFile> = []
     
     /// Controls delete confirmation alert
@@ -71,7 +71,7 @@ struct FileListView: View {
     
     /// Whether edit mode is currently active
     private var isEditMode: Bool {
-        editMode == .active
+        editMode?.wrappedValue == .active
     }
     
     /// Whether toolbar should be visible (edit mode + items selected)
@@ -96,14 +96,17 @@ struct FileListView: View {
                 handleMove(from: indices, to: destination)
             }
         }
-        .environment(\.editMode, $editMode)
         .listStyle(.plain)
+        .onChange(of: editMode?.wrappedValue) { oldValue, newValue in
+            print("🔧 FileListView: editMode changed from \(String(describing: oldValue)) to \(String(describing: newValue))")
+            print("🔧 FileListView: files count = \(files.count)")
+            print("🔧 FileListView: selectedFiles count = \(selectedFiles.count)")
+        }
+        .onChange(of: selectedFiles) { oldValue, newValue in
+            print("🔧 FileListView: selectedFiles changed from \(oldValue.count) to \(newValue.count)")
+            print("🔧 FileListView: selected file names: \(newValue.map { $0.name ?? "Untitled" })")
+        }
         .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                EditButton()
-                    .disabled(files.isEmpty)
-            }
-            
             // Bottom toolbar for multi-select actions (only in edit mode)
             ToolbarItemGroup(placement: .bottomBar) {
                 if showToolbar {
@@ -124,7 +127,7 @@ struct FileListView: View {
         } message: {
             Text("Deleted files can be restored from Trash.")
         }
-        .onChange(of: editMode) { _, newValue in
+        .onChange(of: editMode?.wrappedValue) { _, newValue in
             // Clear selection when exiting edit mode
             if newValue == .inactive {
                 selectedFiles.removeAll()
@@ -147,11 +150,14 @@ struct FileListView: View {
         }
         .contentShape(Rectangle())
         .onTapGesture {
+            print("🔧 FileRow tapped: \(file.name ?? "Untitled"), isEditMode=\(isEditMode)")
             if !isEditMode {
                 // Normal mode: navigate to file
+                print("🔧 FileRow: Calling onFileSelected")
                 onFileSelected(file)
+            } else {
+                print("🔧 FileRow: In edit mode, should let List handle selection")
             }
-            // Edit mode: let List handle selection automatically
         }
         .contextMenu {
             contextMenuItems(for: file)
@@ -253,7 +259,7 @@ struct FileListView: View {
     /// Exits edit mode (returns to normal mode)
     private func exitEditMode() {
         withAnimation {
-            editMode = .inactive
+            editMode?.wrappedValue = .inactive
         }
     }
     

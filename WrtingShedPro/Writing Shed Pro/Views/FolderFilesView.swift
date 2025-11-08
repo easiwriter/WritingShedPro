@@ -16,6 +16,9 @@ struct FolderFilesView: View {
     @Environment(\.modelContext) var modelContext
     @Environment(\.dismiss) var dismiss
     
+    // State for edit mode (shared with FileListView)
+    @State private var editMode: EditMode = .inactive
+    
     // State for move destination picker
     @State private var showMoveDestinationPicker = false
     @State private var filesToMove: [TextFile] = []
@@ -61,7 +64,14 @@ struct FolderFilesView: View {
                 FileEditView(file: file)
             }
         }
+        .environment(\.editMode, $editMode)
         .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                if let files = folder.textFiles, !files.isEmpty {
+                    EditButton()
+                }
+            }
+            
             ToolbarItem(placement: .navigationBarTrailing) {
                 if FolderCapabilityService.canAddFile(to: folder) {
                     Button {
