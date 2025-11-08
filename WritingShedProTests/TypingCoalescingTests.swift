@@ -14,24 +14,26 @@ final class TypingCoalescingTests: XCTestCase {
     
     var modelContainer: ModelContainer!
     var modelContext: ModelContext!
-    var file: File!
+    var file: TextFile!
+    var folder: Folder!
     var version: Version!
     var undoManager: TextFileUndoManager!
     
     override func setUp() async throws {
-        let schema = Schema([File.self, Version.self])
+        let schema = Schema([Project.self, Folder.self, TextFile.self, Version.self, TrashItem.self])
         let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
         modelContainer = try ModelContainer(for: schema, configurations: [configuration])
         modelContext = modelContainer.mainContext
         
-        // Create test file and version
-        file = File(name: "Test", content: "")
-        version = Version(content: "", versionNumber: 1)
-        version.file = file
-        file.versions = [version]
+        // Create test folder
+        folder = Folder(name: "Test Folder", project: nil)
+        modelContext.insert(folder)
         
+        // Create test file
+        file = TextFile(name: "Test", initialContent: "", parentFolder: folder)
         modelContext.insert(file)
-        modelContext.insert(version)
+        
+        version = file.currentVersion!
         try modelContext.save()
         
         // Create undo manager
@@ -43,6 +45,7 @@ final class TypingCoalescingTests: XCTestCase {
         modelContainer = nil
         modelContext = nil
         file = nil
+        folder = nil
         version = nil
     }
     

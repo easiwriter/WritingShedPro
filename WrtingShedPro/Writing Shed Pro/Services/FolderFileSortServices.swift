@@ -43,7 +43,7 @@ enum FileSortOrder: String, CaseIterable {
 }
 
 struct FileSortService {
-    static func sort(_ files: [File], by order: FileSortOrder) -> [File] {
+    static func sort(_ files: [TextFile], by order: FileSortOrder) -> [TextFile] {
         switch order {
         case .byName:
             return files.sorted { ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending }

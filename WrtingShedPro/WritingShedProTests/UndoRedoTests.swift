@@ -6,21 +6,26 @@ final class UndoRedoTests: XCTestCase {
     
     var modelContainer: ModelContainer!
     var modelContext: ModelContext!
-    var testFile: File!
+    var testFile: TextFile!
+    var testFolder: Folder!
     
     override func setUp() {
         super.setUp()
         
         // Create in-memory model container for testing
-        let schema = Schema([Project.self, Folder.self, File.self, Version.self, TextFile.self])
+        let schema = Schema([Project.self, Folder.self, Version.self, TextFile.self, TrashItem.self])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
         
         do {
             modelContainer = try ModelContainer(for: schema, configurations: [modelConfiguration])
             modelContext = ModelContext(modelContainer)
             
+            // Create test folder
+            testFolder = Folder(name: "Test Folder", project: nil)
+            modelContext.insert(testFolder)
+            
             // Create test file
-            testFile = File(name: "Test File", content: "Hello World")
+            testFile = TextFile(name: "Test File", initialContent: "Hello World", parentFolder: testFolder)
             modelContext.insert(testFile)
         } catch {
             fatalError("Could not create ModelContainer: \(error)")
@@ -29,6 +34,7 @@ final class UndoRedoTests: XCTestCase {
     
     override func tearDown() {
         testFile = nil
+        testFolder = nil
         modelContext = nil
         modelContainer = nil
         super.tearDown()

@@ -92,14 +92,9 @@ struct FolderListView: View {
                         NavigationLink(destination: FolderListView(project: project, selectedFolder: folder)) {
                             FolderRowView(folder: folder)
                         }
-                    } else if canAddFile {
-                        // This folder contains files - navigate to FileEditableList
-                        NavigationLink(destination: FileEditableList(folder: folder)) {
-                            FolderRowView(folder: folder)
-                        }
                     } else {
-                        // Read-only folder - navigate to FileEditableList
-                        NavigationLink(destination: FileEditableList(folder: folder)) {
+                        // This folder contains files - navigate to FolderFilesView
+                        NavigationLink(destination: FolderFilesView(folder: folder)) {
                             FolderRowView(folder: folder)
                         }
                     }
@@ -125,14 +120,9 @@ struct FolderListView: View {
                                 NavigationLink(destination: FolderListView(project: project, selectedFolder: subfolder)) {
                                     FolderRowView(folder: subfolder)
                                 }
-                            } else if canAddFile {
-                                // This folder contains files - navigate to FileEditableList
-                                NavigationLink(destination: FileEditableList(folder: subfolder)) {
-                                    FolderRowView(folder: subfolder)
-                                }
                             } else {
-                                // Read-only folder - navigate to FileEditableList
-                                NavigationLink(destination: FileEditableList(folder: subfolder)) {
+                                // This folder contains files - navigate to FolderFilesView
+                                NavigationLink(destination: FolderFilesView(folder: subfolder)) {
                                     FolderRowView(folder: subfolder)
                                 }
                             }
@@ -209,7 +199,7 @@ struct FolderRowView: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)
         .task {
-            fileCount = folder.files?.count ?? 0
+            fileCount = folder.textFiles?.count ?? 0
             subfolderCount = folder.folders?.count ?? 0
         }
     }

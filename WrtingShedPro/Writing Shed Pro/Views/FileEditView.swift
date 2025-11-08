@@ -4,7 +4,7 @@ import ToolbarSUI
 import UniformTypeIdentifiers
 
 struct FileEditView: View {
-    let file: File
+    let file: TextFile
     
     @State private var attributedContent: NSAttributedString
     @State private var selectedRange: NSRange = NSRange(location: 0, length: 0)
@@ -38,7 +38,7 @@ struct FileEditView: View {
         case delete
     }
     
-    init(file: File) {
+    init(file: TextFile) {
         self.file = file
         
         // Initialize with empty content - will load in onAppear to avoid repeated init calls
