@@ -13,6 +13,8 @@ import SwiftData
 class Submission {
     var id: UUID = UUID()
     var publication: Publication?
+    
+    @Relationship(inverse: \Project.submissions)
     var project: Project?
     
     @Relationship(deleteRule: .cascade, inverse: \SubmittedFile.submission)

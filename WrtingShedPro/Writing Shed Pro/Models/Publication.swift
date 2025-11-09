@@ -18,7 +18,9 @@ class Publication {
     var notes: String?
     var deadline: Date?
     
+    @Relationship(inverse: \Project.publications)
     var project: Project?
+    
     @Relationship(deleteRule: .cascade, inverse: \Submission.publication)
     var submissions: [Submission]? = []
     

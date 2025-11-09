@@ -13,13 +13,18 @@ import SwiftData
 class SubmittedFile {
     var id: UUID = UUID()
     var submission: Submission?
+    
+    @Relationship(inverse: \TextFile.submittedFiles)
     var textFile: TextFile?
+    
+    @Relationship(inverse: \Version.submittedFiles)
     var version: Version?
     
     var status: SubmissionStatus?
     var statusDate: Date?
     var statusNotes: String?
     
+    @Relationship(inverse: \Project.submittedFiles)
     var project: Project?
     
     var createdDate: Date = Date()

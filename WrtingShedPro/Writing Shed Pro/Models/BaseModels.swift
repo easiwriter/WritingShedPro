@@ -15,6 +15,11 @@ final class Project {
     @Relationship(deleteRule: .cascade, inverse: \Folder.project) var folders: [Folder]?
     var trashedItems: [TrashItem]? // Inverse for TrashItem.project
     
+    // Feature 008b: Publication Management
+    @Relationship(deleteRule: .cascade, inverse: \Publication.project) var publications: [Publication]? = []
+    @Relationship(deleteRule: .cascade, inverse: \Submission.project) var submissions: [Submission]? = []
+    @Relationship(deleteRule: .cascade, inverse: \SubmittedFile.project) var submittedFiles: [SubmittedFile]? = []
+    
     // Style sheet reference (Phase 5)
     var styleSheet: StyleSheet?
     
@@ -85,6 +90,10 @@ final class Version {
     
     // SwiftData Relationships
     var textFile: TextFile?
+    
+    // Feature 008b: Publication Management
+    @Relationship(deleteRule: .nullify, inverse: \SubmittedFile.version) 
+    var submittedFiles: [SubmittedFile]? = []
     
     init(content: String = "", versionNumber: Int = 1, comment: String? = nil) {
         self.content = content
@@ -196,6 +205,10 @@ final class TextFile {
     var versions: [Version]? = nil
     
     var trashItem: TrashItem? // Inverse for TrashItem.textFile
+    
+    // Feature 008b: Publication Management
+    @Relationship(deleteRule: .nullify, inverse: \SubmittedFile.textFile) 
+    var submittedFiles: [SubmittedFile]? = []
     
     /// Get the project this file belongs to (via parent folder)
     var project: Project? {
