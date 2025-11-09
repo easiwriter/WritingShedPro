@@ -19,6 +19,9 @@ struct FolderFilesView: View {
     // State for edit mode (shared with FileListView)
     @State private var editMode: EditMode = .inactive
     
+    // State for file sorting
+    @State private var sortOrder: FileSortOrder = .byName
+    
     // State for move destination picker
     @State private var showMoveDestinationPicker = false
     @State private var filesToMove: [TextFile] = []
@@ -30,12 +33,18 @@ struct FolderFilesView: View {
     @State private var selectedFile: TextFile?
     @State private var navigateToFile = false
     
+    // Sorted files based on current sort order
+    private var sortedFiles: [TextFile] {
+        let files = folder.textFiles ?? []
+        return FileSortService.sort(files, by: sortOrder)
+    }
+    
     var body: some View {
         Group {
-            if let files = folder.textFiles, !files.isEmpty {
-                // Show FileListView with files
+            if !sortedFiles.isEmpty {
+                // Show FileListView with sorted files
                 FileListView(
-                    files: files,
+                    files: sortedFiles,
                     onFileSelected: { file in
                         selectedFile = file
                         navigateToFile = true
@@ -71,6 +80,21 @@ struct FolderFilesView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack(spacing: 16) {
+                    // Sort menu
+                    if !sortedFiles.isEmpty {
+                        Menu {
+                            Picker("Sort", selection: $sortOrder) {
+                                Text("Name").tag(FileSortOrder.byName)
+                                Text("Created").tag(FileSortOrder.byCreationDate)
+                                Text("Modified").tag(FileSortOrder.byModifiedDate)
+                                Text("Custom").tag(FileSortOrder.byUserOrder)
+                            }
+                        } label: {
+                            Image(systemName: "arrow.up.arrow.down")
+                        }
+                        .accessibilityLabel("Sort files")
+                    }
+                    
                     // Add file button (left of Edit)
                     if FolderCapabilityService.canAddFile(to: folder) {
                         Button {
@@ -82,7 +106,7 @@ struct FolderFilesView: View {
                     }
                     
                     // Manual Edit/Done button on far right (replaces SwiftUI's EditButton which isn't working)
-                    if let files = folder.textFiles, !files.isEmpty {
+                    if !sortedFiles.isEmpty {
                         Button {
                             print("🔴 Manual Edit button tapped, current mode: \(editMode)")
                             withAnimation {
