@@ -90,6 +90,7 @@
 "submissions.detail.title" = "Submission Details";
 "submissions.select.files" = "Select Files";
 "submissions.files.selected" = "%d file(s) selected";
+"submissions.files.count" = "%d files";
 "submissions.date.label" = "Submission Date";
 "submissions.notes.label" = "Notes (optional)";
 "submissions.submitting.to" = "Submitting To";
