@@ -102,18 +102,6 @@ struct FileListView: View {
             }
         }
         .listStyle(.plain)
-        .onChange(of: editMode?.wrappedValue) { oldValue, newValue in
-            print("🔧 FileListView: editMode changed from \(String(describing: oldValue)) to \(String(describing: newValue))")
-            print("🔧 FileListView: files count = \(files.count)")
-            print("🔧 FileListView: selectedFileIDs count = \(selectedFileIDs.count)")
-        }
-        .onChange(of: selectedFileIDs) { oldValue, newValue in
-            print("🔧 FileListView: selectedFileIDs changed from \(oldValue.count) to \(newValue.count)")
-            if !newValue.isEmpty {
-                let names = files.filter { newValue.contains($0.id) }.map { $0.name ?? "Untitled" }
-                print("🔧 FileListView: selected file names: \(names)")
-            }
-        }
         .toolbar {
             // Bottom toolbar for multi-select actions (only in edit mode)
             ToolbarItemGroup(placement: .bottomBar) {
@@ -158,13 +146,9 @@ struct FileListView: View {
         }
         .contentShape(Rectangle())
         .onTapGesture {
-            print("🔧 FileRow tapped: \(file.name ?? "Untitled"), isEditMode=\(isEditMode)")
             if !isEditMode {
                 // Normal mode: navigate to file
-                print("🔧 FileRow: Calling onFileSelected")
                 onFileSelected(file)
-            } else {
-                print("🔧 FileRow: In edit mode, should let List handle selection")
             }
         }
         .contextMenu {
@@ -274,8 +258,6 @@ struct FileListView: View {
     /// Handles drag-to-reorder operation
     /// Updates userOrder for files when user manually reorders them
     private func handleMove(from source: IndexSet, to destination: Int) {
-        print("🔧 handleMove: from \(source) to \(destination)")
-        
         // Create mutable copy of files array to reorder
         var reorderedFiles = files
         reorderedFiles.move(fromOffsets: source, toOffset: destination)
@@ -283,7 +265,6 @@ struct FileListView: View {
         // Update userOrder for all files based on new positions
         for (index, file) in reorderedFiles.enumerated() {
             file.userOrder = index
-            print("🔧 Set userOrder for '\(file.name ?? "Untitled")' = \(index)")
         }
         
         // Notify parent to switch to Custom sort so changes are visible

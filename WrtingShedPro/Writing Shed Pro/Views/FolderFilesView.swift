@@ -58,7 +58,6 @@ struct FolderFilesView: View {
                     },
                     onReorder: {
                         // User dragged to reorder - switch to Custom sort
-                        print("🔴 FolderFilesView: Switching to Custom sort after reorder")
                         sortOrder = .byUserOrder
                     }
                 )
@@ -79,9 +78,6 @@ struct FolderFilesView: View {
             }
         }
         .environment(\.editMode, $editMode)
-        .onChange(of: editMode) { oldValue, newValue in
-            print("🔴 FolderFilesView: editMode changed from \(oldValue) to \(newValue)")
-        }
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack(spacing: 16) {
@@ -113,11 +109,9 @@ struct FolderFilesView: View {
                     // Manual Edit/Done button on far right (replaces SwiftUI's EditButton which isn't working)
                     if !sortedFiles.isEmpty {
                         Button {
-                            print("🔴 Manual Edit button tapped, current mode: \(editMode)")
                             withAnimation {
                                 editMode = editMode == .inactive ? .active : .inactive
                             }
-                            print("🔴 After toggle, new mode: \(editMode)")
                         } label: {
                             Text(editMode == .inactive ? "Edit" : "Done")
                         }
