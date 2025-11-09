@@ -11,19 +11,19 @@ import SwiftData
 
 @Model
 class SubmittedFile {
-    var id: UUID
-    var submission: Submission
-    var textFile: TextFile
-    var version: Version
+    var id: UUID = UUID()
+    var submission: Submission?
+    var textFile: TextFile?
+    var version: Version?
     
-    var status: SubmissionStatus
+    var status: SubmissionStatus = .pending
     var statusDate: Date?
     var statusNotes: String?
     
-    var project: Project
+    var project: Project?
     
-    var createdDate: Date
-    var modifiedDate: Date
+    var createdDate: Date = Date()
+    var modifiedDate: Date = Date()
     
     init(
         id: UUID = UUID(),
@@ -58,6 +58,7 @@ class SubmittedFile {
     }
     
     var daysSinceSubmission: Int {
+        guard let submission = submission else { return 0 }
         let endDate = statusDate ?? Date()
         return Calendar.current.dateComponents(
             [.day],

@@ -11,18 +11,19 @@ import SwiftData
 
 @Model
 class Publication {
-    var id: UUID
-    var name: String
-    var type: PublicationType
+    var id: UUID = UUID()
+    var name: String = ""
+    var type: PublicationType = .magazine
     var url: String?
     var notes: String?
     var deadline: Date?
     
-    var project: Project
-    var submissions: [Submission]
+    var project: Project?
+    @Relationship(deleteRule: .cascade, inverse: \Submission.publication)
+    var submissions: [Submission] = []
     
-    var createdDate: Date
-    var modifiedDate: Date
+    var createdDate: Date = Date()
+    var modifiedDate: Date = Date()
     
     init(
         id: UUID = UUID(),
