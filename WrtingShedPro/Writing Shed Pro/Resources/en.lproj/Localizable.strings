@@ -104,6 +104,11 @@
 "submissions.status.pending.count" = "Pending";
 "submissions.status.accepted.count" = "Accepted";
 "submissions.status.rejected.count" = "Rejected";
+"submissions.status.all.accepted" = "All Accepted";
+"submissions.status.all.rejected" = "All Rejected";
+"submissions.status.unknown" = "Unknown";
+"submissions.submitted.label" = "Submitted";
+"submissions.delete.button" = "Delete Submission";
 "submissions.updated.on" = "Updated: %@";
 "submissions.version.label" = "Version %d";
 "submissions.no.files.project" = "No files in this project";
@@ -117,3 +122,7 @@
 "accessibility.file.not.selected" = "Not selected";
 "accessibility.submit.enabled" = "Submit the selected files";
 "accessibility.submit.disabled" = "Select at least one file to submit";
+"accessibility.view.publication" = "View publication: %@";
+"accessibility.delete.submission" = "Delete submission";
+"accessibility.delete.submission.hint" = "Delete this submission record";
+"accessibility.change.status" = "Change status: %@";
