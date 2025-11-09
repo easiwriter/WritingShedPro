@@ -82,17 +82,32 @@ final class PublicationModelTests: XCTestCase {
     }
     
     func testPublicationDeadlineComputedProperties() throws {
-        // Given - Publication with deadline 15 days in future
-        let futureDate = Calendar.current.date(byAdding: .day, value: 15, to: Date())!
+        // Given - Publication with deadline 5 days in future (approaching = < 7 days)
+        let futureDate = Calendar.current.date(byAdding: .day, value: 5, to: Date())!
         let publication = Publication(name: "Future Deadline", deadline: futureDate)
         context.insert(publication)
         
         // Then
         XCTAssertTrue(publication.hasDeadline)
-        XCTAssertEqual(publication.daysUntilDeadline, 15)
+        // Note: Days calculation might be 4 or 5 depending on time of day
+        XCTAssertTrue(publication.daysUntilDeadline! >= 4 && publication.daysUntilDeadline! <= 5)
         XCTAssertFalse(publication.isDeadlinePassed)
         XCTAssertTrue(publication.isDeadlineApproaching)
         XCTAssertEqual(publication.deadlineStatus, .approaching)
+    }
+    
+    func testPublicationFutureDeadline() throws {
+        // Given - Publication with deadline 30 days in future (future = >= 7 days)
+        let futureDate = Calendar.current.date(byAdding: .day, value: 30, to: Date())!
+        let publication = Publication(name: "Far Future Deadline", deadline: futureDate)
+        context.insert(publication)
+        
+        // Then
+        XCTAssertTrue(publication.hasDeadline)
+        XCTAssertTrue(publication.daysUntilDeadline! >= 29 && publication.daysUntilDeadline! <= 30)
+        XCTAssertFalse(publication.isDeadlinePassed)
+        XCTAssertFalse(publication.isDeadlineApproaching)
+        XCTAssertEqual(publication.deadlineStatus, .future)
     }
     
     func testPublicationPassedDeadline() throws {
