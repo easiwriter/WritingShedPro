@@ -74,7 +74,16 @@ struct AddFileSheet: View {
         )
         modelContext.insert(newFile)
         
-        // TextFile automatically adds itself to parentFolder.textFiles via relationship
+        // Save context to ensure relationships are updated immediately
+        // This prevents duplicate name issues when quickly creating multiple files
+        do {
+            try modelContext.save()
+        } catch {
+            print("Error saving new file: \(error)")
+            errorMessage = "Failed to save file: \(error.localizedDescription)"
+            showErrorAlert = true
+            return
+        }
         
         isPresented = false
     }
