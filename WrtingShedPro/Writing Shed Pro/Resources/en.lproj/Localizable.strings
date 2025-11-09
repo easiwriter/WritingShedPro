@@ -115,3 +115,5 @@
 "accessibility.file.selection" = "File selection: %@";
 "accessibility.file.selected" = "Selected";
 "accessibility.file.not.selected" = "Not selected";
+"accessibility.submit.enabled" = "Submit the selected files";
+"accessibility.submit.disabled" = "Select at least one file to submit";
