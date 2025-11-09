@@ -16,7 +16,7 @@ class SubmittedFile {
     var textFile: TextFile?
     var version: Version?
     
-    var status: SubmissionStatus
+    var status: SubmissionStatus?
     var statusDate: Date?
     var statusNotes: String?
     

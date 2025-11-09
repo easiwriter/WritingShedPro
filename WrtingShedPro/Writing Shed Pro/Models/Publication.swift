@@ -13,14 +13,14 @@ import SwiftData
 class Publication {
     var id: UUID = UUID()
     var name: String = ""
-    var type: PublicationType
+    var type: PublicationType?
     var url: String?
     var notes: String?
     var deadline: Date?
     
     var project: Project?
     @Relationship(deleteRule: .cascade, inverse: \Submission.publication)
-    var submissions: [Submission] = []
+    var submissions: [Submission]? = []
     
     var createdDate: Date = Date()
     var modifiedDate: Date = Date()

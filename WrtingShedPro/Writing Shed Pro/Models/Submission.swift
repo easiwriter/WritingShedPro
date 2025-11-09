@@ -16,7 +16,7 @@ class Submission {
     var project: Project?
     
     @Relationship(deleteRule: .cascade, inverse: \SubmittedFile.submission)
-    var submittedFiles: [SubmittedFile] = []
+    var submittedFiles: [SubmittedFile]? = []
     
     var submittedDate: Date = Date()
     var notes: String?
@@ -44,19 +44,19 @@ class Submission {
     // MARK: - Computed Properties
     
     var fileCount: Int {
-        submittedFiles.count
+        submittedFiles?.count ?? 0
     }
     
     var pendingCount: Int {
-        submittedFiles.filter { $0.status == .pending }.count
+        submittedFiles?.filter { $0.status == .pending }.count ?? 0
     }
     
     var acceptedCount: Int {
-        submittedFiles.filter { $0.status == .accepted }.count
+        submittedFiles?.filter { $0.status == .accepted }.count ?? 0
     }
     
     var rejectedCount: Int {
-        submittedFiles.filter { $0.status == .rejected }.count
+        submittedFiles?.filter { $0.status == .rejected }.count ?? 0
     }
     
     var overallStatus: OverallStatus {
