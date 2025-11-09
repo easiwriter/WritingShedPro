@@ -55,6 +55,11 @@ struct FolderFilesView: View {
                     },
                     onDelete: { files in
                         deleteFiles(files)
+                    },
+                    onReorder: {
+                        // User dragged to reorder - switch to Custom sort
+                        print("🔴 FolderFilesView: Switching to Custom sort after reorder")
+                        sortOrder = .byUserOrder
                     }
                 )
             } else {

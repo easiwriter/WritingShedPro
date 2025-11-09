@@ -48,6 +48,9 @@ struct FileListView: View {
     /// Called when user initiates delete action (single or multiple files)
     let onDelete: ([TextFile]) -> Void
     
+    /// Called when user drags to reorder files (parent should switch to Custom sort)
+    let onReorder: (() -> Void)?
+    
     // MARK: - State
     
     /// Edit mode state - read from environment (set by parent view with EditButton)
@@ -283,6 +286,9 @@ struct FileListView: View {
             print("🔧 Set userOrder for '\(file.name ?? "Untitled")' = \(index)")
         }
         
+        // Notify parent to switch to Custom sort so changes are visible
+        onReorder?()
+        
         // Note: TextFile is a SwiftData @Model (reference type), so changes persist automatically
         // Parent view's files array will reflect new order on next refresh
     }
@@ -296,7 +302,8 @@ struct FileListView: View {
             files: [],
             onFileSelected: { _ in },
             onMove: { _ in },
-            onDelete: { _ in }
+            onDelete: { _ in },
+            onReorder: nil
         )
         .navigationTitle("Files")
     }
@@ -318,7 +325,8 @@ struct FileListView: View {
             },
             onDelete: { files in
                 print("Delete \(files.count) files")
-            }
+            },
+            onReorder: nil
         )
         .navigationTitle("Files")
     }

@@ -69,7 +69,8 @@ final class FileListViewTests: XCTestCase {
             },
             onDelete: { files in
                 self.deletedFiles = files
-            }
+            },
+            onReorder: nil
         )
     }
     
