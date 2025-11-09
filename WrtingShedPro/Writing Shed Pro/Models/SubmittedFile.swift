@@ -16,7 +16,7 @@ class SubmittedFile {
     var textFile: TextFile?
     var version: Version?
     
-    var status: SubmissionStatus = .pending
+    var status: SubmissionStatus
     var statusDate: Date?
     var statusNotes: String?
     
@@ -27,13 +27,13 @@ class SubmittedFile {
     
     init(
         id: UUID = UUID(),
-        submission: Submission,
-        textFile: TextFile,
-        version: Version,
+        submission: Submission? = nil,
+        textFile: TextFile? = nil,
+        version: Version? = nil,
         status: SubmissionStatus = .pending,
         statusDate: Date? = nil,
         statusNotes: String? = nil,
-        project: Project
+        project: Project? = nil
     ) {
         self.id = id
         self.submission = submission
