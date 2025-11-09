@@ -1,0 +1,74 @@
+/* Publications Management - Feature 008b Phase 2 */
+
+/* Screen Titles */
+"publications.title" = "Publications";
+"publications.add.title" = "Add Publication";
+"publications.edit.title" = "Edit Publication";
+"publications.detail.title" = "Publication Details";
+
+/* Form Labels */
+"publications.form.name.label" = "Name";
+"publications.form.name.placeholder" = "Enter publication name";
+"publications.form.type.label" = "Type";
+"publications.form.url.label" = "Website (optional)";
+"publications.form.url.placeholder" = "https://";
+"publications.form.deadline.label" = "Deadline (optional)";
+"publications.form.notes.label" = "Notes (optional)";
+"publications.form.notes.placeholder" = "Add notes about this publication...";
+
+/* Type Picker */
+"publications.type.magazine" = "Magazine";
+"publications.type.competition" = "Competition";
+
+/* Buttons */
+"publications.button.save" = "Save";
+"publications.button.cancel" = "Cancel";
+"publications.button.delete" = "Delete";
+"publications.button.edit" = "Edit";
+"publications.button.add" = "Add Publication";
+
+/* Empty State */
+"publications.empty.title" = "No Publications";
+"publications.empty.message" = "Add magazines and competitions to track your submissions";
+
+/* Deadline Status */
+"publications.deadline.none" = "No deadline";
+"publications.deadline.passed" = "Deadline passed";
+"publications.deadline.approaching" = "%d days left";
+"publications.deadline.future" = "Deadline: %@";
+
+/* Delete Confirmation */
+"publications.delete.title" = "Delete \"%@\"?";
+"publications.delete.message" = "This will also delete all associated submissions.";
+"publications.delete.confirm" = "Delete";
+
+/* Validation Errors */
+"publications.error.title" = "Error";
+"publications.error.name.empty" = "Publication name cannot be empty";
+"publications.error.name.toolong" = "Publication name is too long (max 100 characters)";
+"publications.error.url.invalid" = "Please enter a valid URL";
+
+/* Accessibility Labels */
+"accessibility.publications.list" = "Publications list";
+"accessibility.publications.navigation" = "Navigate to publications";
+"accessibility.add.publication" = "Add publication";
+"accessibility.add.publication.hint" = "Opens form to create a new publication";
+"accessibility.edit.publication" = "Edit publication";
+"accessibility.edit.publication.hint" = "Opens form to edit this publication";
+"accessibility.delete.publication" = "Delete publication";
+"accessibility.delete.publication.hint" = "Removes this publication and all its submissions";
+"accessibility.publication.row" = "Publication: %@";
+"accessibility.publication.deadline.approaching" = "Deadline approaching: %d days left";
+"accessibility.publication.deadline.passed" = "Deadline has passed";
+"accessibility.publication.type" = "Type: %@";
+"accessibility.deadline.toggle" = "Toggle deadline";
+"accessibility.deadline.toggle.hint" = "Enable or disable deadline for this publication";
+"accessibility.type.picker" = "Select publication type";
+"accessibility.publication.tap.hint" = "Double tap to view details";
+"accessibility.save.publication.hint" = "Saves the publication";
+"accessibility.cancel.hint" = "Discards changes and returns to previous screen";
+
+/* Submissions (Placeholder for Phase 3) */
+"publications.submissions.count" = "%d submission(s)";
+"publications.submissions.none" = "No submissions yet";
+"publications.submissions.title" = "Submissions";
