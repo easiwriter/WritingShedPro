@@ -164,7 +164,7 @@ final class Version {
         let submissions = referencingSubmissions
         if submissions.isEmpty { return nil }
         
-        let publicationNames = submissions.map { $0.submission.publication.name }
+        let publicationNames = submissions.compactMap { $0.submission?.publication?.name }
         if publicationNames.count == 1 {
             return "This version is locked because it's part of a submission to \(publicationNames[0])."
         } else {
