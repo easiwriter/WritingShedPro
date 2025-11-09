@@ -22,7 +22,11 @@ struct Write_App: App {
             StyleSheet.self,
             TextStyleModel.self,
             PageSetup.self,
-            PrinterPaper.self
+            PrinterPaper.self,
+            // Feature 008b: Publication Management
+            Publication.self,
+            Submission.self,
+            SubmittedFile.self
         ])
         let modelConfiguration = ModelConfiguration(
             schema: schema,

@@ -131,6 +131,46 @@ final class Version {
             }
         }
     }
+    
+    // MARK: - Submission Locking (Feature 008b)
+    
+    /// Returns true if this version is referenced by any active submission
+    /// Note: Actual implementation will query SubmittedFile records in Phase 4
+    var isLocked: Bool {
+        // Placeholder - will be implemented with SwiftData query in Phase 4
+        return false
+    }
+    
+    /// Returns all submissions that reference this version
+    /// Note: Actual implementation will query SubmittedFile records in Phase 4
+    var referencingSubmissions: [SubmittedFile] {
+        // Placeholder - will be implemented with SwiftData query in Phase 4
+        return []
+    }
+    
+    /// Can this version be edited?
+    var canEdit: Bool {
+        !isLocked
+    }
+    
+    /// Can this version be deleted?
+    var canDelete: Bool {
+        !isLocked
+    }
+    
+    /// Reason why version is locked (for error messages)
+    var lockReason: String? {
+        guard isLocked else { return nil }
+        let submissions = referencingSubmissions
+        if submissions.isEmpty { return nil }
+        
+        let publicationNames = submissions.map { $0.submission.publication.name }
+        if publicationNames.count == 1 {
+            return "This version is locked because it's part of a submission to \(publicationNames[0])."
+        } else {
+            return "This version is locked because it's part of \(publicationNames.count) submissions."
+        }
+    }
 }
 
 @Model
