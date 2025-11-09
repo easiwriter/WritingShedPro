@@ -13,7 +13,7 @@ import SwiftData
 class Publication {
     var id: UUID = UUID()
     var name: String = ""
-    var type: PublicationType = .magazine
+    var type: PublicationType
     var url: String?
     var notes: String?
     var deadline: Date?
@@ -27,12 +27,12 @@ class Publication {
     
     init(
         id: UUID = UUID(),
-        name: String,
-        type: PublicationType,
+        name: String = "",
+        type: PublicationType = .magazine,
         url: String? = nil,
         notes: String? = nil,
         deadline: Date? = nil,
-        project: Project
+        project: Project? = nil
     ) {
         self.id = id
         self.name = name

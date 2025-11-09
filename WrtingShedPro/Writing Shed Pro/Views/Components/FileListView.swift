@@ -299,7 +299,7 @@ struct FileListView: View {
                 TextFile(name: "Chapter 3", parentFolder: nil),
             ],
             onFileSelected: { file in
-                print("Selected: \(file.name ?? "Untitled")")
+                print("Selected: \(file.name)")
             },
             onMove: { files in
                 print("Move \(files.count) files")

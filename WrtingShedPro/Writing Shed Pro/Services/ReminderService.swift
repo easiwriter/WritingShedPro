@@ -17,7 +17,11 @@ class ReminderService {
     
     /// Request access to Reminders
     func requestAccess() async throws -> Bool {
-        return try await eventStore.requestAccess(to: .reminder)
+        if #available(iOS 17.0, *) {
+            return try await eventStore.requestFullAccessToReminders()
+        } else {
+            return try await eventStore.requestAccess(to: .reminder)
+        }
     }
     
     // MARK: - Submission Reminders
@@ -40,7 +44,8 @@ class ReminderService {
         
         // Create reminder
         let reminder = EKReminder(eventStore: eventStore)
-        reminder.title = "Follow up: \(submission.publication.name)"
+        let publicationName = submission.publication?.name ?? "Unknown Publication"
+        reminder.title = "Follow up: \(publicationName)"
         reminder.notes = notes ?? "Check on submission status"
         reminder.calendar = eventStore.defaultCalendarForNewReminders()
         
