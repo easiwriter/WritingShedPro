@@ -15,7 +15,7 @@ struct FileDetailView: View {
     
     init(file: TextFile) {
         self.file = file
-        _editedName = State(initialValue: file.name ?? "")
+        _editedName = State(initialValue: file.name)
         _editedContent = State(initialValue: file.currentVersion?.content ?? "")
     }
     
@@ -64,7 +64,7 @@ struct FileDetailView: View {
             Text(errorMessage)
         }
         .confirmationDialog(
-            String(format: NSLocalizedString("fileDetail.deleteConfirmationTitle", comment: "Delete confirmation title"), file.name ?? ""),
+            String(format: NSLocalizedString("fileDetail.deleteConfirmationTitle", comment: "Delete confirmation title"), file.name),
             isPresented: $showDeleteConfirmation,
             titleVisibility: .visible
         ) {
@@ -89,7 +89,7 @@ struct FileDetailView: View {
         } catch {
             errorMessage = error.localizedDescription
             showErrorAlert = true
-            editedName = file.name ?? ""
+            editedName = file.name
             return
         }
         
@@ -97,10 +97,10 @@ struct FileDetailView: View {
         if let parentFolder = file.parentFolder {
             // Get sibling files (excluding current file)
             let siblings = (parentFolder.textFiles ?? []).filter { $0.id != file.id }
-            if siblings.contains(where: { ($0.name ?? "").caseInsensitiveCompare(trimmedName) == .orderedSame }) {
+            if siblings.contains(where: { $0.name.caseInsensitiveCompare(trimmedName) == .orderedSame }) {
                 errorMessage = NSLocalizedString("fileDetail.duplicateName", comment: "Duplicate file name error")
                 showErrorAlert = true
-                editedName = file.name ?? ""
+                editedName = file.name
                 return
             }
         }

@@ -140,7 +140,7 @@ struct FileListView: View {
             Image(systemName: "doc.text")
                 .foregroundStyle(.secondary)
             
-            Text(file.name ?? "Untitled")
+            Text(file.name)
             
             Spacer()
         }

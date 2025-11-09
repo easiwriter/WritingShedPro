@@ -598,7 +598,7 @@ struct FormattedTextEditor: UIViewRepresentable {
                 
                 // Get the character at the cursor position to check for attachment
                 if let attributedText = textView.attributedText,
-                   let attachment = attributedText.attribute(.attachment, at: newRange.location, effectiveRange: nil) as? ImageAttachment {
+                   let _ = attributedText.attribute(.attachment, at: newRange.location, effectiveRange: nil) as? ImageAttachment {
                     
                     // Check if this image was already selected (previous selection was length=1 at this position)
                     // If so, move BEFORE the image instead of re-selecting it

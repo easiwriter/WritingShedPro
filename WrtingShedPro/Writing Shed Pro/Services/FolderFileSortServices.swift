@@ -46,7 +46,7 @@ struct FileSortService {
     static func sort(_ files: [TextFile], by order: FileSortOrder) -> [TextFile] {
         switch order {
         case .byName:
-            return files.sorted { ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending }
+            return files.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
         case .byCreationDate:
             return files.sorted { $0.createdDate > $1.createdDate }
         case .byModifiedDate:

@@ -91,7 +91,7 @@ struct FolderListView: View {
                     } else {
                         // Navigate to subfolders OR to file list based on folder capabilities
                         let canAddFolder = FolderCapabilityService.canAddSubfolder(to: folder)
-                        let canAddFile = FolderCapabilityService.canAddFile(to: folder)
+                        let _ = FolderCapabilityService.canAddFile(to: folder)
                         
                         if canAddFolder {
                             // This folder contains subfolders - navigate to FolderListView
@@ -120,7 +120,7 @@ struct FolderListView: View {
                         ForEach(currentSubfolders) { subfolder in
                             // Navigate to subfolders OR to file list based on folder capabilities
                             let canAddFolder = FolderCapabilityService.canAddSubfolder(to: subfolder)
-                            let canAddFile = FolderCapabilityService.canAddFile(to: subfolder)
+                            let _ = FolderCapabilityService.canAddFile(to: subfolder)
                             
                             if canAddFolder {
                                 // This folder contains subfolders - navigate to FolderListView

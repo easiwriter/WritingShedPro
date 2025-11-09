@@ -219,7 +219,7 @@ struct FileEditView: View {
             textEditorSection()
             formattingToolbar()
         }
-        .navigationTitle(file.name ?? NSLocalizedString("fileEdit.untitledFile", comment: "Untitled file"))
+        .navigationTitle(file.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
