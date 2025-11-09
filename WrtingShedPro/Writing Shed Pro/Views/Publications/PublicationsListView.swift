@@ -13,16 +13,30 @@ struct PublicationsListView: View {
     @Query(sort: \Publication.name) private var publications: [Publication]
     
     let project: Project
+    let publicationType: PublicationType? // nil = show all, non-nil = filter by type
     
     @State private var showingAddSheet = false
     @State private var selectedPublication: Publication?
     
+    // Filter publications by type and project
+    private var filteredPublications: [Publication] {
+        publications.filter { publication in
+            // Check project match
+            let projectMatches = publication.project?.id == project.id
+            
+            // Check type match (if filter specified)
+            let typeMatches = publicationType == nil || publication.type == publicationType
+            
+            return projectMatches && typeMatches
+        }
+    }
+    
     var body: some View {
         List {
-            if publications.isEmpty {
+            if filteredPublications.isEmpty {
                 emptyStateView
             } else {
-                ForEach(publications) { publication in
+                ForEach(filteredPublications) { publication in
                     PublicationRowView(publication: publication)
                         .contentShape(Rectangle())
                         .onTapGesture {
@@ -32,7 +46,7 @@ struct PublicationsListView: View {
                 .onDelete(perform: deletePublications)
             }
         }
-        .navigationTitle(Text(NSLocalizedString("publications.title", comment: "Publications screen title")))
+        .navigationTitle(Text(navigationTitle))
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button(action: { showingAddSheet = true }) {
@@ -74,16 +88,40 @@ struct PublicationsListView: View {
         .frame(maxWidth: .infinity)
     }
     
+    private var navigationTitle: String {
+        if let type = publicationType {
+            switch type {
+            case .magazine:
+                return NSLocalizedString("publications.magazines.title", comment: "Magazines title")
+            case .competition:
+                return NSLocalizedString("publications.competitions.title", comment: "Competitions title")
+            case .commission:
+                return NSLocalizedString("publications.commissions.title", comment: "Commissions title")
+            case .other:
+                return NSLocalizedString("publications.other.title", comment: "Other title")
+            }
+        }
+        return NSLocalizedString("publications.title", comment: "Publications title")
+    }
+    
     private func deletePublications(at offsets: IndexSet) {
-        for index in offsets {
-            modelContext.delete(publications[index])
+        let publicationsToDelete = offsets.map { filteredPublications[$0] }
+        for publication in publicationsToDelete {
+            modelContext.delete(publication)
         }
     }
 }
 
-#Preview {
+#Preview("All Publications") {
     NavigationStack {
-        PublicationsListView(project: Project(name: "Test Project"))
+        PublicationsListView(project: Project(name: "Test Project"), publicationType: nil)
+            .modelContainer(for: [Project.self, Publication.self, Submission.self, SubmittedFile.self], inMemory: true)
+    }
+}
+
+#Preview("Magazines Only") {
+    NavigationStack {
+        PublicationsListView(project: Project(name: "Test Project"), publicationType: .magazine)
             .modelContainer(for: [Project.self, Publication.self, Submission.self, SubmittedFile.self], inMemory: true)
     }
 }

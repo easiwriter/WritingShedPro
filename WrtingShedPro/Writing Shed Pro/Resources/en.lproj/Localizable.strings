@@ -70,7 +70,47 @@
 "accessibility.save.publication.hint" = "Saves the publication";
 "accessibility.cancel.hint" = "Discards changes and returns to previous screen";
 
-/* Submissions (Placeholder for Phase 3) */
+/* Submissions */
 "publications.submissions.count" = "%d submission(s)";
 "publications.submissions.none" = "No submissions yet";
 "publications.submissions.title" = "Submissions";
+"publications.magazines.title" = "Magazines";
+"publications.competitions.title" = "Competitions";
+"publications.commissions.title" = "Commissions";
+"publications.other.title" = "Other";
+
+/* Submission Status */
+"submissions.no.files" = "No files";
+"submissions.status.pending" = "Pending";
+"submissions.status.accepted" = "Accepted";
+"submissions.status.rejected" = "Rejected";
+"submissions.status.mixed" = "Mixed";
+"submissions.submitted.on" = "Submitted: %@";
+"submissions.new.title" = "New Submission";
+"submissions.detail.title" = "Submission Details";
+"submissions.select.files" = "Select Files";
+"submissions.files.selected" = "%d file(s) selected";
+"submissions.date.label" = "Submission Date";
+"submissions.notes.label" = "Notes (optional)";
+"submissions.submitting.to" = "Submitting To";
+"submissions.button.submit" = "Submit";
+"submissions.delete.title" = "Delete Submission?";
+"submissions.delete.message" = "This will delete the submission record but not the files.";
+"submissions.details.label" = "Details";
+"submissions.files.label" = "Files (%d)";
+"submissions.status.label" = "Status";
+"submissions.status.overall" = "Overall Status";
+"submissions.status.pending.count" = "Pending";
+"submissions.status.accepted.count" = "Accepted";
+"submissions.status.rejected.count" = "Rejected";
+"submissions.updated.on" = "Updated: %@";
+"submissions.version.label" = "Version %d";
+"submissions.no.files.project" = "No files in this project";
+
+/* Accessibility - Submissions */
+"accessibility.add.submission" = "Add submission";
+"accessibility.add.submission.hint" = "Create a new submission for this publication";
+"accessibility.submission.row" = "Submission: %@";
+"accessibility.file.selection" = "File selection: %@";
+"accessibility.file.selected" = "Selected";
+"accessibility.file.not.selected" = "Not selected";

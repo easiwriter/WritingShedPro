@@ -16,6 +16,7 @@ struct PublicationDetailView: View {
     
     @State private var showingEditSheet = false
     @State private var showingDeleteConfirmation = false
+    @State private var showingAddSubmissionSheet = false
     
     var body: some View {
         NavigationStack {
@@ -73,19 +74,28 @@ struct PublicationDetailView: View {
                     }
                 }
                 
-                // Submissions section (placeholder for Phase 3)
+                // Submissions section
                 Section {
-                    if let submissions = publication.submissions, !submissions.isEmpty {
-                        Text(String(
-                            format: NSLocalizedString("publications.submissions.count", comment: "Submissions count"),
-                            submissions.count
-                        ))
+                    if let submissions = publication.submissions?.sorted(by: { $0.submittedDate > $1.submittedDate }), !submissions.isEmpty {
+                        ForEach(submissions) { submission in
+                            NavigationLink(destination: SubmissionDetailView(submission: submission)) {
+                                SubmissionRowView(submission: submission)
+                            }
+                        }
                     } else {
                         Text(NSLocalizedString("publications.submissions.none", comment: "No submissions"))
                             .foregroundStyle(.secondary)
                     }
                 } header: {
-                    Text(NSLocalizedString("publications.submissions.title", comment: "Submissions title"))
+                    HStack {
+                        Text(NSLocalizedString("publications.submissions.title", comment: "Submissions title"))
+                        Spacer()
+                        Button(action: { showingAddSubmissionSheet = true }) {
+                            Image(systemName: "plus.circle.fill")
+                        }
+                        .accessibilityLabel(Text(NSLocalizedString("accessibility.add.submission", comment: "Add submission")))
+                        .accessibilityHint(Text(NSLocalizedString("accessibility.add.submission.hint", comment: "Add submission hint")))
+                    }
                 }
                 
                 // Delete section
@@ -114,6 +124,11 @@ struct PublicationDetailView: View {
             .sheet(isPresented: $showingEditSheet) {
                 if let project = publication.project {
                     PublicationFormView(project: project, publication: publication)
+                }
+            }
+            .sheet(isPresented: $showingAddSubmissionSheet) {
+                if let project = publication.project {
+                    AddSubmissionView(publication: publication, project: project)
                 }
             }
             .confirmationDialog(
