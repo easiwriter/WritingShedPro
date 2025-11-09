@@ -14,7 +14,7 @@ import SwiftData
 /// **Key Features:**
 /// - Shows valid destination folders (Draft, Ready, Set Aside)
 /// - Excludes current folder and Trash
-/// - Displays folder icon and name
+/// - Displays folder name and file count
 /// - Cancel and Done actions
 ///
 /// **Usage:**
@@ -145,11 +145,6 @@ struct MoveDestinationPicker: View {
             dismiss()
         } label: {
             HStack(spacing: 12) {
-                // Folder icon with color based on folder type
-                Image(systemName: folderIcon(for: folder))
-                    .font(.title2)
-                    .foregroundStyle(folderColor(for: folder))
-                
                 VStack(alignment: .leading, spacing: 2) {
                     Text(folder.name ?? "Untitled")
                         .font(.body)
@@ -172,43 +167,6 @@ struct MoveDestinationPicker: View {
         .buttonStyle(.plain)
     }
     
-    // MARK: - Helper Methods
-    
-    /// Returns appropriate icon for folder type
-    private func folderIcon(for folder: Folder) -> String {
-        guard let name = folder.name?.lowercased() else {
-            return "folder"
-        }
-        
-        switch name {
-        case "draft":
-            return "folder.badge.plus"
-        case "ready":
-            return "folder.badge.checkmark"
-        case "set aside":
-            return "folder.badge.minus"
-        default:
-            return "folder"
-        }
-    }
-    
-    /// Returns appropriate color for folder type
-    private func folderColor(for folder: Folder) -> Color {
-        guard let name = folder.name?.lowercased() else {
-            return .blue
-        }
-        
-        switch name {
-        case "draft":
-            return .blue
-        case "ready":
-            return .green
-        case "set aside":
-            return .orange
-        default:
-            return .blue
-        }
-    }
 }
 
 // MARK: - Preview
