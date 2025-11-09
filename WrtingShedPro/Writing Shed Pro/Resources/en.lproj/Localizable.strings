@@ -19,6 +19,8 @@
 /* Type Picker */
 "publications.type.magazine" = "Magazine";
 "publications.type.competition" = "Competition";
+"publications.type.commission" = "Commission";
+"publications.type.other" = "Other";
 
 /* Buttons */
 "publications.button.save" = "Save";

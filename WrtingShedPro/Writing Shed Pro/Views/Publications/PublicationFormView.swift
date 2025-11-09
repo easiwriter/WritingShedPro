@@ -47,15 +47,15 @@ struct PublicationFormView: View {
                         NSLocalizedString("publications.form.type.label", comment: "Type label"),
                         selection: $selectedType
                     ) {
-                        ForEach([PublicationType.magazine, PublicationType.competition], id: \.self) { type in
-                            HStack {
-                                Text(type.icon)
+                        ForEach([PublicationType.magazine, PublicationType.competition, PublicationType.commission, PublicationType.other], id: \.self) { type in
+                            Label {
                                 Text(type.displayName)
+                            } icon: {
+                                Text(type.icon)
                             }
                             .tag(type)
                         }
                     }
-                    .pickerStyle(.segmented)
                     .accessibilityLabel(Text(NSLocalizedString("accessibility.type.picker", comment: "Type picker")))
                 } header: {
                     Text(NSLocalizedString("publications.form.type.label", comment: "Type label"))
