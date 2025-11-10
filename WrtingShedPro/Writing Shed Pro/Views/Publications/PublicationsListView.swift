@@ -46,17 +46,14 @@ struct PublicationsListView: View {
                 .onDelete(perform: deletePublications)
             }
         }
-        .navigationTitle(Text(navigationTitle))
+        .navigationTitle(navigationTitle)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button(action: { showingAddSheet = true }) {
-                    Label(
-                        NSLocalizedString("publications.button.add", comment: "Add publication button"),
-                        systemImage: "plus"
-                    )
+                    Label("publications.button.add", systemImage: "plus")
                 }
-                .accessibilityLabel(Text(NSLocalizedString("accessibility.add.publication", comment: "Add publication button")))
-                .accessibilityHint(Text(NSLocalizedString("accessibility.add.publication.hint", comment: "Opens form to create new publication")))
+                .accessibilityLabel(Text("accessibility.add.publication"))
+                .accessibilityHint(Text("accessibility.add.publication.hint"))
             }
         }
         .sheet(isPresented: $showingAddSheet) {
@@ -66,7 +63,7 @@ struct PublicationsListView: View {
             PublicationDetailView(publication: publication)
         }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(Text(NSLocalizedString("accessibility.publications.list", comment: "Publications list")))
+        .accessibilityLabel(Text("accessibility.publications.list"))
     }
     
     private var emptyStateView: some View {
@@ -75,10 +72,10 @@ struct PublicationsListView: View {
                 .font(.system(size: 60))
                 .foregroundStyle(.secondary)
             
-            Text(NSLocalizedString("publications.empty.title", comment: "Empty state title"))
+            Text("publications.empty.title")
                 .font(.headline)
             
-            Text(NSLocalizedString("publications.empty.message", comment: "Empty state message"))
+            Text("publications.empty.message")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -88,20 +85,20 @@ struct PublicationsListView: View {
         .frame(maxWidth: .infinity)
     }
     
-    private var navigationTitle: String {
+    private var navigationTitle: LocalizedStringKey {
         if let type = publicationType {
             switch type {
             case .magazine:
-                return NSLocalizedString("publications.magazines.title", comment: "Magazines title")
+                return "publications.magazines.title"
             case .competition:
-                return NSLocalizedString("publications.competitions.title", comment: "Competitions title")
+                return "publications.competitions.title"
             case .commission:
-                return NSLocalizedString("publications.commissions.title", comment: "Commissions title")
+                return "publications.commissions.title"
             case .other:
-                return NSLocalizedString("publications.other.title", comment: "Other title")
+                return "publications.other.title"
             }
         }
-        return NSLocalizedString("publications.title", comment: "Publications title")
+        return "publications.title"
     }
     
     private func deletePublications(at offsets: IndexSet) {
