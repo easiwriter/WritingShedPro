@@ -6,8 +6,13 @@ struct FolderCapabilityService {
     /// Folders that can ONLY contain subfolders (no files allowed)
     /// These are organizational containers
     private static let subfolderOnlyFolders: Set<String> = [
-        "Magazines", "Competitions", "Commissions", "Other",
         "Chapters", "Acts"
+    ]
+    
+    /// Folders that show publications instead of regular content
+    /// These are special views into the publication system
+    private static let publicationFolders: Set<String> = [
+        "Magazines", "Competitions", "Commissions", "Other"
     ]
     
     /// Folders that can ONLY contain files (no subfolders)
@@ -27,6 +32,11 @@ struct FolderCapabilityService {
     /// Determines if a folder can contain subfolders
     static func canAddSubfolder(to folder: Folder) -> Bool {
         guard let folderName = folder.name else { return false }
+        
+        // Publication folders don't contain subfolders - they show publications
+        if publicationFolders.contains(folderName) {
+            return false
+        }
         
         // Template folders can only contain subfolders if explicitly allowed
         if isTemplateFolder(folderName) {
@@ -59,7 +69,8 @@ struct FolderCapabilityService {
     static func isTemplateFolder(_ folderName: String) -> Bool {
         return subfolderOnlyFolders.contains(folderName) ||
                fileOnlyFolders.contains(folderName) ||
-               readOnlyFolders.contains(folderName)
+               readOnlyFolders.contains(folderName) ||
+               publicationFolders.contains(folderName)
     }
     
     /// Returns a user-friendly message explaining why an operation is not allowed
