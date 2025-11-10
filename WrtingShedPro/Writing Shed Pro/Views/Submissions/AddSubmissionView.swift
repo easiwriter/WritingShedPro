@@ -20,19 +20,44 @@ struct AddSubmissionView: View {
     @State private var submissionDate: Date = Date()
     @State private var notes: String = ""
     
-    // Filter files for this project
+    // Filter files for this project and exclude already submitted versions
     private var projectFiles: [TextFile] {
-        allFiles.filter { file in
-            // Navigate up through folders to find project
-            var currentFolder = file.parentFolder
-            while let folder = currentFolder {
-                if folder.project?.id == project.id {
-                    return true
-                }
-                currentFolder = folder.parentFolder
+        let filtered = allFiles.filter { file in
+            isFileEligibleForSubmission(file)
+        }
+        return filtered.sorted { $0.name < $1.name }
+    }
+    
+    private func isFileEligibleForSubmission(_ file: TextFile) -> Bool {
+        // Check if file belongs to project
+        guard belongsToProject(file) else { return false }
+        
+        // Check if this file/version has already been submitted
+        return !isAlreadySubmitted(file)
+    }
+    
+    private func belongsToProject(_ file: TextFile) -> Bool {
+        var currentFolder = file.parentFolder
+        while let folder = currentFolder {
+            if folder.project?.id == project.id {
+                return true
             }
-            return false
-        }.sorted { $0.name < $1.name }
+            currentFolder = folder.parentFolder
+        }
+        return false
+    }
+    
+    private func isAlreadySubmitted(_ file: TextFile) -> Bool {
+        guard let submissions = publication.submissions else { return false }
+        guard let currentVersion = file.currentVersion else { return false }
+        
+        return submissions.contains { submission in
+            guard let submittedFiles = submission.submittedFiles else { return false }
+            return submittedFiles.contains { (submittedFile: SubmittedFile) in
+                submittedFile.textFile?.id == file.id && 
+                submittedFile.version?.versionNumber == currentVersion.versionNumber
+            }
+        }
     }
     
     var body: some View {

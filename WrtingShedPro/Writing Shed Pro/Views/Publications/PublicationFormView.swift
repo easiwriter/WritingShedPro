@@ -52,12 +52,8 @@ struct PublicationFormView: View {
                         selection: $selectedType
                     ) {
                         ForEach([PublicationType.magazine, PublicationType.competition, PublicationType.commission, PublicationType.other], id: \.self) { type in
-                            Label {
-                                Text(type.displayName)
-                            } icon: {
-                                Text(type.icon)
-                            }
-                            .tag(type)
+                            Text(type.displayName)
+                                .tag(type)
                         }
                     }
                     .accessibilityLabel(Text(NSLocalizedString("accessibility.type.picker", comment: "Type picker")))

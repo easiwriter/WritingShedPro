@@ -15,6 +15,8 @@ struct FileEditView: View {
     @State private var forceRefresh = false
     @State private var showStylePicker = false
     @State private var showImageEditor = false
+    @State private var showLockedVersionWarning = false
+    @State private var attemptedEdit = false
     @State private var imageToEdit: ImageAttachment?
     @State private var lastImageInsertTime: Date?
     @State private var selectedImage: ImageAttachment?
@@ -246,12 +248,44 @@ struct FileEditView: View {
                 }
             }
         }
+        .confirmationDialog(
+            "version.locked.warning.title",
+            isPresented: $showLockedVersionWarning,
+            titleVisibility: .visible
+        ) {
+            Button("version.locked.edit.anyway") {
+                attemptedEdit = true
+                showLockedVersionWarning = false
+                // Show keyboard after user confirms
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    self.textViewCoordinator.textView?.becomeFirstResponder()
+                }
+            }
+            Button("button.cancel", role: .cancel) {
+                showLockedVersionWarning = false
+                // User cancelled - go back
+                DispatchQueue.main.async {
+                    dismiss()
+                }
+            }
+        } message: {
+            if let lockReason = file.currentVersion?.lockReason {
+                Text(lockReason)
+            } else {
+                Text("version.locked.warning.message")
+            }
+        }
         .onDisappear {
             // Auto-save when leaving the editor (back button, etc.)
             saveChanges()
             saveUndoState()
         }
         .onAppear {
+            // Check if version is locked before allowing editing
+            if file.currentVersion?.isLocked == true {
+                showLockedVersionWarning = true
+            }
+            
             // Load content from database on first appearance
             // We initialize with empty content in init() to avoid repeated decoding
             // during SwiftUI view updates, then load the real content here once
@@ -265,9 +299,11 @@ struct FileEditView: View {
                 selectedRange = NSRange(location: textLength, length: 0)
             }
             
-            // Show keyboard/cursor when opening file
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                self.textViewCoordinator.textView?.becomeFirstResponder()
+            // Show keyboard/cursor when opening file (only if not locked)
+            if file.currentVersion?.isLocked != true {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    self.textViewCoordinator.textView?.becomeFirstResponder()
+                }
             }
             
             // Update current style from content
@@ -480,6 +516,17 @@ struct FileEditView: View {
         }
         
         let newContent = newAttributedText.string
+        
+        // Check if version is locked
+        if file.currentVersion?.isLocked == true, !attemptedEdit {
+            // Show warning on first edit attempt
+            showLockedVersionWarning = true
+            // Restore previous content
+            if let currentVersion = file.currentVersion {
+                attributedContent = currentVersion.attributedContent ?? NSAttributedString(string: "")
+            }
+            return
+        }
         
         #if DEBUG
         print("🔄 Previous: '\(previousContent)'")

@@ -52,7 +52,12 @@ struct SubmissionDetailView: View {
             Section {
                 if let files = submission.submittedFiles, !files.isEmpty {
                     ForEach(files) { submittedFile in
-                        SubmittedFileRow(submittedFile: submittedFile)
+                        SubmittedFileRow(
+                            submittedFile: submittedFile,
+                            onStatusChange: { status in
+                                updateStatus(submittedFile, to: status)
+                            }
+                        )
                     }
                 } else {
                     Text(NSLocalizedString("submissions.no.files", comment: "No files"))
@@ -60,30 +65,6 @@ struct SubmissionDetailView: View {
                 }
             } header: {
                 Text(String(format: NSLocalizedString("submissions.files.label", comment: "Files"), submission.fileCount))
-            }
-            
-            // Status summary
-            Section {
-                LabeledContent(NSLocalizedString("submissions.status.overall", comment: "Overall status")) {
-                    Text(overallStatusText)
-                        .foregroundStyle(overallStatusColor)
-                }
-                
-                LabeledContent(NSLocalizedString("submissions.status.pending.count", comment: "Pending")) {
-                    Text("\(submission.pendingCount)")
-                }
-                
-                LabeledContent(NSLocalizedString("submissions.status.accepted.count", comment: "Accepted")) {
-                    Text("\(submission.acceptedCount)")
-                        .foregroundStyle(.green)
-                }
-                
-                LabeledContent(NSLocalizedString("submissions.status.rejected.count", comment: "Rejected")) {
-                    Text("\(submission.rejectedCount)")
-                        .foregroundStyle(.red)
-                }
-            } header: {
-                Text(NSLocalizedString("submissions.status.label", comment: "Status"))
             }
             
             // Delete
@@ -112,36 +93,63 @@ struct SubmissionDetailView: View {
         }
     }
     
-    private var overallStatusText: String {
-        switch submission.overallStatus {
-        case .allAccepted:
-            return NSLocalizedString("submissions.status.all.accepted", comment: "All accepted")
-        case .allRejected:
-            return NSLocalizedString("submissions.status.all.rejected", comment: "All rejected")
-        case .partiallyAccepted:
-            return NSLocalizedString("submissions.status.mixed", comment: "Mixed")
-        case .pending:
-            return NSLocalizedString("submissions.status.pending", comment: "Pending")
-        }
-    }
-    
-    private var overallStatusColor: Color {
-        switch submission.overallStatus {
-        case .allAccepted: return .green
-        case .allRejected: return .red
-        case .partiallyAccepted: return .orange
-        case .pending: return .blue
-        }
-    }
-    
     private func deleteSubmission() {
         modelContext.delete(submission)
         dismiss()
+    }
+    
+    private func updateStatus(_ submittedFile: SubmittedFile, to status: SubmissionStatus) {
+        submittedFile.status = status
+        submittedFile.statusDate = Date()
+        
+        // If accepted, move file to Published folder
+        if status == .accepted, let file = submittedFile.textFile {
+            moveToPublishedFolder(file)
+        }
+    }
+    
+    private func moveToPublishedFolder(_ file: TextFile) {
+        // Get the project
+        guard let project = file.project else { return }
+        
+        // Find or create Published folder
+        let publishedFolder = findOrCreatePublishedFolder(in: project)
+        
+        // Move file to Published folder
+        file.parentFolder = publishedFolder
+        file.modifiedDate = Date()
+        
+        // Save context
+        do {
+            try modelContext.save()
+        } catch {
+            print("Error moving file to Published folder: \(error)")
+        }
+    }
+    
+    private func findOrCreatePublishedFolder(in project: Project) -> Folder {
+        // Try to find existing Published folder
+        if let folders = project.folders {
+            if let published = folders.first(where: { $0.name == "Published" }) {
+                return published
+            }
+        }
+        
+        // Create new Published folder if it doesn't exist
+        let publishedFolder = Folder(
+            name: "Published",
+            project: project,
+            parentFolder: nil
+        )
+        modelContext.insert(publishedFolder)
+        
+        return publishedFolder
     }
 }
 
 struct SubmittedFileRow: View {
     @Bindable var submittedFile: SubmittedFile
+    let onStatusChange: (SubmissionStatus) -> Void
     
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -162,24 +170,21 @@ struct SubmittedFileRow: View {
                 // Status picker
                 Menu {
                     Button {
-                        submittedFile.status = .pending
-                        submittedFile.statusDate = Date()
+                        onStatusChange(.pending)
                     } label: {
                         Label(NSLocalizedString("submissions.status.pending", comment: "Pending"), 
                               systemImage: "clock")
                     }
                     
                     Button {
-                        submittedFile.status = .accepted
-                        submittedFile.statusDate = Date()
+                        onStatusChange(.accepted)
                     } label: {
                         Label(NSLocalizedString("submissions.status.accepted", comment: "Accepted"), 
                               systemImage: "checkmark.circle")
                     }
                     
                     Button {
-                        submittedFile.status = .rejected
-                        submittedFile.statusDate = Date()
+                        onStatusChange(.rejected)
                     } label: {
                         Label(NSLocalizedString("submissions.status.rejected", comment: "Rejected"), 
                               systemImage: "xmark.circle")

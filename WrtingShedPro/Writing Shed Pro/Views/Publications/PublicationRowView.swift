@@ -22,13 +22,6 @@ struct PublicationRowView: View {
                 Text(publication.name)
                     .font(.headline)
                 
-                // Type
-                if let type = publication.type {
-                    Text(type.displayName)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                
                 // Deadline status
                 if publication.hasDeadline {
                     deadlineView

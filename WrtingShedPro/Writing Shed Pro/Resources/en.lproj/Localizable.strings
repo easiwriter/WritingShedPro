@@ -337,6 +337,7 @@
 /* Delete Confirmation */
 "publications.delete.title" = "Delete \"%@\"?";
 "publications.delete.message" = "This will also delete all associated submissions.";
+"publications.delete.confirmation.message" = "This will also delete all associated submissions.";
 "publications.delete.confirm" = "Delete";
 
 /* Validation Errors */
@@ -444,6 +445,11 @@
 "submissions.file.history.title" = "Submission History";
 "submissions.status.updated.on" = "Updated: %@";
 "submissions.response.time" = "Response: %@";
+
+/* Version Locking */
+"version.locked.warning.title" = "This Version Has Been Submitted";
+"version.locked.warning.message" = "This version is part of an active submission. Editing it may affect your submission record.";
+"version.locked.edit.anyway" = "Edit Anyway";
 
 /* General Buttons */
 "button.cancel" = "Cancel";

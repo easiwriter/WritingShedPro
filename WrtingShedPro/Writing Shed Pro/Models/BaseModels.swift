@@ -144,17 +144,16 @@ final class Version {
     // MARK: - Submission Locking (Feature 008b)
     
     /// Returns true if this version is referenced by any active submission
-    /// Note: Actual implementation will query SubmittedFile records in Phase 4
     var isLocked: Bool {
-        // Placeholder - will be implemented with SwiftData query in Phase 4
-        return false
+        guard let submittedFiles = submittedFiles, !submittedFiles.isEmpty else {
+            return false
+        }
+        return true
     }
     
     /// Returns all submissions that reference this version
-    /// Note: Actual implementation will query SubmittedFile records in Phase 4
     var referencingSubmissions: [SubmittedFile] {
-        // Placeholder - will be implemented with SwiftData query in Phase 4
-        return []
+        return submittedFiles ?? []
     }
     
     /// Can this version be edited?

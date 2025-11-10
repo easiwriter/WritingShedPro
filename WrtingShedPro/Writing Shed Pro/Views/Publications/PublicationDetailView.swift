@@ -15,7 +15,6 @@ struct PublicationDetailView: View {
     @Bindable var publication: Publication
     
     @State private var showingEditSheet = false
-    @State private var showingDeleteConfirmation = false
     @State private var showingAddSubmissionSheet = false
     
     var body: some View {
@@ -97,15 +96,6 @@ struct PublicationDetailView: View {
                         .accessibilityHint(Text("accessibility.add.submission.hint"))
                     }
                 }
-                
-                // Delete section
-                Section {
-                    Button(role: .destructive, action: { showingDeleteConfirmation = true }) {
-                        Label("publications.button.delete", systemImage: "trash")
-                    }
-                    .accessibilityLabel(Text("accessibility.delete.publication"))
-                    .accessibilityHint(Text("accessibility.delete.publication.hint"))
-                }
             }
             .navigationTitle("publications.detail.title")
             .navigationBarTitleDisplayMode(.inline)
@@ -133,17 +123,6 @@ struct PublicationDetailView: View {
                 if let project = publication.project {
                     AddSubmissionView(publication: publication, project: project)
                 }
-            }
-            .confirmationDialog(
-                Text("publications.delete.title") + Text(" '\(publication.name)'?"),
-                isPresented: $showingDeleteConfirmation,
-                titleVisibility: .visible
-            ) {
-                Button("publications.delete.confirm", role: .destructive) {
-                    deletePublication()
-                }
-            } message: {
-                Text("publications.delete.message")
             }
         }
     }
@@ -177,11 +156,6 @@ struct PublicationDetailView: View {
         case .future: return .secondary
         case .none: return .secondary
         }
-    }
-    
-    private func deletePublication() {
-        modelContext.delete(publication)
-        dismiss()
     }
 }
 
