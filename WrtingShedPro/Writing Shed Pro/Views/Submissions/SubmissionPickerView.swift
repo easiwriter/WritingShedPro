@@ -137,7 +137,7 @@ struct NewPublicationForSubmissionView: View {
             }
             
             Section {
-                Picker("publications.form.type.label", selection: $selectedType) {
+                Picker(selection: $selectedType) {
                     ForEach([PublicationType.magazine, .competition, .commission, .other], id: \.self) { type in
                         HStack {
                             Text(type.icon)
@@ -145,16 +145,17 @@ struct NewPublicationForSubmissionView: View {
                         }
                         .tag(type)
                     }
+                } label: {
+                    HStack {
+                        Text("publications.form.type.label")
+                        Spacer()
+                        HStack(spacing: 4) {
+                            Text(selectedType.icon)
+                            Text(selectedType.displayName)
+                        }
+                        .foregroundStyle(.secondary)
+                    }
                 }
-                .pickerStyle(.menu)
-                
-                // Display selected type with icon and label
-                HStack {
-                    Text(selectedType.icon)
-                    Text(selectedType.displayName)
-                }
-            } header: {
-                Text("publications.form.type.label")
             }
             
             Section {

@@ -205,8 +205,41 @@ struct FolderListView: View {
 struct FolderRowView: View {
     let folder: Folder
     
+    @Query private var allPublications: [Publication]
+    
     @State private var fileCount: Int = 0
     @State private var subfolderCount: Int = 0
+    
+    // Check if this is a publication folder
+    private var isPublicationFolder: Bool {
+        let name = folder.name ?? ""
+        return ["Magazines", "Competitions", "Commissions", "Other"].contains(name)
+    }
+    
+    // Get publication count for this folder type
+    private var publicationCount: Int {
+        guard isPublicationFolder, let project = folder.project else { return 0 }
+        
+        let folderName = folder.name ?? ""
+        var publicationType: PublicationType?
+        
+        switch folderName {
+        case "Magazines":
+            publicationType = .magazine
+        case "Competitions":
+            publicationType = .competition
+        case "Commissions":
+            publicationType = .commission
+        case "Other":
+            publicationType = .other
+        default:
+            return 0
+        }
+        
+        return allPublications.filter { pub in
+            pub.project?.id == project.id && pub.type == publicationType
+        }.count
+    }
     
     var body: some View {
         HStack(spacing: 12) {
@@ -215,14 +248,20 @@ struct FolderRowView: View {
                 .font(.title2)
                 .accessibilityHidden(true)
             
-            VStack(alignment: .leading, spacing: 4) {
-                Text(folder.name ?? NSLocalizedString("folderList.untitledFolder", comment: "Untitled folder"))
+            // For publication folders, show count in name
+            if isPublicationFolder {
+                Text("\(folder.name ?? "") (\(publicationCount))")
                     .font(.body)
-                
-                if let count = folderContentCount {
-                    Text(count)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+            } else {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(folder.name ?? NSLocalizedString("folderList.untitledFolder", comment: "Untitled folder"))
+                        .font(.body)
+                    
+                    if let count = folderContentCount {
+                        Text(count)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
             

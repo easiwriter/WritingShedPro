@@ -89,10 +89,9 @@ struct FileListView: View {
     // MARK: - Body
     
     var body: some View {
-        List(selection: $selectedFileIDs) {
+        List {
             ForEach(files) { file in
                 fileRow(for: file)
-                    .tag(file.id)
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                         if !isEditMode {
                             swipeActionButtons(for: file)
@@ -140,6 +139,13 @@ struct FileListView: View {
     @ViewBuilder
     private func fileRow(for file: TextFile) -> some View {
         HStack {
+            // Selection circle in edit mode
+            if isEditMode {
+                Image(systemName: selectedFileIDs.contains(file.id) ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(selectedFileIDs.contains(file.id) ? .blue : .gray)
+                    .imageScale(.large)
+            }
+            
             Image(systemName: "doc.text")
                 .foregroundStyle(.secondary)
             
@@ -147,7 +153,7 @@ struct FileListView: View {
             
             Spacer()
             
-            // Submissions button (always visible, opens history sheet)
+            // Submissions button (only in normal mode)
             if !isEditMode {
                 SubmissionsButton(file: file)
             }
