@@ -216,7 +216,7 @@ struct FileSelectionRow: View {
     context.insert(file2)
     context.insert(version2)
     
-    return AddSubmissionView(publication: publication, project: project)
+    AddSubmissionView(publication: publication, project: project)
         .modelContainer(container)
 }
 
@@ -231,6 +231,6 @@ struct FileSelectionRow: View {
     context.insert(project)
     context.insert(publication)
     
-    return AddSubmissionView(publication: publication, project: project)
+    AddSubmissionView(publication: publication, project: project)
         .modelContainer(container)
 }

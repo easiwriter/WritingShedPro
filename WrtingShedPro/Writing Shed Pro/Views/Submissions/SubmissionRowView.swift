@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct SubmissionRowView: View {
     let submission: Submission
@@ -128,7 +129,7 @@ struct SubmissionRowView: View {
     context.insert(version)
     context.insert(submittedFile)
     
-    return SubmissionRowView(submission: submission)
+    SubmissionRowView(submission: submission)
         .modelContainer(container)
         .padding()
 }
@@ -160,7 +161,7 @@ struct SubmissionRowView: View {
     context.insert(version2)
     context.insert(submittedFile2)
     
-    return SubmissionRowView(submission: submission)
+    SubmissionRowView(submission: submission)
         .modelContainer(container)
         .padding()
 }

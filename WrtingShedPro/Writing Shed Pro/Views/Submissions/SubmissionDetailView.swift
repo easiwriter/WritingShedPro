@@ -243,7 +243,7 @@ struct SubmittedFileRow: View {
     context.insert(version2)
     context.insert(submittedFile2)
     
-    return NavigationStack {
+    NavigationStack {
         SubmissionDetailView(submission: submission)
     }
     .modelContainer(container)
