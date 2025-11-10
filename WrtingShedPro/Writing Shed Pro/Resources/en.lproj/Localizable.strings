@@ -28,10 +28,13 @@
 "publications.button.delete" = "Delete";
 "publications.button.edit" = "Edit";
 "publications.button.add" = "Add Publication";
+"publications.button.create" = "Create";
 
 /* Empty State */
 "publications.empty.title" = "No Publications";
 "publications.empty.message" = "Add magazines and competitions to track your submissions";
+"publications.existing.title" = "Select Publication";
+"publications.new.quick.title" = "New Publication";
 
 /* Deadline Status */
 "publications.deadline.none" = "No deadline";
@@ -96,6 +99,7 @@
 "submissions.notes.label" = "Notes (optional)";
 "submissions.submitting.to" = "Submitting To";
 "submissions.button.submit" = "Submit";
+"submissions.submit.count" = "Submit %d file(s)";
 "submissions.delete.title" = "Delete Submission?";
 "submissions.delete.message" = "This will delete the submission record but not the files.";
 "submissions.details.label" = "Details";
@@ -127,3 +131,12 @@
 "accessibility.delete.submission" = "Delete submission";
 "accessibility.delete.submission.hint" = "Delete this submission record";
 "accessibility.change.status" = "Change status: %@";
+"accessibility.submit.to" = "Submit to %@";
+
+/* File List */
+"fileList.submit" = "Submit";
+
+/* General Buttons */
+"button.cancel" = "Cancel";
+"button.ok" = "OK";
+"button.delete" = "Delete";

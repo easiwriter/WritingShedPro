@@ -33,10 +33,19 @@ struct FolderFilesView: View {
     @State private var selectedFile: TextFile?
     @State private var navigateToFile = false
     
+    // State for submission picker
+    @State private var showSubmissionPicker = false
+    @State private var filesToSubmit: [TextFile] = []
+    
     // Sorted files based on current sort order
     private var sortedFiles: [TextFile] {
         let files = folder.textFiles ?? []
         return FileSortService.sort(files, by: sortOrder)
+    }
+    
+    // Check if this is the Ready folder (supports submissions)
+    private var isReadyFolder: Bool {
+        return folder.name == "Ready"
     }
     
     var body: some View {
@@ -56,6 +65,10 @@ struct FolderFilesView: View {
                     onDelete: { files in
                         deleteFiles(files)
                     },
+                    onSubmit: isReadyFolder ? { files in
+                        filesToSubmit = files
+                        showSubmissionPicker = true
+                    } : nil,
                     onReorder: {
                         // User dragged to reorder - switch to Custom sort
                         sortOrder = .byUserOrder
@@ -143,6 +156,23 @@ struct FolderFilesView: View {
                 existingFiles: folder.textFiles ?? []
             )
         }
+        .sheet(isPresented: $showSubmissionPicker) {
+            if let project = folder.project {
+                NavigationStack {
+                    SubmissionPickerView(
+                        project: project,
+                        filesToSubmit: filesToSubmit,
+                        onPublicationSelected: { publication in
+                            createSubmission(for: publication)
+                            showSubmissionPicker = false
+                        },
+                        onCancel: {
+                            showSubmissionPicker = false
+                        }
+                    )
+                }
+            }
+        }
     }
     
     // MARK: - Actions
@@ -169,6 +199,36 @@ struct FolderFilesView: View {
             print("Error moving files: \(error)")
             // TODO: Show error alert
         }
+    }
+    
+    private func createSubmission(for publication: Publication) {
+        guard let project = folder.project else { return }
+        
+        // Create submission
+        let submission = Submission(
+            publication: publication,
+            project: project,
+            submittedDate: Date(),
+            notes: nil
+        )
+        modelContext.insert(submission)
+        
+        // Create submitted file records for each selected file
+        for file in filesToSubmit {
+            if let currentVersion = file.currentVersion {
+                let submittedFile = SubmittedFile(
+                    submission: submission,
+                    textFile: file,
+                    version: currentVersion,
+                    status: .pending,
+                    statusDate: Date(),
+                    project: project
+                )
+                modelContext.insert(submittedFile)
+            }
+        }
+        
+        filesToSubmit = []
     }
 }
 

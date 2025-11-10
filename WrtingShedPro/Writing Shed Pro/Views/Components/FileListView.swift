@@ -48,6 +48,9 @@ struct FileListView: View {
     /// Called when user initiates delete action (single or multiple files)
     let onDelete: ([TextFile]) -> Void
     
+    /// Called when user initiates submit action (optional - only for folders that support submissions)
+    let onSubmit: (([TextFile]) -> Void)?
+    
     /// Called when user drags to reorder files (parent should switch to Custom sort)
     let onReorder: (() -> Void)?
     
@@ -189,6 +192,22 @@ struct FileListView: View {
         .disabled(selectedFiles.isEmpty)
         
         Spacer()
+        
+        // Submit button (if onSubmit callback provided)
+        if let onSubmit = onSubmit {
+            Button {
+                onSubmit(selectedFiles)
+                exitEditMode()
+            } label: {
+                Label(
+                    NSLocalizedString("fileList.submit", comment: "Submit files"),
+                    systemImage: "paperplane"
+                )
+            }
+            .disabled(selectedFiles.isEmpty)
+            
+            Spacer()
+        }
         
         Button(role: .destructive) {
             prepareDelete(selectedFiles)
