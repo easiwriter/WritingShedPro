@@ -214,7 +214,7 @@ final class PublishedFolderTests: XCTestCase {
         // Then - Version history should be preserved
         XCTAssertEqual(textFile.versions?.count, versionCount, "Version count should be unchanged")
         XCTAssertTrue(textFile.versions?.contains(where: { $0.id == version1?.id }) ?? false, "Version 1 should still exist")
-        XCTAssertTrue(textFile.versions?.contains(where: { $0.id == version2?.id }) ?? false, "Version 2 should still exist")
+        XCTAssertTrue(textFile.versions?.contains(where: { $0.id == version2.id }) ?? false, "Version 2 should still exist")
     }
     
     // MARK: - Helper Methods

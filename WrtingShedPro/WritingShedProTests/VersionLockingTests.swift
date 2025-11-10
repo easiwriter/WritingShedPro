@@ -163,8 +163,8 @@ final class VersionLockingTests: XCTestCase {
         
         // Then - Original version is locked, new version is not
         XCTAssertTrue(originalVersion?.isLocked ?? false, "Original submitted version should remain locked")
-        XCTAssertFalse(newVersion?.isLocked ?? true, "New version should not be locked")
-        XCTAssertNotEqual(originalVersion?.id, newVersion?.id, "Should have different version IDs")
+        XCTAssertFalse(newVersion.isLocked, "New version should not be locked")
+        XCTAssertNotEqual(originalVersion?.id, newVersion.id, "Should have different version IDs")
     }
     
     func testVersionLockedEvenAfterStatusChange() throws {

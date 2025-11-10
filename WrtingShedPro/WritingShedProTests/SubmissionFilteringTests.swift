@@ -155,10 +155,10 @@ final class SubmissionFilteringTests: XCTestCase {
         
         // Then - Version 2 should be eligible (version 1 is already submitted)
         // In the actual app, this is checked by comparing version numbers
-        XCTAssertNotEqual(version1?.versionNumber, version2?.versionNumber, 
+        XCTAssertNotEqual(version1?.versionNumber, version2.versionNumber, 
                          "Should have different version numbers")
         XCTAssertTrue(version1?.isLocked ?? false, "Version 1 should be locked")
-        XCTAssertFalse(version2?.isLocked ?? true, "Version 2 should not be locked")
+        XCTAssertFalse(version2.isLocked, "Version 2 should not be locked")
     }
     
     func testFileEligibleForDifferentPublication() throws {
