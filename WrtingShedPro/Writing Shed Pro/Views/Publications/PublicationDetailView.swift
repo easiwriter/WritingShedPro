@@ -23,11 +23,11 @@ struct PublicationDetailView: View {
             List {
                 // Info section
                 Section {
-                    LabeledContent(NSLocalizedString("publications.form.name.label", comment: "Name")) {
+                    LabeledContent("publications.form.name.label") {
                         Text(publication.name)
                     }
                     
-                    LabeledContent(NSLocalizedString("publications.form.type.label", comment: "Type")) {
+                    LabeledContent("publications.form.type.label") {
                         HStack {
                             if let type = publication.type {
                                 Text(type.icon)
@@ -37,7 +37,7 @@ struct PublicationDetailView: View {
                     }
                     
                     if let url = publication.url, let urlObject = URL(string: url) {
-                        LabeledContent(NSLocalizedString("publications.form.url.label", comment: "URL")) {
+                        LabeledContent("publications.form.url.label") {
                             Link(url, destination: urlObject)
                                 .lineLimit(1)
                         }
@@ -47,7 +47,7 @@ struct PublicationDetailView: View {
                 // Deadline section
                 if publication.hasDeadline {
                     Section {
-                        LabeledContent(NSLocalizedString("publications.form.deadline.label", comment: "Deadline")) {
+                        LabeledContent("publications.form.deadline.label") {
                             VStack(alignment: .trailing, spacing: 4) {
                                 if let deadline = publication.deadline {
                                     Text(deadline, style: .date)
@@ -70,7 +70,7 @@ struct PublicationDetailView: View {
                     Section {
                         Text(notes)
                     } header: {
-                        Text(NSLocalizedString("publications.form.notes.label", comment: "Notes"))
+                        Text("publications.form.notes.label")
                     }
                 }
                 
@@ -83,41 +83,44 @@ struct PublicationDetailView: View {
                             }
                         }
                     } else {
-                        Text(NSLocalizedString("publications.submissions.none", comment: "No submissions"))
+                        Text("publications.submissions.none")
                             .foregroundStyle(.secondary)
                     }
                 } header: {
                     HStack {
-                        Text(NSLocalizedString("publications.submissions.title", comment: "Submissions title"))
+                        Text("publications.submissions.title")
                         Spacer()
                         Button(action: { showingAddSubmissionSheet = true }) {
                             Image(systemName: "plus.circle.fill")
                         }
-                        .accessibilityLabel(Text(NSLocalizedString("accessibility.add.submission", comment: "Add submission")))
-                        .accessibilityHint(Text(NSLocalizedString("accessibility.add.submission.hint", comment: "Add submission hint")))
+                        .accessibilityLabel(Text("accessibility.add.submission"))
+                        .accessibilityHint(Text("accessibility.add.submission.hint"))
                     }
                 }
                 
                 // Delete section
                 Section {
                     Button(role: .destructive, action: { showingDeleteConfirmation = true }) {
-                        Label(
-                            NSLocalizedString("publications.button.delete", comment: "Delete button"),
-                            systemImage: "trash"
-                        )
+                        Label("publications.button.delete", systemImage: "trash")
                     }
-                    .accessibilityLabel(Text(NSLocalizedString("accessibility.delete.publication", comment: "Delete publication")))
-                    .accessibilityHint(Text(NSLocalizedString("accessibility.delete.publication.hint", comment: "Delete hint")))
+                    .accessibilityLabel(Text("accessibility.delete.publication"))
+                    .accessibilityHint(Text("accessibility.delete.publication.hint"))
                 }
             }
-            .navigationTitle(Text(NSLocalizedString("publications.detail.title", comment: "Detail title")))
+            .navigationTitle("publications.detail.title")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("button.done") {
+                        dismiss()
+                    }
+                }
+                
                 ToolbarItem(placement: .primaryAction) {
-                    Button(NSLocalizedString("publications.button.edit", comment: "Edit button")) {
+                    Button("publications.button.edit") {
                         showingEditSheet = true
                     }
-                    .accessibilityLabel(Text(NSLocalizedString("accessibility.edit.publication", comment: "Edit publication")))
+                    .accessibilityLabel(Text("accessibility.edit.publication"))
                     .accessibilityHint(Text(NSLocalizedString("accessibility.edit.publication.hint", comment: "Edit hint")))
                 }
             }
@@ -132,18 +135,15 @@ struct PublicationDetailView: View {
                 }
             }
             .confirmationDialog(
-                String(format: NSLocalizedString("publications.delete.title", comment: "Delete title"), publication.name),
+                Text("publications.delete.title") + Text(" '\(publication.name)'?"),
                 isPresented: $showingDeleteConfirmation,
                 titleVisibility: .visible
             ) {
-                Button(
-                    NSLocalizedString("publications.delete.confirm", comment: "Delete confirm"),
-                    role: .destructive
-                ) {
+                Button("publications.delete.confirm", role: .destructive) {
                     deletePublication()
                 }
             } message: {
-                Text(NSLocalizedString("publications.delete.message", comment: "Delete message"))
+                Text("publications.delete.message")
             }
         }
     }

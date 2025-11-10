@@ -301,7 +301,8 @@ struct FileListView: View {
 
 // MARK: - Submissions Button Component
 
-/// Button that shows submission count and opens submission history for a file
+/// Button that shows submission icon and opens submission history for a file
+/// Only displayed if the file has at least one submission
 private struct SubmissionsButton: View {
     @Query private var allSubmittedFiles: [SubmittedFile]
     @State private var showSubmissions = false
@@ -314,23 +315,19 @@ private struct SubmissionsButton: View {
     }
     
     var body: some View {
-        Button {
-            showSubmissions = true
-        } label: {
-            HStack(spacing: 4) {
+        // Only show button if file has submissions
+        if submissionCount > 0 {
+            Button {
+                showSubmissions = true
+            } label: {
                 Image(systemName: "paperplane.circle")
-                    .foregroundStyle(submissionCount > 0 ? .blue : .secondary)
-                if submissionCount > 0 {
-                    Text("\(submissionCount)")
-                        .font(.caption)
-                        .foregroundStyle(.blue)
-                }
+                    .foregroundStyle(.blue)
             }
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(Text(String(format: NSLocalizedString("accessibility.file.submissions", comment: "File submissions"), submissionCount)))
-        .sheet(isPresented: $showSubmissions) {
-            FileSubmissionsView(file: file)
+            .buttonStyle(.plain)
+            .accessibilityLabel(Text(String(format: NSLocalizedString("accessibility.file.submissions", comment: "File submissions"), submissionCount)))
+            .sheet(isPresented: $showSubmissions) {
+                FileSubmissionsView(file: file)
+            }
         }
     }
 }

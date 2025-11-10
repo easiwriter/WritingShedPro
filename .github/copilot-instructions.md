@@ -34,13 +34,35 @@ specs/               # Feature specifications
 ❌ NEVER use hard-coded user-facing strings
 ✅ ALWAYS use localized string keys
 
-```swift
-// ❌ WRONG
-Text("Publications")
+**CRITICAL: Correct Localization Patterns**
 
-// ✅ CORRECT
+```swift
+// ✅ CORRECT: SwiftUI views with LocalizedStringKey (simple string literal)
 Text("publications.title")
+Button("button.cancel") { }
+Label("publications.button.add", systemImage: "plus")
+.navigationTitle("publications.detail.title")
+LabeledContent("publications.form.name.label") { }
+
+// ✅ CORRECT: Enum properties and formatted strings with NSLocalizedString
+var displayName: String {
+    return NSLocalizedString("publications.type.magazine", comment: "Magazine")
+}
+Text(String(format: NSLocalizedString("submissions.files.count", comment: "Files"), count))
+
+// ❌ WRONG: NSLocalizedString in SwiftUI view initializers
+Text(NSLocalizedString("publications.title", comment: ""))  // Shows as literal key!
+Button(NSLocalizedString("button.cancel", comment: "")) { } // Shows as literal key!
+LabeledContent(NSLocalizedString("label", comment: "")) { } // Shows as literal key!
+
+// ❌ WRONG: Hard-coded English strings
+Text("Publications")  // Not localized!
 ```
+
+**The Rule:**
+- SwiftUI views (Text, Button, Label, etc.): Use simple string literals → LocalizedStringKey
+- Enum properties, String variables: Use NSLocalizedString()
+- String(format:) with parameters: Use NSLocalizedString()
 
 All user-facing text MUST be localized:
 - Button labels
