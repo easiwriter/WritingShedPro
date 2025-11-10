@@ -193,7 +193,7 @@ struct FileSelectionRow: View {
     let container = try! ModelContainer(for: Project.self, Publication.self, TextFile.self, Folder.self, configurations: config)
     let context = container.mainContext
     
-    let project = Project(name: "Test Project", rootFolderURL: URL(fileURLWithPath: "/tmp/test"))
+    let project = Project(name: "Test Project")
     let publication = Publication(name: "Test Magazine", type: .magazine, project: project)
     
     let rootFolder = Folder(name: "Test Project", fileURL: URL(fileURLWithPath: "/tmp/test"), isRoot: true, project: project)
@@ -225,7 +225,7 @@ struct FileSelectionRow: View {
     let container = try! ModelContainer(for: Project.self, Publication.self, configurations: config)
     let context = container.mainContext
     
-    let project = Project(name: "Empty Project", rootFolderURL: URL(fileURLWithPath: "/tmp/empty"))
+    let project = Project(name: "Empty Project")
     let publication = Publication(name: "Test Competition", type: .competition, project: project)
     
     context.insert(project)

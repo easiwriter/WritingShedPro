@@ -114,7 +114,7 @@ struct SubmissionRowView: View {
     let container = try! ModelContainer(for: Project.self, Publication.self, Submission.self, SubmittedFile.self, configurations: config)
     let context = container.mainContext
     
-    let project = Project(name: "Test Project", rootFolderURL: URL(fileURLWithPath: "/tmp/test"))
+    let project = Project(name: "Test Project")
     let publication = Publication(name: "Test Magazine", project: project)
     let submission = Submission(publication: publication, project: project, submittedDate: Date())
     
@@ -139,7 +139,7 @@ struct SubmissionRowView: View {
     let container = try! ModelContainer(for: Project.self, Publication.self, Submission.self, SubmittedFile.self, configurations: config)
     let context = container.mainContext
     
-    let project = Project(name: "Test Project", rootFolderURL: URL(fileURLWithPath: "/tmp/test"))
+    let project = Project(name: "Test Project")
     let publication = Publication(name: "Test Competition", project: project)
     let submission = Submission(publication: publication, project: project, submittedDate: Date().addingTimeInterval(-86400 * 7))
     

@@ -221,7 +221,7 @@ struct SubmittedFileRow: View {
     let container = try! ModelContainer(for: Project.self, Publication.self, Submission.self, SubmittedFile.self, TextFile.self, Version.self, configurations: config)
     let context = container.mainContext
     
-    let project = Project(name: "Test Project", rootFolderURL: URL(fileURLWithPath: "/tmp/test"))
+    let project = Project(name: "Test Project")
     let publication = Publication(name: "Test Magazine", type: .magazine, project: project)
     let submission = Submission(publication: publication, project: project, submittedDate: Date().addingTimeInterval(-86400 * 7), notes: "Test submission notes")
     
