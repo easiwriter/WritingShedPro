@@ -30,11 +30,10 @@ struct SubmissionPickerView: View {
             // New Publication button section
             Section {
                 Button(action: { showingNewPublicationSheet = true }) {
-                    Label(NSLocalizedString("publications.button.add", comment: "Add publication"), 
-                          systemImage: "plus.circle.fill")
+                    Label("publications.button.add", systemImage: "plus.circle.fill")
                         .foregroundStyle(.blue)
                 }
-                .accessibilityLabel(Text(NSLocalizedString("accessibility.add.publication", comment: "Add publication")))
+                .accessibilityLabel(Text("accessibility.add.publication"))
             }
             
             // Existing publications
@@ -70,25 +69,24 @@ struct SubmissionPickerView: View {
                         .accessibilityLabel(Text(String(format: NSLocalizedString("accessibility.submit.to", comment: "Submit to"), publication.name ?? "")))
                     }
                 } header: {
-                    Text(NSLocalizedString("publications.existing.title", comment: "Existing publications"))
+                    Text("publications.existing.title")
                 }
             } else {
                 // Empty state
                 Section {
                     ContentUnavailableView {
-                        Label(NSLocalizedString("publications.empty.title", comment: "No publications"), 
-                              systemImage: "doc.text.magnifyingglass")
+                        Label("publications.empty.title", systemImage: "doc.text.magnifyingglass")
                     } description: {
-                        Text(NSLocalizedString("publications.empty.message", comment: "Create your first publication"))
+                        Text("publications.empty.message")
                     }
                 }
             }
         }
-        .navigationTitle(String(format: NSLocalizedString("submissions.submit.count", comment: "Submit N files"), filesToSubmit.count))
+        .navigationTitle("submissions.submit.title")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button(NSLocalizedString("button.cancel", comment: "Cancel")) {
+                Button("button.cancel") {
                     onCancel()
                 }
             }
@@ -128,14 +126,14 @@ struct NewPublicationForSubmissionView: View {
     var body: some View {
         Form {
             Section {
-                TextField(NSLocalizedString("publications.form.name.placeholder", comment: "Name placeholder"), text: $name)
-                    .accessibilityLabel(Text(NSLocalizedString("publications.form.name.label", comment: "Publication name")))
+                TextField("publications.form.name.placeholder", text: $name)
+                    .accessibilityLabel(Text("publications.form.name.label"))
             } header: {
-                Text(NSLocalizedString("publications.form.name.label", comment: "Name"))
+                Text("publications.form.name.label")
             }
             
             Section {
-                Picker(NSLocalizedString("publications.form.type.label", comment: "Type"), selection: $selectedType) {
+                Picker("publications.form.type.label", selection: $selectedType) {
                     ForEach([PublicationType.magazine, .competition, .commission, .other], id: \.self) { type in
                         HStack {
                             Text(type.icon)
@@ -146,7 +144,7 @@ struct NewPublicationForSubmissionView: View {
                 }
                 .pickerStyle(.menu)
             } header: {
-                Text(NSLocalizedString("publications.form.type.label", comment: "Type"))
+                Text("publications.form.type.label")
             }
             
             Section {
@@ -161,27 +159,27 @@ struct NewPublicationForSubmissionView: View {
                     }
                 }
             } header: {
-                Text(String(format: NSLocalizedString("submissions.files.selected", comment: "Files selected"), filesToSubmit.count))
+                Text("submissions.files.label")
             }
         }
-        .navigationTitle(NSLocalizedString("publications.new.quick.title", comment: "Quick add publication"))
+        .navigationTitle("publications.new.quick.title")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button(NSLocalizedString("button.cancel", comment: "Cancel")) {
+                Button("button.cancel") {
                     onCancel()
                 }
             }
             
             ToolbarItem(placement: .confirmationAction) {
-                Button(NSLocalizedString("publications.button.create", comment: "Create")) {
+                Button("publications.button.create") {
                     createPublicationAndSubmit()
                 }
                 .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
             }
         }
-        .alert(NSLocalizedString("publications.error.title", comment: "Error"), isPresented: $showingError) {
-            Button(NSLocalizedString("button.ok", comment: "OK"), role: .cancel) { }
+        .alert("publications.error.title", isPresented: $showingError) {
+            Button("button.ok", role: .cancel) { }
         } message: {
             Text(errorMessage)
         }

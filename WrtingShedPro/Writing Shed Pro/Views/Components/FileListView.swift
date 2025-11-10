@@ -146,6 +146,11 @@ struct FileListView: View {
             Text(file.name)
             
             Spacer()
+            
+            // Submissions button (always visible, opens history sheet)
+            if !isEditMode {
+                SubmissionsButton(file: file)
+            }
         }
         .contentShape(Rectangle())
         .onTapGesture {
@@ -294,40 +299,38 @@ struct FileListView: View {
     }
 }
 
-// MARK: - Preview
+// MARK: - Submissions Button Component
 
-#Preview("Empty List") {
-    NavigationStack {
-        FileListView(
-            files: [],
-            onFileSelected: { _ in },
-            onMove: { _ in },
-            onDelete: { _ in },
-            onReorder: nil
-        )
-        .navigationTitle("Files")
+/// Button that shows submission count and opens submission history for a file
+private struct SubmissionsButton: View {
+    @Query private var allSubmittedFiles: [SubmittedFile]
+    @State private var showSubmissions = false
+    
+    let file: TextFile
+    
+    // Count submissions for this file
+    private var submissionCount: Int {
+        allSubmittedFiles.filter { $0.textFile?.id == file.id }.count
     }
-}
-
-#Preview("With Files") {
-    NavigationStack {
-        FileListView(
-            files: [
-                TextFile(name: "Chapter 1", parentFolder: nil),
-                TextFile(name: "Chapter 2", parentFolder: nil),
-                TextFile(name: "Chapter 3", parentFolder: nil),
-            ],
-            onFileSelected: { file in
-                print("Selected: \(file.name)")
-            },
-            onMove: { files in
-                print("Move \(files.count) files")
-            },
-            onDelete: { files in
-                print("Delete \(files.count) files")
-            },
-            onReorder: nil
-        )
-        .navigationTitle("Files")
+    
+    var body: some View {
+        Button {
+            showSubmissions = true
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "paperplane.circle")
+                    .foregroundStyle(submissionCount > 0 ? .blue : .secondary)
+                if submissionCount > 0 {
+                    Text("\(submissionCount)")
+                        .font(.caption)
+                        .foregroundStyle(.blue)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text(String(format: NSLocalizedString("accessibility.file.submissions", comment: "File submissions"), submissionCount)))
+        .sheet(isPresented: $showSubmissions) {
+            FileSubmissionsView(file: file)
+        }
     }
 }

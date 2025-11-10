@@ -16,10 +16,10 @@ enum PublicationType: String, Codable {
     
     var displayName: String {
         switch self {
-        case .magazine: return "Magazine"
-        case .competition: return "Competition"
-        case .commission: return "Commission"
-        case .other: return "Other"
+        case .magazine: return NSLocalizedString("publications.type.magazine", comment: "Magazine")
+        case .competition: return NSLocalizedString("publications.type.competition", comment: "Competition")
+        case .commission: return NSLocalizedString("publications.type.commission", comment: "Commission")
+        case .other: return NSLocalizedString("publications.type.other", comment: "Other")
         }
     }
     

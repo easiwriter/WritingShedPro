@@ -16,9 +16,9 @@ enum SubmissionStatus: String, Codable {
     
     var displayName: String {
         switch self {
-        case .pending: return "Pending"
-        case .accepted: return "Accepted"
-        case .rejected: return "Rejected"
+        case .pending: return NSLocalizedString("submissions.status.pending", comment: "Pending")
+        case .accepted: return NSLocalizedString("submissions.status.accepted", comment: "Accepted")
+        case .rejected: return NSLocalizedString("submissions.status.rejected", comment: "Rejected")
         }
     }
     

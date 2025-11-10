@@ -100,6 +100,7 @@
 "submissions.submitting.to" = "Submitting To";
 "submissions.button.submit" = "Submit";
 "submissions.submit.count" = "Submit %d file(s)";
+"submissions.submit.title" = "Submit Files";
 "submissions.delete.title" = "Delete Submission?";
 "submissions.delete.message" = "This will delete the submission record but not the files.";
 "submissions.details.label" = "Details";
@@ -136,7 +137,18 @@
 /* File List */
 "fileList.submit" = "Submit";
 
+/* Accessibility - File List */
+"accessibility.file.submissions" = "%d submission(s)";
+
+/* File Submissions History */
+"submissions.file.empty.title" = "No Submissions";
+"submissions.file.empty.message" = "This file hasn't been submitted yet";
+"submissions.file.history.title" = "Submission History";
+"submissions.status.updated.on" = "Updated: %@";
+"submissions.response.time" = "Response: %@";
+
 /* General Buttons */
 "button.cancel" = "Cancel";
+"button.done" = "Done";
 "button.ok" = "OK";
 "button.delete" = "Delete";
