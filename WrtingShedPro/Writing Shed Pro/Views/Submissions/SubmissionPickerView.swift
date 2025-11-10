@@ -143,23 +143,23 @@ struct NewPublicationForSubmissionView: View {
                     }
                 }
                 .pickerStyle(.menu)
+                
+                // Display selected type with icon and label
+                HStack {
+                    Text(selectedType.icon)
+                    Text(selectedType.displayName)
+                }
             } header: {
                 Text("publications.form.type.label")
             }
             
             Section {
-                HStack {
-                    ForEach(filesToSubmit, id: \.id) { file in
-                        Text(file.name)
-                            .font(.caption)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(Color.secondary.opacity(0.2))
-                            .cornerRadius(4)
-                    }
+                ForEach(filesToSubmit, id: \.id) { file in
+                    Text(file.name)
+                        .font(.body)
                 }
             } header: {
-                Text("submissions.files.label")
+                Text(String(format: NSLocalizedString("submissions.files.selected", comment: "Files selected"), filesToSubmit.count))
             }
         }
         .navigationTitle("publications.new.quick.title")

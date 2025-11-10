@@ -154,7 +154,10 @@ struct FileListView: View {
         }
         .contentShape(Rectangle())
         .onTapGesture {
-            if !isEditMode {
+            if isEditMode {
+                // Edit mode: toggle selection
+                toggleSelection(for: file)
+            } else {
                 // Normal mode: navigate to file
                 onFileSelected(file)
             }
@@ -258,6 +261,15 @@ struct FileListView: View {
     }
     
     // MARK: - Actions
+    
+    /// Toggles selection for a file (tap-to-toggle in edit mode)
+    private func toggleSelection(for file: TextFile) {
+        if selectedFileIDs.contains(file.id) {
+            selectedFileIDs.remove(file.id)
+        } else {
+            selectedFileIDs.insert(file.id)
+        }
+    }
     
     /// Prepares files for deletion and shows confirmation alert
     private func prepareDelete(_ files: [TextFile]) {
