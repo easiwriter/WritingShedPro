@@ -89,19 +89,28 @@ struct FolderListView: View {
                             FolderRowView(folder: folder)
                         }
                     } else {
-                        // Navigate to subfolders OR to file list based on folder capabilities
-                        let canAddFolder = FolderCapabilityService.canAddSubfolder(to: folder)
-                        let _ = FolderCapabilityService.canAddFile(to: folder)
-                        
-                        if canAddFolder {
-                            // This folder contains subfolders - navigate to FolderListView
-                            NavigationLink(destination: FolderListView(project: project, selectedFolder: folder)) {
+                        // Check if this is a publication folder (Magazines, Competitions, Commissions, Other)
+                        let folderName = folder.name ?? ""
+                        if let publicationType = publicationTypeForFolder(folderName) {
+                            // Navigate to publications list filtered by type
+                            NavigationLink(destination: PublicationsListView(project: project, publicationType: publicationType)) {
                                 FolderRowView(folder: folder)
                             }
                         } else {
-                            // This folder contains files - navigate to FolderFilesView
-                            NavigationLink(destination: FolderFilesView(folder: folder)) {
-                                FolderRowView(folder: folder)
+                            // Navigate to subfolders OR to file list based on folder capabilities
+                            let canAddFolder = FolderCapabilityService.canAddSubfolder(to: folder)
+                            let _ = FolderCapabilityService.canAddFile(to: folder)
+                            
+                            if canAddFolder {
+                                // This folder contains subfolders - navigate to FolderListView
+                                NavigationLink(destination: FolderListView(project: project, selectedFolder: folder)) {
+                                    FolderRowView(folder: folder)
+                                }
+                            } else {
+                                // This folder contains files - navigate to FolderFilesView
+                                NavigationLink(destination: FolderFilesView(folder: folder)) {
+                                    FolderRowView(folder: folder)
+                                }
                             }
                         }
                     }
@@ -148,17 +157,6 @@ struct FolderListView: View {
         .navigationTitle(selectedFolder?.name ?? project.name ?? "Folders")
         .navigationBarTitleDisplayMode(selectedFolder == nil ? .large : .inline)
         .toolbar {
-            // Publications button (always visible at root level)
-            if selectedFolder == nil {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    NavigationLink(destination: PublicationsListView(project: project, publicationType: nil)) {
-                        Label(NSLocalizedString("publications.title", comment: "Publications"), 
-                              systemImage: "doc.text.magnifyingglass")
-                    }
-                    .accessibilityLabel(Text(NSLocalizedString("accessibility.view.publications", comment: "View publications")))
-                }
-            }
-            
             ToolbarItem(placement: .primaryAction) {
                 // Show add button for folders only
                 if let selectedFolder = selectedFolder {
@@ -180,6 +178,22 @@ struct FolderListView: View {
                 parentFolder: selectedFolder,
                 existingFolders: selectedFolder != nil ? currentSubfolders : projectFolders
             )
+        }
+    }
+    
+    // Helper function to map folder names to publication types
+    private func publicationTypeForFolder(_ folderName: String) -> PublicationType? {
+        switch folderName {
+        case "Magazines":
+            return .magazine
+        case "Competitions":
+            return .competition
+        case "Commissions":
+            return .commission
+        case "Other":
+            return .other
+        default:
+            return nil
         }
     }
 }
