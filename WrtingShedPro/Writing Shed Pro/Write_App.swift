@@ -31,6 +31,7 @@ struct Write_App: App {
         let modelConfiguration = ModelConfiguration(
             schema: schema,
             isStoredInMemoryOnly: false,
+            allowsSave: true,
             cloudKitDatabase: .private("iCloud.com.appworks.writingshedpro")
         )
 
