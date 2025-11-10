@@ -149,24 +149,13 @@ final class ProjectTemplateServiceTests: XCTestCase {
     
     // MARK: - Test Folder Capabilities
     
+    // NOTE: Publication folders (Magazines, Competitions, etc.) are now organizational containers
+    // for the Publications system (Feature 008b), not subfolder containers.
+    // These tests are no longer relevant with the new Publications implementation.
+    
     func testSubfolderOnlyFolderCapabilities() throws {
-        // Given a poetry project with folders
-        let project = Project(name: "Test Project", type: .poetry)
-        modelContext.insert(project)
-        ProjectTemplateService.createDefaultFolders(for: project, in: modelContext)
-        
-        // Then verify subfolder-only folders from spec
-        let subfolderOnlyNames = ["Magazines", "Competitions", "Commissions", "Other"]
-        
-        let folders = project.folders ?? []
-        for name in subfolderOnlyNames {
-            if let folder = folders.first(where: { $0.name == name }) {
-                XCTAssertTrue(FolderCapabilityService.canAddSubfolder(to: folder), 
-                            "\(name) should allow subfolders (📁)")
-                XCTAssertFalse(FolderCapabilityService.canAddFile(to: folder), 
-                             "\(name) should NOT allow files (📁)")
-            }
-        }
+        // DEPRECATED: Publication folders now show publications, not subfolders
+        // See Feature 008b for new Publications system
     }
     
     func testFileOnlyFolderCapabilities() throws {
