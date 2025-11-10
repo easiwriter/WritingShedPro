@@ -15,6 +15,8 @@ struct PublicationFormView: View {
     let project: Project
     let publication: Publication? // nil = add, non-nil = edit
     
+    @Query private var allPublications: [Publication]
+    
     @State private var name: String = ""
     @State private var selectedType: PublicationType = .magazine
     @State private var url: String = ""
@@ -24,6 +26,8 @@ struct PublicationFormView: View {
     
     @State private var showingError = false
     @State private var errorMessage = ""
+    @State private var showingDuplicateWarning = false
+    @State private var pendingSaveName: String = ""
     
     var isEditing: Bool { publication != nil }
     
@@ -132,6 +136,25 @@ struct PublicationFormView: View {
             } message: {
                 Text(errorMessage)
             }
+            .confirmationDialog(
+                "publications.duplicate.title",
+                isPresented: $showingDuplicateWarning,
+                titleVisibility: .visible
+            ) {
+                Button("publications.duplicate.useOriginal") {
+                    performSave(withName: pendingSaveName)
+                }
+                Button("publications.duplicate.makeUnique") {
+                    let uniqueName = makeUniqueName(pendingSaveName)
+                    name = uniqueName
+                    performSave(withName: uniqueName)
+                }
+                Button("button.cancel", role: .cancel) {
+                    pendingSaveName = ""
+                }
+            } message: {
+                Text("publications.duplicate.message")
+            }
             .onAppear {
                 loadPublication()
             }
@@ -153,12 +176,26 @@ struct PublicationFormView: View {
         guard validateInput() else { return }
         
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // Check for duplicates (only when creating new or changing name)
+        if publication == nil || publication?.name != trimmedName {
+            if hasDuplicateName(trimmedName) {
+                pendingSaveName = trimmedName
+                showingDuplicateWarning = true
+                return
+            }
+        }
+        
+        performSave(withName: trimmedName)
+    }
+    
+    private func performSave(withName finalName: String) {
         let trimmedURL = url.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedNotes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
         
         if let publication = publication {
             // Edit existing
-            publication.name = trimmedName
+            publication.name = finalName
             publication.type = selectedType
             publication.url = trimmedURL.isEmpty ? nil : trimmedURL
             publication.deadline = hasDeadline ? deadline : nil
@@ -167,7 +204,7 @@ struct PublicationFormView: View {
         } else {
             // Create new
             let newPublication = Publication(
-                name: trimmedName,
+                name: finalName,
                 type: selectedType,
                 url: trimmedURL.isEmpty ? nil : trimmedURL,
                 notes: trimmedNotes.isEmpty ? nil : trimmedNotes,
@@ -178,6 +215,29 @@ struct PublicationFormView: View {
         }
         
         dismiss()
+    }
+    
+    private func hasDuplicateName(_ name: String) -> Bool {
+        let projectPublications = allPublications.filter { pub in
+            pub.project?.id == project.id && pub.id != publication?.id
+        }
+        return projectPublications.contains { $0.name.lowercased() == name.lowercased() }
+    }
+    
+    private func makeUniqueName(_ baseName: String) -> String {
+        let projectPublications = allPublications.filter { pub in
+            pub.project?.id == project.id && pub.id != publication?.id
+        }
+        
+        var counter = 2
+        var uniqueName = "\(baseName) (2)"
+        
+        while projectPublications.contains(where: { $0.name.lowercased() == uniqueName.lowercased() }) {
+            counter += 1
+            uniqueName = "\(baseName) (\(counter))"
+        }
+        
+        return uniqueName
     }
     
     private func validateInput() -> Bool {

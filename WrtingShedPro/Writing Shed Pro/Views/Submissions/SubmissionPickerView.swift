@@ -118,10 +118,14 @@ struct NewPublicationForSubmissionView: View {
     let onPublicationCreated: (Publication) -> Void
     let onCancel: () -> Void
     
+    @Query private var allPublications: [Publication]
+    
     @State private var name: String = ""
     @State private var selectedType: PublicationType = .magazine
     @State private var showingError = false
     @State private var errorMessage = ""
+    @State private var showingDuplicateWarning = false
+    @State private var pendingSaveName: String = ""
     
     var body: some View {
         Form {
@@ -183,6 +187,25 @@ struct NewPublicationForSubmissionView: View {
         } message: {
             Text(errorMessage)
         }
+        .confirmationDialog(
+            "publications.duplicate.title",
+            isPresented: $showingDuplicateWarning,
+            titleVisibility: .visible
+        ) {
+            Button("publications.duplicate.useOriginal") {
+                performCreate(withName: pendingSaveName)
+            }
+            Button("publications.duplicate.makeUnique") {
+                let uniqueName = makeUniqueName(pendingSaveName)
+                name = uniqueName
+                performCreate(withName: uniqueName)
+            }
+            Button("button.cancel", role: .cancel) {
+                pendingSaveName = ""
+            }
+        } message: {
+            Text("publications.duplicate.message")
+        }
     }
     
     private func createPublicationAndSubmit() {
@@ -200,9 +223,20 @@ struct NewPublicationForSubmissionView: View {
             return
         }
         
+        // Check for duplicates
+        if hasDuplicateName(trimmedName) {
+            pendingSaveName = trimmedName
+            showingDuplicateWarning = true
+            return
+        }
+        
+        performCreate(withName: trimmedName)
+    }
+    
+    private func performCreate(withName finalName: String) {
         // Create publication
         let publication = Publication(
-            name: trimmedName,
+            name: finalName,
             type: selectedType,
             project: project
         )
@@ -210,5 +244,28 @@ struct NewPublicationForSubmissionView: View {
         
         // Notify parent to create submission
         onPublicationCreated(publication)
+    }
+    
+    private func hasDuplicateName(_ name: String) -> Bool {
+        let projectPublications = allPublications.filter { pub in
+            pub.project?.id == project.id
+        }
+        return projectPublications.contains { $0.name.lowercased() == name.lowercased() }
+    }
+    
+    private func makeUniqueName(_ baseName: String) -> String {
+        let projectPublications = allPublications.filter { pub in
+            pub.project?.id == project.id
+        }
+        
+        var counter = 2
+        var uniqueName = "\(baseName) (2)"
+        
+        while projectPublications.contains(where: { $0.name.lowercased() == uniqueName.lowercased() }) {
+            counter += 1
+            uniqueName = "\(baseName) (\(counter))"
+        }
+        
+        return uniqueName
     }
 }

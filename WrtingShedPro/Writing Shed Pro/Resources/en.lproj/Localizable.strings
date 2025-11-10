@@ -345,6 +345,12 @@
 "publications.error.name.toolong" = "Publication name is too long (max 100 characters)";
 "publications.error.url.invalid" = "Please enter a valid URL";
 
+/* Duplicate Name Warning */
+"publications.duplicate.title" = "Duplicate Name";
+"publications.duplicate.message" = "A publication with this name already exists in this project. Would you like to use the original name or make it unique?";
+"publications.duplicate.useOriginal" = "Use Original Name";
+"publications.duplicate.makeUnique" = "Make Unique";
+
 /* Accessibility Labels */
 "accessibility.publications.list" = "Publications list";
 "accessibility.publications.navigation" = "Navigate to publications";
