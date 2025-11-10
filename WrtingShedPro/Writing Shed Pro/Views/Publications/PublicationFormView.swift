@@ -229,12 +229,12 @@ struct PublicationFormView: View {
             pub.project?.id == project.id && pub.id != publication?.id
         }
         
-        var counter = 2
-        var uniqueName = "\(baseName) (2)"
+        var counter = 1
+        var uniqueName = "\(baseName)-1"
         
         while projectPublications.contains(where: { $0.name.lowercased() == uniqueName.lowercased() }) {
             counter += 1
-            uniqueName = "\(baseName) (\(counter))"
+            uniqueName = "\(baseName)-\(counter)"
         }
         
         return uniqueName

@@ -137,25 +137,14 @@ struct NewPublicationForSubmissionView: View {
             }
             
             Section {
-                Picker(selection: $selectedType) {
+                Picker("publications.form.type.label", selection: $selectedType) {
                     ForEach([PublicationType.magazine, .competition, .commission, .other], id: \.self) { type in
-                        HStack {
-                            Text(type.icon)
-                            Text(type.displayName)
-                        }
-                        .tag(type)
-                    }
-                } label: {
-                    HStack {
-                        Text("publications.form.type.label")
-                        Spacer()
-                        HStack(spacing: 4) {
-                            Text(selectedType.icon)
-                            Text(selectedType.displayName)
-                        }
-                        .foregroundStyle(.secondary)
+                        Text(type.displayName).tag(type)
                     }
                 }
+                .pickerStyle(.menu)
+            } header: {
+                Text("publications.form.type.label")
             }
             
             Section {
@@ -259,12 +248,12 @@ struct NewPublicationForSubmissionView: View {
             pub.project?.id == project.id
         }
         
-        var counter = 2
-        var uniqueName = "\(baseName) (2)"
+        var counter = 1
+        var uniqueName = "\(baseName)-1"
         
         while projectPublications.contains(where: { $0.name.lowercased() == uniqueName.lowercased() }) {
             counter += 1
-            uniqueName = "\(baseName) (\(counter))"
+            uniqueName = "\(baseName)-\(counter)"
         }
         
         return uniqueName
