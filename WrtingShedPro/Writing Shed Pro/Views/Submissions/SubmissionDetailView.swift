@@ -215,36 +215,3 @@ struct SubmittedFileRow: View {
         return status.color
     }
 }
-
-#Preview("With Files") {
-    let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: Project.self, Publication.self, Submission.self, SubmittedFile.self, TextFile.self, Version.self, configurations: config)
-    let context = container.mainContext
-    
-    let project = Project(name: "Test Project")
-    let publication = Publication(name: "Test Magazine", type: .magazine, project: project)
-    let submission = Submission(publication: publication, project: project, submittedDate: Date().addingTimeInterval(-86400 * 7), notes: "Test submission notes")
-    
-    let file1 = TextFile(name: "Story1.txt", folderURL: URL(fileURLWithPath: "/tmp/test"), project: project)
-    let version1 = Version(textFile: file1, project: project)
-    let submittedFile1 = SubmittedFile(submission: submission, textFile: file1, version: version1, status: .accepted, statusDate: Date(), project: project)
-    
-    let file2 = TextFile(name: "Story2.txt", folderURL: URL(fileURLWithPath: "/tmp/test"), project: project)
-    let version2 = Version(textFile: file2, project: project)
-    let submittedFile2 = SubmittedFile(submission: submission, textFile: file2, version: version2, status: .pending, statusDate: Date(), project: project)
-    
-    context.insert(project)
-    context.insert(publication)
-    context.insert(submission)
-    context.insert(file1)
-    context.insert(version1)
-    context.insert(submittedFile1)
-    context.insert(file2)
-    context.insert(version2)
-    context.insert(submittedFile2)
-    
-    NavigationStack {
-        SubmissionDetailView(submission: submission)
-    }
-    .modelContainer(container)
-}
