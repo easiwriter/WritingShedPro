@@ -1,9 +1,9 @@
 # Writing Shed Pro - Development Guidelines
 
-Last updated: 9 November 2025
+Last updated: 10 November 2025
 
 ## Active Feature
-- Feature 008b: Publication Management System (Phase 1 complete)
+- Feature 008b: Publication Management System (Phase 3 complete)
 
 ## Project Structure
 ```
@@ -73,6 +73,12 @@ Requirements:
 - Add computed properties for derived data
 - Keep business logic in services, not models
 
+### SwiftUI Previews
+❌ **DO NOT add #Preview code blocks**
+- User does not use SwiftUI previews
+- Previews cause maintenance overhead with model changes
+- Test views by running the app instead
+
 ### Code Quality
 - No force unwraps (use guard/if let)
 - Handle all error cases
@@ -89,11 +95,22 @@ Requirements:
 ✅ ReminderService (EventKit integration)
 ✅ SwiftData schema updates
 
-### Next Phase (Phase 2)
-- PublicationsListView
-- PublicationFormView
-- PublicationDetailView
-- Deadline indicators
+### Completed (Phase 2)
+✅ PublicationsListView
+✅ PublicationFormView
+✅ PublicationDetailView
+✅ Deadline indicators
+
+### Completed (Phase 3)
+✅ SubmissionRowView
+✅ AddSubmissionView
+✅ SubmissionDetailView
+✅ Type filter for publications
+✅ Multi-file submission creation
+✅ Status tracking UI
+
+### Next Phase (Phase 4)
+- TBD based on user requirements
 
 ### Key Concepts
 - Publications track magazines/competitions
@@ -119,6 +136,7 @@ Before any commit:
 - [ ] No force unwraps
 - [ ] Error handling complete
 - [ ] VoiceOver tested (if UI changes)
+- [ ] No #Preview code blocks added
 
 <!-- MANUAL ADDITIONS START -->
 <!-- MANUAL ADDITIONS END -->
