@@ -150,10 +150,8 @@ final class SubmissionFilteringTests: XCTestCase {
         try context.save()
         
         // When - File is edited, creating version 2
-        textFile.updateContent(NSAttributedString(string: "Version 2"))
+        let version2 = textFile.createNewVersion(content: "Version 2")
         try context.save()
-        
-        let version2 = textFile.currentVersion
         
         // Then - Version 2 should be eligible (version 1 is already submitted)
         // In the actual app, this is checked by comparing version numbers

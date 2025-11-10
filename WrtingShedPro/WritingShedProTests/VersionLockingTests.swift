@@ -158,10 +158,8 @@ final class VersionLockingTests: XCTestCase {
         try context.save()
         
         // When - File is edited (creating a new version)
-        textFile.updateContent(NSAttributedString(string: "Updated content"))
+        let newVersion = textFile.createNewVersion(content: "Updated content")
         try context.save()
-        
-        let newVersion = textFile.currentVersion
         
         // Then - Original version is locked, new version is not
         XCTAssertTrue(originalVersion?.isLocked ?? false, "Original submitted version should remain locked")

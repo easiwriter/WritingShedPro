@@ -203,10 +203,8 @@ final class PublishedFolderTests: XCTestCase {
         let version1 = textFile.currentVersion
         
         // Create version 2
-        textFile.updateContent(NSAttributedString(string: "Version 2"))
+        let version2 = textFile.createNewVersion(content: "Version 2")
         try context.save()
-        
-        let version2 = textFile.currentVersion
         let versionCount = textFile.versions?.count ?? 0
         
         // When - File is moved to Published
