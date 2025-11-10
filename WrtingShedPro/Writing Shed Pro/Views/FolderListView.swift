@@ -148,6 +148,17 @@ struct FolderListView: View {
         .navigationTitle(selectedFolder?.name ?? project.name ?? "Folders")
         .navigationBarTitleDisplayMode(selectedFolder == nil ? .large : .inline)
         .toolbar {
+            // Publications button (always visible at root level)
+            if selectedFolder == nil {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    NavigationLink(destination: PublicationsListView(project: project, publicationType: nil)) {
+                        Label(NSLocalizedString("publications.title", comment: "Publications"), 
+                              systemImage: "doc.text.magnifyingglass")
+                    }
+                    .accessibilityLabel(Text(NSLocalizedString("accessibility.view.publications", comment: "View publications")))
+                }
+            }
+            
             ToolbarItem(placement: .primaryAction) {
                 // Show add button for folders only
                 if let selectedFolder = selectedFolder {

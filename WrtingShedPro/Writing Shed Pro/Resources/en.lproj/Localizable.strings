@@ -53,6 +53,7 @@
 /* Accessibility Labels */
 "accessibility.publications.list" = "Publications list";
 "accessibility.publications.navigation" = "Navigate to publications";
+"accessibility.view.publications" = "View publications";
 "accessibility.add.publication" = "Add publication";
 "accessibility.add.publication.hint" = "Opens form to create a new publication";
 "accessibility.edit.publication" = "Edit publication";
