@@ -207,7 +207,8 @@ final class ProjectTemplateServiceTests: XCTestCase {
         let folders = project.folders ?? []
         
         // Verify subfolder-only (📁)
-        let subfolderOnly = ["Chapters", "Competitions", "Commissions", "Other"]
+        // Note: Chapters allows subfolders for chapter organization
+        let subfolderOnly = ["Chapters"]
         for name in subfolderOnly {
             if let folder = folders.first(where: { $0.name == name }) {
                 XCTAssertTrue(FolderCapabilityService.canAddSubfolder(to: folder))
@@ -225,7 +226,8 @@ final class ProjectTemplateServiceTests: XCTestCase {
         }
         
         // Verify read-only (no manual additions)
-        let readOnly = ["Novel", "Set Aside", "Trash"]
+        // Note: Competitions, Commissions, Other are publication containers (Feature 008b)
+        let readOnly = ["Novel", "Set Aside", "Trash", "Competitions", "Commissions", "Other"]
         for name in readOnly {
             if let folder = folders.first(where: { $0.name == name }) {
                 XCTAssertFalse(FolderCapabilityService.canAddSubfolder(to: folder))
@@ -243,7 +245,8 @@ final class ProjectTemplateServiceTests: XCTestCase {
         let folders = project.folders ?? []
         
         // Verify subfolder-only (📁)
-        let subfolderOnly = ["Acts", "Competitions", "Commissions", "Other"]
+        // Note: Acts allows subfolders for act organization
+        let subfolderOnly = ["Acts"]
         for name in subfolderOnly {
             if let folder = folders.first(where: { $0.name == name }) {
                 XCTAssertTrue(FolderCapabilityService.canAddSubfolder(to: folder))
@@ -261,7 +264,8 @@ final class ProjectTemplateServiceTests: XCTestCase {
         }
         
         // Verify read-only (no manual additions)
-        let readOnly = ["Script", "Set Aside", "Trash"]
+        // Note: Competitions, Commissions, Other are publication containers (Feature 008b)
+        let readOnly = ["Script", "Set Aside", "Trash", "Competitions", "Commissions", "Other"]
         for name in readOnly {
             if let folder = folders.first(where: { $0.name == name }) {
                 XCTAssertFalse(FolderCapabilityService.canAddSubfolder(to: folder))
