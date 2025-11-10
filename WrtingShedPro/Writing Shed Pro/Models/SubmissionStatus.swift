@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import SwiftUI
 
 enum SubmissionStatus: String, Codable {
     case pending
@@ -29,11 +30,11 @@ enum SubmissionStatus: String, Codable {
         }
     }
     
-    var color: String {
+    var color: Color {
         switch self {
-        case .pending: return "orange"
-        case .accepted: return "green"
-        case .rejected: return "red"
+        case .pending: return .orange
+        case .accepted: return .green
+        case .rejected: return .red
         }
     }
 }
