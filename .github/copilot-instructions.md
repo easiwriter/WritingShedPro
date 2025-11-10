@@ -64,20 +64,9 @@ Text("Publications")  // Not localized!
 - Enum properties, String variables: Use NSLocalizedString()
 - String(format:) with parameters: Use NSLocalizedString()
 
-**CRITICAL: Never use NSLocalizedString in SwiftUI view contexts!**
-```swift
-// ❌ WRONG: NSLocalizedString in computed property for navigationTitle
-private var title: String {
-    return NSLocalizedString("key", comment: "")  // Returns literal key!
-}
-.navigationTitle(title)  // Shows "key" instead of localized text
-
-// ✅ CORRECT: Return LocalizedStringKey instead
-private var title: LocalizedStringKey {
-    return "key"  // Properly localized
-}
-.navigationTitle(title)  // Shows localized text
-```
+**IMPORTANT:** All localized strings must be in `Resources/en.lproj/Localizable.strings`
+- Never create multiple Localizable.strings files
+- Single source of truth for all localizations
 
 All user-facing text MUST be localized:
 - Button labels
