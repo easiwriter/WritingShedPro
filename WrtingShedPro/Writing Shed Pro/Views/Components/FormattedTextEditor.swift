@@ -140,7 +140,6 @@ struct FormattedTextEditor: UIViewRepresentable {
         if UIDevice.current.userInterfaceIdiom == .pad {
             // For iPad, we need to be more aggressive about hiding the system menu
             textView.textDragOptions = []
-            textView.textDropOptions = []
         }
         #endif
         
