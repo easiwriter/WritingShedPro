@@ -21,6 +21,11 @@ struct CollectionsView: View {
     @State private var newCollectionName: String = ""
     @State private var newCollectionNameError: String?
     
+    // State for edit mode (multi-select)
+    @State private var editMode: EditMode = .inactive
+    @State private var selectedCollectionIDs: Set<UUID> = []
+    @State private var showPublicationPicker = false
+    
     // State for navigation
     @State private var selectedCollection: Submission?
     @State private var navigateToCollection = false
@@ -40,19 +45,40 @@ struct CollectionsView: View {
         }
     }
     
+    // Get selected collections based on selectedCollectionIDs
+    private var selectedCollections: [Submission] {
+        sortedCollections.filter { selectedCollectionIDs.contains($0.id) }
+    }
+    
+    // Whether edit mode is currently active
+    private var isEditMode: Bool {
+        editMode == .active
+    }
+    
+    // Whether to show the bottom toolbar (edit mode + items selected)
+    private var showToolbar: Bool {
+        isEditMode && !selectedCollectionIDs.isEmpty
+    }
+    
     var body: some View {
         Group {
             if !sortedCollections.isEmpty {
                 // Show list of collections
                 List {
                     ForEach(sortedCollections) { collection in
-                        NavigationLink(destination: CollectionDetailView(submission: collection)) {
-                            CollectionRowView(submission: collection)
-                        }
+                        collectionRow(for: collection)
                     }
-                    .onDelete(perform: deleteCollections)
+                    .onDelete(perform: isEditMode ? nil : deleteCollections)
                 }
                 .listStyle(.plain)
+                .toolbar {
+                    // Bottom toolbar for multi-select actions (only in edit mode)
+                    ToolbarItemGroup(placement: .bottomBar) {
+                        if showToolbar {
+                            bottomToolbarContent
+                        }
+                    }
+                }
             } else {
                 // Empty state
                 ContentUnavailableView {
@@ -66,14 +92,32 @@ struct CollectionsView: View {
         }
         .navigationTitle("Collections")
         .navigationBarTitleDisplayMode(.inline)
+        .environment(\.editMode, $editMode)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button {
-                    showAddCollectionSheet = true
-                } label: {
-                    Image(systemName: "plus")
+                HStack(spacing: 16) {
+                    // Add collection button
+                    Button {
+                        showAddCollectionSheet = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                    .accessibilityLabel("Add Collection")
+                    
+                    // Edit/Done button
+                    if !sortedCollections.isEmpty {
+                        Button {
+                            withAnimation {
+                                editMode = editMode == .inactive ? .active : .inactive
+                                if editMode == .inactive {
+                                    selectedCollectionIDs.removeAll()
+                                }
+                            }
+                        } label: {
+                            Text(editMode == .inactive ? "Edit" : "Done")
+                        }
+                    }
                 }
-                .accessibilityLabel("Add Collection")
             }
         }
         .sheet(isPresented: $showAddCollectionSheet) {
@@ -91,9 +135,124 @@ struct CollectionsView: View {
                 }
             )
         }
+        .sheet(isPresented: $showPublicationPicker) {
+            if !selectedCollections.isEmpty {
+                NavigationStack {
+                    SubmissionPickerView(
+                        project: project,
+                        filesToSubmit: nil,
+                        collectionToSubmit: selectedCollections.first,
+                        onPublicationSelected: { publication in
+                            // Handle submission to publication
+                            submitCollectionsToPublication(publication)
+                            showPublicationPicker = false
+                        },
+                        onCancel: {
+                            showPublicationPicker = false
+                        }
+                    )
+                }
+            }
+        }
+    }
+    
+    // MARK: - View Builders
+    
+    @ViewBuilder
+    private func collectionRow(for collection: Submission) -> some View {
+        HStack {
+            // Selection circle in edit mode
+            if isEditMode {
+                Image(systemName: selectedCollectionIDs.contains(collection.id) ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(selectedCollectionIDs.contains(collection.id) ? .blue : .gray)
+                    .imageScale(.large)
+            }
+            
+            Image(systemName: "tray.2.fill")
+                .foregroundStyle(.blue)
+                .font(.title3)
+                .accessibilityHidden(true)
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(collection.name ?? "Untitled Collection")
+                    .font(.body)
+                
+                // Show count of files in this collection
+                let fileCount = collection.submittedFiles?.count ?? 0
+                Text(String(format: NSLocalizedString("collections.files.count", comment: "Files in collection"), fileCount))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            
+            Spacer()
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if isEditMode {
+                toggleSelection(for: collection)
+            } else {
+                // Navigate to detail view in normal mode
+                navigateToCollection = true
+                selectedCollection = collection
+            }
+        }
+        .navigationDestination(isPresented: $navigateToCollection) {
+            if let collection = selectedCollection {
+                CollectionDetailView(submission: collection)
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var bottomToolbarContent: some View {
+        Button(role: .destructive) {
+            deleteSelectedCollections()
+        } label: {
+            Label(
+                "Delete \(selectedCollections.count)",
+                systemImage: "trash"
+            )
+        }
+        .disabled(selectedCollections.isEmpty)
+        
+        Spacer()
+        
+        Button {
+            showPublicationPicker = true
+        } label: {
+            Label(
+                "Add to Publication",
+                systemImage: "doc"
+            )
+        }
+        .disabled(selectedCollections.isEmpty)
     }
     
     // MARK: - Actions
+    
+    private func toggleSelection(for collection: Submission) {
+        if selectedCollectionIDs.contains(collection.id) {
+            selectedCollectionIDs.remove(collection.id)
+        } else {
+            selectedCollectionIDs.insert(collection.id)
+        }
+    }
+    
+    private func deleteSelectedCollections() {
+        for collection in selectedCollections {
+            modelContext.delete(collection)
+        }
+        
+        do {
+            try modelContext.save()
+            selectedCollectionIDs.removeAll()
+            withAnimation {
+                editMode = .inactive
+            }
+        } catch {
+            // Handle error silently for now
+        }
+    }
     
     private func addCollection(name: String) {
         // Validate collection name
@@ -141,45 +300,49 @@ struct CollectionsView: View {
             // Handle error silently for now - user sees collection still in list
         }
     }
-}
-
-// MARK: - Collection Row View
-
-struct CollectionRowView: View {
-    let submission: Submission
     
-    private var submissionCount: Int {
-        return submission.submittedFiles?.count ?? 0
-    }
-    
-    private var collectionName: String {
-        return submission.name ?? "Untitled Collection"
-    }
-    
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "tray.2.fill")
-                .foregroundStyle(.blue)
-                .font(.title3)
-                .accessibilityHidden(true)
-            
-            VStack(alignment: .leading, spacing: 4) {
-                Text(collectionName)
-                    .font(.body)
-                
-                Text("\(submissionCount) files")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+    private func submitCollectionsToPublication(_ publication: Publication) {
+        guard let project = project else { return }
+        
+        // For each selected collection, create submitted file records for all its files to the publication
+        for collection in selectedCollections {
+            if let submittedFiles = collection.submittedFiles {
+                for submittedFile in submittedFiles {
+                    // Create a new submission for this publication
+                    let submission = Submission(
+                        publication: publication,
+                        project: project,
+                        submittedDate: Date(),
+                        notes: nil
+                    )
+                    modelContext.insert(submission)
+                    
+                    // Create submitted file record for the text file
+                    if let textFile = submittedFile.textFile, let version = submittedFile.version {
+                        let newSubmittedFile = SubmittedFile(
+                            submission: submission,
+                            textFile: textFile,
+                            version: version,
+                            status: .pending,
+                            statusDate: Date(),
+                            project: project
+                        )
+                        modelContext.insert(newSubmittedFile)
+                    }
+                }
             }
-            
-            Spacer()
-            
-            Image(systemName: "chevron.right")
-                .foregroundStyle(.secondary)
-                .font(.caption)
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(collectionName), \(submissionCount) files")
+        
+        do {
+            try modelContext.save()
+            selectedCollectionIDs.removeAll()
+            withAnimation {
+                editMode = .inactive
+            }
+        } catch {
+            print("Error submitting collections to publication: \(error)")
+            // TODO: Show error alert
+        }
     }
 }
 

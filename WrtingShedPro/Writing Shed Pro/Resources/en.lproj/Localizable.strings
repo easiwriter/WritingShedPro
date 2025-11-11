@@ -456,9 +456,21 @@
 /* Collections - Feature 008c */
 "collections.form.name.placeholder" = "Enter collection name";
 "collections.form.name.label" = "Collection Name";
+"collections.button.add" = "Add Collection";
+"collections.button.create" = "Create Collection";
 "collections.error.emptyName" = "Collection name cannot be empty";
 "collections.error.duplicateName" = "A collection with this name already exists";
 "collections.error.saveFailed" = "Failed to save collection";
+"collections.files.count" = "%d files";
+"collections.files.selected" = "%d files selected";
+"collections.collections.selected" = "%d collections selected";
+"collections.existing.title" = "Collections";
+"collections.empty.title" = "No Collections";
+"collections.empty.message" = "Create your first collection to organize your submissions";
+"collections.new.quick.title" = "New Collection";
+"fileList.addToCollection" = "Add to Collection";
+"accessibility.add.collection" = "Add a new collection";
+"accessibility.collection.select" = "Select %@";
 
 /* General Buttons */
 "button.cancel" = "Cancel";

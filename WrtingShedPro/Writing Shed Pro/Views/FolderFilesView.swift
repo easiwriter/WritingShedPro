@@ -37,6 +37,10 @@ struct FolderFilesView: View {
     @State private var showSubmissionPicker = false
     @State private var filesToSubmit: [TextFile] = []
     
+    // State for collection picker
+    @State private var showCollectionPicker = false
+    @State private var filesToAddToCollection: [TextFile] = []
+    
     // Sorted files based on current sort order
     private var sortedFiles: [TextFile] {
         let files = folder.textFiles ?? []
@@ -68,6 +72,10 @@ struct FolderFilesView: View {
                     onSubmit: isReadyFolder ? { files in
                         filesToSubmit = files
                         showSubmissionPicker = true
+                    } : nil,
+                    onAddToCollection: isReadyFolder ? { files in
+                        filesToAddToCollection = files
+                        showCollectionPicker = true
                     } : nil,
                     onReorder: {
                         // User dragged to reorder - switch to Custom sort
@@ -174,6 +182,25 @@ struct FolderFilesView: View {
                 }
             }
         }
+        .sheet(isPresented: $showCollectionPicker) {
+            if let project = folder.project {
+                NavigationStack {
+                    CollectionPickerView(
+                        project: project,
+                        filesToAddToCollection: filesToAddToCollection,
+                        collectionsToAddToPublication: nil,
+                        mode: .addFilesToCollection,
+                        onCollectionSelected: { collection in
+                            addFilesToCollection(collection)
+                            showCollectionPicker = false
+                        },
+                        onCancel: {
+                            showCollectionPicker = false
+                        }
+                    )
+                }
+            }
+        }
     }
     
     // MARK: - Actions
@@ -230,5 +257,33 @@ struct FolderFilesView: View {
         }
         
         filesToSubmit = []
+    }
+    
+    private func addFilesToCollection(_ collection: Submission) {
+        guard let project = folder.project else { return }
+        
+        // Create submitted file records for each selected file in the collection
+        for file in filesToAddToCollection {
+            if let currentVersion = file.currentVersion {
+                let submittedFile = SubmittedFile(
+                    submission: collection,
+                    textFile: file,
+                    version: currentVersion,
+                    status: .pending,
+                    statusDate: Date(),
+                    project: project
+                )
+                modelContext.insert(submittedFile)
+            }
+        }
+        
+        do {
+            try modelContext.save()
+        } catch {
+            print("Error adding files to collection: \(error)")
+            // TODO: Show error alert
+        }
+        
+        filesToAddToCollection = []
     }
 }

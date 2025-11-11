@@ -51,6 +51,9 @@ struct FileListView: View {
     /// Called when user initiates submit action (optional - only for folders that support submissions)
     let onSubmit: (([TextFile]) -> Void)?
     
+    /// Called when user initiates add to collection action (optional - only for Ready folder)
+    let onAddToCollection: (([TextFile]) -> Void)?
+    
     /// Called when user drags to reorder files (parent should switch to Custom sort)
     let onReorder: (() -> Void)?
     
@@ -206,6 +209,22 @@ struct FileListView: View {
         .disabled(selectedFiles.isEmpty)
         
         Spacer()
+        
+        // Add to Collection button (if onAddToCollection callback provided)
+        if let onAddToCollection = onAddToCollection {
+            Button {
+                onAddToCollection(selectedFiles)
+                exitEditMode()
+            } label: {
+                Label(
+                    NSLocalizedString("fileList.addToCollection", comment: "Add files to collection"),
+                    systemImage: "folder.badge.plus"
+                )
+            }
+            .disabled(selectedFiles.isEmpty)
+            
+            Spacer()
+        }
         
         // Submit button (if onSubmit callback provided)
         if let onSubmit = onSubmit {
