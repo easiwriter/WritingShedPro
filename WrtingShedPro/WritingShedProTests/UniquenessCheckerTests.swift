@@ -86,4 +86,20 @@ final class UniquenessCheckerTests: XCTestCase {
         
         XCTAssertFalse(UniquenessChecker.isFileNameUnique("chapter.txt", in: folder))
     }
+    
+    func testIsFileNameUniqueAfterDeletionReturnsFalse() {
+        let project = Project(name: "Project", type: .blank)
+        let folder = Folder(name: "Folder", project: project)
+        let file = TextFile(name: "Test", initialContent: "", parentFolder: folder)
+        folder.textFiles = [file]
+        project.folders = [folder]
+        
+        // Create a trash item for the deleted file
+        let trashItem = TrashItem(textFile: file, originalFolder: folder, project: project)
+        project.trashedItems = [trashItem]
+        
+        // After deletion (file in trash), should not be able to create a new file with same name
+        XCTAssertFalse(UniquenessChecker.isFileNameUnique("Test", in: folder),
+                       "Should reject creating new file with deleted file's name")
+    }
 }

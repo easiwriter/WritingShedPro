@@ -61,7 +61,13 @@ struct AddFileSheet: View {
         
         // Check uniqueness
         if !UniquenessChecker.isFileNameUnique(fileName, in: parentFolder) {
-            errorMessage = NSLocalizedString("addFile.duplicateName", comment: "Duplicate file name error")
+            // Determine if conflict is with active file or trashed file
+            let conflict = UniquenessChecker.getFileNameConflict(fileName, in: parentFolder)
+            if conflict == "trash" {
+                errorMessage = NSLocalizedString("addFile.duplicateNameInTrash", comment: "File with this name exists in Trash")
+            } else {
+                errorMessage = NSLocalizedString("addFile.duplicateName", comment: "Duplicate file name error")
+            }
             showErrorAlert = true
             return
         }

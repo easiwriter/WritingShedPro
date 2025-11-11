@@ -93,15 +93,24 @@ struct FileDetailView: View {
             return
         }
         
-        // Check uniqueness in parent folder
+        // Check uniqueness in parent folder (against both active and deleted files)
         if let parentFolder = file.parentFolder {
-            // Get sibling files (excluding current file)
-            let siblings = (parentFolder.textFiles ?? []).filter { $0.id != file.id }
-            if siblings.contains(where: { $0.name.caseInsensitiveCompare(trimmedName) == .orderedSame }) {
-                errorMessage = NSLocalizedString("fileDetail.duplicateName", comment: "Duplicate file name error")
-                showErrorAlert = true
-                editedName = file.name
-                return
+            // Check if name is unique (excluding current file being renamed)
+            let tempFile = TextFile(name: trimmedName, initialContent: "", parentFolder: parentFolder)
+            if !UniquenessChecker.isFileNameUnique(trimmedName, in: parentFolder) {
+                // Only reject if it's a different file
+                if !(parentFolder.textFiles ?? []).contains(where: { $0.id == file.id && $0.name.caseInsensitiveCompare(trimmedName) == .orderedSame }) {
+                    // Determine if conflict is with active file or trashed file
+                    let conflict = UniquenessChecker.getFileNameConflict(trimmedName, in: parentFolder)
+                    if conflict == "trash" {
+                        errorMessage = NSLocalizedString("fileDetail.duplicateNameInTrash", comment: "File with this name exists in Trash")
+                    } else {
+                        errorMessage = NSLocalizedString("fileDetail.duplicateName", comment: "Duplicate file name error")
+                    }
+                    showErrorAlert = true
+                    editedName = file.name
+                    return
+                }
             }
         }
         

@@ -144,6 +144,7 @@
 "addFile.error" = "Error";
 "addFile.ok" = "OK";
 "addFile.duplicateName" = "A file with this name already exists in this folder.";
+"addFile.duplicateNameInTrash" = "A file with this name exists in Trash. Restore or permanently delete it first, or use a different name.";
 
 /* FileDetailView */
 "fileDetail.title" = "File";
@@ -155,6 +156,7 @@
 "fileDetail.error" = "Error";
 "fileDetail.ok" = "OK";
 "fileDetail.duplicateName" = "A file with this name already exists in this folder.";
+"fileDetail.duplicateNameInTrash" = "A file with this name exists in Trash. Restore or permanently delete it first, or use a different name.";
 "fileDetail.deleteConfirmationTitle" = "Delete \"%@\"?";
 "fileDetail.deleteButton" = "Delete";
 "fileDetail.cancel" = "Cancel";
