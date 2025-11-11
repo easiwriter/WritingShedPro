@@ -338,18 +338,20 @@ struct CollectionDetailView: View {
         }
         .sheet(isPresented: $showVersionPicker) {
             if let submittedFile = editingSubmittedFile {
-                EditVersionSheet(
-                    submittedFile: submittedFile,
-                    onCancel: {
-                        showVersionPicker = false
-                        editingSubmittedFile = nil
-                    },
-                    onSave: {
-                        showVersionPicker = false
-                        editingSubmittedFile = nil
-                        try? modelContext.save()
-                    }
-                )
+                NavigationStack {
+                    EditVersionSheet(
+                        submittedFile: submittedFile,
+                        onCancel: {
+                            showVersionPicker = false
+                            editingSubmittedFile = nil
+                        },
+                        onSave: {
+                            showVersionPicker = false
+                            editingSubmittedFile = nil
+                            try? modelContext.save()
+                        }
+                    )
+                }
             }
         }
         .sheet(isPresented: $showSubmissionPicker) {
@@ -523,7 +525,7 @@ struct AddFilesToCollectionSheet: View {
                     .font(.title3)
                 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(file.name ?? "Untitled File")
+                    Text(file.name)
                         .font(.body)
                     
                     if selectedFiles.contains(file.id),
@@ -686,14 +688,13 @@ struct EditVersionSheet: View {
     let onSave: () -> Void
     
     var body: some View {
-        NavigationStack {
-            Group {
+        Group {
                 if let file = submittedFile.textFile {
                     let versions = file.sortedVersions
                     if !versions.isEmpty {
                         List {
                             Section {
-                                Text(file.name ?? "Untitled File")
+                                Text(file.name)
                                     .font(.headline)
                                     .foregroundStyle(.primary)
                             } header: {
@@ -750,22 +751,21 @@ struct EditVersionSheet: View {
                         Text("The file associated with this submission could not be found")
                     }
                 }
-            }
-            .navigationTitle("Select Version")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button(NSLocalizedString("button.cancel", comment: "Cancel button")) {
-                        onCancel()
-                        dismiss()
-                    }
+        }
+        .navigationTitle("Select Version")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button(NSLocalizedString("button.cancel", comment: "Cancel button")) {
+                    onCancel()
+                    dismiss()
                 }
-                
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(NSLocalizedString("button.done", comment: "Done button")) {
-                        onSave()
-                        dismiss()
-                    }
+            }
+            
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button(NSLocalizedString("button.done", comment: "Done button")) {
+                    onSave()
+                    dismiss()
                 }
             }
         }

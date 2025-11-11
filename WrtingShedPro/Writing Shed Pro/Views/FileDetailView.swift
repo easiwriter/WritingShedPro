@@ -96,7 +96,6 @@ struct FileDetailView: View {
         // Check uniqueness in parent folder (against both active and deleted files)
         if let parentFolder = file.parentFolder {
             // Check if name is unique (excluding current file being renamed)
-            let tempFile = TextFile(name: trimmedName, initialContent: "", parentFolder: parentFolder)
             if !UniquenessChecker.isFileNameUnique(trimmedName, in: parentFolder) {
                 // Only reject if it's a different file
                 if !(parentFolder.textFiles ?? []).contains(where: { $0.id == file.id && $0.name.caseInsensitiveCompare(trimmedName) == .orderedSame }) {

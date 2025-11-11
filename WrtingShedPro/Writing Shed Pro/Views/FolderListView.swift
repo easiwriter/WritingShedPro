@@ -244,6 +244,24 @@ struct FolderRowView: View {
         }.count
     }
     
+    // Folder display name with count in brackets
+    private var folderDisplayName: String {
+        let baseName = folder.name ?? NSLocalizedString("folderList.untitledFolder", comment: "Untitled folder")
+        let count: Int
+        
+        if isPublicationFolder {
+            count = publicationCount
+        } else if subfolderCount > 0 && fileCount > 0 {
+            count = subfolderCount + fileCount
+        } else if subfolderCount > 0 {
+            count = subfolderCount
+        } else {
+            count = fileCount
+        }
+        
+        return "\(baseName) (\(count))"
+    }
+    
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: folderIcon)
@@ -251,22 +269,9 @@ struct FolderRowView: View {
                 .font(.title2)
                 .accessibilityHidden(true)
             
-            // For publication folders, show count in name
-            if isPublicationFolder {
-                Text("\(folder.name ?? "") (\(publicationCount))")
-                    .font(.body)
-            } else {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(folder.name ?? NSLocalizedString("folderList.untitledFolder", comment: "Untitled folder"))
-                        .font(.body)
-                    
-                    if let count = folderContentCount {
-                        Text(count)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
+            // Show folder name with count in brackets
+            Text(folderDisplayName)
+                .font(.body)
             
             Spacer()
         }
@@ -341,29 +346,8 @@ struct FolderRowView: View {
         }
     }
     
-    private var folderContentCount: String? {
-        if subfolderCount > 0 && fileCount > 0 {
-            let format = NSLocalizedString("folderList.mixedCount", comment: "Folder and file count")
-            return String(format: format, subfolderCount, fileCount)
-        } else if subfolderCount > 0 {
-            let format = NSLocalizedString("folderList.folderCount", comment: "Folder count")
-            return String(format: format, subfolderCount)
-        } else if fileCount > 0 {
-            let format = NSLocalizedString("folderList.fileCount", comment: "File count")
-            return String(format: format, fileCount)
-        } else {
-            return nil
-        }
-    }
-    
     private var accessibilityLabel: String {
-        var label = folder.name ?? NSLocalizedString("folderList.untitledFolder", comment: "Untitled folder")
-        
-        if let content = folderContentCount {
-            label += ". \(content)"
-        }
-        
-        return label
+        return folderDisplayName
     }
 }
 

@@ -82,7 +82,7 @@ private struct SubmissionHistoryRow: View {
                     Text(publication.type?.icon ?? "📄")
                         .font(.title3)
                     
-                    Text(publication.name ?? "")
+                    Text(publication.name)
                         .font(.headline)
                     
                     Spacer()

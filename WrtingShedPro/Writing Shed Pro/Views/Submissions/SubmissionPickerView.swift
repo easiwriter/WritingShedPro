@@ -29,7 +29,7 @@ struct SubmissionPickerView: View {
     private var submissionTitle: String {
         if let collection = collectionToSubmit, let name = collection.name {
             return "Submit: \(name)"
-        } else if let collection = collectionToSubmit {
+        } else if collectionToSubmit != nil {
             return "Submit Collection"
         } else {
             return "Submit Files"
@@ -59,7 +59,7 @@ struct SubmissionPickerView: View {
                                     .font(.title3)
                                 
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text(publication.name ?? "")
+                                    Text(publication.name)
                                         .font(.body)
                                         .foregroundStyle(.primary)
                                     
@@ -77,7 +77,7 @@ struct SubmissionPickerView: View {
                                     .foregroundStyle(.tertiary)
                             }
                         }
-                        .accessibilityLabel(Text(String(format: NSLocalizedString("accessibility.submit.to", comment: "Submit to"), publication.name ?? "")))
+                        .accessibilityLabel(Text(String(format: NSLocalizedString("accessibility.submit.to", comment: "Submit to"), publication.name)))
                     }
                 } header: {
                     Text("publications.existing.title")
