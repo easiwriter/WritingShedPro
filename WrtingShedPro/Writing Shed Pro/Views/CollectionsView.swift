@@ -302,8 +302,6 @@ struct CollectionsView: View {
     }
     
     private func submitCollectionsToPublication(_ publication: Publication) {
-        guard let project = project else { return }
-        
         // For each selected collection, create submitted file records for all its files to the publication
         for collection in selectedCollections {
             if let submittedFiles = collection.submittedFiles {
