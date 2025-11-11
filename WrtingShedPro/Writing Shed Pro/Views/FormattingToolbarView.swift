@@ -196,8 +196,11 @@ struct FormattingToolbarView: UIViewRepresentable {
         #if targetEnvironment(macCatalyst)
         toolbar.items = context.coordinator.buildToolbarItems?(true, false) ?? []
         #else
-        toolbar.items = context.coordinator.buildToolbarItems?(false, true) ?? []
-        context.coordinator.isKeyboardVisible = true
+        // On iPad, assume hardware keyboard by default; on iPhone, assume soft keyboard
+        let hasHardwareKeyboard = UIDevice.current.userInterfaceIdiom == .pad
+        toolbar.items = context.coordinator.buildToolbarItems?(hasHardwareKeyboard, !hasHardwareKeyboard) ?? []
+        context.coordinator.hasHardwareKeyboard = hasHardwareKeyboard
+        context.coordinator.isKeyboardVisible = !hasHardwareKeyboard
         #endif
         
         return toolbar
