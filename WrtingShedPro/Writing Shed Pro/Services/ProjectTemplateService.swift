@@ -60,6 +60,7 @@ struct ProjectTemplateService {
                 "folder.all",
                 "folder.draft",
                 "folder.ready",
+                "folder.collections",
                 "folder.setAside", 
                 "folder.published",
                 "folder.research"
