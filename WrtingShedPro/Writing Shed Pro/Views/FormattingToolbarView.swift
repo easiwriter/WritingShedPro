@@ -460,6 +460,19 @@ struct FormattingToolbarView: UIViewRepresentable {
                 hasHardwareKeyboard = endFrame.height < 100
             }
             
+            // On iPad, also check device idiom and keyboard presence
+            #if os(iOS)
+            if UIDevice.current.userInterfaceIdiom == .pad {
+                // On iPad, if endFrame height is 0 or keyboard never appears, it's a hardware keyboard
+                if let userInfo = notification.userInfo,
+                   let endFrame = userInfo[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect {
+                    hasHardwareKeyboard = endFrame.height == 0 || endFrame.height < 50
+                } else {
+                    hasHardwareKeyboard = true  // Default to hardware keyboard on iPad if detection fails
+                }
+            }
+            #endif
+            
             updateToolbarLayout()
             updateKeyboardButtonIcon()
         }
