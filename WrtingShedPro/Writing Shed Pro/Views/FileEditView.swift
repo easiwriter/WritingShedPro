@@ -1334,14 +1334,23 @@ struct FileEditView: View {
     private func handleImageSelection(url: URL) {
         print("🖼️ Image selected: \(url.lastPathComponent)")
         
-        // Start accessing security-scoped resource
-        guard url.startAccessingSecurityScopedResource() else {
-            print("❌ Failed to access security-scoped resource")
-            return
+        // Check if this is a temp file (from PHPicker) or needs security scoping (from file picker)
+        let isTempFile = url.path.starts(with: FileManager.default.temporaryDirectory.path)
+        
+        // Only use security-scoped resources for non-temp files (file picker)
+        let needsSecurityScope = !isTempFile
+        
+        if needsSecurityScope {
+            guard url.startAccessingSecurityScopedResource() else {
+                print("❌ Failed to access security-scoped resource")
+                return
+            }
         }
         
         defer {
-            url.stopAccessingSecurityScopedResource()
+            if needsSecurityScope {
+                url.stopAccessingSecurityScopedResource()
+            }
         }
         
         do {
