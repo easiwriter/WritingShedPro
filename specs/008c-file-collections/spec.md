@@ -142,12 +142,17 @@ Project.submissions:
 - Delete files from Collection
 - Empty state when Collection has no files
 
-### Phase 4: Add Files to Collection
+### Phase 4: Add Files to Collection (✅ COMPLETE)
 - Show dialog with files from Ready folder
 - Multi-select capability
 - Version selector for each file
 - Add to existing Collection or create new
 - Handle adding files to existing Collections
+- **NEW**: Bulk operations from Ready folder with "Add to Collection" button
+- **NEW**: Collections view edit mode with selection circles
+- **NEW**: "Add to Publication" button to submit collections to publications
+- **NEW**: Collections folder count display fixed
+- **NEW**: Collection detail navigation fixed
 
 ### Phase 5: Version Management in Collection
 - Allow changing version reference for existing SubmittedFiles
@@ -155,11 +160,12 @@ Project.submissions:
 - Update SubmittedFile.version when user changes selection
 - Verify version locking doesn't interfere (locked versions stay locked)
 
-### Phase 6: Collection Submission to Publications
+### Phase 6: Collection Submission to Publications (✅ COMPLETE)
 - Collections appear as submission source in Publication submission flow
 - Allow submitting entire Collection to a Publication
 - Creates Publication Submission with Collection's SubmittedFiles
 - Version selection from Collection is preserved
+- **Implemented in Phase 4**: Collections can be submitted to publications
 
 ### Testing Strategy
 
