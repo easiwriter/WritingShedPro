@@ -190,15 +190,6 @@ Project
 - File removal from Collections
 - Collection deletion
 
-### UI Tests
-- Collections folder displays correctly in folder structure
-- Multi-select works in Ready folder
-- "Add to Collection..." action available when files selected
-- New Collection creation flow
-- Collection contents display
-- Version change persists
-- Collection appears in submission source list
-
 ### Integration Tests
 - Create Collection with multiple files
 - Submit Collection to Publication
@@ -208,10 +199,10 @@ Project
 - Delete file from Collection
 
 ### Edge Cases
-- Add same file multiple times (should reject or update?)
+- Add same file multiple times - reject
 - Add file that's in another Collection (should allow)
-- Create Collection with no files (should allow?)
-- Delete Collection with submitted files (should warn)
+- Create Collection with no files (should allow)
+- Delete Collection with submitted files (should allow)
 - Rename file in Ready folder (Collection reference should follow)
 - Delete file from Ready folder (Collection reference invalidates?)
 
