@@ -1626,6 +1626,9 @@ struct FileEditView: View {
             print("❌ Error saving image update: \(error)")
         }
         
+        // Trigger view refresh to show updated image
+        refreshTrigger = UUID()
+        
         // Keep the image selected and update the selection border to match new size
         // The selection border will be recalculated when the text view updates
         selectedImage = attachment
