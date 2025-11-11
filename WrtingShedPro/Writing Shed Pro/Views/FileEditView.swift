@@ -2,6 +2,7 @@ import SwiftUI
 import SwiftData
 import ToolbarSUI
 import UniformTypeIdentifiers
+import PhotosUI
 
 struct FileEditView: View {
     let file: TextFile
@@ -28,7 +29,6 @@ struct FileEditView: View {
     @State private var showFileImporter = false // For SwiftUI file importer
     @State private var showDocumentPicker = false // For UIViewControllerRepresentable picker
     @State private var showImageSourcePicker = false // Show Photos vs Files chooser
-    @State private var showPhotosPicker = false // For PHPickerViewController
     @StateObject private var undoManager: TextFileUndoManager
     @StateObject private var textViewCoordinator = TextViewCoordinator()
     
@@ -283,7 +283,7 @@ struct FileEditView: View {
             titleVisibility: .visible
         ) {
             Button("Photos") {
-                showPhotosPicker = true
+                showPhotosPickerFromCoordinator()
             }
             Button("Files") {
                 showDocumentPicker = true
@@ -516,14 +516,6 @@ struct FileEditView: View {
                 contentTypes: [.image]
             ) { url in
                 print("🖼️ Document picker view selected: \(url.lastPathComponent)")
-                handleImageSelection(url: url)
-            }
-        )
-        .background(
-            PhotosPickerView(
-                isPresented: $showPhotosPicker
-            ) { url in
-                print("🖼️ Photos picker selected: \(url.lastPathComponent)")
                 handleImageSelection(url: url)
             }
         )
@@ -1254,6 +1246,41 @@ struct FileEditView: View {
         // On iPhone/iPad, let user choose between Photos and Files
         showImageSourcePicker = true
         #endif
+    }
+    
+    private func showPhotosPickerFromCoordinator() {
+        print("📸 showPhotosPickerFromCoordinator() called")
+        
+        // Set up the callback for when an image is picked
+        textViewCoordinator.onImagePicked = { url in
+            print("📸 Coordinator callback received with URL: \(url.lastPathComponent)")
+            self.handleImageSelection(url: url)
+        }
+        
+        // Create PHPicker configuration
+        var configuration = PHPickerConfiguration(photoLibrary: .shared())
+        configuration.filter = .images
+        configuration.selectionLimit = 1
+        
+        // Create the picker
+        let picker = PHPickerViewController(configuration: configuration)
+        picker.delegate = textViewCoordinator
+        
+        // Store strong reference in coordinator to prevent deallocation
+        textViewCoordinator.phPicker = picker
+        
+        // Present the picker
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let rootViewController = windowScene.windows.first?.rootViewController {
+            var topController = rootViewController
+            while let presented = topController.presentedViewController {
+                topController = presented
+            }
+            print("📸 Presenting PHPicker")
+            topController.present(picker, animated: true)
+        } else {
+            print("❌ Could not find root view controller to present PHPicker")
+        }
     }
     
     private func showIOSImagePicker() {
