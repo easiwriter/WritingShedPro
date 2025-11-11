@@ -938,30 +938,21 @@ struct FormattedTextEditor: UIViewRepresentable {
                 return
             }
             
-            // If cursor is at the very end, get attributes from previous position
-            let effectivePosition = position == attributedText.length ? max(0, position - 1) : position
+            // Always reset typing attributes to default paragraph style
+            // This ensures text typed at any position uses body text alignment
+            let defaultStyle = NSMutableParagraphStyle()
+            defaultStyle.alignment = .natural  // Reset to natural/left alignment
+            defaultStyle.lineHeightMultiple = 1.0
             
-            if effectivePosition < attributedText.length {
-                // Get the paragraph style at this position
-                if let paragraphStyle = attributedText.attribute(.paragraphStyle, at: effectivePosition, effectiveRange: nil) as? NSParagraphStyle {
-                    // Create a mutable copy with default paragraph style for future text
-                    let defaultStyle = NSMutableParagraphStyle()
-                    defaultStyle.alignment = .natural  // Reset to natural/left alignment
-                    defaultStyle.lineHeightMultiple = 1.0
-                    
-                    // Get current typing attributes and update only the paragraph style
-                    var typingAttrs = textView.typingAttributes
-                    
-                    // Always set a clean paragraph style for new text
-                    typingAttrs[.paragraphStyle] = defaultStyle
-                    
-                    textView.typingAttributes = typingAttrs
-                    
-                    #if DEBUG
-                    print("🎯 Synced typing attributes at position \(position): alignment=.natural")
-                    #endif
-                }
-            }
+            // Get current typing attributes and update paragraph style
+            var typingAttrs = textView.typingAttributes
+            typingAttrs[.paragraphStyle] = defaultStyle
+            
+            textView.typingAttributes = typingAttrs
+            
+            #if DEBUG
+            print("🎯 Synced typing attributes at position \(position): alignment=.natural")
+            #endif
         }
         
         // MARK: - UIGestureRecognizerDelegate
