@@ -27,6 +27,8 @@ struct FileEditView: View {
     @State private var documentPicker: UIDocumentPickerViewController? // Strong reference for Mac Catalyst
     @State private var showFileImporter = false // For SwiftUI file importer
     @State private var showDocumentPicker = false // For UIViewControllerRepresentable picker
+    @State private var showImageSourcePicker = false // Show Photos vs Files chooser
+    @State private var showPhotosPicker = false // For PHPickerViewController
     @StateObject private var undoManager: TextFileUndoManager
     @StateObject private var textViewCoordinator = TextViewCoordinator()
     
@@ -275,6 +277,23 @@ struct FileEditView: View {
                 Text("version.locked.warning.message")
             }
         }
+        .confirmationDialog(
+            "Choose Image Source",
+            isPresented: $showImageSourcePicker,
+            titleVisibility: .visible
+        ) {
+            Button("Photos") {
+                showPhotosPicker = true
+            }
+            Button("Files") {
+                showDocumentPicker = true
+            }
+            Button("button.cancel", role: .cancel) {
+                showImageSourcePicker = false
+            }
+        } message: {
+            Text("Select where to choose your image from")
+        }
         .onDisappear {
             // Auto-save when leaving the editor (back button, etc.)
             saveChanges()
@@ -497,6 +516,14 @@ struct FileEditView: View {
                 contentTypes: [.image]
             ) { url in
                 print("🖼️ Document picker view selected: \(url.lastPathComponent)")
+                handleImageSelection(url: url)
+            }
+        )
+        .background(
+            PhotosPickerView(
+                isPresented: $showPhotosPicker
+            ) { url in
+                print("🖼️ Photos picker selected: \(url.lastPathComponent)")
                 handleImageSelection(url: url)
             }
         )
@@ -1220,7 +1247,13 @@ struct FileEditView: View {
     
     private func showImagePicker() {
         print("🖼️ showImagePicker() called")
+        #if targetEnvironment(macCatalyst)
+        // On Mac, go directly to file picker
         showDocumentPicker = true
+        #else
+        // On iPhone/iPad, let user choose between Photos and Files
+        showImageSourcePicker = true
+        #endif
     }
     
     private func showIOSImagePicker() {
