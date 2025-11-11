@@ -129,19 +129,19 @@ struct FormattedTextEditor: UIViewRepresentable {
         textView.addGestureRecognizer(tapGesture)
         
         // Configure for rich text
+        // On iPad with hardware keyboard, disable system editing attributes to prevent the formatting menu
+        #if os(iOS)
+        if UIDevice.current.userInterfaceIdiom == .pad {
+            textView.allowsEditingTextAttributes = false
+        } else {
+            textView.allowsEditingTextAttributes = true
+        }
+        #else
         textView.allowsEditingTextAttributes = true
+        #endif
         
         // Disable system formatting menu (we have our own toolbar)
-        // This prevents the B I U menu from appearing
         textView.shouldHideSystemFormattingMenu = true
-        
-        // On iPad with hardware keyboard, disable the default formatting UI completely
-        #if targetEnvironment(macCatalyst) || os(iOS)
-        if UIDevice.current.userInterfaceIdiom == .pad {
-            // For iPad, we need to be more aggressive about hiding the system menu
-            textView.textDragOptions = []
-        }
-        #endif
         
         // TODO: Suppress drag handles on images/attachments
         // The drag handles (lollipop handles) appear when tapping on images in iOS
