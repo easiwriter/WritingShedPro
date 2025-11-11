@@ -12,7 +12,8 @@ struct SubmissionPickerView: View {
     @Environment(\.modelContext) private var modelContext
     
     let project: Project
-    let filesToSubmit: [TextFile]
+    let filesToSubmit: [TextFile]?
+    let collectionToSubmit: Submission?
     let onPublicationSelected: (Publication) -> Void
     let onCancel: () -> Void
     
@@ -23,6 +24,16 @@ struct SubmissionPickerView: View {
     private var projectPublications: [Publication] {
         allPublications.filter { $0.project?.id == project.id }
             .sorted { ($0.name ?? "") < ($1.name ?? "") }
+    }
+    
+    private var submissionTitle: String {
+        if let collection = collectionToSubmit, let name = collection.name {
+            return "Submit: \(name)"
+        } else if let collection = collectionToSubmit {
+            return "Submit Collection"
+        } else {
+            return "Submit Files"
+        }
     }
     
     var body: some View {
@@ -96,6 +107,7 @@ struct SubmissionPickerView: View {
                 NewPublicationForSubmissionView(
                     project: project,
                     filesToSubmit: filesToSubmit,
+                    collectionToSubmit: collectionToSubmit,
                     onPublicationCreated: { publication in
                         showingNewPublicationSheet = false
                         onPublicationSelected(publication)
@@ -114,7 +126,8 @@ struct NewPublicationForSubmissionView: View {
     @Environment(\.modelContext) private var modelContext
     
     let project: Project
-    let filesToSubmit: [TextFile]
+    let filesToSubmit: [TextFile]?
+    let collectionToSubmit: Submission?
     let onPublicationCreated: (Publication) -> Void
     let onCancel: () -> Void
     
@@ -148,12 +161,30 @@ struct NewPublicationForSubmissionView: View {
             }
             
             Section {
-                ForEach(filesToSubmit, id: \.id) { file in
-                    Text(file.name)
-                        .font(.body)
+                if let filesToSubmit = filesToSubmit {
+                    ForEach(filesToSubmit, id: \.id) { file in
+                        Text(file.name)
+                            .font(.body)
+                    }
+                } else if let collection = collectionToSubmit {
+                    if let files = collection.submittedFiles {
+                        ForEach(files, id: \.id) { submittedFile in
+                            if let file = submittedFile.textFile {
+                                Text(file.name)
+                                    .font(.body)
+                            }
+                        }
+                    }
                 }
             } header: {
-                Text(String(format: NSLocalizedString("submissions.files.selected", comment: "Files selected"), filesToSubmit.count))
+                if let filesToSubmit = filesToSubmit {
+                    Text(String(format: NSLocalizedString("submissions.files.selected", comment: "Files selected"), filesToSubmit.count))
+                } else if let collection = collectionToSubmit {
+                    let count = collection.submittedFiles?.count ?? 0
+                    Text(String(format: NSLocalizedString("submissions.files.selected", comment: "Files selected"), count))
+                } else {
+                    Text("No files selected")
+                }
             }
         }
         .navigationTitle("publications.new.quick.title")

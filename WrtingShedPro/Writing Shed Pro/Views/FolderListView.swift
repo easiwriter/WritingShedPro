@@ -36,7 +36,7 @@ struct FolderListView: View {
             
         case .poetry, .shortStory:
             return [
-                "All", "Draft", "Ready", "Set Aside", "Published",
+                "All", "Draft", "Ready", "Collections", "Set Aside", "Published",
                 "Research",
                 "Magazines", "Competitions", "Commissions", "Other",
                 "Trash"
@@ -96,6 +96,11 @@ struct FolderListView: View {
                             NavigationLink(destination: PublicationsListView(project: project, publicationType: publicationType)) {
                                 FolderRowView(folder: folder)
                             }
+                        } else if folderName == "Collections" {
+                            // Special handling for Collections folder - show Collections (Submissions)
+                            NavigationLink(destination: CollectionsView(project: project)) {
+                                FolderRowView(folder: folder)
+                            }
                         } else {
                             // Navigate to subfolders OR to file list based on folder capabilities
                             let canAddFolder = FolderCapabilityService.canAddSubfolder(to: folder)
@@ -114,8 +119,6 @@ struct FolderListView: View {
                             }
                         }
                     }
-                    
-                    // Add spacing before Trash folder (except for blank projects)
                     if shouldAddSpacingAfter(folder: folder) {
                         Divider()
                             .listRowBackground(Color.clear)
@@ -297,6 +300,8 @@ struct FolderRowView: View {
             return "doc.badge.ellipsis"
         case "Ready":
             return "checkmark.circle"
+        case "Collections":
+            return "tray.2"
         case "Set Aside":
             return "archivebox"
         case "Published":

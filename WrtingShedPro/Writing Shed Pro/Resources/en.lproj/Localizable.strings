@@ -453,8 +453,16 @@
 "version.locked.warning.message" = "This version is part of an active submission. Editing it may affect your submission record.";
 "version.locked.edit.anyway" = "Edit Anyway";
 
+/* Collections - Feature 008c */
+"collections.form.name.placeholder" = "Enter collection name";
+"collections.form.name.label" = "Collection Name";
+"collections.error.emptyName" = "Collection name cannot be empty";
+"collections.error.duplicateName" = "A collection with this name already exists";
+"collections.error.saveFailed" = "Failed to save collection";
+
 /* General Buttons */
 "button.cancel" = "Cancel";
 "button.done" = "Done";
 "button.ok" = "OK";
 "button.delete" = "Delete";
+"button.save" = "Save";

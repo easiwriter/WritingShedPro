@@ -24,7 +24,7 @@ struct FolderCapabilityService {
     /// Folders that receive content from elsewhere (no manual additions)
     /// These folders are populated automatically by the system
     private static let readOnlyFolders: Set<String> = [
-        "All", "Ready", "Set Aside", "Published", "Trash", "Novel", "Script"
+        "All", "Ready", "Collections", "Set Aside", "Published", "Trash", "Novel", "Script"
     ]
     
     // MARK: - Capability Checks

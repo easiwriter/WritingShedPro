@@ -162,6 +162,7 @@ struct FolderFilesView: View {
                     SubmissionPickerView(
                         project: project,
                         filesToSubmit: filesToSubmit,
+                        collectionToSubmit: nil,
                         onPublicationSelected: { publication in
                             createSubmission(for: publication)
                             showSubmissionPicker = false

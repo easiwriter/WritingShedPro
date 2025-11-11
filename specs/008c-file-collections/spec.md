@@ -6,7 +6,7 @@
 
 ## Overview
 
-For Poetry and Short Story projects add a new Model type called Collection. A collection has a name and its contents are a list of the currently selected versions of files in the Ready folder. Collections are contained in a new top level folder called Collections positioned between Ready and Set Aside. The user can select files in the Ready folder and add them to a named Collection in the Collections folder. The named collection is actually a Submission. Single Collections can be submitted to a Publication.
+For Poetry and Short Story projects add a Collections feature for organizing files. A Collection is actually a Submission object that groups selected file versions together. Collections are accessed through a new top-level folder called "Collections" positioned between Ready and Set Aside. The user can select files from the Ready folder and add them to a named Collection. Collections can later be submitted to Publications using the existing submission system.
 
 ## Requirements
 
@@ -16,138 +16,187 @@ For Poetry and Short Story projects add a new Model type called Collection. A co
 
 ### Collections Folder
 - New top-level folder called "Collections" positioned between Ready and Set Aside folders
-- Read-only container (cannot add files directly to Collections folder)
-- Display list of named Collections
+- Read-only system folder (cannot add files directly to Collections folder itself)
+- Displays list of user-created Collections (which are Submission objects)
 - Option to create new Collection
+
+### What Is a Collection?
+- **A Collection IS a Submission object** (from Feature 008b)
+- Each Collection groups multiple files with specific version selections
+- Collections are independent; files can exist in multiple Collections
+- Collections can be submitted to Publications
 
 ### Creating Collections
 - User selects multiple files from Ready folder
 - Selects "Add to Collection..." action
 - Either selects existing Collection or creates new one with name
-- Collection stores references to selected files (not copies)
+- Creates new Submission object representing the Collection
+- Submission contains SubmittedFile entries for each selected file
 
-### Collection Contents
-- Each entry in a Collection is a **Submission** (linking file to collection)
-- Stores the **currently selected version** of each file at time of addition
-- User can later change which version is included by editing the Collection
-- File can exist in multiple Collections simultaneously
-
-### Version Management
-- When user modifies original file (creates new version), Collection can reference new version
-- User can change which version of a file is in Collection without modifying the file itself
-- This provides flexibility: Collection might use version 2 of File A while File A is on version 5
-
-### Submission Integration
-- Collections entries are Submissions (existing model from Feature 008b)
-- Collections can be submitted to Publications using existing Publication submission flow
-- Each file in Collection becomes a submitted file in the Publication
-
-### UI Requirements
-- Collections folder displays all created Collections
-- Selecting a Collection shows its contents (files and their versions)
-- Multi-select capability in Ready folder
-- "Add to Collection..." option in context menu or toolbar
-- Rename/delete Collection capabilities
+### Collection Contents (SubmittedFiles)
+- Each file in a Collection is represented as a **SubmittedFile** object
+- Each SubmittedFile stores:
+  - Reference to the TextFile
+  - Reference to a specific Version of that file
+  - Status tracking (pending, accepted, rejected)
+- User can change which version of a file is referenced without modifying the original file
+- Same file can be in multiple Collections with different versions in each
 
 ## Design
 
 ### Architecture
-Collections leverage the existing Submission system (Feature 008b):
-- A Collection IS a folder in the Collections directory
-- Files added to a Collection are actually Submissions
-- This reuses all Publication submission infrastructure
+Collections are implemented using the existing Submission system (Feature 008b):
+- **A Collection IS a Submission object** (no new model needed)
+- Collections are queried/displayed in the Collections folder context
+- The Submission system already has SubmittedFile for version selection
+- This reuses all existing submission infrastructure
 
-### Collection vs Publication Folders
-- **Collections folder**: User-created collections of files for grouping/organization
-- **Publication folders** (Magazines, Competitions, etc.): System folders for publication management
-- Both use the same underlying folder structure but serve different purposes
+### Collections vs Publications Submissions
+- **Collections**: User-created Submissions for organizing/grouping files (no publication attached)
+- **Publication Submissions**: Submissions created when submitting to a Publication (publication attached)
+- Both use the same Submission/SubmittedFile models
+- Differentiated by whether `submission.publication` is null (Collection) or set (Publication)
 
 ### Version Selection Model
-- Each Submission in a Collection can point to any version of its file
-- User can change the version reference without creating a new Submission
+- Each SubmittedFile in a Collection points to a specific Version of a TextFile
+- User can change the Version reference without modifying the original TextFile
 - This allows "mix and match" versioning: use v2 of poem A, v5 of poem B
+- Collections remain independent; changing one doesn't affect others
 
 ### Workflow
 1. User has files in Ready folder with multiple versions
-2. User creates new Collection named "Spring Contest"
-3. User selects File A (v3), File B (v2), File C (v1)
-4. Files added to "Spring Contest" Collection with those version references
-5. User can later edit "Spring Contest" to:
-   - Add more files
-   - Remove files
-   - Change version references
+2. User selects File A (v3), File B (v2), File C (v1) from Ready
+3. User creates new Collection named "Spring Contest"
+4. System creates Submission with SubmittedFiles for each selected file/version combo
+5. User can later edit "Spring Contest" Collection to:
+   - Add more files (create new SubmittedFiles)
+   - Remove files (delete SubmittedFiles)
+   - Change version references (update Version reference in SubmittedFile)
 6. When ready, user submits "Spring Contest" Collection to a Publication
-7. Publication receives all files with their specified versions
+7. System creates Publication Submission (different from the Collection Submission)
 
 ## Data Model
 
 ### Minimal Changes Required
-Since Collections leverage the existing Submission system, minimal new models are needed:
+Collections are implemented using existing models - no new data structures needed:
 
-### Collection (Folder)
-A Collection is just a special Folder:
-- Name: user-provided (e.g., "Spring Contest")
-- Located in Collections directory (new system folder)
-- Contains Submissions (existing model)
-- Read-only (files not added directly)
+### What Is a Collection?
+- **A Collection IS a Submission object** where `publication` is null
+- The Submission groups related SubmittedFiles together
+- Example: Submission(name: "Spring Contest", publication: nil, submittedFiles: [...])
+
+### Collection Contents
+- Collection contains multiple **SubmittedFile** objects (existing model)
+- Each SubmittedFile has:
+  - `textFile`: Reference to the original TextFile
+  - `version`: Reference to specific Version of that TextFile
+  - `status`: Submission status (pending, accepted, rejected)
+  - `statusNotes`: Optional feedback from publication
 
 ### No New Models Needed
-- Use existing **Submission** model to link files to collections
-- Use existing **Folder** model to represent Collections
-- Use existing **Version** references for version selection
+- **Submission**: Already exists, used as Collection container
+- **SubmittedFile**: Already exists, represents file+version pair in Collection
+- **Version**: Already exists, stores specific file versions
+- **Folder**: Collections folder is just a system folder like Ready/Set Aside
 
-### Folder Hierarchy
+### Data Structure Example
 ```
-Project
-├── Ready/
-│   ├── poem1.txt (v1, v2, v3)
-│   ├── poem2.txt (v1)
-│   └── poem3.txt (v1, v2)
-├── Collections/ (new system folder)
-│   ├── Spring Contest/ (user-created Collection)
-│   │   ├── Submission: poem1.txt → v3
-│   │   ├── Submission: poem2.txt → v1
-│   │   └── Submission: poem3.txt → v2
-│   └── Summer Reading/ (another Collection)
-│       ├── Submission: poem1.txt → v1
-│       └── Submission: poem2.txt → v1
-└── Set Aside/
+Project.submissions:
+├── Submission(id: UUID1, name: "Spring Contest", publication: nil)
+│   └── submittedFiles:
+│       ├── SubmittedFile(textFile: poem1, version: v3, status: pending)
+│       ├── SubmittedFile(textFile: poem2, version: v1, status: pending)
+│       └── SubmittedFile(textFile: poem3, version: v2, status: pending)
+│
+└── Submission(id: UUID2, name: "Summer Reading", publication: nil)
+    └── submittedFiles:
+        ├── SubmittedFile(textFile: poem1, version: v1, status: pending)
+        └── SubmittedFile(textFile: poem2, version: v1, status: pending)
 ```
 
-### Submission Changes
-- Already supports version selection
-- No structural changes needed
-- Existing submission flow works with Collections
+### Querying Collections
+- Query all Submissions where `publication == nil` in the project
+- These are the user's Collections
+- Display them in the Collections folder context
+- When user selects a Collection, show its SubmittedFiles
 
 ## Implementation Plan
 
-### Phase 1: Create Collections System Folder
-- Add "Collections" as a system folder like "Ready", "Set Aside"
+### Phase 1: Create Collections System Folder (✅ COMPLETE)
+- Add "Collections" as a read-only system folder like "Ready", "Set Aside"
 - Position between Ready and Set Aside in folder order
-- Make it read-only (cannot add files directly)
-- Update folder views to handle this special case
+- Update folder capability checks to mark as read-only
+- Add tray.2 icon for Collections folder
 
-### Phase 2: Collections UI in Collections Folder
-- Display list of user-created Collections
-- Show button to create new Collection
-- Each Collection shows count of files/submissions
-- Tap to view Collection contents
+### Phase 2: Collections Folder UI (✅ COMPLETE)
+- Create CollectionsView to display list of Collections (Submissions where publication=nil)
+- Show button to create new Collection (creates new Submission)
+- Each Collection shows count of files/submissions in it
+- Form to name new Collection with validation
+- Delete Collections capability
 
-### Phase 3: Create New Collection
-- Dialog/form to name new Collection
-- Creates new Folder with name in Collections directory
-- Validates name for uniqueness
-- Returns to Collections folder view
+### Phase 3: Collection Details View (🔄 IN PROGRESS)
+- Display CollectionDetailView showing SubmittedFiles in a Collection
+- Show each file with its selected version
+- Add button to add more files to Collection
+- Delete files from Collection
+- Empty state when Collection has no files
 
-### Phase 4: Multi-Select in Ready Folder
-- Add select mode to Ready folder file listing
-- Checkboxes or tap-to-select UI
-- "Add to Collection..." button when files selected
-- Shows list of existing Collections and "Create New" option
+### Phase 4: Add Files to Collection
+- Show dialog with files from Ready folder
+- Multi-select capability
+- Version selector for each file
+- Add to existing Collection or create new
+- Handle adding files to existing Collections
 
-### Phase 5: Add Files to Collection
-- Display selected files
-- Let user choose existing Collection or create new
+### Phase 5: Version Management in Collection
+- Allow changing version reference for existing SubmittedFiles
+- Show available versions for each file
+- Update SubmittedFile.version when user changes selection
+- Verify version locking doesn't interfere (locked versions stay locked)
+
+### Phase 6: Collection Submission to Publications
+- Collections appear as submission source in Publication submission flow
+- Allow submitting entire Collection to a Publication
+- Creates Publication Submission with Collection's SubmittedFiles
+- Version selection from Collection is preserved
+
+### Testing Strategy
+
+### Unit Tests
+- Submission creation/deletion (Collections)
+- SubmittedFile creation with version selection
+- Collection querying (publication=nil)
+- Version reference updates
+- Empty Collection handling
+- Multi-project independence
+
+### Integration Tests
+- Create Collection with multiple files
+- Submit Collection to Publication
+- Verify submitted files match Collection contents
+- Change version in Collection, verify submission shows new version
+- Add file to existing Collection that's already been submitted
+- Delete file from Collection
+
+### Edge Cases
+- Add same file multiple times (reject)
+- Add file that's in another Collection (allow)
+- Create Collection with no files (allow, show empty state)
+- Delete Collection with files (allow, cascade delete SubmittedFiles)
+- Change version for locked file (verify lock status preserved)
+- Submit Collection to multiple Publications
+
+### Acceptance Criteria
+✅ User can create named Collections in Collections folder
+✅ User can add selected files to Collections with version choice
+✅ User can modify Collection contents
+✅ User can change version for each file in Collection
+✅ Collections appear in Publications submission source
+✅ Collections can be submitted to Publications
+✅ Collections work for Poetry and Short Story projects only
+✅ No new models needed - leverages existing Submission/SubmittedFile
+
 - Create Submissions linking each file to Collection
 - Each Submission captures currently selected version
 - Handle duplicate file additions (already in Collection?)

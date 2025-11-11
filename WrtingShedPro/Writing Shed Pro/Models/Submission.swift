@@ -15,6 +15,10 @@ class Submission {
     var publication: Publication?
     var project: Project?
     
+    // Feature 008c: Collections support
+    var name: String?  // For collections (when publication is nil)
+    var collectionDescription: String?  // For collections
+    
     @Relationship(deleteRule: .cascade, inverse: \SubmittedFile.submission)
     var submittedFiles: [SubmittedFile]? = []
     
@@ -26,8 +30,8 @@ class Submission {
     
     init(
         id: UUID = UUID(),
-        publication: Publication,
-        project: Project,
+        publication: Publication? = nil,
+        project: Project? = nil,
         submittedDate: Date = Date(),
         notes: String? = nil
     ) {
