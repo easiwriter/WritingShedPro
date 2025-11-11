@@ -92,6 +92,11 @@ struct CollectionsView: View {
         }
         .navigationTitle("Collections")
         .navigationBarTitleDisplayMode(.inline)
+        .navigationDestination(isPresented: $navigateToCollection) {
+            if let collection = selectedCollection {
+                CollectionDetailView(submission: collection)
+            }
+        }
         .environment(\.editMode, $editMode)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
@@ -196,11 +201,6 @@ struct CollectionsView: View {
                 selectedCollection = collection
             }
         }
-        .navigationDestination(isPresented: $navigateToCollection) {
-            if let collection = selectedCollection {
-                CollectionDetailView(submission: collection)
-            }
-        }
     }
     
     @ViewBuilder
@@ -222,10 +222,12 @@ struct CollectionsView: View {
         } label: {
             Label(
                 "Add to Publication",
-                systemImage: "doc"
+                systemImage: "book.badge.plus"
             )
         }
         .disabled(selectedCollections.isEmpty)
+        
+        Spacer()
     }
     
     // MARK: - Actions

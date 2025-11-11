@@ -209,6 +209,7 @@ struct FolderRowView: View {
     let folder: Folder
     
     @Query private var allPublications: [Publication]
+    @Query private var allSubmissions: [Submission]
     
     @State private var fileCount: Int = 0
     @State private var subfolderCount: Int = 0
@@ -217,6 +218,21 @@ struct FolderRowView: View {
     private var isPublicationFolder: Bool {
         let name = folder.name ?? ""
         return ["Magazines", "Competitions", "Commissions", "Other"].contains(name)
+    }
+    
+    // Check if this is the Collections folder
+    private var isCollectionsFolder: Bool {
+        let name = folder.name ?? ""
+        return name == "Collections"
+    }
+    
+    // Get collection count for Collections folder
+    private var collectionCount: Int {
+        guard isCollectionsFolder, let project = folder.project else { return 0 }
+        
+        return allSubmissions.filter { submission in
+            submission.publication == nil && submission.project?.id == project.id
+        }.count
     }
     
     // Get publication count for this folder type
@@ -251,6 +267,8 @@ struct FolderRowView: View {
         
         if isPublicationFolder {
             count = publicationCount
+        } else if isCollectionsFolder {
+            count = collectionCount
         } else if subfolderCount > 0 && fileCount > 0 {
             count = subfolderCount + fileCount
         } else if subfolderCount > 0 {
