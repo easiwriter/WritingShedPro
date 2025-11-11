@@ -131,6 +131,19 @@ struct FormattedTextEditor: UIViewRepresentable {
         // Configure for rich text
         textView.allowsEditingTextAttributes = true
         
+        // Disable system formatting menu (we have our own toolbar)
+        // This prevents the B I U menu from appearing
+        textView.shouldHideSystemFormattingMenu = true
+        
+        // On iPad with hardware keyboard, disable the default formatting UI completely
+        #if targetEnvironment(macCatalyst) || os(iOS)
+        if UIDevice.current.userInterfaceIdiom == .pad {
+            // For iPad, we need to be more aggressive about hiding the system menu
+            textView.textDragOptions = []
+            textView.textDropOptions = []
+        }
+        #endif
+        
         // TODO: Suppress drag handles on images/attachments
         // The drag handles (lollipop handles) appear when tapping on images in iOS
         // Attempted solutions that didn't work:
@@ -980,6 +993,7 @@ struct FormattedTextEditor: UIViewRepresentable {
 private class CustomTextView: UITextView {
     var customAccessoryView: UIView?
     var isImageSelected: Bool = false
+    var shouldHideSystemFormattingMenu: Bool = false
     
     // Selection border view for images
     private let selectionBorderView: UIView = {
@@ -1031,8 +1045,20 @@ private class CustomTextView: UITextView {
         return super.selectionRects(for: range)
     }
     
-    // Also hide the selection grabbers/handles
+    // Hide the system formatting menu and selection grabbers/handles
     override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
+        // Hide the system formatting toolbar options (Bold, Italic, Underline, etc.)
+        if shouldHideSystemFormattingMenu {
+            if action == #selector(toggleBoldface(_:)) ||
+               action == #selector(toggleItalics(_:)) ||
+               action == #selector(toggleUnderline(_:)) ||
+               action == #selector(UIResponderStandardEditActions.toggleBoldface(_:)) ||
+               action == #selector(UIResponderStandardEditActions.toggleItalics(_:)) ||
+               action == #selector(UIResponderStandardEditActions.toggleUnderline(_:)) {
+                return false
+            }
+        }
+        
         // Disable selection actions when image is selected
         if isImageSelected {
             // Still allow delete/cut to remove the image
@@ -1053,6 +1079,17 @@ private class CustomTextView: UITextView {
         if isImageSelected && !selectionBorderView.isHidden {
             recalculateSelectionBorder()
         }
+    }
+    
+    // Hide the system formatting menu on iPad with hardware keyboard (iOS 13+)
+    @available(iOS 13.0, *)
+    override func buildMenu(with builder: UIMenuBuilder) {
+        // If we want to hide the formatting menu, we need to remove the formatting actions
+        if shouldHideSystemFormattingMenu {
+            // Remove format submenu
+            builder.remove(menu: .format)
+        }
+        super.buildMenu(with: builder)
     }
     
     private func recalculateSelectionBorder() {
