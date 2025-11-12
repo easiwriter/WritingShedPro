@@ -158,27 +158,11 @@ class DataMapper {
         submission.project = project
         submission.publication = nil  // Mark as collection
         
-        // Try to get collection name and date - the relationship name might vary
-        var found = false
-        
-        // Try different possible relationship names
-        for relationshipKey in ["components", "submissions", "collectionItems", "items"] {
-            if let components = legacyCollection.value(forKey: relationshipKey) as? NSSet,
-               !components.isEmpty,
-               let firstComponent = components.anyObject() as? NSManagedObject {
-                submission.name = (firstComponent.value(forKey: "name") as? String) ?? "Collection"
-                submission.submittedDate = (firstComponent.value(forKey: "created") as? Date) ?? Date()
-                found = true
-                break
-            }
-        }
-        
-        // Fallback if no relationship found
-        if !found {
-            // Try to use collection attributes directly
-            submission.name = (legacyCollection.value(forKey: "name") as? String) ?? "Collection"
-            submission.submittedDate = (legacyCollection.value(forKey: "created") as? Date) ?? Date()
-        }
+        // Get collection name and date
+        // Collections have: texts (many), collectionSubmissions, textCollection relationships
+        // Try to get name/date from collection attributes first
+        submission.name = (legacyCollection.value(forKey: "name") as? String) ?? "Collection"
+        submission.submittedDate = (legacyCollection.value(forKey: "created") as? Date) ?? Date()
         
         return submission
     }
