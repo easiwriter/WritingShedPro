@@ -25,7 +25,7 @@
 
 ### Critical Technical Questions
 ⚠️ **AttributedString Compatibility**: NSAttributedString transfer between old and new needs verification
-⚠️ **Database Location**: Where is legacy Writing Shed Core Data stored? (Need user answer)
+⚠️ **Database Location**: Where is legacy Writing Shed Core Data stored? Answered.
 ⚠️ **Data Integrity Strategy**: How strict vs lenient should import be?
 ⚠️ **Submission Mapping**: Duplicate Submissions or different approach?
 
