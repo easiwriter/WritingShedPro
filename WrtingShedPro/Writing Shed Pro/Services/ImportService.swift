@@ -96,14 +96,17 @@ class ImportService {
     /// Get the import error report if import failed
     /// Returns nil if import succeeded or hasn't been attempted
     func getErrorReport() -> String? {
-        let report = errorHandler.generateReport()
+        // For now, we don't have a successCount from the import
+        // This will be updated in Phase 2 when we track successful imports
+        // For this version, just check if there are errors
         
-        // Only return report if there were errors
-        if report.contains("Errors: 0") && report.contains("Warnings: 0") {
-            return nil
+        if errorHandler.isFatal {
+            // Generate report with placeholder success count
+            let report = errorHandler.generateReport(successCount: 0)
+            return report.summary
         }
         
-        return report
+        return nil
     }
     
     /// Get progress tracker for UI binding
