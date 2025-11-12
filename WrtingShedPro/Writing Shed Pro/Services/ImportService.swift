@@ -208,6 +208,10 @@ class ImportService {
                 .appendingPathComponent(filename, isDirectory: false)
             print("[ImportService]   - \(databaseURL.path)")
         }
+        return nil
+        #endif
+    }
+    
     /// TEMPORARY: Reset import state and delete all projects for re-import testing
     func resetForReimport(modelContext: ModelContext) throws {
         print("[ImportService] Resetting import state...")
