@@ -26,21 +26,44 @@ class LegacyDatabaseService {
         if let url = databaseURL {
             self.legacyDatabaseURL = url
         } else {
-            // The legacy database was created by "WriteBang" app (legacy Writing Shed)
-            // From legacy app Core Data stack code:
+            // The legacy Writing Shed app:
+            // - macOS bundle ID: com.writing-shed.osx-writing-shed
+            // - iOS bundle ID: www.writing-shed.comuk.Writing-Shed
             // - Filename: Writing-Shed.sqlite
-            // - Bundle ID: com.appworks.WriteBang
             
-            let databaseFilename = "Writing-Shed.sqlite"
-            let legacyBundleID = "com.appworks.WriteBang"
+            let possibleFilenames = ["Writing-Shed.sqlite"]
+            let legacyBundleIDs = [
+                "com.writing-shed.osx-writing-shed",  // Official macOS Writing Shed
+                "com.appworks.WriteBang"               // Developer's test build
+            ]
+            let fileManager = FileManager.default
             
             #if targetEnvironment(macCatalyst) || os(macOS)
-            // On Mac, check the home directory (not sandboxed path)
-            let fileManager = FileManager.default
-            let homeDir = NSHomeDirectory()
+            // For Mac: Access files outside the sandbox using NSUserName()
+            let userName = NSUserName()
+            var foundURL: URL? = nil
             
-            let libraryPath = homeDir + "/Library/Application Support/\(legacyBundleID)/\(databaseFilename)"
-            self.legacyDatabaseURL = URL(fileURLWithPath: libraryPath)
+            // Try all combinations
+            for bundleID in legacyBundleIDs {
+                for filename in possibleFilenames {
+                    let realPath = "/Users/\(userName)/Library/Application Support/\(bundleID)/\(filename)"
+                    if fileManager.fileExists(atPath: realPath) {
+                        print("[LegacyDatabaseService] Found database at: \(realPath)")
+                        foundURL = URL(fileURLWithPath: realPath)
+                        break
+                    }
+                }
+                if foundURL != nil { break }
+            }
+            
+            if let url = foundURL {
+                self.legacyDatabaseURL = url
+            } else {
+                // Fallback to first combination (will fail during connect() with clear error)
+                let fallbackPath = "/Users/\(userName)/Library/Application Support/\(legacyBundleIDs[0])/\(possibleFilenames[0])"
+                print("[LegacyDatabaseService] Using fallback path: \(fallbackPath)")
+                self.legacyDatabaseURL = URL(fileURLWithPath: fallbackPath)
+            }
             
             #else
             // iOS: Use application support directory
@@ -49,9 +72,29 @@ class LegacyDatabaseService {
                 in: .userDomainMask
             )[0]
             
-            self.legacyDatabaseURL = supportURL
-                .appending(component: legacyBundleID)
-                .appending(component: databaseFilename)
+            let iosBundleID = "www.writing-shed.comuk.Writing-Shed"
+            var foundURL: URL? = nil
+            
+            for filename in possibleFilenames {
+                let url = supportURL
+                    .appendingPathComponent(iosBundleID, isDirectory: true)
+                    .appendingPathComponent(filename, isDirectory: false)
+                
+                if fileManager.fileExists(atPath: url.path) {
+                    print("[LegacyDatabaseService] Found database at: \(url.path)")
+                    foundURL = url
+                    break
+                }
+            }
+            
+            if let url = foundURL {
+                self.legacyDatabaseURL = url
+            } else {
+                // Use first filename as fallback
+                self.legacyDatabaseURL = supportURL
+                    .appendingPathComponent(iosBundleID, isDirectory: true)
+                    .appendingPathComponent(possibleFilenames[0], isDirectory: false)
+            }
             #endif
         }
     }

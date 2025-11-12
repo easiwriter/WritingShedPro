@@ -118,35 +118,44 @@ class ImportService {
     
     /// Get the URL for the legacy database
     private func getLegacyDatabaseURL() -> URL? {
-        // The legacy database was created by "WriteBang" app (legacy Writing Shed)
-        // From legacy app Core Data stack code:
-        // - Filename: Writing-Shed.sqlite
-        // - Bundle ID: com.appworks.WriteBang
+        // The legacy Writing Shed app on macOS uses bundle ID: com.writing-shed.osx-writing-shed
+        // Filename: Writing-Shed.sqlite
         
-        let databaseFilename = "Writing-Shed.sqlite"
-        
-        // Check if running on Mac (including Catalyst)
-        #if targetEnvironment(macCatalyst) || os(macOS)
+        let possibleFilenames = ["Writing-Shed.sqlite"]
+        let legacyBundleIDs = [
+            "com.writing-shed.osx-writing-shed",  // Official macOS Writing Shed
+            "com.appworks.WriteBang"               // Developer's test build
+        ]
         let fileManager = FileManager.default
         
-        // Get home directory - use NSHomeDirectory() for compatibility with Catalyst
-        let homeDir = NSHomeDirectory()
+        #if targetEnvironment(macCatalyst) || os(macOS)
+        // For Mac Catalyst running on macOS, we need to access files outside the sandbox
+        let userName = NSUserName()
         
-        // On Mac, check the home directory (not sandboxed path)
-        let legacyBundleID = "com.appworks.WriteBang"
-        let libraryPath = homeDir + "/Library/Application Support/\(legacyBundleID)/\(databaseFilename)"
-        
-        if fileManager.fileExists(atPath: libraryPath) {
-            print("[ImportService] Found legacy database at: \(libraryPath)")
-            return URL(fileURLWithPath: libraryPath)
+        // Try all combinations of bundle IDs and filenames
+        for bundleID in legacyBundleIDs {
+            for filename in possibleFilenames {
+                let path = "/Users/\(userName)/Library/Application Support/\(bundleID)/\(filename)"
+                if fileManager.fileExists(atPath: path) {
+                    print("[ImportService] Found legacy database at: \(path)")
+                    return URL(fileURLWithPath: path)
+                }
+            }
         }
         
-        print("[ImportService] Legacy database not found at: \(libraryPath)")
+        // Log what we looked for
+        print("[ImportService] Legacy database not found. Checked paths:")
+        for bundleID in legacyBundleIDs {
+            for filename in possibleFilenames {
+                let path = "/Users/\(userName)/Library/Application Support/\(bundleID)/\(filename)"
+                print("[ImportService]   - \(path)")
+            }
+        }
         return nil
         
         #else
         // iOS: Use application support directory (sandboxed)
-        guard let supportDir = FileManager.default.urls(
+        guard let supportDir = fileManager.urls(
             for: .applicationSupportDirectory,
             in: .userDomainMask
         ).first else {
@@ -154,19 +163,27 @@ class ImportService {
             return nil
         }
         
-        let fileManager = FileManager.default
-        let legacyBundleID = "com.appworks.WriteBang"
+        // iOS bundle ID: www.writing-shed.comuk.Writing-Shed
+        let iosBundleID = "www.writing-shed.comuk.Writing-Shed"
         
-        let databaseURL = supportDir
-            .appendingPathComponent(legacyBundleID, isDirectory: true)
-            .appendingPathComponent(databaseFilename, isDirectory: false)
-        
-        if fileManager.fileExists(atPath: databaseURL.path) {
-            print("[ImportService] Found legacy database at: \(databaseURL.path)")
-            return databaseURL
+        for filename in possibleFilenames {
+            let databaseURL = supportDir
+                .appendingPathComponent(iosBundleID, isDirectory: true)
+                .appendingPathComponent(filename, isDirectory: false)
+            
+            if fileManager.fileExists(atPath: databaseURL.path) {
+                print("[ImportService] Found legacy database at: \(databaseURL.path)")
+                return databaseURL
+            }
         }
         
-        print("[ImportService] Legacy database not found at: \(databaseURL.path)")
+        print("[ImportService] Legacy database not found in iOS sandbox at:")
+        for filename in possibleFilenames {
+            let databaseURL = supportDir
+                .appendingPathComponent(iosBundleID, isDirectory: true)
+                .appendingPathComponent(filename, isDirectory: false)
+            print("[ImportService]   - \(databaseURL.path)")
+        }
         return nil
         #endif
     }
