@@ -291,13 +291,13 @@ Once decisions are made:
 ## Questions for You
 
 **Please answer**:
-1. Which folder mapping approach? (A or B)
-2. Skip scene components? (A or B or C)
-3. Data integrity approach? (A or B or C)
-4. Import workflow location? (A or B or C)
-5. **WHERE is the legacy Writing Shed Core Data database located?** ⚠️ CRITICAL
-6. Can we use your Writing Shed database for testing?
-7. Have you tested AttributedString compatibility already?
-8. Any other considerations for import?
+1. Which folder mapping approach? A - the group name maps onto the Project Type
+2. Skip scene components? Probably C. SceneComponents are related to Scenes. A Scene is a subclass of WS_Text_Entity. Though I don't think SwiftData supports inheritance. Scenes are needed for Novel & Script projects.
+3. Data integrity approach? (A or B or C) C
+4. Import workflow location? (A or B or C)  C but discuss details
+5. **WHERE is the legacy Writing Shed Core Data database located?** ⚠️ CRITICAL I thought we'd covered this
+6. Can we use your Writing Shed database for testing? Yes
+7. Have you tested AttributedString compatibility already? The textString holds a standard NSAttributedString
+8. Any other considerations for import? No, but I'll need to check how you map entities from the legacy system to the new one
 
 Once answered, we can finalize the implementation plan!
