@@ -61,7 +61,7 @@ class LegacyDatabaseService {
         }
         
         // Load the Core Data model
-        guard let modelURL = Bundle.main.url(forResource: "Writing_Shed 35", withExtension: "momd"),
+        guard let modelURL = Bundle.main.url(forResource: "Writing_Shed", withExtension: "momd"),
               let model = NSManagedObjectModel(contentsOf: modelURL) else {
             throw ImportError.modelNotFound
         }
