@@ -37,7 +37,7 @@ class LegacyDatabaseService {
             #if targetEnvironment(macCatalyst) || os(macOS)
             // On Mac, check the home directory (not sandboxed path)
             let fileManager = FileManager.default
-            let homeDir = fileManager.homeDirectoryForCurrentUser.path
+            let homeDir = NSHomeDirectory()
             
             let libraryPath = homeDir + "/Library/Application Support/\(legacyBundleID)/\(databaseFilename)"
             self.legacyDatabaseURL = URL(fileURLWithPath: libraryPath)

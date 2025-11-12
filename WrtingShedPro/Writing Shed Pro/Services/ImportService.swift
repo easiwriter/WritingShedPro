@@ -128,7 +128,9 @@ class ImportService {
         // Check if running on Mac (including Catalyst)
         #if targetEnvironment(macCatalyst) || os(macOS)
         let fileManager = FileManager.default
-        let homeDir = fileManager.homeDirectoryForCurrentUser.path
+        
+        // Get home directory - use NSHomeDirectory() for compatibility with Catalyst
+        let homeDir = NSHomeDirectory()
         
         // On Mac, check the home directory (not sandboxed path)
         let legacyBundleID = "com.appworks.WriteBang"
