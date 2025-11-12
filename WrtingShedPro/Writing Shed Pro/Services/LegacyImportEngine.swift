@@ -50,6 +50,10 @@ class LegacyImportEngine {
         progressTracker.reset()
         errorHandler.reset()
         
+        // Clear any existing projects to avoid duplicates on re-import
+        try progressTracker.setPhase("Clearing previous import...")
+        clearExistingImportedData(modelContext: modelContext)
+        
         try progressTracker.setPhase("Connecting to legacy database...")
         try legacyService.connect()
         
@@ -84,6 +88,26 @@ class LegacyImportEngine {
             throw error
         }
     }
+    
+    // MARK: - Data Cleanup
+    
+    /// Clear all projects before re-importing to avoid duplicates
+    private func clearExistingImportedData(modelContext: ModelContext) {
+        do {
+            // Delete all existing projects
+            let descriptor = FetchDescriptor<Project>()
+            let allProjects = try modelContext.fetch(descriptor)
+            for project in allProjects {
+                modelContext.delete(project)
+            }
+            try modelContext.save()
+            print("[LegacyImportEngine] Cleared \(allProjects.count) existing projects")
+        } catch {
+            print("[LegacyImportEngine] Warning: Could not clear existing projects: \(error)")
+            // Continue anyway, might just have duplicates
+        }
+    }
+    
     
     // MARK: - Project Import
     

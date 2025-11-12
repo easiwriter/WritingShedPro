@@ -24,20 +24,22 @@ class ImportService {
     private let progressTracker = ImportProgressTracker()
     
     private static let hasPerformedImportKey = "hasPerformedImport"
+    private static let importVersionKey = "importVersion"
+    private static let currentImportVersion = 1  // Increment when import format changes
     
     // MARK: - Public API
     
     /// Check if import should be performed
     /// Returns true if:
-    /// 1. hasPerformedImport == false
+    /// 1. Import version is outdated or not set
     /// 2. Legacy database exists at expected location
     func shouldPerformImport() -> Bool {
-        let hasPerformed = UserDefaults.standard.bool(forKey: Self.hasPerformedImportKey)
+        let savedVersion = UserDefaults.standard.integer(forKey: Self.importVersionKey)
         
-        // Already imported
-        if hasPerformed {
-            print("[ImportService] Import already performed")
-            return false
+        // If version doesn't match current, re-import
+        if savedVersion != Self.currentImportVersion {
+            print("[ImportService] Import version mismatch: saved=\(savedVersion), current=\(Self.currentImportVersion). Re-importing...")
+            return true
         }
         
         // Check if legacy database exists
@@ -76,9 +78,10 @@ class ImportService {
             try engine.executeImport(modelContext: modelContext)
             print("[ImportService] Import completed successfully")
             
-            // Mark import as performed only if successful
+            // Mark import as performed with version
+            UserDefaults.standard.set(Self.currentImportVersion, forKey: Self.importVersionKey)
             UserDefaults.standard.set(true, forKey: Self.hasPerformedImportKey)
-            print("[ImportService] Set hasPerformedImport = true")
+            print("[ImportService] Set import version = \(Self.currentImportVersion) and hasPerformedImport = true")
             
             return true
             
