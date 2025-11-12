@@ -46,7 +46,7 @@ class AttributedStringConverter {
             let range = NSRange(location: 0, length: attributedString.length)
             let rtfData = try attributedString.data(
                 from: range,
-                documentType: .rtf
+                documentAttributes: [.documentType: NSAttributedString.DocumentType.rtf]
             )
             return rtfData
         } catch {

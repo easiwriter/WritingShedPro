@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import CoreData
 import SwiftData
 
 /// Maps legacy Core Data entities to new SwiftData models
@@ -29,21 +30,13 @@ class DataMapper {
     
     /// Map WS_Project_Entity to Project
     func mapProject(_ legacyProject: NSManagedObject) throws -> Project {
-        let project = Project()
+        let name = legacyProject.value(forKey: "name") as? String
+        let typeString = legacyProject.value(forKey: "projectType") as? String
+        let type = mapProjectType(typeString ?? "")
+        let creationDate = (legacyProject.value(forKey: "createdOn") as? Date) ?? Date()
         
-        // Name
-        project.name = legacyProject.value(forKey: "name") as? String
-        
-        // Type
-        if let typeString = legacyProject.value(forKey: "projectType") as? String {
-            project.typeRaw = mapProjectType(typeString).rawValue
-        } else {
-            project.typeRaw = ProjectType.blank.rawValue
-        }
-        
-        // Dates
-        project.creationDate = legacyProject.value(forKey: "createdOn") as? Date
-        project.modifiedDate = project.creationDate
+        let project = Project(name: name, type: type, creationDate: creationDate)
+        project.modifiedDate = creationDate
         
         return project
     }
@@ -247,32 +240,16 @@ class DataMapper {
     
     // MARK: - Scene Component Mapping
     
-    /// Map WS_Scene_Entity to TextFile with SceneMetadata
+    /// Map WS_Scene_Entity to TextFile
     func mapScene(
         _ legacyScene: NSManagedObject,
         parentFolder: Folder
     ) throws -> TextFile {
         let file = try mapTextFile(legacyScene, parentFolder: parentFolder)
         
-        // Add scene metadata
-        let metadata = SceneMetadata()
-        metadata.sceneType = "Scene"
+        // Scene metadata can be stored in comments or custom properties in future phases
+        // For now, scenes are just TextFiles in their folder
         
-        // Map character references
-        if let characters = legacyScene.value(forKey: "characters") as? NSSet {
-            metadata.characters = characters.compactMap { 
-                ($0 as? NSManagedObject)?.value(forKey: "name") as? String 
-            }
-        }
-        
-        // Map location references
-        if let locations = legacyScene.value(forKey: "locations") as? NSSet {
-            metadata.locations = locations.compactMap { 
-                ($0 as? NSManagedObject)?.value(forKey: "name") as? String 
-            }
-        }
-        
-        file.sceneMetadata = metadata
         return file
     }
     
@@ -286,11 +263,6 @@ class DataMapper {
         file.parentFolder = parentFolder
         file.createdDate = Date()
         file.modifiedDate = Date()
-        
-        // Add character metadata
-        let metadata = SceneMetadata()
-        metadata.sceneType = "Character"
-        file.sceneMetadata = metadata
         
         // Import character description as first version if available
         if let description = legacyCharacter.value(forKey: "description") as? NSAttributedString {
@@ -323,11 +295,6 @@ class DataMapper {
         file.parentFolder = parentFolder
         file.createdDate = Date()
         file.modifiedDate = Date()
-        
-        // Add location metadata
-        let metadata = SceneMetadata()
-        metadata.sceneType = "Location"
-        file.sceneMetadata = metadata
         
         // Import location description as first version if available
         if let description = legacyLocation.value(forKey: "description") as? NSAttributedString {

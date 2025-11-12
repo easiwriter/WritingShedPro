@@ -72,7 +72,7 @@ class LegacyDatabaseService {
             )
             
             // Create managed object context
-            let context = NSManagedObjectContext(concurrencyType: .mainThreadConcurrencyType)
+            let context = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
             context.persistentStoreCoordinator = coordinator
             context.mergePolicy = NSErrorMergePolicy
             
