@@ -143,32 +143,77 @@ WS_Collection_Entity
 
 ---
 
-### Decision 6: Import Workflow Location ✅ ANSWERED (With Discussion)
+### Decision 6: Import Workflow Location ✅ ANSWERED (Fully Specified)
 **Choice**: C - Both (first launch + Settings)
-**Additional Note**: "discuss details"
+**Current Implementation**: First launch only
 
-**Discussion Topics**:
-1. **First Launch Detection**: How do we detect first launch?
-   - Check if ModelContext has any Projects?
-   - Check if WritingShed.sqlite exists on disk?
-   - User preference flag?
+**Implementation Details**:
 
-2. **UI/UX Details**:
-   - Should import block app startup or run in background?
-   - Progress indicator during import?
-   - Cancel button during import?
-   - What happens if import fails?
+1. **First Launch Detection**: ✅ SPECIFIED
+   - **Method**: Check user setting flag: `hasPerformedImport: Bool = false`
+   - **Logic**: If `hasPerformedImport == false` AND legacy database exists, show import UI
+   - **Timing**: On app startup before main UI shown (blocking)
+   - **Scope**: Phase 1 - First instance only
 
-3. **Settings Integration**:
-   - "Import More Data" for adding more projects?
-   - "Re-import" to update existing data?
-   - Show import history/status?
+2. **Import UI/UX**: ✅ SPECIFIED
+   - **Progress UI**: YES - Show progress indicator during import
+   - **Blocking**: YES - Blocks app startup, doesn't run in background
+   - **Cancel Button**: NO - No cancel option (must complete or fail)
+   - **User Experience**: Seamless transition to app after completion
 
-4. **User Preferences**:
-   - Remember user's choice (don't ask again)?
-   - Option to re-trigger first launch import?
+3. **Error Handling**: ✅ SPECIFIED
+   - **On Error**: Show error message to user
+   - **Action**: ROLLBACK all changes to database
+   - **User Instruction**: "Try again later"
+   - **Recovery**: User can retry import after restart
+   - **Setting State**: Do NOT set `hasPerformedImport = true` if import fails
 
-**Next Step**: Clarify these details before UI implementation
+4. **Future Enhancement**: ✅ SPECIFIED
+   - **Settings Integration**: To be added later when basic import works
+   - **Scope**: Not part of initial Phase 1
+   - **Details**: Can enhance with "Import More", re-import, history when ready
+
+5. **Similar for Settings**: ✅ SPECIFIED
+   - **Phase 2 Enhancement**: Same approach as item 4
+   - **Not Part of Phase 1**
+
+**Implementation Pseudocode**:
+```swift
+func checkAndPerformImportIfNeeded() {
+    let hasPerformed = UserDefaults.standard.bool(forKey: "hasPerformedImport")
+    let legacyExists = legacyDatabaseExists()
+    
+    if !hasPerformed && legacyExists {
+        showImportProgressUI()
+        
+        do {
+            try performImport()  // Blocking
+            UserDefaults.standard.set(true, forKey: "hasPerformedImport")
+            dismissImportProgressUI()
+            showMainApp()
+        } catch {
+            // Rollback all changes
+            try modelContext.delete(model: /* all imported entities */)
+            try modelContext.save()
+            
+            showErrorAlert("Import failed. Please try again later.")
+            // hasPerformedImport remains false
+            // User can restart app to retry
+        }
+    } else {
+        showMainApp()
+    }
+}
+```
+
+**User Setting Required**:
+```swift
+// Add to settings/user defaults
+let hasPerformedImport = UserDefaults.standard.bool(forKey: "hasPerformedImport")
+// Default: false (import will run on first app launch)
+```
+
+**Status**: Implementation Ready
 
 ---
 
@@ -193,7 +238,7 @@ WS_Collection_Entity
 | 3. Submission mapping | Keep duplicates | Create both submissions | ✅ Ready |
 | 4. Data integrity | C (Hybrid) | Warn user, continue | ✅ Ready |
 | 5. AttributedString | Import only | One-way conversion | ✅ Ready |
-| 6. Import workflow | C (Both) | First launch + Settings | ⏳ Discuss details |
+| 6. Import workflow | C (Both) | Check setting flag, show progress, rollback on error | ✅ Ready |
 | 7. Database location | Known | Direct file access | ✅ Ready |
 | 8. Test data | Yes | Your database | ✅ Ready |
 
@@ -238,52 +283,60 @@ WS_Collection_Entity
 
 ---
 
-## Outstanding Questions
+## Implementation Timeline (Updated)
 
-### Decision 6 - Import Workflow Details
+### Phase 1: Core Infrastructure (Days 1-2)
+✅ Decisions finalized
+- [ ] LegacyDatabaseService (read Core Data)
+- [ ] Core entity mapping functions
+- [ ] AttributedString → RTF conversion
+- [ ] Error/warning collection
+- [ ] Rollback logic
 
-Please clarify these items:
+### Phase 2: Extended Scope - Scene Support (Days 3-4)
+✅ Decisions finalized
+- [ ] Analyze WS_Scene_Entity structure
+- [ ] Design SceneMetadata model
+- [ ] Implement scene mapping
+- [ ] Character/location import
 
-1. **First Launch Detection**
-   - Detect via: Empty ModelContext? File exists check? Preference flag?
+### Phase 3: Import Engine (Days 5-6)
+✅ Decisions finalized
+- [ ] DataMapper with all entities
+- [ ] Submission duplicate handling
+- [ ] Hybrid error recovery with rollback
+- [ ] Progress tracking
 
-2. **Import Blocking**
-   - Should import block app startup or run in background?
-   - Progress UI during import?
-   - Cancel button?
+### Phase 4: Import UI & Workflow (Days 7-8)
+✅ **SIMPLIFIED** - Just Phase 1 workflow
+- [ ] Check hasPerformedImport setting
+- [ ] Show progress UI (blocking)
+- [ ] Rollback on error
+- [ ] Error messaging
 
-3. **Failure Handling**
-   - If import fails, what's the user experience?
-   - Retry option?
-   - Rollback changes?
+### Phase 5: Testing & Polish (Days 9-11)
+✅ Decisions finalized
+- [ ] Test with user's database
+- [ ] Verify rollback works correctly
+- [ ] Edge case handling
+- [ ] Performance optimization
 
-4. **Settings Integration**
-   - Should "Settings → Import" re-import everything or add more data?
-   - Show import history?
-   - Allow selective re-import?
-
-5. **User Preferences**
-   - Remember choice (don't ask again)?
-   - Option to re-trigger import later?
+### Total Timeline: ~11 days (adjusted from 12 due to simplified workflow)
 
 ---
 
-## Next Steps
+## Next Steps (Ready to Begin)
 
-### Immediate
-1. ✅ Clarify Decision 6 workflow details
-2. ✅ Review Scene component design
-3. ✅ Verify legacy database accessibility
+### Immediate Actions
+1. ✅ Extract sample WS_TextString from legacy database (AttributedString test)
+2. ✅ Extract sample Scene/Character/Location entities (structure verification)
+3. ⏳ Create LegacyDatabaseService skeleton
+4. ⏳ Begin Phase 1 implementation
 
-### Before Implementation
-1. ✅ Locate your Writing-Shed.sqlite file
-2. ✅ Extract sample WS_TextString for AttributedString testing
-3. ✅ Extract sample Scene/Character/Location entities for structure verification
-
-### During Implementation
-1. ⏳ Test with user's actual database
-2. ⏳ Verify all entity mappings work
-3. ⏳ Validate import with various project types (Novel/Script/Poetry)
+### Before Phase 1 Coding
+1. Verify WritingShed.sqlite file can be accessed
+2. Extract entity samples for testing
+3. Set up test database integration
 
 ---
 
@@ -327,13 +380,15 @@ Project (imported from legacy)
 
 ## Summary
 
-✅ **8 implementation decisions made**
+✅ **ALL 8 implementation decisions finalized**
+✅ **Decision 6 workflow fully specified**
 ✅ **Database location confirmed**
 ✅ **Test data available**
 ✅ **Scope extended to support Scene components**
-⏳ **Need clarification on Decision 6 workflow details**
-⏳ **Scene design needs review**
+✅ **Implementation plan ready with 11-day timeline**
 
-**Ready to proceed**: Clarify Decision 6 details, then begin Phase 1 implementation.
+**Status**: ✅ **READY TO BEGIN IMPLEMENTATION**
+
+**Starting Phase 1**: LegacyDatabaseService & Core Mapping Functions
 
 ---
