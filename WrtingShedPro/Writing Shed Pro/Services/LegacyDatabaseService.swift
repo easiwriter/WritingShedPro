@@ -27,27 +27,73 @@ class LegacyDatabaseService {
             self.legacyDatabaseURL = url
         } else {
             // The legacy database was created by "Writing Shed" app
-            // Different bundle IDs for different platforms:
-            // - Mac: com.writing-shed.osx-writing-shed
+            // Multiple bundle IDs exist depending on which version user had:
+            // - Mac original: com.writing-shed.osx-writing-shed
+            // - Mac WriteBang: com.appworks.WriteBang
             // - iOS: www.writing-shed.comuk.Writing-Shed
             
             #if os(macOS)
             // On Mac, the legacy database is in the actual home directory
-            // ~/Library/Application Support/com.writing-shed.osx-writing-shed/writeapp.sqlite
             let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
-            let legacyBundleID = "com.writing-shed.osx-writing-shed"
-            let libraryPath = homeDir + "/Library/Application Support/\(legacyBundleID)/writeapp.sqlite"
-            self.legacyDatabaseURL = URL(fileURLWithPath: libraryPath)
+            let fileManager = FileManager.default
+            
+            // Try different possible bundle IDs in order
+            let possibleBundleIDs = [
+                "com.writing-shed.osx-writing-shed",  // Original Writing Shed
+                "com.appworks.WriteBang"               // WriteBang version
+            ]
+            
+            var foundURL: URL? = nil
+            for bundleID in possibleBundleIDs {
+                let libraryPath = homeDir + "/Library/Application Support/\(bundleID)/writeapp.sqlite"
+                if fileManager.fileExists(atPath: libraryPath) {
+                    foundURL = URL(fileURLWithPath: libraryPath)
+                    break
+                }
+            }
+            
+            if let foundURL = foundURL {
+                self.legacyDatabaseURL = foundURL
+            } else {
+                // Default to first option if not found
+                let libraryPath = homeDir + "/Library/Application Support/\(possibleBundleIDs[0])/writeapp.sqlite"
+                self.legacyDatabaseURL = URL(fileURLWithPath: libraryPath)
+            }
+            
             #else
             // iOS: Use application support directory
             let supportURL = FileManager.default.urls(
                 for: .applicationSupportDirectory,
                 in: .userDomainMask
             )[0]
-            let legacyBundleID = "www.writing-shed.comuk.Writing-Shed"  // Old iOS app bundle ID
-            self.legacyDatabaseURL = supportURL
-                .appending(component: legacyBundleID)
-                .appending(component: "writeapp.sqlite")
+            let fileManager = FileManager.default
+            
+            // Try different possible bundle IDs
+            let possibleBundleIDs = [
+                "www.writing-shed.comuk.Writing-Shed",  // Original Writing Shed
+                "com.appworks.WriteBang"                // WriteBang version
+            ]
+            
+            var foundURL: URL? = nil
+            for bundleID in possibleBundleIDs {
+                let testURL = supportURL
+                    .appending(component: bundleID)
+                    .appending(component: "writeapp.sqlite")
+                
+                if fileManager.fileExists(atPath: testURL.path) {
+                    foundURL = testURL
+                    break
+                }
+            }
+            
+            if let foundURL = foundURL {
+                self.legacyDatabaseURL = foundURL
+            } else {
+                // Default to first option if not found
+                self.legacyDatabaseURL = supportURL
+                    .appending(component: possibleBundleIDs[0])
+                    .appending(component: "writeapp.sqlite")
+            }
             #endif
         }
     }
