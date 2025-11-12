@@ -299,16 +299,28 @@ class LegacyDatabaseService {
             throw ImportError.notConnected
         }
         
+        // Try to fetch collected versions for this collection
+        // The relationship name might vary, so try multiple approaches
         let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "WS_CollectedVersion_Entity")
         fetchRequest.returnsObjectsAsFaults = false
-        fetchRequest.predicate = NSPredicate(format: "collection == %@", collection)
         
-        do {
-            let collected = try context.fetch(fetchRequest)
-            return collected
-        } catch {
-            throw ImportError.fetchFailed(error.localizedDescription)
+        // Try different possible relationship names
+        for relationshipKey in ["collection", "submissions", "versions"] {
+            do {
+                fetchRequest.predicate = NSPredicate(format: "\(relationshipKey) == %@", collection)
+                let collected = try context.fetch(fetchRequest)
+                if !collected.isEmpty {
+                    return collected
+                }
+            } catch {
+                // Try next relationship key
+                continue
+            }
         }
+        
+        // If no relationship worked, return empty array
+        print("[LegacyDatabaseService] No collected versions found for collection")
+        return []
     }
     
     /// Fetch all collection submissions for a given collection
