@@ -160,9 +160,9 @@ class DataMapper {
         
         // Get collection name and date
         // Collections have: texts (many), collectionSubmissions, textCollection relationships
-        // Try to get name/date from collection attributes first
-        submission.name = (legacyCollection.value(forKey: "name") as? String) ?? "Collection"
-        submission.submittedDate = (legacyCollection.value(forKey: "created") as? Date) ?? Date()
+        // Attributes: dateCreated, groupName, position
+        submission.name = (legacyCollection.value(forKey: "groupName") as? String) ?? "Collection"
+        submission.submittedDate = (legacyCollection.value(forKey: "dateCreated") as? Date) ?? Date()
         
         return submission
     }
