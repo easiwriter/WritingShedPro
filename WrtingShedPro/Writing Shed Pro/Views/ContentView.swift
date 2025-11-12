@@ -106,6 +106,17 @@ struct ContentView: View {
         if importService.shouldPerformImport() {
             print("[ContentView] Import should be performed")
             showImportProgress = true
+            
+            // Start import automatically
+            Task {
+                let success = await importService.executeImport(modelContext: modelContext)
+                print("[ContentView] Import result: \(success)")
+                
+                // Dismiss after a brief delay to show success message
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                    showImportProgress = false
+                }
+            }
         }
     }
     

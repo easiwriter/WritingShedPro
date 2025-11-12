@@ -35,6 +35,7 @@ struct ProjectEditableList: View {
                 .isDetailLink(false)
                 .accessibilityHint("Double tap to open project folders")
                 .listRowSeparator(.hidden)
+                .listRowInsets(EdgeInsets(top: 2, leading: 0, bottom: 2, trailing: 0))
             }
             .onDelete(perform: deleteProjects)
             .onMove(perform: isEditMode ? moveProjects : nil)
