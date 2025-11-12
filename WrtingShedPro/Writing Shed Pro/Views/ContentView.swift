@@ -5,14 +5,17 @@ struct ContentView: View {
     @Query var projects: [Project]
     @State private var showAddProject = false
     @State private var showManageStyles = false
+    @State private var showImportProgress = false
     @Environment(\.modelContext) var modelContext
     
     var body: some View {
-        NavigationStack {
-            ProjectEditableList(projects: projects)
-            .onAppear {
-                initializeUserOrderIfNeeded()
-            }
+        ZStack {
+            NavigationStack {
+                ProjectEditableList(projects: projects)
+                .onAppear {
+                    initializeUserOrderIfNeeded()
+                    checkForImport()
+                }
             .navigationTitle(NSLocalizedString("contentView.title", comment: "Title of projects list"))
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -41,6 +44,20 @@ struct ContentView: View {
             .sheet(isPresented: $showManageStyles) {
                 StyleSheetListView()
             }
+            }
+            
+            // Show import progress overlay if needed
+            if showImportProgress {
+                ImportProgressView()
+            }
+        }
+    }
+    
+    private func checkForImport() {
+        let importService = ImportService()
+        if importService.shouldPerformImport() {
+            print("[ContentView] Import should be performed")
+            showImportProgress = true
         }
     }
     
