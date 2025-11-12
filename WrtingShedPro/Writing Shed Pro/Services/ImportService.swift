@@ -117,7 +117,22 @@ class ImportService {
     // MARK: - Private Helpers
     
     /// Get the URL for the legacy database
+    /// If not found, prompt user to select it manually
     private func getLegacyDatabaseURL() -> URL? {
+        // First, try auto-detection
+        let autoDetected = attemptAutoDetect()
+        if let url = autoDetected {
+            return url
+        }
+        
+        // Auto-detection failed - try showing file picker
+        // Note: This is async, so we'll return nil here and handle the picker in the UI
+        print("[ImportService] Auto-detection failed, user will need to select database manually")
+        return nil
+    }
+    
+    /// Attempt to auto-detect the legacy database location
+    private func attemptAutoDetect() -> URL? {
         // The legacy Writing Shed app on macOS uses bundle ID: com.writing-shed.osx-writing-shed
         // Filename: Writing-Shed.sqlite
         // Note: May be in sandbox container (App Store) or regular Application Support
