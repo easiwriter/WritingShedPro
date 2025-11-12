@@ -26,6 +26,16 @@ class LegacyDatabaseService {
         if let url = databaseURL {
             self.legacyDatabaseURL = url
         } else {
+            // Compute the correct path based on platform
+            #if os(macOS)
+            // On Mac, the legacy database is in the actual home directory
+            // ~/Library/Application Support/{bundleID}/Writing-Shed.sqlite
+            let bundleID = Bundle.main.bundleIdentifier ?? "com.writing-shed"
+            let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
+            let libraryPath = homeDir + "/Library/Application Support/\(bundleID)/Writing-Shed.sqlite"
+            self.legacyDatabaseURL = URL(fileURLWithPath: libraryPath)
+            #else
+            // iOS: Use application support directory
             let supportURL = FileManager.default.urls(
                 for: .applicationSupportDirectory,
                 in: .userDomainMask
@@ -34,6 +44,7 @@ class LegacyDatabaseService {
             self.legacyDatabaseURL = supportURL
                 .appending(component: bundleID)
                 .appending(component: "Writing-Shed.sqlite")
+            #endif
         }
     }
     

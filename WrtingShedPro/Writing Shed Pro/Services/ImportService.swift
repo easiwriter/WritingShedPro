@@ -120,20 +120,43 @@ class ImportService {
     private func getLegacyDatabaseURL() -> URL? {
         // Get bundle identifier
         guard let bundleID = Bundle.main.bundleIdentifier else {
+            print("[ImportService] Could not get bundle identifier")
             return nil
         }
         
-        // Construct path: ~/Library/Application Support/{bundleID}/Writing-Shed.sqlite
+        // On Mac, need to access the actual home directory, not the sandboxed path
+        // The legacy database is at: ~/Library/Application Support/{bundleID}/Writing-Shed.sqlite
+        
+        #if os(macOS)
+        // Get actual home directory
+        guard let homeDir = FileManager.default.homeDirectoryForCurrentUser.path as String? else {
+            print("[ImportService] Could not determine home directory")
+            return nil
+        }
+        
+        let libraryPath = homeDir.appending("/Library/Application Support/\(bundleID)/Writing-Shed.sqlite")
+        let databaseURL = URL(fileURLWithPath: libraryPath)
+        
+        print("[ImportService] macOS database path: \(databaseURL.path)")
+        
+        return databaseURL
+        
+        #else
+        // iOS: Use application support directory normally
         guard let supportDir = FileManager.default.urls(
             for: .applicationSupportDirectory,
             in: .userDomainMask
         ).first else {
+            print("[ImportService] Could not get application support directory")
             return nil
         }
         
         let databaseDir = supportDir.appendingPathComponent(bundleID, isDirectory: true)
         let databaseURL = databaseDir.appendingPathComponent("Writing-Shed.sqlite", isDirectory: false)
         
+        print("[ImportService] iOS database path: \(databaseURL.path)")
+        
         return databaseURL
+        #endif
     }
 }
