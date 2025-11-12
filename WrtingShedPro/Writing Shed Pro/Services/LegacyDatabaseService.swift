@@ -299,28 +299,27 @@ class LegacyDatabaseService {
             throw ImportError.notConnected
         }
         
-        // Try to fetch collected versions for this collection
-        // The relationship name might vary, so try multiple approaches
-        let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "WS_CollectedVersion_Entity")
-        fetchRequest.returnsObjectsAsFaults = false
+        // Collections have collected versions through WS_TextCollection_Entity
+        // First fetch the text collection for this collection
+        let textCollectionRequest = NSFetchRequest<NSManagedObject>(entityName: "WS_TextCollection_Entity")
+        textCollectionRequest.returnsObjectsAsFaults = false
+        textCollectionRequest.predicate = NSPredicate(format: "collection == %@", collection)
         
-        // Try different possible relationship names
-        for relationshipKey in ["collection", "submissions", "versions"] {
-            do {
-                fetchRequest.predicate = NSPredicate(format: "\(relationshipKey) == %@", collection)
-                let collected = try context.fetch(fetchRequest)
-                if !collected.isEmpty {
-                    return collected
+        do {
+            let textCollections = try context.fetch(textCollectionRequest)
+            
+            // Now fetch collected versions from the text collection
+            var allCollectedVersions: [NSManagedObject] = []
+            for textCollection in textCollections {
+                if let collectedVersions = textCollection.value(forKey: "collectedVersions") as? NSSet {
+                    allCollectedVersions.append(contentsOf: collectedVersions.allObjects as? [NSManagedObject] ?? [])
                 }
-            } catch {
-                // Try next relationship key
-                continue
             }
+            
+            return allCollectedVersions
+        } catch {
+            throw ImportError.fetchFailed(error.localizedDescription)
         }
-        
-        // If no relationship worked, return empty array
-        print("[LegacyDatabaseService] No collected versions found for collection")
-        return []
     }
     
     /// Fetch all collection submissions for a given collection

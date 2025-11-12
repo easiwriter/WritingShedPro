@@ -34,10 +34,12 @@ struct ProjectEditableList: View {
                 }
                 .isDetailLink(false)
                 .accessibilityHint("Double tap to open project folders")
+                .listRowSeparator(.hidden)
             }
             .onDelete(perform: deleteProjects)
             .onMove(perform: isEditMode ? moveProjects : nil)
         }
+        .listStyle(.plain)
         .environment(\.editMode, .constant(isEditMode ? .active : .inactive))
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {

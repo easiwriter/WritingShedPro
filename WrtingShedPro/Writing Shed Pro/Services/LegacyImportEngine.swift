@@ -235,22 +235,14 @@ class LegacyImportEngine {
                 modelContext.insert(newSubmission)
                 collectionMap[legacyCollection] = newSubmission
                 
-                // Import collected versions as SubmittedFiles
-                let legacyCollectedVersions = try legacyService.fetchCollectedVersions(for: legacyCollection)
-                for legacyCollectedVersion in legacyCollectedVersions {
-                    if let newSubmittedFile = try mapper.mapCollectedVersion(
-                        legacyCollectedVersion,
-                        collection: newSubmission,
-                        textFileMap: textFileMap,
-                        versionMap: versionMap
-                    ) {
-                        modelContext.insert(newSubmittedFile)
-                        if newSubmission.submittedFiles == nil {
-                            newSubmission.submittedFiles = []
-                        }
-                        newSubmission.submittedFiles?.append(newSubmittedFile)
-                    }
-                }
+                // NOTE: Collection submissions (WS_CollectionSubmission_Entity) are not yet implemented
+                // Collections have:
+                // - collectionSubmissions relationship → WS_CollectionSubmission_Entity
+                // - textCollection relationship → WS_TextCollection_Entity
+                // - texts relationship → WS_Text_Entity
+                // These would need separate mapping logic
+                
+                // TODO: Implement collection submission mapping in Phase 2
             } catch {
                 errorHandler.addWarning("Failed to import collection: \(error.localizedDescription)")
             }

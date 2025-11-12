@@ -30,7 +30,14 @@ class DataMapper {
     
     /// Map WS_Project_Entity to Project
     func mapProject(_ legacyProject: NSManagedObject) throws -> Project {
-        let name = legacyProject.value(forKey: "name") as? String
+        var name = legacyProject.value(forKey: "name") as? String ?? "Untitled"
+        
+        // Legacy database stores name with metadata appended like "name<>DD/MM/YYYY, HH:MM"
+        // Extract just the project name part
+        if let components = name.split(separator: "<>", maxSplits: 1, omittingEmptySubsequences: false).first {
+            name = String(components).trimmingCharacters(in: .whitespaces)
+        }
+        
         let typeString = legacyProject.value(forKey: "projectType") as? String
         let type = mapProjectType(typeString ?? "")
         let creationDate = (legacyProject.value(forKey: "createdOn") as? Date) ?? Date()
