@@ -119,9 +119,12 @@ class ImportService {
     /// Get the URL for the legacy database
     private func getLegacyDatabaseURL() -> URL? {
         // The legacy database was created by "Writing Shed" app
+        // Filename: Writing-Shed.sqlite
         // Bundle IDs for different platforms:
         // - Mac (Catalyst): www.writing-shed.comuk.Writing-Shed or com.writing-shed.osx-writing-shed
         // - iOS: www.writing-shed.comuk.Writing-Shed
+        
+        let databaseFilename = "Writing-Shed.sqlite"
         
         // Check if running on Mac (including Catalyst)
         #if targetEnvironment(macCatalyst) || os(macOS)
@@ -135,7 +138,7 @@ class ImportService {
         ]
         
         for bundleID in possibleBundleIDs {
-            let libraryPath = homeDir + "/Library/Application Support/\(bundleID)/writeapp.sqlite"
+            let libraryPath = homeDir + "/Library/Application Support/\(bundleID)/\(databaseFilename)"
             if fileManager.fileExists(atPath: libraryPath) {
                 print("[ImportService] Found legacy database at: \(libraryPath)")
                 return URL(fileURLWithPath: libraryPath)
@@ -145,7 +148,7 @@ class ImportService {
         // No database found - report the paths we checked
         print("[ImportService] No legacy database found in:")
         for bundleID in possibleBundleIDs {
-            let libraryPath = homeDir + "/Library/Application Support/\(bundleID)/writeapp.sqlite"
+            let libraryPath = homeDir + "/Library/Application Support/\(bundleID)/\(databaseFilename)"
             print("[ImportService]   - \(libraryPath)")
         }
         
@@ -170,7 +173,7 @@ class ImportService {
         for bundleID in possibleBundleIDs {
             let databaseURL = supportDir
                 .appendingPathComponent(bundleID, isDirectory: true)
-                .appendingPathComponent("writeapp.sqlite", isDirectory: false)
+                .appendingPathComponent(databaseFilename, isDirectory: false)
             
             if fileManager.fileExists(atPath: databaseURL.path) {
                 print("[ImportService] Found legacy database at: \(databaseURL.path)")

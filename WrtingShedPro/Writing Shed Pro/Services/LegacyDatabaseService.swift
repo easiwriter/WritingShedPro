@@ -27,9 +27,12 @@ class LegacyDatabaseService {
             self.legacyDatabaseURL = url
         } else {
             // The legacy database was created by "Writing Shed" app
+            // Filename: Writing-Shed.sqlite
             // Bundle IDs for different platforms:
             // - Mac (Catalyst): com.writing-shed.osx-writing-shed or www.writing-shed.comuk.Writing-Shed
             // - iOS: www.writing-shed.comuk.Writing-Shed
+            
+            let databaseFilename = "Writing-Shed.sqlite"
             
             #if targetEnvironment(macCatalyst) || os(macOS)
             // On Mac, check the home directory (not sandboxed path)
@@ -43,7 +46,7 @@ class LegacyDatabaseService {
             
             var foundURL: URL? = nil
             for bundleID in possibleBundleIDs {
-                let libraryPath = homeDir + "/Library/Application Support/\(bundleID)/writeapp.sqlite"
+                let libraryPath = homeDir + "/Library/Application Support/\(bundleID)/\(databaseFilename)"
                 if fileManager.fileExists(atPath: libraryPath) {
                     foundURL = URL(fileURLWithPath: libraryPath)
                     print("[LegacyDatabaseService] Found database at: \(libraryPath)")
@@ -55,7 +58,7 @@ class LegacyDatabaseService {
                 self.legacyDatabaseURL = foundURL
             } else {
                 // No database found - use first option as placeholder
-                let libraryPath = homeDir + "/Library/Application Support/\(possibleBundleIDs[0])/writeapp.sqlite"
+                let libraryPath = homeDir + "/Library/Application Support/\(possibleBundleIDs[0])/\(databaseFilename)"
                 self.legacyDatabaseURL = URL(fileURLWithPath: libraryPath)
                 print("[LegacyDatabaseService] No database found. Will check: \(libraryPath)")
             }
@@ -76,7 +79,7 @@ class LegacyDatabaseService {
             for bundleID in possibleBundleIDs {
                 let testURL = supportURL
                     .appending(component: bundleID)
-                    .appending(component: "writeapp.sqlite")
+                    .appending(component: databaseFilename)
                 
                 if fileManager.fileExists(atPath: testURL.path) {
                     foundURL = testURL
@@ -91,7 +94,7 @@ class LegacyDatabaseService {
                 // Default to first option if not found
                 self.legacyDatabaseURL = supportURL
                     .appending(component: possibleBundleIDs[0])
-                    .appending(component: "writeapp.sqlite")
+                    .appending(component: databaseFilename)
                 print("[LegacyDatabaseService] No database found in app support")
             }
             #endif
