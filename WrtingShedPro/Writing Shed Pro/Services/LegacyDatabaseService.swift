@@ -26,42 +26,21 @@ class LegacyDatabaseService {
         if let url = databaseURL {
             self.legacyDatabaseURL = url
         } else {
-            // The legacy database was created by "Writing Shed" app
-            // Filename: Writing-Shed.sqlite
-            // Bundle IDs for different platforms:
-            // - Mac (Catalyst): com.writing-shed.osx-writing-shed or www.writing-shed.comuk.Writing-Shed
-            // - iOS: www.writing-shed.comuk.Writing-Shed
+            // The legacy database was created by "WriteBang" app (legacy Writing Shed)
+            // From legacy app Core Data stack code:
+            // - Filename: Writing-Shed.sqlite
+            // - Bundle ID: com.appworks.WriteBang
             
             let databaseFilename = "Writing-Shed.sqlite"
+            let legacyBundleID = "com.appworks.WriteBang"
             
             #if targetEnvironment(macCatalyst) || os(macOS)
             // On Mac, check the home directory (not sandboxed path)
             let fileManager = FileManager.default
             let homeDir = fileManager.homeDirectoryForCurrentUser.path
             
-            let possibleBundleIDs = [
-                "com.writing-shed.osx-writing-shed",  // Original Writing Shed
-                "www.writing-shed.comuk.Writing-Shed" // iOS version used on Mac
-            ]
-            
-            var foundURL: URL? = nil
-            for bundleID in possibleBundleIDs {
-                let libraryPath = homeDir + "/Library/Application Support/\(bundleID)/\(databaseFilename)"
-                if fileManager.fileExists(atPath: libraryPath) {
-                    foundURL = URL(fileURLWithPath: libraryPath)
-                    print("[LegacyDatabaseService] Found database at: \(libraryPath)")
-                    break
-                }
-            }
-            
-            if let foundURL = foundURL {
-                self.legacyDatabaseURL = foundURL
-            } else {
-                // No database found - use first option as placeholder
-                let libraryPath = homeDir + "/Library/Application Support/\(possibleBundleIDs[0])/\(databaseFilename)"
-                self.legacyDatabaseURL = URL(fileURLWithPath: libraryPath)
-                print("[LegacyDatabaseService] No database found. Will check: \(libraryPath)")
-            }
+            let libraryPath = homeDir + "/Library/Application Support/\(legacyBundleID)/\(databaseFilename)"
+            self.legacyDatabaseURL = URL(fileURLWithPath: libraryPath)
             
             #else
             // iOS: Use application support directory
@@ -69,34 +48,10 @@ class LegacyDatabaseService {
                 for: .applicationSupportDirectory,
                 in: .userDomainMask
             )[0]
-            let fileManager = FileManager.default
             
-            let possibleBundleIDs = [
-                "www.writing-shed.comuk.Writing-Shed",  // Original Writing Shed
-            ]
-            
-            var foundURL: URL? = nil
-            for bundleID in possibleBundleIDs {
-                let testURL = supportURL
-                    .appending(component: bundleID)
-                    .appending(component: databaseFilename)
-                
-                if fileManager.fileExists(atPath: testURL.path) {
-                    foundURL = testURL
-                    print("[LegacyDatabaseService] Found database at: \(testURL.path)")
-                    break
-                }
-            }
-            
-            if let foundURL = foundURL {
-                self.legacyDatabaseURL = foundURL
-            } else {
-                // Default to first option if not found
-                self.legacyDatabaseURL = supportURL
-                    .appending(component: possibleBundleIDs[0])
-                    .appending(component: databaseFilename)
-                print("[LegacyDatabaseService] No database found in app support")
-            }
+            self.legacyDatabaseURL = supportURL
+                .appending(component: legacyBundleID)
+                .appending(component: databaseFilename)
             #endif
         }
     }
