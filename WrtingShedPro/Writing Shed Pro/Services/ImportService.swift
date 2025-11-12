@@ -119,20 +119,19 @@ class ImportService {
     /// Get the URL for the legacy database
     private func getLegacyDatabaseURL() -> URL? {
         // The legacy database was created by "Writing Shed" app
-        // Multiple bundle IDs exist depending on which version user had:
-        // - Mac original: com.writing-shed.osx-writing-shed
-        // - Mac WriteBang: com.appworks.WriteBang
+        // Bundle IDs for different platforms:
+        // - Mac (Catalyst): www.writing-shed.comuk.Writing-Shed or com.writing-shed.osx-writing-shed
         // - iOS: www.writing-shed.comuk.Writing-Shed
         
-        #if os(macOS)
-        // On Mac, the legacy database is in the actual home directory
-        let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
+        // Check if running on Mac (including Catalyst)
+        #if targetEnvironment(macCatalyst) || os(macOS)
         let fileManager = FileManager.default
+        let homeDir = fileManager.homeDirectoryForCurrentUser.path
         
-        // Try different possible bundle IDs in order
+        // On Mac, check the home directory (not sandboxed path)
         let possibleBundleIDs = [
             "com.writing-shed.osx-writing-shed",  // Original Writing Shed
-            "com.appworks.WriteBang"               // WriteBang version
+            "www.writing-shed.comuk.Writing-Shed" // iOS version used on Mac
         ]
         
         for bundleID in possibleBundleIDs {
@@ -143,13 +142,18 @@ class ImportService {
             }
         }
         
-        // No database found
-        let defaultPath = homeDir + "/Library/Application Support/\(possibleBundleIDs[0])/writeapp.sqlite"
-        print("[ImportService] No legacy database found. Last checked: \(defaultPath)")
-        return URL(fileURLWithPath: defaultPath)
+        // No database found - report the paths we checked
+        print("[ImportService] No legacy database found in:")
+        for bundleID in possibleBundleIDs {
+            let libraryPath = homeDir + "/Library/Application Support/\(bundleID)/writeapp.sqlite"
+            print("[ImportService]   - \(libraryPath)")
+        }
+        
+        // Return nil - no database exists
+        return nil
         
         #else
-        // iOS: Use application support directory
+        // iOS: Use application support directory (sandboxed)
         guard let supportDir = FileManager.default.urls(
             for: .applicationSupportDirectory,
             in: .userDomainMask
@@ -158,13 +162,11 @@ class ImportService {
             return nil
         }
         
-        // Try different possible bundle IDs
+        let fileManager = FileManager.default
         let possibleBundleIDs = [
             "www.writing-shed.comuk.Writing-Shed",  // Original Writing Shed
-            "com.appworks.WriteBang"                // WriteBang version
         ]
         
-        let fileManager = FileManager.default
         for bundleID in possibleBundleIDs {
             let databaseURL = supportDir
                 .appendingPathComponent(bundleID, isDirectory: true)
@@ -176,12 +178,8 @@ class ImportService {
             }
         }
         
-        // No database found, return first possibility
-        let databaseURL = supportDir
-            .appendingPathComponent(possibleBundleIDs[0], isDirectory: true)
-            .appendingPathComponent("writeapp.sqlite", isDirectory: false)
-        print("[ImportService] No legacy database found. Last checked: \(databaseURL.path)")
-        return databaseURL
+        print("[ImportService] No legacy database found in application support")
+        return nil
         #endif
     }
 }
