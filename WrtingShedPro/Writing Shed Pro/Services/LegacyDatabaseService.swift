@@ -39,17 +39,27 @@ class LegacyDatabaseService {
             let fileManager = FileManager.default
             
             #if targetEnvironment(macCatalyst) || os(macOS)
-            // For Mac: Access files outside the sandbox using NSUserName()
+            // For Mac: Check both sandboxed and non-sandboxed locations
+            // (App Store apps run in sandbox with Library/Containers/{bundleID}/Data/ prefix)
             let userName = NSUserName()
             var foundURL: URL? = nil
             
-            // Try all combinations
+            // Try all combinations: sandboxed first, then non-sandboxed
             for bundleID in legacyBundleIDs {
                 for filename in possibleFilenames {
-                    let realPath = "/Users/\(userName)/Library/Application Support/\(bundleID)/\(filename)"
-                    if fileManager.fileExists(atPath: realPath) {
-                        print("[LegacyDatabaseService] Found database at: \(realPath)")
-                        foundURL = URL(fileURLWithPath: realPath)
+                    // Check sandboxed location first (App Store apps)
+                    let sandboxedPath = "/Users/\(userName)/Library/Containers/\(bundleID)/Data/Library/Application Support/\(bundleID)/\(filename)"
+                    if fileManager.fileExists(atPath: sandboxedPath) {
+                        print("[LegacyDatabaseService] Found database at (sandboxed): \(sandboxedPath)")
+                        foundURL = URL(fileURLWithPath: sandboxedPath)
+                        break
+                    }
+                    
+                    // Check non-sandboxed location
+                    let normalPath = "/Users/\(userName)/Library/Application Support/\(bundleID)/\(filename)"
+                    if fileManager.fileExists(atPath: normalPath) {
+                        print("[LegacyDatabaseService] Found database at: \(normalPath)")
+                        foundURL = URL(fileURLWithPath: normalPath)
                         break
                     }
                 }
@@ -59,8 +69,8 @@ class LegacyDatabaseService {
             if let url = foundURL {
                 self.legacyDatabaseURL = url
             } else {
-                // Fallback to first combination (will fail during connect() with clear error)
-                let fallbackPath = "/Users/\(userName)/Library/Application Support/\(legacyBundleIDs[0])/\(possibleFilenames[0])"
+                // Fallback to sandboxed path (will fail during connect() with clear error)
+                let fallbackPath = "/Users/\(userName)/Library/Containers/\(legacyBundleIDs[0])/Data/Library/Application Support/\(legacyBundleIDs[0])/\(possibleFilenames[0])"
                 print("[LegacyDatabaseService] Using fallback path: \(fallbackPath)")
                 self.legacyDatabaseURL = URL(fileURLWithPath: fallbackPath)
             }
