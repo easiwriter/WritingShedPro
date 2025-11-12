@@ -202,18 +202,33 @@ IMPORTED AS:
 
 **Where is legacy Core Data database located?**
 
-**Possible locations**:
-- ~/Library/Application Support/Writing Shed/
-- ~/Library/Group Containers/ (if using app groups)
-- iCloud Drive (if user uses CloudKit)
-- Document picker (let user choose)
+**✅ CONFIRMED**: Writing Shed stores its database at:
 
-**Questions for you**:
-1. Where does original Writing Shed store its Core Data database?
-2. Is it accessible from the app sandbox?
-3. Should we use file access API or document picker?
+```
+~/Library/Application Support/{bundle-identifier}/Writing-Shed.sqlite
+```
 
-**YOUR ANSWER NEEDED** (crucial for implementation!)
+**Location Computation Code**:
+```swift
+let storeDirectoryURL = FileManager.default.urls(
+    for: .applicationSupportDirectory,
+    in: .userDomainMask
+)[0]
+.appending(component: bundleIdentifier)
+.appending(component: "Writing-Shed.sqlite")
+```
+
+**Storage Details**:
+- Filename: `Writing-Shed.sqlite`
+- Parent directory: `~/Library/Application Support/{bundle-identifier}/`
+- Bundle identifier: Retrieved from target's bundle configuration
+- Direct file access: Core Data persistent store at this path
+
+**Implementation**:
+- Use `FileManager.default.urls(for:in:)[0]` to get Application Support directory
+- Append bundle identifier as subfolder
+- Append "Writing-Shed.sqlite" filename
+- File is directly accessible from app sandbox (own app's Application Support is always readable)
 
 ---
 
@@ -244,7 +259,7 @@ IMPORTED AS:
 | 4. Data integrity | A: Strict, B: Lenient, C: Hybrid | **C** | ? |
 | 5. AttributedString | Test first vs implement blind? | **Test first** | ? |
 | 6. Import workflow | A: First launch, B: Settings, C: Both | **C** | ? |
-| 7. Database location | ⚠️ **CRITICAL** Need to know where | - | ? |
+| 7. Database location | ✅ **RESOLVED**: `~/Library/Application Support/{bundle-id}/Writing-Shed.sqlite` | Direct file access | ✅ **KNOWN** |
 | 8. Test data | Use your actual database? | **Yes** | ? |
 
 ---
