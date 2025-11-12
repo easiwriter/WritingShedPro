@@ -118,23 +118,15 @@ class ImportService {
     
     /// Get the URL for the legacy database
     private func getLegacyDatabaseURL() -> URL? {
-        // Get bundle identifier
-        guard let bundleID = Bundle.main.bundleIdentifier else {
-            print("[ImportService] Could not get bundle identifier")
-            return nil
-        }
-        
-        // On Mac, need to access the actual home directory, not the sandboxed path
-        // The legacy database is at: ~/Library/Application Support/{bundleID}/Writing-Shed.sqlite
+        // The legacy database was created by "WriteBang" app (com.appworks.WriteBang)
+        // It's stored as writeapp.sqlite, not Writing-Shed.sqlite
         
         #if os(macOS)
-        // Get actual home directory
-        guard let homeDir = FileManager.default.homeDirectoryForCurrentUser.path as String? else {
-            print("[ImportService] Could not determine home directory")
-            return nil
-        }
-        
-        let libraryPath = homeDir.appending("/Library/Application Support/\(bundleID)/Writing-Shed.sqlite")
+        // On Mac, the legacy database is in the actual home directory
+        // ~/Library/Application Support/com.appworks.WriteBang/writeapp.sqlite
+        let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
+        let legacyBundleID = "com.appworks.WriteBang"  // Old app bundle ID
+        let libraryPath = homeDir + "/Library/Application Support/\(legacyBundleID)/writeapp.sqlite"
         let databaseURL = URL(fileURLWithPath: libraryPath)
         
         print("[ImportService] macOS database path: \(databaseURL.path)")
@@ -142,6 +134,12 @@ class ImportService {
         return databaseURL
         
         #else
+        // iOS: Use the provided bundle ID if available
+        guard let bundleID = Bundle.main.bundleIdentifier else {
+            print("[ImportService] Could not get bundle identifier")
+            return nil
+        }
+        
         // iOS: Use application support directory normally
         guard let supportDir = FileManager.default.urls(
             for: .applicationSupportDirectory,
@@ -152,7 +150,7 @@ class ImportService {
         }
         
         let databaseDir = supportDir.appendingPathComponent(bundleID, isDirectory: true)
-        let databaseURL = databaseDir.appendingPathComponent("Writing-Shed.sqlite", isDirectory: false)
+        let databaseURL = databaseDir.appendingPathComponent("writeapp.sqlite", isDirectory: false)
         
         print("[ImportService] iOS database path: \(databaseURL.path)")
         
