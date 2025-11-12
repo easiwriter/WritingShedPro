@@ -25,7 +25,7 @@
 
 ### Critical Technical Questions
 ⚠️ **AttributedString Compatibility**: NSAttributedString transfer between old and new needs verification
-⚠️ **Database Location**: Where is legacy Writing Shed Core Data stored? Answered.
+✅ **Database Location**: Where is legacy Writing Shed Core Data stored? → `~/Library/Application Support/{bundle-id}/Writing-Shed.sqlite`
 ⚠️ **Data Integrity Strategy**: How strict vs lenient should import be?
 ⚠️ **Submission Mapping**: Duplicate Submissions or different approach?
 
@@ -45,8 +45,17 @@
    - Options for each with pros/cons
    - Recommendations
    - Critical questions needing user input
+   - ✅ Decision 7 (Database Location) RESOLVED
 
-3. **spec.md** (existing)
+3. **ATTRIBUTEDSTRING_COMPATIBILITY.md** (NEW - 2,500+ words)
+   - Issue analysis: Legacy NSAttributedString vs New SwiftData String+RTF
+   - Three import scenarios (rich text, plain text, corrupted data)
+   - RTF conversion strategy (recommended Hybrid approach)
+   - Implementation requirements for LegacyDatabaseService
+   - Testing strategy with real database
+   - iOS 16+ compatibility verified
+
+4. **spec.md** (existing)
    - Already has high-level architecture and user flow
 
 ---
