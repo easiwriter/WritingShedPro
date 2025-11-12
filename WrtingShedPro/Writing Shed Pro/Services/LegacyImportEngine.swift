@@ -63,26 +63,41 @@ class LegacyImportEngine {
             return
         }
         
-        // Import each project
-        for legacyProject in legacyProjects {
+        // Import each project with batch saves to prevent memory issues
+        let batchSize = 5
+        for (index, legacyProject) in legacyProjects.enumerated() {
             do {
                 try importProject(legacyProject, modelContext: modelContext)
                 progressTracker.incrementProcessed()
+                
+                // Batch save every N projects to prevent memory accumulation
+                if (index + 1) % batchSize == 0 {
+                    try modelContext.save()
+                    clearCaches()
+                }
             } catch {
                 errorHandler.addError("Failed to import project: \(error.localizedDescription)")
             }
         }
         
-        // Save all changes
+        // Final save for remaining projects
         try progressTracker.setPhase("Saving to database...")
         do {
             try modelContext.save()
+            clearCaches()
             progressTracker.markComplete()
         } catch {
             errorHandler.addError("Failed to save imported data: \(error.localizedDescription)")
             try errorHandler.rollback(on: modelContext)
             throw error
         }
+    }
+    
+    /// Clear all cached references to prevent memory issues
+    private func clearCaches() {
+        textFileMap.removeAll()
+        versionMap.removeAll()
+        collectionMap.removeAll()
     }
     
     // MARK: - Project Import

@@ -59,37 +59,40 @@ class ImportService {
     func executeImport(modelContext: ModelContext) async -> Bool {
         print("[ImportService] Starting import...")
         
-        do {
-            // Connect to legacy database
-            try legacyService.connect()
-            print("[ImportService] Connected to legacy database")
-            
-            // Create import engine
-            let engine = LegacyImportEngine(
-                legacyService: legacyService,
-                mapper: DataMapper(legacyService: legacyService, errorHandler: errorHandler),
-                errorHandler: errorHandler,
-                progressTracker: progressTracker
-            )
-            
-            // Execute import
-            try engine.executeImport(modelContext: modelContext)
-            print("[ImportService] Import completed successfully")
-            
-            // Mark import as performed only if successful
-            UserDefaults.standard.set(true, forKey: Self.hasPerformedImportKey)
-            print("[ImportService] Set hasPerformedImport = true")
-            
-            return true
-            
-        } catch {
-            print("[ImportService] Import failed: \(error.localizedDescription)")
-            errorHandler.addError(error.localizedDescription)
-            
-            // Do NOT set hasPerformedImport flag on failure
-            // User can retry on next app launch
-            
-            return false
+        // Use autoreleasepool to prevent memory accumulation during long-running import
+        return autoreleasepool {
+            do {
+                // Connect to legacy database
+                try legacyService.connect()
+                print("[ImportService] Connected to legacy database")
+                
+                // Create import engine
+                let engine = LegacyImportEngine(
+                    legacyService: legacyService,
+                    mapper: DataMapper(legacyService: legacyService, errorHandler: errorHandler),
+                    errorHandler: errorHandler,
+                    progressTracker: progressTracker
+                )
+                
+                // Execute import
+                try engine.executeImport(modelContext: modelContext)
+                print("[ImportService] Import completed successfully")
+                
+                // Mark import as performed only if successful
+                UserDefaults.standard.set(true, forKey: Self.hasPerformedImportKey)
+                print("[ImportService] Set hasPerformedImport = true")
+                
+                return true
+                
+            } catch {
+                print("[ImportService] Import failed: \(error.localizedDescription)")
+                errorHandler.addError(error.localizedDescription)
+                
+                // Do NOT set hasPerformedImport flag on failure
+                // User can retry on next app launch
+                
+                return false
+            }
         }
     }
     
