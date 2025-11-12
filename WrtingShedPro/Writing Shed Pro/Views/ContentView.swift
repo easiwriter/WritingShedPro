@@ -78,13 +78,14 @@ struct ContentView: View {
         let importService = ImportService()
         do {
             try importService.resetForReimport(modelContext: modelContext)
-            showImportProgress = true
             
-            // Execute import after a brief delay to ensure UI updates
+            // Brief delay to ensure UI updates and model is ready
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 Task {
-                    _ = await importService.executeImport(modelContext: modelContext)
+                    showImportProgress = true
+                    let success = await importService.executeImport(modelContext: modelContext)
                     showImportProgress = false
+                    print("[ContentView] Re-import result: \(success)")
                 }
             }
         } catch {

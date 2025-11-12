@@ -216,14 +216,23 @@ class ImportService {
     func resetForReimport(modelContext: ModelContext) throws {
         print("[ImportService] Resetting import state...")
         
-        // Delete all projects
+        // Delete all projects (cascade delete will handle related entities)
         let descriptor = FetchDescriptor<Project>()
         let allProjects = try modelContext.fetch(descriptor)
+        print("[ImportService] Found \(allProjects.count) projects to delete")
+        
         for project in allProjects {
             modelContext.delete(project)
         }
-        try modelContext.save()
-        print("[ImportService] Deleted \(allProjects.count) projects")
+        
+        // Save deletions immediately with error handling
+        do {
+            try modelContext.save()
+            print("[ImportService] Deleted \(allProjects.count) projects successfully")
+        } catch {
+            print("[ImportService] Error saving deletions: \(error)")
+            throw error
+        }
         
         // Reset import flag
         UserDefaults.standard.set(false, forKey: Self.hasPerformedImportKey)
