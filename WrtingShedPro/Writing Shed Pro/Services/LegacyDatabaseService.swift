@@ -26,14 +26,16 @@ class LegacyDatabaseService {
         if let url = databaseURL {
             self.legacyDatabaseURL = url
         } else {
-            // The legacy database was created by "WriteBang" app (com.appworks.WriteBang)
-            // It's stored as writeapp.sqlite, not Writing-Shed.sqlite
+            // The legacy database was created by "Writing Shed" app
+            // Different bundle IDs for different platforms:
+            // - Mac: com.writing-shed.osx-writing-shed
+            // - iOS: www.writing-shed.comuk.Writing-Shed
             
             #if os(macOS)
             // On Mac, the legacy database is in the actual home directory
-            // ~/Library/Application Support/com.appworks.WriteBang/writeapp.sqlite
+            // ~/Library/Application Support/com.writing-shed.osx-writing-shed/writeapp.sqlite
             let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
-            let legacyBundleID = "com.appworks.WriteBang"  // Old app bundle ID
+            let legacyBundleID = "com.writing-shed.osx-writing-shed"
             let libraryPath = homeDir + "/Library/Application Support/\(legacyBundleID)/writeapp.sqlite"
             self.legacyDatabaseURL = URL(fileURLWithPath: libraryPath)
             #else
@@ -42,9 +44,9 @@ class LegacyDatabaseService {
                 for: .applicationSupportDirectory,
                 in: .userDomainMask
             )[0]
-            let bundleID = Bundle.main.bundleIdentifier ?? "com.appworks.WriteBang"
+            let legacyBundleID = "www.writing-shed.comuk.Writing-Shed"  // Old iOS app bundle ID
             self.legacyDatabaseURL = supportURL
-                .appending(component: bundleID)
+                .appending(component: legacyBundleID)
                 .appending(component: "writeapp.sqlite")
             #endif
         }

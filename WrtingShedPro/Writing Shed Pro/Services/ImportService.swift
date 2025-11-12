@@ -118,14 +118,16 @@ class ImportService {
     
     /// Get the URL for the legacy database
     private func getLegacyDatabaseURL() -> URL? {
-        // The legacy database was created by "WriteBang" app (com.appworks.WriteBang)
-        // It's stored as writeapp.sqlite, not Writing-Shed.sqlite
+        // The legacy database was created by "Writing Shed" app
+        // Different bundle IDs for different platforms:
+        // - Mac: com.writing-shed.osx-writing-shed
+        // - iOS: www.writing-shed.comuk.Writing-Shed
         
         #if os(macOS)
         // On Mac, the legacy database is in the actual home directory
-        // ~/Library/Application Support/com.appworks.WriteBang/writeapp.sqlite
+        // ~/Library/Application Support/com.writing-shed.osx-writing-shed/writeapp.sqlite
         let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
-        let legacyBundleID = "com.appworks.WriteBang"  // Old app bundle ID
+        let legacyBundleID = "com.writing-shed.osx-writing-shed"
         let libraryPath = homeDir + "/Library/Application Support/\(legacyBundleID)/writeapp.sqlite"
         let databaseURL = URL(fileURLWithPath: libraryPath)
         
@@ -134,13 +136,7 @@ class ImportService {
         return databaseURL
         
         #else
-        // iOS: Use the provided bundle ID if available
-        guard let bundleID = Bundle.main.bundleIdentifier else {
-            print("[ImportService] Could not get bundle identifier")
-            return nil
-        }
-        
-        // iOS: Use application support directory normally
+        // iOS: Use application support directory
         guard let supportDir = FileManager.default.urls(
             for: .applicationSupportDirectory,
             in: .userDomainMask
@@ -149,7 +145,8 @@ class ImportService {
             return nil
         }
         
-        let databaseDir = supportDir.appendingPathComponent(bundleID, isDirectory: true)
+        let legacyBundleID = "www.writing-shed.comuk.Writing-Shed"  // Old iOS app bundle ID
+        let databaseDir = supportDir.appendingPathComponent(legacyBundleID, isDirectory: true)
         let databaseURL = databaseDir.appendingPathComponent("writeapp.sqlite", isDirectory: false)
         
         print("[ImportService] iOS database path: \(databaseURL.path)")
