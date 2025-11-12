@@ -6,6 +6,7 @@ struct ContentView: View {
     @State private var showAddProject = false
     @State private var showManageStyles = false
     @State private var showImportProgress = false
+    @State private var showReimportAlert = false
     @Environment(\.modelContext) var modelContext
     
     var body: some View {
@@ -22,6 +23,13 @@ struct ContentView: View {
                     Button(action: { showManageStyles = true }) {
                         Label("Manage Stylesheets", systemImage: "paintbrush")
                     }
+                }
+                
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: { showReimportAlert = true }) {
+                        Label("Re-import", systemImage: "arrow.trianglehead.2.clockwise")
+                    }
+                    .accessibilityLabel("Re-import projects (temp debug button)")
                 }
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -44,12 +52,43 @@ struct ContentView: View {
             .sheet(isPresented: $showManageStyles) {
                 StyleSheetListView()
             }
+            .confirmationDialog(
+                "Re-import Projects",
+                isPresented: $showReimportAlert,
+                actions: {
+                    Button("Delete & Re-import", role: .destructive) {
+                        performReimport()
+                    }
+                    Button("Cancel", role: .cancel) { }
+                },
+                message: {
+                    Text("This will delete all current projects and re-import from the legacy database.")
+                }
+            )
             }
             
             // Show import progress overlay if needed
             if showImportProgress {
                 ImportProgressView()
             }
+        }
+    }
+    
+    private func performReimport() {
+        let importService = ImportService()
+        do {
+            try importService.resetForReimport(modelContext: modelContext)
+            showImportProgress = true
+            
+            // Execute import after a brief delay to ensure UI updates
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                Task {
+                    _ = await importService.executeImport(modelContext: modelContext)
+                    showImportProgress = false
+                }
+            }
+        } catch {
+            print("[ContentView] Re-import reset failed: \(error)")
         }
     }
     

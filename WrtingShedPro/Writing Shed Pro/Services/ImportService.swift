@@ -208,7 +208,21 @@ class ImportService {
                 .appendingPathComponent(filename, isDirectory: false)
             print("[ImportService]   - \(databaseURL.path)")
         }
-        return nil
-        #endif
+    /// TEMPORARY: Reset import state and delete all projects for re-import testing
+    func resetForReimport(modelContext: ModelContext) throws {
+        print("[ImportService] Resetting import state...")
+        
+        // Delete all projects
+        let descriptor = FetchDescriptor<Project>()
+        let allProjects = try modelContext.fetch(descriptor)
+        for project in allProjects {
+            modelContext.delete(project)
+        }
+        try modelContext.save()
+        print("[ImportService] Deleted \(allProjects.count) projects")
+        
+        // Reset import flag
+        UserDefaults.standard.set(false, forKey: Self.hasPerformedImportKey)
+        print("[ImportService] Reset hasPerformedImport = false")
     }
 }
