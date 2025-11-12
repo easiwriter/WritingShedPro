@@ -7,6 +7,7 @@ struct ContentView: View {
     @State private var showManageStyles = false
     @State private var showImportProgress = false
     @State private var showReimportAlert = false
+    @State private var isReimporting = false
     @Environment(\.modelContext) var modelContext
     
     var body: some View {
@@ -29,6 +30,7 @@ struct ContentView: View {
                     Button(action: { showReimportAlert = true }) {
                         Label("Re-import", systemImage: "arrow.trianglehead.2.clockwise")
                     }
+                    .disabled(isReimporting)
                     .accessibilityLabel("Re-import projects (temp debug button)")
                 }
                 
@@ -75,21 +77,27 @@ struct ContentView: View {
     }
     
     private func performReimport() {
+        isReimporting = true
         let importService = ImportService()
+        
         do {
             try importService.resetForReimport(modelContext: modelContext)
+            print("[ContentView] Deletion complete, waiting before import...")
             
-            // Brief delay to ensure UI updates and model is ready
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            // Wait longer to ensure @Query observers have updated
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                showImportProgress = true
                 Task {
-                    showImportProgress = true
+                    print("[ContentView] Starting import...")
                     let success = await importService.executeImport(modelContext: modelContext)
-                    showImportProgress = false
                     print("[ContentView] Re-import result: \(success)")
+                    showImportProgress = false
+                    isReimporting = false
                 }
             }
         } catch {
             print("[ContentView] Re-import reset failed: \(error)")
+            isReimporting = false
         }
     }
     

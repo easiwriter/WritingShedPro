@@ -234,6 +234,9 @@ class ImportService {
             throw error
         }
         
+        // Clear undo stack to prevent conflicts
+        modelContext.undoManager?.removeAllActions()
+        
         // Reset import flag
         UserDefaults.standard.set(false, forKey: Self.hasPerformedImportKey)
         print("[ImportService] Reset hasPerformedImport = false")
