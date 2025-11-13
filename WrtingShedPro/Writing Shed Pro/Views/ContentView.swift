@@ -24,7 +24,8 @@ struct ContentView: View {
                     }
                 }
                 
-                #if DEBUG
+                #if DEBUG && (targetEnvironment(macCatalyst) || os(macOS))
+                // Re-import only available on Mac where legacy database is accessible
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: { triggerReimport() }) {
                         Label("Re-import", systemImage: "arrow.trianglehead.2.clockwise")
@@ -71,8 +72,8 @@ struct ContentView: View {
         }
     }
     
-    #if DEBUG
-    /// Debug-only: Re-enable legacy import for testing
+    #if DEBUG && (targetEnvironment(macCatalyst) || os(macOS))
+    /// Debug-only: Re-enable legacy import for testing (Mac only)
     private func triggerReimport() {
         print("[ContentView] Re-import triggered (debug only)")
         // Enable legacy import
