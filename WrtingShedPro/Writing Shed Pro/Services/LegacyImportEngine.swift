@@ -120,34 +120,34 @@ class LegacyImportEngine {
             throw error
         }
         
-        // For now, skip folder structure and text imports until we update those methods
-        // We'll implement those in the next iteration
+        // TODO: Re-enable these once we convert them to work with LegacyProjectData
+        // For now, just import the project shell
         
         // Create folder structure
         // try importFolderStructure(
-        //     legacyProject: legacyProject,
+        //     legacyProjectData: legacyProjectData,
         //     newProject: newProject,
         //     modelContext: modelContext
         // )
         
         // Import texts and versions
         // try importTextsAndVersions(
-        //     legacyProject: legacyProject,
+        //     legacyProjectData: legacyProjectData,
         //     newProject: newProject,
         //     modelContext: modelContext
         // )
         
         // Import collections
         // try importCollections(
-        //     legacyProject: legacyProject,
+        //     legacyProjectData: legacyProjectData,
         //     newProject: newProject,
         //     modelContext: modelContext
         // )
         
         // Import scenes (if project type supports it)
-        // if isNovelOrScriptProject(legacyProject) {
+        // if isNovelOrScriptProject(legacyProjectData) {
         //     try importSceneComponents(
-        //         legacyProject: legacyProject,
+        //         legacyProjectData: legacyProjectData,
         //         newProject: newProject,
         //         modelContext: modelContext
         //     )
