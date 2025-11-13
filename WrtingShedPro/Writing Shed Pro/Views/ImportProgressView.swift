@@ -12,6 +12,7 @@ import SwiftData
 /// Displays import progress and handles the import workflow
 struct ImportProgressView: View {
     @Environment(\.modelContext) var modelContext
+    @Environment(\.modelContainer) private var modelContainer
     @State private var importService = ImportService()
     @State private var isImporting = false
     @State private var importCompleted = false
@@ -99,16 +100,20 @@ struct ImportProgressView: View {
     private func startImport() {
         isImporting = true
         
-        Task {
-            let success = await importService.executeImport(modelContext: modelContext)
+        Task.detached {
+            // Create a background ModelContext for this thread
+            let backgroundContext = ModelContext(await modelContainer)
             
-            DispatchQueue.main.async {
+            let success = await importService.executeImport(modelContext: backgroundContext)
+            
+            await MainActor.run {
                 isImporting = false
                 
                 if success {
                     importCompleted = true
                     // Auto-dismiss after 2 seconds
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                    Task {
+                        try? await Task.sleep(nanoseconds: 2_000_000_000)
                         // Dismiss this view
                     }
                 } else {
