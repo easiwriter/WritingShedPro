@@ -48,6 +48,8 @@ struct ProjectItemView: View {
             .accessibilityLabel(NSLocalizedString("projectItem.projectOptions", comment: "Project options menu"))
             .accessibilityHint("Double tap to open options for this project")
         }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Project: \(project.name ?? NSLocalizedString("projectItem.untitledProject", comment: "Untitled project"))")
         .accessibilityValue(project.type.rawValue.capitalized)
