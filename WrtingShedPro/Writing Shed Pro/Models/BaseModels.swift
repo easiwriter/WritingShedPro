@@ -2,11 +2,18 @@ import Foundation
 import SwiftData
 import UIKit
 
+/// Project source status for development re-import
+enum ProjectStatus: String, Codable {
+    case legacy  // Imported from original Writing Shed
+    case pro     // Created in Writing Shed Pro
+}
+
 @Model
 final class Project {
     var id: UUID = UUID()
     var name: String?
     var typeRaw: String?
+    var statusRaw: String? // "legacy" or "pro"
     var creationDate: Date?
     var modifiedDate: Date?
     var details: String?
@@ -39,9 +46,22 @@ final class Project {
         }
     }
     
+    var status: ProjectStatus {
+        get {
+            guard let statusRaw = statusRaw, let projectStatus = ProjectStatus(rawValue: statusRaw) else {
+                return .pro // Default to .pro for existing projects
+            }
+            return projectStatus
+        }
+        set {
+            statusRaw = newValue.rawValue
+        }
+    }
+    
     init(name: String?, type: ProjectType = ProjectType.blank, creationDate: Date? = Date(), details: String? = nil, notes: String? = nil, userOrder: Int? = nil, styleSheet: StyleSheet? = nil) {
         self.name = name
         self.typeRaw = type.rawValue
+        self.statusRaw = ProjectStatus.pro.rawValue // Default to .pro
         self.creationDate = creationDate
         self.modifiedDate = creationDate
         self.details = details

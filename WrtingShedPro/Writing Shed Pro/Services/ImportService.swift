@@ -23,20 +23,21 @@ class ImportService {
     private let errorHandler = ImportErrorHandler()
     private let progressTracker = ImportProgressTracker()
     
-    private static let hasPerformedImportKey = "hasPerformedImport"
+    private static let legacyImportAllowedKey = "legacyImportAllowed"
     
     // MARK: - Public API
     
     /// Check if import should be performed
     /// Returns true if:
-    /// 1. hasPerformedImport == false
+    /// 1. legacyImportAllowed == true (defaults to true on first launch)
     /// 2. Legacy database exists at expected location
     func shouldPerformImport() -> Bool {
-        let hasPerformed = UserDefaults.standard.bool(forKey: Self.hasPerformedImportKey)
+        // Default to true if key doesn't exist (first launch)
+        let importAllowed = UserDefaults.standard.object(forKey: Self.legacyImportAllowedKey) as? Bool ?? true
         
-        // Already imported
-        if hasPerformed {
-            print("[ImportService] Import already performed")
+        // Import not allowed (already completed)
+        if !importAllowed {
+            print("[ImportService] Import not allowed (already performed)")
             return false
         }
         
@@ -62,6 +63,9 @@ class ImportService {
         // Use autoreleasepool to prevent memory accumulation during long-running import
         return autoreleasepool {
             do {
+                // First, delete all previously imported legacy projects (for re-import)
+                try deleteLegacyProjects(modelContext: modelContext)
+                
                 // Connect to legacy database
                 try legacyService.connect()
                 print("[ImportService] Connected to legacy database")
@@ -78,9 +82,9 @@ class ImportService {
                 try engine.executeImport(modelContext: modelContext)
                 print("[ImportService] Import completed successfully")
                 
-                // Mark import as performed only if successful
-                UserDefaults.standard.set(true, forKey: Self.hasPerformedImportKey)
-                print("[ImportService] Set hasPerformedImport = true")
+                // Disallow future imports (set to false) unless manually re-enabled
+                UserDefaults.standard.set(false, forKey: Self.legacyImportAllowedKey)
+                print("[ImportService] Set legacyImportAllowed = false")
                 
                 return true
                 
@@ -88,7 +92,7 @@ class ImportService {
                 print("[ImportService] Import failed: \(error.localizedDescription)")
                 errorHandler.addError(error.localizedDescription)
                 
-                // Do NOT set hasPerformedImport flag on failure
+                // Do NOT set legacyImportAllowed flag on failure
                 // User can retry on next app launch
                 
                 return false
@@ -216,5 +220,34 @@ class ImportService {
         print("[ImportService] Note: iOS cannot access old app's sandbox. Use CloudKit sync from Mac.")
         return nil
         #endif
+    }
+    
+    // MARK: - Re-import Support (Development Only)
+    
+    /// Delete all projects marked as legacy (for re-import during development)
+    /// This preserves user-created projects while allowing fresh import of legacy data
+    private func deleteLegacyProjects(modelContext: ModelContext) throws {
+        let descriptor = FetchDescriptor<Project>(
+            predicate: #Predicate<Project> { project in
+                project.statusRaw == "legacy"
+            }
+        )
+        
+        let legacyProjects = try modelContext.fetch(descriptor)
+        
+        guard !legacyProjects.isEmpty else {
+            print("[ImportService] No legacy projects to delete")
+            return
+        }
+        
+        print("[ImportService] Deleting \(legacyProjects.count) legacy projects for re-import...")
+        
+        for project in legacyProjects {
+            modelContext.delete(project)
+        }
+        
+        // Save deletions before starting import
+        try modelContext.save()
+        print("[ImportService] Deleted \(legacyProjects.count) legacy projects successfully")
     }
 }

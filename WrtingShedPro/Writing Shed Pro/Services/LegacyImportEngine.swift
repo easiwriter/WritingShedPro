@@ -128,8 +128,9 @@ class LegacyImportEngine {
         let newProject: Project
         do {
             newProject = try mapper.mapProject(legacyProjectData)
+            newProject.status = .legacy // Mark as legacy import for development re-import
             modelContext.insert(newProject)
-            print("[LegacyImportEngine] Imported project: '\(projectName)'")
+            print("[LegacyImportEngine] Imported project: '\(projectName)' (status: legacy)")
         } catch {
             print("[LegacyImportEngine] Failed to map project '\(projectName)': \(error)")
             throw error

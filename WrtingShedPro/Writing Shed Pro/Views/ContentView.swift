@@ -24,6 +24,15 @@ struct ContentView: View {
                     }
                 }
                 
+                #if DEBUG
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: { triggerReimport() }) {
+                        Label("Re-import", systemImage: "arrow.trianglehead.2.clockwise")
+                    }
+                    .accessibilityLabel("Re-import legacy projects (debug only)")
+                }
+                #endif
+                
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: {}) {
                         Label(NSLocalizedString("contentView.import", comment: "Import button label"), systemImage: "arrow.down.doc")
@@ -61,6 +70,17 @@ struct ContentView: View {
             // ImportProgressView will handle starting the import
         }
     }
+    
+    #if DEBUG
+    /// Debug-only: Re-enable legacy import for testing
+    private func triggerReimport() {
+        print("[ContentView] Re-import triggered (debug only)")
+        // Enable legacy import
+        UserDefaults.standard.set(true, forKey: "legacyImportAllowed")
+        // Trigger import check which will show progress view
+        showImportProgress = true
+    }
+    #endif
     
     private func initializeUserOrderIfNeeded() {
         // Ensure all existing projects have a userOrder

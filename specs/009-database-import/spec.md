@@ -435,7 +435,18 @@ In production, import runs **once per device** automatically on first launch. Ho
 
 ### Methods for Development Re-import
 
-#### Method 1: Delete App Completely (Recommended)
+#### Method 1a: 
+
+Have a user variable called legacyImportAllowed initialised to true. When the app launches it checks this. If it is true then the legacy import process should run and the flag set to false on completion. If false then the app launches as normal. A debug only button should be added to the toolbar. Tapping the button should reset legacyImportAllowed to true.
+
+Add an attribute to Project model called 'status'. This should be an enum with values:
+    - legacy
+    - pro
+Projects added during legacy import should have status set to legacy. Projects added via the user should have it set to pro.
+
+When legacy import runs it first fetches all projects and deletes those with status == legacy. It should save the changes before starting the import.
+
+#### Method 1b: Delete App Completely (Recommended)
 
 **On Mac:**
 ```bash
