@@ -65,9 +65,9 @@ class LegacyImportEngine {
         
         // Import each project with batch saves to prevent memory issues
         let batchSize = 5
-        for (index, legacyProject) in legacyProjects.enumerated() {
+        for (index, legacyProjectData) in legacyProjects.enumerated() {
             do {
-                try importProject(legacyProject, modelContext: modelContext)
+                try importProject(legacyProjectData, modelContext: modelContext)
                 progressTracker.incrementProcessed()
                 
                 // Batch save every N projects to prevent memory accumulation
@@ -104,51 +104,54 @@ class LegacyImportEngine {
     
     /// Import a single project and all its data
     private func importProject(
-        _ legacyProject: NSManagedObject,
+        _ legacyProjectData: LegacyProjectData,
         modelContext: ModelContext
     ) throws {
-        let projectName = legacyProject.value(forKey: "name") as? String ?? "Untitled Project"
+        let projectName = legacyProjectData.name
         progressTracker.setCurrentItem(projectName)
         
         // Map project
         let newProject: Project
         do {
-            newProject = try mapper.mapProject(legacyProject)
+            newProject = try mapper.mapProject(legacyProjectData)
             modelContext.insert(newProject)
         } catch {
             print("[LegacyImportEngine] Failed to map project '\(projectName)': \(error)")
             throw error
         }
         
+        // For now, skip folder structure and text imports until we update those methods
+        // We'll implement those in the next iteration
+        
         // Create folder structure
-        try importFolderStructure(
-            legacyProject: legacyProject,
-            newProject: newProject,
-            modelContext: modelContext
-        )
+        // try importFolderStructure(
+        //     legacyProject: legacyProject,
+        //     newProject: newProject,
+        //     modelContext: modelContext
+        // )
         
         // Import texts and versions
-        try importTextsAndVersions(
-            legacyProject: legacyProject,
-            newProject: newProject,
-            modelContext: modelContext
-        )
+        // try importTextsAndVersions(
+        //     legacyProject: legacyProject,
+        //     newProject: newProject,
+        //     modelContext: modelContext
+        // )
         
         // Import collections
-        try importCollections(
-            legacyProject: legacyProject,
-            newProject: newProject,
-            modelContext: modelContext
-        )
+        // try importCollections(
+        //     legacyProject: legacyProject,
+        //     newProject: newProject,
+        //     modelContext: modelContext
+        // )
         
         // Import scenes (if project type supports it)
-        if isNovelOrScriptProject(legacyProject) {
-            try importSceneComponents(
-                legacyProject: legacyProject,
-                newProject: newProject,
-                modelContext: modelContext
-            )
-        }
+        // if isNovelOrScriptProject(legacyProject) {
+        //     try importSceneComponents(
+        //         legacyProject: legacyProject,
+        //         newProject: newProject,
+        //         modelContext: modelContext
+        //     )
+        // }
     }
     
     // MARK: - Folder Structure Creation

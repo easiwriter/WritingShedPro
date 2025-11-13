@@ -28,14 +28,9 @@ class DataMapper {
     
     // MARK: - Project Mapping
     
-    /// Map WS_Project_Entity to Project
-    func mapProject(_ legacyProject: NSManagedObject) throws -> Project {
-        // Ensure the object is not a fault before accessing properties
-        guard !legacyProject.isFault else {
-            throw ImportError.corruptedData
-        }
-        
-        var name = legacyProject.value(forKey: "name") as? String ?? "Untitled"
+    /// Map LegacyProjectData to Project
+    func mapProject(_ legacyData: LegacyProjectData) throws -> Project {
+        var name = legacyData.name
         
         // Legacy database stores name with metadata appended like "name<>DD/MM/YYYY, HH:MM"
         // Extract just the project name part
@@ -43,9 +38,8 @@ class DataMapper {
             name = String(components).trimmingCharacters(in: .whitespaces)
         }
         
-        let typeString = legacyProject.value(forKey: "projectType") as? String
-        let type = mapProjectType(typeString ?? "")
-        let creationDate = (legacyProject.value(forKey: "createdOn") as? Date) ?? Date()
+        let type = mapProjectType(legacyData.projectType)
+        let creationDate = legacyData.createdOn
         
         let project = Project(name: name, type: type, creationDate: creationDate)
         project.modifiedDate = creationDate

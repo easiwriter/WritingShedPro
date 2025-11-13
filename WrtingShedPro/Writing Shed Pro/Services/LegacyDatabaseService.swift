@@ -160,8 +160,8 @@ class LegacyDatabaseService {
     
     /// Fetch all projects from legacy database
     /// - Throws: ImportError if fetch fails
-    /// - Returns: Array of WS_Project_Entity managed objects
-    func fetchProjects() throws -> [NSManagedObject] {
+    /// - Returns: Array of LegacyProjectData structs with all data extracted
+    func fetchProjects() throws -> [LegacyProjectData] {
         guard let context = managedObjectContext else {
             throw ImportError.notConnected
         }
@@ -173,18 +173,38 @@ class LegacyDatabaseService {
         do {
             let projects = try context.fetch(fetchRequest)
             
-            // Force all projects to be fully loaded to prevent faults
+            // Extract all data immediately into plain Swift structs
+            // This prevents accessing freed NSManagedObjects later
+            var projectDataArray: [LegacyProjectData] = []
+            
             for project in projects {
-                // Access key properties to ensure they're loaded into memory
-                _ = project.value(forKey: "name")
-                _ = project.value(forKey: "projectType")
-                _ = project.value(forKey: "createdOn")  // Correct property name
-                
-                // Ensure the object is refreshed and not a fault
-                context.refresh(project, mergeChanges: false)
+                autoreleasepool {
+                    let objectIDString = project.objectID.uriRepresentation().absoluteString
+                    let name = project.value(forKey: "name") as? String ?? "Untitled"
+                    let projectType = project.value(forKey: "projectType") as? String ?? "blank"
+                    let createdOn = project.value(forKey: "createdOn") as? Date ?? Date()
+                    
+                    var projectData = LegacyProjectData(
+                        objectID: objectIDString,
+                        name: name,
+                        projectType: projectType,
+                        createdOn: createdOn
+                    )
+                    
+                    // Store text and collection IDs for later lookup
+                    if let texts = project.value(forKey: "texts") as? Set<NSManagedObject> {
+                        projectData.textObjectIDs = texts.map { $0.objectID.uriRepresentation().absoluteString }
+                    }
+                    
+                    if let collections = project.value(forKey: "collections") as? Set<NSManagedObject> {
+                        projectData.collectionObjectIDs = collections.map { $0.objectID.uriRepresentation().absoluteString }
+                    }
+                    
+                    projectDataArray.append(projectData)
+                }
             }
             
-            return projects
+            return projectDataArray
         } catch {
             throw ImportError.fetchFailed(error.localizedDescription)
         }
