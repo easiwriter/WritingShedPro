@@ -420,6 +420,128 @@ Create sample Writing Shed databases for testing:
 
 ---
 
+## Re-importing for Development & Testing
+
+### Overview
+
+In production, import runs **once per device** automatically on first launch. However, during development and testing, you may need to re-import multiple times.
+
+### Why Re-import is Not Available to Users
+
+1. **Import is one-time only** - Sets `hasPerformedImport` flag in UserDefaults
+2. **Destructive operation** - Would delete all current projects and data
+3. **CloudKit complications** - Deleted local data may re-sync from cloud
+4. **No user benefit** - After initial import, CloudKit handles multi-device sync
+
+### Methods for Development Re-import
+
+#### Method 1: Delete App Completely (Recommended)
+
+**On Mac:**
+```bash
+# Delete the app bundle
+rm -rf /Applications/Writing\ Shed\ Pro.app
+
+# Delete app data container
+rm -rf ~/Library/Containers/com.appworks.writingshedpro
+
+# Reinstall and run from Xcode
+```
+
+**On iOS:**
+1. Long-press app icon → Delete App → Delete
+2. In Settings → General → iPhone Storage → Writing Shed Pro → Delete App
+3. Reinstall from Xcode
+
+**Result**: Clean slate, import runs automatically on first launch.
+
+#### Method 2: Delete SwiftData Store Only
+
+**Quick reset without reinstalling:**
+```bash
+# Navigate to app's Application Support
+cd ~/Library/Containers/com.appworks.writingshedpro/Data/Library/Application\ Support/
+
+# Delete SwiftData store files
+rm -rf default.store*
+rm -rf .default.store*
+rm -rf ckAssetFiles/
+
+# Run app - import will trigger
+```
+
+**Result**: Import flag still set, but empty database triggers re-import.
+
+#### Method 3: Reset Import Flag via Terminal
+
+**Minimal approach - only resets the flag:**
+```bash
+# Clear the hasPerformedImport flag
+defaults delete com.appworks.writingshedpro hasPerformedImport
+
+# Then manually delete projects in the app UI or via Method 2
+```
+
+**Result**: Import will run on next launch if database is empty.
+
+#### Method 4: Different Simulators/Devices
+
+**For testing multi-device scenarios:**
+- Use different iOS simulators (each has isolated data)
+- Use different test devices
+- Each device imports independently on first run
+
+### Testing Import Changes
+
+**Workflow for import code changes:**
+
+1. Make changes to import code
+2. Use Method 2 (fastest - delete store only)
+3. Run app from Xcode
+4. Import executes automatically
+5. Verify changes worked
+6. Repeat as needed
+
+### CloudKit Sync Considerations
+
+**After re-importing:**
+
+- **First sync takes time** - Large datasets may take 5-10 minutes to sync
+- **Don't test too quickly** - Wait for sync to complete before checking other devices
+- **CloudKit quota** - Excessive re-imports during testing count toward development quota
+- **Test with patience** - CloudKit sync is asynchronous, not instant
+
+### iOS-Specific Notes
+
+**iOS cannot auto-detect legacy database** due to app sandboxing:
+- Each app runs in its own isolated container
+- Cannot access other apps' Application Support directories
+- **Solution**: Import on Mac, rely on CloudKit sync to iOS devices
+
+**For iOS testing:**
+1. Import on Mac first
+2. Wait for CloudKit sync (5-10 minutes)
+3. Launch on iOS - data syncs down automatically
+4. No direct import on iOS needed
+
+### Production Behavior
+
+**What ships to users:**
+- ✅ Automatic one-time import on Mac (first launch)
+- ✅ CloudKit sync to all devices
+- ✅ `hasPerformedImport` flag prevents duplicate imports
+- ❌ No "re-import" button or option
+- ❌ No way to trigger import again without deleting app
+
+**User workflow:**
+1. User launches Writing Shed Pro on Mac
+2. Import detects legacy database → imports automatically
+3. Import completes → sets flag → never runs again
+4. User launches on iPhone/iPad → data syncs from CloudKit
+5. Done ✅
+
+---
+
 ## Implementation Details
 
 ### Core Data Stack (Read-Only)
