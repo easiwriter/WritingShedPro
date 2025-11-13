@@ -30,6 +30,11 @@ class DataMapper {
     
     /// Map WS_Project_Entity to Project
     func mapProject(_ legacyProject: NSManagedObject) throws -> Project {
+        // Ensure the object is not a fault before accessing properties
+        guard !legacyProject.isFault else {
+            throw ImportError.corruptedData
+        }
+        
         var name = legacyProject.value(forKey: "name") as? String ?? "Untitled"
         
         // Legacy database stores name with metadata appended like "name<>DD/MM/YYYY, HH:MM"

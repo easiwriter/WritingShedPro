@@ -111,22 +111,27 @@ class LegacyImportEngine {
         progressTracker.setCurrentItem(projectName)
         
         // Map project
-        let newProject = try mapper.mapProject(legacyProject)
-        modelContext.insert(newProject)
-        
-        // Create folder structure
-        try importFolderStructure(
-            legacyProject: legacyProject,
-            newProject: newProject,
-            modelContext: modelContext
-        )
-        
-        // Import texts and versions
-        try importTextsAndVersions(
-            legacyProject: legacyProject,
-            newProject: newProject,
-            modelContext: modelContext
-        )
+        do {
+            let newProject = try mapper.mapProject(legacyProject)
+            modelContext.insert(newProject)
+            
+            // Create folder structure
+            try importFolderStructure(
+                legacyProject: legacyProject,
+                newProject: newProject,
+                modelContext: modelContext
+            )
+            
+            // Import texts and versions
+            try importTextsAndVersions(
+                legacyProject: legacyProject,
+                newProject: newProject,
+                modelContext: modelContext
+            )
+        } catch {
+            print("[LegacyImportEngine] Failed to import project '\(projectName)': \(error)")
+            throw error
+        }
         
         // Import collections
         try importCollections(
