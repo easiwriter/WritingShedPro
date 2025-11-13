@@ -181,7 +181,10 @@ class ImportService {
         return nil
         
         #else
-        // iOS: Use application support directory (sandboxed)
+        // iOS: Cannot auto-detect legacy database due to app sandboxing
+        // Each app runs in its own container and cannot access other apps' directories
+        // Users should rely on CloudKit sync from Mac where import works automatically
+        
         guard let supportDir = fileManager.urls(
             for: .applicationSupportDirectory,
             in: .userDomainMask
@@ -190,58 +193,28 @@ class ImportService {
             return nil
         }
         
-        // iOS bundle ID: www.writing-shed.comuk.Writing-Shed
-        let iosBundleID = "www.writing-shed.comuk.Writing-Shed"
-        
+        // Check if user has manually placed database in this app's directory
         for filename in possibleFilenames {
-            let databaseURL = supportDir
-                .appendingPathComponent(iosBundleID, isDirectory: true)
-                .appendingPathComponent(filename, isDirectory: false)
+            // Check root of Application Support
+            let rootURL = supportDir.appendingPathComponent(filename)
+            if fileManager.fileExists(atPath: rootURL.path) {
+                print("[ImportService] Found legacy database at: \(rootURL.path)")
+                return rootURL
+            }
             
-            if fileManager.fileExists(atPath: databaseURL.path) {
-                print("[ImportService] Found legacy database at: \(databaseURL.path)")
-                return databaseURL
+            // Check Documents directory (more accessible via Files app)
+            if let documentsDir = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first {
+                let docURL = documentsDir.appendingPathComponent(filename)
+                if fileManager.fileExists(atPath: docURL.path) {
+                    print("[ImportService] Found legacy database in Documents: \(docURL.path)")
+                    return docURL
+                }
             }
         }
         
-        print("[ImportService] Legacy database not found in iOS sandbox at:")
-        for filename in possibleFilenames {
-            let databaseURL = supportDir
-                .appendingPathComponent(iosBundleID, isDirectory: true)
-                .appendingPathComponent(filename, isDirectory: false)
-            print("[ImportService]   - \(databaseURL.path)")
-        }
+        print("[ImportService] Legacy database not found on iOS")
+        print("[ImportService] Note: iOS cannot access old app's sandbox. Use CloudKit sync from Mac.")
         return nil
         #endif
-    }
-    
-    /// TEMPORARY: Reset import state and delete all projects for re-import testing
-    func resetForReimport(modelContext: ModelContext) throws {
-        print("[ImportService] Resetting import state...")
-        
-        // Delete all projects (cascade delete will handle related entities)
-        let descriptor = FetchDescriptor<Project>()
-        let allProjects = try modelContext.fetch(descriptor)
-        print("[ImportService] Found \(allProjects.count) projects to delete")
-        
-        for project in allProjects {
-            modelContext.delete(project)
-        }
-        
-        // Save deletions immediately with error handling
-        do {
-            try modelContext.save()
-            print("[ImportService] Deleted \(allProjects.count) projects successfully")
-        } catch {
-            print("[ImportService] Error saving deletions: \(error)")
-            throw error
-        }
-        
-        // Clear undo stack to prevent conflicts
-        modelContext.undoManager?.removeAllActions()
-        
-        // Reset import flag
-        UserDefaults.standard.set(false, forKey: Self.hasPerformedImportKey)
-        print("[ImportService] Reset hasPerformedImport = false")
     }
 }

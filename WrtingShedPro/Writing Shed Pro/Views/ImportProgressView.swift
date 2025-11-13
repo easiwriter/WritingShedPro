@@ -39,7 +39,7 @@ struct ImportProgressView: View {
                 
                 // Progress bar
                 if isImporting {
-                    ProgressView(value: importService.getProgressTracker().percentComplete)
+                    ProgressView(value: importService.getProgressTracker().percentComplete / 100)
                         .tint(.blue)
                     
                     // Progress text
