@@ -178,7 +178,7 @@ class LegacyDatabaseService {
                 // Access key properties to ensure they're loaded into memory
                 _ = project.value(forKey: "name")
                 _ = project.value(forKey: "projectType")
-                _ = project.value(forKey: "dateCreated")
+                _ = project.value(forKey: "createdOn")  // Correct property name
                 
                 // Ensure the object is refreshed and not a fault
                 context.refresh(project, mergeChanges: false)
