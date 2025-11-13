@@ -266,7 +266,7 @@ class LegacyDatabaseService {
     /// - Throws: ImportError if fetch fails
     /// - Returns: NSAttributedString or nil if not found
     func fetchTextString(for version: NSManagedObject) throws -> NSAttributedString? {
-        guard let context = managedObjectContext else {
+        guard managedObjectContext != nil else {
             throw ImportError.notConnected
         }
         

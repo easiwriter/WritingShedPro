@@ -50,10 +50,10 @@ class LegacyImportEngine {
         progressTracker.reset()
         errorHandler.reset()
         
-        try progressTracker.setPhase("Connecting to legacy database...")
+        progressTracker.setPhase("Connecting to legacy database...")
         try legacyService.connect()
         
-        try progressTracker.setPhase("Loading projects...")
+        progressTracker.setPhase("Loading projects...")
         let legacyProjects = try legacyService.fetchProjects()
         progressTracker.setTotal(legacyProjects.count)
         
@@ -81,7 +81,7 @@ class LegacyImportEngine {
         }
         
         // Final save for remaining projects
-        try progressTracker.setPhase("Saving to database...")
+        progressTracker.setPhase("Saving to database...")
         do {
             try modelContext.save()
             clearCaches()
@@ -111,27 +111,28 @@ class LegacyImportEngine {
         progressTracker.setCurrentItem(projectName)
         
         // Map project
+        let newProject: Project
         do {
-            let newProject = try mapper.mapProject(legacyProject)
+            newProject = try mapper.mapProject(legacyProject)
             modelContext.insert(newProject)
-            
-            // Create folder structure
-            try importFolderStructure(
-                legacyProject: legacyProject,
-                newProject: newProject,
-                modelContext: modelContext
-            )
-            
-            // Import texts and versions
-            try importTextsAndVersions(
-                legacyProject: legacyProject,
-                newProject: newProject,
-                modelContext: modelContext
-            )
         } catch {
-            print("[LegacyImportEngine] Failed to import project '\(projectName)': \(error)")
+            print("[LegacyImportEngine] Failed to map project '\(projectName)': \(error)")
             throw error
         }
+        
+        // Create folder structure
+        try importFolderStructure(
+            legacyProject: legacyProject,
+            newProject: newProject,
+            modelContext: modelContext
+        )
+        
+        // Import texts and versions
+        try importTextsAndVersions(
+            legacyProject: legacyProject,
+            newProject: newProject,
+            modelContext: modelContext
+        )
         
         // Import collections
         try importCollections(
