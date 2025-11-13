@@ -551,6 +551,27 @@ defaults delete com.appworks.writingshedpro hasPerformedImport
 4. User launches on iPhone/iPad → data syncs from CloudKit
 5. Done ✅
 
+### iOS-Only Users (Future Enhancement)
+
+**Current Limitation**: iOS users without a Mac cannot import legacy data directly due to app sandboxing.
+
+**Potential Solution**: The legacy Writing Shed app has a project export function that saves files to the user's Files app. A future enhancement could add:
+
+1. **Import from Files** feature in Writing Shed Pro
+2. User workflow:
+   - Open legacy Writing Shed app on iOS
+   - Export projects → saves to Files app
+   - Open Writing Shed Pro
+   - Tap "Import from Files" button
+   - Select exported project files
+   - Import runs from exported files instead of database
+
+**Implementation Notes**:
+- Would need to reverse-engineer export file format
+- Could use UIDocumentPickerViewController for file selection
+- Would be a one-time import (not automatic on launch)
+- Lower priority since most users likely have a Mac or can borrow one for initial import
+
 ---
 
 ## Implementation Details
