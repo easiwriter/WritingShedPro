@@ -168,7 +168,7 @@ class LegacyDatabaseService {
         
         let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "WS_Project_Entity")
         fetchRequest.returnsObjectsAsFaults = false
-        fetchRequest.relationshipKeyPathsForPrefetching = ["texts"]
+        fetchRequest.relationshipKeyPathsForPrefetching = ["texts", "collectionComponents", "sceneComponents"]
         
         do {
             let projects = try context.fetch(fetchRequest)
@@ -196,13 +196,9 @@ class LegacyDatabaseService {
                         projectData.textObjectIDs = texts.map { $0.objectID.uriRepresentation().absoluteString }
                     }
                     
-                    // Collections may not exist in older schema versions
-                    // Safely check if the entity has this relationship
-                    let entityDescription = project.entity
-                    if entityDescription.relationshipsByName["collections"] != nil {
-                        if let collections = project.value(forKey: "collections") as? Set<NSManagedObject> {
-                            projectData.collectionObjectIDs = collections.map { $0.objectID.uriRepresentation().absoluteString }
-                        }
+                    // Store collection component IDs (actual relationship name is collectionComponents, not collections)
+                    if let collectionComponents = project.value(forKey: "collectionComponents") as? Set<NSManagedObject> {
+                        projectData.collectionObjectIDs = collectionComponents.map { $0.objectID.uriRepresentation().absoluteString }
                     }
                     
                     projectDataArray.append(projectData)
