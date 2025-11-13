@@ -82,19 +82,11 @@ struct ContentView: View {
         
         do {
             try importService.resetForReimport(modelContext: modelContext)
-            print("[ContentView] Deletion complete, waiting before import...")
+            print("[ContentView] Deletion complete, triggering import...")
             
-            // Wait longer to ensure @Query observers have updated
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                showImportProgress = true
-                Task {
-                    print("[ContentView] Starting import...")
-                    let success = await importService.executeImport(modelContext: modelContext)
-                    print("[ContentView] Re-import result: \(success)")
-                    showImportProgress = false
-                    isReimporting = false
-                }
-            }
+            // Show import progress view which will handle the import
+            showImportProgress = true
+            isReimporting = false
         } catch {
             print("[ContentView] Re-import reset failed: \(error)")
             isReimporting = false
