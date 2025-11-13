@@ -158,6 +158,24 @@ class LegacyDatabaseService {
     
     // MARK: - Entity Fetching
     
+    /// Get NSManagedObject from objectID string (for fetching related entities)
+    func getProject(byObjectID objectIDString: String) throws -> NSManagedObject? {
+        guard let context = managedObjectContext else {
+            throw ImportError.notConnected
+        }
+        
+        guard let url = URL(string: objectIDString),
+              let objectID = context.persistentStoreCoordinator?.managedObjectID(forURIRepresentation: url) else {
+            return nil
+        }
+        
+        do {
+            return try context.existingObject(with: objectID)
+        } catch {
+            return nil
+        }
+    }
+    
     /// Fetch all projects from legacy database
     /// - Throws: ImportError if fetch fails
     /// - Returns: Array of LegacyProjectData structs with all data extracted

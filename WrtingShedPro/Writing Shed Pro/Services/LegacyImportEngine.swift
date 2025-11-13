@@ -135,22 +135,25 @@ class LegacyImportEngine {
             throw error
         }
         
-        // TODO: Re-enable these once we convert them to work with LegacyProjectData
-        // For now, just import the project shell
+        // Get the NSManagedObject for this project to fetch related entities
+        guard let legacyProject = try legacyService.getProject(byObjectID: legacyProjectData.objectID) else {
+            print("[LegacyImportEngine] Warning: Could not retrieve NSManagedObject for project '\(projectName)', skipping content import")
+            return
+        }
         
         // Create folder structure
-        // try importFolderStructure(
-        //     legacyProjectData: legacyProjectData,
-        //     newProject: newProject,
-        //     modelContext: modelContext
-        // )
+        try importFolderStructure(
+            legacyProject: legacyProject,
+            newProject: newProject,
+            modelContext: modelContext
+        )
         
         // Import texts and versions
-        // try importTextsAndVersions(
-        //     legacyProjectData: legacyProjectData,
-        //     newProject: newProject,
-        //     modelContext: modelContext
-        // )
+        try importTextsAndVersions(
+            legacyProject: legacyProject,
+            newProject: newProject,
+            modelContext: modelContext
+        )
         
         // Import collections
         // try importCollections(
