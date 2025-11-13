@@ -24,6 +24,7 @@ class ImportService {
     private let progressTracker = ImportProgressTracker()
     
     private static let legacyImportAllowedKey = "legacyImportAllowed"
+    private static let oldHasPerformedImportKey = "hasPerformedImport" // Legacy key for migration
     
     // MARK: - Public API
     
@@ -32,6 +33,9 @@ class ImportService {
     /// 1. legacyImportAllowed == true (defaults to true on first launch)
     /// 2. Legacy database exists at expected location
     func shouldPerformImport() -> Bool {
+        // Migrate old flag if it exists
+        migrateOldImportFlag()
+        
         // Default to true if key doesn't exist (first launch)
         let importAllowed = UserDefaults.standard.object(forKey: Self.legacyImportAllowedKey) as? Bool ?? true
         
@@ -249,5 +253,24 @@ class ImportService {
         // Save deletions before starting import
         try modelContext.save()
         print("[ImportService] Deleted \(legacyProjects.count) legacy projects successfully")
+    }
+    
+    /// Migrate old hasPerformedImport flag to new legacyImportAllowed flag
+    /// This prevents duplicate imports when upgrading from previous version
+    private func migrateOldImportFlag() {
+        let defaults = UserDefaults.standard
+        
+        // Check if we've already migrated
+        if defaults.object(forKey: Self.legacyImportAllowedKey) != nil {
+            return // Already using new flag, nothing to migrate
+        }
+        
+        // Check if old flag exists
+        if defaults.bool(forKey: Self.oldHasPerformedImportKey) {
+            // Old app had completed import, so disallow new import
+            defaults.set(false, forKey: Self.legacyImportAllowedKey)
+            print("[ImportService] Migrated hasPerformedImport=true → legacyImportAllowed=false")
+        }
+        // If old flag doesn't exist or is false, leave new flag as default (true for first launch)
     }
 }
