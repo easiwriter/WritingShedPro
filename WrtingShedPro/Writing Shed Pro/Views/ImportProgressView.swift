@@ -12,7 +12,7 @@ import SwiftData
 /// Displays import progress and handles the import workflow
 struct ImportProgressView: View {
     @Environment(\.modelContext) var modelContext
-    @Query private var projects: [Project]  // Just to get access to modelContainer
+    @Binding var isPresented: Bool
     @State private var importService = ImportService()
     @State private var isImporting = false
     @State private var importCompleted = false
@@ -117,7 +117,7 @@ struct ImportProgressView: View {
                     // Auto-dismiss after 2 seconds
                     Task {
                         try? await Task.sleep(nanoseconds: 2_000_000_000)
-                        // Dismiss this view
+                        isPresented = false
                     }
                 } else {
                     importError = importService.getErrorReport()
@@ -129,6 +129,7 @@ struct ImportProgressView: View {
 }
 
 #Preview {
-    ImportProgressView()
+    @Previewable @State var isPresented = true
+    ImportProgressView(isPresented: $isPresented)
         .modelContainer(for: Project.self, inMemory: true)
 }

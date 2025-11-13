@@ -71,7 +71,7 @@ struct ContentView: View {
             
             // Show import progress overlay if needed
             if showImportProgress {
-                ImportProgressView()
+                ImportProgressView(isPresented: $showImportProgress)
             }
         }
     }
@@ -106,17 +106,7 @@ struct ContentView: View {
         if importService.shouldPerformImport() {
             print("[ContentView] Import should be performed")
             showImportProgress = true
-            
-            // Start import automatically
-            Task {
-                let success = await importService.executeImport(modelContext: modelContext)
-                print("[ContentView] Import result: \(success)")
-                
-                // Always dismiss overlay after import completes (success or failure)
-                await MainActor.run {
-                    showImportProgress = false
-                }
-            }
+            // ImportProgressView will handle starting the import
         }
     }
     
