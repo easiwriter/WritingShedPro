@@ -285,9 +285,9 @@ class LegacyDatabaseService {
             
             // Force all versions to be fully loaded
             for version in versions {
-                // Access key properties
+                // Access key properties to ensure they're loaded
                 _ = version.value(forKey: "date")
-                _ = version.value(forKey: "wordCount")
+                _ = version.value(forKey: "locked")
                 
                 // Ensure object is not a fault
                 context.refresh(version, mergeChanges: false)
