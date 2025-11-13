@@ -174,36 +174,52 @@ class LegacyImportEngine {
     
     // MARK: - Folder Structure Creation
     
-    /// Create folder structure from legacy groupName values
+    /// Map legacy groupName values to standard folder system
+    /// The project already has standard folders from ProjectTemplateService.createDefaultFolders()
+    /// We just need to find the right folder for each text based on its groupName
     private func importFolderStructure(
         legacyProject: NSManagedObject,
         newProject: Project,
         modelContext: ModelContext
     ) throws {
-        // Get unique groupName values
-        let legacyTexts = try legacyService.fetchTexts(for: legacyProject)
-        var groupNames = Set<String>()
+        // Standard folders should already exist from project creation
+        // No need to create additional folders - just use the existing ones
+        // The mapping will happen in importTextsAndVersions when assigning parentFolder
         
-        for legacyText in legacyTexts {
-            if let groupName = legacyText.value(forKey: "groupName") as? String, !groupName.isEmpty {
-                groupNames.insert(groupName)
-            }
+        // If for some reason standard folders don't exist, create them now
+        if newProject.folders == nil || newProject.folders?.isEmpty == true {
+            print("[LegacyImportEngine] Warning: Project has no folders, creating standard folders")
+            ProjectTemplateService.createDefaultFolders(for: newProject, in: modelContext)
         }
-        
-        // Create folders
-        for groupName in groupNames {
-            let folder = Folder(name: groupName, project: newProject)
-            newProject.folders?.append(folder)
-            modelContext.insert(folder)
-        }
-        
-        // Create "Imported" folder for items without groupName
-        let importedFolder = Folder(name: "Imported", project: newProject)
-        newProject.folders?.append(importedFolder)
-        modelContext.insert(importedFolder)
     }
     
     // MARK: - Text and Version Import
+    
+    /// Map legacy groupName to standard folder name
+    private func mapLegacyFolderName(_ legacyGroupName: String) -> String {
+        // Map legacy Writing Shed folder names to new standard folder names
+        switch legacyGroupName.lowercased() {
+        case "draft":
+            return "Draft"
+        case "ready":
+            return "Ready"
+        case "set aside":
+            return "Set Aside"
+        case "accepted", "published":
+            return "Published"  // Accepted was renamed to Published
+        case "collection", "collections":
+            return "Collections"
+        case "submissions", "submitted":
+            return "Submissions"
+        case "research":
+            return "Research"
+        case "trash":
+            return "Trash"
+        default:
+            // If unrecognized, default to Draft
+            return "Draft"
+        }
+    }
     
     /// Import texts and versions for a project
     private func importTextsAndVersions(
@@ -215,22 +231,14 @@ class LegacyImportEngine {
         
         for legacyText in legacyTexts {
             do {
-                // Get or create parent folder
-                let groupName = legacyText.value(forKey: "groupName") as? String ?? ""
-                let parentFolder: Folder
+                // Get legacy groupName and map to standard folder
+                let legacyGroupName = legacyText.value(forKey: "groupName") as? String ?? ""
+                let standardFolderName = legacyGroupName.isEmpty ? "Draft" : mapLegacyFolderName(legacyGroupName)
                 
-                if !groupName.isEmpty,
-                   let folder = newProject.folders?.first(where: { $0.name == groupName }) {
-                    parentFolder = folder
-                } else {
-                    // Use "Imported" folder
-                    if let folder = newProject.folders?.first(where: { $0.name == "Imported" }) {
-                        parentFolder = folder
-                    } else {
-                        let folder = Folder(name: "Imported", project: newProject)
-                        newProject.folders?.append(folder)
-                        parentFolder = folder
-                    }
+                // Find the standard folder (should always exist)
+                guard let parentFolder = newProject.folders?.first(where: { $0.name == standardFolderName }) else {
+                    print("[LegacyImportEngine] Warning: Standard folder '\(standardFolderName)' not found, skipping text")
+                    continue
                 }
                 
                 // Map text file
