@@ -168,9 +168,22 @@ class LegacyDatabaseService {
         
         let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "WS_Project_Entity")
         fetchRequest.returnsObjectsAsFaults = false
+        fetchRequest.relationshipKeyPathsForPrefetching = ["texts", "collections"]
         
         do {
             let projects = try context.fetch(fetchRequest)
+            
+            // Force all projects to be fully loaded to prevent faults
+            for project in projects {
+                // Access key properties to ensure they're loaded into memory
+                _ = project.value(forKey: "name")
+                _ = project.value(forKey: "projectType")
+                _ = project.value(forKey: "dateCreated")
+                
+                // Ensure the object is refreshed and not a fault
+                context.refresh(project, mergeChanges: false)
+            }
+            
             return projects
         } catch {
             throw ImportError.fetchFailed(error.localizedDescription)
@@ -190,9 +203,22 @@ class LegacyDatabaseService {
         let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "WS_Text_Entity")
         fetchRequest.returnsObjectsAsFaults = false
         fetchRequest.predicate = NSPredicate(format: "project == %@", project)
+        fetchRequest.relationshipKeyPathsForPrefetching = ["versions", "textString"]
         
         do {
             let texts = try context.fetch(fetchRequest)
+            
+            // Force all objects to be fully loaded immediately
+            for text in texts {
+                // Access key properties to ensure they're loaded
+                _ = text.value(forKey: "name")
+                _ = text.value(forKey: "groupName")
+                _ = text.value(forKey: "dateCreated")
+                
+                // Ensure the object is not a fault
+                context.refresh(text, mergeChanges: false)
+            }
+            
             return texts
         } catch {
             throw ImportError.fetchFailed(error.localizedDescription)
@@ -213,9 +239,21 @@ class LegacyDatabaseService {
         fetchRequest.returnsObjectsAsFaults = false
         fetchRequest.predicate = NSPredicate(format: "text == %@", text)
         fetchRequest.sortDescriptors = [NSSortDescriptor(key: "date", ascending: true)]
+        fetchRequest.relationshipKeyPathsForPrefetching = ["textString"]
         
         do {
             let versions = try context.fetch(fetchRequest)
+            
+            // Force all versions to be fully loaded
+            for version in versions {
+                // Access key properties
+                _ = version.value(forKey: "date")
+                _ = version.value(forKey: "wordCount")
+                
+                // Ensure object is not a fault
+                context.refresh(version, mergeChanges: false)
+            }
+            
             return versions
         } catch {
             throw ImportError.fetchFailed(error.localizedDescription)
