@@ -33,6 +33,12 @@ class ImportService {
     /// 1. legacyImportAllowed == true (defaults to true on first launch)
     /// 2. Legacy database exists at expected location
     func shouldPerformImport() -> Bool {
+        // iOS: Skip import check entirely (database not accessible due to sandboxing)
+        #if !targetEnvironment(macCatalyst) && !os(macOS)
+        print("[ImportService] iOS: Import check skipped (database not accessible)")
+        return false
+        #endif
+        
         // Migrate old flag if it exists
         migrateOldImportFlag()
         
