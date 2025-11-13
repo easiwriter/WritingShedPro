@@ -56,6 +56,7 @@ class LegacyImportEngine {
         progressTracker.setPhase("Loading projects...")
         let legacyProjects = try legacyService.fetchProjects()
         progressTracker.setTotal(legacyProjects.count)
+        print("[LegacyImportEngine] Fetched \(legacyProjects.count) projects from legacy database")
         
         guard !legacyProjects.isEmpty else {
             progressTracker.setPhase("No projects found in legacy database")
@@ -66,6 +67,7 @@ class LegacyImportEngine {
         // Import each project with batch saves to prevent memory issues
         let batchSize = 5
         for (index, legacyProjectData) in legacyProjects.enumerated() {
+            print("[LegacyImportEngine] Processing project \(index + 1)/\(legacyProjects.count): '\(legacyProjectData.name)'")
             do {
                 try importProject(legacyProjectData, modelContext: modelContext)
                 progressTracker.incrementProcessed()
@@ -110,11 +112,24 @@ class LegacyImportEngine {
         let projectName = legacyProjectData.name
         progressTracker.setCurrentItem(projectName)
         
+        // Check if project already exists (by name and creation date)
+        let descriptor = FetchDescriptor<Project>(
+            predicate: #Predicate { project in
+                project.name == projectName
+            }
+        )
+        
+        if let existingProjects = try? modelContext.fetch(descriptor), !existingProjects.isEmpty {
+            print("[LegacyImportEngine] Project '\(projectName)' already exists, skipping")
+            return
+        }
+        
         // Map project
         let newProject: Project
         do {
             newProject = try mapper.mapProject(legacyProjectData)
             modelContext.insert(newProject)
+            print("[LegacyImportEngine] Imported project: '\(projectName)'")
         } catch {
             print("[LegacyImportEngine] Failed to map project '\(projectName)': \(error)")
             throw error
