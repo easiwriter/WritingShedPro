@@ -112,8 +112,8 @@ struct ContentView: View {
                 let success = await importService.executeImport(modelContext: modelContext)
                 print("[ContentView] Import result: \(success)")
                 
-                // Dismiss after a brief delay to show success message
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                // Always dismiss overlay after import completes (success or failure)
+                await MainActor.run {
                     showImportProgress = false
                 }
             }

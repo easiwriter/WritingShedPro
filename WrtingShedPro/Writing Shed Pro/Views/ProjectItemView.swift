@@ -15,7 +15,7 @@ struct ProjectItemView: View {
                 .foregroundStyle(.blue)
                 .accessibilityHidden(true)
             
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 0) {
                 Text(project.name ?? NSLocalizedString("projectItem.untitledProject", comment: "Untitled project"))
                     .font(.headline)
                     .lineLimit(.max)
