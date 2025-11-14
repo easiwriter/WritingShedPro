@@ -72,6 +72,18 @@ struct FileListView: View {
     /// Files pending deletion (cached for confirmation alert)
     @State private var filesToDelete: [TextFile] = []
     
+    /// Tracks which alphabetical sections are expanded (collapsed by default)
+    @State private var expandedSections: Set<String> = []
+    
+    /// Tracks the most recently opened section for quick return
+    @State private var lastOpenedSection: String?
+    
+    /// AppStorage key prefix for persisting last opened section per folder
+    private var storageKey: String {
+        // Use hash of files to create unique key per folder
+        "lastOpenedSection_\(files.map { $0.id.uuidString }.joined().hashValue)"
+    }
+    
     // MARK: - Computed Properties
     
     /// Selected files based on selectedFileIDs
@@ -89,21 +101,50 @@ struct FileListView: View {
         isEditMode && !selectedFileIDs.isEmpty
     }
     
+    /// Alphabetically grouped sections of files
+    private var sections: [AlphabeticalSectionHelper.Section<TextFile>] {
+        AlphabeticalSectionHelper.groupFiles(files)
+    }
+    
+    /// Determines if alphabetical sections should be used
+    /// Use sections when file count exceeds one screenful (~15 files)
+    private var useSections: Bool {
+        files.count > 15
+    }
+    
     // MARK: - Body
     
     var body: some View {
         List {
-            ForEach(files) { file in
-                fileRow(for: file)
-                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        if !isEditMode {
-                            swipeActionButtons(for: file)
+            if useSections {
+                // Show alphabetical sections for long lists
+                ForEach(sections) { section in
+                    Section {
+                        // Only show files if section is expanded
+                        if expandedSections.contains(section.letter) {
+                            ForEach(section.items) { file in
+                                fileRow(for: file)
+                                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                        if !isEditMode {
+                                            swipeActionButtons(for: file)
+                                        }
+                                    }
+                            }
                         }
+                    } header: {
+                        sectionHeader(for: section)
                     }
-            }
-            .onMove { indices, destination in
-                // Handle reordering - only enabled in edit mode when userOrder sort is active
-                handleMove(from: indices, to: destination)
+                }
+            } else {
+                // Show flat list for short lists
+                ForEach(files) { file in
+                    fileRow(for: file)
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            if !isEditMode {
+                                swipeActionButtons(for: file)
+                            }
+                        }
+                }
             }
         }
         .listStyle(.plain)
@@ -129,14 +170,72 @@ struct FileListView: View {
             Text("Deleted files can be restored from Trash.")
         }
         .onChange(of: editMode?.wrappedValue) { _, newValue in
-            // Clear selection when exiting edit mode
+            if useSections {
+                if newValue == .active {
+                    // Expand all sections when entering edit mode for easier multi-select
+                    expandedSections = Set(sections.map { $0.letter })
+                } else if newValue == .inactive {
+                    // Collapse all sections except last opened when exiting edit mode
+                    if let lastSection = lastOpenedSection {
+                        expandedSections = [lastSection]
+                    } else {
+                        expandedSections.removeAll()
+                    }
+                }
+            }
+            
             if newValue == .inactive {
+                // Clear selection when exiting edit mode
                 selectedFileIDs.removeAll()
+            }
+        }
+        .onAppear {
+            if useSections {
+                loadLastOpenedSection()
             }
         }
     }
     
     // MARK: - View Builders
+    
+    /// Section header with letter, count, and expand/collapse functionality
+    @ViewBuilder
+    private func sectionHeader(for section: AlphabeticalSectionHelper.Section<TextFile>) -> some View {
+        let isExpanded = expandedSections.contains(section.letter)
+        
+        Button {
+            withAnimation {
+                if expandedSections.contains(section.letter) {
+                    expandedSections.remove(section.letter)
+                } else {
+                    expandedSections.insert(section.letter)
+                    // Track this as the last opened section
+                    lastOpenedSection = section.letter
+                    saveLastOpenedSection(section.letter)
+                }
+            }
+        } label: {
+            HStack {
+                Text(section.letter)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                
+                Text("(\(section.count))")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                
+                Spacer()
+                
+                Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text("\(section.letter), \(section.count) files"))
+        .accessibilityHint(Text(isExpanded ? "Tap to collapse section" : "Tap to expand section"))
+    }
     
     /// File row view - behavior changes based on edit mode
     @ViewBuilder
@@ -314,6 +413,24 @@ struct FileListView: View {
         withAnimation {
             editMode?.wrappedValue = .inactive
         }
+    }
+    
+    // MARK: - Section Persistence
+    
+    /// Saves the last opened section to UserDefaults
+    private func saveLastOpenedSection(_ letter: String) {
+        UserDefaults.standard.set(letter, forKey: storageKey)
+    }
+    
+    /// Loads the last opened section from UserDefaults and expands it
+    private func loadLastOpenedSection() {
+        if let savedSection = UserDefaults.standard.string(forKey: storageKey),
+           sections.contains(where: { $0.letter == savedSection }) {
+            // Restore the last opened section only if user had previously opened one
+            lastOpenedSection = savedSection
+            expandedSections.insert(savedSection)
+        }
+        // If no saved preference, keep all sections collapsed (no fallback to first section)
     }
     
     /// Handles drag-to-reorder operation

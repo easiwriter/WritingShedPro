@@ -26,23 +26,29 @@ struct CollectionsView: View {
     @State private var selectedCollectionIDs: Set<UUID> = []
     @State private var showPublicationPicker = false
     
-    // State for navigation
-    @State private var selectedCollection: Submission?
-    @State private var navigateToCollection = false
+    // State for delete confirmation
+    @State private var showDeleteConfirmation = false
+    @State private var collectionsToDelete: [Submission] = []
     
-    // Query all Submissions - we'll filter in memory
-    @Query(sort: [SortDescriptor(\Submission.createdDate, order: .reverse)]) 
-    private var allSubmissions: [Submission]
+    // Query all Submissions for this project
+    @Query private var allSubmissions: [Submission]
     
     init(project: Project) {
         self.project = project
+        
+        // Configure query to fetch only Submissions for this project where publication is nil (Collections)
+        let projectID = project.id
+        _allSubmissions = Query(
+            filter: #Predicate<Submission> { submission in
+                submission.publication == nil && submission.project?.id == projectID
+            },
+            sort: [SortDescriptor(\Submission.createdDate, order: .reverse)]
+        )
     }
     
-    // Filter submissions to get only Collections (where publication is nil and matches project)
+    // Collections are the filtered submissions
     private var sortedCollections: [Submission] {
-        return allSubmissions.filter { submission in
-            submission.publication == nil && submission.project?.id == project.id
-        }
+        return allSubmissions
     }
     
     // Get selected collections based on selectedCollectionIDs
@@ -92,11 +98,6 @@ struct CollectionsView: View {
         }
         .navigationTitle("Collections")
         .navigationBarTitleDisplayMode(.inline)
-        .navigationDestination(isPresented: $navigateToCollection) {
-            if let collection = selectedCollection {
-                CollectionDetailView(submission: collection)
-            }
-        }
         .environment(\.editMode, $editMode)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
@@ -159,46 +160,76 @@ struct CollectionsView: View {
                 }
             }
         }
+        .confirmationDialog(
+            "Delete \(collectionsToDelete.count) \(collectionsToDelete.count == 1 ? "collection" : "collections")?",
+            isPresented: $showDeleteConfirmation
+        ) {
+            Button("button.cancel", role: .cancel) {
+                collectionsToDelete = []
+            }
+            Button("collections.button.delete", role: .destructive) {
+                confirmDelete()
+            }
+        } message: {
+            Text("collections.delete.confirmation.message")
+        }
     }
     
     // MARK: - View Builders
     
     @ViewBuilder
     private func collectionRow(for collection: Submission) -> some View {
-        HStack {
-            // Selection circle in edit mode
-            if isEditMode {
+        if isEditMode {
+            // In edit mode, use tap gesture for selection
+            HStack {
                 Image(systemName: selectedCollectionIDs.contains(collection.id) ? "checkmark.circle.fill" : "circle")
                     .foregroundStyle(selectedCollectionIDs.contains(collection.id) ? .blue : .gray)
                     .imageScale(.large)
-            }
-            
-            Image(systemName: "tray.2.fill")
-                .foregroundStyle(.blue)
-                .font(.title3)
-                .accessibilityHidden(true)
-            
-            VStack(alignment: .leading, spacing: 4) {
-                Text(collection.name ?? "Untitled Collection")
-                    .font(.body)
                 
-                // Show count of files in this collection
-                let fileCount = collection.submittedFiles?.count ?? 0
-                Text(String(format: NSLocalizedString("collections.files.count", comment: "Files in collection"), fileCount))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Image(systemName: "tray.2.fill")
+                    .foregroundStyle(.blue)
+                    .font(.title3)
+                    .accessibilityHidden(true)
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(collection.name ?? "Untitled Collection")
+                        .font(.body)
+                    
+                    // Show count of files in this collection
+                    let fileCount = collection.submittedFiles?.count ?? 0
+                    Text(String(format: NSLocalizedString("collections.files.count", comment: "Files in collection"), fileCount))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                
+                Spacer()
             }
-            
-            Spacer()
-        }
-        .contentShape(Rectangle())
-        .onTapGesture {
-            if isEditMode {
+            .contentShape(Rectangle())
+            .onTapGesture {
                 toggleSelection(for: collection)
-            } else {
-                // Navigate to detail view in normal mode
-                navigateToCollection = true
-                selectedCollection = collection
+            }
+        } else {
+            // In normal mode, use NavigationLink
+            NavigationLink(destination: CollectionDetailView(submission: collection)) {
+                HStack {
+                    Image(systemName: "tray.2.fill")
+                        .foregroundStyle(.blue)
+                        .font(.title3)
+                        .accessibilityHidden(true)
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(collection.name ?? "Untitled Collection")
+                            .font(.body)
+                        
+                        // Show count of files in this collection
+                        let fileCount = collection.submittedFiles?.count ?? 0
+                        Text(String(format: NSLocalizedString("collections.files.count", comment: "Files in collection"), fileCount))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    
+                    Spacer()
+                }
             }
         }
     }
@@ -241,12 +272,27 @@ struct CollectionsView: View {
     }
     
     private func deleteSelectedCollections() {
-        for collection in selectedCollections {
+        prepareDelete(selectedCollections)
+    }
+    
+    private func deleteCollections(at offsets: IndexSet) {
+        let collections = offsets.map { sortedCollections[$0] }
+        prepareDelete(collections)
+    }
+    
+    private func prepareDelete(_ collections: [Submission]) {
+        collectionsToDelete = collections
+        showDeleteConfirmation = true
+    }
+    
+    private func confirmDelete() {
+        for collection in collectionsToDelete {
             modelContext.delete(collection)
         }
         
         do {
             try modelContext.save()
+            collectionsToDelete = []
             selectedCollectionIDs.removeAll()
             withAnimation {
                 editMode = .inactive
@@ -287,19 +333,6 @@ struct CollectionsView: View {
                 "collections.error.saveFailed",
                 comment: "Error message when saving collection failed"
             )
-        }
-    }
-    
-    private func deleteCollections(at offsets: IndexSet) {
-        for index in offsets {
-            let collection = sortedCollections[index]
-            modelContext.delete(collection)
-        }
-        
-        do {
-            try modelContext.save()
-        } catch {
-            // Handle error silently for now - user sees collection still in list
         }
     }
     
@@ -426,22 +459,21 @@ struct CollectionDetailView: View {
                 List {
                     ForEach(submittedFiles) { submittedFile in
                         if let file = submittedFile.textFile {
-                            VStack(alignment: .leading, spacing: 0) {
-                                HStack {
-                                    NavigationLink(destination: FileEditView(file: file)) {
-                                        CollectionFileRowView(submittedFile: submittedFile)
-                                    }
-                                    
-                                    Button {
-                                        editingSubmittedFile = submittedFile
-                                        showVersionPicker = true
-                                    } label: {
-                                        Image(systemName: "pencil.circle")
-                                            .foregroundStyle(.blue)
-                                            .font(.body)
-                                    }
-                                    .accessibilityLabel("Edit version")
+                            HStack {
+                                NavigationLink(destination: FileEditView(file: file)) {
+                                    CollectionFileRowView(submittedFile: submittedFile)
                                 }
+                                
+                                Button {
+                                    editingSubmittedFile = submittedFile
+                                    showVersionPicker = true
+                                } label: {
+                                    Image(systemName: "pencil.circle")
+                                        .foregroundStyle(.blue)
+                                        .font(.body)
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel("Edit version")
                             }
                         }
                     }
@@ -609,10 +641,6 @@ struct CollectionFileRowView: View {
             }
             
             Spacer()
-            
-            Image(systemName: "chevron.right")
-                .foregroundStyle(.secondary)
-                .font(.caption)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(submittedFile.textFile?.name ?? "Untitled"), Version \(submittedFile.version?.versionNumber ?? 0)")

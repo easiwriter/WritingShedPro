@@ -36,11 +36,25 @@ extension TextFile {
     /// Change version by offset (-1 for previous, +1 for next)
     func changeVersion(by offset: Int) {
         guard let versions = versions, !versions.isEmpty else { return }
+        guard let currentVersion = currentVersion else { return }
         
-        let newIndex = currentVersionIndex + offset
-        guard newIndex >= 0 && newIndex < versions.count else { return }
+        // Sort versions by version number to ensure consistent navigation
+        let sortedVersions = versions.sorted { $0.versionNumber < $1.versionNumber }
         
-        self.currentVersionIndex = newIndex
+        // Find current version in sorted array
+        guard let currentIndex = sortedVersions.firstIndex(where: { $0.id == currentVersion.id }) else { return }
+        
+        // Calculate new index
+        let newIndex = currentIndex + offset
+        guard newIndex >= 0 && newIndex < sortedVersions.count else { return }
+        
+        // Get target version
+        let targetVersion = sortedVersions[newIndex]
+        
+        // Find index in unsorted array and set it
+        if let actualIndex = versions.firstIndex(where: { $0.id == targetVersion.id }) {
+            self.currentVersionIndex = actualIndex
+        }
     }
     
     /// Add a new version (duplicate current version)
@@ -84,6 +98,20 @@ extension TextFile {
             self.currentVersionIndex = currentIndex - 1
         } else {
             self.currentVersionIndex = 0
+        }
+    }
+    
+    /// Jump to the latest version (highest version number)
+    func selectLatestVersion() {
+        guard let versions = versions, !versions.isEmpty else { return }
+        
+        // Sort versions and find the one with highest version number
+        let sortedVersions = versions.sorted { $0.versionNumber < $1.versionNumber }
+        guard let latestVersion = sortedVersions.last else { return }
+        
+        // Find index in unsorted array
+        if let index = versions.firstIndex(where: { $0.id == latestVersion.id }) {
+            self.currentVersionIndex = index
         }
     }
 }

@@ -16,6 +16,9 @@ struct FolderFilesView: View {
     @Environment(\.modelContext) var modelContext
     @Environment(\.dismiss) var dismiss
     
+    // Query all folders to ensure we have fresh relationships
+    @Query private var allFolders: [Folder]
+    
     // State for edit mode (shared with FileListView)
     @State private var editMode: EditMode = .inactive
     
@@ -43,8 +46,41 @@ struct FolderFilesView: View {
     
     // Sorted files based on current sort order
     private var sortedFiles: [TextFile] {
-        let files = folder.textFiles ?? []
+        let files: [TextFile]
+        
+        // Special handling for "All" folder - compute from multiple folders
+        if folder.name == "All" {
+            if let project = folder.project {
+                files = allFilesFromProject(project)
+            } else {
+                files = []
+            }
+        } else {
+            files = folder.textFiles ?? []
+        }
+        
         return FileSortService.sort(files, by: sortOrder)
+    }
+    
+    // Get all files from Draft, Ready, Set Aside, and Published folders
+    private func allFilesFromProject(_ project: Project) -> [TextFile] {
+        // Use the queried folders instead of project.folders for fresh relationships
+        let projectFolders = allFolders.filter { $0.project?.id == project.id }
+        
+        guard !projectFolders.isEmpty else {
+            return []
+        }
+        
+        let targetFolderNames = ["Draft", "Ready", "Set Aside", "Published"]
+        var allFiles: [TextFile] = []
+        
+        for folder in projectFolders {
+            if targetFolderNames.contains(folder.name ?? "") {
+                allFiles.append(contentsOf: folder.textFiles ?? [])
+            }
+        }
+        
+        return allFiles
     }
     
     // Check if this is the Ready folder (supports submissions)
@@ -105,11 +141,17 @@ struct FolderFilesView: View {
                     // Sort menu
                     if !sortedFiles.isEmpty {
                         Menu {
-                            Picker("Sort", selection: $sortOrder) {
-                                Text("Name").tag(FileSortOrder.byName)
-                                Text("Created").tag(FileSortOrder.byCreationDate)
-                                Text("Modified").tag(FileSortOrder.byModifiedDate)
-                                Text("Custom").tag(FileSortOrder.byUserOrder)
+                            ForEach(FileSortService.sortOptions(), id: \.order) { option in
+                                Button(action: {
+                                    sortOrder = option.order
+                                }) {
+                                    HStack {
+                                        Text(option.title)
+                                        if sortOrder == option.order {
+                                            Image(systemName: "checkmark")
+                                        }
+                                    }
+                                }
                             }
                         } label: {
                             Image(systemName: "arrow.up.arrow.down")

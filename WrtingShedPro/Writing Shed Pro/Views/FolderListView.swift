@@ -210,6 +210,8 @@ struct FolderRowView: View {
     
     @Query private var allPublications: [Publication]
     @Query private var allSubmissions: [Submission]
+    @Query private var allFolders: [Folder]
+    @Query private var allTrashItems: [TrashItem]
     
     @State private var fileCount: Int = 0
     @State private var subfolderCount: Int = 0
@@ -224,6 +226,18 @@ struct FolderRowView: View {
     private var isCollectionsFolder: Bool {
         let name = folder.name ?? ""
         return name == "Collections"
+    }
+    
+    // Check if this is the All folder (virtual folder)
+    private var isAllFolder: Bool {
+        let name = folder.name ?? ""
+        return name == "All"
+    }
+    
+    // Check if this is the Trash folder
+    private var isTrashFolder: Bool {
+        let name = folder.name ?? ""
+        return name == "Trash"
     }
     
     // Get collection count for Collections folder
@@ -269,6 +283,12 @@ struct FolderRowView: View {
             count = publicationCount
         } else if isCollectionsFolder {
             count = collectionCount
+        } else if isAllFolder {
+            // All folder shows computed count from multiple folders
+            count = fileCount  // Will be computed in .task
+        } else if isTrashFolder {
+            // Trash folder shows count of TrashItem objects
+            count = fileCount  // Will be computed in .task
         } else if subfolderCount > 0 && fileCount > 0 {
             count = subfolderCount + fileCount
         } else if subfolderCount > 0 {
@@ -296,8 +316,25 @@ struct FolderRowView: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)
         .task {
-            fileCount = folder.textFiles?.count ?? 0
-            subfolderCount = folder.folders?.count ?? 0
+            if isAllFolder, let project = folder.project {
+                // For "All" folder, compute total files from target folders
+                let projectFolders = allFolders.filter { $0.project?.id == project.id }
+                let targetFolderNames = ["Draft", "Ready", "Set Aside", "Published"]
+                
+                var totalCount = 0
+                for folder in projectFolders where targetFolderNames.contains(folder.name ?? "") {
+                    totalCount += folder.textFiles?.count ?? 0
+                }
+                fileCount = totalCount
+                subfolderCount = 0
+            } else if isTrashFolder, let project = folder.project {
+                // For "Trash" folder, count TrashItem objects (not files in folder)
+                fileCount = allTrashItems.filter { $0.project?.id == project.id }.count
+                subfolderCount = 0
+            } else {
+                fileCount = folder.textFiles?.count ?? 0
+                subfolderCount = folder.folders?.count ?? 0
+            }
         }
     }
     

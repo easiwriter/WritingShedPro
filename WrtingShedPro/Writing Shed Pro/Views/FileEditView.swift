@@ -300,6 +300,9 @@ struct FileEditView: View {
             saveUndoState()
         }
         .onAppear {
+            // Always jump to latest version when opening a file
+            file.selectLatestVersion()
+            
             // Check if version is locked before allowing editing
             if file.currentVersion?.isLocked == true {
                 showLockedVersionWarning = true

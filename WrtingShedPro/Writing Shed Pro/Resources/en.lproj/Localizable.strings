@@ -471,6 +471,8 @@
 "fileList.addToCollection" = "Add to Collection";
 "accessibility.add.collection" = "Add a new collection";
 "accessibility.collection.select" = "Select %@";
+"collections.button.delete" = "Delete";
+"collections.delete.confirmation.message" = "This action cannot be undone. Files in the collection will not be deleted.";
 
 /* General Buttons */
 "button.cancel" = "Cancel";

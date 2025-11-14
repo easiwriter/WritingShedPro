@@ -163,12 +163,14 @@ final class Version {
     
     // MARK: - Submission Locking (Feature 008b)
     
-    /// Returns true if this version is referenced by any active submission
+    /// Returns true if this version is referenced by any submission to a publication
+    /// Collections (submissions without a publication) do not lock versions
     var isLocked: Bool {
         guard let submittedFiles = submittedFiles, !submittedFiles.isEmpty else {
             return false
         }
-        return true
+        // Only locked if submitted to an actual publication (not a collection)
+        return submittedFiles.contains { $0.submission?.publication != nil }
     }
     
     /// Returns all submissions that reference this version

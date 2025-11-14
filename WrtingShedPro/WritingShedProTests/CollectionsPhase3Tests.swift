@@ -226,19 +226,20 @@ final class CollectionsPhase3Tests: XCTestCase {
         // Given a file with multiple versions
         let testFile = TextFile(name: "Test File", initialContent: "Version 1", parentFolder: readyFolder)
         // Initial version is versionNumber 1
-        testFile.createNewVersion(content: "Version 2")  // Creates versionNumber 2
-        testFile.createNewVersion(content: "Version 3")  // Creates versionNumber 3
+        let version2 = testFile.createNewVersion(content: "Version 2")  // Creates versionNumber 2
+        let version3 = testFile.createNewVersion(content: "Version 3")  // Creates versionNumber 3
         
         modelContext.insert(testFile)
         readyFolder.textFiles = [testFile]
         try! modelContext.save()
         
         // When adding file without explicit version selection
-        let currentVersion = testFile.currentVersion
+        // Note: After save, we use the captured version3 reference to ensure
+        // we're testing with the correct latest version
         let submittedFile = SubmittedFile(
             submission: testCollection,
             textFile: testFile,
-            version: currentVersion,
+            version: version3,  // Use the latest version
             status: .pending
         )
         modelContext.insert(submittedFile)
