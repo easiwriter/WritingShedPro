@@ -24,6 +24,7 @@ class LegacyImportEngine {
     
     private var textFileMap: [NSManagedObject: TextFile] = [:]
     private var versionMap: [NSManagedObject: Version] = [:]
+    private var publicationMap: [NSManagedObject: Publication] = [:]
     private var collectionMap: [NSManagedObject: Submission] = [:]
     
     // MARK: - Initialization
@@ -99,6 +100,7 @@ class LegacyImportEngine {
     private func clearCaches() {
         textFileMap.removeAll()
         versionMap.removeAll()
+        publicationMap.removeAll()
         collectionMap.removeAll()
     }
     
@@ -149,24 +151,39 @@ class LegacyImportEngine {
             modelContext: modelContext
         )
         
-        // Import texts and versions
+        // Import texts and versions (must be first - other imports depend on textFileMap/versionMap)
         try importTextsAndVersions(
             legacyProject: legacyProject,
             newProject: newProject,
             modelContext: modelContext
         )
         
-        // Import collections
-        // try importCollections(
-        //     legacyProjectData: legacyProjectData,
-        //     newProject: newProject,
-        //     modelContext: modelContext
-        // )
+        // Import publications (WS_Submission_Entity → Publication)
+        // Must be before collection submissions so publicationMap is populated
+        try importPublications(
+            legacyProject: legacyProject,
+            newProject: newProject,
+            modelContext: modelContext
+        )
+        
+        // Import collections (WS_Collection_Entity → Submission with publication=nil)
+        try importCollections(
+            legacyProject: legacyProject,
+            newProject: newProject,
+            modelContext: modelContext
+        )
+        
+        // Import collection submissions (WS_CollectionSubmission_Entity → Submission with publication)
+        try importCollectionSubmissions(
+            legacyProject: legacyProject,
+            newProject: newProject,
+            modelContext: modelContext
+        )
         
         // Import scenes (if project type supports it)
-        // if isNovelOrScriptProject(legacyProjectData) {
+        // if isNovelOrScriptProject(legacyProject) {
         //     try importSceneComponents(
-        //         legacyProjectData: legacyProjectData,
+        //         legacyProject: legacyProject,
         //         newProject: newProject,
         //         modelContext: modelContext
         //     )
@@ -269,6 +286,31 @@ class LegacyImportEngine {
         }
     }
     
+    // MARK: - Publication Import
+    
+    /// Import publications (WS_Submission_Entity → Publication)
+    private func importPublications(
+        legacyProject: NSManagedObject,
+        newProject: Project,
+        modelContext: ModelContext
+    ) throws {
+        let legacyPublications = try legacyService.fetchPublications(for: legacyProject)
+        
+        for legacyPublication in legacyPublications {
+            do {
+                // Map publication
+                let newPublication = try mapper.mapPublication(legacyPublication, project: newProject)
+                modelContext.insert(newPublication)
+                publicationMap[legacyPublication] = newPublication
+                
+                let typeString = newPublication.type?.rawValue ?? "unknown"
+                print("[LegacyImportEngine] Imported publication: '\(newPublication.name ?? "Untitled")' (type: \(typeString))")
+            } catch {
+                errorHandler.addWarning("Failed to import publication: \(error.localizedDescription)")
+            }
+        }
+    }
+    
     // MARK: - Collection Import
     
     /// Import collections and their submitted files
@@ -286,16 +328,181 @@ class LegacyImportEngine {
                 modelContext.insert(newSubmission)
                 collectionMap[legacyCollection] = newSubmission
                 
-                // NOTE: Collection submissions (WS_CollectionSubmission_Entity) are not yet implemented
-                // Collections have:
-                // - collectionSubmissions relationship → WS_CollectionSubmission_Entity
-                // - textCollection relationship → WS_TextCollection_Entity
-                // - texts relationship → WS_Text_Entity
-                // These would need separate mapping logic
+                // Get texts in this collection
+                if let legacyTexts = legacyCollection.value(forKey: "texts") as? Set<NSManagedObject> {
+                    for legacyText in legacyTexts {
+                        // Find the mapped TextFile
+                        guard let textFile = textFileMap[legacyText] else {
+                            print("[LegacyImportEngine] Warning: Text not found in textFileMap for collection, skipping")
+                            continue
+                        }
+                        
+                        // Get the version to use - try to find from WS_CollectedVersion_Entity
+                        var versionToUse: Version? = textFile.currentVersion
+                        
+                        // Try to get specific version from WS_CollectedVersion_Entity via WS_TextCollection_Entity
+                        if let textCollection = legacyCollection.value(forKey: "textCollection") as? NSManagedObject {
+                            let collectedVersions = try legacyService.fetchCollectedVersions(for: legacyCollection)
+                            
+                            for collectedVersion in collectedVersions {
+                                if let legacyVersion = collectedVersion.value(forKey: "version") as? NSManagedObject,
+                                   let mappedVersion = versionMap[legacyVersion],
+                                   mappedVersion.textFile?.id == textFile.id {
+                                    versionToUse = mappedVersion
+                                    break
+                                }
+                            }
+                        }
+                        
+                        // Create SubmittedFile
+                        guard let version = versionToUse else {
+                            print("[LegacyImportEngine] Warning: No version found for text in collection, skipping")
+                            continue
+                        }
+                        
+                        let submittedFile = SubmittedFile(
+                            submission: newSubmission,
+                            textFile: textFile,
+                            version: version,
+                            status: .pending  // Default to pending for collections
+                        )
+                        submittedFile.project = newProject
+                        modelContext.insert(submittedFile)
+                        
+                        if newSubmission.submittedFiles == nil {
+                            newSubmission.submittedFiles = []
+                        }
+                        newSubmission.submittedFiles?.append(submittedFile)
+                    }
+                }
                 
-                // TODO: Implement collection submission mapping in Phase 2
+                print("[LegacyImportEngine] Imported collection: '\(newSubmission.name ?? "Untitled")' with \(newSubmission.submittedFiles?.count ?? 0) files")
             } catch {
                 errorHandler.addWarning("Failed to import collection: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    // MARK: - Collection Submission Import
+    
+    /// Import collection submissions (WS_CollectionSubmission_Entity → Submission with publication)
+    /// This creates Submission objects that link collections to publications
+    private func importCollectionSubmissions(
+        legacyProject: NSManagedObject,
+        newProject: Project,
+        modelContext: ModelContext
+    ) throws {
+        // Get all collections for this project to fetch their submissions
+        let legacyCollections = try legacyService.fetchCollections(for: legacyProject)
+        
+        for legacyCollection in legacyCollections {
+            do {
+                let legacyCollectionSubmissions = try legacyService.fetchCollectionSubmissions(for: legacyCollection)
+                
+                for legacyCollectionSubmission in legacyCollectionSubmissions {
+                    // Get the WS_Submission_Entity (Publication) this was submitted to
+                    guard let legacyPublication = legacyCollectionSubmission.value(forKey: "submission") as? NSManagedObject else {
+                        print("[LegacyImportEngine] Warning: CollectionSubmission has no publication, skipping")
+                        continue
+                    }
+                    
+                    // Find the mapped Publication
+                    guard let publication = publicationMap[legacyPublication] else {
+                        print("[LegacyImportEngine] Warning: Publication not found in publicationMap, skipping")
+                        continue
+                    }
+                    
+                    // Create a new Submission (linked to publication, not a collection)
+                    let newSubmission = Submission()
+                    newSubmission.publication = publication
+                    newSubmission.project = newProject
+                    
+                    // Map attributes from WS_CollectionSubmission_Entity
+                    newSubmission.submittedDate = (legacyCollectionSubmission.value(forKey: "submittedOn") as? Date) ?? Date()
+                    
+                    // Build notes with response dates
+                    var notesArray: [String] = []
+                    if let notes = legacyCollectionSubmission.value(forKey: "notes") as? String {
+                        notesArray.append(notes)
+                    }
+                    if let acceptedDate = legacyCollectionSubmission.value(forKey: "acceptedOn") as? Date {
+                        let formatter = DateFormatter()
+                        formatter.dateStyle = .medium
+                        notesArray.append("Accepted: \(formatter.string(from: acceptedDate))")
+                    }
+                    if let returnedDate = legacyCollectionSubmission.value(forKey: "returnedOn") as? Date {
+                        let formatter = DateFormatter()
+                        formatter.dateStyle = .medium
+                        notesArray.append("Returned: \(formatter.string(from: returnedDate))")
+                    }
+                    newSubmission.notes = notesArray.isEmpty ? nil : notesArray.joined(separator: "\n")
+                    
+                    // Set name based on publication and collection
+                    let collectionName = (legacyCollection.value(forKey: "groupName") as? String) ?? "Collection"
+                    newSubmission.name = "\(collectionName) → \(publication.name ?? "Publication")"
+                    
+                    modelContext.insert(newSubmission)
+                    
+                    // Now create SubmittedFile records for each text in the original collection
+                    if let legacyTexts = legacyCollection.value(forKey: "texts") as? Set<NSManagedObject> {
+                        for legacyText in legacyTexts {
+                            // Find the mapped TextFile
+                            guard let textFile = textFileMap[legacyText] else {
+                                print("[LegacyImportEngine] Warning: Text not found in textFileMap, skipping")
+                                continue
+                            }
+                            
+                            // Get the version - try to find from WS_CollectedVersion_Entity
+                            var versionToUse: Version? = textFile.currentVersion
+                            var submissionStatus: SubmissionStatus = .pending
+                            
+                            // Check if there was a returnedOn date (for rejection detection)
+                            let wasReturned = legacyCollectionSubmission.value(forKey: "returnedOn") as? Date != nil
+                            
+                            // Try to get specific version and status from WS_CollectedVersion_Entity
+                            let collectedVersions = try legacyService.fetchCollectedVersions(for: legacyCollection)
+                            for collectedVersion in collectedVersions {
+                                if let legacyVersion = collectedVersion.value(forKey: "version") as? NSManagedObject,
+                                   let mappedVersion = versionMap[legacyVersion],
+                                   mappedVersion.textFile?.id == textFile.id {
+                                    versionToUse = mappedVersion
+                                    
+                                    // Check status attribute (true = accepted)
+                                    if let accepted = collectedVersion.value(forKey: "status") as? Bool, accepted {
+                                        submissionStatus = .accepted
+                                    } else if wasReturned {
+                                        submissionStatus = .rejected
+                                    }
+                                    break
+                                }
+                            }
+                            
+                            // Create SubmittedFile
+                            guard let version = versionToUse else {
+                                print("[LegacyImportEngine] Warning: No version found for text, skipping")
+                                continue
+                            }
+                            
+                            let submittedFile = SubmittedFile(
+                                submission: newSubmission,
+                                textFile: textFile,
+                                version: version,
+                                status: submissionStatus
+                            )
+                            submittedFile.project = newProject
+                            modelContext.insert(submittedFile)
+                            
+                            if newSubmission.submittedFiles == nil {
+                                newSubmission.submittedFiles = []
+                            }
+                            newSubmission.submittedFiles?.append(submittedFile)
+                        }
+                    }
+                    
+                    print("[LegacyImportEngine] Imported submission to '\(publication.name ?? "Unknown")' with \(newSubmission.submittedFiles?.count ?? 0) files")
+                }
+            } catch {
+                errorHandler.addWarning("Failed to import collection submissions: \(error.localizedDescription)")
             }
         }
     }

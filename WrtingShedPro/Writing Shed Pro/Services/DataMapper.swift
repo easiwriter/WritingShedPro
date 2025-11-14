@@ -154,6 +154,69 @@ class DataMapper {
     
     // MARK: - Collection Mapping
     
+    // MARK: - Publication Mapping
+    
+    /// Map WS_Submission_Entity to Publication
+    func mapPublication(
+        _ legacyPublication: NSManagedObject,
+        project: Project
+    ) throws -> Publication {
+        let publication = Publication()
+        
+        publication.project = project
+        
+        // Get publication name
+        publication.name = (legacyPublication.value(forKey: "name") as? String) ?? "Untitled Publication"
+        
+        // Map groupName to PublicationType
+        let groupName = (legacyPublication.value(forKey: "groupName") as? String) ?? ""
+        publication.type = mapPublicationType(groupName)
+        
+        // Map dates
+        publication.createdDate = (legacyPublication.value(forKey: "dateCreated") as? Date) ?? Date()
+        publication.modifiedDate = (legacyPublication.value(forKey: "dateModified") as? Date) ?? Date()
+        
+        // Map deadline if it exists
+        if let deadline = legacyPublication.value(forKey: "deadline") as? Date {
+            publication.deadline = deadline
+        }
+        
+        // Map notes if they exist
+        if let notes = legacyPublication.value(forKey: "notes") as? String {
+            publication.notes = notes
+        }
+        
+        // Map submission guidelines if they exist (combine with notes if present)
+        if let guidelines = legacyPublication.value(forKey: "submissionGuidelines") as? String {
+            if let existingNotes = publication.notes, !existingNotes.isEmpty {
+                publication.notes = existingNotes + "\n\nSubmission Guidelines:\n" + guidelines
+            } else {
+                publication.notes = "Submission Guidelines:\n" + guidelines
+            }
+        }
+        
+        // Map URL if it exists
+        if let urlString = legacyPublication.value(forKey: "url") as? String {
+            publication.url = urlString
+        }
+        
+        return publication
+    }
+    
+    /// Map legacy groupName to PublicationType
+    private func mapPublicationType(_ groupName: String) -> PublicationType {
+        switch groupName.lowercased() {
+        case "magazines":
+            return .magazine
+        case "competitions":
+            return .competition
+        case "commissions":
+            return .commission
+        default:
+            return .other
+        }
+    }
+    
     /// Map WS_Collection_Entity to Submission (publication=nil)
     func mapCollection(
         _ legacyCollection: NSManagedObject,

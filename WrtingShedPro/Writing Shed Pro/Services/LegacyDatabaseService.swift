@@ -399,6 +399,28 @@ class LegacyDatabaseService {
         }
     }
     
+    /// Fetch all publications (WS_Submission_Entity) for a given project
+    /// - Parameters:
+    ///   - project: The WS_Project_Entity to fetch publications for
+    /// - Throws: ImportError if fetch fails
+    /// - Returns: Array of WS_Submission_Entity managed objects
+    func fetchPublications(for project: NSManagedObject) throws -> [NSManagedObject] {
+        guard let context = managedObjectContext else {
+            throw ImportError.notConnected
+        }
+        
+        let fetchRequest = NSFetchRequest<NSManagedObject>(entityName: "WS_Submission_Entity")
+        fetchRequest.returnsObjectsAsFaults = false
+        fetchRequest.predicate = NSPredicate(format: "project == %@", project)
+        
+        do {
+            let publications = try context.fetch(fetchRequest)
+            return publications
+        } catch {
+            throw ImportError.fetchFailed(error.localizedDescription)
+        }
+    }
+    
     /// Fetch all collection submissions for a given collection
     /// - Parameters:
     ///   - collection: The WS_Collection_Entity to fetch submissions for
