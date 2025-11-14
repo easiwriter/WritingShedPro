@@ -5,17 +5,24 @@ struct ContentView: View {
     @Query var projects: [Project]
     @State private var showAddProject = false
     @State private var showManageStyles = false
-    @State private var showImportProgress = false
+    @State private var isImporting = false
+    @State private var importService = ImportService()
     @Environment(\.modelContext) var modelContext
     
     var body: some View {
-        ZStack {
-            NavigationStack {
-                ProjectEditableList(projects: projects)
-                .onAppear {
-                    initializeUserOrderIfNeeded()
-                    checkForImport()
+        NavigationStack {
+            VStack(spacing: 0) {
+                // Simple import progress banner at top
+                if isImporting {
+                    ImportProgressBanner(progressTracker: importService.getProgressTracker())
                 }
+                
+                ProjectEditableList(projects: projects)
+            }
+            .onAppear {
+                initializeUserOrderIfNeeded()
+                checkForImport()
+            }
             .navigationTitle(NSLocalizedString("contentView.title", comment: "Title of projects list"))
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -54,21 +61,36 @@ struct ContentView: View {
             .sheet(isPresented: $showManageStyles) {
                 StyleSheetListView()
             }
-            }
-            
-            // Show import progress overlay if needed
-            if showImportProgress {
-                ImportProgressView(isPresented: $showImportProgress)
-            }
         }
     }
     
     private func checkForImport() {
-        let importService = ImportService()
         if importService.shouldPerformImport() {
             print("[ContentView] Import should be performed")
-            showImportProgress = true
-            // ImportProgressView will handle starting the import
+            isImporting = true
+            startImport()
+        }
+    }
+    
+    private func startImport() {
+        // Capture the container from the main thread context
+        let container = modelContext.container
+        
+        Task.detached {
+            // Create a background ModelContext for this thread
+            let backgroundContext = ModelContext(container)
+            
+            let success = await importService.executeImport(modelContext: backgroundContext)
+            
+            await MainActor.run {
+                isImporting = false
+                
+                if success {
+                    print("[ContentView] Import completed successfully")
+                } else {
+                    print("[ContentView] Import failed with errors")
+                }
+            }
         }
     }
     
@@ -78,8 +100,9 @@ struct ContentView: View {
         print("[ContentView] Re-import triggered (debug only)")
         // Enable legacy import
         UserDefaults.standard.set(true, forKey: "legacyImportAllowed")
-        // Trigger import check which will show progress view
-        showImportProgress = true
+        // Trigger import
+        isImporting = true
+        startImport()
     }
     #endif
     
