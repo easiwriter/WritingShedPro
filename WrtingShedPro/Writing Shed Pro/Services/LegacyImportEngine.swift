@@ -448,7 +448,8 @@ class LegacyImportEngine {
                     newSubmission.notes = notesArray.isEmpty ? nil : notesArray.joined(separator: "\n")
                     
                     // Set name based on publication and collection
-                    let collectionName = (legacyCollection.value(forKey: "groupName") as? String) ?? "Collection"
+                    // Get collection name from WS_CollectionComponent_Entity parent
+                    let collectionName = (legacyCollection.value(forKey: "name") as? String) ?? "Collection"
                     newSubmission.name = "\(collectionName) → \(publication.name ?? "Publication")"
                     
                     modelContext.insert(newSubmission)

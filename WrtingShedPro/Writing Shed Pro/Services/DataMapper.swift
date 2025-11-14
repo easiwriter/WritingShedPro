@@ -219,6 +219,9 @@ class DataMapper {
     }
     
     /// Map WS_Collection_Entity to Submission (publication=nil)
+    /// WS_Collection_Entity inherits from WS_CollectionComponent_Entity
+    /// Available fields from parent: name, createdOn, notes (NSAttributedString), sectionIdentifier, uniqueIdentifier
+    /// Own fields: dateCreated, groupName, position
     func mapCollection(
         _ legacyCollection: NSManagedObject,
         project: Project
@@ -228,11 +231,22 @@ class DataMapper {
         submission.project = project
         submission.publication = nil  // Mark as collection
         
-        // Get collection name and date
-        // Collections have: texts (many), collectionSubmissions, textCollection relationships
-        // Attributes: dateCreated, groupName, position
-        submission.name = (legacyCollection.value(forKey: "groupName") as? String) ?? "Collection"
-        submission.submittedDate = (legacyCollection.value(forKey: "dateCreated") as? Date) ?? Date()
+        // Get collection name from WS_CollectionComponent_Entity parent
+        submission.name = safeValue(from: legacyCollection, forKey: "name") ?? "Untitled Collection"
+        
+        // Get creation date - try dateCreated first, fall back to createdOn from parent
+        if let dateCreated: Date = safeValue(from: legacyCollection, forKey: "dateCreated") {
+            submission.submittedDate = dateCreated
+        } else if let createdOn: Date = safeValue(from: legacyCollection, forKey: "createdOn") {
+            submission.submittedDate = createdOn
+        } else {
+            submission.submittedDate = Date()
+        }
+        
+        // Get notes from parent if they exist (NSAttributedString)
+        if let attributedNotes: NSAttributedString = safeValue(from: legacyCollection, forKey: "notes") {
+            submission.notes = attributedNotes.string
+        }
         
         return submission
     }
