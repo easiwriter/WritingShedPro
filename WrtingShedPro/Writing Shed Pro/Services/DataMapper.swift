@@ -172,9 +172,9 @@ class DataMapper {
         let groupName = (legacyPublication.value(forKey: "groupName") as? String) ?? ""
         publication.type = mapPublicationType(groupName)
         
-        // Map dates
-        publication.createdDate = (legacyPublication.value(forKey: "dateCreated") as? Date) ?? Date()
-        publication.modifiedDate = (legacyPublication.value(forKey: "dateModified") as? Date) ?? Date()
+        // Map dates - WS_Submission_Entity may not have these fields, use defaults
+        publication.createdDate = Date()
+        publication.modifiedDate = Date()
         
         // Map deadline if it exists
         if let deadline = legacyPublication.value(forKey: "deadline") as? Date {
