@@ -167,6 +167,8 @@ class DataMapper {
     }
     
     /// Map WS_Submission_Entity to Publication
+    /// WS_Submission_Entity inherits from WS_CollectionComponent_Entity
+    /// Available fields: name, createdOn, notes (NSAttributedString), sectionIdentifier, uniqueIdentifier, groupName
     func mapPublication(
         _ legacyPublication: NSManagedObject,
         project: Project
@@ -175,40 +177,29 @@ class DataMapper {
         
         publication.project = project
         
-        // Get publication name
+        // Get publication name (from WS_CollectionComponent_Entity)
         publication.name = safeValue(from: legacyPublication, forKey: "name") ?? "Untitled Publication"
         
         // Map groupName to PublicationType
         let groupName: String = safeValue(from: legacyPublication, forKey: "groupName") ?? ""
         publication.type = mapPublicationType(groupName)
         
-        // Map dates - WS_Submission_Entity may not have these fields, use defaults
-        publication.createdDate = Date()
-        publication.modifiedDate = Date()
-        
-        // Map deadline if it exists (may not be in legacy schema)
-        if let deadline: Date = safeValue(from: legacyPublication, forKey: "deadline") {
-            publication.deadline = deadline
+        // Map createdOn date (from WS_CollectionComponent_Entity)
+        if let createdOn: Date = safeValue(from: legacyPublication, forKey: "createdOn") {
+            publication.createdDate = createdOn
+            publication.modifiedDate = createdOn
+        } else {
+            publication.createdDate = Date()
+            publication.modifiedDate = Date()
         }
         
-        // Map notes if they exist
-        if let notes: String = safeValue(from: legacyPublication, forKey: "notes") {
-            publication.notes = notes
+        // Map notes if they exist (NSAttributedString in legacy, convert to String)
+        if let attributedNotes: NSAttributedString = safeValue(from: legacyPublication, forKey: "notes") {
+            publication.notes = attributedNotes.string
         }
         
-        // Map submission guidelines if they exist (combine with notes if present)
-        if let guidelines: String = safeValue(from: legacyPublication, forKey: "submissionGuidelines") {
-            if let existingNotes = publication.notes, !existingNotes.isEmpty {
-                publication.notes = existingNotes + "\n\nSubmission Guidelines:\n" + guidelines
-            } else {
-                publication.notes = "Submission Guidelines:\n" + guidelines
-            }
-        }
-        
-        // Map URL if it exists
-        if let urlString: String = safeValue(from: legacyPublication, forKey: "url") {
-            publication.url = urlString
-        }
+        // Note: Legacy WS_Submission_Entity does NOT have: deadline, url, submissionGuidelines
+        // These fields don't exist in the schema
         
         return publication
     }

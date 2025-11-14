@@ -418,23 +418,33 @@ class LegacyImportEngine {
                     newSubmission.project = newProject
                     
                     // Map attributes from WS_CollectionSubmission_Entity
+                    // Available fields: submittedOn, accepted, returnExpectedBy, returnedOn (String!), notes, uniqueIdentifier
                     newSubmission.submittedDate = (legacyCollectionSubmission.value(forKey: "submittedOn") as? Date) ?? Date()
                     
-                    // Build notes with response dates
+                    // Build notes with metadata
                     var notesArray: [String] = []
                     if let notes = legacyCollectionSubmission.value(forKey: "notes") as? String {
                         notesArray.append(notes)
                     }
-                    if let acceptedDate = legacyCollectionSubmission.value(forKey: "acceptedOn") as? Date {
+                    
+                    // Map accepted flag (Int16 boolean)
+                    if let acceptedFlag = legacyCollectionSubmission.value(forKey: "accepted") as? Int16, acceptedFlag != 0 {
+                        notesArray.append("Status: Accepted")
+                    }
+                    
+                    // Map returnExpectedBy date
+                    if let returnExpectedBy = legacyCollectionSubmission.value(forKey: "returnExpectedBy") as? Date {
                         let formatter = DateFormatter()
                         formatter.dateStyle = .medium
-                        notesArray.append("Accepted: \(formatter.string(from: acceptedDate))")
+                        notesArray.append("Expected Return: \(formatter.string(from: returnExpectedBy))")
                     }
-                    if let returnedDate = legacyCollectionSubmission.value(forKey: "returnedOn") as? Date {
-                        let formatter = DateFormatter()
-                        formatter.dateStyle = .medium
-                        notesArray.append("Returned: \(formatter.string(from: returnedDate))")
+                    
+                    // Map returnedOn (String field, not Date!)
+                    if let returnedOnString = legacyCollectionSubmission.value(forKey: "returnedOn") as? String,
+                       !returnedOnString.isEmpty {
+                        notesArray.append("Returned: \(returnedOnString)")
                     }
+                    
                     newSubmission.notes = notesArray.isEmpty ? nil : notesArray.joined(separator: "\n")
                     
                     // Set name based on publication and collection
@@ -456,8 +466,13 @@ class LegacyImportEngine {
                             var versionToUse: Version? = textFile.currentVersion
                             var submissionStatus: SubmissionStatus = .pending
                             
-                            // Check if there was a returnedOn date (for rejection detection)
-                            let wasReturned = legacyCollectionSubmission.value(forKey: "returnedOn") as? Date != nil
+                            // Check if there was a returnedOn string (for rejection detection)
+                            // returnedOn is a String field, not a Date!
+                            let returnedOnString = legacyCollectionSubmission.value(forKey: "returnedOn") as? String
+                            let wasReturned = returnedOnString != nil && !returnedOnString!.isEmpty
+                            
+                            // Check accepted flag
+                            let acceptedFlag = legacyCollectionSubmission.value(forKey: "accepted") as? Int16 ?? 0
                             
                             // Try to get specific version and status from WS_CollectedVersion_Entity
                             let collectedVersions = try legacyService.fetchCollectedVersions(for: legacyCollection)
@@ -467,8 +482,11 @@ class LegacyImportEngine {
                                    mappedVersion.textFile?.id == textFile.id {
                                     versionToUse = mappedVersion
                                     
-                                    // Check status attribute (true = accepted)
+                                    // Check status attribute from WS_CollectedVersion_Entity (true = accepted)
                                     if let accepted = collectedVersion.value(forKey: "status") as? Bool, accepted {
+                                        submissionStatus = .accepted
+                                    } else if acceptedFlag != 0 {
+                                        // Also check the accepted flag on WS_CollectionSubmission_Entity
                                         submissionStatus = .accepted
                                     } else if wasReturned {
                                         submissionStatus = .rejected
