@@ -67,7 +67,11 @@ struct PublicationDetailView: View {
                 // Notes section
                 if let notes = publication.notes, !notes.isEmpty {
                     Section {
-                        Text(notes)
+                        NavigationLink(destination: PublicationNotesView(publication: publication)) {
+                            Text(notes)
+                                .lineLimit(3)
+                                .foregroundStyle(.primary)
+                        }
                     } header: {
                         Text("publications.form.notes.label")
                     }

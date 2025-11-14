@@ -10,6 +10,8 @@ import SwiftUI
 struct PublicationRowView: View {
     let publication: Publication
     
+    @State private var showingNotesSheet = false
+    
     var body: some View {
         HStack(spacing: 12) {
             // Type icon
@@ -30,6 +32,18 @@ struct PublicationRowView: View {
             
             Spacer()
             
+            // Info button (if notes exist)
+            if let notes = publication.notes, !notes.isEmpty {
+                Button(action: { showingNotesSheet = true }) {
+                    Image(systemName: "info.circle")
+                        .font(.title3)
+                        .foregroundStyle(.blue)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text("accessibility.publication.notes"))
+                .accessibilityHint(Text("accessibility.publication.notes.hint"))
+            }
+            
             // Chevron
             Image(systemName: "chevron.right")
                 .font(.caption)
@@ -40,6 +54,9 @@ struct PublicationRowView: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityHint(Text(NSLocalizedString("accessibility.publication.tap.hint", comment: "Tap to view hint")))
+        .sheet(isPresented: $showingNotesSheet) {
+            PublicationNotesView(publication: publication)
+        }
     }
     
     private var deadlineView: some View {

@@ -10,7 +10,7 @@ import SwiftUI
 
 /// Compact progress banner displayed at top of project list during import
 struct ImportProgressBanner: View {
-    @ObservedObject var progressTracker: ImportProgressTracker
+    var progressTracker: ImportProgressTracker
     
     var body: some View {
         VStack(spacing: 8) {

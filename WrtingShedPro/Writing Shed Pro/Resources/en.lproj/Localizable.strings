@@ -354,6 +354,9 @@
 "publications.duplicate.useOriginal" = "Use Original Name";
 "publications.duplicate.makeUnique" = "Make Unique";
 
+/* Notes View */
+"publications.notes.title" = "Notes for %@";
+
 /* Accessibility Labels */
 "accessibility.publications.list" = "Publications list";
 "accessibility.publications.navigation" = "Navigate to publications";
@@ -368,6 +371,9 @@
 "accessibility.publication.deadline.approaching" = "Deadline approaching: %d days left";
 "accessibility.publication.deadline.passed" = "Deadline has passed";
 "accessibility.publication.type" = "Type: %@";
+"accessibility.publication.notes" = "View notes";
+"accessibility.publication.notes.hint" = "Opens notes for this publication";
+"accessibility.publication.notes.view" = "Publication notes editor";
 "accessibility.deadline.toggle" = "Toggle deadline";
 "accessibility.deadline.toggle.hint" = "Enable or disable deadline for this publication";
 "accessibility.type.picker" = "Select publication type";
