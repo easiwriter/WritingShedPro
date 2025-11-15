@@ -7,6 +7,9 @@ struct ContentView: View {
     @State private var showManageStyles = false
     @State private var isImporting = false
     @State private var importService = ImportService()
+    @State private var showingJSONImportPicker = false
+    @State private var showImportError = false
+    @State private var importErrorMessage = ""
     @Environment(\.modelContext) var modelContext
     
     var body: some View {
@@ -42,7 +45,7 @@ struct ContentView: View {
                 #endif
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: {}) {
+                    Button(action: { showingJSONImportPicker = true }) {
                         Label(NSLocalizedString("contentView.import", comment: "Import button label"), systemImage: "arrow.down.doc")
                     }
                     .accessibilityLabel(NSLocalizedString("contentView.importAccessibility", comment: "Accessibility label for import button"))
@@ -60,6 +63,18 @@ struct ContentView: View {
             }
             .sheet(isPresented: $showManageStyles) {
                 StyleSheetListView()
+            }
+            .fileImporter(
+                isPresented: $showingJSONImportPicker,
+                allowedContentTypes: [.json],
+                allowsMultipleSelection: false
+            ) { result in
+                handleJSONImport(result)
+            }
+            .alert("Import Error", isPresented: $showImportError) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(importErrorMessage)
             }
         }
     }
@@ -105,6 +120,52 @@ struct ContentView: View {
         startImport()
     }
     #endif
+    
+    private func handleJSONImport(_ result: Result<[URL], Error>) {
+        switch result {
+        case .success(let urls):
+            guard let fileURL = urls.first else { return }
+            
+            print("[ContentView] Starting JSON import from: \(fileURL)")
+            
+            Task {
+                do {
+                    // Create error handler
+                    let errorHandler = ImportErrorHandler()
+                    
+                    // Create JSON importer
+                    let jsonImporter = JSONImportService(
+                        modelContext: modelContext,
+                        errorHandler: errorHandler
+                    )
+                    
+                    // Perform import
+                    let project = try jsonImporter.importFromJSON(fileURL: fileURL)
+                    
+                    print("[ContentView] JSON import succeeded: \(project.name ?? "Untitled")")
+                    
+                    // Show warnings if any
+                    if !errorHandler.warnings.isEmpty {
+                        print("[ContentView] Import completed with \(errorHandler.warnings.count) warnings:")
+                        errorHandler.warnings.forEach { print("  - \($0)") }
+                    }
+                    
+                } catch ImportError.missingContent {
+                    importErrorMessage = "The selected file is empty or corrupt."
+                    showImportError = true
+                } catch {
+                    importErrorMessage = "Failed to import project: \(error.localizedDescription)"
+                    showImportError = true
+                    print("[ContentView] JSON import failed: \(error)")
+                }
+            }
+            
+        case .failure(let error):
+            importErrorMessage = "Failed to select file: \(error.localizedDescription)"
+            showImportError = true
+            print("[ContentView] File selection failed: \(error)")
+        }
+    }
     
     private func initializeUserOrderIfNeeded() {
         // Ensure all existing projects have a userOrder
