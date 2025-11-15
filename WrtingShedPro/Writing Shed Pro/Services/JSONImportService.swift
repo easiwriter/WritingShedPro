@@ -87,13 +87,14 @@ class JSONImportService {
     // MARK: - Project Creation
     
     private func createProject(from data: WritingShedData) throws -> Project {
-        // Decode the project string (assuming it's base64 encoded plist or similar)
         var projectName = data.projectName
         
-        // Clean up project name (remove timestamp if present)
-        if let components = projectName.split(separator: "<>", maxSplits: 1).first {
-            projectName = String(components).trimmingCharacters(in: .whitespaces)
-        }
+        // Clean up project name - remove date/timestamp in brackets
+        // e.g., "The 1st World (15:11:2025, 08:47)" -> "The 1st World"
+        projectName = cleanProjectName(projectName)
+        
+        // Check if this name already exists
+        projectName = ensureUniqueName(projectName)
         
         // Map project type
         let projectType = mapProjectType(data.projectModel)
@@ -103,6 +104,55 @@ class JSONImportService {
         project.modifiedDate = Date()
         
         return project
+    }
+    
+    /// Remove date/timestamp info from project name
+    private func cleanProjectName(_ name: String) -> String {
+        var cleaned = name
+        
+        // First, remove any timestamp patterns like "<>03/06/2016, 09:09Poetry"
+        if let components = cleaned.split(separator: "<>", maxSplits: 1).first {
+            cleaned = String(components)
+        }
+        
+        // Remove date in brackets at end: "(15:11:2025, 08:47)" or "(dd/mm/yyyy, hh:mm)"
+        // Pattern: (date, time) at end of string
+        let pattern = "\\s*\\([\\d:,\\s/]+\\)\\s*$"
+        if let regex = try? NSRegularExpression(pattern: pattern) {
+            let range = NSRange(cleaned.startIndex..., in: cleaned)
+            cleaned = regex.stringByReplacingMatches(in: cleaned, range: range, withTemplate: "")
+        }
+        
+        return cleaned.trimmingCharacters(in: .whitespaces)
+    }
+    
+    /// Ensure project name is unique in the context
+    private func ensureUniqueName(_ name: String) -> String {
+        // Fetch all existing projects
+        let descriptor = FetchDescriptor<Project>()
+        guard let existingProjects = try? modelContext.fetch(descriptor) else {
+            return name
+        }
+        
+        let existingNames = Set(existingProjects.compactMap { $0.name })
+        
+        // If name is unique, use it as-is
+        if !existingNames.contains(name) {
+            return name
+        }
+        
+        // Name exists - find unique variant with number suffix
+        var counter = 2
+        var uniqueName = "\(name) \(counter)"
+        
+        while existingNames.contains(uniqueName) {
+            counter += 1
+            uniqueName = "\(name) \(counter)"
+        }
+        
+        print("[JSONImport] ⚠️ Duplicate project name detected. Renamed '\(name)' to '\(uniqueName)'")
+        
+        return uniqueName
     }
     
     private func mapProjectType(_ modelString: String) -> ProjectType {
@@ -272,33 +322,25 @@ class JSONImportService {
     // MARK: - Collections Import
     
     private func importCollections(from data: WritingShedData, into project: Project) throws {
-        print("[JSONImport] Starting collections import")
+        print("[JSONImport] Starting collections/submissions import")
         
         var collectionCount = 0
         for componentData in data.collectionComponentDatas {
-            // Skip submission entities (already processed as publications)
-            guard componentData.type != "WS_Submission_Entity" else { continue }
-            
-            // Only process if there are collected texts
-            guard let textCollectionData = componentData.textCollectionData,
-                  let collectedVersionIds = textCollectionData.collectedVersionIds,
-                  let versionIds = try? PropertyListDecoder().decode([String].self, from: collectedVersionIds),
-                  !versionIds.isEmpty else {
-                print("[JSONImport] Skipping collection component (no collected versions)")
-                continue
-            }
+            // Only process WS_Collection_Entity (NOT WS_Submission_Entity which are publications)
+            guard componentData.type == "WS_Collection_Entity" else { continue }
             
             collectionCount += 1
-            print("[JSONImport] Processing collection \(collectionCount) with \(versionIds.count) versions")
+            print("[JSONImport] Processing collection/submission \(collectionCount)")
             
-            // Decode collection metadata
+            // Decode collection metadata from collectionComponent
             guard let metadata = try? decodeCollectionMetadata(componentData.collectionComponent) else {
                 errorHandler.addWarning("Failed to decode collection metadata")
-                print("[JSONImport] ⚠️ Failed to decode collection metadata")
+                print("[JSONImport] ⚠️ Failed to decode collection metadata for ID: \(componentData.id)")
                 continue
             }
             
             // Create Submission (collection in new model)
+            // Note: publication will be linked later if this is a submission to a magazine/competition
             let submission = Submission()
             submission.submittedDate = metadata.dateCreated ?? Date()
             submission.project = project
@@ -308,31 +350,67 @@ class JSONImportService {
                 submission.notes = notesString.string
             }
             
-            // Link versions to submission via SubmittedFile
-            var linkedFiles = 0
-            for versionId in versionIds {
-                if let version = versionMap[versionId],
-                   let textFile = version.textFile {
-                    let submittedFile = SubmittedFile(
-                        submission: submission,
-                        textFile: textFile,
-                        version: version,
-                        status: .pending
-                    )
-                    modelContext.insert(submittedFile)
-                    linkedFiles += 1
-                }
-            }
+            print("[JSONImport]   Collection name: \(metadata.name ?? "unnamed")")
             
-            print("[JSONImport] ✅ Created collection with \(linkedFiles) files")
-            
-            // Cache for linking to publications
+            // Cache for linking files and publications
             submissionMap[componentData.id] = submission
             
             modelContext.insert(submission)
         }
         
-        print("[JSONImport] ✅ Imported \(collectionCount) collections")
+        print("[JSONImport] ✅ Created \(collectionCount) collections/submissions")
+        
+        // Now link files to submissions by examining collectedVersionData in versions
+        print("[JSONImport] Linking files to collections...")
+        var linkedCount = 0
+        
+        for (versionId, version) in versionMap {
+            guard let textFile = version.textFile else { continue }
+            
+            // Find the corresponding version data to get collectedVersionData
+            for textFileData in data.textFileDatas {
+                for versionData in textFileData.versions {
+                    guard versionData.id == versionId else { continue }
+                    guard let collectedVersionData = versionData.collectedVersionData, !collectedVersionData.isEmpty else { continue }
+                    
+                    // Link this version to collections
+                    for collectedData in collectedVersionData {
+                        // Decode to get collection ID
+                        guard let collectedDict = try? JSONSerialization.jsonObject(
+                            with: collectedData.collectedVersion.data(using: .utf8)!
+                        ) as? [String: Any],
+                        let collectionId = collectedDict["uniqueIdentifier"] as? String else {
+                            continue
+                        }
+                        
+                        // Find collection ID by looking in submissionMap
+                        // But we need to match against the textCollectionData.id, not the componentData.id
+                        // Let's search for the right submission
+                        for componentData in data.collectionComponentDatas {
+                            guard componentData.type == "WS_Collection_Entity",
+                                  let textCollectionData = componentData.textCollectionData,
+                                  textCollectionData.id == collectionId,
+                                  let submission = submissionMap[componentData.id] else {
+                                continue
+                            }
+                            
+                            // Create submitted file link
+                            let submittedFile = SubmittedFile(
+                                submission: submission,
+                                textFile: textFile,
+                                version: version,
+                                status: .pending
+                            )
+                            modelContext.insert(submittedFile)
+                            linkedCount += 1
+                            break
+                        }
+                    }
+                }
+            }
+        }
+        
+        print("[JSONImport] ✅ Linked \(linkedCount) files to collections")
     }
     
     // MARK: - Link Collection Submissions
