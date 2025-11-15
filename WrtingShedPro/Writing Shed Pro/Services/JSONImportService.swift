@@ -103,6 +103,20 @@ class JSONImportService {
     }
     
     private func mapProjectType(_ modelString: String) -> ProjectType {
+        // Handle numeric values (legacy enum)
+        let numericMapping: [String: ProjectType] = [
+            "35": .poetry,  // WS_Poetry_Project_Value
+            "36": .novel,   // WS_Novel_Project_Value
+            "37": .script,  // WS_Script_Project_Value
+            "38": .shortStory  // WS_Short_Story_Project_Value
+        ]
+        
+        // Check numeric first
+        if let type = numericMapping[modelString] {
+            return type
+        }
+        
+        // Fall back to string names
         let typeMapping: [String: ProjectType] = [
             "novel": .novel,
             "poetry": .poetry,
@@ -355,10 +369,28 @@ class JSONImportService {
     
     /// Decode text file metadata from base64 encoded plist
     private func decodeTextFileMetadata(_ encodedString: String) throws -> TextFileMetadata {
-        guard let data = Data(base64Encoded: encodedString),
-              let dict = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any] else {
+        guard let data = Data(base64Encoded: encodedString) else {
+            print("[JSONImport] ❌ Failed to decode base64 string")
             throw ImportError.missingContent
         }
+        
+        // Try to deserialize property list
+        var format: PropertyListSerialization.PropertyListFormat = .xml
+        guard let plist = try? PropertyListSerialization.propertyList(from: data, format: &format) else {
+            print("[JSONImport] ❌ Failed to deserialize property list. Data size: \(data.count) bytes")
+            // Print first 100 characters of the decoded data for inspection
+            if let string = String(data: data.prefix(100), encoding: .utf8) {
+                print("[JSONImport] Data preview: \(string)")
+            }
+            throw ImportError.missingContent
+        }
+        
+        guard let dict = plist as? [String: Any] else {
+            print("[JSONImport] ❌ Property list is not a dictionary. Type: \(type(of: plist))")
+            throw ImportError.missingContent
+        }
+        
+        print("[JSONImport] ✅ Decoded metadata keys: \(dict.keys.sorted())")
         
         return TextFileMetadata(
             name: dict["name"] as? String ?? "Untitled",
