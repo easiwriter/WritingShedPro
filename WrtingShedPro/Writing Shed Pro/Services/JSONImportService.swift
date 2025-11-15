@@ -367,36 +367,41 @@ class JSONImportService {
         return NSAttributedString(string: plainText)
     }
     
-    /// Decode text file metadata from base64 encoded plist
-    private func decodeTextFileMetadata(_ encodedString: String) throws -> TextFileMetadata {
-        guard let data = Data(base64Encoded: encodedString) else {
-            print("[JSONImport] ❌ Failed to decode base64 string")
+    /// Decode text file metadata from JSON string (dictionary format)
+    private func decodeTextFileMetadata(_ jsonString: String) throws -> TextFileMetadata {
+        // The textFile field contains a JSON-encoded dictionary, not base64
+        guard let data = jsonString.data(using: .utf8) else {
+            print("[JSONImport] ❌ Failed to convert string to data")
             throw ImportError.missingContent
         }
         
-        // Try to deserialize property list
-        var format: PropertyListSerialization.PropertyListFormat = .xml
-        guard let plist = try? PropertyListSerialization.propertyList(from: data, format: &format) else {
-            print("[JSONImport] ❌ Failed to deserialize property list. Data size: \(data.count) bytes")
-            // Print first 100 characters of the decoded data for inspection
-            if let string = String(data: data.prefix(100), encoding: .utf8) {
-                print("[JSONImport] Data preview: \(string)")
-            }
-            throw ImportError.missingContent
-        }
-        
-        guard let dict = plist as? [String: Any] else {
-            print("[JSONImport] ❌ Property list is not a dictionary. Type: \(type(of: plist))")
+        // Decode as JSON dictionary
+        guard let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            print("[JSONImport] ❌ Failed to decode as JSON dictionary")
+            // Try to print what we got for debugging
+            print("[JSONImport] String preview: \(jsonString.prefix(200))")
             throw ImportError.missingContent
         }
         
         print("[JSONImport] ✅ Decoded metadata keys: \(dict.keys.sorted())")
         
+        // Extract dates if present (they may be in various formats)
+        var createdDate: Date?
+        var modifiedDate: Date?
+        
+        if let dateString = dict["dateCreated"] as? String {
+            createdDate = ISO8601DateFormatter().date(from: dateString)
+        }
+        
+        if let dateString = dict["dateLastUpdated"] as? String {
+            modifiedDate = ISO8601DateFormatter().date(from: dateString)
+        }
+        
         return TextFileMetadata(
             name: dict["name"] as? String ?? "Untitled",
             folderName: dict["groupName"] as? String ?? "Drafts",
-            createdDate: dict["dateCreated"] as? Date,
-            modifiedDate: dict["dateLastUpdated"] as? Date
+            createdDate: createdDate,
+            modifiedDate: modifiedDate
         )
     }
     
