@@ -45,6 +45,13 @@ class JSONImportService {
         let decoder = JSONDecoder()
         let writingShedData = try decoder.decode(WritingShedData.self, from: jsonData)
         
+        // Debug logging
+        print("[JSONImport] Project Name: \(writingShedData.projectName)")
+        print("[JSONImport] Project Model: \(writingShedData.projectModel)")
+        print("[JSONImport] Text Files Count: \(writingShedData.textFileDatas.count)")
+        print("[JSONImport] Collection Components Count: \(writingShedData.collectionComponentDatas.count)")
+        print("[JSONImport] Scene Components Count: \(writingShedData.sceneComponentDatas.count)")
+        
         // Validate project name
         guard !writingShedData.projectName.isEmpty else {
             throw ImportError.missingContent
@@ -53,6 +60,8 @@ class JSONImportService {
         // Create new project
         let project = try createProject(from: writingShedData)
         modelContext.insert(project)
+        
+        print("[JSONImport] Created project with type: \(project.type)")
         
         // Import text files and versions
         try importTextFiles(from: writingShedData, into: project)
@@ -109,12 +118,23 @@ class JSONImportService {
     // MARK: - Text Files Import
     
     private func importTextFiles(from data: WritingShedData, into project: Project) throws {
-        for textFileData in data.textFileDatas {
+        print("[JSONImport] Starting text file import for \(data.textFileDatas.count) files")
+        
+        for (index, textFileData) in data.textFileDatas.enumerated() {
+            print("[JSONImport] Processing text file \(index + 1)/\(data.textFileDatas.count)")
+            print("[JSONImport]   ID: \(textFileData.id)")
+            print("[JSONImport]   Type: \(textFileData.type)")
+            print("[JSONImport]   Versions: \(textFileData.versions.count)")
+            
             // Decode text file metadata
             guard let textFileMetadata = try? decodeTextFileMetadata(textFileData.textFile) else {
-                errorHandler.addWarning("Failed to decode text file metadata")
+                errorHandler.addWarning("Failed to decode text file metadata for ID: \(textFileData.id)")
+                print("[JSONImport]   ⚠️ Failed to decode metadata")
                 continue
             }
+            
+            print("[JSONImport]   Name: \(textFileMetadata.name)")
+            print("[JSONImport]   Folder: \(textFileMetadata.folderName)")
             
             // Get or create folder
             let folder = getOrCreateFolder(name: textFileMetadata.folderName, in: project)
