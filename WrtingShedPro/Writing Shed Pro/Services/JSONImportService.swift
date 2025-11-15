@@ -332,17 +332,28 @@ class JSONImportService {
             collectionCount += 1
             print("[JSONImport] Processing collection/submission \(collectionCount)")
             
-            // Decode collection metadata from collectionComponent
-            guard let metadata = try? decodeCollectionMetadata(componentData.collectionComponent) else {
-                errorHandler.addWarning("Failed to decode collection metadata")
-                print("[JSONImport] ⚠️ Failed to decode collection metadata for ID: \(componentData.id)")
-                continue
+            // Get the collection name from textCollectionData.textCollection, NOT collectionComponent
+            var collectionName = "Untitled Collection"
+            var submittedDate = Date()
+            
+            if let textCollectionData = componentData.textCollectionData {
+                // Decode the textCollection JSON to get the name
+                if let textCollectionDict = try? JSONSerialization.jsonObject(
+                    with: textCollectionData.textCollection.data(using: .utf8)!
+                ) as? [String: Any] {
+                    collectionName = textCollectionDict["name"] as? String ?? collectionName
+                    
+                    // Get date
+                    if let timestamp = textCollectionDict["dateCreated"] as? TimeInterval {
+                        submittedDate = Date(timeIntervalSinceReferenceDate: timestamp)
+                    }
+                }
             }
             
             // Create Submission (collection in new model)
             // Note: publication will be linked later if this is a submission to a magazine/competition
             let submission = Submission()
-            submission.submittedDate = metadata.dateCreated ?? Date()
+            submission.submittedDate = submittedDate
             submission.project = project
             
             // Decode notes
@@ -350,9 +361,14 @@ class JSONImportService {
                 submission.notes = notesString.string
             }
             
-            print("[JSONImport]   Collection name: \(metadata.name ?? "unnamed")")
+            print("[JSONImport]   Collection name: \(collectionName)")
             
             // Cache for linking files and publications
+            // IMPORTANT: Cache by textCollectionData.id since that's what versions reference
+            if let textCollectionData = componentData.textCollectionData {
+                submissionMap[textCollectionData.id] = submission
+            }
+            // Also cache by componentData.id for linking to publications
             submissionMap[componentData.id] = submission
             
             modelContext.insert(submission)
@@ -375,36 +391,24 @@ class JSONImportService {
                     
                     // Link this version to collections
                     for collectedData in collectedVersionData {
-                        // Decode to get collection ID
+                        // Decode to get textCollection ID (NOT collection ID!)
                         guard let collectedDict = try? JSONSerialization.jsonObject(
                             with: collectedData.collectedVersion.data(using: .utf8)!
                         ) as? [String: Any],
-                        let collectionId = collectedDict["uniqueIdentifier"] as? String else {
+                        let textCollectionId = collectedDict["uniqueIdentifier"] as? String,
+                        let submission = submissionMap[textCollectionId] else {
                             continue
                         }
                         
-                        // Find collection ID by looking in submissionMap
-                        // But we need to match against the textCollectionData.id, not the componentData.id
-                        // Let's search for the right submission
-                        for componentData in data.collectionComponentDatas {
-                            guard componentData.type == "WS_Collection_Entity",
-                                  let textCollectionData = componentData.textCollectionData,
-                                  textCollectionData.id == collectionId,
-                                  let submission = submissionMap[componentData.id] else {
-                                continue
-                            }
-                            
-                            // Create submitted file link
-                            let submittedFile = SubmittedFile(
-                                submission: submission,
-                                textFile: textFile,
-                                version: version,
-                                status: .pending
-                            )
-                            modelContext.insert(submittedFile)
-                            linkedCount += 1
-                            break
-                        }
+                        // Create submitted file link
+                        let submittedFile = SubmittedFile(
+                            submission: submission,
+                            textFile: textFile,
+                            version: version,
+                            status: .pending
+                        )
+                        modelContext.insert(submittedFile)
+                        linkedCount += 1
                     }
                 }
             }
