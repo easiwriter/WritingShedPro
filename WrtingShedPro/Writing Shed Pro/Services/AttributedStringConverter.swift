@@ -24,15 +24,20 @@ class AttributedStringConverter {
         _ attributedString: NSAttributedString,
         preserveFormatting: Bool = true
     ) -> (plainText: String, rtfData: Data?) {
-        let plainText = attributedString.string
+        // CRITICAL: Strip adaptive colors from imported documents
+        // This fixes dark mode issues where legacy documents have fixed black/white colors
+        // that don't adapt to appearance changes
+        let cleanedString = AttributedStringSerializer.stripAdaptiveColors(from: attributedString)
         
-        guard preserveFormatting && hasFormatting(attributedString) else {
+        let plainText = cleanedString.string
+        
+        guard preserveFormatting && hasFormatting(cleanedString) else {
             // No formatting to preserve, just return plain text
             return (plainText, nil)
         }
         
         // Try to convert to RTF
-        let rtfData = convertToRTF(attributedString)
+        let rtfData = convertToRTF(cleanedString)
         return (plainText, rtfData)
     }
     
