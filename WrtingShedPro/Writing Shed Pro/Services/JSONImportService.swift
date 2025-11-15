@@ -63,6 +63,9 @@ class JSONImportService {
         
         print("[JSONImport] Created project with type: \(project.type)")
         
+        // Create all standard folders for the project type
+        createStandardFolders(for: project)
+        
         // Import text files and versions
         try importTextFiles(from: writingShedData, into: project)
         
@@ -340,6 +343,70 @@ class JSONImportService {
     
     // MARK: - Helper Methods
     
+    /// Create all standard folders for a project based on its type
+    private func createStandardFolders(for project: Project) {
+        let folderNames: [String]
+        
+        switch project.type {
+        case .blank:
+            folderNames = ["Files", "Trash"]
+            
+        case .poetry, .shortStory:
+            folderNames = [
+                "All",
+                "Draft",
+                "Ready",
+                "Collections",
+                "Set Aside",
+                "Published",
+                "Research",
+                "Magazines",
+                "Competitions",
+                "Commissions",
+                "Other",
+                "Trash"
+            ]
+            
+        case .novel:
+            folderNames = [
+                "Novel",
+                "Chapters",
+                "Scenes",
+                "Characters",
+                "Locations",
+                "Set Aside",
+                "Research",
+                "Competitions",
+                "Commissions",
+                "Other",
+                "Trash"
+            ]
+            
+        case .script:
+            folderNames = [
+                "Script",
+                "Acts",
+                "Scenes",
+                "Characters",
+                "Locations",
+                "Set Aside",
+                "Research",
+                "Competitions",
+                "Commissions",
+                "Other",
+                "Trash"
+            ]
+        }
+        
+        // Create all folders
+        for name in folderNames {
+            let folder = Folder(name: name, project: project, parentFolder: nil)
+            modelContext.insert(folder)
+        }
+        
+        print("[JSONImport] Created \(folderNames.count) standard folders")
+    }
+    
     private func getOrCreateFolder(name: String, in project: Project) -> Folder {
         // Check if folder already exists in project's folders
         if let existing = project.folders?.first(where: { $0.name == name && $0.parentFolder == nil }) {
@@ -397,12 +464,28 @@ class JSONImportService {
             modifiedDate = ISO8601DateFormatter().date(from: dateString)
         }
         
+        // Map old folder names to new folder names
+        let originalFolderName = dict["groupName"] as? String ?? "Draft"
+        let mappedFolderName = mapLegacyFolderName(originalFolderName)
+        
         return TextFileMetadata(
             name: dict["name"] as? String ?? "Untitled",
-            folderName: dict["groupName"] as? String ?? "Drafts",
+            folderName: mappedFolderName,
             createdDate: createdDate,
             modifiedDate: modifiedDate
         )
+    }
+    
+    /// Map legacy Writing Shed v1 folder names to Writing Shed Pro folder names
+    private func mapLegacyFolderName(_ legacyName: String) -> String {
+        switch legacyName {
+        case "Accepted":
+            return "Published"  // Old app used "Accepted", new app uses "Published"
+        case "Draft", "Ready", "Set Aside", "Collections", "Research", "Trash":
+            return legacyName  // These names stayed the same
+        default:
+            return legacyName  // Unknown folders keep their original name
+        }
     }
     
     /// Decode publication metadata from base64 encoded plist
