@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
 
 struct ContentView: View {
     @Query var projects: [Project]
@@ -66,7 +67,10 @@ struct ContentView: View {
             }
             .fileImporter(
                 isPresented: $showingJSONImportPicker,
-                allowedContentTypes: [.json],
+                allowedContentTypes: [
+                    UTType(filenameExtension: "wsd") ?? .data,
+                    .json
+                ],
                 allowsMultipleSelection: false
             ) { result in
                 handleJSONImport(result)
