@@ -128,6 +128,19 @@ struct ContentView: View {
             
             print("[ContentView] Starting JSON import from: \(fileURL)")
             
+            // CRITICAL: Start accessing security-scoped resource
+            guard fileURL.startAccessingSecurityScopedResource() else {
+                importErrorMessage = "Unable to access the selected file. Please try again."
+                showImportError = true
+                print("[ContentView] Failed to access security-scoped resource")
+                return
+            }
+            
+            // Ensure we stop accessing when done
+            defer {
+                fileURL.stopAccessingSecurityScopedResource()
+            }
+            
             Task {
                 do {
                     // Create error handler
