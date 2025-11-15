@@ -217,13 +217,20 @@ class JSONImportService {
     // MARK: - Publications Import
     
     private func importPublications(from data: WritingShedData, into project: Project) throws {
+        print("[JSONImport] Starting publication import from \(data.collectionComponentDatas.count) collection components")
+        
+        var publicationCount = 0
         for componentData in data.collectionComponentDatas {
             // Only process submission entities (publications)
             guard componentData.type == "WS_Submission_Entity" else { continue }
             
+            publicationCount += 1
+            print("[JSONImport] Processing publication \(publicationCount)")
+            
             // Decode publication metadata
             guard let metadata = try? decodePublicationMetadata(componentData.collectionComponent) else {
                 errorHandler.addWarning("Failed to decode publication metadata")
+                print("[JSONImport] ⚠️ Failed to decode publication metadata")
                 continue
             }
             
@@ -245,6 +252,8 @@ class JSONImportService {
             
             modelContext.insert(publication)
         }
+        
+        print("[JSONImport] ✅ Imported \(publicationCount) publications")
     }
     
     private func mapPublicationType(_ groupName: String) -> PublicationType {
@@ -263,6 +272,9 @@ class JSONImportService {
     // MARK: - Collections Import
     
     private func importCollections(from data: WritingShedData, into project: Project) throws {
+        print("[JSONImport] Starting collections import")
+        
+        var collectionCount = 0
         for componentData in data.collectionComponentDatas {
             // Skip submission entities (already processed as publications)
             guard componentData.type != "WS_Submission_Entity" else { continue }
@@ -272,12 +284,17 @@ class JSONImportService {
                   let collectedVersionIds = textCollectionData.collectedVersionIds,
                   let versionIds = try? PropertyListDecoder().decode([String].self, from: collectedVersionIds),
                   !versionIds.isEmpty else {
+                print("[JSONImport] Skipping collection component (no collected versions)")
                 continue
             }
+            
+            collectionCount += 1
+            print("[JSONImport] Processing collection \(collectionCount) with \(versionIds.count) versions")
             
             // Decode collection metadata
             guard let metadata = try? decodeCollectionMetadata(componentData.collectionComponent) else {
                 errorHandler.addWarning("Failed to decode collection metadata")
+                print("[JSONImport] ⚠️ Failed to decode collection metadata")
                 continue
             }
             
@@ -292,6 +309,7 @@ class JSONImportService {
             }
             
             // Link versions to submission via SubmittedFile
+            var linkedFiles = 0
             for versionId in versionIds {
                 if let version = versionMap[versionId],
                    let textFile = version.textFile {
@@ -302,14 +320,19 @@ class JSONImportService {
                         status: .pending
                     )
                     modelContext.insert(submittedFile)
+                    linkedFiles += 1
                 }
             }
+            
+            print("[JSONImport] ✅ Created collection with \(linkedFiles) files")
             
             // Cache for linking to publications
             submissionMap[componentData.id] = submission
             
             modelContext.insert(submission)
         }
+        
+        print("[JSONImport] ✅ Imported \(collectionCount) collections")
     }
     
     // MARK: - Link Collection Submissions
@@ -488,12 +511,21 @@ class JSONImportService {
         }
     }
     
-    /// Decode publication metadata from base64 encoded plist
-    private func decodePublicationMetadata(_ encodedString: String) throws -> PublicationMetadata {
-        guard let data = Data(base64Encoded: encodedString),
-              let dict = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any] else {
+    /// Decode publication metadata from JSON string (dictionary format)
+    private func decodePublicationMetadata(_ jsonString: String) throws -> PublicationMetadata {
+        // The collectionComponent field contains a JSON-encoded dictionary
+        guard let data = jsonString.data(using: .utf8) else {
+            print("[JSONImport] ❌ Publication: Failed to convert string to data")
             throw ImportError.missingContent
         }
+        
+        guard let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            print("[JSONImport] ❌ Publication: Failed to decode JSON dictionary")
+            print("[JSONImport] String preview: \(jsonString.prefix(200))")
+            throw ImportError.missingContent
+        }
+        
+        print("[JSONImport] ✅ Publication decoded: \(dict["name"] as? String ?? "unnamed") - \(dict["groupName"] as? String ?? "no type")")
         
         return PublicationMetadata(
             name: dict["name"] as? String ?? "Untitled",
@@ -501,16 +533,31 @@ class JSONImportService {
         )
     }
     
-    /// Decode collection metadata from base64 encoded plist
-    private func decodeCollectionMetadata(_ encodedString: String) throws -> CollectionMetadata {
-        guard let data = Data(base64Encoded: encodedString),
-              let dict = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any] else {
+    /// Decode collection metadata from JSON string (dictionary format)
+    private func decodeCollectionMetadata(_ jsonString: String) throws -> CollectionMetadata {
+        // The collectionComponent field contains a JSON-encoded dictionary
+        guard let data = jsonString.data(using: .utf8) else {
+            print("[JSONImport] ❌ Collection: Failed to convert string to data")
             throw ImportError.missingContent
+        }
+        
+        guard let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            print("[JSONImport] ❌ Collection: Failed to decode JSON dictionary")
+            print("[JSONImport] String preview: \(jsonString.prefix(200))")
+            throw ImportError.missingContent
+        }
+        
+        print("[JSONImport] ✅ Collection decoded: \(dict["name"] as? String ?? "unnamed")")
+        
+        // Handle date from timestamp (createdOn field is a TimeInterval)
+        var createdDate: Date?
+        if let timestamp = dict["createdOn"] as? TimeInterval {
+            createdDate = Date(timeIntervalSinceReferenceDate: timestamp)
         }
         
         return CollectionMetadata(
             name: dict["name"] as? String,
-            dateCreated: dict["dateCreated"] as? Date
+            dateCreated: createdDate
         )
     }
 }
