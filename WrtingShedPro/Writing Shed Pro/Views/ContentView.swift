@@ -128,20 +128,23 @@ struct ContentView: View {
             
             print("[ContentView] Starting JSON import from: \(fileURL)")
             
-            // CRITICAL: Start accessing security-scoped resource
-            guard fileURL.startAccessingSecurityScopedResource() else {
-                importErrorMessage = "Unable to access the selected file. Please try again."
-                showImportError = true
-                print("[ContentView] Failed to access security-scoped resource")
-                return
-            }
-            
-            // Ensure we stop accessing when done
-            defer {
-                fileURL.stopAccessingSecurityScopedResource()
-            }
-            
             Task {
+                // CRITICAL: Start accessing security-scoped resource inside the Task
+                guard fileURL.startAccessingSecurityScopedResource() else {
+                    await MainActor.run {
+                        importErrorMessage = "Unable to access the selected file. Please try again."
+                        showImportError = true
+                    }
+                    print("[ContentView] Failed to access security-scoped resource")
+                    return
+                }
+                
+                // Ensure we stop accessing when done
+                defer {
+                    fileURL.stopAccessingSecurityScopedResource()
+                    print("[ContentView] Stopped accessing security-scoped resource")
+                }
+                
                 do {
                     // Create error handler
                     let errorHandler = ImportErrorHandler()
@@ -164,11 +167,15 @@ struct ContentView: View {
                     }
                     
                 } catch ImportError.missingContent {
-                    importErrorMessage = "The selected file is empty or corrupt."
-                    showImportError = true
+                    await MainActor.run {
+                        importErrorMessage = "The selected file is empty or corrupt."
+                        showImportError = true
+                    }
                 } catch {
-                    importErrorMessage = "Failed to import project: \(error.localizedDescription)"
-                    showImportError = true
+                    await MainActor.run {
+                        importErrorMessage = "Failed to import project: \(error.localizedDescription)"
+                        showImportError = true
+                    }
                     print("[ContentView] JSON import failed: \(error)")
                 }
             }
