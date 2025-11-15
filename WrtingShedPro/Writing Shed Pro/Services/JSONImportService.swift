@@ -259,11 +259,11 @@ class JSONImportService {
                 if let version = versionMap[versionId],
                    let textFile = version.textFile {
                     let submittedFile = SubmittedFile(
-                        textFile: textFile,
                         submission: submission,
-                        version: version
+                        textFile: textFile,
+                        version: version,
+                        status: .pending
                     )
-                    submittedFile.status = .pending
                     modelContext.insert(submittedFile)
                 }
             }
@@ -307,14 +307,13 @@ class JSONImportService {
     // MARK: - Helper Methods
     
     private func getOrCreateFolder(name: String, in project: Project) -> Folder {
-        // Check if folder already exists
-        if let existing = project.rootFolder?.subfolders?.first(where: { $0.name == name }) {
+        // Check if folder already exists in project's folders
+        if let existing = project.folders?.first(where: { $0.name == name && $0.parentFolder == nil }) {
             return existing
         }
         
-        // Create new folder
-        let folder = Folder(name: name)
-        folder.parentFolder = project.rootFolder
+        // Create new folder at root level
+        let folder = Folder(name: name, project: project, parentFolder: nil)
         modelContext.insert(folder)
         
         return folder
