@@ -34,10 +34,18 @@ struct FolderListView: View {
         case .blank:
             return ["Files", "Trash"]
             
-        case .poetry, .shortStory:
+        case .poetry:
             return [
                 "All", "Draft", "Ready", "Collections", "Set Aside", "Published",
                 "Research",
+                "Magazines", "Competitions", "Commissions", "Other",
+                "Trash"
+            ]
+            
+        case .shortStory:
+            return [
+                "All", "Draft", "Ready", "Collections", "Set Aside", "Published",
+                "Characters", "Locations", "Research",
                 "Magazines", "Competitions", "Commissions", "Other",
                 "Trash"
             ]

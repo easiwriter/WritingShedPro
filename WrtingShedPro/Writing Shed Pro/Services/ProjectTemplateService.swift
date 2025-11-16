@@ -55,7 +55,7 @@ struct ProjectTemplateService {
         case .blank:
             folderKeys = ["folder.files"]
             
-        case .poetry, .shortStory:
+        case .poetry:
             folderKeys = [
                 "folder.all",
                 "folder.draft",
@@ -63,6 +63,19 @@ struct ProjectTemplateService {
                 "folder.collections",
                 "folder.setAside", 
                 "folder.published",
+                "folder.research"
+            ]
+            
+        case .shortStory:
+            folderKeys = [
+                "folder.all",
+                "folder.draft",
+                "folder.ready",
+                "folder.collections",
+                "folder.setAside", 
+                "folder.published",
+                "folder.characters",
+                "folder.locations",
                 "folder.research"
             ]
             
