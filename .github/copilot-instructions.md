@@ -1,9 +1,9 @@
 # Writing Shed Pro - Development Guidelines
 
-Last updated: 10 November 2025
+Last updated: 16 November 2025
 
 ## Active Feature
-- Feature 008b: Publication Management System (Phase 3 complete)
+- Feature 014: TextKit 2 Migration (Specification complete, ready to implement)
 
 ## Project Structure
 ```
@@ -99,6 +99,13 @@ Requirements:
 - Add computed properties for derived data
 - Keep business logic in services, not models
 
+### Text Editing Architecture
+**Current State**: Migrating from TextKit 1 to TextKit 2
+- Text editor: `FormattedTextEditor.swift` (UIViewRepresentable wrapper)
+- During migration: Use `textView.textLayoutManager` (TextKit 2) not `textView.layoutManager` (TextKit 1)
+- Storage: NSAttributedString serialized to RTF (unchanged)
+- Images: Custom ImageAttachment with inline positioning
+
 ### SwiftUI Previews
 ❌ **DO NOT add #Preview code blocks**
 - User does not use SwiftUI previews
@@ -112,31 +119,57 @@ Requirements:
 - Add documentation comments for public APIs
 - Keep view files focused (extract components)
 
-## Feature 008b: Publication Management
+## Feature 014: TextKit 2 Migration
 
-### Completed (Phase 1)
-✅ Data models (Publication, Submission, SubmittedFile)
-✅ Enums (PublicationType, SubmissionStatus)
-✅ Version locking infrastructure
-✅ ReminderService (EventKit integration)
-✅ SwiftData schema updates
+### Status
+📋 Specification complete - ready to implement
+🎯 Foundation for future comments feature
 
-### Completed (Phase 2)
-✅ PublicationsListView
-✅ PublicationFormView
-✅ PublicationDetailView
-✅ Deadline indicators
+### Overview
+Migrate text editing from TextKit 1 to TextKit 2 for:
+- Future-proofing (TextKit 2 is the modern standard)
+- Enable comments/annotations feature
+- Better performance and correctness
+- Modern text layout APIs
 
-### Completed (Phase 3)
-✅ SubmissionRowView
-✅ AddSubmissionView
-✅ SubmissionDetailView
-✅ Type filter for publications
-✅ Multi-file submission creation
-✅ Status tracking UI
+### Implementation Plan
+6 phases, ~15 hours estimated (2 work days):
+1. **Setup** (1-2h): Enable TextKit 2, add helper utilities
+2. **Layout** (2-3h): Replace NSLayoutManager with NSTextLayoutManager
+3. **Images** (2-3h): Fix attachment positioning with TextKit 2
+4. **Selection** (1-2h): Verify cursor and selection handling
+5. **Storage** (1-2h): Verify text modification operations
+6. **Testing** (2-3h): Comprehensive testing and refinement
 
-### Next Phase (Phase 4)
-- TBD based on user requirements
+### Key Files
+- `FormattedTextEditor.swift` - Main text view (35 references to update)
+- `TextLayoutManagerExtensions.swift` - New helper utilities (to create)
+- `FileEditView.swift` - No changes needed (uses FormattedTextEditor)
+- Data models - No changes needed (storage format unchanged)
+
+### Critical Patterns
+
+**✅ DO use TextKit 2:**
+```swift
+if let textLayoutManager = textView.textLayoutManager {
+    textLayoutManager.ensureLayout(for: documentRange)
+}
+```
+
+**❌ DON'T use TextKit 1:**
+```swift
+textView.layoutManager.ensureLayout(for: textView.textContainer) // Old!
+```
+
+### Resources
+- Spec: `specs/014-textkit2-migration/spec.md`
+- Plan: `specs/014-textkit2-migration/plan.md`
+- Quick Reference: `specs/014-textkit2-migration/quickstart.md`
+
+## Feature 008b: Publication Management (Deferred)
+
+### Status
+Phase 3 complete, deferred pending user requirements
 
 ### Key Concepts
 - Publications track magazines/competitions
