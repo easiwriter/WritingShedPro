@@ -79,12 +79,8 @@ class ImportErrorHandler {
     /// - Parameter modelContext: The SwiftData ModelContext to rollback
     /// - Throws: ImportError if rollback fails
     func rollback(on modelContext: ModelContext) throws {
-        do {
-            // Undo all changes
-            modelContext.undoManager?.undoNestedGroup()
-        } catch {
-            throw ImportError.rollbackFailed("Failed to rollback: \(error.localizedDescription)")
-        }
+        // Undo all changes
+        modelContext.undoManager?.undoNestedGroup()
     }
 }
 

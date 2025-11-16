@@ -425,6 +425,9 @@
 "submissions.updated.on" = "Updated: %@";
 "submissions.version.label" = "Version %d";
 "submissions.no.files.project" = "No files in this project";
+"submissions.name.placeholder" = "Submission Name (optional)";
+"submissions.response.received" = "Response Received";
+"submissions.response.date.label" = "Response Date";
 
 /* Accessibility - Submissions */
 "accessibility.add.submission" = "Add submission";
@@ -443,6 +446,12 @@
 
 /* File List */
 "fileList.submit" = "Submit";
+"fileList.expandAll" = "Expand All";
+"fileList.collapseAll" = "Collapse All";
+"fileList.expandAll.accessibility" = "Expand all sections";
+"fileList.expandAll.hint" = "Show all files in all sections";
+"fileList.collapseAll.accessibility" = "Collapse all sections";
+"fileList.collapseAll.hint" = "Hide all file sections";
 
 /* Accessibility - File List */
 "accessibility.file.submissions" = "%d submission(s)";

@@ -126,14 +126,32 @@ class DataMapper {
         
         // Get TextString (content)
         if let textStringEntity = legacyVersion.value(forKey: "textString") as? NSManagedObject {
+            print("[DataMapper] TextString entity found, isDeleted: \(textStringEntity.isDeleted), isFault: \(textStringEntity.isFault)")
+            
+            // Check if the object is still valid and not deleted
+            if textStringEntity.isDeleted {
+                errorHandler.addWarning("TextString entity is deleted for version \(versionNumber)")
+                version.content = "[Content unavailable - entity deleted]"
+                return version
+            }
+            
+            // If it's a fault, accessing it will fire the fault automatically
+            // Just try to extract the content - if it fails, we'll catch it
             do {
                 let (plainText, rtfData) = try mapTextStringToContent(textStringEntity)
                 version.content = plainText
                 version.formattedContent = rtfData
+                print("[DataMapper] Mapped version \(versionNumber): \(plainText.prefix(50))...")
             } catch {
-                errorHandler.addWarning("Failed to extract content for version: \(error.localizedDescription)")
-                version.content = "[Content unavailable]"
+                print("[DataMapper] ERROR extracting content: \(error)")
+                errorHandler.addWarning("Failed to extract content for version \(versionNumber): \(error.localizedDescription)")
+                version.content = "[Content unavailable - extraction failed: \(error.localizedDescription)]"
             }
+        } else {
+            // No textString entity at all
+            print("[DataMapper] WARNING: Version \(versionNumber) has no textString entity")
+            errorHandler.addWarning("Version \(versionNumber) has no textString entity")
+            version.content = "[Content unavailable - no textString entity]"
         }
         
         return version
@@ -143,11 +161,16 @@ class DataMapper {
     private func mapTextStringToContent(_ legacyTextString: NSManagedObject) throws -> (String, Data?) {
         // Get NSAttributedString from transformable attribute
         guard let nsAttributedString = legacyTextString.value(forKey: "textFile") as? NSAttributedString else {
+            print("[DataMapper] ERROR: textFile attribute is nil or not NSAttributedString")
             throw ImportError.missingContent
         }
         
+        print("[DataMapper] Found NSAttributedString with length: \(nsAttributedString.length)")
+        
         // Convert using AttributedStringConverter
         let (plainText, rtfData) = AttributedStringConverter.convert(nsAttributedString)
+        
+        print("[DataMapper] Converted to plainText length: \(plainText.count), rtfData: \(rtfData?.count ?? 0) bytes")
         
         return (plainText, rtfData)
     }
@@ -306,7 +329,7 @@ class DataMapper {
         pubSubmission.project = collectionSubmission.project
         
         // Get publication (if mapped)
-        if let pubEntity = legacySubmission.value(forKey: "publication") as? NSManagedObject {
+        if legacySubmission.value(forKey: "publication") as? NSManagedObject != nil {
             // Try to find mapped publication - for now, skip if not found
             // In future phases, could auto-create publications
             errorHandler.addWarning("Publication submissions require manual mapping - skipping for now")

@@ -156,6 +156,14 @@ class LegacyDatabaseService {
         }
     }
     
+    /// Disconnect and clean up Core Data resources
+    func disconnect() {
+        // Reset the managed object context to release all fetched objects
+        managedObjectContext?.reset()
+        managedObjectContext = nil
+        persistentContainer = nil
+    }
+    
     // MARK: - Entity Fetching
     
     /// Get NSManagedObject from objectID string (for fetching related entities)
@@ -283,15 +291,10 @@ class LegacyDatabaseService {
         do {
             let versions = try context.fetch(fetchRequest)
             
-            // Force all versions to be fully loaded
-            for version in versions {
-                // Access key properties to ensure they're loaded
-                _ = version.value(forKey: "date")
-                _ = version.value(forKey: "locked")
-                
-                // Ensure object is not a fault
-                context.refresh(version, mergeChanges: false)
-            }
+            // Note: Don't try to prefetch textString content here
+            // The relationshipKeyPathsForPrefetching should handle it
+            // Attempting to access textString.textFile can cause crashes with corrupted data
+            // Let DataMapper handle missing/faulted content with proper error messages
             
             return versions
         } catch {

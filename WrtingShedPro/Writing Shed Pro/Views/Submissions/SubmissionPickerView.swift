@@ -23,7 +23,7 @@ struct SubmissionPickerView: View {
     // Filter publications for this project
     private var projectPublications: [Publication] {
         allPublications.filter { $0.project?.id == project.id }
-            .sorted { ($0.name ?? "") < ($1.name ?? "") }
+            .sorted { $0.name < $1.name }
     }
     
     private var submissionTitle: String {

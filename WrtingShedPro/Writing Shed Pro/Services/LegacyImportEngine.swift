@@ -87,10 +87,21 @@ class LegacyImportEngine {
         progressTracker.setPhase("Saving to database...")
         do {
             try modelContext.save()
+            
+            // Clear all cached Core Data object references BEFORE disconnecting
             clearCaches()
+            
+            // Disconnect from legacy database to release Core Data resources
+            legacyService.disconnect()
+            
             progressTracker.markComplete()
         } catch {
             errorHandler.addError("Failed to save imported data: \(error.localizedDescription)")
+            
+            // Clean up even on error
+            clearCaches()
+            legacyService.disconnect()
+            
             try errorHandler.rollback(on: modelContext)
             throw error
         }
@@ -264,6 +275,10 @@ class LegacyImportEngine {
                 modelContext.insert(newTextFile)
                 textFileMap[legacyText] = newTextFile
                 
+                // Clear the default empty version created by TextFile init
+                // We'll add versions from the legacy database instead
+                newTextFile.versions = []
+                
                 // Import versions
                 let legacyVersions = try legacyService.fetchVersions(for: legacyText)
                 for (index, legacyVersion) in legacyVersions.enumerated() {
@@ -275,9 +290,6 @@ class LegacyImportEngine {
                     modelContext.insert(newVersion)
                     versionMap[legacyVersion] = newVersion
                     
-                    if newTextFile.versions == nil {
-                        newTextFile.versions = []
-                    }
                     newTextFile.versions?.append(newVersion)
                 }
             } catch {
@@ -304,7 +316,7 @@ class LegacyImportEngine {
                 publicationMap[legacyPublication] = newPublication
                 
                 let typeString = newPublication.type?.rawValue ?? "unknown"
-                print("[LegacyImportEngine] Imported publication: '\(newPublication.name ?? "Untitled")' (type: \(typeString))")
+                print("[LegacyImportEngine] Imported publication: '\(newPublication.name)' (type: \(typeString))")
             } catch {
                 errorHandler.addWarning("Failed to import publication: \(error.localizedDescription)")
             }
@@ -341,7 +353,7 @@ class LegacyImportEngine {
                         var versionToUse: Version? = textFile.currentVersion
                         
                         // Try to get specific version from WS_CollectedVersion_Entity via WS_TextCollection_Entity
-                        if let textCollection = legacyCollection.value(forKey: "textCollection") as? NSManagedObject {
+                        if legacyCollection.value(forKey: "textCollection") as? NSManagedObject != nil {
                             let collectedVersions = try legacyService.fetchCollectedVersions(for: legacyCollection)
                             
                             for collectedVersion in collectedVersions {
@@ -450,7 +462,7 @@ class LegacyImportEngine {
                     // Set name based on publication and collection
                     // Get collection name from WS_CollectionComponent_Entity parent
                     let collectionName = (legacyCollection.value(forKey: "name") as? String) ?? "Collection"
-                    newSubmission.name = "\(collectionName) → \(publication.name ?? "Publication")"
+                    newSubmission.name = "\(collectionName) → \(publication.name)"
                     
                     modelContext.insert(newSubmission)
                     
@@ -518,7 +530,7 @@ class LegacyImportEngine {
                         }
                     }
                     
-                    print("[LegacyImportEngine] Imported submission to '\(publication.name ?? "Unknown")' with \(newSubmission.submittedFiles?.count ?? 0) files")
+                    print("[LegacyImportEngine] Imported submission to '\(publication.name)' with \(newSubmission.submittedFiles?.count ?? 0) files")
                 }
             } catch {
                 errorHandler.addWarning("Failed to import collection submissions: \(error.localizedDescription)")

@@ -109,7 +109,13 @@ struct ProjectEditableList: View {
             message: { offsets in
                 let count = offsets.count
                 if count == 1 {
-                    let projectName = sortedProjects[offsets.first ?? 0].name ?? "Untitled Project"
+                    // Safely access the project
+                    let projectName: String
+                    if let firstIndex = offsets.first, firstIndex < sortedProjects.count {
+                        projectName = sortedProjects[firstIndex].name ?? "Untitled Project"
+                    } else {
+                        projectName = "Untitled Project"
+                    }
                     return Text("Are you sure you want to delete \"\(projectName)\"? This action cannot be undone.")
                 } else {
                     return Text("Are you sure you want to delete \(count) projects? This action cannot be undone.")

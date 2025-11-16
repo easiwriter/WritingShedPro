@@ -22,7 +22,6 @@ class JSONImportService {
     private var textFileMap: [String: TextFile] = [:]
     private var versionMap: [String: Version] = [:]
     private var publicationMap: [String: Publication] = [:]
-    private var submissionMap: [String: Submission] = [:]
     
     // MARK: - Initialization
     
@@ -72,11 +71,8 @@ class JSONImportService {
         // Import publications (submissions in old terminology)
         try importPublications(from: writingShedData, into: project)
         
-        // Import collections (text collections)
-        try importCollections(from: writingShedData, into: project)
-        
-        // Link collection submissions
-        try linkCollectionSubmissions(from: writingShedData, into: project)
+        // Note: Collection/submission relationships are not supported in JSON import
+        // due to export limitations. Users should use Mac Legacy Import for collections.
         
         // Save
         try modelContext.save()
@@ -316,133 +312,6 @@ class JSONImportService {
             return .commission
         default:
             return .other
-        }
-    }
-    
-    // MARK: - Collections Import
-    
-    private func importCollections(from data: WritingShedData, into project: Project) throws {
-        print("[JSONImport] Starting collections/submissions import")
-        
-        var collectionCount = 0
-        for componentData in data.collectionComponentDatas {
-            // Only process WS_Collection_Entity (NOT WS_Submission_Entity which are publications)
-            guard componentData.type == "WS_Collection_Entity" else { continue }
-            
-            collectionCount += 1
-            print("[JSONImport] Processing collection/submission \(collectionCount)")
-            
-            // Get the collection name from textCollectionData.textCollection, NOT collectionComponent
-            var collectionName = "Untitled Collection"
-            var submittedDate = Date()
-            
-            if let textCollectionData = componentData.textCollectionData {
-                // Decode the textCollection JSON to get the name
-                if let textCollectionDict = try? JSONSerialization.jsonObject(
-                    with: textCollectionData.textCollection.data(using: .utf8)!
-                ) as? [String: Any] {
-                    collectionName = textCollectionDict["name"] as? String ?? collectionName
-                    
-                    // Get date
-                    if let timestamp = textCollectionDict["dateCreated"] as? TimeInterval {
-                        submittedDate = Date(timeIntervalSinceReferenceDate: timestamp)
-                    }
-                }
-            }
-            
-            // Create Submission (collection in new model)
-            // Note: publication will be linked later if this is a submission to a magazine/competition
-            let submission = Submission()
-            submission.submittedDate = submittedDate
-            submission.project = project
-            
-            // Decode notes
-            if let notesString = try? decodeAttributedString(from: componentData.notes, plainText: componentData.notesText) {
-                submission.notes = notesString.string
-            }
-            
-            print("[JSONImport]   Collection name: \(collectionName)")
-            
-            // Cache for linking files and publications
-            // IMPORTANT: Cache by textCollectionData.id since that's what versions reference
-            if let textCollectionData = componentData.textCollectionData {
-                submissionMap[textCollectionData.id] = submission
-            }
-            // Also cache by componentData.id for linking to publications
-            submissionMap[componentData.id] = submission
-            
-            modelContext.insert(submission)
-        }
-        
-        print("[JSONImport] ✅ Created \(collectionCount) collections/submissions")
-        
-        // Now link files to submissions by examining collectedVersionData in versions
-        print("[JSONImport] Linking files to collections...")
-        var linkedCount = 0
-        
-        for (versionId, version) in versionMap {
-            guard let textFile = version.textFile else { continue }
-            
-            // Find the corresponding version data to get collectedVersionData
-            for textFileData in data.textFileDatas {
-                for versionData in textFileData.versions {
-                    guard versionData.id == versionId else { continue }
-                    guard let collectedVersionData = versionData.collectedVersionData, !collectedVersionData.isEmpty else { continue }
-                    
-                    // Link this version to collections
-                    for collectedData in collectedVersionData {
-                        // Decode to get textCollection ID (NOT collection ID!)
-                        guard let collectedDict = try? JSONSerialization.jsonObject(
-                            with: collectedData.collectedVersion.data(using: .utf8)!
-                        ) as? [String: Any],
-                        let textCollectionId = collectedDict["uniqueIdentifier"] as? String,
-                        let submission = submissionMap[textCollectionId] else {
-                            continue
-                        }
-                        
-                        // Create submitted file link
-                        let submittedFile = SubmittedFile(
-                            submission: submission,
-                            textFile: textFile,
-                            version: version,
-                            status: .pending
-                        )
-                        modelContext.insert(submittedFile)
-                        linkedCount += 1
-                    }
-                }
-            }
-        }
-        
-        print("[JSONImport] ✅ Linked \(linkedCount) files to collections")
-    }
-    
-    // MARK: - Link Collection Submissions
-    
-    private func linkCollectionSubmissions(from data: WritingShedData, into project: Project) throws {
-        for componentData in data.collectionComponentDatas {
-            // Only process collection entities
-            guard componentData.type != "WS_Submission_Entity" else { continue }
-            
-            // Check if there are submission links
-            guard let submissionIds = componentData.collectionSubmissionIds,
-                  let links = try? PropertyListDecoder().decode([String].self, from: submissionIds),
-                  !links.isEmpty else {
-                continue
-            }
-            
-            // Get the submission (collection)
-            guard let submission = submissionMap[componentData.id] else {
-                continue
-            }
-            
-            // Link to publication
-            for linkId in links {
-                if let publication = publicationMap[linkId] {
-                    submission.publication = publication
-                    break // Only one publication per submission
-                }
-            }
         }
     }
     

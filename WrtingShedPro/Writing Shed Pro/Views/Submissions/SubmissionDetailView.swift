@@ -15,6 +15,11 @@ struct SubmissionDetailView: View {
     @Bindable var submission: Submission
     
     @State private var showingDeleteConfirmation = false
+    @State private var editedName: String = ""
+    @State private var editedSubmittedDate: Date = Date()
+    @State private var editedResponseDate: Date?
+    @State private var editedNotes: String = ""
+    @State private var hasResponseDate: Bool = false
     
     var body: some View {
         List {
@@ -31,21 +36,6 @@ struct SubmissionDetailView: View {
                 }
             } header: {
                 Text(NSLocalizedString("publications.form.name.label", comment: "Publication"))
-            }
-            
-            // Submission info
-            Section {
-                LabeledContent(NSLocalizedString("submissions.submitted.label", comment: "Submitted")) {
-                    Text(submission.submittedDate, style: .date)
-                }
-                
-                if let notes = submission.notes {
-                    LabeledContent(NSLocalizedString("submissions.notes.label", comment: "Notes")) {
-                        Text(notes)
-                    }
-                }
-            } header: {
-                Text(NSLocalizedString("submissions.details.label", comment: "Details"))
             }
             
             // Submitted files
@@ -67,6 +57,74 @@ struct SubmissionDetailView: View {
                 Text(String(format: NSLocalizedString("submissions.files.label", comment: "Files"), submission.fileCount))
             }
             
+            // Editable submission details (moved below files)
+            Section {
+                // Optional name field
+                TextField(NSLocalizedString("submissions.name.placeholder", comment: "Name placeholder"), 
+                         text: $editedName)
+                    .onChange(of: editedName) { _, newValue in
+                        submission.name = newValue.isEmpty ? nil : newValue
+                    }
+                
+                // Submitted date
+                DatePicker(NSLocalizedString("submissions.submitted.label", comment: "Submitted"),
+                          selection: $editedSubmittedDate,
+                          displayedComponents: .date)
+                    .onChange(of: editedSubmittedDate) { _, newValue in
+                        submission.submittedDate = newValue
+                    }
+                
+                // Response date toggle and picker
+                Toggle(NSLocalizedString("submissions.response.received", comment: "Response received"), 
+                       isOn: $hasResponseDate)
+                    .onChange(of: hasResponseDate) { _, newValue in
+                        if newValue {
+                            if editedResponseDate == nil {
+                                editedResponseDate = Date()
+                            }
+                            submission.responseDate = editedResponseDate
+                        } else {
+                            submission.responseDate = nil
+                        }
+                    }
+                
+                if hasResponseDate {
+                    DatePicker(NSLocalizedString("submissions.response.date.label", comment: "Response date"),
+                              selection: .init(
+                                get: { editedResponseDate ?? Date() },
+                                set: { newValue in
+                                    editedResponseDate = newValue
+                                    submission.responseDate = newValue
+                                }
+                              ),
+                              displayedComponents: .date)
+                }
+                
+                // Notes field - self-expanding
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(NSLocalizedString("submissions.notes.label", comment: "Notes"))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    
+                    ZStack(alignment: .topLeading) {
+                        // Invisible text that sets the height
+                        Text(editedNotes.isEmpty ? " " : editedNotes)
+                            .font(.body)
+                            .padding(8)
+                            .opacity(0)
+                        
+                        TextEditor(text: $editedNotes)
+                            .frame(minHeight: 80)
+                            .scrollContentBackground(.hidden)
+                            .onChange(of: editedNotes) { _, newValue in
+                                submission.notes = newValue.isEmpty ? nil : newValue
+                            }
+                    }
+                }
+            } header: {
+                Text(NSLocalizedString("submissions.details.label", comment: "Details"))
+            }
+            
             // Delete
             Section {
                 Button(role: .destructive) {
@@ -77,6 +135,14 @@ struct SubmissionDetailView: View {
                 .accessibilityLabel(Text(NSLocalizedString("accessibility.delete.submission", comment: "Delete submission")))
                 .accessibilityHint(Text(NSLocalizedString("accessibility.delete.submission.hint", comment: "Delete submission hint")))
             }
+        }
+        .onAppear {
+            // Initialize state from submission
+            editedName = submission.name ?? ""
+            editedSubmittedDate = submission.submittedDate
+            editedResponseDate = submission.responseDate
+            editedNotes = submission.notes ?? ""
+            hasResponseDate = submission.responseDate != nil
         }
         .navigationTitle(Text(NSLocalizedString("submissions.detail.title", comment: "Submission details")))
         .navigationBarTitleDisplayMode(.inline)

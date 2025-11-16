@@ -1496,7 +1496,24 @@ struct FileEditView: View {
     private func loadCurrentVersion() {
         var newAttributedContent: NSAttributedString
         
-        if let versionContent = file.currentVersion?.attributedContent {
+        // PERFORMANCE: Access attributedContent once and cache it
+        // The getter deserializes RTF data which is expensive - avoid repeated calls
+        guard let currentVersion = file.currentVersion else {
+            // No version available - shouldn't happen but handle gracefully
+            newAttributedContent = NSAttributedString(
+                string: "",
+                attributes: [.font: UIFont.preferredFont(forTextStyle: .body)]
+            )
+            print("⚠️ loadCurrentVersion: No current version found")
+            attributedContent = newAttributedContent
+            previousContent = ""
+            selectedRange = NSRange(location: 0, length: 0)
+            forceRefresh.toggle()
+            refreshTrigger = UUID()
+            return
+        }
+        
+        if let versionContent = currentVersion.attributedContent {
             // Version has saved content - use it
             newAttributedContent = versionContent
             print("📝 loadCurrentVersion: Loaded existing content, length: \(versionContent.length)")

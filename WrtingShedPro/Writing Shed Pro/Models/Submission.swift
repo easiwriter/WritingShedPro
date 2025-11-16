@@ -23,6 +23,7 @@ class Submission {
     var submittedFiles: [SubmittedFile]? = []
     
     var submittedDate: Date = Date()
+    var responseDate: Date?  // Date when response was received
     var notes: String?
     
     var createdDate: Date = Date()

@@ -108,6 +108,11 @@ final class Version {
     /// Formatted content stored as RTF data
     var formattedContent: Data?
     
+    // PERFORMANCE: Cache for deserialized attributed content
+    // Transient - not persisted, cleared when formattedContent changes
+    @Transient private var _cachedAttributedContent: NSAttributedString?
+    @Transient private var _cachedFormattedContentHash: Data?
+    
     // SwiftData Relationships
     var textFile: TextFile?
     
@@ -132,21 +137,55 @@ final class Version {
     // MARK: - Formatted Content Support
     
     /// Computed property for working with NSAttributedString
+    /// PERFORMANCE: Cached to avoid expensive RTF deserialization on every access
     var attributedContent: NSAttributedString? {
         get {
+            // If we have cached content and formattedContent hasn't changed, return cache
+            if let cached = _cachedAttributedContent,
+               _cachedFormattedContentHash == formattedContent {
+                return cached
+            }
+            
+            // No formatted content - return plain text
             guard let data = formattedContent, !data.isEmpty else {
                 // Fall back to plain text with body font and textStyle attribute if no formatted content
-                return NSAttributedString(
+                let plainText = NSAttributedString(
                     string: content,
                     attributes: [
                         .font: UIFont.preferredFont(forTextStyle: .body),
                         .textStyle: UIFont.TextStyle.body.attributeValue
                     ]
                 )
+                // Cache plain text result too
+                _cachedAttributedContent = plainText
+                _cachedFormattedContentHash = nil
+                return plainText
             }
             
-            // Decode using AttributedStringSerializer
-            return AttributedStringSerializer.decode(data, text: content)
+            // Decode using AttributedStringSerializer (expensive operation)
+            // If decoding fails, it will return plain text with default formatting
+            let decoded = AttributedStringSerializer.decode(data, text: content)
+            
+            // If decode returned empty or very short content, but we have plain text content, fall back
+            if decoded.length < content.count / 2 && !content.isEmpty {
+                print("[Version] Decode produced short result (\(decoded.length) vs \(content.count)), falling back to plain text")
+                let plainText = NSAttributedString(
+                    string: content,
+                    attributes: [
+                        .font: UIFont.preferredFont(forTextStyle: .body),
+                        .textStyle: UIFont.TextStyle.body.attributeValue
+                    ]
+                )
+                _cachedAttributedContent = plainText
+                _cachedFormattedContentHash = nil
+                return plainText
+            }
+            
+            // Cache the result
+            _cachedAttributedContent = decoded
+            _cachedFormattedContentHash = data
+            
+            return decoded
         }
         set {
             if let attributed = newValue {
@@ -155,8 +194,16 @@ final class Version {
                 
                 // Also update plain text for search/compatibility
                 content = attributed.string
+                
+                // Update cache
+                _cachedAttributedContent = attributed
+                _cachedFormattedContentHash = formattedContent
             } else {
                 formattedContent = nil
+                
+                // Clear cache
+                _cachedAttributedContent = nil
+                _cachedFormattedContentHash = nil
             }
         }
     }
