@@ -1,0 +1,292 @@
+//
+//  SubmissionPickerView.swift
+//  Writing Shed Pro
+//
+//  Feature 008b Phase 3: Submission workflow from Ready folder
+//
+
+import SwiftUI
+import SwiftData
+
+struct SubmissionPickerView: View {
+    @Environment(\.modelContext) private var modelContext
+    
+    let project: Project
+    let filesToSubmit: [TextFile]?
+    let collectionToSubmit: Submission?
+    let onPublicationSelected: (Publication) -> Void
+    let onCancel: () -> Void
+    
+    @Query private var allPublications: [Publication]
+    @State private var showingNewPublicationSheet = false
+    
+    // Filter publications for this project
+    private var projectPublications: [Publication] {
+        allPublications.filter { $0.project?.id == project.id }
+            .sorted { ($0.name ?? "") < ($1.name ?? "") }
+    }
+    
+    private var submissionTitle: String {
+        if let collection = collectionToSubmit, let name = collection.name {
+            return "Submit: \(name)"
+        } else if collectionToSubmit != nil {
+            return "Submit Collection"
+        } else {
+            return "Submit Files"
+        }
+    }
+    
+    var body: some View {
+        List {
+            // New Publication button section
+            Section {
+                Button(action: { showingNewPublicationSheet = true }) {
+                    Label("publications.button.add", systemImage: "plus.circle.fill")
+                        .foregroundStyle(.blue)
+                }
+                .accessibilityLabel(Text("accessibility.add.publication"))
+            }
+            
+            // Existing publications
+            if !projectPublications.isEmpty {
+                Section {
+                    ForEach(projectPublications) { publication in
+                        Button(action: {
+                            onPublicationSelected(publication)
+                        }) {
+                            HStack {
+                                Text(publication.type?.icon ?? "")
+                                    .font(.title3)
+                                
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(publication.name)
+                                        .font(.body)
+                                        .foregroundStyle(.primary)
+                                    
+                                    if let type = publication.type {
+                                        Text(type.displayName)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                
+                                Spacer()
+                                
+                                Image(systemName: "chevron.right")
+                                    .font(.caption)
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
+                        .accessibilityLabel(Text(String(format: NSLocalizedString("accessibility.submit.to", comment: "Submit to"), publication.name)))
+                    }
+                } header: {
+                    Text("publications.existing.title")
+                }
+            } else {
+                // Empty state
+                Section {
+                    ContentUnavailableView {
+                        Label("publications.empty.title", systemImage: "doc.text.magnifyingglass")
+                    } description: {
+                        Text("publications.empty.message")
+                    }
+                }
+            }
+        }
+        .navigationTitle("submissions.submit.title")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("button.cancel") {
+                    onCancel()
+                }
+            }
+        }
+        .sheet(isPresented: $showingNewPublicationSheet) {
+            NavigationStack {
+                NewPublicationForSubmissionView(
+                    project: project,
+                    filesToSubmit: filesToSubmit,
+                    collectionToSubmit: collectionToSubmit,
+                    onPublicationCreated: { publication in
+                        showingNewPublicationSheet = false
+                        onPublicationSelected(publication)
+                    },
+                    onCancel: {
+                        showingNewPublicationSheet = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+/// View for creating a new publication during submission flow
+struct NewPublicationForSubmissionView: View {
+    @Environment(\.modelContext) private var modelContext
+    
+    let project: Project
+    let filesToSubmit: [TextFile]?
+    let collectionToSubmit: Submission?
+    let onPublicationCreated: (Publication) -> Void
+    let onCancel: () -> Void
+    
+    @Query private var allPublications: [Publication]
+    
+    @State private var name: String = ""
+    @State private var selectedType: PublicationType = .magazine
+    @State private var showingError = false
+    @State private var errorMessage = ""
+    @State private var showingDuplicateWarning = false
+    @State private var pendingSaveName: String = ""
+    
+    var body: some View {
+        Form {
+            Section {
+                TextField("publications.form.name.placeholder", text: $name)
+                    .accessibilityLabel(Text("publications.form.name.label"))
+            } header: {
+                Text("publications.form.name.label")
+            }
+            
+            Section {
+                Picker("publications.form.type.label", selection: $selectedType) {
+                    ForEach([PublicationType.magazine, .competition, .commission, .other], id: \.self) { type in
+                        Text(type.displayName).tag(type)
+                    }
+                }
+                .pickerStyle(.menu)
+            } header: {
+                Text("publications.form.type.label")
+            }
+            
+            Section {
+                if let filesToSubmit = filesToSubmit {
+                    ForEach(filesToSubmit, id: \.id) { file in
+                        Text(file.name)
+                            .font(.body)
+                    }
+                } else if let collection = collectionToSubmit {
+                    if let files = collection.submittedFiles {
+                        ForEach(files, id: \.id) { submittedFile in
+                            if let file = submittedFile.textFile {
+                                Text(file.name)
+                                    .font(.body)
+                            }
+                        }
+                    }
+                }
+            } header: {
+                if let filesToSubmit = filesToSubmit {
+                    Text(String(format: NSLocalizedString("submissions.files.selected", comment: "Files selected"), filesToSubmit.count))
+                } else if let collection = collectionToSubmit {
+                    let count = collection.submittedFiles?.count ?? 0
+                    Text(String(format: NSLocalizedString("submissions.files.selected", comment: "Files selected"), count))
+                } else {
+                    Text("No files selected")
+                }
+            }
+        }
+        .navigationTitle("publications.new.quick.title")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("button.cancel") {
+                    onCancel()
+                }
+            }
+            
+            ToolbarItem(placement: .confirmationAction) {
+                Button("publications.button.create") {
+                    createPublicationAndSubmit()
+                }
+                .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+        }
+        .alert("publications.error.title", isPresented: $showingError) {
+            Button("button.ok", role: .cancel) { }
+        } message: {
+            Text(errorMessage)
+        }
+        .confirmationDialog(
+            "publications.duplicate.title",
+            isPresented: $showingDuplicateWarning,
+            titleVisibility: .visible
+        ) {
+            Button("publications.duplicate.useOriginal") {
+                performCreate(withName: pendingSaveName)
+            }
+            Button("publications.duplicate.makeUnique") {
+                let uniqueName = makeUniqueName(pendingSaveName)
+                name = uniqueName
+                performCreate(withName: uniqueName)
+            }
+            Button("button.cancel", role: .cancel) {
+                pendingSaveName = ""
+            }
+        } message: {
+            Text("publications.duplicate.message")
+        }
+    }
+    
+    private func createPublicationAndSubmit() {
+        let trimmedName = name.trimmingCharacters(in: .whitespaces)
+        
+        guard !trimmedName.isEmpty else {
+            errorMessage = NSLocalizedString("publications.error.name.empty", comment: "Name required")
+            showingError = true
+            return
+        }
+        
+        guard trimmedName.count <= 100 else {
+            errorMessage = NSLocalizedString("publications.error.name.toolong", comment: "Name too long")
+            showingError = true
+            return
+        }
+        
+        // Check for duplicates
+        if hasDuplicateName(trimmedName) {
+            pendingSaveName = trimmedName
+            showingDuplicateWarning = true
+            return
+        }
+        
+        performCreate(withName: trimmedName)
+    }
+    
+    private func performCreate(withName finalName: String) {
+        // Create publication
+        let publication = Publication(
+            name: finalName,
+            type: selectedType,
+            project: project
+        )
+        modelContext.insert(publication)
+        
+        // Notify parent to create submission
+        onPublicationCreated(publication)
+    }
+    
+    private func hasDuplicateName(_ name: String) -> Bool {
+        let projectPublications = allPublications.filter { pub in
+            pub.project?.id == project.id
+        }
+        return projectPublications.contains { $0.name.lowercased() == name.lowercased() }
+    }
+    
+    private func makeUniqueName(_ baseName: String) -> String {
+        let projectPublications = allPublications.filter { pub in
+            pub.project?.id == project.id
+        }
+        
+        var counter = 1
+        var uniqueName = "\(baseName)-1"
+        
+        while projectPublications.contains(where: { $0.name.lowercased() == uniqueName.lowercased() }) {
+            counter += 1
+            uniqueName = "\(baseName)-\(counter)"
+        }
+        
+        return uniqueName
+    }
+}

@@ -1,0 +1,965 @@
+//
+//  CollectionsView.swift
+//  Writing Shed Pro
+//
+//  Feature 008c: Collections Management System
+//  Collections are Submission objects (where publication == nil) organized in the Collections folder
+//
+
+import SwiftUI
+import SwiftData
+
+/// View for displaying Collections in the Collections folder
+/// Collections are Submission objects with no publication attached
+struct CollectionsView: View {
+    let project: Project
+    @Environment(\.modelContext) var modelContext
+    @Environment(\.dismiss) var dismiss
+    
+    // State for add collection sheet
+    @State private var showAddCollectionSheet = false
+    @State private var newCollectionName: String = ""
+    @State private var newCollectionNameError: String?
+    
+    // State for edit mode (multi-select)
+    @State private var editMode: EditMode = .inactive
+    @State private var selectedCollectionIDs: Set<UUID> = []
+    @State private var showPublicationPicker = false
+    
+    // State for delete confirmation
+    @State private var showDeleteConfirmation = false
+    @State private var collectionsToDelete: [Submission] = []
+    
+    // Query all Submissions for this project
+    @Query private var allSubmissions: [Submission]
+    
+    init(project: Project) {
+        self.project = project
+        
+        // Configure query to fetch only Submissions for this project where publication is nil (Collections)
+        let projectID = project.id
+        _allSubmissions = Query(
+            filter: #Predicate<Submission> { submission in
+                submission.publication == nil && submission.project?.id == projectID
+            },
+            sort: [SortDescriptor(\Submission.createdDate, order: .reverse)]
+        )
+    }
+    
+    // Collections are the filtered submissions
+    private var sortedCollections: [Submission] {
+        return allSubmissions
+    }
+    
+    // Get selected collections based on selectedCollectionIDs
+    private var selectedCollections: [Submission] {
+        sortedCollections.filter { selectedCollectionIDs.contains($0.id) }
+    }
+    
+    // Whether edit mode is currently active
+    private var isEditMode: Bool {
+        editMode == .active
+    }
+    
+    // Whether to show the bottom toolbar (edit mode + items selected)
+    private var showToolbar: Bool {
+        isEditMode && !selectedCollectionIDs.isEmpty
+    }
+    
+    var body: some View {
+        Group {
+            if !sortedCollections.isEmpty {
+                // Show list of collections
+                List {
+                    ForEach(sortedCollections) { collection in
+                        collectionRow(for: collection)
+                    }
+                    .onDelete(perform: isEditMode ? nil : deleteCollections)
+                }
+                .listStyle(.plain)
+                .toolbar {
+                    // Bottom toolbar for multi-select actions (only in edit mode)
+                    ToolbarItemGroup(placement: .bottomBar) {
+                        if showToolbar {
+                            bottomToolbarContent
+                        }
+                    }
+                }
+            } else {
+                // Empty state
+                ContentUnavailableView {
+                    Label("No Collections", systemImage: "tray.2")
+                } description: {
+                    Text("Create your first Collection to organize your submissions")
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("No Collections yet")
+            }
+        }
+        .navigationTitle("Collections")
+        .navigationBarTitleDisplayMode(.inline)
+        .environment(\.editMode, $editMode)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                HStack(spacing: 16) {
+                    // Add collection button
+                    Button {
+                        showAddCollectionSheet = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                    .accessibilityLabel("Add Collection")
+                    
+                    // Edit/Done button
+                    if !sortedCollections.isEmpty {
+                        Button {
+                            withAnimation {
+                                editMode = editMode == .inactive ? .active : .inactive
+                                if editMode == .inactive {
+                                    selectedCollectionIDs.removeAll()
+                                }
+                            }
+                        } label: {
+                            Text(editMode == .inactive ? "Edit" : "Done")
+                        }
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $showAddCollectionSheet) {
+            AddCollectionSheet(
+                project: project,
+                collectionName: $newCollectionName,
+                error: $newCollectionNameError,
+                onCancel: {
+                    showAddCollectionSheet = false
+                    newCollectionName = ""
+                    newCollectionNameError = nil
+                },
+                onSave: { name in
+                    addCollection(name: name)
+                }
+            )
+        }
+        .sheet(isPresented: $showPublicationPicker) {
+            if !selectedCollections.isEmpty {
+                NavigationStack {
+                    SubmissionPickerView(
+                        project: project,
+                        filesToSubmit: nil,
+                        collectionToSubmit: selectedCollections.first,
+                        onPublicationSelected: { publication in
+                            // Handle submission to publication
+                            submitCollectionsToPublication(publication)
+                            showPublicationPicker = false
+                        },
+                        onCancel: {
+                            showPublicationPicker = false
+                        }
+                    )
+                }
+            }
+        }
+        .confirmationDialog(
+            "Delete \(collectionsToDelete.count) \(collectionsToDelete.count == 1 ? "collection" : "collections")?",
+            isPresented: $showDeleteConfirmation
+        ) {
+            Button("button.cancel", role: .cancel) {
+                collectionsToDelete = []
+            }
+            Button("collections.button.delete", role: .destructive) {
+                confirmDelete()
+            }
+        } message: {
+            Text("collections.delete.confirmation.message")
+        }
+    }
+    
+    // MARK: - View Builders
+    
+    @ViewBuilder
+    private func collectionRow(for collection: Submission) -> some View {
+        if isEditMode {
+            // In edit mode, use tap gesture for selection
+            HStack {
+                Image(systemName: selectedCollectionIDs.contains(collection.id) ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(selectedCollectionIDs.contains(collection.id) ? .blue : .gray)
+                    .imageScale(.large)
+                
+                Image(systemName: "tray.2.fill")
+                    .foregroundStyle(.blue)
+                    .font(.title3)
+                    .accessibilityHidden(true)
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(collection.name ?? "Untitled Collection")
+                        .font(.body)
+                    
+                    // Show count of files in this collection
+                    let fileCount = collection.submittedFiles?.count ?? 0
+                    Text(String(format: NSLocalizedString("collections.files.count", comment: "Files in collection"), fileCount))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                
+                Spacer()
+            }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                toggleSelection(for: collection)
+            }
+        } else {
+            // In normal mode, use NavigationLink
+            NavigationLink(destination: CollectionDetailView(submission: collection)) {
+                HStack {
+                    Image(systemName: "tray.2.fill")
+                        .foregroundStyle(.blue)
+                        .font(.title3)
+                        .accessibilityHidden(true)
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(collection.name ?? "Untitled Collection")
+                            .font(.body)
+                        
+                        // Show count of files in this collection
+                        let fileCount = collection.submittedFiles?.count ?? 0
+                        Text(String(format: NSLocalizedString("collections.files.count", comment: "Files in collection"), fileCount))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    
+                    Spacer()
+                }
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var bottomToolbarContent: some View {
+        Button(role: .destructive) {
+            deleteSelectedCollections()
+        } label: {
+            Label(
+                "Delete \(selectedCollections.count)",
+                systemImage: "trash"
+            )
+        }
+        .disabled(selectedCollections.isEmpty)
+        
+        Spacer()
+        
+        Button {
+            showPublicationPicker = true
+        } label: {
+            Label(
+                "Add to Publication",
+                systemImage: "book.badge.plus"
+            )
+        }
+        .disabled(selectedCollections.isEmpty)
+        
+        Spacer()
+    }
+    
+    // MARK: - Actions
+    
+    private func toggleSelection(for collection: Submission) {
+        if selectedCollectionIDs.contains(collection.id) {
+            selectedCollectionIDs.remove(collection.id)
+        } else {
+            selectedCollectionIDs.insert(collection.id)
+        }
+    }
+    
+    private func deleteSelectedCollections() {
+        prepareDelete(selectedCollections)
+    }
+    
+    private func deleteCollections(at offsets: IndexSet) {
+        let collections = offsets.map { sortedCollections[$0] }
+        prepareDelete(collections)
+    }
+    
+    private func prepareDelete(_ collections: [Submission]) {
+        collectionsToDelete = collections
+        showDeleteConfirmation = true
+    }
+    
+    private func confirmDelete() {
+        for collection in collectionsToDelete {
+            modelContext.delete(collection)
+        }
+        
+        do {
+            try modelContext.save()
+            collectionsToDelete = []
+            selectedCollectionIDs.removeAll()
+            withAnimation {
+                editMode = .inactive
+            }
+        } catch {
+            // Handle error silently for now
+        }
+    }
+    
+    private func addCollection(name: String) {
+        // Validate collection name
+        let trimmedName = name.trimmingCharacters(in: .whitespaces)
+        
+        // Check if name is empty
+        if trimmedName.isEmpty {
+            newCollectionNameError = NSLocalizedString(
+                "collections.error.emptyName",
+                comment: "Error message for empty collection name"
+            )
+            return
+        }
+        
+        // Create new Submission (Collection)
+        let newSubmission = Submission(
+            publication: nil,
+            project: project
+        )
+        newSubmission.name = trimmedName
+        
+        do {
+            modelContext.insert(newSubmission)
+            try modelContext.save()
+            showAddCollectionSheet = false
+            newCollectionName = ""
+            newCollectionNameError = nil
+        } catch {
+            newCollectionNameError = NSLocalizedString(
+                "collections.error.saveFailed",
+                comment: "Error message when saving collection failed"
+            )
+        }
+    }
+    
+    private func submitCollectionsToPublication(_ publication: Publication) {
+        // For each selected collection, create submitted file records for all its files to the publication
+        for collection in selectedCollections {
+            if let submittedFiles = collection.submittedFiles {
+                for submittedFile in submittedFiles {
+                    // Create a new submission for this publication
+                    let submission = Submission(
+                        publication: publication,
+                        project: project,
+                        submittedDate: Date(),
+                        notes: nil
+                    )
+                    modelContext.insert(submission)
+                    
+                    // Create submitted file record for the text file
+                    if let textFile = submittedFile.textFile, let version = submittedFile.version {
+                        let newSubmittedFile = SubmittedFile(
+                            submission: submission,
+                            textFile: textFile,
+                            version: version,
+                            status: .pending,
+                            statusDate: Date(),
+                            project: project
+                        )
+                        modelContext.insert(newSubmittedFile)
+                    }
+                }
+            }
+        }
+        
+        do {
+            try modelContext.save()
+            selectedCollectionIDs.removeAll()
+            withAnimation {
+                editMode = .inactive
+            }
+        } catch {
+            print("Error submitting collections to publication: \(error)")
+            // TODO: Show error alert
+        }
+    }
+}
+
+// MARK: - Add Collection Sheet
+
+struct AddCollectionSheet: View {
+    let project: Project
+    @Binding var collectionName: String
+    @Binding var error: String?
+    
+    let onCancel: () -> Void
+    let onSave: (String) -> Void
+    
+    @Environment(\.dismiss) var dismiss
+    
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField(
+                        NSLocalizedString("collections.form.name.placeholder", comment: "Placeholder for collection name"),
+                        text: $collectionName
+                    )
+                    .textInputAutocapitalization(.words)
+                    .accessibilityLabel("Collection name")
+                    
+                    if let errorMessage = error {
+                        Text(errorMessage)
+                            .foregroundStyle(.red)
+                            .font(.caption)
+                    }
+                } header: {
+                    Text(NSLocalizedString("collections.form.name.label", comment: "Collection name label"))
+                }
+            }
+            .navigationTitle("New Collection")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(NSLocalizedString("button.cancel", comment: "Cancel button")) {
+                        onCancel()
+                        dismiss()
+                    }
+                }
+                
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(NSLocalizedString("button.save", comment: "Save button")) {
+                        onSave(collectionName)
+                        dismiss()
+                    }
+                    .disabled(collectionName.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Collection Detail View
+
+struct CollectionDetailView: View {
+    @Bindable var submission: Submission
+    @Environment(\.modelContext) var modelContext
+    
+    @State private var showAddFilesSheet = false
+    @State private var editingSubmittedFile: SubmittedFile?
+    @State private var showVersionPicker = false
+    @State private var showSubmissionPicker = false
+    
+    private var submittedFiles: [SubmittedFile] {
+        let files = submission.submittedFiles ?? []
+        return files.sorted { file1, file2 in
+            let name1 = file1.textFile?.name ?? ""
+            let name2 = file2.textFile?.name ?? ""
+            return name1.localizedCaseInsensitiveCompare(name2) == .orderedAscending
+        }
+    }
+    
+    var body: some View {
+        Group {
+            if !submittedFiles.isEmpty {
+                List {
+                    ForEach(submittedFiles) { submittedFile in
+                        if let file = submittedFile.textFile {
+                            HStack {
+                                NavigationLink(destination: FileEditView(file: file)) {
+                                    CollectionFileRowView(submittedFile: submittedFile)
+                                }
+                                
+                                Button {
+                                    editingSubmittedFile = submittedFile
+                                    showVersionPicker = true
+                                } label: {
+                                    Image(systemName: "pencil.circle")
+                                        .foregroundStyle(.blue)
+                                        .font(.body)
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel("Edit version")
+                            }
+                        }
+                    }
+                    .onDelete(perform: deleteFiles)
+                }
+                .listStyle(.plain)
+            } else {
+                ContentUnavailableView {
+                    Label("No Files in Collection", systemImage: "doc.text")
+                } description: {
+                    Text("Add files from your Ready folder to this collection")
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("No files in collection yet")
+            }
+        }
+        .navigationTitle("Collection")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                VStack(spacing: 2) {
+                    Text(submission.name ?? "Untitled Collection")
+                        .font(.headline)
+                        .lineLimit(1)
+                }
+            }
+            
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Menu {
+                    Button(action: { showAddFilesSheet = true }) {
+                        Label("Add Files", systemImage: "plus")
+                    }
+                    
+                    if !submittedFiles.isEmpty {
+                        Divider()
+                        
+                        Button(action: { showSubmissionPicker = true }) {
+                            Label("Submit to Publication", systemImage: "paperplane")
+                        }
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+                .accessibilityLabel("Collection actions")
+            }
+        }
+        .sheet(isPresented: $showAddFilesSheet) {
+            AddFilesToCollectionSheet(
+                submission: submission,
+                onCancel: {
+                    showAddFilesSheet = false
+                },
+                onFilesAdded: {
+                    showAddFilesSheet = false
+                }
+            )
+        }
+        .sheet(isPresented: $showVersionPicker) {
+            if let submittedFile = editingSubmittedFile {
+                NavigationStack {
+                    EditVersionSheet(
+                        submittedFile: submittedFile,
+                        onCancel: {
+                            showVersionPicker = false
+                            editingSubmittedFile = nil
+                        },
+                        onSave: {
+                            showVersionPicker = false
+                            editingSubmittedFile = nil
+                            try? modelContext.save()
+                        }
+                    )
+                }
+            }
+        }
+        .sheet(isPresented: $showSubmissionPicker) {
+            if let project = submission.project {
+                NavigationStack {
+                    SubmissionPickerView(
+                        project: project,
+                        filesToSubmit: nil,
+                        collectionToSubmit: submission,
+                        onPublicationSelected: { publication in
+                            createSubmissionFromCollection(to: publication)
+                            showSubmissionPicker = false
+                        },
+                        onCancel: {
+                            showSubmissionPicker = false
+                        }
+                    )
+                }
+            }
+        }
+    }
+    
+    private func deleteFiles(at offsets: IndexSet) {
+        for index in offsets {
+            let file = submittedFiles[index]
+            submission.submittedFiles?.removeAll { $0.id == file.id }
+            modelContext.delete(file)
+        }
+        
+        do {
+            try modelContext.save()
+        } catch {
+            // Handle error silently for now
+        }
+    }
+    
+    private func createSubmissionFromCollection(to publication: Publication) {
+        guard let project = submission.project else { return }
+        
+        // Create new Submission as Publication Submission
+        let pubSubmission = Submission(
+            publication: publication,
+            project: project
+        )
+        pubSubmission.name = submission.name  // Preserve collection name in submission
+        pubSubmission.collectionDescription = submission.collectionDescription
+        
+        // Copy SubmittedFiles from Collection with preserved versions
+        let copiedFiles = (submission.submittedFiles ?? []).map { original in
+            SubmittedFile(
+                submission: pubSubmission,
+                textFile: original.textFile,
+                version: original.version,  // Preserve version!
+                status: .pending
+            )
+        }
+        
+        pubSubmission.submittedFiles = copiedFiles
+        
+        // Save to database
+        modelContext.insert(pubSubmission)
+        
+        do {
+            try modelContext.save()
+        } catch {
+            // Handle error silently for now
+        }
+    }
+}
+
+// MARK: - Collection File Row View
+
+struct CollectionFileRowView: View {
+    let submittedFile: SubmittedFile
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "doc.text.fill")
+                .foregroundStyle(.blue)
+                .font(.title3)
+                .accessibilityHidden(true)
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(submittedFile.textFile?.name ?? "Untitled File")
+                    .font(.body)
+                
+                if let version = submittedFile.version {
+                    Text("Version \(version.versionNumber)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            
+            Spacer()
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(submittedFile.textFile?.name ?? "Untitled"), Version \(submittedFile.version?.versionNumber ?? 0)")
+    }
+}
+
+// MARK: - Add Files to Collection Sheet
+
+struct AddFilesToCollectionSheet: View {
+    @Bindable var submission: Submission
+    @Environment(\.modelContext) var modelContext
+    @Environment(\.dismiss) var dismiss
+    
+    let onCancel: () -> Void
+    let onFilesAdded: () -> Void
+    
+    @State private var selectedFiles: Set<UUID> = []
+    @State private var selectedVersions: [UUID: Version] = [:]  // fileId -> selected version
+    @State private var availableFiles: [TextFile] = []
+    @State private var expandedFileId: UUID?  // For version picker expansion
+    
+    var body: some View {
+        NavigationStack {
+            contentView
+                .navigationTitle("Add Files to Collection")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button(NSLocalizedString("button.cancel", comment: "Cancel button")) {
+                            onCancel()
+                            dismiss()
+                        }
+                    }
+                    
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button(NSLocalizedString("button.save", comment: "Save button")) {
+                            addSelectedFiles()
+                            onFilesAdded()
+                            dismiss()
+                        }
+                        .disabled(selectedFiles.isEmpty)
+                    }
+                }
+        }
+        .onAppear {
+            loadAvailableFiles()
+        }
+    }
+    
+    private var contentView: some View {
+        Group {
+            if !availableFiles.isEmpty {
+                filesList
+            } else {
+                emptyState
+            }
+        }
+    }
+    
+    private var filesList: some View {
+        List {
+            ForEach(availableFiles, id: \.id) { file in
+                fileRowView(for: file)
+            }
+        }
+    }
+    
+    private func fileRowView(for file: TextFile) -> some View {
+        VStack(spacing: 0) {
+            HStack {
+                Image(systemName: selectedFiles.contains(file.id) ? "checkmark.square.fill" : "square")
+                    .foregroundStyle(selectedFiles.contains(file.id) ? .blue : .gray)
+                    .font(.title3)
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(file.name)
+                        .font(.body)
+                    
+                    if selectedFiles.contains(file.id),
+                       let selectedVersion = selectedVersions[file.id] {
+                        Text("Version \(selectedVersion.versionNumber) selected")
+                            .font(.caption)
+                            .foregroundStyle(.blue)
+                    } else {
+                        let latestVersion = file.versions?.count ?? 0
+                        Text("Latest version: \(latestVersion)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                
+                Spacer()
+                
+                if selectedFiles.contains(file.id) {
+                    Image(systemName: expandedFileId == file.id ? "chevron.up" : "chevron.down")
+                        .foregroundStyle(.secondary)
+                        .font(.caption)
+                }
+            }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                toggleFile(file.id)
+            }
+            
+            // Version picker - shown when file is selected and expanded
+            if selectedFiles.contains(file.id) && expandedFileId == file.id {
+                versionPickerView(for: file)
+                    .padding(.top, 8)
+            }
+        }
+    }
+    
+    private func versionPickerView(for file: TextFile) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Select Version")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.leading, 32)
+            
+            let versions = file.sortedVersions
+            if !versions.isEmpty {
+                ForEach(versions, id: \.id) { version in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Version \(version.versionNumber)")
+                                .font(.body)
+                            
+                            if let comment = version.comment, !comment.isEmpty {
+                                Text(comment)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
+                        }
+                        
+                        Spacer()
+                        
+                        if selectedVersions[file.id]?.id == version.id {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(.blue)
+                        }
+                    }
+                    .padding(.leading, 32)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        selectedVersions[file.id] = version
+                    }
+                }
+            }
+        }
+        .padding(.vertical, 8)
+        .background(Color(.systemGray6))
+        .cornerRadius(8)
+        .padding(.horizontal, 16)
+    }
+    
+    private var emptyState: some View {
+        ContentUnavailableView {
+            Label("No Files Available", systemImage: "doc.text")
+        } description: {
+            Text("All files from Ready folder are already in this collection or there are no Ready files")
+        }
+    }
+    
+    private func toggleFile(_ fileId: UUID) {
+        if selectedFiles.contains(fileId) {
+            selectedFiles.remove(fileId)
+            expandedFileId = nil
+        } else {
+            selectedFiles.insert(fileId)
+            // Auto-select current version if not already selected
+            if let file = availableFiles.first(where: { $0.id == fileId }) {
+                selectedVersions[fileId] = file.currentVersion
+            }
+            expandedFileId = fileId
+        }
+    }
+    
+    private func loadAvailableFiles() {
+        // Get the Ready folder from the project
+        guard let project = submission.project else {
+            availableFiles = []
+            return
+        }
+        
+        let readyFolder = project.folders?.first { $0.name == "Ready" }
+        guard let readyFolder = readyFolder else {
+            availableFiles = []
+            return
+        }
+        
+        // Get all text files in Ready folder
+        let readyFiles = readyFolder.textFiles ?? []
+        
+        // Filter out files already in this collection
+        let alreadyAdded = Set((submission.submittedFiles ?? []).compactMap { $0.textFile?.id })
+        availableFiles = readyFiles.filter { !alreadyAdded.contains($0.id) }
+    }
+    
+    private func addSelectedFiles() {
+        // For each selected file, create a SubmittedFile in this collection
+        for fileId in selectedFiles {
+            if let file = availableFiles.first(where: { $0.id == fileId }) {
+                // Use selected version or default to current version
+                let selectedVersion = selectedVersions[fileId] ?? file.currentVersion
+                
+                // Create a SubmittedFile with the selected version
+                let submittedFile = SubmittedFile(
+                    submission: submission,
+                    textFile: file,
+                    version: selectedVersion,
+                    status: .pending
+                )
+                
+                // Add to submission
+                if submission.submittedFiles == nil {
+                    submission.submittedFiles = []
+                }
+                submission.submittedFiles?.append(submittedFile)
+                modelContext.insert(submittedFile)
+            }
+        }
+        
+        // Save changes
+        try? modelContext.save()
+    }
+}
+
+// MARK: - Edit Version Sheet
+
+struct EditVersionSheet: View {
+    @Bindable var submittedFile: SubmittedFile
+    @Environment(\.dismiss) var dismiss
+    
+    let onCancel: () -> Void
+    let onSave: () -> Void
+    
+    var body: some View {
+        Group {
+                if let file = submittedFile.textFile {
+                    let versions = file.sortedVersions
+                    if !versions.isEmpty {
+                        List {
+                            Section {
+                                Text(file.name)
+                                    .font(.headline)
+                                    .foregroundStyle(.primary)
+                            } header: {
+                                Text("File")
+                            }
+                            
+                            Section {
+                                ForEach(versions, id: \.id) { version in
+                                    HStack {
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text("Version \(version.versionNumber)")
+                                                .font(.body)
+                                            
+                                            if let comment = version.comment, !comment.isEmpty {
+                                                Text(comment)
+                                                    .font(.caption)
+                                                    .foregroundStyle(.secondary)
+                                                    .lineLimit(1)
+                                            }
+                                            
+                                            Text("\(version.content.count) characters")
+                                                .font(.caption2)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                        
+                                        Spacer()
+                                        
+                                        if submittedFile.version?.id == version.id {
+                                            Image(systemName: "checkmark.circle.fill")
+                                                .foregroundStyle(.blue)
+                                                .font(.body)
+                                        }
+                                    }
+                                    .contentShape(Rectangle())
+                                    .onTapGesture {
+                                        submittedFile.version = version
+                                    }
+                                }
+                            } header: {
+                                Text("Available Versions")
+                            }
+                        }
+                    } else {
+                        ContentUnavailableView {
+                            Label("No Versions", systemImage: "doc.text")
+                        } description: {
+                            Text("This file has no versions")
+                        }
+                    }
+                } else {
+                    ContentUnavailableView {
+                        Label("File Not Found", systemImage: "doc.text.xmark")
+                    } description: {
+                        Text("The file associated with this submission could not be found")
+                    }
+                }
+        }
+        .navigationTitle("Select Version")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button(NSLocalizedString("button.cancel", comment: "Cancel button")) {
+                    onCancel()
+                    dismiss()
+                }
+            }
+            
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button(NSLocalizedString("button.done", comment: "Done button")) {
+                    onSave()
+                    dismiss()
+                }
+            }
+        }
+    }
+}
+
