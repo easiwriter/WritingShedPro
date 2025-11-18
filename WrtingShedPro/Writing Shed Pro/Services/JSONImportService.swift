@@ -45,6 +45,13 @@ class JSONImportService {
         let decoder = JSONDecoder()
         let writingShedData = try decoder.decode(WritingShedData.self, from: jsonData)
         
+        // Debug logging
+        print("[JSONImport] Project Name: \(writingShedData.projectName)")
+        print("[JSONImport] Project Model: \(writingShedData.projectModel)")
+        print("[JSONImport] Text Files Count: \(writingShedData.textFileDatas.count)")
+        print("[JSONImport] Collection Components Count: \(writingShedData.collectionComponentDatas.count)")
+        print("[JSONImport] Scene Components Count: \(writingShedData.sceneComponentDatas.count)")
+        
         // Validate project name
         guard !writingShedData.projectName.isEmpty else {
             throw ImportError.missingContent
@@ -53,6 +60,11 @@ class JSONImportService {
         // Create new project
         let project = try createProject(from: writingShedData)
         modelContext.insert(project)
+        
+        print("[JSONImport] Created project with type: \(project.type)")
+        
+        // Create all standard folders for the project type
+        createStandardFolders(for: project)
         
         // Import text files and versions
         try importTextFiles(from: writingShedData, into: project)
@@ -75,13 +87,14 @@ class JSONImportService {
     // MARK: - Project Creation
     
     private func createProject(from data: WritingShedData) throws -> Project {
-        // Decode the project string (assuming it's base64 encoded plist or similar)
         var projectName = data.projectName
         
-        // Clean up project name (remove timestamp if present)
-        if let components = projectName.split(separator: "<>", maxSplits: 1).first {
-            projectName = String(components).trimmingCharacters(in: .whitespaces)
-        }
+        // Clean up project name - remove date/timestamp in brackets
+        // e.g., "The 1st World (15:11:2025, 08:47)" -> "The 1st World"
+        projectName = cleanProjectName(projectName)
+        
+        // Check if this name already exists
+        projectName = ensureUniqueName(projectName)
         
         // Map project type
         let projectType = mapProjectType(data.projectModel)
@@ -93,7 +106,70 @@ class JSONImportService {
         return project
     }
     
+    /// Remove date/timestamp info from project name
+    private func cleanProjectName(_ name: String) -> String {
+        var cleaned = name
+        
+        // First, remove any timestamp patterns like "<>03/06/2016, 09:09Poetry"
+        if let components = cleaned.split(separator: "<>", maxSplits: 1).first {
+            cleaned = String(components)
+        }
+        
+        // Remove date in brackets at end: "(15:11:2025, 08:47)" or "(dd/mm/yyyy, hh:mm)"
+        // Pattern: (date, time) at end of string
+        let pattern = "\\s*\\([\\d:,\\s/]+\\)\\s*$"
+        if let regex = try? NSRegularExpression(pattern: pattern) {
+            let range = NSRange(cleaned.startIndex..., in: cleaned)
+            cleaned = regex.stringByReplacingMatches(in: cleaned, range: range, withTemplate: "")
+        }
+        
+        return cleaned.trimmingCharacters(in: .whitespaces)
+    }
+    
+    /// Ensure project name is unique in the context
+    private func ensureUniqueName(_ name: String) -> String {
+        // Fetch all existing projects
+        let descriptor = FetchDescriptor<Project>()
+        guard let existingProjects = try? modelContext.fetch(descriptor) else {
+            return name
+        }
+        
+        let existingNames = Set(existingProjects.compactMap { $0.name })
+        
+        // If name is unique, use it as-is
+        if !existingNames.contains(name) {
+            return name
+        }
+        
+        // Name exists - find unique variant with number suffix
+        var counter = 2
+        var uniqueName = "\(name) \(counter)"
+        
+        while existingNames.contains(uniqueName) {
+            counter += 1
+            uniqueName = "\(name) \(counter)"
+        }
+        
+        print("[JSONImport] ⚠️ Duplicate project name detected. Renamed '\(name)' to '\(uniqueName)'")
+        
+        return uniqueName
+    }
+    
     private func mapProjectType(_ modelString: String) -> ProjectType {
+        // Handle numeric values (legacy enum)
+        let numericMapping: [String: ProjectType] = [
+            "35": .poetry,  // WS_Poetry_Project_Value
+            "36": .novel,   // WS_Novel_Project_Value
+            "37": .script,  // WS_Script_Project_Value
+            "38": .shortStory  // WS_Short_Story_Project_Value
+        ]
+        
+        // Check numeric first
+        if let type = numericMapping[modelString] {
+            return type
+        }
+        
+        // Fall back to string names
         let typeMapping: [String: ProjectType] = [
             "novel": .novel,
             "poetry": .poetry,
@@ -109,12 +185,23 @@ class JSONImportService {
     // MARK: - Text Files Import
     
     private func importTextFiles(from data: WritingShedData, into project: Project) throws {
-        for textFileData in data.textFileDatas {
+        print("[JSONImport] Starting text file import for \(data.textFileDatas.count) files")
+        
+        for (index, textFileData) in data.textFileDatas.enumerated() {
+            print("[JSONImport] Processing text file \(index + 1)/\(data.textFileDatas.count)")
+            print("[JSONImport]   ID: \(textFileData.id)")
+            print("[JSONImport]   Type: \(textFileData.type)")
+            print("[JSONImport]   Versions: \(textFileData.versions.count)")
+            
             // Decode text file metadata
             guard let textFileMetadata = try? decodeTextFileMetadata(textFileData.textFile) else {
-                errorHandler.addWarning("Failed to decode text file metadata")
+                errorHandler.addWarning("Failed to decode text file metadata for ID: \(textFileData.id)")
+                print("[JSONImport]   ⚠️ Failed to decode metadata")
                 continue
             }
+            
+            print("[JSONImport]   Name: \(textFileMetadata.name)")
+            print("[JSONImport]   Folder: \(textFileMetadata.folderName)")
             
             // Get or create folder
             let folder = getOrCreateFolder(name: textFileMetadata.folderName, in: project)
@@ -180,13 +267,20 @@ class JSONImportService {
     // MARK: - Publications Import
     
     private func importPublications(from data: WritingShedData, into project: Project) throws {
+        print("[JSONImport] Starting publication import from \(data.collectionComponentDatas.count) collection components")
+        
+        var publicationCount = 0
         for componentData in data.collectionComponentDatas {
             // Only process submission entities (publications)
             guard componentData.type == "WS_Submission_Entity" else { continue }
             
+            publicationCount += 1
+            print("[JSONImport] Processing publication \(publicationCount)")
+            
             // Decode publication metadata
             guard let metadata = try? decodePublicationMetadata(componentData.collectionComponent) else {
                 errorHandler.addWarning("Failed to decode publication metadata")
+                print("[JSONImport] ⚠️ Failed to decode publication metadata")
                 continue
             }
             
@@ -208,6 +302,8 @@ class JSONImportService {
             
             modelContext.insert(publication)
         }
+        
+        print("[JSONImport] ✅ Imported \(publicationCount) publications")
     }
     
     private func mapPublicationType(_ groupName: String) -> PublicationType {
@@ -226,27 +322,38 @@ class JSONImportService {
     // MARK: - Collections Import
     
     private func importCollections(from data: WritingShedData, into project: Project) throws {
+        print("[JSONImport] Starting collections/submissions import")
+        
+        var collectionCount = 0
         for componentData in data.collectionComponentDatas {
-            // Skip submission entities (already processed as publications)
-            guard componentData.type != "WS_Submission_Entity" else { continue }
+            // Only process WS_Collection_Entity (NOT WS_Submission_Entity which are publications)
+            guard componentData.type == "WS_Collection_Entity" else { continue }
             
-            // Only process if there are collected texts
-            guard let textCollectionData = componentData.textCollectionData,
-                  let collectedVersionIds = textCollectionData.collectedVersionIds,
-                  let versionIds = try? PropertyListDecoder().decode([String].self, from: collectedVersionIds),
-                  !versionIds.isEmpty else {
-                continue
-            }
+            collectionCount += 1
+            print("[JSONImport] Processing collection/submission \(collectionCount)")
             
-            // Decode collection metadata
-            guard let metadata = try? decodeCollectionMetadata(componentData.collectionComponent) else {
-                errorHandler.addWarning("Failed to decode collection metadata")
-                continue
+            // Get the collection name from textCollectionData.textCollection, NOT collectionComponent
+            var collectionName = "Untitled Collection"
+            var submittedDate = Date()
+            
+            if let textCollectionData = componentData.textCollectionData {
+                // Decode the textCollection JSON to get the name
+                if let textCollectionDict = try? JSONSerialization.jsonObject(
+                    with: textCollectionData.textCollection.data(using: .utf8)!
+                ) as? [String: Any] {
+                    collectionName = textCollectionDict["name"] as? String ?? collectionName
+                    
+                    // Get date
+                    if let timestamp = textCollectionDict["dateCreated"] as? TimeInterval {
+                        submittedDate = Date(timeIntervalSinceReferenceDate: timestamp)
+                    }
+                }
             }
             
             // Create Submission (collection in new model)
+            // Note: publication will be linked later if this is a submission to a magazine/competition
             let submission = Submission()
-            submission.submittedDate = metadata.dateCreated ?? Date()
+            submission.submittedDate = submittedDate
             submission.project = project
             
             // Decode notes
@@ -254,25 +361,60 @@ class JSONImportService {
                 submission.notes = notesString.string
             }
             
-            // Link versions to submission via SubmittedFile
-            for versionId in versionIds {
-                if let version = versionMap[versionId],
-                   let textFile = version.textFile {
-                    let submittedFile = SubmittedFile(
-                        submission: submission,
-                        textFile: textFile,
-                        version: version,
-                        status: .pending
-                    )
-                    modelContext.insert(submittedFile)
-                }
-            }
+            print("[JSONImport]   Collection name: \(collectionName)")
             
-            // Cache for linking to publications
+            // Cache for linking files and publications
+            // IMPORTANT: Cache by textCollectionData.id since that's what versions reference
+            if let textCollectionData = componentData.textCollectionData {
+                submissionMap[textCollectionData.id] = submission
+            }
+            // Also cache by componentData.id for linking to publications
             submissionMap[componentData.id] = submission
             
             modelContext.insert(submission)
         }
+        
+        print("[JSONImport] ✅ Created \(collectionCount) collections/submissions")
+        
+        // Now link files to submissions by examining collectedVersionData in versions
+        print("[JSONImport] Linking files to collections...")
+        var linkedCount = 0
+        
+        for (versionId, version) in versionMap {
+            guard let textFile = version.textFile else { continue }
+            
+            // Find the corresponding version data to get collectedVersionData
+            for textFileData in data.textFileDatas {
+                for versionData in textFileData.versions {
+                    guard versionData.id == versionId else { continue }
+                    guard let collectedVersionData = versionData.collectedVersionData, !collectedVersionData.isEmpty else { continue }
+                    
+                    // Link this version to collections
+                    for collectedData in collectedVersionData {
+                        // Decode to get textCollection ID (NOT collection ID!)
+                        guard let collectedDict = try? JSONSerialization.jsonObject(
+                            with: collectedData.collectedVersion.data(using: .utf8)!
+                        ) as? [String: Any],
+                        let textCollectionId = collectedDict["uniqueIdentifier"] as? String,
+                        let submission = submissionMap[textCollectionId] else {
+                            continue
+                        }
+                        
+                        // Create submitted file link
+                        let submittedFile = SubmittedFile(
+                            submission: submission,
+                            textFile: textFile,
+                            version: version,
+                            status: .pending
+                        )
+                        modelContext.insert(submittedFile)
+                        linkedCount += 1
+                    }
+                }
+            }
+        }
+        
+        print("[JSONImport] ✅ Linked \(linkedCount) files to collections")
     }
     
     // MARK: - Link Collection Submissions
@@ -306,6 +448,70 @@ class JSONImportService {
     
     // MARK: - Helper Methods
     
+    /// Create all standard folders for a project based on its type
+    private func createStandardFolders(for project: Project) {
+        let folderNames: [String]
+        
+        switch project.type {
+        case .blank:
+            folderNames = ["Files", "Trash"]
+            
+        case .poetry, .shortStory:
+            folderNames = [
+                "All",
+                "Draft",
+                "Ready",
+                "Collections",
+                "Set Aside",
+                "Published",
+                "Research",
+                "Magazines",
+                "Competitions",
+                "Commissions",
+                "Other",
+                "Trash"
+            ]
+            
+        case .novel:
+            folderNames = [
+                "Novel",
+                "Chapters",
+                "Scenes",
+                "Characters",
+                "Locations",
+                "Set Aside",
+                "Research",
+                "Competitions",
+                "Commissions",
+                "Other",
+                "Trash"
+            ]
+            
+        case .script:
+            folderNames = [
+                "Script",
+                "Acts",
+                "Scenes",
+                "Characters",
+                "Locations",
+                "Set Aside",
+                "Research",
+                "Competitions",
+                "Commissions",
+                "Other",
+                "Trash"
+            ]
+        }
+        
+        // Create all folders
+        for name in folderNames {
+            let folder = Folder(name: name, project: project, parentFolder: nil)
+            modelContext.insert(folder)
+        }
+        
+        print("[JSONImport] Created \(folderNames.count) standard folders")
+    }
+    
     private func getOrCreateFolder(name: String, in project: Project) -> Folder {
         // Check if folder already exists in project's folders
         if let existing = project.folders?.first(where: { $0.name == name && $0.parentFolder == nil }) {
@@ -333,27 +539,75 @@ class JSONImportService {
         return NSAttributedString(string: plainText)
     }
     
-    /// Decode text file metadata from base64 encoded plist
-    private func decodeTextFileMetadata(_ encodedString: String) throws -> TextFileMetadata {
-        guard let data = Data(base64Encoded: encodedString),
-              let dict = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any] else {
+    /// Decode text file metadata from JSON string (dictionary format)
+    private func decodeTextFileMetadata(_ jsonString: String) throws -> TextFileMetadata {
+        // The textFile field contains a JSON-encoded dictionary, not base64
+        guard let data = jsonString.data(using: .utf8) else {
+            print("[JSONImport] ❌ Failed to convert string to data")
             throw ImportError.missingContent
         }
         
+        // Decode as JSON dictionary
+        guard let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            print("[JSONImport] ❌ Failed to decode as JSON dictionary")
+            // Try to print what we got for debugging
+            print("[JSONImport] String preview: \(jsonString.prefix(200))")
+            throw ImportError.missingContent
+        }
+        
+        print("[JSONImport] ✅ Decoded metadata keys: \(dict.keys.sorted())")
+        
+        // Extract dates if present (they may be in various formats)
+        var createdDate: Date?
+        var modifiedDate: Date?
+        
+        if let dateString = dict["dateCreated"] as? String {
+            createdDate = ISO8601DateFormatter().date(from: dateString)
+        }
+        
+        if let dateString = dict["dateLastUpdated"] as? String {
+            modifiedDate = ISO8601DateFormatter().date(from: dateString)
+        }
+        
+        // Map old folder names to new folder names
+        let originalFolderName = dict["groupName"] as? String ?? "Draft"
+        let mappedFolderName = mapLegacyFolderName(originalFolderName)
+        
         return TextFileMetadata(
             name: dict["name"] as? String ?? "Untitled",
-            folderName: dict["groupName"] as? String ?? "Drafts",
-            createdDate: dict["dateCreated"] as? Date,
-            modifiedDate: dict["dateLastUpdated"] as? Date
+            folderName: mappedFolderName,
+            createdDate: createdDate,
+            modifiedDate: modifiedDate
         )
     }
     
-    /// Decode publication metadata from base64 encoded plist
-    private func decodePublicationMetadata(_ encodedString: String) throws -> PublicationMetadata {
-        guard let data = Data(base64Encoded: encodedString),
-              let dict = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any] else {
+    /// Map legacy Writing Shed v1 folder names to Writing Shed Pro folder names
+    private func mapLegacyFolderName(_ legacyName: String) -> String {
+        switch legacyName {
+        case "Accepted":
+            return "Published"  // Old app used "Accepted", new app uses "Published"
+        case "Draft", "Ready", "Set Aside", "Collections", "Research", "Trash":
+            return legacyName  // These names stayed the same
+        default:
+            return legacyName  // Unknown folders keep their original name
+        }
+    }
+    
+    /// Decode publication metadata from JSON string (dictionary format)
+    private func decodePublicationMetadata(_ jsonString: String) throws -> PublicationMetadata {
+        // The collectionComponent field contains a JSON-encoded dictionary
+        guard let data = jsonString.data(using: .utf8) else {
+            print("[JSONImport] ❌ Publication: Failed to convert string to data")
             throw ImportError.missingContent
         }
+        
+        guard let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            print("[JSONImport] ❌ Publication: Failed to decode JSON dictionary")
+            print("[JSONImport] String preview: \(jsonString.prefix(200))")
+            throw ImportError.missingContent
+        }
+        
+        print("[JSONImport] ✅ Publication decoded: \(dict["name"] as? String ?? "unnamed") - \(dict["groupName"] as? String ?? "no type")")
         
         return PublicationMetadata(
             name: dict["name"] as? String ?? "Untitled",
@@ -361,16 +615,31 @@ class JSONImportService {
         )
     }
     
-    /// Decode collection metadata from base64 encoded plist
-    private func decodeCollectionMetadata(_ encodedString: String) throws -> CollectionMetadata {
-        guard let data = Data(base64Encoded: encodedString),
-              let dict = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any] else {
+    /// Decode collection metadata from JSON string (dictionary format)
+    private func decodeCollectionMetadata(_ jsonString: String) throws -> CollectionMetadata {
+        // The collectionComponent field contains a JSON-encoded dictionary
+        guard let data = jsonString.data(using: .utf8) else {
+            print("[JSONImport] ❌ Collection: Failed to convert string to data")
             throw ImportError.missingContent
+        }
+        
+        guard let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            print("[JSONImport] ❌ Collection: Failed to decode JSON dictionary")
+            print("[JSONImport] String preview: \(jsonString.prefix(200))")
+            throw ImportError.missingContent
+        }
+        
+        print("[JSONImport] ✅ Collection decoded: \(dict["name"] as? String ?? "unnamed")")
+        
+        // Handle date from timestamp (createdOn field is a TimeInterval)
+        var createdDate: Date?
+        if let timestamp = dict["createdOn"] as? TimeInterval {
+            createdDate = Date(timeIntervalSinceReferenceDate: timestamp)
         }
         
         return CollectionMetadata(
             name: dict["name"] as? String,
-            dateCreated: dict["dateCreated"] as? Date
+            dateCreated: createdDate
         )
     }
 }

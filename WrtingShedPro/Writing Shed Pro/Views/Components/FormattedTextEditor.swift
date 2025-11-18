@@ -129,7 +129,19 @@ struct FormattedTextEditor: UIViewRepresentable {
         textView.addGestureRecognizer(tapGesture)
         
         // Configure for rich text
+        // On iPad with hardware keyboard, disable system editing attributes to prevent the formatting menu
+        #if os(iOS)
+        if UIDevice.current.userInterfaceIdiom == .pad {
+            textView.allowsEditingTextAttributes = false
+        } else {
+            textView.allowsEditingTextAttributes = true
+        }
+        #else
         textView.allowsEditingTextAttributes = true
+        #endif
+        
+        // Disable system formatting menu (we have our own toolbar)
+        textView.shouldHideSystemFormattingMenu = true
         
         // TODO: Suppress drag handles on images/attachments
         // The drag handles (lollipop handles) appear when tapping on images in iOS
@@ -598,7 +610,7 @@ struct FormattedTextEditor: UIViewRepresentable {
                 
                 // Get the character at the cursor position to check for attachment
                 if let attributedText = textView.attributedText,
-                   let attachment = attributedText.attribute(.attachment, at: newRange.location, effectiveRange: nil) as? ImageAttachment {
+                   let _ = attributedText.attribute(.attachment, at: newRange.location, effectiveRange: nil) as? ImageAttachment {
                     
                     // Check if this image was already selected (previous selection was length=1 at this position)
                     // If so, move BEFORE the image instead of re-selecting it
@@ -760,6 +772,9 @@ struct FormattedTextEditor: UIViewRepresentable {
             }
             
             // Normal cursor movement - update binding
+            // Sync typing attributes to match cursor position paragraph style
+            self.syncTypingAttributesForCursorPosition(textView, at: newRange.location)
+            
             DispatchQueue.main.async {
                 self.parent.selectedRange = newRange
                 self.parent.onSelectionChange?(newRange)
@@ -927,6 +942,31 @@ struct FormattedTextEditor: UIViewRepresentable {
             #endif
         }
         
+        /// Sync typing attributes to match the paragraph style at the cursor position
+        /// This prevents text typed after special paragraphs (like after images) from inheriting
+        /// unwanted alignment or other paragraph properties
+        private func syncTypingAttributesForCursorPosition(_ textView: UITextView, at position: Int) {
+            guard let attributedText = textView.attributedText, position >= 0, position <= attributedText.length else {
+                return
+            }
+            
+            // Always reset typing attributes to default paragraph style
+            // This ensures text typed at any position uses body text alignment
+            let defaultStyle = NSMutableParagraphStyle()
+            defaultStyle.alignment = .natural  // Reset to natural/left alignment
+            defaultStyle.lineHeightMultiple = 1.0
+            
+            // Get current typing attributes and update paragraph style
+            var typingAttrs = textView.typingAttributes
+            typingAttrs[.paragraphStyle] = defaultStyle
+            
+            textView.typingAttributes = typingAttrs
+            
+            #if DEBUG
+            print("🎯 Synced typing attributes at position \(position): alignment=.natural")
+            #endif
+        }
+        
         // MARK: - UIGestureRecognizerDelegate
         
         func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
@@ -952,6 +992,7 @@ struct FormattedTextEditor: UIViewRepresentable {
 private class CustomTextView: UITextView {
     var customAccessoryView: UIView?
     var isImageSelected: Bool = false
+    var shouldHideSystemFormattingMenu: Bool = false
     
     // Selection border view for images
     private let selectionBorderView: UIView = {
@@ -1003,8 +1044,20 @@ private class CustomTextView: UITextView {
         return super.selectionRects(for: range)
     }
     
-    // Also hide the selection grabbers/handles
+    // Hide the system formatting menu and selection grabbers/handles
     override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
+        // Hide the system formatting toolbar options (Bold, Italic, Underline, etc.)
+        if shouldHideSystemFormattingMenu {
+            if action == #selector(toggleBoldface(_:)) ||
+               action == #selector(toggleItalics(_:)) ||
+               action == #selector(toggleUnderline(_:)) ||
+               action == #selector(UIResponderStandardEditActions.toggleBoldface(_:)) ||
+               action == #selector(UIResponderStandardEditActions.toggleItalics(_:)) ||
+               action == #selector(UIResponderStandardEditActions.toggleUnderline(_:)) {
+                return false
+            }
+        }
+        
         // Disable selection actions when image is selected
         if isImageSelected {
             // Still allow delete/cut to remove the image
@@ -1025,6 +1078,17 @@ private class CustomTextView: UITextView {
         if isImageSelected && !selectionBorderView.isHidden {
             recalculateSelectionBorder()
         }
+    }
+    
+    // Hide the system formatting menu on iPad with hardware keyboard (iOS 13+)
+    @available(iOS 13.0, *)
+    override func buildMenu(with builder: UIMenuBuilder) {
+        // If we want to hide the formatting menu, we need to remove the formatting actions
+        if shouldHideSystemFormattingMenu {
+            // Remove format submenu
+            builder.remove(menu: .format)
+        }
+        super.buildMenu(with: builder)
     }
     
     private func recalculateSelectionBorder() {

@@ -36,7 +36,7 @@ struct FolderListView: View {
             
         case .poetry, .shortStory:
             return [
-                "All", "Draft", "Ready", "Set Aside", "Published",
+                "All", "Draft", "Ready", "Collections", "Set Aside", "Published",
                 "Research",
                 "Magazines", "Competitions", "Commissions", "Other",
                 "Trash"
@@ -83,28 +83,42 @@ struct FolderListView: View {
             if selectedFolder == nil {
                 // Show all project folders in a simple list
                 ForEach(projectFolders) { folder in
-                    // Navigate to subfolders OR to file list based on folder capabilities
-                    let canAddFolder = FolderCapabilityService.canAddSubfolder(to: folder)
-                    let canAddFile = FolderCapabilityService.canAddFile(to: folder)
-                    
-                    if canAddFolder {
-                        // This folder contains subfolders - navigate to FolderListView
-                        NavigationLink(destination: FolderListView(project: project, selectedFolder: folder)) {
-                            FolderRowView(folder: folder)
-                        }
-                    } else if canAddFile {
-                        // This folder contains files - navigate to FileEditableList
-                        NavigationLink(destination: FileEditableList(folder: folder)) {
+                    // Special handling for Trash folder
+                    if folder.name == "Trash" {
+                        NavigationLink(destination: TrashView(project: project)) {
                             FolderRowView(folder: folder)
                         }
                     } else {
-                        // Read-only folder - navigate to FileEditableList
-                        NavigationLink(destination: FileEditableList(folder: folder)) {
-                            FolderRowView(folder: folder)
+                        // Check if this is a publication folder (Magazines, Competitions, Commissions, Other)
+                        let folderName = folder.name ?? ""
+                        if let publicationType = publicationTypeForFolder(folderName) {
+                            // Navigate to publications list filtered by type
+                            NavigationLink(destination: PublicationsListView(project: project, publicationType: publicationType)) {
+                                FolderRowView(folder: folder)
+                            }
+                        } else if folderName == "Collections" {
+                            // Special handling for Collections folder - show Collections (Submissions)
+                            NavigationLink(destination: CollectionsView(project: project)) {
+                                FolderRowView(folder: folder)
+                            }
+                        } else {
+                            // Navigate to subfolders OR to file list based on folder capabilities
+                            let canAddFolder = FolderCapabilityService.canAddSubfolder(to: folder)
+                            let _ = FolderCapabilityService.canAddFile(to: folder)
+                            
+                            if canAddFolder {
+                                // This folder contains subfolders - navigate to FolderListView
+                                NavigationLink(destination: FolderListView(project: project, selectedFolder: folder)) {
+                                    FolderRowView(folder: folder)
+                                }
+                            } else {
+                                // This folder contains files - navigate to FolderFilesView
+                                NavigationLink(destination: FolderFilesView(folder: folder)) {
+                                    FolderRowView(folder: folder)
+                                }
+                            }
                         }
                     }
-                    
-                    // Add spacing before Trash folder (except for blank projects)
                     if shouldAddSpacingAfter(folder: folder) {
                         Divider()
                             .listRowBackground(Color.clear)
@@ -118,21 +132,16 @@ struct FolderListView: View {
                         ForEach(currentSubfolders) { subfolder in
                             // Navigate to subfolders OR to file list based on folder capabilities
                             let canAddFolder = FolderCapabilityService.canAddSubfolder(to: subfolder)
-                            let canAddFile = FolderCapabilityService.canAddFile(to: subfolder)
+                            let _ = FolderCapabilityService.canAddFile(to: subfolder)
                             
                             if canAddFolder {
                                 // This folder contains subfolders - navigate to FolderListView
                                 NavigationLink(destination: FolderListView(project: project, selectedFolder: subfolder)) {
                                     FolderRowView(folder: subfolder)
                                 }
-                            } else if canAddFile {
-                                // This folder contains files - navigate to FileEditableList
-                                NavigationLink(destination: FileEditableList(folder: subfolder)) {
-                                    FolderRowView(folder: subfolder)
-                                }
                             } else {
-                                // Read-only folder - navigate to FileEditableList
-                                NavigationLink(destination: FileEditableList(folder: subfolder)) {
+                                // This folder contains files - navigate to FolderFilesView
+                                NavigationLink(destination: FolderFilesView(folder: subfolder)) {
                                     FolderRowView(folder: subfolder)
                                 }
                             }
@@ -174,6 +183,22 @@ struct FolderListView: View {
             )
         }
     }
+    
+    // Helper function to map folder names to publication types
+    private func publicationTypeForFolder(_ folderName: String) -> PublicationType? {
+        switch folderName {
+        case "Magazines":
+            return .magazine
+        case "Competitions":
+            return .competition
+        case "Commissions":
+            return .commission
+        case "Other":
+            return .other
+        default:
+            return nil
+        }
+    }
 }
 
 
@@ -183,8 +208,97 @@ struct FolderListView: View {
 struct FolderRowView: View {
     let folder: Folder
     
+    @Query private var allPublications: [Publication]
+    @Query private var allSubmissions: [Submission]
+    @Query private var allFolders: [Folder]
+    @Query private var allTrashItems: [TrashItem]
+    
     @State private var fileCount: Int = 0
     @State private var subfolderCount: Int = 0
+    
+    // Check if this is a publication folder
+    private var isPublicationFolder: Bool {
+        let name = folder.name ?? ""
+        return ["Magazines", "Competitions", "Commissions", "Other"].contains(name)
+    }
+    
+    // Check if this is the Collections folder
+    private var isCollectionsFolder: Bool {
+        let name = folder.name ?? ""
+        return name == "Collections"
+    }
+    
+    // Check if this is the All folder (virtual folder)
+    private var isAllFolder: Bool {
+        let name = folder.name ?? ""
+        return name == "All"
+    }
+    
+    // Check if this is the Trash folder
+    private var isTrashFolder: Bool {
+        let name = folder.name ?? ""
+        return name == "Trash"
+    }
+    
+    // Get collection count for Collections folder
+    private var collectionCount: Int {
+        guard isCollectionsFolder, let project = folder.project else { return 0 }
+        
+        return allSubmissions.filter { submission in
+            submission.publication == nil && submission.project?.id == project.id
+        }.count
+    }
+    
+    // Get publication count for this folder type
+    private var publicationCount: Int {
+        guard isPublicationFolder, let project = folder.project else { return 0 }
+        
+        let folderName = folder.name ?? ""
+        var publicationType: PublicationType?
+        
+        switch folderName {
+        case "Magazines":
+            publicationType = .magazine
+        case "Competitions":
+            publicationType = .competition
+        case "Commissions":
+            publicationType = .commission
+        case "Other":
+            publicationType = .other
+        default:
+            return 0
+        }
+        
+        return allPublications.filter { pub in
+            pub.project?.id == project.id && pub.type == publicationType
+        }.count
+    }
+    
+    // Folder display name with count in brackets
+    private var folderDisplayName: String {
+        let baseName = folder.name ?? NSLocalizedString("folderList.untitledFolder", comment: "Untitled folder")
+        let count: Int
+        
+        if isPublicationFolder {
+            count = publicationCount
+        } else if isCollectionsFolder {
+            count = collectionCount
+        } else if isAllFolder {
+            // All folder shows computed count from multiple folders
+            count = fileCount  // Will be computed in .task
+        } else if isTrashFolder {
+            // Trash folder shows count of TrashItem objects
+            count = fileCount  // Will be computed in .task
+        } else if subfolderCount > 0 && fileCount > 0 {
+            count = subfolderCount + fileCount
+        } else if subfolderCount > 0 {
+            count = subfolderCount
+        } else {
+            count = fileCount
+        }
+        
+        return "\(baseName) (\(count))"
+    }
     
     var body: some View {
         HStack(spacing: 12) {
@@ -193,24 +307,34 @@ struct FolderRowView: View {
                 .font(.title2)
                 .accessibilityHidden(true)
             
-            VStack(alignment: .leading, spacing: 4) {
-                Text(folder.name ?? NSLocalizedString("folderList.untitledFolder", comment: "Untitled folder"))
-                    .font(.body)
-                
-                if let count = folderContentCount {
-                    Text(count)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
+            // Show folder name with count in brackets
+            Text(folderDisplayName)
+                .font(.body)
             
             Spacer()
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)
         .task {
-            fileCount = folder.files?.count ?? 0
-            subfolderCount = folder.folders?.count ?? 0
+            if isAllFolder, let project = folder.project {
+                // For "All" folder, compute total files from target folders
+                let projectFolders = allFolders.filter { $0.project?.id == project.id }
+                let targetFolderNames = ["Draft", "Ready", "Set Aside", "Published"]
+                
+                var totalCount = 0
+                for folder in projectFolders where targetFolderNames.contains(folder.name ?? "") {
+                    totalCount += folder.textFiles?.count ?? 0
+                }
+                fileCount = totalCount
+                subfolderCount = 0
+            } else if isTrashFolder, let project = folder.project {
+                // For "Trash" folder, count TrashItem objects (not files in folder)
+                fileCount = allTrashItems.filter { $0.project?.id == project.id }.count
+                subfolderCount = 0
+            } else {
+                fileCount = folder.textFiles?.count ?? 0
+                subfolderCount = folder.folders?.count ?? 0
+            }
         }
     }
     
@@ -236,6 +360,8 @@ struct FolderRowView: View {
             return "doc.badge.ellipsis"
         case "Ready":
             return "checkmark.circle"
+        case "Collections":
+            return "tray.2"
         case "Set Aside":
             return "archivebox"
         case "Published":
@@ -275,29 +401,8 @@ struct FolderRowView: View {
         }
     }
     
-    private var folderContentCount: String? {
-        if subfolderCount > 0 && fileCount > 0 {
-            let format = NSLocalizedString("folderList.mixedCount", comment: "Folder and file count")
-            return String(format: format, subfolderCount, fileCount)
-        } else if subfolderCount > 0 {
-            let format = NSLocalizedString("folderList.folderCount", comment: "Folder count")
-            return String(format: format, subfolderCount)
-        } else if fileCount > 0 {
-            let format = NSLocalizedString("folderList.fileCount", comment: "File count")
-            return String(format: format, fileCount)
-        } else {
-            return nil
-        }
-    }
-    
     private var accessibilityLabel: String {
-        var label = folder.name ?? NSLocalizedString("folderList.untitledFolder", comment: "Untitled folder")
-        
-        if let content = folderContentCount {
-            label += ". \(content)"
-        }
-        
-        return label
+        return folderDisplayName
     }
 }
 

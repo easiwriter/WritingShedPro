@@ -67,7 +67,7 @@ struct TextDiffService {
     ///   - change: The change to convert
     ///   - file: The target file
     /// - Returns: An undoable command representing the change
-    static func createCommand(from change: Change, file: File) -> UndoableCommand {
+    static func createCommand(from change: Change, file: TextFile) -> UndoableCommand {
         switch change {
         case .insert(let position, let text):
             return TextInsertCommand(

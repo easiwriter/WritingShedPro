@@ -1,0 +1,488 @@
+/* Localization strings for Write! app */
+
+/* Project types */
+"projectType.blank" = "Blank";
+"projectType.novel" = "Novel";
+"projectType.poetry" = "Poetry";
+"projectType.script" = "Script";
+"projectType.shortStory" = "Short Story";
+
+/* ContentView */
+"contentView.title" = "Projects";
+"contentView.addProject" = "Add Project";
+"contentView.import" = "Import";
+"contentView.importAccessibility" = "Import a project";
+"contentView.sort" = "Sort";
+"contentView.sortBy" = "Sort by";
+"contentView.sortByName" = "Name";
+"contentView.sortByDate" = "Creation Date";
+"contentView.sortByModified" = "Date Modified";
+"contentView.sortByUserOrder" = "User's Order";
+"contentView.sortAccessibility" = "Sort projects";
+"contentView.addProjectAccessibility" = "Add new project";
+"contentView.edit" = "Edit";
+"contentView.done" = "Done";
+"contentView.delete" = "Delete";
+"contentView.cancel" = "Cancel";
+"contentView.deleteTitle" = "Delete Projects";
+"contentView.deleteConfirmOne" = "Are you sure you want to delete \"%@\"? This will permanently delete the project and all its contents. This action cannot be undone.";
+"contentView.deleteConfirmMultiple" = "Are you sure you want to delete %d projects? This will permanently delete these projects and all their contents. This action cannot be undone.";
+
+/* AddProjectSheet */
+"addProject.title" = "New Project";
+"addProject.cancel" = "Cancel";
+"addProject.add" = "Add";
+"addProject.projectInfo" = "Project Information";
+"addProject.projectName" = "Project Name";
+"addProject.type" = "Type";
+"addProject.stylesheet" = "Stylesheet";
+"addProject.stylesheetPicker" = "Choose Stylesheet";
+"addProject.details" = "Details";
+"addProject.error" = "Error";
+"addProject.ok" = "OK";
+"addProject.duplicateName" = "A project with this name already exists.";
+"addProject.projectNameAccessibility" = "Enter project name";
+"addProject.typeAccessibility" = "Select project type";
+"addProject.stylesheetAccessibility" = "Select stylesheet for text formatting";
+"addProject.detailsAccessibility" = "Enter project details";
+
+/* ProjectDetailView */
+"projectDetail.projectInfo" = "Project Information:";
+"projectDetail.name" = "Name:";
+"projectDetail.type" = "Type:";
+"projectDetail.created" = "Created:";
+"projectDetail.stylesheet" = "Stylesheet:";
+"projectDetail.stylesheetAccessibility" = "Select stylesheet for text formatting";
+"projectDetail.details" = "Details";
+"projectDetail.notes" = "Notes";
+"projectDetail.notesAccessibility" = "Edit project notes";
+"projectDetail.close" = "Close";
+"projectDetail.closeAccessibility" = "Close project information";
+"projectDetail.done" = "Done";
+"projectDetail.doneAccessibility" = "Save changes and close";
+"projectDetail.delete" = "Delete";
+"projectDetail.cancel" = "Cancel";
+"projectDetail.deleteTitle" = "Delete Project";
+"projectDetail.deleteMessage" = "Are you sure? This cannot be undone.";
+"projectDetail.deleteConfirmMessage" = "Are you sure you want to delete \"%@\"? This will permanently delete the project and all its contents. This action cannot be undone.";
+"projectDetail.error" = "Error";
+"projectDetail.ok" = "OK";
+"projectDetail.browseFolders" = "Browse Folders";
+"projectDetail.browseFoldersAccessibility" = "Browse project folders";
+"projectDetail.infoAccessibility" = "Project information and settings";
+"projectDetail.menuAccessibility" = "Project options";
+
+/* ProjectItemView */
+"projectItem.untitledProject" = "Untitled Project";
+"projectItem.projectDetails" = "Show Project Details";
+"projectItem.exportProject" = "Export Project";
+"projectItem.pageSetup" = "Page Setup";
+"projectItem.projectOptions" = "Project options";
+
+/* FolderListView */
+"folderList.foldersHeader" = "Folders";
+"folderList.filesHeader" = "Files";
+"folderList.addFolder" = "New Folder";
+"folderList.addFile" = "New File";
+"folderList.addAccessibility" = "Add folder or file";
+"folderList.untitledFolder" = "Untitled Folder";
+"folderList.untitledFile" = "Untitled File";
+"folderList.emptyFile" = "Empty";
+"folderList.folderCount" = "%d folders";
+"folderList.fileCount" = "%d files";
+"folderList.noFoldersYet" = "No folders yet";
+"folderList.emptyFolder" = "This folder is empty";
+"folderList.tapAddFolderHint" = "Tap + to add your first folder";
+"folderList.tapAddContentHint" = "Tap + to add folders or files";
+"folderList.edit" = "Edit";
+"folderList.done" = "Done";
+"folderList.sortBy" = "Sort by";
+"folderList.sortByName" = "Name";
+"folderList.sortByModified" = "Date Modified";
+"folderList.sortByCreated" = "Date Created";
+"folderList.sortAccessibility" = "Sort files";
+
+/* AddFolderSheet */
+"addFolder.title" = "New Folder";
+"addFolder.cancel" = "Cancel";
+"addFolder.add" = "Add";
+"addFolder.folderName" = "Folder Name";
+"addFolder.folderNameAccessibility" = "Enter folder name";
+"addFolder.parentFolder" = "Parent Folder";
+"addFolder.error" = "Error";
+"addFolder.ok" = "OK";
+"addFolder.duplicateName" = "A folder with this name already exists here.";
+
+/* FolderDetailView */
+"folderDetail.title" = "Folder Details";
+"folderDetail.nameSection" = "Name";
+"folderDetail.folderName" = "Folder Name";
+"folderDetail.folderNameAccessibility" = "Enter folder name";
+"folderDetail.subfolders" = "Subfolders";
+"folderDetail.files" = "Files";
+"folderDetail.delete" = "Delete Folder";
+"folderDetail.deleteAccessibility" = "Delete this folder";
+"folderDetail.done" = "Done";
+"folderDetail.cancel" = "Cancel";
+"folderDetail.error" = "Error";
+"folderDetail.ok" = "OK";
+"folderDetail.duplicateName" = "A folder with this name already exists here.";
+"folderDetail.deleteConfirmationTitle" = "Delete \"%@\"?";
+"folderDetail.deleteButton" = "Delete";
+"folderDetail.deleteWarning" = "This folder will be permanently deleted. This action cannot be undone.";
+"folderDetail.deleteWarningWithFiles" = "This folder contains %d files. All contents will be permanently deleted. This action cannot be undone.";
+"folderDetail.deleteWarningWithSubfolders" = "This folder contains %d subfolders. All contents will be permanently deleted. This action cannot be undone.";
+"folderDetail.deleteWarningWithBoth" = "This folder contains %d subfolders and %d files. All contents will be permanently deleted. This action cannot be undone.";
+
+/* AddFileSheet */
+"addFile.title" = "New File";
+"addFile.cancel" = "Cancel";
+"addFile.add" = "Add";
+"addFile.fileName" = "File Name";
+"addFile.fileNameAccessibility" = "Enter file name";
+"addFile.location" = "Location";
+"addFile.error" = "Error";
+"addFile.ok" = "OK";
+"addFile.duplicateName" = "A file with this name already exists in this folder.";
+"addFile.duplicateNameInTrash" = "A file with this name exists in Trash. Restore or permanently delete it first, or use a different name.";
+
+/* FileDetailView */
+"fileDetail.title" = "File";
+"fileDetail.fileName" = "File Name";
+"fileDetail.fileNameAccessibility" = "Enter file name";
+"fileDetail.contentAccessibility" = "Edit file content";
+"fileDetail.done" = "Done";
+"fileDetail.deleteAccessibility" = "Delete this file";
+"fileDetail.error" = "Error";
+"fileDetail.ok" = "OK";
+"fileDetail.duplicateName" = "A file with this name already exists in this folder.";
+"fileDetail.duplicateNameInTrash" = "A file with this name exists in Trash. Restore or permanently delete it first, or use a different name.";
+"fileDetail.deleteConfirmationTitle" = "Delete \"%@\"?";
+"fileDetail.deleteButton" = "Delete";
+"fileDetail.cancel" = "Cancel";
+"fileDetail.deleteWarning" = "This file will be permanently deleted. This action cannot be undone.";
+
+/* File list deletion */
+"fileList.deleteConfirmOne" = "Are you sure you want to delete \"%@\"? This will permanently delete the file. This action cannot be undone.";
+
+/* Validation errors */
+"validation.emptyProjectName" = "Project name cannot be empty.";
+"validation.emptyFileName" = "File name cannot be empty.";
+"validation.emptyFolderName" = "Folder name cannot be empty.";
+"validation.duplicateProjectName" = "A project with this name already exists.";
+
+/* Default folder names */
+"folder.all" = "All";
+"folder.files" = "Files";
+"folder.draft" = "Draft";
+"folder.ready" = "Ready";
+"folder.setAside" = "Set Aside";
+"folder.published" = "Published";
+"folder.collections" = "Collections";
+"folder.submissions" = "Submissions";
+"folder.research" = "Research";
+"folder.publications" = "Publications";
+"folder.magazines" = "Magazines";
+"folder.competitions" = "Competitions";
+"folder.commissions" = "Commissions";
+"folder.other" = "Other";
+"folder.trash" = "Trash";
+"folder.novel" = "Novel";
+"folder.chapters" = "Chapters";
+"folder.scenes" = "Scenes";
+"folder.characters" = "Characters";
+"folder.locations" = "Locations";
+"folder.script" = "Script";
+"folder.acts" = "Acts";
+
+/* Project type folder names */
+"projectFolder.blank" = "BLANK";
+"projectFolder.yourPoetry" = "YOUR POETRY";
+"projectFolder.yourStories" = "YOUR STORIES";
+"projectFolder.yourNovel" = "YOUR NOVEL";
+"projectFolder.yourScript" = "YOUR SCRIPT";
+
+/* Sorting and editing */
+"sort.byName" = "Name";
+"sort.byCreationDate" = "Creation Date";
+"sort.byItemCount" = "Item Count";
+"sort.bySize" = "Size";
+
+/* Folder list - Additional */
+"folderList.deleteFolder.title" = "Delete Folder?";
+"folderList.deleteFolder.message" = "This will also delete all files and subfolders. This action cannot be undone.";
+"folderList.emptyProject" = "This project has no folders yet";
+
+/* File list */
+"fileList.edit" = "Edit";
+"fileList.done" = "Done";
+"fileList.deleteFile.title" = "Delete File?";
+"fileList.deleteFile.message" = "This action cannot be undone.";
+
+/* File info */
+"file.empty" = "Empty";
+"file.bytes" = "%d bytes";
+"file.kilobytes" = "%.1f KB";
+"file.megabytes" = "%.1f MB";
+"file.untitled" = "Untitled File";
+
+/* Folder info */
+"folder.untitled" = "Untitled Folder";
+"folder.poems" = "Poems";
+"folder.drafts" = "Drafts";
+"folder.inspiration" = "Inspiration";
+"folder.worldBuilding" = "World Building";
+"folder.notes" = "Notes";
+
+/* Folder capabilities */
+"folder.error.unnamed" = "Cannot perform operation on unnamed folder";
+"folder.error.noSubfolders" = "The '%@' folder cannot contain subfolders";
+"folder.error.noFiles" = "The '%@' folder cannot contain files";
+
+/* Folder list counts */
+"folderList.mixedCount" = "%d folders, %d files";
+"folderList.parentFolder" = "Parent Folder";
+
+/* FileEditView */
+"fileEdit.untitledFile" = "Untitled File";
+"fileEdit.done" = "Done";
+"fileEdit.deleteVersionTitle" = "Delete Version?";
+"fileEdit.deleteVersionMessage" = "Please confirm that you want to delete this version. This action cannot be undone.";
+
+/* Page Setup */
+"pageSetup.title" = "Page Setup";
+"pageSetup.measurementUnits" = "Measurement Units";
+"pageSetup.orientation" = "Orientation";
+"pageSetup.orientationPicker" = "Portrait/Landscape";
+"pageSetup.paperSize" = "Paper Size";
+"pageSetup.paperSizePicker" = "Paper Size";
+"pageSetup.customSize" = "Custom Size";
+"pageSetup.margins" = "Page Margins";
+"pageSetup.marginTop" = "Top";
+"pageSetup.marginLeft" = "Left";
+"pageSetup.marginBottom" = "Bottom";
+"pageSetup.marginRight" = "Right";
+"pageSetup.headers" = "Headers";
+"pageSetup.footers" = "Footers";
+"pageSetup.depth" = "Depth";
+"pageSetup.facingPages" = "Facing Pages";
+
+/* Units */
+"units.points" = "Points";
+"units.millimetres" = "Millimetres";
+"units.inches" = "Inches";
+
+/* Orientation */
+"orientation.portrait" = "Portrait";
+"orientation.landscape" = "Landscape";
+
+/* Paper Sizes */
+"paperSize.letter" = "Letter";
+"paperSize.legal" = "Legal";
+"paperSize.a4" = "A4";
+"paperSize.a5" = "A5";
+"paperSize.custom" = "Custom";
+
+/* Common */
+"common.cancel" = "Cancel";
+"common.done" = "Done";
+
+/* Formatting Toolbar */
+"toolbar.moveCursorLeft" = "Move cursor left";
+"toolbar.moveCursorRight" = "Move cursor right";
+"toolbar.dismissKeyboard" = "Hide keyboard";
+"toolbar.showKeyboard" = "Show keyboard";
+/* Publications Management - Feature 008b Phase 2 */
+
+/* Screen Titles */
+"publications.title" = "Publications";
+"publications.add.title" = "Add Publication";
+"publications.edit.title" = "Edit Publication";
+"publications.detail.title" = "Publication Details";
+
+/* Form Labels */
+"publications.form.name.label" = "Name";
+"publications.form.name.placeholder" = "Enter publication name";
+"publications.form.type.label" = "Type";
+"publications.form.url.label" = "Website (optional)";
+"publications.form.url.placeholder" = "https://";
+"publications.form.deadline.label" = "Deadline (optional)";
+"publications.form.notes.label" = "Notes (optional)";
+"publications.form.notes.placeholder" = "Add notes about this publication...";
+
+/* Type Picker */
+"publications.type.magazine" = "Magazine";
+"publications.type.competition" = "Competition";
+"publications.type.commission" = "Commission";
+"publications.type.other" = "Other";
+
+/* Buttons */
+"publications.button.save" = "Save";
+"publications.button.cancel" = "Cancel";
+"publications.button.delete" = "Delete";
+"publications.button.edit" = "Edit";
+"publications.button.add" = "Add Publication";
+"publications.button.create" = "Create";
+
+/* Empty State */
+"publications.empty.title" = "No Publications";
+"publications.empty.message" = "Add magazines and competitions to track your submissions";
+"publications.existing.title" = "Select Publication";
+"publications.new.quick.title" = "New Publication";
+
+/* Deadline Status */
+"publications.deadline.none" = "No deadline";
+"publications.deadline.passed" = "Deadline passed";
+"publications.deadline.approaching" = "%d days left";
+"publications.deadline.future" = "Deadline: %@";
+
+/* Delete Confirmation */
+"publications.delete.title" = "Delete \"%@\"?";
+"publications.delete.message" = "This will also delete all associated submissions.";
+"publications.delete.confirmation.message" = "This will also delete all associated submissions.";
+"publications.delete.confirm" = "Delete";
+
+/* Validation Errors */
+"publications.error.title" = "Error";
+"publications.error.name.empty" = "Publication name cannot be empty";
+"publications.error.name.toolong" = "Publication name is too long (max 100 characters)";
+"publications.error.url.invalid" = "Please enter a valid URL";
+
+/* Duplicate Name Warning */
+"publications.duplicate.title" = "Duplicate Name";
+"publications.duplicate.message" = "A publication with this name already exists in this project. Would you like to use the original name or make it unique?";
+"publications.duplicate.useOriginal" = "Use Original Name";
+"publications.duplicate.makeUnique" = "Make Unique";
+
+/* Notes View */
+"publications.notes.title" = "Notes for %@";
+
+/* Accessibility Labels */
+"accessibility.publications.list" = "Publications list";
+"accessibility.publications.navigation" = "Navigate to publications";
+"accessibility.view.publications" = "View publications";
+"accessibility.add.publication" = "Add publication";
+"accessibility.add.publication.hint" = "Opens form to create a new publication";
+"accessibility.edit.publication" = "Edit publication";
+"accessibility.edit.publication.hint" = "Opens form to edit this publication";
+"accessibility.delete.publication" = "Delete publication";
+"accessibility.delete.publication.hint" = "Removes this publication and all its submissions";
+"accessibility.publication.row" = "Publication: %@";
+"accessibility.publication.deadline.approaching" = "Deadline approaching: %d days left";
+"accessibility.publication.deadline.passed" = "Deadline has passed";
+"accessibility.publication.type" = "Type: %@";
+"accessibility.publication.notes" = "View notes";
+"accessibility.publication.notes.hint" = "Opens notes for this publication";
+"accessibility.publication.notes.view" = "Publication notes editor";
+"accessibility.deadline.toggle" = "Toggle deadline";
+"accessibility.deadline.toggle.hint" = "Enable or disable deadline for this publication";
+"accessibility.type.picker" = "Select publication type";
+"accessibility.publication.tap.hint" = "Double tap to view details";
+"accessibility.save.publication.hint" = "Saves the publication";
+"accessibility.cancel.hint" = "Discards changes and returns to previous screen";
+
+/* Submissions */
+"publications.submissions.count" = "%d submission(s)";
+"publications.submissions.none" = "No submissions yet";
+"publications.submissions.title" = "Submissions";
+"publications.magazines.title" = "Magazines";
+"publications.competitions.title" = "Competitions";
+"publications.commissions.title" = "Commissions";
+"publications.other.title" = "Other";
+
+/* Submission Status */
+"submissions.no.files" = "No files";
+"submissions.status.pending" = "Pending";
+"submissions.status.accepted" = "Accepted";
+"submissions.status.rejected" = "Rejected";
+"submissions.status.mixed" = "Mixed";
+"submissions.submitted.on" = "Submitted: %@";
+"submissions.new.title" = "New Submission";
+"submissions.detail.title" = "Submission Details";
+"submissions.select.files" = "Select Files";
+"submissions.files.selected" = "%d file(s) selected";
+"submissions.files.count" = "%d files";
+"submissions.date.label" = "Submission Date";
+"submissions.notes.label" = "Notes (optional)";
+"submissions.submitting.to" = "Submitting To";
+"submissions.button.submit" = "Submit";
+"submissions.submit.count" = "Submit %d file(s)";
+"submissions.submit.title" = "Submit Files";
+"submissions.delete.title" = "Delete Submission?";
+"submissions.delete.message" = "This will delete the submission record but not the files.";
+"submissions.details.label" = "Details";
+"submissions.files.label" = "Files (%d)";
+"submissions.status.label" = "Status";
+"submissions.status.overall" = "Overall Status";
+"submissions.status.pending.count" = "Pending";
+"submissions.status.accepted.count" = "Accepted";
+"submissions.status.rejected.count" = "Rejected";
+"submissions.status.all.accepted" = "All Accepted";
+"submissions.status.all.rejected" = "All Rejected";
+"submissions.status.unknown" = "Unknown";
+"submissions.submitted.label" = "Submitted";
+"submissions.delete.button" = "Delete Submission";
+"submissions.updated.on" = "Updated: %@";
+"submissions.version.label" = "Version %d";
+"submissions.no.files.project" = "No files in this project";
+
+/* Accessibility - Submissions */
+"accessibility.add.submission" = "Add submission";
+"accessibility.add.submission.hint" = "Create a new submission for this publication";
+"accessibility.submission.row" = "Submission: %@";
+"accessibility.file.selection" = "File selection: %@";
+"accessibility.file.selected" = "Selected";
+"accessibility.file.not.selected" = "Not selected";
+"accessibility.submit.enabled" = "Submit the selected files";
+"accessibility.submit.disabled" = "Select at least one file to submit";
+"accessibility.view.publication" = "View publication: %@";
+"accessibility.delete.submission" = "Delete submission";
+"accessibility.delete.submission.hint" = "Delete this submission record";
+"accessibility.change.status" = "Change status: %@";
+"accessibility.submit.to" = "Submit to %@";
+
+/* File List */
+"fileList.submit" = "Submit";
+
+/* Accessibility - File List */
+"accessibility.file.submissions" = "%d submission(s)";
+
+/* File Submissions History */
+"submissions.file.empty.title" = "No Submissions";
+"submissions.file.empty.message" = "This file hasn't been submitted yet";
+"submissions.file.history.title" = "Submission History";
+"submissions.status.updated.on" = "Updated: %@";
+"submissions.response.time" = "Response: %@";
+
+/* Version Locking */
+"version.locked.warning.title" = "This Version Has Been Submitted";
+"version.locked.warning.message" = "This version is part of an active submission. Editing it may affect your submission record.";
+"version.locked.edit.anyway" = "Edit Anyway";
+
+/* Collections - Feature 008c */
+"collections.form.name.placeholder" = "Enter collection name";
+"collections.form.name.label" = "Collection Name";
+"collections.button.add" = "Add Collection";
+"collections.button.create" = "Create Collection";
+"collections.error.emptyName" = "Collection name cannot be empty";
+"collections.error.duplicateName" = "A collection with this name already exists";
+"collections.error.saveFailed" = "Failed to save collection";
+"collections.files.count" = "%d files";
+"collections.files.selected" = "%d files selected";
+"collections.collections.selected" = "%d collections selected";
+"collections.existing.title" = "Collections";
+"collections.empty.title" = "No Collections";
+"collections.empty.message" = "Create your first collection to organize your submissions";
+"collections.new.quick.title" = "New Collection";
+"fileList.addToCollection" = "Add to Collection";
+"accessibility.add.collection" = "Add a new collection";
+"accessibility.collection.select" = "Select %@";
+"collections.button.delete" = "Delete";
+"collections.delete.confirmation.message" = "This action cannot be undone. Files in the collection will not be deleted.";
+
+/* General Buttons */
+"button.cancel" = "Cancel";
+"button.done" = "Done";
+"button.ok" = "OK";
+"button.delete" = "Delete";
+"button.save" = "Save";

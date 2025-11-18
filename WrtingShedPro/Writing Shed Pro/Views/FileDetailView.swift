@@ -2,7 +2,7 @@ import SwiftUI
 import SwiftData
 
 struct FileDetailView: View {
-    @Bindable var file: File
+    @Bindable var file: TextFile
     
     @Environment(\.modelContext) var modelContext
     @Environment(\.dismiss) var dismiss
@@ -13,10 +13,10 @@ struct FileDetailView: View {
     @State private var errorMessage = ""
     @State private var showDeleteConfirmation = false
     
-    init(file: File) {
+    init(file: TextFile) {
         self.file = file
-        _editedName = State(initialValue: file.name ?? "")
-        _editedContent = State(initialValue: file.content ?? "")
+        _editedName = State(initialValue: file.name)
+        _editedContent = State(initialValue: file.currentVersion?.content ?? "")
     }
     
     var body: some View {
@@ -37,7 +37,7 @@ struct FileDetailView: View {
                 .padding(.horizontal)
                 .accessibilityLabel(NSLocalizedString("fileDetail.contentAccessibility", comment: "File content accessibility"))
                 .onChange(of: editedContent) { oldValue, newValue in
-                    file.content = newValue
+                    file.currentVersion?.updateContent(newValue)
                 }
         }
         .navigationTitle(NSLocalizedString("fileDetail.title", comment: "File details title"))
@@ -64,7 +64,7 @@ struct FileDetailView: View {
             Text(errorMessage)
         }
         .confirmationDialog(
-            String(format: NSLocalizedString("fileDetail.deleteConfirmationTitle", comment: "Delete confirmation title"), file.name ?? ""),
+            String(format: NSLocalizedString("fileDetail.deleteConfirmationTitle", comment: "Delete confirmation title"), file.name),
             isPresented: $showDeleteConfirmation,
             titleVisibility: .visible
         ) {
@@ -89,19 +89,27 @@ struct FileDetailView: View {
         } catch {
             errorMessage = error.localizedDescription
             showErrorAlert = true
-            editedName = file.name ?? ""
+            editedName = file.name
             return
         }
         
-        // Check uniqueness in parent folder
+        // Check uniqueness in parent folder (against both active and deleted files)
         if let parentFolder = file.parentFolder {
-            // Get sibling files (excluding current file)
-            let siblings = (parentFolder.files ?? []).filter { $0.id != file.id }
-            if siblings.contains(where: { ($0.name ?? "").caseInsensitiveCompare(trimmedName) == .orderedSame }) {
-                errorMessage = NSLocalizedString("fileDetail.duplicateName", comment: "Duplicate file name error")
-                showErrorAlert = true
-                editedName = file.name ?? ""
-                return
+            // Check if name is unique (excluding current file being renamed)
+            if !UniquenessChecker.isFileNameUnique(trimmedName, in: parentFolder) {
+                // Only reject if it's a different file
+                if !(parentFolder.textFiles ?? []).contains(where: { $0.id == file.id && $0.name.caseInsensitiveCompare(trimmedName) == .orderedSame }) {
+                    // Determine if conflict is with active file or trashed file
+                    let conflict = UniquenessChecker.getFileNameConflict(trimmedName, in: parentFolder)
+                    if conflict == "trash" {
+                        errorMessage = NSLocalizedString("fileDetail.duplicateNameInTrash", comment: "File with this name exists in Trash")
+                    } else {
+                        errorMessage = NSLocalizedString("fileDetail.duplicateName", comment: "Duplicate file name error")
+                    }
+                    showErrorAlert = true
+                    editedName = file.name
+                    return
+                }
             }
         }
         

@@ -15,7 +15,7 @@
 		<string>CloudKit</string>
 	</array>
 	<key>com.apple.security.app-sandbox</key>
-	<true/>
+	<false/>
 	<key>com.apple.security.files.user-selected.read-only</key>
 	<true/>
 </dict>

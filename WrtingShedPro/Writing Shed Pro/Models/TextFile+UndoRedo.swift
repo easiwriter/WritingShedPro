@@ -1,7 +1,7 @@
 import Foundation
 
-/// Extension to File model for undo/redo persistence
-extension File {
+/// Extension to TextFile model for undo/redo persistence
+extension TextFile {
     
     /// Save the current undo manager state to the file
     /// - Parameter undoManager: The undo manager to save

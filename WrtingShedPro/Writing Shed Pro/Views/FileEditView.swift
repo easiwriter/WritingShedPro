@@ -2,9 +2,10 @@ import SwiftUI
 import SwiftData
 import ToolbarSUI
 import UniformTypeIdentifiers
+import PhotosUI
 
 struct FileEditView: View {
-    let file: File
+    let file: TextFile
     
     @State private var attributedContent: NSAttributedString
     @State private var selectedRange: NSRange = NSRange(location: 0, length: 0)
@@ -15,6 +16,8 @@ struct FileEditView: View {
     @State private var forceRefresh = false
     @State private var showStylePicker = false
     @State private var showImageEditor = false
+    @State private var showLockedVersionWarning = false
+    @State private var attemptedEdit = false
     @State private var imageToEdit: ImageAttachment?
     @State private var lastImageInsertTime: Date?
     @State private var selectedImage: ImageAttachment?
@@ -25,6 +28,7 @@ struct FileEditView: View {
     @State private var documentPicker: UIDocumentPickerViewController? // Strong reference for Mac Catalyst
     @State private var showFileImporter = false // For SwiftUI file importer
     @State private var showDocumentPicker = false // For UIViewControllerRepresentable picker
+    @State private var showImageSourcePicker = false // Show Photos vs Files chooser
     @StateObject private var undoManager: TextFileUndoManager
     @StateObject private var textViewCoordinator = TextViewCoordinator()
     
@@ -38,7 +42,7 @@ struct FileEditView: View {
         case delete
     }
     
-    init(file: File) {
+    init(file: TextFile) {
         self.file = file
         
         // Initialize with empty content - will load in onAppear to avoid repeated init calls
@@ -219,7 +223,7 @@ struct FileEditView: View {
             textEditorSection()
             formattingToolbar()
         }
-        .navigationTitle(file.name ?? NSLocalizedString("fileEdit.untitledFile", comment: "Untitled file"))
+        .navigationTitle(file.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
@@ -246,12 +250,64 @@ struct FileEditView: View {
                 }
             }
         }
+        .confirmationDialog(
+            "version.locked.warning.title",
+            isPresented: $showLockedVersionWarning,
+            titleVisibility: .visible
+        ) {
+            Button("version.locked.edit.anyway") {
+                attemptedEdit = true
+                showLockedVersionWarning = false
+                // Show keyboard after user confirms
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    self.textViewCoordinator.textView?.becomeFirstResponder()
+                }
+            }
+            Button("button.cancel", role: .cancel) {
+                showLockedVersionWarning = false
+                // User cancelled - go back
+                DispatchQueue.main.async {
+                    dismiss()
+                }
+            }
+        } message: {
+            if let lockReason = file.currentVersion?.lockReason {
+                Text(lockReason)
+            } else {
+                Text("version.locked.warning.message")
+            }
+        }
+        .confirmationDialog(
+            "Choose Image Source",
+            isPresented: $showImageSourcePicker,
+            titleVisibility: .visible
+        ) {
+            Button("Photos") {
+                showPhotosPickerFromCoordinator()
+            }
+            Button("Files") {
+                showDocumentPicker = true
+            }
+            Button("button.cancel", role: .cancel) {
+                showImageSourcePicker = false
+            }
+        } message: {
+            Text("Select where to choose your image from")
+        }
         .onDisappear {
             // Auto-save when leaving the editor (back button, etc.)
             saveChanges()
             saveUndoState()
         }
         .onAppear {
+            // Always jump to latest version when opening a file
+            file.selectLatestVersion()
+            
+            // Check if version is locked before allowing editing
+            if file.currentVersion?.isLocked == true {
+                showLockedVersionWarning = true
+            }
+            
             // Load content from database on first appearance
             // We initialize with empty content in init() to avoid repeated decoding
             // during SwiftUI view updates, then load the real content here once
@@ -265,9 +321,11 @@ struct FileEditView: View {
                 selectedRange = NSRange(location: textLength, length: 0)
             }
             
-            // Show keyboard/cursor when opening file
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                self.textViewCoordinator.textView?.becomeFirstResponder()
+            // Show keyboard/cursor when opening file (only if not locked)
+            if file.currentVersion?.isLocked != true {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    self.textViewCoordinator.textView?.becomeFirstResponder()
+                }
             }
             
             // Update current style from content
@@ -480,6 +538,17 @@ struct FileEditView: View {
         }
         
         let newContent = newAttributedText.string
+        
+        // Check if version is locked
+        if file.currentVersion?.isLocked == true, !attemptedEdit {
+            // Show warning on first edit attempt
+            showLockedVersionWarning = true
+            // Restore previous content
+            if let currentVersion = file.currentVersion {
+                attributedContent = currentVersion.attributedContent ?? NSAttributedString(string: "")
+            }
+            return
+        }
         
         #if DEBUG
         print("🔄 Previous: '\(previousContent)'")
@@ -1173,7 +1242,48 @@ struct FileEditView: View {
     
     private func showImagePicker() {
         print("🖼️ showImagePicker() called")
+        #if targetEnvironment(macCatalyst)
+        // On Mac, go directly to file picker
         showDocumentPicker = true
+        #else
+        // On iPhone/iPad, let user choose between Photos and Files
+        showImageSourcePicker = true
+        #endif
+    }
+    
+    private func showPhotosPickerFromCoordinator() {
+        print("📸 showPhotosPickerFromCoordinator() called")
+        
+        // Set up the callback for when an image is picked
+        textViewCoordinator.onImagePicked = { url in
+            print("📸 Coordinator callback received with URL: \(url.lastPathComponent)")
+            self.handleImageSelection(url: url)
+        }
+        
+        // Create PHPicker configuration
+        var configuration = PHPickerConfiguration(photoLibrary: .shared())
+        configuration.filter = .images
+        configuration.selectionLimit = 1
+        
+        // Create the picker
+        let picker = PHPickerViewController(configuration: configuration)
+        picker.delegate = textViewCoordinator
+        
+        // Store strong reference in coordinator to prevent deallocation
+        textViewCoordinator.phPicker = picker
+        
+        // Present the picker
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let rootViewController = windowScene.windows.first?.rootViewController {
+            var topController = rootViewController
+            while let presented = topController.presentedViewController {
+                topController = presented
+            }
+            print("📸 Presenting PHPicker")
+            topController.present(picker, animated: true)
+        } else {
+            print("❌ Could not find root view controller to present PHPicker")
+        }
     }
     
     private func showIOSImagePicker() {
@@ -1227,14 +1337,23 @@ struct FileEditView: View {
     private func handleImageSelection(url: URL) {
         print("🖼️ Image selected: \(url.lastPathComponent)")
         
-        // Start accessing security-scoped resource
-        guard url.startAccessingSecurityScopedResource() else {
-            print("❌ Failed to access security-scoped resource")
-            return
+        // Check if this is a temp file (from PHPicker) or needs security scoping (from file picker)
+        let isTempFile = url.path.starts(with: FileManager.default.temporaryDirectory.path)
+        
+        // Only use security-scoped resources for non-temp files (file picker)
+        let needsSecurityScope = !isTempFile
+        
+        if needsSecurityScope {
+            guard url.startAccessingSecurityScopedResource() else {
+                print("❌ Failed to access security-scoped resource")
+                return
+            }
         }
         
         defer {
-            url.stopAccessingSecurityScopedResource()
+            if needsSecurityScope {
+                url.stopAccessingSecurityScopedResource()
+            }
         }
         
         do {
@@ -1510,6 +1629,9 @@ struct FileEditView: View {
             print("❌ Error saving image update: \(error)")
         }
         
+        // Trigger view refresh to show updated image
+        refreshTrigger = UUID()
+        
         // Keep the image selected and update the selection border to match new size
         // The selection border will be recalculated when the text view updates
         selectedImage = attachment
@@ -1535,13 +1657,16 @@ struct FileEditView: View {
 #Preview {
     do {
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try ModelContainer(for: Project.self, File.self, configurations: config)
+        let container = try ModelContainer(for: Project.self, Folder.self, TextFile.self, configurations: config)
         let context = container.mainContext
         
         let project = Project(name: "Sample Project", type: .novel)
         context.insert(project)
         
-        let file = File(name: "Chapter 1", content: "Once upon a time...")
+        let folder = Folder(name: "Draft", project: project)
+        context.insert(folder)
+        
+        let file = TextFile(name: "Chapter 1", initialContent: "Once upon a time...", parentFolder: folder)
         context.insert(file)
         
         return NavigationStack {

@@ -4,7 +4,7 @@ import SwiftData
 struct AddFileSheet: View {
     @Binding var isPresented: Bool
     let parentFolder: Folder
-    let existingFiles: [File]
+    let existingFiles: [TextFile]
     
     @State private var fileName = ""
     @State private var showErrorAlert = false
@@ -61,21 +61,35 @@ struct AddFileSheet: View {
         
         // Check uniqueness
         if !UniquenessChecker.isFileNameUnique(fileName, in: parentFolder) {
-            errorMessage = NSLocalizedString("addFile.duplicateName", comment: "Duplicate file name error")
+            // Determine if conflict is with active file or trashed file
+            let conflict = UniquenessChecker.getFileNameConflict(fileName, in: parentFolder)
+            if conflict == "trash" {
+                errorMessage = NSLocalizedString("addFile.duplicateNameInTrash", comment: "File with this name exists in Trash")
+            } else {
+                errorMessage = NSLocalizedString("addFile.duplicateName", comment: "Duplicate file name error")
+            }
             showErrorAlert = true
             return
         }
         
-        // Create file
-        let newFile = File(name: fileName, content: "")
-        newFile.parentFolder = parentFolder
+        // Create TextFile
+        let newFile = TextFile(
+            name: fileName,
+            initialContent: "",
+            parentFolder: parentFolder
+        )
         modelContext.insert(newFile)
         
-        // Add to parent folder's files array
-        if parentFolder.files == nil {
-            parentFolder.files = []
+        // Save context to ensure relationships are updated immediately
+        // This prevents duplicate name issues when quickly creating multiple files
+        do {
+            try modelContext.save()
+        } catch {
+            print("Error saving new file: \(error)")
+            errorMessage = "Failed to save file: \(error.localizedDescription)"
+            showErrorAlert = true
+            return
         }
-        parentFolder.files?.append(newFile)
         
         isPresented = false
     }

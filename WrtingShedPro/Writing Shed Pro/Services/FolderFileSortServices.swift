@@ -17,8 +17,8 @@ struct FolderSortService {
             return folders.sorted { ($0.id.uuidString) < ($1.id.uuidString) } // Approximate creation order
         case .byItemCount:
             return folders.sorted { 
-                let count1 = $0.files?.count ?? 0
-                let count2 = $1.files?.count ?? 0
+                let count1 = $0.textFiles?.count ?? 0
+                let count2 = $1.textFiles?.count ?? 0
                 return count1 > count2
             }
         }
@@ -43,10 +43,10 @@ enum FileSortOrder: String, CaseIterable {
 }
 
 struct FileSortService {
-    static func sort(_ files: [File], by order: FileSortOrder) -> [File] {
+    static func sort(_ files: [TextFile], by order: FileSortOrder) -> [TextFile] {
         switch order {
         case .byName:
-            return files.sorted { ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending }
+            return files.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
         case .byCreationDate:
             return files.sorted { $0.createdDate > $1.createdDate }
         case .byModifiedDate:

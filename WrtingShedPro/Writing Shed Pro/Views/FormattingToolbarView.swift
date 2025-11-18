@@ -196,8 +196,11 @@ struct FormattingToolbarView: UIViewRepresentable {
         #if targetEnvironment(macCatalyst)
         toolbar.items = context.coordinator.buildToolbarItems?(true, false) ?? []
         #else
-        toolbar.items = context.coordinator.buildToolbarItems?(false, true) ?? []
-        context.coordinator.isKeyboardVisible = true
+        // On iPad, assume hardware keyboard by default; on iPhone, assume soft keyboard
+        let hasHardwareKeyboard = UIDevice.current.userInterfaceIdiom == .pad
+        toolbar.items = context.coordinator.buildToolbarItems?(hasHardwareKeyboard, !hasHardwareKeyboard) ?? []
+        context.coordinator.hasHardwareKeyboard = hasHardwareKeyboard
+        context.coordinator.isKeyboardVisible = !hasHardwareKeyboard
         #endif
         
         return toolbar
@@ -459,6 +462,19 @@ struct FormattingToolbarView: UIViewRepresentable {
                let endFrame = userInfo[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect {
                 hasHardwareKeyboard = endFrame.height < 100
             }
+            
+            // On iPad, also check device idiom and keyboard presence
+            #if os(iOS)
+            if UIDevice.current.userInterfaceIdiom == .pad {
+                // On iPad, if endFrame height is 0 or keyboard never appears, it's a hardware keyboard
+                if let userInfo = notification.userInfo,
+                   let endFrame = userInfo[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect {
+                    hasHardwareKeyboard = endFrame.height == 0 || endFrame.height < 50
+                } else {
+                    hasHardwareKeyboard = true  // Default to hardware keyboard on iPad if detection fails
+                }
+            }
+            #endif
             
             updateToolbarLayout()
             updateKeyboardButtonIcon()

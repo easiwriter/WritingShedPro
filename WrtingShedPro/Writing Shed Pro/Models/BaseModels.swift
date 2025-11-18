@@ -2,17 +2,30 @@ import Foundation
 import SwiftData
 import UIKit
 
+/// Project source status for development re-import
+enum ProjectStatus: String, Codable {
+    case legacy  // Imported from original Writing Shed
+    case pro     // Created in Writing Shed Pro
+}
+
 @Model
 final class Project {
     var id: UUID = UUID()
     var name: String?
     var typeRaw: String?
+    var statusRaw: String? // "legacy" or "pro"
     var creationDate: Date?
     var modifiedDate: Date?
     var details: String?
     var notes: String?
     var userOrder: Int?
     @Relationship(deleteRule: .cascade, inverse: \Folder.project) var folders: [Folder]?
+    var trashedItems: [TrashItem]? // Inverse for TrashItem.project
+    
+    // Feature 008b: Publication Management
+    @Relationship(deleteRule: .cascade, inverse: \Publication.project) var publications: [Publication]? = []
+    @Relationship(deleteRule: .cascade, inverse: \Submission.project) var submissions: [Submission]? = []
+    @Relationship(deleteRule: .cascade, inverse: \SubmittedFile.project) var submittedFiles: [SubmittedFile]? = []
     
     // Style sheet reference (Phase 5)
     var styleSheet: StyleSheet?
@@ -33,9 +46,22 @@ final class Project {
         }
     }
     
+    var status: ProjectStatus {
+        get {
+            guard let statusRaw = statusRaw, let projectStatus = ProjectStatus(rawValue: statusRaw) else {
+                return .pro // Default to .pro for existing projects
+            }
+            return projectStatus
+        }
+        set {
+            statusRaw = newValue.rawValue
+        }
+    }
+    
     init(name: String?, type: ProjectType = ProjectType.blank, creationDate: Date? = Date(), details: String? = nil, notes: String? = nil, userOrder: Int? = nil, styleSheet: StyleSheet? = nil) {
         self.name = name
         self.typeRaw = type.rawValue
+        self.statusRaw = ProjectStatus.pro.rawValue // Default to .pro
         self.creationDate = creationDate
         self.modifiedDate = creationDate
         self.details = details
@@ -55,122 +81,18 @@ enum ProjectType: String, Codable, CaseIterable {
 final class Folder {
     var id: UUID = UUID()
     var name: String?
-    @Relationship(deleteRule: .cascade, inverse: \File.parentFolder) var files: [File]?
     @Relationship(deleteRule: .cascade) var folders: [Folder]?  // Inverse is parentFolder
     @Relationship(deleteRule: .cascade) var textFiles: [TextFile]?  // Inverse is TextFile.parentFolder
     @Relationship(inverse: \Folder.folders) var parentFolder: Folder?  // Inverse is folders
     var project: Project?
+    var trashedItems: [TrashItem]? // Inverse for TrashItem.originalFolder
     
     init(name: String?, project: Project? = nil, parentFolder: Folder? = nil) {
         self.name = name
         self.project = project
         self.parentFolder = parentFolder
-        self.files = []
         self.folders = []
         self.textFiles = []
-    }
-}
-
-@Model
-final class File {
-    var id: UUID = UUID()
-    var name: String?
-    var content: String? // Legacy - will be migrated to versions
-    var createdDate: Date = Date()
-    var modifiedDate: Date = Date()
-    var userOrder: Int?
-    var currentVersionIndex: Int = 0
-    var parentFolder: Folder?
-    
-    // Undo/Redo support
-    var undoStackData: Data?
-    var redoStackData: Data?
-    var undoStackMaxSize: Int = 100
-    var lastUndoSaveDate: Date?
-    
-    @Relationship(deleteRule: .cascade, inverse: \Version.file) var versions: [Version]?
-    
-    /// Get the project this file belongs to (via parent folder)
-    var project: Project? {
-        return parentFolder?.project
-    }
-    
-    init(name: String?, content: String? = nil, userOrder: Int? = nil) {
-        self.name = name
-        self.content = content
-        self.createdDate = Date()
-        self.modifiedDate = Date()
-        self.userOrder = userOrder
-        self.currentVersionIndex = 0
-        
-        // Create initial version
-        let initialVersion = Version(content: content ?? "", versionNumber: 1)
-        self.versions = [initialVersion]
-    }
-    
-    // MARK: - Version Management
-    
-    /// Returns the current version label for display (e.g., "Version 1/3")
-    func versionLabel() -> String {
-        let total = versions?.count ?? 0
-        let current = currentVersionIndex + 1
-        return "Version \(current)/\(total)"
-    }
-    
-    /// Returns the currently active version
-    var currentVersion: Version? {
-        guard let versions = versions, !versions.isEmpty, currentVersionIndex < versions.count else {
-            return nil
-        }
-        return versions.sorted(by: { $0.versionNumber < $1.versionNumber })[currentVersionIndex]
-    }
-    
-    /// Check if we're at the first version
-    func atFirstVersion() -> Bool {
-        return currentVersionIndex == 0
-    }
-    
-    /// Check if we're at the last version
-    func atLastVersion() -> Bool {
-        return currentVersionIndex >= (versions?.count ?? 1) - 1
-    }
-    
-    /// Navigate between versions
-    func changeVersion(by offset: Int) {
-        let newIndex = currentVersionIndex + offset
-        let maxIndex = (versions?.count ?? 1) - 1
-        currentVersionIndex = max(0, min(newIndex, maxIndex))
-    }
-    
-    /// Add a new version (duplicate current)
-    func addVersion() {
-        guard let currentVersion = currentVersion else { return }
-        let newVersionNumber = (versions?.count ?? 0) + 1
-        let newVersion = Version(
-            content: currentVersion.content,
-            versionNumber: newVersionNumber,
-            comment: "Duplicated from Version \(currentVersion.versionNumber)"
-        )
-        versions?.append(newVersion)
-        currentVersionIndex = (versions?.count ?? 1) - 1
-        modifiedDate = Date()
-    }
-    
-    /// Delete the current version
-    func deleteVersion() {
-        guard let versions = versions, versions.count > 1 else { return }
-        let sortedVersions = versions.sorted(by: { $0.versionNumber < $1.versionNumber })
-        let versionToDelete = sortedVersions[currentVersionIndex]
-        
-        // Remove from array
-        self.versions?.removeAll { $0.id == versionToDelete.id }
-        
-        // Adjust current index if needed
-        if currentVersionIndex >= (self.versions?.count ?? 0) {
-            currentVersionIndex = max(0, (self.versions?.count ?? 1) - 1)
-        }
-        
-        modifiedDate = Date()
     }
 }
 
@@ -188,7 +110,10 @@ final class Version {
     
     // SwiftData Relationships
     var textFile: TextFile?
-    var file: File?
+    
+    // Feature 008b: Publication Management
+    @Relationship(deleteRule: .nullify, inverse: \SubmittedFile.version) 
+    var submittedFiles: [SubmittedFile]? = []
     
     init(content: String = "", versionNumber: Int = 1, comment: String? = nil) {
         self.content = content
@@ -235,6 +160,47 @@ final class Version {
             }
         }
     }
+    
+    // MARK: - Submission Locking (Feature 008b)
+    
+    /// Returns true if this version is referenced by any submission to a publication
+    /// Collections (submissions without a publication) do not lock versions
+    var isLocked: Bool {
+        guard let submittedFiles = submittedFiles, !submittedFiles.isEmpty else {
+            return false
+        }
+        // Only locked if submitted to an actual publication (not a collection)
+        return submittedFiles.contains { $0.submission?.publication != nil }
+    }
+    
+    /// Returns all submissions that reference this version
+    var referencingSubmissions: [SubmittedFile] {
+        return submittedFiles ?? []
+    }
+    
+    /// Can this version be edited?
+    var canEdit: Bool {
+        !isLocked
+    }
+    
+    /// Can this version be deleted?
+    var canDelete: Bool {
+        !isLocked
+    }
+    
+    /// Reason why version is locked (for error messages)
+    var lockReason: String? {
+        guard isLocked else { return nil }
+        let submissions = referencingSubmissions
+        if submissions.isEmpty { return nil }
+        
+        let publicationNames = submissions.compactMap { $0.submission?.publication?.name }
+        if publicationNames.count == 1 {
+            return "This version is locked because it's part of a submission to \(publicationNames[0])."
+        } else {
+            return "This version is locked because it's part of \(publicationNames.count) submissions."
+        }
+    }
 }
 
 @Model
@@ -244,6 +210,13 @@ final class TextFile {
     var createdDate: Date = Date()
     var modifiedDate: Date = Date()
     var currentVersionIndex: Int = 0
+    var userOrder: Int?
+    
+    // Undo/Redo support (for TextFileUndoManager)
+    var undoStackData: Data?
+    var redoStackData: Data?
+    var undoStackMaxSize: Int = 100
+    var lastUndoSaveDate: Date?
     
     // SwiftData Relationships - all must be optional for CloudKit
     @Relationship(deleteRule: .nullify, inverse: \Folder.textFiles) 
@@ -251,6 +224,17 @@ final class TextFile {
     
     @Relationship(deleteRule: .cascade, inverse: \Version.textFile) 
     var versions: [Version]? = nil
+    
+    var trashItem: TrashItem? // Inverse for TrashItem.textFile
+    
+    // Feature 008b: Publication Management
+    @Relationship(deleteRule: .nullify, inverse: \SubmittedFile.textFile) 
+    var submittedFiles: [SubmittedFile]? = []
+    
+    /// Get the project this file belongs to (via parent folder)
+    var project: Project? {
+        return parentFolder?.project
+    }
     
     init(name: String = "", initialContent: String = "", parentFolder: Folder? = nil) {
         self.name = name
@@ -326,6 +310,52 @@ final class TextFile {
     /// Returns all versions sorted by version number
     var sortedVersions: [Version] {
         return versions?.sorted { $0.versionNumber < $1.versionNumber } ?? []
+    }
+}
+
+// MARK: - TrashItem (Feature 008a: File Movement System)
+
+/// Represents a deleted file in the Trash with metadata for restoration
+@Model
+final class TrashItem {
+    var id: UUID = UUID()
+    var deletedDate: Date = Date()
+    
+    // SwiftData Relationships
+    /// The file that was deleted
+    @Relationship(deleteRule: .nullify, inverse: \TextFile.trashItem)
+    var textFile: TextFile?
+    
+    /// The folder the file originally came from (for Put Back)
+    @Relationship(deleteRule: .nullify, inverse: \Folder.trashedItems)
+    var originalFolder: Folder?
+    
+    /// The project this trash item belongs to
+    @Relationship(deleteRule: .nullify, inverse: \Project.trashedItems)
+    var project: Project?
+    
+    init(textFile: TextFile, originalFolder: Folder?, project: Project?) {
+        self.textFile = textFile
+        self.originalFolder = originalFolder
+        self.project = project
+        self.deletedDate = Date()
+    }
+    
+    // MARK: - Computed Properties
+    
+    /// Display name for the trashed file
+    var displayName: String {
+        return textFile?.name ?? "Unknown"
+    }
+    
+    /// Original folder name for display ("From: Draft")
+    var originalFolderName: String {
+        return originalFolder?.name ?? "Unknown"
+    }
+    
+    /// Returns true if the original folder still exists
+    var canRestoreToOriginal: Bool {
+        return originalFolder != nil
     }
 }
 

@@ -33,8 +33,39 @@ struct UniquenessChecker {
         }
     }
     
+    /// Check if file name is unique within a folder
+    /// - Considers both active files and deleted files (in trash)
+    /// - Parameters:
+    ///   - name: The file name to check
+    ///   - folder: The folder to check within
     static func isFileNameUnique(_ name: String, in folder: Folder) -> Bool {
-        let files = folder.files ?? []
-        return !files.contains { ($0.name ?? "").caseInsensitiveCompare(name) == .orderedSame }
+        return getFileNameConflict(name, in: folder) == nil
+    }
+    
+    /// Determine why a file name is not unique
+    /// - Returns: nil if name is unique, "active" if file exists in folder, "trash" if file exists in trash
+    /// - Parameters:
+    ///   - name: The file name to check
+    ///   - folder: The folder to check within
+    static func getFileNameConflict(_ name: String, in folder: Folder) -> String? {
+        // Check active files
+        let files = folder.textFiles ?? []
+        if files.contains(where: { $0.name.caseInsensitiveCompare(name) == .orderedSame }) {
+            return "active"
+        }
+        
+        // Check deleted files (in trash) from the same folder
+        if let project = folder.project,
+           let trashedItems = project.trashedItems {
+            if trashedItems.contains(where: { trashItem in
+                // Check if this trash item is from the same folder and has matching name
+                trashItem.originalFolder?.id == folder.id &&
+                (trashItem.textFile?.name ?? "").caseInsensitiveCompare(name) == .orderedSame
+            }) {
+                return "trash"
+            }
+        }
+        
+        return nil
     }
 }

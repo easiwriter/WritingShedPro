@@ -15,16 +15,23 @@ struct Write_App: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             Project.self,
-            File.self,
             Folder.self,
+            TextFile.self,
+            Version.self,
+            TrashItem.self,
             StyleSheet.self,
             TextStyleModel.self,
             PageSetup.self,
-            PrinterPaper.self
+            PrinterPaper.self,
+            // Feature 008b: Publication Management
+            Publication.self,
+            Submission.self,
+            SubmittedFile.self
         ])
         let modelConfiguration = ModelConfiguration(
             schema: schema,
             isStoredInMemoryOnly: false,
+            allowsSave: true,
             cloudKitDatabase: .private("iCloud.com.appworks.writingshedpro")
         )
 

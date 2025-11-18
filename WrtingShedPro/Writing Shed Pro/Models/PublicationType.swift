@@ -11,11 +11,15 @@ import Foundation
 enum PublicationType: String, Codable {
     case magazine
     case competition
+    case commission
+    case other
     
     var displayName: String {
         switch self {
-        case .magazine: return "Magazine"
-        case .competition: return "Competition"
+        case .magazine: return NSLocalizedString("publications.type.magazine", comment: "Magazine")
+        case .competition: return NSLocalizedString("publications.type.competition", comment: "Competition")
+        case .commission: return NSLocalizedString("publications.type.commission", comment: "Commission")
+        case .other: return NSLocalizedString("publications.type.other", comment: "Other")
         }
     }
     
@@ -23,6 +27,8 @@ enum PublicationType: String, Codable {
         switch self {
         case .magazine: return "📰"
         case .competition: return "🏆"
+        case .commission: return "📝"
+        case .other: return "📄"
         }
     }
 }

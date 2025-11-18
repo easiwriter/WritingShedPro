@@ -19,7 +19,7 @@ final class TextReplaceCommand: UndoableCommand {
     let newText: String
     
     /// Reference to the target file (weak to prevent retain cycles)
-    weak var targetFile: File?
+    weak var targetFile: TextFile?
     
     // MARK: - Initialization
     
@@ -30,7 +30,7 @@ final class TextReplaceCommand: UndoableCommand {
          endPosition: Int,
          oldText: String,
          newText: String,
-         targetFile: File?) {
+         targetFile: TextFile?) {
         self.id = id
         self.timestamp = timestamp
         self.description = description
