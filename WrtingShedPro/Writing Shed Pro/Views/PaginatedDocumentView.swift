@@ -40,6 +40,7 @@ struct PaginatedDocumentView: View {
                             pageSetup: pageSetup,
                             currentPage: $currentPage
                         )
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .scaleEffect(zoomScale * magnificationAmount)
                         .gesture(
                             MagnificationGesture()
