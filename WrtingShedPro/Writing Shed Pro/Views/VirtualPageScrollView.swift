@@ -393,19 +393,16 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
             pageSpacing: layoutManager.pageSpacing
         )
         
-        // Frame is at original size - transform will scale it
-        // But we need to position it accounting for the scaled size
-        let scaledWidth = pageLayout.pageRect.width * currentZoomScale
-        let scaledHeight = pageLayout.pageRect.height * currentZoomScale
+        // Frame uses original dimensions (transform will scale)
+        // But Y position must account for cumulative scaled heights
         let scaledY = yPosition * currentZoomScale
         
-        // Center position for the scaled page
+        // Center horizontally
         let centerX = bounds.width / 2
-        let centerY = scaledY + scaledHeight / 2
         
         return CGRect(
             x: centerX - pageLayout.pageRect.width / 2,
-            y: centerY - pageLayout.pageRect.height / 2,
+            y: scaledY,
             width: pageLayout.pageRect.width,
             height: pageLayout.pageRect.height
         )
