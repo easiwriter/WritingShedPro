@@ -140,8 +140,8 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
     override func layoutSubviews() {
         super.layoutSubviews()
         
-        // Apply content insets for zoom centering
-        applyZoomInsets()
+        // Apply content insets for horizontal centering
+        applyCenteringInsets()
         
         // When bounds change (e.g., rotation, initial layout), reposition all pages
         repositionAllPages()
@@ -179,37 +179,21 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
     
     func updateZoomScale(_ scale: CGFloat) {
         currentZoomScale = scale
-        
-        // Update content size based on zoom
-        if baseContentSize != .zero, bounds.size != .zero {
-            let scaledWidth = baseContentSize.width * scale
-            let scaledHeight = baseContentSize.height * scale
-            
-            // Content size should be at least as large as viewport to prevent clipping
-            contentSize = CGSize(
-                width: max(scaledWidth, bounds.width),
-                height: max(scaledHeight, bounds.height)
-            )
-        }
-        
-        applyZoomInsets()
+        // Note: With SwiftUI scaleEffect approach, UIKit layer always stays at 100%
+        // No need to update content size or insets based on zoom
+        applyCenteringInsets()
     }
     
-    private func applyZoomInsets() {
+    private func applyCenteringInsets() {
         guard bounds.size != .zero, baseContentSize != .zero else { return }
         
-        // Calculate scaled content dimensions
-        let scaledWidth = baseContentSize.width * currentZoomScale
-        let scaledHeight = baseContentSize.height * currentZoomScale
-        
-        // Center content when it's smaller than viewport
-        let horizontalInset = max(0, (bounds.width - scaledWidth) / 2)
-        let verticalInset = max(0, (bounds.height - scaledHeight) / 2)
+        // Center content horizontally when page is narrower than viewport
+        let horizontalInset = max(0, (bounds.width - baseContentSize.width) / 2)
         
         let newInset = UIEdgeInsets(
-            top: verticalInset,
+            top: 0,
             left: horizontalInset,
-            bottom: verticalInset,
+            bottom: 0,
             right: horizontalInset
         )
         
@@ -393,16 +377,13 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
             pageSpacing: layoutManager.pageSpacing
         )
         
-        // Frame uses original dimensions (transform will scale)
-        // But Y position must account for cumulative scaled heights
-        let scaledY = yPosition * currentZoomScale
-        
-        // Center horizontally
+        // Everything is at 100% scale now (SwiftUI handles visual zoom)
+        // Center horizontally in the available width
         let centerX = bounds.width / 2
         
         return CGRect(
             x: centerX - pageLayout.pageRect.width / 2,
-            y: scaledY,
+            y: yPosition,
             width: pageLayout.pageRect.width,
             height: pageLayout.pageRect.height
         )
