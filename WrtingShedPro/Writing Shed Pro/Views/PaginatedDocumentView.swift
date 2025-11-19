@@ -135,25 +135,33 @@ struct PaginatedDocumentView: View {
             .accessibilityLabel("Zoom Out")
             .accessibilityHint("Decreases zoom to \(Int((zoomScale - 0.25) * 100))%")
             
-            TextField("100", text: $zoomInputText)
-                .font(.subheadline)
-                .fontWeight(.medium)
-                .foregroundStyle(.primary)
-                .multilineTextAlignment(.center)
-                .frame(width: 50)
-                .textFieldStyle(.plain)
-                .focused($isZoomFieldFocused)
-                .onSubmit {
-                    applyZoomFromTextField()
-                }
-                .onChange(of: zoomScale) { _, newValue in
-                    // Update text field when zoom changes via buttons
-                    if !isZoomFieldFocused {
-                        zoomInputText = "\(Int(newValue * 100))"
+            HStack(spacing: 2) {
+                TextField("100", text: $zoomInputText)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundStyle(.primary)
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 35)
+                    .textFieldStyle(.plain)
+                    .focused($isZoomFieldFocused)
+                    .onSubmit {
+                        applyZoomFromTextField()
                     }
-                }
-                .accessibilityLabel("Zoom percentage")
-                .accessibilityHint("Enter zoom percentage from 50 to 200")
+                    .onChange(of: zoomScale) { _, newValue in
+                        // Update text field when zoom changes via buttons
+                        if !isZoomFieldFocused {
+                            zoomInputText = "\(Int(newValue * 100))"
+                        }
+                    }
+                
+                Text("%")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundStyle(.primary)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Zoom percentage: \(zoomInputText) percent")
+            .accessibilityHint("Enter zoom percentage from 50 to 200")
             
             Button {
                 zoomIn()
