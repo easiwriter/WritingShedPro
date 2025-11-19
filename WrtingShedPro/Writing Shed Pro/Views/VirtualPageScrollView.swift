@@ -185,22 +185,9 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
     }
     
     private func applyCenteringInsets() {
-        guard bounds.size != .zero, baseContentSize != .zero else { return }
-        
-        // Center content horizontally when page is narrower than viewport
-        let horizontalInset = max(0, (bounds.width - baseContentSize.width) / 2)
-        
-        let newInset = UIEdgeInsets(
-            top: 0,
-            left: horizontalInset,
-            bottom: 0,
-            right: horizontalInset
-        )
-        
-        // Only update if changed to avoid unnecessary updates
-        if contentInset != newInset {
-            contentInset = newInset
-        }
+        // With scaleEffect approach, pages are centered via frame positioning
+        // No additional insets needed
+        contentInset = .zero
     }
     
     // MARK: - Virtual Scrolling
