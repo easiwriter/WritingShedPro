@@ -127,12 +127,11 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         
         guard let result = layoutManager.layoutResult else { return }
         
-        // Store base content size and apply zoom
+        // Store base content size
         baseContentSize = result.contentSize
-        contentSize = CGSize(
-            width: baseContentSize.width * currentZoomScale,
-            height: baseContentSize.height * currentZoomScale
-        )
+        
+        // Set content size (will be properly sized in layoutSubviews)
+        contentSize = baseContentSize
         
         // Render initial pages
         updateVisiblePages()
@@ -167,13 +166,11 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
             layoutManager.calculateLayout()
         }
         
-        // Update scroll view content size with zoom
+        // Update scroll view content size
         if let result = layoutManager.layoutResult {
             baseContentSize = result.contentSize
-            contentSize = CGSize(
-                width: baseContentSize.width * currentZoomScale,
-                height: baseContentSize.height * currentZoomScale
-            )
+            // Update content size with current zoom
+            updateZoomScale(currentZoomScale)
         }
         
         // Re-render visible pages with new layout
@@ -184,10 +181,14 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         currentZoomScale = scale
         
         // Update content size based on zoom
-        if baseContentSize != .zero {
+        if baseContentSize != .zero, bounds.size != .zero {
+            let scaledWidth = baseContentSize.width * scale
+            let scaledHeight = baseContentSize.height * scale
+            
+            // Content size should be at least as large as viewport to prevent clipping
             contentSize = CGSize(
-                width: baseContentSize.width * scale,
-                height: baseContentSize.height * scale
+                width: max(scaledWidth, bounds.width),
+                height: max(scaledHeight, bounds.height)
             )
         }
         
@@ -195,17 +196,21 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
     }
     
     private func applyZoomInsets() {
-        guard bounds.height > 0, contentSize.height > 0 else { return }
+        guard bounds.size != .zero, baseContentSize != .zero else { return }
         
-        // Adjust content insets to center content when zoomed out
-        let scaledContentHeight = contentSize.height * currentZoomScale
-        let verticalInset = max(0, (bounds.height - scaledContentHeight) / 2)
+        // Calculate scaled content dimensions
+        let scaledWidth = baseContentSize.width * currentZoomScale
+        let scaledHeight = baseContentSize.height * currentZoomScale
+        
+        // Center content when it's smaller than viewport
+        let horizontalInset = max(0, (bounds.width - scaledWidth) / 2)
+        let verticalInset = max(0, (bounds.height - scaledHeight) / 2)
         
         let newInset = UIEdgeInsets(
             top: verticalInset,
-            left: 0,
+            left: horizontalInset,
             bottom: verticalInset,
-            right: 0
+            right: horizontalInset
         )
         
         // Only update if changed to avoid unnecessary updates
