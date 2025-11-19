@@ -38,6 +38,7 @@ struct PaginatedDocumentView: View {
                         VirtualPageScrollView(
                             layoutManager: layoutManager,
                             pageSetup: pageSetup,
+                            zoomScale: zoomScale * magnificationAmount,
                             currentPage: $currentPage
                         )
                         .frame(maxWidth: .infinity, maxHeight: .infinity)

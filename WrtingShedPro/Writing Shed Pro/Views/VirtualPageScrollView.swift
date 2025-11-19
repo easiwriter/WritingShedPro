@@ -16,6 +16,7 @@ struct VirtualPageScrollView: UIViewRepresentable {
     
     let layoutManager: PaginatedTextLayoutManager
     let pageSetup: PageSetup
+    let zoomScale: CGFloat
     @Binding var currentPage: Int
     var onPageChange: ((Int) -> Void)?
     
@@ -30,12 +31,15 @@ struct VirtualPageScrollView: UIViewRepresentable {
             currentPage = page
             onPageChange?(page)
         }
+        scrollView.updateZoomScale(zoomScale)
         return scrollView
     }
     
     func updateUIView(_ uiView: VirtualPageScrollViewImpl, context: Context) {
         // Update if layout manager or page setup changed
         uiView.updateLayout(layoutManager: layoutManager, pageSetup: pageSetup)
+        // Update zoom scale to adjust content insets
+        uiView.updateZoomScale(zoomScale)
     }
 }
 
@@ -154,6 +158,19 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         
         // Re-render visible pages with new layout
         updateVisiblePages()
+    }
+    
+    func updateZoomScale(_ scale: CGFloat) {
+        // Adjust content insets to center content when zoomed out
+        let scaledContentHeight = contentSize.height * scale
+        let verticalInset = max(0, (bounds.height - scaledContentHeight) / 2)
+        
+        contentInset = UIEdgeInsets(
+            top: verticalInset,
+            left: 0,
+            bottom: verticalInset,
+            right: 0
+        )
     }
     
     // MARK: - Virtual Scrolling
