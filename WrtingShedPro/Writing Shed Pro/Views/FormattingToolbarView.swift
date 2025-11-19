@@ -22,7 +22,7 @@ struct FormattingToolbarView: UIViewRepresentable {
         
         // Create paragraph style button (non-highlighting)
         let paragraphButton = createStandardButton(
-            systemName: "paragraph",
+            systemName: "text.square.filled",
             action: #selector(context.coordinator.showParagraphStyle),
             coordinator: context.coordinator
         )

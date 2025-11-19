@@ -6,55 +6,41 @@ extension TextFile {
     /// Check if currently at the first version
     func atFirstVersion() -> Bool {
         guard let versions = versions, !versions.isEmpty else { return true }
-        guard let currentVersion = currentVersion else { return true }
         
-        let sortedVersions = versions.sorted { $0.versionNumber < $1.versionNumber }
-        return currentVersion.id == sortedVersions.first?.id
+        // currentVersionIndex is in sorted space - first is index 0
+        return currentVersionIndex == 0
     }
     
     /// Check if currently at the last version
     func atLastVersion() -> Bool {
         guard let versions = versions, !versions.isEmpty else { return true }
-        guard let currentVersion = currentVersion else { return true }
         
-        let sortedVersions = versions.sorted { $0.versionNumber < $1.versionNumber }
-        return currentVersion.id == sortedVersions.last?.id
+        // currentVersionIndex is in sorted space - last is count - 1
+        return currentVersionIndex >= versions.count - 1
     }
     
     /// Get label for current version
     func versionLabel() -> String {
         guard let versions = versions, !versions.isEmpty else { return "No versions" }
-        guard let currentVersion = currentVersion else { return "No current version" }
         
-        let sortedVersions = versions.sorted { $0.versionNumber < $1.versionNumber }
-        if let index = sortedVersions.firstIndex(where: { $0.id == currentVersion.id }) {
-            return "Version \(index + 1) of \(sortedVersions.count)"
-        }
-        return "Version ?"
+        // currentVersionIndex is in sorted space - use it directly
+        // Display as 1-based for user (index 0 = "Version 1")
+        return "Version \(currentVersionIndex + 1) of \(versions.count)"
     }
     
     /// Change version by offset (-1 for previous, +1 for next)
     func changeVersion(by offset: Int) {
         guard let versions = versions, !versions.isEmpty else { return }
-        guard let currentVersion = currentVersion else { return }
         
         // Sort versions by version number to ensure consistent navigation
         let sortedVersions = versions.sorted { $0.versionNumber < $1.versionNumber }
         
-        // Find current version in sorted array
-        guard let currentIndex = sortedVersions.firstIndex(where: { $0.id == currentVersion.id }) else { return }
-        
-        // Calculate new index
-        let newIndex = currentIndex + offset
+        // Calculate new index (currentVersionIndex is already in sorted order)
+        let newIndex = currentVersionIndex + offset
         guard newIndex >= 0 && newIndex < sortedVersions.count else { return }
         
-        // Get target version
-        let targetVersion = sortedVersions[newIndex]
-        
-        // Find index in unsorted array and set it
-        if let actualIndex = versions.firstIndex(where: { $0.id == targetVersion.id }) {
-            self.currentVersionIndex = actualIndex
-        }
+        // Set new index directly (no conversion needed - we work in sorted space)
+        self.currentVersionIndex = newIndex
     }
     
     /// Add a new version (duplicate current version)
@@ -105,13 +91,10 @@ extension TextFile {
     func selectLatestVersion() {
         guard let versions = versions, !versions.isEmpty else { return }
         
-        // Sort versions and find the one with highest version number
+        // Sort versions - latest is last in sorted array
         let sortedVersions = versions.sorted { $0.versionNumber < $1.versionNumber }
-        guard let latestVersion = sortedVersions.last else { return }
         
-        // Find index in unsorted array
-        if let index = versions.firstIndex(where: { $0.id == latestVersion.id }) {
-            self.currentVersionIndex = index
-        }
+        // Set index to last position in sorted array
+        self.currentVersionIndex = sortedVersions.count - 1
     }
 }

@@ -5,7 +5,10 @@ import UniformTypeIdentifiers
 import PhotosUI
 
 struct FileEditView: View {
-    let file: TextFile
+    @Bindable var file: TextFile
+    
+    // Track version index changes explicitly for toolbar updates
+    @State private var currentVersionIndex: Int = 0
     
     @State private var attributedContent: NSAttributedString
     @State private var selectedRange: NSRange = NSRange(location: 0, length: 0)
@@ -111,6 +114,7 @@ struct FileEditView: View {
         .padding(.horizontal, 8)
         .padding(.top, 8)
         .padding(.bottom, 8)
+        .zIndex(100)  // Ensure toolbar is above any overlays
     }
     
     private func textEditorSection() -> some View {
@@ -1242,11 +1246,13 @@ struct FileEditView: View {
     
     private func showImagePicker() {
         print("🖼️ showImagePicker() called")
+        // Note: On Mac Catalyst, Photos library is not accessible (PHPicker doesn't work)
+        // So we show the source picker on iOS (Photos + Files), but go directly to Files on Mac
         #if targetEnvironment(macCatalyst)
-        // On Mac, go directly to file picker
-        showDocumentPicker = true
+        // Mac Catalyst: Go directly to file picker (only option available)
+        showIOSImagePicker()
         #else
-        // On iPhone/iPad, let user choose between Photos and Files
+        // iOS: Let user choose between Photos and Files
         showImageSourcePicker = true
         #endif
     }
@@ -1496,7 +1502,24 @@ struct FileEditView: View {
     private func loadCurrentVersion() {
         var newAttributedContent: NSAttributedString
         
-        if let versionContent = file.currentVersion?.attributedContent {
+        // PERFORMANCE: Access attributedContent once and cache it
+        // The getter deserializes RTF data which is expensive - avoid repeated calls
+        guard let currentVersion = file.currentVersion else {
+            // No version available - shouldn't happen but handle gracefully
+            newAttributedContent = NSAttributedString(
+                string: "",
+                attributes: [.font: UIFont.preferredFont(forTextStyle: .body)]
+            )
+            print("⚠️ loadCurrentVersion: No current version found")
+            attributedContent = newAttributedContent
+            previousContent = ""
+            selectedRange = NSRange(location: 0, length: 0)
+            forceRefresh.toggle()
+            refreshTrigger = UUID()
+            return
+        }
+        
+        if let versionContent = currentVersion.attributedContent {
             // Version has saved content - use it
             newAttributedContent = versionContent
             print("📝 loadCurrentVersion: Loaded existing content, length: \(versionContent.length)")

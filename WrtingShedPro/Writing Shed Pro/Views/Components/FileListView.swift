@@ -149,6 +149,13 @@ struct FileListView: View {
         }
         .listStyle(.plain)
         .toolbar {
+            // Top trailing toolbar for expand/collapse all buttons (when using sections)
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                if useSections && !isEditMode {
+                    expandCollapseButtons
+                }
+            }
+            
             // Bottom toolbar for multi-select actions (only in edit mode)
             ToolbarItemGroup(placement: .bottomBar) {
                 if showToolbar {
@@ -293,6 +300,41 @@ struct FileListView: View {
         .tint(.red)
     }
     
+    /// Expand/Collapse all buttons for section view
+    @ViewBuilder
+    private var expandCollapseButtons: some View {
+        let allExpanded = expandedSections.count == sections.count
+        
+        Button {
+            withAnimation {
+                if allExpanded {
+                    // Collapse all
+                    expandedSections.removeAll()
+                    lastOpenedSection = nil
+                    // Clear saved preference so next visit defaults to expanded
+                    UserDefaults.standard.removeObject(forKey: storageKey)
+                } else {
+                    // Expand all
+                    expandedSections = Set(sections.map { $0.letter })
+                    // Don't save preference - let it default to expanded next time
+                }
+            }
+        } label: {
+            Label(
+                allExpanded ? 
+                    NSLocalizedString("fileList.collapseAll", comment: "Collapse all sections") :
+                    NSLocalizedString("fileList.expandAll", comment: "Expand all sections"),
+                systemImage: allExpanded ? "chevron.up.circle" : "chevron.down.circle"
+            )
+        }
+        .accessibilityLabel(Text(allExpanded ?
+            "fileList.collapseAll.accessibility" :
+            "fileList.expandAll.accessibility"))
+        .accessibilityHint(Text(allExpanded ?
+            "fileList.collapseAll.hint" :
+            "fileList.expandAll.hint"))
+    }
+    
     /// Bottom toolbar content for edit mode
     @ViewBuilder
     private var bottomToolbarContent: some View {
@@ -423,14 +465,17 @@ struct FileListView: View {
     }
     
     /// Loads the last opened section from UserDefaults and expands it
+    /// If no saved preference exists, expands all sections by default
     private func loadLastOpenedSection() {
         if let savedSection = UserDefaults.standard.string(forKey: storageKey),
            sections.contains(where: { $0.letter == savedSection }) {
             // Restore the last opened section only if user had previously opened one
             lastOpenedSection = savedSection
             expandedSections.insert(savedSection)
+        } else {
+            // No saved preference - expand all sections by default for first visit
+            expandedSections = Set(sections.map { $0.letter })
         }
-        // If no saved preference, keep all sections collapsed (no fallback to first section)
     }
     
     /// Handles drag-to-reorder operation
@@ -457,15 +502,15 @@ struct FileListView: View {
 
 /// Button that shows submission icon and opens submission history for a file
 /// Only displayed if the file has at least one submission
+/// NOTE: Uses the file's submittedFiles relationship instead of a query for performance
 private struct SubmissionsButton: View {
-    @Query private var allSubmittedFiles: [SubmittedFile]
     @State private var showSubmissions = false
     
     let file: TextFile
     
-    // Count submissions for this file
+    // Count submissions from the file's relationship (no separate query needed!)
     private var submissionCount: Int {
-        allSubmittedFiles.filter { $0.textFile?.id == file.id }.count
+        file.submittedFiles?.count ?? 0
     }
     
     var body: some View {

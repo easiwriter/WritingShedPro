@@ -218,6 +218,12 @@
 "fileList.done" = "Done";
 "fileList.deleteFile.title" = "Delete File?";
 "fileList.deleteFile.message" = "This action cannot be undone.";
+"fileList.expandAll" = "Expand All";
+"fileList.collapseAll" = "Collapse All";
+"fileList.expandAll.accessibility" = "Expand all sections";
+"fileList.expandAll.hint" = "Show all files in all sections";
+"fileList.collapseAll.accessibility" = "Collapse all sections";
+"fileList.collapseAll.hint" = "Hide all file sections";
 
 /* File info */
 "file.empty" = "Empty";

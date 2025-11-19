@@ -70,43 +70,40 @@ class ImportService {
     func executeImport(modelContext: ModelContext) async -> Bool {
         print("[ImportService] Starting import...")
         
-        // Use autoreleasepool to prevent memory accumulation during long-running import
-        return autoreleasepool {
-            do {
-                // First, delete all previously imported legacy projects (for re-import)
-                try deleteLegacyProjects(modelContext: modelContext)
-                
-                // Connect to legacy database
-                try legacyService.connect()
-                print("[ImportService] Connected to legacy database")
-                
-                // Create import engine
-                let engine = LegacyImportEngine(
-                    legacyService: legacyService,
-                    mapper: DataMapper(legacyService: legacyService, errorHandler: errorHandler),
-                    errorHandler: errorHandler,
-                    progressTracker: progressTracker
-                )
-                
-                // Execute import
-                try engine.executeImport(modelContext: modelContext)
-                print("[ImportService] Import completed successfully")
-                
-                // Disallow future imports (set to false) unless manually re-enabled
-                UserDefaults.standard.set(false, forKey: Self.legacyImportAllowedKey)
-                print("[ImportService] Set legacyImportAllowed = false")
-                
-                return true
-                
-            } catch {
-                print("[ImportService] Import failed: \(error.localizedDescription)")
-                errorHandler.addError(error.localizedDescription)
-                
-                // Do NOT set legacyImportAllowed flag on failure
-                // User can retry on next app launch
-                
-                return false
-            }
+        do {
+            // First, delete all previously imported legacy projects (for re-import)
+            try deleteLegacyProjects(modelContext: modelContext)
+            
+            // Connect to legacy database
+            try legacyService.connect()
+            print("[ImportService] Connected to legacy database")
+            
+            // Create import engine
+            let engine = LegacyImportEngine(
+                legacyService: legacyService,
+                mapper: DataMapper(legacyService: legacyService, errorHandler: errorHandler),
+                errorHandler: errorHandler,
+                progressTracker: progressTracker
+            )
+            
+            // Execute import
+            try engine.executeImport(modelContext: modelContext)
+            print("[ImportService] Import completed successfully")
+            
+            // Disallow future imports (set to false) unless manually re-enabled
+            UserDefaults.standard.set(false, forKey: Self.legacyImportAllowedKey)
+            print("[ImportService] Set legacyImportAllowed = false")
+            
+            return true
+            
+        } catch {
+            print("[ImportService] Import failed: \(error.localizedDescription)")
+            errorHandler.addError(error.localizedDescription)
+            
+            // Do NOT set legacyImportAllowed flag on failure
+            // User can retry on next app launch
+            
+            return false
         }
     }
     

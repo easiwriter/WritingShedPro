@@ -11,6 +11,7 @@ struct ContentView: View {
     @State private var showingJSONImportPicker = false
     @State private var showImportError = false
     @State private var importErrorMessage = ""
+    @State private var showDeleteAllConfirmation = false
     @Environment(\.modelContext) var modelContext
     
     var body: some View {
@@ -34,6 +35,16 @@ struct ContentView: View {
                         Label("Manage Stylesheets", systemImage: "paintbrush")
                     }
                 }
+                
+                #if DEBUG
+                // Delete all projects button (debug only)
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(role: .destructive, action: { showDeleteAllConfirmation = true }) {
+                        Label("Delete All", systemImage: "trash")
+                    }
+                    .accessibilityLabel("Delete all projects (debug only)")
+                }
+                #endif
                 
                 #if DEBUG && (targetEnvironment(macCatalyst) || os(macOS))
                 // Re-import only available on Mac where legacy database is accessible
@@ -79,6 +90,14 @@ struct ContentView: View {
                 Button("OK", role: .cancel) { }
             } message: {
                 Text(importErrorMessage)
+            }
+            .alert("Delete All Projects?", isPresented: $showDeleteAllConfirmation) {
+                Button("Cancel", role: .cancel) { }
+                Button("Delete All", role: .destructive) {
+                    deleteAllProjects()
+                }
+            } message: {
+                Text("This will permanently delete all \(projects.count) project(s) and their contents. This action cannot be undone.")
             }
         }
     }
@@ -203,6 +222,21 @@ struct ContentView: View {
             try? modelContext.save()
         }
     }
+    
+    #if DEBUG
+    private func deleteAllProjects() {
+        print("[ContentView] DEBUG: Deleting all \(projects.count) projects")
+        for project in projects {
+            modelContext.delete(project)
+        }
+        do {
+            try modelContext.save()
+            print("[ContentView] DEBUG: Successfully deleted all projects")
+        } catch {
+            print("[ContentView] DEBUG: Failed to delete projects: \(error)")
+        }
+    }
+    #endif
 }
 
 //#Preview {

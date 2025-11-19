@@ -261,6 +261,11 @@ class LegacyImportEngine {
                 
                 // Map text file
                 let newTextFile = try mapper.mapTextFile(legacyText, parentFolder: parentFolder)
+                
+                // Clear the default empty version created by TextFile init
+                // IMPORTANT: Do this BEFORE inserting into context to avoid SwiftData tracking issues
+                newTextFile.versions = []
+                
                 modelContext.insert(newTextFile)
                 textFileMap[legacyText] = newTextFile
                 
@@ -275,9 +280,6 @@ class LegacyImportEngine {
                     modelContext.insert(newVersion)
                     versionMap[legacyVersion] = newVersion
                     
-                    if newTextFile.versions == nil {
-                        newTextFile.versions = []
-                    }
                     newTextFile.versions?.append(newVersion)
                 }
             } catch {

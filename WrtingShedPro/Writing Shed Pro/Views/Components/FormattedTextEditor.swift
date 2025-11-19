@@ -94,8 +94,10 @@ struct FormattedTextEditor: UIViewRepresentable {
         }
         
         // Configure appearance
-        // NOTE: Don't set textView.font or textView.textColor - they override attributed string attributes!
-        // The font and textColor parameters are only used for fallback in typing attributes
+        // NOTE: Don't set textView.font - it overrides attributed string font attributes!
+        // IMPORTANT: Set textColor to .label for adaptive dark/light mode support
+        // This ensures text without explicit color adapts to appearance mode
+        textView.textColor = .label
         textView.backgroundColor = backgroundColor
         textView.textContainerInset = textContainerInset
         textView.isEditable = isEditable
