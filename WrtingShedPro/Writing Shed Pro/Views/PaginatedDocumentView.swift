@@ -25,11 +25,12 @@ struct PaginatedDocumentView: View {
     // MARK: - Body
     
     var body: some View {
-        VStack(spacing: 0) {
-            // Page indicator toolbar
-            pageIndicatorToolbar
+        ZStack {
+            // Background color for the entire view
+            Color(uiColor: .systemGray6)
+                .ignoresSafeArea()
             
-            // Main content
+            // Main content layer
             if let layoutManager = layoutManager, layoutManager.isLayoutValid {
                 ZStack {
                     // Virtual page scroll view
@@ -65,6 +66,12 @@ struct PaginatedDocumentView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 emptyStateView
+            }
+            
+            // Toolbar overlay - stays on top regardless of content scale
+            VStack {
+                pageIndicatorToolbar
+                Spacer()
             }
         }
         .onAppear {
