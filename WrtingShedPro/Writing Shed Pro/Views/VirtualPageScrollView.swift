@@ -329,17 +329,20 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         // Remove default text container padding (5pt on each side)
         textView.textContainer.lineFragmentPadding = 0
         
-        // Calculate insets from page margins (scaled by zoom)
+        // Calculate insets from page margins (at original 100% size)
         // The text view frame is the full page, so insets represent margins
-        let topInset = (pageSetup.marginTop + (pageSetup.hasHeaders ? pageSetup.headerDepth : 0)) * currentZoomScale
-        let bottomInset = (pageSetup.marginBottom + (pageSetup.hasFooters ? pageSetup.footerDepth : 0)) * currentZoomScale
+        let topInset = pageSetup.marginTop + (pageSetup.hasHeaders ? pageSetup.headerDepth : 0)
+        let bottomInset = pageSetup.marginBottom + (pageSetup.hasFooters ? pageSetup.footerDepth : 0)
         
         textView.textContainerInset = UIEdgeInsets(
             top: topInset,
-            left: pageSetup.marginLeft * currentZoomScale,
+            left: pageSetup.marginLeft,
             bottom: bottomInset,
-            right: pageSetup.marginRight * currentZoomScale
+            right: pageSetup.marginRight
         )
+        
+        // Apply transform to scale the entire text view (including text rendering)
+        textView.transform = CGAffineTransform(scaleX: currentZoomScale, y: currentZoomScale)
         
         // Add subtle shadow for depth
         textView.layer.shadowColor = UIColor.black.cgColor
@@ -390,16 +393,21 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
             pageSpacing: layoutManager.pageSpacing
         )
         
-        // Scale page dimensions by current zoom
+        // Frame is at original size - transform will scale it
+        // But we need to position it accounting for the scaled size
         let scaledWidth = pageLayout.pageRect.width * currentZoomScale
         let scaledHeight = pageLayout.pageRect.height * currentZoomScale
         let scaledY = yPosition * currentZoomScale
         
+        // Center position for the scaled page
+        let centerX = bounds.width / 2
+        let centerY = scaledY + scaledHeight / 2
+        
         return CGRect(
-            x: (bounds.width - scaledWidth) / 2,
-            y: scaledY,
-            width: scaledWidth,
-            height: scaledHeight
+            x: centerX - pageLayout.pageRect.width / 2,
+            y: centerY - pageLayout.pageRect.height / 2,
+            width: pageLayout.pageRect.width,
+            height: pageLayout.pageRect.height
         )
     }
     
