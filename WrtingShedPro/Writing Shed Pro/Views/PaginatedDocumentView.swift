@@ -81,7 +81,7 @@ struct PaginatedDocumentView: View {
     // MARK: - Page Indicator Toolbar
     
     private var pageIndicatorToolbar: some View {
-        HStack {
+        HStack(spacing: 12) {
             // Page info
             if let layoutManager = layoutManager, layoutManager.isLayoutValid {
                 Label {
@@ -96,13 +96,16 @@ struct PaginatedDocumentView: View {
                 }
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel("Page \(currentPage + 1) of \(layoutManager.pageCount)")
+                .layoutPriority(1)
                 
-                Spacer()
+                Spacer(minLength: 8)
                 
                 // Zoom controls
                 zoomControls
+                    .layoutPriority(2)
             }
         }
+        .frame(maxWidth: .infinity)
         .padding(.horizontal)
         .padding(.vertical, 8)
         .background(Color(uiColor: .systemBackground))
@@ -120,6 +123,7 @@ struct PaginatedDocumentView: View {
                 Image(systemName: "minus.magnifyingglass")
                     .font(.body)
                     .imageScale(.medium)
+                    .frame(width: 24, height: 24)
             }
             .disabled(zoomScale <= 0.5)
             .accessibilityLabel("Zoom Out")
@@ -130,6 +134,7 @@ struct PaginatedDocumentView: View {
                 .fontWeight(.medium)
                 .foregroundStyle(.primary)
                 .frame(minWidth: 50)
+                .fixedSize()
                 .accessibilityLabel("Zoom level: \(Int(zoomScale * 100)) percent")
             
             Button {
@@ -138,6 +143,7 @@ struct PaginatedDocumentView: View {
                 Image(systemName: "plus.magnifyingglass")
                     .font(.body)
                     .imageScale(.medium)
+                    .frame(width: 24, height: 24)
             }
             .disabled(zoomScale >= 2.0)
             .accessibilityLabel("Zoom In")
@@ -149,11 +155,13 @@ struct PaginatedDocumentView: View {
                 Image(systemName: "arrow.counterclockwise")
                     .font(.body)
                     .imageScale(.medium)
+                    .frame(width: 24, height: 24)
             }
             .disabled(zoomScale == 1.0)
             .accessibilityLabel("Reset Zoom")
             .accessibilityHint("Resets zoom to 100%")
         }
+        .fixedSize()
         .accessibilityElement(children: .contain)
     }
     
