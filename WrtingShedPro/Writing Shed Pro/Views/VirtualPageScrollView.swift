@@ -330,17 +330,19 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         textView.textContainer.lineFragmentPadding = 0
         
         // Calculate insets from page margins (at original 100% size)
-        // These will be scaled by the frame size naturally
+        // The text view frame is the full page, so insets represent margins
         let topInset = pageSetup.marginTop + (pageSetup.hasHeaders ? pageSetup.headerDepth : 0)
         let bottomInset = pageSetup.marginBottom + (pageSetup.hasFooters ? pageSetup.footerDepth : 0)
         
-        // Scale insets to match zoom level
         textView.textContainerInset = UIEdgeInsets(
-            top: topInset * currentZoomScale,
-            left: pageSetup.marginLeft * currentZoomScale,
-            bottom: bottomInset * currentZoomScale,
-            right: pageSetup.marginRight * currentZoomScale
+            top: topInset,
+            left: pageSetup.marginLeft,
+            bottom: bottomInset,
+            right: pageSetup.marginRight
         )
+        
+        // Apply transform to scale the entire text view (including text rendering)
+        textView.transform = CGAffineTransform(scaleX: currentZoomScale, y: currentZoomScale)
         
         // Add subtle shadow for depth
         textView.layer.shadowColor = UIColor.black.cgColor
@@ -361,26 +363,8 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         let characterRange = pageInfo.characterRange
         let attributedString = layoutManager.textStorage.attributedSubstring(from: characterRange)
         
-        // Scale the attributed string fonts based on zoom level
-        let scaledString = scaleAttributedString(attributedString, scale: currentZoomScale)
-        
         // Set the text
-        textView.attributedText = scaledString
-    }
-    
-    // MARK: - Font Scaling
-    
-    private func scaleAttributedString(_ attributedString: NSAttributedString, scale: CGFloat) -> NSAttributedString {
-        let mutableString = NSMutableAttributedString(attributedString: attributedString)
-        
-        mutableString.enumerateAttribute(.font, in: NSRange(location: 0, length: mutableString.length)) { value, range, _ in
-            if let font = value as? UIFont {
-                let scaledFont = font.withSize(font.pointSize * scale)
-                mutableString.addAttribute(.font, value: scaledFont, range: range)
-            }
-        }
-        
-        return mutableString
+        textView.attributedText = attributedString
     }
     
     // MARK: - Page View Recycling
@@ -409,16 +393,21 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
             pageSpacing: layoutManager.pageSpacing
         )
         
-        // Scale page dimensions and position by current zoom
+        // Frame is at original size - transform will scale it
+        // But we need to position it accounting for the scaled size
         let scaledWidth = pageLayout.pageRect.width * currentZoomScale
         let scaledHeight = pageLayout.pageRect.height * currentZoomScale
         let scaledY = yPosition * currentZoomScale
         
+        // Center position for the scaled page
+        let centerX = bounds.width / 2
+        let centerY = scaledY + scaledHeight / 2
+        
         return CGRect(
-            x: (bounds.width - scaledWidth) / 2,
-            y: scaledY,
-            width: scaledWidth,
-            height: scaledHeight
+            x: centerX - pageLayout.pageRect.width / 2,
+            y: centerY - pageLayout.pageRect.height / 2,
+            width: pageLayout.pageRect.width,
+            height: pageLayout.pageRect.height
         )
     }
     
