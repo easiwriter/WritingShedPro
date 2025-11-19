@@ -20,7 +20,8 @@ struct PaginatedDocumentView: View {
     @State private var currentPage: Int = 0
     @State private var zoomScale: CGFloat = 1.0
     @State private var isCalculatingLayout: Bool = false
-    @GestureState private var magnificationAmount: CGFloat = 1.0
+    @State private var zoomInputText: String = "100"
+    @FocusState private var isZoomFieldFocused: Bool
     
     // MARK: - Body
     
@@ -39,33 +40,20 @@ struct PaginatedDocumentView: View {
                             VirtualPageScrollView(
                                 layoutManager: layoutManager,
                                 pageSetup: pageSetup,
-                                zoomScale: zoomScale * magnificationAmount,
+                                zoomScale: zoomScale,
                                 currentPage: $currentPage
                             )
                             .frame(
                                 width: geometry.size.width,
                                 height: geometry.size.height
                             )
-                            .scaleEffect(zoomScale * magnificationAmount, anchor: .center)
+                            .scaleEffect(zoomScale, anchor: .center)
                             .frame(
                                 width: geometry.size.width,
                                 height: geometry.size.height
                             )
-                            .gesture(
-                            MagnificationGesture()
-                                .updating($magnificationAmount) { value, state, _ in
-                                    state = value.magnitude
-                                }
-                                .onEnded { value in
-                                    // Apply the gesture's final scale to the base zoom scale
-                                    let newScale = zoomScale * value.magnitude
-                                    withAnimation(.easeInOut(duration: 0.2)) {
-                                        zoomScale = min(max(newScale, 0.5), 2.0)
-                                    }
-                                }
-                        )
                             .accessibilityLabel("Document pages")
-                            .accessibilityHint("Pinch to zoom, scroll to navigate pages")
+                            .accessibilityHint("Use zoom controls to adjust view size, scroll to navigate pages")
                             .accessibilityAddTraits(.allowsDirectInteraction)
                         } else {
                             emptyStateView
@@ -147,13 +135,25 @@ struct PaginatedDocumentView: View {
             .accessibilityLabel("Zoom Out")
             .accessibilityHint("Decreases zoom to \(Int((zoomScale - 0.25) * 100))%")
             
-            Text("\(Int(zoomScale * 100))%")
+            TextField("100", text: $zoomInputText)
                 .font(.subheadline)
                 .fontWeight(.medium)
                 .foregroundStyle(.primary)
-                .frame(minWidth: 50)
-                .fixedSize()
-                .accessibilityLabel("Zoom level: \(Int(zoomScale * 100)) percent")
+                .multilineTextAlignment(.center)
+                .frame(width: 50)
+                .textFieldStyle(.plain)
+                .focused($isZoomFieldFocused)
+                .onSubmit {
+                    applyZoomFromTextField()
+                }
+                .onChange(of: zoomScale) { _, newValue in
+                    // Update text field when zoom changes via buttons
+                    if !isZoomFieldFocused {
+                        zoomInputText = "\(Int(newValue * 100))"
+                    }
+                }
+                .accessibilityLabel("Zoom percentage")
+                .accessibilityHint("Enter zoom percentage from 50 to 200")
             
             Button {
                 zoomIn()
@@ -256,5 +256,27 @@ struct PaginatedDocumentView: View {
         withAnimation(.easeInOut(duration: 0.2)) {
             zoomScale = 1.0
         }
+    }
+    
+    private func applyZoomFromTextField() {
+        // Parse the input text
+        let cleanedText = zoomInputText.replacingOccurrences(of: "%", with: "").trimmingCharacters(in: .whitespaces)
+        
+        guard let percentage = Int(cleanedText), percentage >= 50, percentage <= 200 else {
+            // Invalid input - reset to current zoom
+            zoomInputText = "\(Int(zoomScale * 100))"
+            isZoomFieldFocused = false
+            return
+        }
+        
+        // Apply the new zoom scale
+        let newScale = CGFloat(percentage) / 100.0
+        withAnimation(.easeInOut(duration: 0.2)) {
+            zoomScale = newScale
+        }
+        
+        // Update text field with clean value
+        zoomInputText = "\(percentage)"
+        isZoomFieldFocused = false
     }
 }
