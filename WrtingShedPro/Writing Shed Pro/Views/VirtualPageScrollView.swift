@@ -329,16 +329,16 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         // Remove default text container padding (5pt on each side)
         textView.textContainer.lineFragmentPadding = 0
         
-        // Calculate insets from page margins
+        // Calculate insets from page margins (scaled by zoom)
         // The text view frame is the full page, so insets represent margins
-        let topInset = pageSetup.marginTop + (pageSetup.hasHeaders ? pageSetup.headerDepth : 0)
-        let bottomInset = pageSetup.marginBottom + (pageSetup.hasFooters ? pageSetup.footerDepth : 0)
+        let topInset = (pageSetup.marginTop + (pageSetup.hasHeaders ? pageSetup.headerDepth : 0)) * currentZoomScale
+        let bottomInset = (pageSetup.marginBottom + (pageSetup.hasFooters ? pageSetup.footerDepth : 0)) * currentZoomScale
         
         textView.textContainerInset = UIEdgeInsets(
             top: topInset,
-            left: pageSetup.marginLeft,
+            left: pageSetup.marginLeft * currentZoomScale,
             bottom: bottomInset,
-            right: pageSetup.marginRight
+            right: pageSetup.marginRight * currentZoomScale
         )
         
         // Add subtle shadow for depth
@@ -390,11 +390,16 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
             pageSpacing: layoutManager.pageSpacing
         )
         
+        // Scale page dimensions by current zoom
+        let scaledWidth = pageLayout.pageRect.width * currentZoomScale
+        let scaledHeight = pageLayout.pageRect.height * currentZoomScale
+        let scaledY = yPosition * currentZoomScale
+        
         return CGRect(
-            x: (bounds.width - pageLayout.pageRect.width) / 2,
-            y: yPosition,
-            width: pageLayout.pageRect.width,
-            height: pageLayout.pageRect.height
+            x: (bounds.width - scaledWidth) / 2,
+            y: scaledY,
+            width: scaledWidth,
+            height: scaledHeight
         )
     }
     

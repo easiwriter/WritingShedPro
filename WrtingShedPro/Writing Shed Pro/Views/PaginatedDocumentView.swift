@@ -45,7 +45,6 @@ struct PaginatedDocumentView: View {
                                 width: geometry.size.width,
                                 height: geometry.size.height
                             )
-                            .scaleEffect(zoomScale, anchor: .center)
                             .accessibilityLabel("Document pages")
                             .accessibilityHint("Use zoom controls to adjust view size, scroll to navigate pages")
                             .accessibilityAddTraits(.allowsDirectInteraction)
