@@ -243,6 +243,9 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         textView.isSelectable = true
         textView.backgroundColor = .white
         
+        // Remove default text container padding (5pt on each side)
+        textView.textContainer.lineFragmentPadding = 0
+        
         // Calculate insets from page margins
         // The text view frame is the full page, so insets represent margins
         let topInset = pageSetup.marginTop + (pageSetup.hasHeaders ? pageSetup.headerDepth : 0)
