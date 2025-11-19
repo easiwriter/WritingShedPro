@@ -38,13 +38,19 @@ struct PaginatedDocumentView: View {
                             VirtualPageScrollView(
                                 layoutManager: layoutManager,
                                 pageSetup: pageSetup,
-                                zoomScale: zoomScale,
+                                zoomScale: 1.0, // Always render at 100%
                                 currentPage: $currentPage
                             )
+                            .frame(
+                                width: geometry.size.width / zoomScale,
+                                height: geometry.size.height / zoomScale
+                            )
+                            .scaleEffect(zoomScale, anchor: .center)
                             .frame(
                                 width: geometry.size.width,
                                 height: geometry.size.height
                             )
+                            .clipped()
                             .accessibilityLabel("Document pages")
                             .accessibilityHint("Use zoom controls to adjust view size, scroll to navigate pages")
                             .accessibilityAddTraits(.allowsDirectInteraction)
