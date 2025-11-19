@@ -53,6 +53,9 @@ struct PaginatedDocumentView: View {
                                     }
                                 }
                         )
+                        .accessibilityLabel("Document pages")
+                        .accessibilityHint("Pinch to zoom, scroll to navigate pages")
+                        .accessibilityAddTraits(.allowsDirectInteraction)
                     } else {
                         emptyStateView
                     }
@@ -85,10 +88,14 @@ struct PaginatedDocumentView: View {
                     Text("Page \(currentPage + 1) of \(layoutManager.pageCount)")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                 } icon: {
                     Image(systemName: "doc.text")
                         .font(.caption)
+                        .imageScale(.small)
                 }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Page \(currentPage + 1) of \(layoutManager.pageCount)")
                 
                 Spacer()
                 
@@ -102,6 +109,7 @@ struct PaginatedDocumentView: View {
         .overlay(alignment: .bottom) {
             Divider()
         }
+        .accessibilityElement(children: .contain)
     }
     
     private var zoomControls: some View {
@@ -113,11 +121,14 @@ struct PaginatedDocumentView: View {
                     .font(.caption)
             }
             .disabled(zoomScale <= 0.5)
+            .accessibilityLabel("Zoom Out")
+            .accessibilityHint("Decreases zoom to \(Int((zoomScale - 0.25) * 100))%")
             
             Text("\(Int(zoomScale * 100))%")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .frame(minWidth: 40)
+                .accessibilityLabel("Zoom level: \(Int(zoomScale * 100)) percent")
             
             Button {
                 zoomIn()
@@ -126,6 +137,8 @@ struct PaginatedDocumentView: View {
                     .font(.caption)
             }
             .disabled(zoomScale >= 2.0)
+            .accessibilityLabel("Zoom In")
+            .accessibilityHint("Increases zoom to \(Int((zoomScale + 0.25) * 100))%")
             
             Button {
                 resetZoom()
@@ -134,7 +147,10 @@ struct PaginatedDocumentView: View {
                     .font(.caption)
             }
             .disabled(zoomScale == 1.0)
+            .accessibilityLabel("Reset Zoom")
+            .accessibilityHint("Resets zoom to 100%")
         }
+        .accessibilityElement(children: .contain)
     }
     
     private var emptyStateView: some View {
