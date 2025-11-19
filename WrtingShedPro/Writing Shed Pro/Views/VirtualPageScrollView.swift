@@ -121,33 +121,38 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         updateVisiblePages()
     }
     
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        
+        // When bounds change (e.g., rotation, initial layout), reposition all pages
+        repositionAllPages()
+        
+        // Update visible pages based on new bounds
+        updateVisiblePages()
+    }
+    
     // MARK: - Layout Updates
     
     func updateLayout(layoutManager: PaginatedTextLayoutManager, pageSetup: PageSetup) {
-        let needsUpdate = self.layoutManager !== layoutManager || 
-                         self.pageSetup !== pageSetup ||
-                         !layoutManager.isLayoutValid
-        
-        guard needsUpdate else { return }
-        
+        // Always update - PageSetup properties may have changed even if same object
         self.layoutManager = layoutManager
         self.pageSetup = pageSetup
         self.pageLayout = PageLayoutCalculator.calculateLayout(from: pageSetup)
         
-        // Clear all rendered pages
+        // Clear all rendered pages (they have old dimensions/positions)
         clearAllPages()
         
-        // Recalculate layout
+        // Recalculate layout with new page setup
         if !layoutManager.isLayoutValid {
             layoutManager.calculateLayout()
         }
         
-        // Update scroll view
+        // Update scroll view content size
         if let result = layoutManager.layoutResult {
             contentSize = result.contentSize
         }
         
-        // Re-render visible pages
+        // Re-render visible pages with new layout
         updateVisiblePages()
     }
     
@@ -232,6 +237,21 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
             removePage(at: pageIndex)
         }
         visiblePageRange = 0..<0
+    }
+    
+    private func repositionAllPages() {
+        // Reposition all currently rendered pages (e.g., after bounds change)
+        for (pageIndex, pageViewInfo) in renderedPages {
+            let newFrame = frameForPage(pageIndex)
+            pageViewInfo.textView.frame = newFrame
+            
+            // Update stored frame
+            renderedPages[pageIndex] = PageViewInfo(
+                pageIndex: pageIndex,
+                textView: pageViewInfo.textView,
+                frame: newFrame
+            )
+        }
     }
     
     // MARK: - Page View Creation
