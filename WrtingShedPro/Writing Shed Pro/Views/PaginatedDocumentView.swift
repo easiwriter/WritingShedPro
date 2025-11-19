@@ -113,28 +113,31 @@ struct PaginatedDocumentView: View {
     }
     
     private var zoomControls: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 8) {
             Button {
                 zoomOut()
             } label: {
                 Image(systemName: "minus.magnifyingglass")
-                    .font(.caption)
+                    .font(.body)
+                    .imageScale(.medium)
             }
             .disabled(zoomScale <= 0.5)
             .accessibilityLabel("Zoom Out")
             .accessibilityHint("Decreases zoom to \(Int((zoomScale - 0.25) * 100))%")
             
             Text("\(Int(zoomScale * 100))%")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .frame(minWidth: 40)
+                .font(.subheadline)
+                .fontWeight(.medium)
+                .foregroundStyle(.primary)
+                .frame(minWidth: 50)
                 .accessibilityLabel("Zoom level: \(Int(zoomScale * 100)) percent")
             
             Button {
                 zoomIn()
             } label: {
                 Image(systemName: "plus.magnifyingglass")
-                    .font(.caption)
+                    .font(.body)
+                    .imageScale(.medium)
             }
             .disabled(zoomScale >= 2.0)
             .accessibilityLabel("Zoom In")
@@ -144,7 +147,8 @@ struct PaginatedDocumentView: View {
                 resetZoom()
             } label: {
                 Image(systemName: "arrow.counterclockwise")
-                    .font(.caption)
+                    .font(.body)
+                    .imageScale(.medium)
             }
             .disabled(zoomScale == 1.0)
             .accessibilityLabel("Reset Zoom")
