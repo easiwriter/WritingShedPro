@@ -8,7 +8,7 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
     
     override func setUp() {
         super.setUp()
-        let schema = Schema([Project.self, Folder.self, File.self])
+        let schema = Schema([Project.self, Folder.self, TextFile.self, Version.self])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         modelContainer = try! ModelContainer(for: schema, configurations: config)
         modelContext = ModelContext(modelContainer)
@@ -179,15 +179,15 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
         }
         
         // Then: Verify it's ready to contain files
-        XCTAssertNotNil(draft.files, "Should have files array initialized")
-        XCTAssertEqual(draft.files?.count, 0, "Should start with no files")
+        XCTAssertNotNil(draft.textFiles, "Should have files array initialized")
+        XCTAssertEqual(draft.textFiles?.count, 0, "Should start with no files")
         
         // Can add a file
-        let testFile = File(name: "Chapter 1.txt", content: "Once upon a time...")
+        let testFile = TextFile(name: "Chapter 1.txt", initialContent: "Once upon a time...")
         testFile.parentFolder = draft
         modelContext.insert(testFile)
-        draft.files?.append(testFile)
+        draft.textFiles?.append(testFile)
         
-        XCTAssertEqual(draft.files?.count, 1, "Should now contain one file")
+        XCTAssertEqual(draft.textFiles?.count, 1, "Should now contain one file")
     }
 }

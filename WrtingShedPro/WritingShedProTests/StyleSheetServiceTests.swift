@@ -22,7 +22,8 @@ final class StyleSheetServiceTests: XCTestCase {
             TextStyleModel.self,
             Project.self,
             Folder.self,
-            File.self
+            TextFile.self,
+            Version.self
         ])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         container = try ModelContainer(for: schema, configurations: [config])

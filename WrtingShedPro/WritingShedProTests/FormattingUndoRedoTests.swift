@@ -14,22 +14,22 @@ final class FormattingUndoRedoTests: XCTestCase {
     
     var modelContainer: ModelContainer!
     var modelContext: ModelContext!
-    var testFile: File!
+    var testFile: TextFile!
     var version: Version!
     var undoManager: TextFileUndoManager!
     
     override func setUp() async throws {
         // Create in-memory model container for testing
-        let schema = Schema([Project.self, Folder.self, File.self, Version.self, TextFile.self])
+        let schema = Schema([Project.self, Folder.self, TextFile.self, Version.self])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
         
         modelContainer = try ModelContainer(for: schema, configurations: [modelConfiguration])
         modelContext = ModelContext(modelContainer)
         
         // Create test file with version
-        testFile = File(name: "Test File", content: "")
+        testFile = TextFile(name: "Test File", initialContent: "")
         version = Version(content: "", versionNumber: 1)
-        version.file = testFile
+        version.textFile = testFile
         testFile.versions = [version]
         
         modelContext.insert(testFile)

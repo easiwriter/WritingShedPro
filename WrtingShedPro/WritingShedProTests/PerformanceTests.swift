@@ -16,7 +16,7 @@ final class PerformanceTests: XCTestCase {
     var modelContext: ModelContext!
     
     override func setUp() async throws {
-        let schema = Schema([File.self, Version.self, StyleSheet.self, TextStyleModel.self])
+        let schema = Schema([TextFile.self, Version.self, StyleSheet.self, TextStyleModel.self, Project.self, Folder.self])
         let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
         modelContainer = try ModelContainer(for: schema, configurations: [configuration])
         modelContext = modelContainer.mainContext
@@ -191,9 +191,9 @@ final class PerformanceTests: XCTestCase {
     
     func testUndoStackPerformance() {
         // Given
-        let file = File(name: "Test", content: "")
+        let file = TextFile(name: "Test", initialContent: "")
         let version = Version(content: "", versionNumber: 1)
-        version.file = file
+        version.textFile = file
         file.versions = [version]
         
         modelContext.insert(file)
@@ -209,9 +209,9 @@ final class PerformanceTests: XCTestCase {
     
     func testUndoRedoWithFormatting() {
         // Given
-        let file = File(name: "Test", content: "")
+        let file = TextFile(name: "Test", initialContent: "")
         let version = Version(content: "", versionNumber: 1)
-        version.file = file
+        version.textFile = file
         file.versions = [version]
         
         modelContext.insert(file)

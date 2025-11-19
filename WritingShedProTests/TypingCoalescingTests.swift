@@ -14,20 +14,20 @@ final class TypingCoalescingTests: XCTestCase {
     
     var modelContainer: ModelContainer!
     var modelContext: ModelContext!
-    var file: File!
+    var file: TextFile!
     var version: Version!
     var undoManager: TextFileUndoManager!
     
     override func setUp() async throws {
-        let schema = Schema([File.self, Version.self])
+        let schema = Schema([TextFile.self, Version.self, Project.self, Folder.self])
         let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
         modelContainer = try ModelContainer(for: schema, configurations: [configuration])
         modelContext = modelContainer.mainContext
         
         // Create test file and version
-        file = File(name: "Test", content: "")
+        file = TextFile(name: "Test", initialContent: "")
         version = Version(content: "", versionNumber: 1)
-        version.file = file
+        version.textFile = file
         file.versions = [version]
         
         modelContext.insert(file)

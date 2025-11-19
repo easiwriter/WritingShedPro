@@ -6,14 +6,14 @@ final class FormattingCommandTests: XCTestCase {
     
     var modelContainer: ModelContainer!
     var modelContext: ModelContext!
-    var testFile: File!
+    var testFile: TextFile!
     var undoManager: TextFileUndoManager!
     
     override func setUp() {
         super.setUp()
         
         // Create in-memory model container for testing
-        let schema = Schema([Project.self, Folder.self, File.self, Version.self, TextFile.self])
+        let schema = Schema([Project.self, Folder.self, TextFile.self, Version.self])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
         
         do {
@@ -21,7 +21,7 @@ final class FormattingCommandTests: XCTestCase {
             modelContext = ModelContext(modelContainer)
             
             // Create test file with attributed content
-            testFile = File(name: "Test File", content: "Hello World")
+            testFile = TextFile(name: "Test File", initialContent: "Hello World")
             modelContext.insert(testFile)
             
             // Create undo manager
