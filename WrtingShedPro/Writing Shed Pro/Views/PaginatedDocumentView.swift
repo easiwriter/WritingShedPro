@@ -143,9 +143,14 @@ struct PaginatedDocumentView: View {
                     .multilineTextAlignment(.trailing)
                     .frame(width: 35)
                     .textFieldStyle(.plain)
+#if os(iOS)
+                    .keyboardType(.numberPad)
+#endif
+                    .submitLabel(.done)
                     .focused($isZoomFieldFocused)
                     .onSubmit {
                         applyZoomFromTextField()
+                        isZoomFieldFocused = false
                     }
                     .onChange(of: zoomScale) { _, newValue in
                         // Update text field when zoom changes via buttons
@@ -273,18 +278,18 @@ struct PaginatedDocumentView: View {
         guard let percentage = Int(cleanedText), percentage >= 50, percentage <= 200 else {
             // Invalid input - reset to current zoom
             zoomInputText = "\(Int(zoomScale * 100))"
-            isZoomFieldFocused = false
             return
         }
         
-        // Apply the new zoom scale
+        // Only apply if it's actually different
         let newScale = CGFloat(percentage) / 100.0
-        withAnimation(.easeInOut(duration: 0.2)) {
-            zoomScale = newScale
+        if abs(newScale - zoomScale) > 0.001 {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                zoomScale = newScale
+            }
         }
         
         // Update text field with clean value
         zoomInputText = "\(percentage)"
-        isZoomFieldFocused = false
     }
 }
