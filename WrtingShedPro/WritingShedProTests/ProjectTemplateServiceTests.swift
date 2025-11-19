@@ -34,11 +34,11 @@ final class ProjectTemplateServiceTests: XCTestCase {
         // Then verify 13 folders exist in flat structure
         let folders = project.folders ?? []
         
-        XCTAssertEqual(folders.count, 11, "Should have 11 folders for poetry project")
+        XCTAssertEqual(folders.count, 12, "Should have 12 folders for poetry project")
         
         let folderNames = Set(folders.compactMap { $0.name })
         let expectedNames: Set<String> = [
-            "All", "Draft", "Ready", "Set Aside", "Published",
+            "All", "Draft", "Ready", "Collections", "Set Aside", "Published",
             "Research", "Magazines", "Competitions", "Commissions",
             "Other", "Trash"
         ]
@@ -116,11 +116,11 @@ final class ProjectTemplateServiceTests: XCTestCase {
         // Then verify 11 folders exist in flat structure (same as poetry)
         let folders = project.folders ?? []
         
-        XCTAssertEqual(folders.count, 11, "Should have 11 folders for short story project")
+        XCTAssertEqual(folders.count, 12, "Should have 12 folders for short story project")
         
         let folderNames = Set(folders.compactMap { $0.name })
         let expectedNames: Set<String> = [
-            "All", "Draft", "Ready", "Set Aside", "Published",
+            "All", "Draft", "Ready", "Collections", "Set Aside", "Published",
             "Research", "Magazines", "Competitions", "Commissions",
             "Other", "Trash"
         ]
@@ -298,7 +298,7 @@ final class ProjectTemplateServiceTests: XCTestCase {
         let folders1 = project1.folders ?? []
         let folders2 = project2.folders ?? []
         
-        XCTAssertEqual(folders1.count, 11, "Project 1 should have 11 folders")
+        XCTAssertEqual(folders1.count, 12, "Project 1 should have 12 folders")
         XCTAssertEqual(folders2.count, 2, "Project 2 should have 2 folders")
         
         // Verify no overlap in folder IDs
