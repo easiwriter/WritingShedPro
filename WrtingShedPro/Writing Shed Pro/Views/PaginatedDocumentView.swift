@@ -33,7 +33,7 @@ struct PaginatedDocumentView: View {
             if let layoutManager = layoutManager, layoutManager.isLayoutValid {
                 GeometryReader { geometry in
                     ZStack {
-                        // Virtual page scroll view
+                        // Virtual page scroll view  
                         if let pageSetup = project.pageSetup {
                             VirtualPageScrollView(
                                 layoutManager: layoutManager,
@@ -46,10 +46,6 @@ struct PaginatedDocumentView: View {
                                 height: geometry.size.height
                             )
                             .scaleEffect(zoomScale, anchor: .center)
-                            .frame(
-                                width: geometry.size.width,
-                                height: geometry.size.height
-                            )
                             .accessibilityLabel("Document pages")
                             .accessibilityHint("Use zoom controls to adjust view size, scroll to navigate pages")
                             .accessibilityAddTraits(.allowsDirectInteraction)

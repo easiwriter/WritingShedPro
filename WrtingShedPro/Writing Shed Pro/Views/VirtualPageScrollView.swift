@@ -90,6 +90,9 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
     /// Current zoom scale for content inset adjustment
     private var currentZoomScale: CGFloat = 1.0
     
+    /// Base content size (at 100% zoom)
+    private var baseContentSize: CGSize = .zero
+    
     // MARK: - Initialization
     
     init(layoutManager: PaginatedTextLayoutManager, pageSetup: PageSetup) {
@@ -102,7 +105,10 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         self.delegate = self
         self.backgroundColor = .systemGray6
         self.showsVerticalScrollIndicator = true
-        self.showsHorizontalScrollIndicator = false
+        self.showsHorizontalScrollIndicator = true
+        self.bounces = true
+        self.alwaysBounceHorizontal = false
+        self.alwaysBounceVertical = true
         
         setupScrollView()
     }
@@ -121,8 +127,12 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         
         guard let result = layoutManager.layoutResult else { return }
         
-        // Set content size
-        contentSize = result.contentSize
+        // Store base content size and apply zoom
+        baseContentSize = result.contentSize
+        contentSize = CGSize(
+            width: baseContentSize.width * currentZoomScale,
+            height: baseContentSize.height * currentZoomScale
+        )
         
         // Render initial pages
         updateVisiblePages()
@@ -157,9 +167,13 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
             layoutManager.calculateLayout()
         }
         
-        // Update scroll view content size
+        // Update scroll view content size with zoom
         if let result = layoutManager.layoutResult {
-            contentSize = result.contentSize
+            baseContentSize = result.contentSize
+            contentSize = CGSize(
+                width: baseContentSize.width * currentZoomScale,
+                height: baseContentSize.height * currentZoomScale
+            )
         }
         
         // Re-render visible pages with new layout
@@ -168,6 +182,15 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
     
     func updateZoomScale(_ scale: CGFloat) {
         currentZoomScale = scale
+        
+        // Update content size based on zoom
+        if baseContentSize != .zero {
+            contentSize = CGSize(
+                width: baseContentSize.width * scale,
+                height: baseContentSize.height * scale
+            )
+        }
+        
         applyZoomInsets()
     }
     
