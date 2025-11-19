@@ -32,6 +32,7 @@ struct FileEditView: View {
     @State private var showFileImporter = false // For SwiftUI file importer
     @State private var showDocumentPicker = false // For UIViewControllerRepresentable picker
     @State private var showImageSourcePicker = false // Show Photos vs Files chooser
+    @State private var isPaginationMode = false // Toggle between edit and pagination preview modes
     @StateObject private var undoManager: TextFileUndoManager
     @StateObject private var textViewCoordinator = TextViewCoordinator()
     
@@ -221,36 +222,74 @@ struct FileEditView: View {
         }
     }
     
+    @ViewBuilder
+    private func paginationSection() -> some View {
+        if let project = file.project {
+            PaginatedDocumentView(
+                textFile: file,
+                project: project
+            )
+            .transition(.opacity)
+        } else {
+            ContentUnavailableView(
+                "No Page Setup",
+                systemImage: "doc.text",
+                description: Text("Configure page setup for this project to view pagination preview.")
+            )
+        }
+    }
+    
     var body: some View {
         VStack(spacing: 0) {
+            // Version toolbar (shown in both modes)
             versionToolbar()
-            textEditorSection()
-            formattingToolbar()
+            
+            // Main content area - switch between edit and pagination modes
+            if isPaginationMode {
+                paginationSection()
+            } else {
+                textEditorSection()
+                formattingToolbar()
+            }
         }
         .navigationTitle(file.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack(spacing: 16) {
-                    // Undo button
-                    Button(action: {
-                        performUndo()
-                        restoreKeyboardFocus()
-                    }) {
-                        Image(systemName: "arrow.uturn.backward")
+                    // Pagination mode toggle (only show if project has page setup)
+                    if file.project?.pageSetup != nil {
+                        Button(action: {
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                isPaginationMode.toggle()
+                            }
+                        }) {
+                            Image(systemName: isPaginationMode ? "document.on.document.fill" : "document.on.document")
+                        }
+                        .accessibilityLabel(isPaginationMode ? "Switch to Edit Mode" : "Switch to Pagination Preview")
                     }
-                    .disabled(!undoManager.canUndo || isPerformingUndoRedo)
-                    .accessibilityLabel("Undo")
                     
-                    // Redo button
-                    Button(action: {
-                        performRedo()
-                        restoreKeyboardFocus()
-                    }) {
-                        Image(systemName: "arrow.uturn.forward")
+                    // Undo button (only in edit mode)
+                    if !isPaginationMode {
+                        Button(action: {
+                            performUndo()
+                            restoreKeyboardFocus()
+                        }) {
+                            Image(systemName: "arrow.uturn.backward")
+                        }
+                        .disabled(!undoManager.canUndo || isPerformingUndoRedo)
+                        .accessibilityLabel("Undo")
+                        
+                        // Redo button
+                        Button(action: {
+                            performRedo()
+                            restoreKeyboardFocus()
+                        }) {
+                            Image(systemName: "arrow.uturn.forward")
+                        }
+                        .disabled(!undoManager.canRedo || isPerformingUndoRedo)
+                        .accessibilityLabel("Redo")
                     }
-                    .disabled(!undoManager.canRedo || isPerformingUndoRedo)
-                    .accessibilityLabel("Redo")
                 }
             }
         }
