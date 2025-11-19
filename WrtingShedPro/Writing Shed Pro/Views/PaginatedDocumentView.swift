@@ -20,8 +20,6 @@ struct PaginatedDocumentView: View {
     @State private var currentPage: Int = 0
     @State private var zoomScale: CGFloat = 1.0
     @State private var isCalculatingLayout: Bool = false
-    @State private var zoomInputText: String = "100"
-    @FocusState private var isZoomFieldFocused: Bool
     
     // MARK: - Body
     
@@ -133,40 +131,15 @@ struct PaginatedDocumentView: View {
             }
             .disabled(zoomScale <= 0.5)
             .accessibilityLabel("Zoom Out")
-            .accessibilityHint("Decreases zoom to \(Int((zoomScale - 0.25) * 100))%")
+            .accessibilityHint("Decreases zoom to \(Int((zoomScale - 0.1) * 100))%")
             
-            HStack(spacing: 2) {
-                TextField("100", text: $zoomInputText)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .foregroundStyle(.primary)
-                    .multilineTextAlignment(.trailing)
-                    .frame(width: 35)
-                    .textFieldStyle(.plain)
-#if os(iOS)
-                    .keyboardType(.numberPad)
-#endif
-                    .submitLabel(.done)
-                    .focused($isZoomFieldFocused)
-                    .onSubmit {
-                        applyZoomFromTextField()
-                        isZoomFieldFocused = false
-                    }
-                    .onChange(of: zoomScale) { _, newValue in
-                        // Update text field when zoom changes via buttons
-                        if !isZoomFieldFocused {
-                            zoomInputText = "\(Int(newValue * 100))"
-                        }
-                    }
-                
-                Text("%")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .foregroundStyle(.primary)
-            }
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel("Zoom percentage: \(zoomInputText) percent")
-            .accessibilityHint("Enter zoom percentage from 50 to 200")
+            Text("\(Int(zoomScale * 100))%")
+                .font(.subheadline)
+                .fontWeight(.medium)
+                .foregroundStyle(.primary)
+                .frame(minWidth: 50)
+                .fixedSize()
+                .accessibilityLabel("Zoom level: \(Int(zoomScale * 100)) percent")
             
             Button {
                 zoomIn()
@@ -178,7 +151,7 @@ struct PaginatedDocumentView: View {
             }
             .disabled(zoomScale >= 2.0)
             .accessibilityLabel("Zoom In")
-            .accessibilityHint("Increases zoom to \(Int((zoomScale + 0.25) * 100))%")
+            .accessibilityHint("Increases zoom to \(Int((zoomScale + 0.1) * 100))%")
             
             Button {
                 resetZoom()
@@ -255,13 +228,13 @@ struct PaginatedDocumentView: View {
     
     private func zoomIn() {
         withAnimation(.easeInOut(duration: 0.2)) {
-            zoomScale = min(zoomScale + 0.25, 2.0)
+            zoomScale = min(zoomScale + 0.1, 2.0)
         }
     }
     
     private func zoomOut() {
         withAnimation(.easeInOut(duration: 0.2)) {
-            zoomScale = max(zoomScale - 0.25, 0.5)
+            zoomScale = max(zoomScale - 0.1, 0.5)
         }
     }
     
@@ -269,27 +242,5 @@ struct PaginatedDocumentView: View {
         withAnimation(.easeInOut(duration: 0.2)) {
             zoomScale = 1.0
         }
-    }
-    
-    private func applyZoomFromTextField() {
-        // Parse the input text
-        let cleanedText = zoomInputText.replacingOccurrences(of: "%", with: "").trimmingCharacters(in: .whitespaces)
-        
-        guard let percentage = Int(cleanedText), percentage >= 50, percentage <= 200 else {
-            // Invalid input - reset to current zoom
-            zoomInputText = "\(Int(zoomScale * 100))"
-            return
-        }
-        
-        // Only apply if it's actually different
-        let newScale = CGFloat(percentage) / 100.0
-        if abs(newScale - zoomScale) > 0.001 {
-            withAnimation(.easeInOut(duration: 0.2)) {
-                zoomScale = newScale
-            }
-        }
-        
-        // Update text field with clean value
-        zoomInputText = "\(percentage)"
     }
 }
