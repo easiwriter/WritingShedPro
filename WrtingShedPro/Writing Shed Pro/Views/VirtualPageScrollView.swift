@@ -242,11 +242,17 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         textView.isEditable = false
         textView.isSelectable = true
         textView.backgroundColor = .white
+        
+        // Calculate insets from page margins
+        // The text view frame is the full page, so insets represent margins
+        let topInset = pageSetup.marginTop + (pageSetup.hasHeaders ? pageSetup.headerDepth : 0)
+        let bottomInset = pageSetup.marginBottom + (pageSetup.hasFooters ? pageSetup.footerDepth : 0)
+        
         textView.textContainerInset = UIEdgeInsets(
-            top: pageLayout.contentRect.origin.y,
-            left: pageLayout.contentRect.origin.x,
-            bottom: pageLayout.pageRect.height - pageLayout.contentRect.maxY,
-            right: pageLayout.pageRect.width - pageLayout.contentRect.maxX
+            top: topInset,
+            left: pageSetup.marginLeft,
+            bottom: bottomInset,
+            right: pageSetup.marginRight
         )
         
         // Add subtle shadow for depth
