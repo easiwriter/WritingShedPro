@@ -32,18 +32,26 @@ struct PaginatedDocumentView: View {
             
             // Main content layer
             if let layoutManager = layoutManager, layoutManager.isLayoutValid {
-                ZStack {
-                    // Virtual page scroll view
-                    if let pageSetup = project.pageSetup {
-                        VirtualPageScrollView(
-                            layoutManager: layoutManager,
-                            pageSetup: pageSetup,
-                            zoomScale: zoomScale * magnificationAmount,
-                            currentPage: $currentPage
-                        )
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .scaleEffect(zoomScale * magnificationAmount)
-                        .gesture(
+                GeometryReader { geometry in
+                    ZStack {
+                        // Virtual page scroll view
+                        if let pageSetup = project.pageSetup {
+                            VirtualPageScrollView(
+                                layoutManager: layoutManager,
+                                pageSetup: pageSetup,
+                                zoomScale: zoomScale * magnificationAmount,
+                                currentPage: $currentPage
+                            )
+                            .frame(
+                                width: geometry.size.width,
+                                height: geometry.size.height
+                            )
+                            .scaleEffect(zoomScale * magnificationAmount, anchor: .center)
+                            .frame(
+                                width: geometry.size.width,
+                                height: geometry.size.height
+                            )
+                            .gesture(
                             MagnificationGesture()
                                 .updating($magnificationAmount) { value, state, _ in
                                     state = value.magnitude
@@ -56,11 +64,12 @@ struct PaginatedDocumentView: View {
                                     }
                                 }
                         )
-                        .accessibilityLabel("Document pages")
-                        .accessibilityHint("Pinch to zoom, scroll to navigate pages")
-                        .accessibilityAddTraits(.allowsDirectInteraction)
-                    } else {
-                        emptyStateView
+                            .accessibilityLabel("Document pages")
+                            .accessibilityHint("Pinch to zoom, scroll to navigate pages")
+                            .accessibilityAddTraits(.allowsDirectInteraction)
+                        } else {
+                            emptyStateView
+                        }
                     }
                 }
             } else if isCalculatingLayout {

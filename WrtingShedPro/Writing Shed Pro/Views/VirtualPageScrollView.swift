@@ -87,6 +87,9 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
     private var pageViewCache: [UITextView] = []
     private let maxCacheSize: Int = 10
     
+    /// Current zoom scale for content inset adjustment
+    private var currentZoomScale: CGFloat = 1.0
+    
     // MARK: - Initialization
     
     init(layoutManager: PaginatedTextLayoutManager, pageSetup: PageSetup) {
@@ -128,6 +131,9 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
     override func layoutSubviews() {
         super.layoutSubviews()
         
+        // Apply content insets for zoom centering
+        applyZoomInsets()
+        
         // When bounds change (e.g., rotation, initial layout), reposition all pages
         repositionAllPages()
         
@@ -161,16 +167,28 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
     }
     
     func updateZoomScale(_ scale: CGFloat) {
+        currentZoomScale = scale
+        applyZoomInsets()
+    }
+    
+    private func applyZoomInsets() {
+        guard bounds.height > 0, contentSize.height > 0 else { return }
+        
         // Adjust content insets to center content when zoomed out
-        let scaledContentHeight = contentSize.height * scale
+        let scaledContentHeight = contentSize.height * currentZoomScale
         let verticalInset = max(0, (bounds.height - scaledContentHeight) / 2)
         
-        contentInset = UIEdgeInsets(
+        let newInset = UIEdgeInsets(
             top: verticalInset,
             left: 0,
             bottom: verticalInset,
             right: 0
         )
+        
+        // Only update if changed to avoid unnecessary updates
+        if contentInset != newInset {
+            contentInset = newInset
+        }
     }
     
     // MARK: - Virtual Scrolling
