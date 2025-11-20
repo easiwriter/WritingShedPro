@@ -74,7 +74,14 @@ struct PaginatedDocumentView: View {
         }
         .onAppear {
             print("📱 PaginatedDocumentView appeared")
-            setupLayoutManager()
+            print("   - currentVersionIndex: \(textFile.currentVersionIndex)")
+            // Always recalculate on appear in case version changed while in edit mode
+            if layoutManager != nil {
+                print("   - Recalculating layout on appear")
+                recalculateLayout()
+            } else {
+                setupLayoutManager()
+            }
         }
         .onChange(of: textFile.currentVersionIndex) { oldValue, newValue in
             print("🔀 Version index changed: \(oldValue) → \(newValue)")
@@ -241,6 +248,16 @@ struct PaginatedDocumentView: View {
         
         if let existingManager = layoutManager {
             print("   ♻️ Updating existing manager")
+            
+            // Update text content from current version
+            if let content = textFile.currentVersion?.content {
+                print("   📝 Updating textStorage with new content")
+                existingManager.textStorage.replaceCharacters(
+                    in: NSRange(location: 0, length: existingManager.textStorage.length),
+                    with: content
+                )
+            }
+            
             existingManager.updatePageSetup(pageSetup)
             
             isCalculatingLayout = true
