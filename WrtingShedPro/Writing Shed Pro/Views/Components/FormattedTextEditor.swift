@@ -24,6 +24,9 @@ struct FormattedTextEditor: UIViewRepresentable {
     /// Optional callback when image selection should be cleared (cursor moved away)
     var onClearImageSelection: (() -> Void)?
     
+    /// Optional callback when user taps on a comment
+    var onCommentTapped: ((CommentAttachment, Int) -> Void)?
+    
     /// Coordinator for managing textView reference
     var textViewCoordinator: TextViewCoordinator?
     
@@ -62,7 +65,8 @@ struct FormattedTextEditor: UIViewRepresentable {
         onTextChange: ((NSAttributedString) -> Void)? = nil,
         onSelectionChange: ((NSRange) -> Void)? = nil,
         onImageTapped: ((ImageAttachment, CGRect, Int) -> Void)? = nil,
-        onClearImageSelection: (() -> Void)? = nil
+        onClearImageSelection: (() -> Void)? = nil,
+        onCommentTapped: ((CommentAttachment, Int) -> Void)? = nil
     ) {
         self._attributedText = attributedText
         self._selectedRange = selectedRange
@@ -77,6 +81,7 @@ struct FormattedTextEditor: UIViewRepresentable {
         self.onSelectionChange = onSelectionChange
         self.onImageTapped = onImageTapped
         self.onClearImageSelection = onClearImageSelection
+        self.onCommentTapped = onCommentTapped
     }
     
     // MARK: - UIViewRepresentable
@@ -611,8 +616,18 @@ struct FormattedTextEditor: UIViewRepresentable {
                 #endif
                 
                 // Get the character at the cursor position to check for attachment
-                if let attributedText = textView.attributedText,
-                   let _ = attributedText.attribute(.attachment, at: newRange.location, effectiveRange: nil) as? ImageAttachment {
+                if let attributedText = textView.attributedText {
+                    // Check for comment attachment first
+                    if let commentAttachment = attributedText.attribute(.attachment, at: newRange.location, effectiveRange: nil) as? CommentAttachment {
+                        #if DEBUG
+                        print("💬 Comment tapped at position \(newRange.location)")
+                        #endif
+                        parent.onCommentTapped?(commentAttachment, newRange.location)
+                        return
+                    }
+                    
+                    // Check for image attachment
+                    if let _ = attributedText.attribute(.attachment, at: newRange.location, effectiveRange: nil) as? ImageAttachment {
                     
                     // Check if this image was already selected (previous selection was length=1 at this position)
                     // If so, move BEFORE the image instead of re-selecting it
@@ -656,6 +671,7 @@ struct FormattedTextEditor: UIViewRepresentable {
                     // Select the image (which includes calling the tap handler)
                     selectImage(at: newRange.location, in: textView)
                     return
+                    }
                 }
             }
             

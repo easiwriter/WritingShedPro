@@ -143,6 +143,9 @@ struct FileEditView: View {
                             selectedImage = nil
                             selectedImageFrame = .zero
                             selectedImagePosition = -1
+                        },
+                        onCommentTapped: { attachment, position in
+                            handleCommentTap(attachment: attachment, position: position)
                         }
                     )
                     .id(refreshTrigger)
@@ -164,6 +167,9 @@ struct FileEditView: View {
                             selectedImage = nil
                             selectedImageFrame = .zero
                             selectedImagePosition = -1
+                        },
+                        onCommentTapped: { attachment, position in
+                            handleCommentTap(attachment: attachment, position: position)
                         }
                     )
                     .id(refreshTrigger)
@@ -281,6 +287,16 @@ struct FileEditView: View {
                         .accessibilityLabel(isPaginationMode ? "Switch to Edit Mode" : "Switch to Pagination Preview")
                     }
                     
+                    // Comment button (only in edit mode)
+                    if !isPaginationMode {
+                        Button(action: {
+                            showNewCommentDialog = true
+                        }) {
+                            Image(systemName: "bubble.left")
+                        }
+                        .accessibilityLabel("Add Comment")
+                    }
+                    
                     // Undo button (only in edit mode)
                     if !isPaginationMode {
                         Button(action: {
@@ -348,6 +364,45 @@ struct FileEditView: View {
             }
         } message: {
             Text("Select where to choose your image from")
+        }
+        .alert("New Comment", isPresented: $showNewCommentDialog) {
+            TextField("Comment text", text: $newCommentText)
+            Button("Add") {
+                insertNewComment()
+            }
+            Button("Cancel", role: .cancel) {
+                newCommentText = ""
+            }
+        } message: {
+            Text("Add a comment at the current cursor position")
+        }
+        .overlay {
+            if showCommentDetail, let comment = selectedComment {
+                Color.black.opacity(0.3)
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        showCommentDetail = false
+                    }
+                
+                CommentDetailView(
+                    comment: comment,
+                    onUpdate: { newText in
+                        updateComment(comment, newText: newText)
+                    },
+                    onDelete: {
+                        deleteComment(comment)
+                    },
+                    onResolve: {
+                        toggleCommentResolved(comment)
+                    },
+                    onClose: {
+                        showCommentDetail = false
+                        selectedComment = nil
+                    }
+                )
+                .frame(width: 300)
+                .transition(.scale)
+            }
         }
         .onDisappear {
             // Auto-save when leaving the editor (back button, etc.)
@@ -673,6 +728,102 @@ struct FileEditView: View {
             print("⚠️ No textView available!")
         }
         print("🖼️ ========== END ==========")
+    }
+    
+    // MARK: - Comment Handling
+    
+    private func handleCommentTap(attachment: CommentAttachment, position: Int) {
+        print("💬 Comment tapped at position \(position)")
+        print("💬 Comment ID: \(attachment.commentID)")
+        
+        // Load the comment from the database
+        let fetchDescriptor = FetchDescriptor<CommentModel>(
+            predicate: #Predicate { $0.attachmentID == attachment.commentID }
+        )
+        
+        do {
+            let comments = try modelContext.fetch(fetchDescriptor)
+            if let comment = comments.first {
+                selectedComment = comment
+                selectedCommentPosition = position
+                showCommentDetail = true
+                print("💬 Comment loaded: \(comment.text)")
+            } else {
+                print("⚠️ Comment not found in database")
+            }
+        } catch {
+            print("❌ Error fetching comment: \(error)")
+        }
+    }
+    
+    private func insertNewComment() {
+        guard !newCommentText.isEmpty else { return }
+        
+        // Insert comment at cursor position
+        if let textView = textViewCoordinator.textView {
+            let comment = CommentInsertionHelper.insertCommentAtCursor(
+                in: textView,
+                commentText: newCommentText,
+                author: "User", // TODO: Get actual user name
+                textFileID: file.id,
+                context: modelContext
+            )
+            
+            if let comment = comment {
+                print("💬 Comment inserted: \(comment.text)")
+                // Update the attributed content binding
+                attributedContent = textView.attributedText ?? NSAttributedString()
+                saveContent()
+            }
+        }
+        
+        // Reset dialog
+        newCommentText = ""
+        showNewCommentDialog = false
+    }
+    
+    private func updateComment(_ comment: CommentModel, newText: String) {
+        comment.updateText(newText)
+        try? modelContext.save()
+        print("💬 Comment updated: \(newText)")
+    }
+    
+    private func deleteComment(_ comment: CommentModel) {
+        // Remove from text
+        attributedContent = CommentInsertionHelper.removeComment(
+            from: attributedContent,
+            commentID: comment.attachmentID
+        )
+        
+        // Delete from database
+        CommentManager.shared.deleteComment(comment, context: modelContext)
+        
+        // Clear selection
+        selectedComment = nil
+        showCommentDetail = false
+        
+        // Save
+        saveContent()
+        print("💬 Comment deleted")
+    }
+    
+    private func toggleCommentResolved(_ comment: CommentModel) {
+        if comment.isResolved {
+            comment.reopen()
+        } else {
+            comment.resolve()
+        }
+        
+        // Update visual indicator in text
+        attributedContent = CommentInsertionHelper.updateCommentResolvedState(
+            in: attributedContent,
+            commentID: comment.attachmentID,
+            isResolved: comment.isResolved
+        )
+        
+        try? modelContext.save()
+        saveContent()
+        print("💬 Comment resolved state: \(comment.isResolved)")
     }
     
     // MARK: - Undo/Redo
