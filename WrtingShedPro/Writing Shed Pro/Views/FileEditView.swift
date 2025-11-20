@@ -255,6 +255,55 @@ struct FileEditView: View {
         }
     }
     
+    @ViewBuilder
+    private func navigationBarButtons() -> some View {
+        HStack(spacing: 16) {
+            // Pagination mode toggle (only show if project has page setup)
+            if file.project?.pageSetup != nil {
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        isPaginationMode.toggle()
+                    }
+                }) {
+                    Image(systemName: isPaginationMode ? "document.on.document.fill" : "document.on.document")
+                }
+                .accessibilityLabel(isPaginationMode ? "Switch to Edit Mode" : "Switch to Pagination Preview")
+            }
+            
+            // Comment button (only in edit mode)
+            if !isPaginationMode {
+                Button(action: {
+                    showNewCommentDialog = true
+                }) {
+                    Image(systemName: "bubble.left")
+                }
+                .accessibilityLabel("Add Comment")
+            }
+            
+            // Undo button (only in edit mode)
+            if !isPaginationMode {
+                Button(action: {
+                    performUndo()
+                    restoreKeyboardFocus()
+                }) {
+                    Image(systemName: "arrow.uturn.backward")
+                }
+                .disabled(!undoManager.canUndo || isPerformingUndoRedo)
+                .accessibilityLabel("Undo")
+                
+                // Redo button
+                Button(action: {
+                    performRedo()
+                    restoreKeyboardFocus()
+                }) {
+                    Image(systemName: "arrow.uturn.forward")
+                }
+                .disabled(!undoManager.canRedo || isPerformingUndoRedo)
+                .accessibilityLabel("Redo")
+            }
+        }
+    }
+    
     var body: some View {
         VStack(spacing: 0) {
             // Version toolbar (only shown in edit mode)
@@ -274,51 +323,7 @@ struct FileEditView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                HStack(spacing: 16) {
-                    // Pagination mode toggle (only show if project has page setup)
-                    if file.project?.pageSetup != nil {
-                        Button(action: {
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                isPaginationMode.toggle()
-                            }
-                        }) {
-                            Image(systemName: isPaginationMode ? "document.on.document.fill" : "document.on.document")
-                        }
-                        .accessibilityLabel(isPaginationMode ? "Switch to Edit Mode" : "Switch to Pagination Preview")
-                    }
-                    
-                    // Comment button (only in edit mode)
-                    if !isPaginationMode {
-                        Button(action: {
-                            showNewCommentDialog = true
-                        }) {
-                            Image(systemName: "bubble.left")
-                        }
-                        .accessibilityLabel("Add Comment")
-                    }
-                    
-                    // Undo button (only in edit mode)
-                    if !isPaginationMode {
-                        Button(action: {
-                            performUndo()
-                            restoreKeyboardFocus()
-                        }) {
-                            Image(systemName: "arrow.uturn.backward")
-                        }
-                        .disabled(!undoManager.canUndo || isPerformingUndoRedo)
-                        .accessibilityLabel("Undo")
-                        
-                        // Redo button
-                        Button(action: {
-                            performRedo()
-                            restoreKeyboardFocus()
-                        }) {
-                            Image(systemName: "arrow.uturn.forward")
-                        }
-                        .disabled(!undoManager.canRedo || isPerformingUndoRedo)
-                        .accessibilityLabel("Redo")
-                    }
-                }
+                navigationBarButtons()
             }
         }
         .confirmationDialog(
@@ -737,8 +742,9 @@ struct FileEditView: View {
         print("💬 Comment ID: \(attachment.commentID)")
         
         // Load the comment from the database
+        let commentID = attachment.commentID  // Capture in local variable
         let fetchDescriptor = FetchDescriptor<CommentModel>(
-            predicate: #Predicate { $0.attachmentID == attachment.commentID }
+            predicate: #Predicate { $0.attachmentID == commentID }
         )
         
         do {
@@ -773,7 +779,7 @@ struct FileEditView: View {
                 print("💬 Comment inserted: \(comment.text)")
                 // Update the attributed content binding
                 attributedContent = textView.attributedText ?? NSAttributedString()
-                saveContent()
+                saveChanges()
             }
         }
         
@@ -803,7 +809,7 @@ struct FileEditView: View {
         showCommentDetail = false
         
         // Save
-        saveContent()
+        saveChanges()
         print("💬 Comment deleted")
     }
     
@@ -822,7 +828,7 @@ struct FileEditView: View {
         )
         
         try? modelContext.save()
-        saveContent()
+        saveChanges()
         print("💬 Comment resolved state: \(comment.isResolved)")
     }
     

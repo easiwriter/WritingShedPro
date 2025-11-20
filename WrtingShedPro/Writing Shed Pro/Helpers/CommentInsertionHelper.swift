@@ -76,9 +76,7 @@ struct CommentInsertionHelper {
         textFileID: UUID,
         context: ModelContext
     ) -> CommentModel? {
-        guard let textStorage = textView.textStorage else {
-            return nil
-        }
+        let textStorage = textView.textStorage
         
         let insertPosition = textView.selectedRange.location
         
