@@ -338,8 +338,20 @@ struct FileEditView: View {
                 imageData: imageData,
                 scale: imageAttachment.scale,
                 alignment: imageAttachment.alignment,
-                onSave: { newScale, newAlignment in
-                    updateImageStyle(imageAttachment, scale: newScale, alignment: newAlignment)
+                hasCaption: imageAttachment.hasCaption,
+                captionText: imageAttachment.captionText ?? "",
+                captionStyle: imageAttachment.captionStyle ?? "caption1",
+                availableCaptionStyles: ["caption1", "caption2", "footnote"],
+                onApply: { imageData, scale, alignment, hasCaption, captionText, captionStyle in
+                    updateImage(
+                        attachment: imageAttachment,
+                        scale: scale,
+                        alignment: alignment,
+                        hasCaption: hasCaption,
+                        captionText: captionText,
+                        captionStyle: captionStyle
+                    )
+                    imageToEdit = nil
                 }
             )
         }
@@ -370,9 +382,22 @@ struct FileEditView: View {
             .modifier(CommentOverlayModifier(
                 showCommentDetail: $showCommentDetail,
                 selectedComment: $selectedComment,
-                updateComment: updateComment,
-                deleteComment: deleteComment,
-                toggleCommentResolved: toggleCommentResolved
+                updateComment: {
+                    if let comment = selectedComment {
+                        // Comment text is already updated in CommentDetailView
+                        try? modelContext.save()
+                    }
+                },
+                deleteComment: {
+                    if let comment = selectedComment {
+                        deleteComment(comment)
+                    }
+                },
+                toggleCommentResolved: {
+                    if let comment = selectedComment {
+                        toggleCommentResolved(comment)
+                    }
+                }
             ))
             .onDisappear {
                 saveChanges()
@@ -468,9 +493,9 @@ struct FileEditView: View {
     private struct CommentOverlayModifier: ViewModifier {
         @Binding var showCommentDetail: Bool
         @Binding var selectedComment: CommentModel?
-        let updateComment: (CommentModel, String) -> Void
-        let deleteComment: (CommentModel) -> Void
-        let toggleCommentResolved: (CommentModel) -> Void
+        let updateComment: () -> Void
+        let deleteComment: () -> Void
+        let toggleCommentResolved: () -> Void
         
         func body(content: Content) -> some View {
             content
@@ -484,14 +509,14 @@ struct FileEditView: View {
                         
                         CommentDetailView(
                             comment: comment,
-                            onUpdate: { newText in
-                                updateComment(comment, newText)
+                            onUpdate: {
+                                updateComment()
                             },
                             onDelete: {
-                                deleteComment(comment)
+                                deleteComment()
                             },
-                            onResolve: {
-                                toggleCommentResolved(comment)
+                            onResolveToggle: {
+                                toggleCommentResolved()
                             },
                             onClose: {
                                 showCommentDetail = false
