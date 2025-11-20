@@ -10,6 +10,7 @@ struct ProjectEditableList: View {
     @State private var selectedProjectForInfo: Project?
     @State private var showDeleteConfirmation = false
     @State private var projectsToDelete: IndexSet?
+    @State private var deleteInfo: (count: Int, firstName: String)?
     
     // Sort and display state
     private var sortedProjects: [Project] {
@@ -97,40 +98,54 @@ struct ProjectEditableList: View {
         .confirmationDialog(
             "Delete Projects",
             isPresented: $showDeleteConfirmation,
-            presenting: projectsToDelete,
+            presenting: deleteInfo,
             actions: { _ in
                 Button("Delete", role: .destructive) {
                     confirmDeleteProjects()
                 }
                 Button("Cancel", role: .cancel) {
                     projectsToDelete = nil
+                    deleteInfo = nil
                 }
             },
-            message: { offsets in
-                let count = offsets.count
-                if count == 1 {
-                    let projectName = sortedProjects[offsets.first ?? 0].name ?? "Untitled Project"
-                    return Text("Are you sure you want to delete \"\(projectName)\"? This action cannot be undone.")
+            message: { info in
+                if info.count == 1 {
+                    return Text("Are you sure you want to delete \"\(info.firstName)\"? This action cannot be undone.")
                 } else {
-                    return Text("Are you sure you want to delete \(count) projects? This action cannot be undone.")
+                    return Text("Are you sure you want to delete \(info.count) projects? This action cannot be undone.")
                 }
             }
         )
     }
     
     private func deleteProjects(at offsets: IndexSet) {
+        // Safely capture project information before showing dialog
+        guard let firstIndex = offsets.first, firstIndex < sortedProjects.count else {
+            return
+        }
+        
         projectsToDelete = offsets
+        
+        // Store count and first project name for the confirmation message
+        let firstName = sortedProjects[firstIndex].name ?? "Untitled Project"
+        deleteInfo = (count: offsets.count, firstName: firstName)
+        
         showDeleteConfirmation = true
     }
     
     private func confirmDeleteProjects() {
         guard let offsets = projectsToDelete else { return }
+        
+        // Safely delete projects by checking index bounds
         for index in offsets {
+            guard index < sortedProjects.count else { continue }
             let project = sortedProjects[index]
             modelContext.delete(project)
         }
+        
         try? modelContext.save()
         projectsToDelete = nil
+        deleteInfo = nil
     }
     
     private func moveProjects(from source: IndexSet, to destination: Int) {
