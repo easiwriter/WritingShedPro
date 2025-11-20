@@ -36,6 +36,13 @@ struct FileEditView: View {
     @StateObject private var undoManager: TextFileUndoManager
     @StateObject private var textViewCoordinator = TextViewCoordinator()
     
+    // Feature 014: Comments
+    @State private var selectedComment: CommentModel?
+    @State private var selectedCommentPosition: Int = -1
+    @State private var showCommentDetail = false
+    @State private var showNewCommentDialog = false
+    @State private var newCommentText: String = ""
+    
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     

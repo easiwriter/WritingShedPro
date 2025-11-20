@@ -24,6 +24,7 @@ struct CommentInsertionHelper {
     ///   - textFileID: ID of the text file
     ///   - context: SwiftData model context
     /// - Returns: Tuple of (updated attributed string, created CommentModel)
+    @MainActor
     static func insertComment(
         in attributedText: NSAttributedString,
         at position: Int,
@@ -66,6 +67,7 @@ struct CommentInsertionHelper {
     ///   - textFileID: ID of the text file
     ///   - context: SwiftData model context
     /// - Returns: The created CommentModel
+    @MainActor
     @discardableResult
     static func insertCommentAtCursor(
         in textView: UITextView,
@@ -74,7 +76,7 @@ struct CommentInsertionHelper {
         textFileID: UUID,
         context: ModelContext
     ) -> CommentModel? {
-        guard let textStorage = textView.textStorage as? NSMutableAttributedString else {
+        guard let textStorage = textView.textStorage else {
             return nil
         }
         
@@ -139,7 +141,7 @@ struct CommentInsertionHelper {
         }
         
         guard let range = attachmentRange,
-              let oldAttachment = foundAttachment else {
+              let _ = foundAttachment else {
             return attributedText
         }
         
