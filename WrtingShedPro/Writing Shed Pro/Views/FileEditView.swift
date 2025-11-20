@@ -241,8 +241,10 @@ struct FileEditView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // Version toolbar (shown in both modes)
-            versionToolbar()
+            // Version toolbar (only shown in edit mode)
+            if !isPaginationMode {
+                versionToolbar()
+            }
             
             // Main content area - switch between edit and pagination modes
             if isPaginationMode {
