@@ -30,17 +30,34 @@ extension TextFile {
     
     /// Change version by offset (-1 for previous, +1 for next)
     func changeVersion(by offset: Int) {
-        guard let versions = versions, !versions.isEmpty else { return }
+        guard let versions = versions, !versions.isEmpty else {
+            print("⚠️ changeVersion: No versions available")
+            return
+        }
+        
+        print("🔢 changeVersion called:")
+        print("   - offset: \(offset)")
+        print("   - current index: \(currentVersionIndex)")
+        print("   - versions count: \(versions.count)")
         
         // Sort versions by version number to ensure consistent navigation
         let sortedVersions = versions.sorted { $0.versionNumber < $1.versionNumber }
+        print("   - sorted versions: \(sortedVersions.map { $0.versionNumber })")
         
         // Calculate new index (currentVersionIndex is already in sorted order)
         let newIndex = currentVersionIndex + offset
-        guard newIndex >= 0 && newIndex < sortedVersions.count else { return }
+        print("   - calculated new index: \(newIndex)")
+        
+        guard newIndex >= 0 && newIndex < sortedVersions.count else {
+            print("   ❌ New index out of bounds")
+            return
+        }
         
         // Set new index directly (no conversion needed - we work in sorted space)
         self.currentVersionIndex = newIndex
+        print("   ✅ Updated currentVersionIndex to: \(newIndex)")
+        print("   - new version number: \(sortedVersions[newIndex].versionNumber)")
+        print("   - new content length: \(sortedVersions[newIndex].content.count)")
     }
     
     /// Add a new version (duplicate current version)

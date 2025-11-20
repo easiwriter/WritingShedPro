@@ -73,16 +73,20 @@ struct PaginatedDocumentView: View {
             }
         }
         .onAppear {
+            print("📱 PaginatedDocumentView appeared")
             setupLayoutManager()
         }
-        .onChange(of: textFile.currentVersionIndex) { _, _ in
+        .onChange(of: textFile.currentVersionIndex) { oldValue, newValue in
+            print("🔀 Version index changed: \(oldValue) → \(newValue)")
             // Version changed - recalculate layout with new content
             recalculateLayout()
         }
-        .onChange(of: textFile.currentVersion?.content) { _, _ in
+        .onChange(of: textFile.currentVersion?.content) { oldValue, newValue in
+            print("📝 Version content changed: \(oldValue?.count ?? 0) → \(newValue?.count ?? 0)")
             recalculateLayout()
         }
         .onChange(of: project.pageSetup) { _, _ in
+            print("📄 Page setup changed")
             recalculateLayout()
         }
     }
@@ -185,8 +189,20 @@ struct PaginatedDocumentView: View {
     // MARK: - Layout Management
     
     private func setupLayoutManager() {
-        guard let content = textFile.currentVersion?.content else { return }
-        guard let pageSetup = project.pageSetup else { return }
+        print("🔧 setupLayoutManager called")
+        print("   - currentVersionIndex: \(textFile.currentVersionIndex)")
+        print("   - currentVersion: \(textFile.currentVersion?.id.uuidString.prefix(8) ?? "nil")")
+        
+        guard let content = textFile.currentVersion?.content else {
+            print("   ❌ No currentVersion content")
+            return
+        }
+        guard let pageSetup = project.pageSetup else {
+            print("   ❌ No pageSetup")
+            return
+        }
+        
+        print("   - content length: \(content.count)")
         
         isCalculatingLayout = true
         
@@ -202,29 +218,43 @@ struct PaginatedDocumentView: View {
         // Calculate layout (async to avoid blocking UI)
         DispatchQueue.global(qos: .userInitiated).async {
             let _ = manager.calculateLayout()
+            print("   ✅ Layout calculated: \(manager.pageCount) pages")
             
             DispatchQueue.main.async {
                 self.layoutManager = manager
                 self.isCalculatingLayout = false
+                print("   ✅ Layout manager assigned")
             }
         }
     }
     
     private func recalculateLayout() {
-        guard let pageSetup = project.pageSetup else { return }
+        print("🔄 recalculateLayout called")
+        print("   - currentVersionIndex: \(textFile.currentVersionIndex)")
+        print("   - currentVersion: \(textFile.currentVersion?.id.uuidString.prefix(8) ?? "nil")")
+        print("   - content length: \(textFile.currentVersion?.content.count ?? 0)")
+        
+        guard let pageSetup = project.pageSetup else {
+            print("   ❌ No pageSetup")
+            return
+        }
         
         if let existingManager = layoutManager {
+            print("   ♻️ Updating existing manager")
             existingManager.updatePageSetup(pageSetup)
             
             isCalculatingLayout = true
             DispatchQueue.global(qos: .userInitiated).async {
                 let _ = existingManager.calculateLayout()
+                print("   ✅ Recalculated: \(existingManager.pageCount) pages")
                 
                 DispatchQueue.main.async {
                     self.isCalculatingLayout = false
+                    print("   ✅ Recalculation complete")
                 }
             }
         } else {
+            print("   🆕 Creating new layout manager")
             setupLayoutManager()
         }
     }
