@@ -304,7 +304,7 @@ struct FileEditView: View {
         }
     }
     
-    var body: some View {
+    private var mainContent: some View {
         VStack(spacing: 0) {
             // Version toolbar (only shown in edit mode)
             if !isPaginationMode {
@@ -318,259 +318,6 @@ struct FileEditView: View {
                 textEditorSection()
                 formattingToolbar()
             }
-        }
-        .navigationTitle(file.name)
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                navigationBarButtons()
-            }
-        }
-        .confirmationDialog(
-            "version.locked.warning.title",
-            isPresented: $showLockedVersionWarning,
-            titleVisibility: .visible
-        ) {
-            Button("version.locked.edit.anyway") {
-                attemptedEdit = true
-                showLockedVersionWarning = false
-                // Show keyboard after user confirms
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                    self.textViewCoordinator.textView?.becomeFirstResponder()
-                }
-            }
-            Button("button.cancel", role: .cancel) {
-                showLockedVersionWarning = false
-                // User cancelled - go back
-                DispatchQueue.main.async {
-                    dismiss()
-                }
-            }
-        } message: {
-            if let lockReason = file.currentVersion?.lockReason {
-                Text(lockReason)
-            } else {
-                Text("version.locked.warning.message")
-            }
-        }
-        .confirmationDialog(
-            "Choose Image Source",
-            isPresented: $showImageSourcePicker,
-            titleVisibility: .visible
-        ) {
-            Button("Photos") {
-                showPhotosPickerFromCoordinator()
-            }
-            Button("Files") {
-                showDocumentPicker = true
-            }
-            Button("button.cancel", role: .cancel) {
-                showImageSourcePicker = false
-            }
-        } message: {
-            Text("Select where to choose your image from")
-        }
-        .alert("New Comment", isPresented: $showNewCommentDialog) {
-            TextField("Comment text", text: $newCommentText)
-            Button("Add") {
-                insertNewComment()
-            }
-            Button("Cancel", role: .cancel) {
-                newCommentText = ""
-            }
-        } message: {
-            Text("Add a comment at the current cursor position")
-        }
-        .overlay {
-            if showCommentDetail, let comment = selectedComment {
-                Color.black.opacity(0.3)
-                    .ignoresSafeArea()
-                    .onTapGesture {
-                        showCommentDetail = false
-                    }
-                
-                CommentDetailView(
-                    comment: comment,
-                    onUpdate: { newText in
-                        updateComment(comment, newText: newText)
-                    },
-                    onDelete: {
-                        deleteComment(comment)
-                    },
-                    onResolve: {
-                        toggleCommentResolved(comment)
-                    },
-                    onClose: {
-                        showCommentDetail = false
-                        selectedComment = nil
-                    }
-                )
-                .frame(width: 300)
-                .transition(.scale)
-            }
-        }
-        .onDisappear {
-            // Auto-save when leaving the editor (back button, etc.)
-            saveChanges()
-            saveUndoState()
-        }
-        .onAppear {
-            // Always jump to latest version when opening a file
-            file.selectLatestVersion()
-            
-            // Check if version is locked before allowing editing
-            if file.currentVersion?.isLocked == true {
-                showLockedVersionWarning = true
-            }
-            
-            // Load content from database on first appearance
-            // We initialize with empty content in init() to avoid repeated decoding
-            // during SwiftUI view updates, then load the real content here once
-            if attributedContent.length == 0, let savedContent = file.currentVersion?.attributedContent {
-                print("📂 onAppear: Initial load of content, length: \(savedContent.length)")
-                attributedContent = savedContent
-                previousContent = savedContent.string
-                
-                // Position cursor at end of text
-                let textLength = savedContent.length
-                selectedRange = NSRange(location: textLength, length: 0)
-            }
-            
-            // Show keyboard/cursor when opening file (only if not locked)
-            if file.currentVersion?.isLocked != true {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                    self.textViewCoordinator.textView?.becomeFirstResponder()
-                }
-            }
-            
-            // Update current style from content
-            updateCurrentParagraphStyle()
-            
-            // Set typing attributes from current content or stylesheet
-            if let project = file.project {
-                if attributedContent.length > 0 {
-                    // Reapply all styles to pick up any style definition changes
-                    // This ensures the document reflects the latest style settings
-                    print("📝 onAppear: Reapplying styles to pick up any changes")
-                    reapplyAllStyles()
-                    
-                    // Use attributes from existing content
-                    let attrs = attributedContent.attributes(at: 0, effectiveRange: nil)
-                    textViewCoordinator.modifyTypingAttributes { textView in
-                        textView.typingAttributes = attrs
-                    }
-                } else {
-                    // Empty document - set typing attributes from stylesheet
-                    let bodyAttrs = TextFormatter.getTypingAttributes(
-                        forStyleNamed: UIFont.TextStyle.body.rawValue,
-                        project: project,
-                        context: modelContext
-                    )
-                    textViewCoordinator.modifyTypingAttributes { textView in
-                        textView.typingAttributes = bodyAttrs
-                    }
-                    print("📝 onAppear: Set typing attributes for empty document from stylesheet")
-                }
-            }
-        }
-        .onChange(of: selectedRange) { oldValue, newValue in
-            // Update style when selection changes
-            updateCurrentParagraphStyle()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ImageWasPasted"))) { _ in
-            print("🖼️ Received ImageWasPasted notification - updating lastImageInsertTime")
-            lastImageInsertTime = Date()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ProjectStyleSheetChanged"))) { notification in
-            print("📋 ========== ProjectStyleSheetChanged NOTIFICATION ===========")
-            print("📋 Notification userInfo: \(notification.userInfo ?? [:])")
-            
-            // When a project's stylesheet changes, check if it's our project and reapply styles
-            guard let notifiedProjectID = notification.userInfo?["projectID"] as? UUID else {
-                print("⚠️ No projectID in notification")
-                print("📋 ========== END ==========")
-                return
-            }
-            
-            guard let ourProjectID = file.project?.id else {
-                print("⚠️ Our file has no project")
-                print("📋 ========== END ==========")
-                return
-            }
-            
-            print("📋 Notified project ID: \(notifiedProjectID.uuidString)")
-            print("📋 Our project ID: \(ourProjectID.uuidString)")
-            print("📋 Match: \(notifiedProjectID == ourProjectID)")
-            
-            guard notifiedProjectID == ourProjectID else {
-                print("📋 Not for us - ignoring")
-                print("📋 ========== END ==========")
-                return
-            }
-            
-            print("📋 Received ProjectStyleSheetChanged notification for our project")
-            
-            // Reapply all styles with the new stylesheet
-            if attributedContent.length > 0 {
-                print("📋 Reapplying all styles due to stylesheet change")
-                reapplyAllStyles()
-            } else {
-                print("📋 Document is empty, skipping reapply")
-            }
-            print("📋 ========== END ==========")
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("StyleSheetModified"))) { notification in
-            print("📋 ========== StyleSheetModified NOTIFICATION ==========")
-            print("📋 Notification userInfo: \(notification.userInfo ?? [:])")
-            
-            // When a stylesheet is modified, check if it's our project's stylesheet and reapply styles
-            guard let modifiedStylesheetID = notification.userInfo?["stylesheetID"] as? UUID else {
-                print("⚠️ No stylesheetID in notification")
-                print("📋 ========== END ==========")
-                return
-            }
-            
-            guard let ourStylesheetID = file.project?.styleSheet?.id else {
-                print("⚠️ Our project has no stylesheet")
-                print("📋 ========== END ==========")
-                return
-            }
-            
-            print("📋 Modified stylesheet ID: \(modifiedStylesheetID.uuidString)")
-            print("📋 Our stylesheet ID: \(ourStylesheetID.uuidString)")
-            print("📋 Match: \(modifiedStylesheetID == ourStylesheetID)")
-            
-            guard modifiedStylesheetID == ourStylesheetID else {
-                print("📋 Not for us - ignoring")
-                print("📋 ========== END ==========")
-                return
-            }
-            
-            print("📋 Received StyleSheetModified notification for our project's stylesheet")
-            
-            // Reapply all styles with the updated style definitions
-            if attributedContent.length > 0 {
-                print("📋 Reapplying all styles due to style modification")
-                reapplyAllStyles()
-            } else {
-                print("📋 Document is empty, skipping reapply")
-            }
-            print("📋 ========== END ==========")
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("UndoRedoContentRestored"))) { notification in
-            // Handle formatting undo/redo - restore attributed content
-            guard let restoredContent = notification.userInfo?["content"] as? NSAttributedString else { return }
-            
-            #if DEBUG
-            print("🔄 Received UndoRedoContentRestored notification")
-            #endif
-            
-            // Update local state with restored content
-            attributedContent = restoredContent
-            
-            // Force UI refresh
-            forceRefresh.toggle()
-            refreshTrigger = UUID()
         }
         .sheet(isPresented: $showStylePicker) {
             StylePickerSheet(
@@ -591,52 +338,269 @@ struct FileEditView: View {
                 imageData: imageData,
                 scale: imageAttachment.scale,
                 alignment: imageAttachment.alignment,
-                hasCaption: imageAttachment.hasCaption,
-                captionText: imageAttachment.captionText ?? "",
-                captionStyle: imageAttachment.captionStyle ?? "caption1",
-                availableCaptionStyles: ["caption1", "caption2", "footnote"],
-                onApply: { imageData, scale, alignment, hasCaption, captionText, captionStyle in
-                    updateImage(
-                        attachment: imageAttachment,
-                        scale: scale,
-                        alignment: alignment,
-                        hasCaption: hasCaption,
-                        captionText: captionText,
-                        captionStyle: captionStyle
-                    )
-                    imageToEdit = nil
+                onSave: { newScale, newAlignment in
+                    updateImageStyle(imageAttachment, scale: newScale, alignment: newAlignment)
                 }
             )
         }
-        .fileImporter(
-            isPresented: $showFileImporter,
-            allowedContentTypes: [.image],
-            allowsMultipleSelection: false
-        ) { result in
-            print("🖼️ File importer completed")
-            switch result {
-            case .success(let urls):
-                print("🖼️ File importer success with \(urls.count) URLs")
-                guard let url = urls.first else {
-                    print("❌ No URL in file importer result")
-                    return
+    }
+    
+    var body: some View {
+        mainContent
+            .navigationTitle(file.name)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    navigationBarButtons()
                 }
-                print("🖼️ File importer selected: \(url.lastPathComponent)")
-                print("🖼️ File path: \(url.path)")
-                handleImageSelection(url: url)
-            case .failure(let error):
-                print("❌ File importer error: \(error.localizedDescription)")
+            }
+            .modifier(DialogsModifier(
+                showLockedVersionWarning: $showLockedVersionWarning,
+                showImageSourcePicker: $showImageSourcePicker,
+                showNewCommentDialog: $showNewCommentDialog,
+                newCommentText: $newCommentText,
+                attemptedEdit: $attemptedEdit,
+                file: file,
+                textViewCoordinator: textViewCoordinator,
+                dismiss: dismiss,
+                showPhotosPickerFromCoordinator: showPhotosPickerFromCoordinator,
+                showDocumentPicker: $showDocumentPicker,
+                insertNewComment: insertNewComment
+            ))
+            .modifier(CommentOverlayModifier(
+                showCommentDetail: $showCommentDetail,
+                selectedComment: $selectedComment,
+                updateComment: updateComment,
+                deleteComment: deleteComment,
+                toggleCommentResolved: toggleCommentResolved
+            ))
+            .onDisappear {
+                saveChanges()
+                saveUndoState()
+            }
+            .onAppear {
+                setupOnAppear()
+            }
+            .onChange(of: selectedRange) { oldValue, newValue in
+                updateCurrentParagraphStyle()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ImageWasPasted"))) { _ in
+                handleImagePasted()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ProjectStyleSheetChanged"))) { notification in
+                handleStyleSheetChanged(notification)
+            }
+    }
+    
+    // MARK: - View Modifiers Helper
+    
+    private struct DialogsModifier: ViewModifier {
+        @Binding var showLockedVersionWarning: Bool
+        @Binding var showImageSourcePicker: Bool
+        @Binding var showNewCommentDialog: Bool
+        @Binding var newCommentText: String
+        @Binding var attemptedEdit: Bool
+        let file: TextFile
+        let textViewCoordinator: TextViewCoordinator
+        let dismiss: DismissAction
+        let showPhotosPickerFromCoordinator: () -> Void
+        @Binding var showDocumentPicker: Bool
+        let insertNewComment: () -> Void
+        
+        func body(content: Content) -> some View {
+            content
+                .confirmationDialog(
+                    "version.locked.warning.title",
+                    isPresented: $showLockedVersionWarning,
+                    titleVisibility: .visible
+                ) {
+                    Button("version.locked.edit.anyway") {
+                        attemptedEdit = true
+                        showLockedVersionWarning = false
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            self.textViewCoordinator.textView?.becomeFirstResponder()
+                        }
+                    }
+                    Button("button.cancel", role: .cancel) {
+                        showLockedVersionWarning = false
+                        DispatchQueue.main.async {
+                            dismiss()
+                        }
+                    }
+                } message: {
+                    if let lockReason = file.currentVersion?.lockReason {
+                        Text(lockReason)
+                    } else {
+                        Text("version.locked.warning.message")
+                    }
+                }
+                .confirmationDialog(
+                    "Choose Image Source",
+                    isPresented: $showImageSourcePicker,
+                    titleVisibility: .visible
+                ) {
+                    Button("Photos") {
+                        showPhotosPickerFromCoordinator()
+                    }
+                    Button("Files") {
+                        showDocumentPicker = true
+                    }
+                    Button("button.cancel", role: .cancel) {
+                        showImageSourcePicker = false
+                    }
+                } message: {
+                    Text("Select where to choose your image from")
+                }
+                .alert("New Comment", isPresented: $showNewCommentDialog) {
+                    TextField("Comment text", text: $newCommentText)
+                    Button("Add") {
+                        insertNewComment()
+                    }
+                    Button("Cancel", role: .cancel) {
+                        newCommentText = ""
+                    }
+                } message: {
+                    Text("Add a comment at the current cursor position")
+                }
+        }
+    }
+    
+    private struct CommentOverlayModifier: ViewModifier {
+        @Binding var showCommentDetail: Bool
+        @Binding var selectedComment: CommentModel?
+        let updateComment: (CommentModel, String) -> Void
+        let deleteComment: (CommentModel) -> Void
+        let toggleCommentResolved: (CommentModel) -> Void
+        
+        func body(content: Content) -> some View {
+            content
+                .overlay {
+                    if showCommentDetail, let comment = selectedComment {
+                        Color.black.opacity(0.3)
+                            .ignoresSafeArea()
+                            .onTapGesture {
+                                showCommentDetail = false
+                            }
+                        
+                        CommentDetailView(
+                            comment: comment,
+                            onUpdate: { newText in
+                                updateComment(comment, newText)
+                            },
+                            onDelete: {
+                                deleteComment(comment)
+                            },
+                            onResolve: {
+                                toggleCommentResolved(comment)
+                            },
+                            onClose: {
+                                showCommentDetail = false
+                                selectedComment = nil
+                            }
+                        )
+                        .frame(width: 300)
+                        .transition(.scale)
+                    }
+                }
+        }
+    }
+    
+    // MARK: - Lifecycle Helpers
+    
+    private func setupOnAppear() {
+        // Always jump to latest version when opening a file
+        file.selectLatestVersion()
+        
+        // Check if version is locked before allowing editing
+        if file.currentVersion?.isLocked == true {
+            showLockedVersionWarning = true
+        }
+        
+        // Load content from database on first appearance
+        if attributedContent.length == 0, let savedContent = file.currentVersion?.attributedContent {
+            print("📂 onAppear: Initial load of content, length: \(savedContent.length)")
+            attributedContent = savedContent
+            previousContent = savedContent.string
+            
+            // Position cursor at end of text
+            let textLength = savedContent.length
+            selectedRange = NSRange(location: textLength, length: 0)
+        }
+        
+        // Show keyboard/cursor when opening file (only if not locked)
+        if file.currentVersion?.isLocked != true {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                self.textViewCoordinator.textView?.becomeFirstResponder()
             }
         }
-        .background(
-            DocumentPickerView(
-                isPresented: $showDocumentPicker,
-                contentTypes: [.image]
-            ) { url in
-                print("🖼️ Document picker view selected: \(url.lastPathComponent)")
-                handleImageSelection(url: url)
+        
+        // Update current style from content
+        updateCurrentParagraphStyle()
+        
+        // Set typing attributes from current content or stylesheet
+        if let project = file.project {
+            if attributedContent.length > 0 {
+                print("📝 onAppear: Reapplying styles to pick up any changes")
+                reapplyAllStyles()
+                
+                let attrs = attributedContent.attributes(at: 0, effectiveRange: nil)
+                textViewCoordinator.modifyTypingAttributes { textView in
+                    textView.typingAttributes = attrs
+                }
+            } else {
+                let bodyAttrs = TextFormatter.getTypingAttributes(
+                    forStyleNamed: UIFont.TextStyle.body.rawValue,
+                    project: project,
+                    context: modelContext
+                )
+                textViewCoordinator.modifyTypingAttributes { textView in
+                    textView.typingAttributes = bodyAttrs
+                }
+                print("📝 onAppear: Set typing attributes for empty document from stylesheet")
             }
-        )
+        }
+    }
+    
+    private func handleImagePasted() {
+        print("🖼️ Received ImageWasPasted notification - updating lastImageInsertTime")
+        lastImageInsertTime = Date()
+    }
+    
+    private func handleStyleSheetChanged(_ notification: Notification) {
+        print("📋 ========== ProjectStyleSheetChanged NOTIFICATION ===========")
+        print("📋 Notification userInfo: \(notification.userInfo ?? [:])")
+        
+        guard let notifiedProjectID = notification.userInfo?["projectID"] as? UUID else {
+            print("⚠️ No projectID in notification")
+            print("📋 ========== END ==========")
+            return
+        }
+        
+        guard let ourProjectID = file.project?.id else {
+            print("⚠️ Our file has no project")
+            print("📋 ========== END ==========")
+            return
+        }
+        
+        print("📋 Notified project ID: \(notifiedProjectID.uuidString)")
+        print("📋 Our project ID: \(ourProjectID.uuidString)")
+        print("📋 Match: \(notifiedProjectID == ourProjectID)")
+        
+        guard notifiedProjectID == ourProjectID else {
+            print("📋 Not for us - ignoring")
+            print("📋 ========== END ==========")
+            return
+        }
+        
+        print("📋 Received ProjectStyleSheetChanged notification for our project")
+        
+        if attributedContent.length > 0 {
+            print("📋 Reapplying all styles due to stylesheet change")
+            reapplyAllStyles()
+        } else {
+            print("📋 Document is empty, skipping reapply")
+        }
+        print("📋 ========== END ==========")
     }
     
     // MARK: - Attributed Text Handling
