@@ -26,7 +26,9 @@ struct Write_App: App {
             // Feature 008b: Publication Management
             Publication.self,
             Submission.self,
-            SubmittedFile.self
+            SubmittedFile.self,
+            // Feature 014: Comments
+            CommentModel.self
         ])
         let modelConfiguration = ModelConfiguration(
             schema: schema,

@@ -119,50 +119,53 @@ struct FileEditView: View {
     }
     
     private func textEditorSection() -> some View {
-        ZStack(alignment: .topLeading) {
-            if forceRefresh {
-                FormattedTextEditor(
-                    attributedText: $attributedContent,
-                    selectedRange: $selectedRange,
-                    textViewCoordinator: textViewCoordinator,
-                    onTextChange: { newText in
-                        handleAttributedTextChange(newText)
-                    },
-                    onImageTapped: { attachment, frame, position in
-                        handleImageTap(attachment: attachment, frame: frame, position: position)
-                    },
-                    onClearImageSelection: {
-                        selectedImage = nil
-                        selectedImageFrame = .zero
-                        selectedImagePosition = -1
+        GeometryReader { geometry in
+            ZStack(alignment: .topLeading) {
+                if forceRefresh {
+                    FormattedTextEditor(
+                        attributedText: $attributedContent,
+                        selectedRange: $selectedRange,
+                        textViewCoordinator: textViewCoordinator,
+                        onTextChange: { newText in
+                            handleAttributedTextChange(newText)
+                        },
+                        onImageTapped: { attachment, frame, position in
+                            handleImageTap(attachment: attachment, frame: frame, position: position)
+                        },
+                        onClearImageSelection: {
+                            selectedImage = nil
+                            selectedImageFrame = .zero
+                            selectedImagePosition = -1
+                        }
+                    )
+                    .id(refreshTrigger)
+                    .onAppear {
+                        textViewInitialized = true
                     }
-                )
-                .id(refreshTrigger)
-                .onAppear {
-                    textViewInitialized = true
-                }
-            } else {
-                FormattedTextEditor(
-                    attributedText: $attributedContent,
-                    selectedRange: $selectedRange,
-                    textViewCoordinator: textViewCoordinator,
-                    onTextChange: { newText in
-                        handleAttributedTextChange(newText)
-                    },
-                    onImageTapped: { attachment, frame, position in
-                        handleImageTap(attachment: attachment, frame: frame, position: position)
-                    },
-                    onClearImageSelection: {
-                        selectedImage = nil
-                        selectedImageFrame = .zero
-                        selectedImagePosition = -1
+                } else {
+                    FormattedTextEditor(
+                        attributedText: $attributedContent,
+                        selectedRange: $selectedRange,
+                        textViewCoordinator: textViewCoordinator,
+                        onTextChange: { newText in
+                            handleAttributedTextChange(newText)
+                        },
+                        onImageTapped: { attachment, frame, position in
+                            handleImageTap(attachment: attachment, frame: frame, position: position)
+                        },
+                        onClearImageSelection: {
+                            selectedImage = nil
+                            selectedImageFrame = .zero
+                            selectedImagePosition = -1
+                        }
+                    )
+                    .id(refreshTrigger)
+                    .onAppear {
+                        textViewInitialized = true
                     }
-                )
-                .id(refreshTrigger)
-                .onAppear {
-                    textViewInitialized = true
                 }
             }
+            .padding(.horizontal, geometry.size.width * 0.05)
         }
     }
     
