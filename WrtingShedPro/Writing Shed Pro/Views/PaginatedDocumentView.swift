@@ -75,6 +75,10 @@ struct PaginatedDocumentView: View {
         .onAppear {
             setupLayoutManager()
         }
+        .onChange(of: textFile.currentVersionIndex) { _, _ in
+            // Version changed - recalculate layout with new content
+            recalculateLayout()
+        }
         .onChange(of: textFile.currentVersion?.content) { _, _ in
             recalculateLayout()
         }
