@@ -222,7 +222,14 @@ struct FileListView: View {
                 }
             }
         } label: {
-            HStack {
+            HStack(spacing: 12) {
+                // Disclosure indicator - more prominent
+                Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                    .foregroundStyle(.secondary)
+                    .font(.body)
+                    .fontWeight(.semibold)
+                    .frame(width: 20)
+                
                 Text(section.letter)
                     .font(.headline)
                     .foregroundStyle(.primary)
@@ -232,10 +239,6 @@ struct FileListView: View {
                     .foregroundStyle(.secondary)
                 
                 Spacer()
-                
-                Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
-                    .foregroundStyle(.secondary)
-                    .font(.caption)
             }
             .contentShape(Rectangle())
         }

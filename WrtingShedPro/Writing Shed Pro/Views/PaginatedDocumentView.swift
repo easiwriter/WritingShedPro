@@ -213,8 +213,9 @@ struct PaginatedDocumentView: View {
         
         isCalculatingLayout = true
         
-        // Create text storage from content
-        let textStorage = NSTextStorage(string: content)
+        // Create text storage from attributed content to preserve formatting
+        let attributedContent = textFile.currentVersion?.attributedContent ?? NSAttributedString(string: content)
+        let textStorage = NSTextStorage(attributedString: attributedContent)
         
         // Create layout manager
         let manager = PaginatedTextLayoutManager(
@@ -249,12 +250,13 @@ struct PaginatedDocumentView: View {
         if let existingManager = layoutManager {
             print("   ♻️ Updating existing manager")
             
-            // Update text content from current version
+            // Update text content from current version (preserve formatting)
             if let content = textFile.currentVersion?.content {
                 print("   📝 Updating textStorage with new content")
+                let attributedContent = textFile.currentVersion?.attributedContent ?? NSAttributedString(string: content)
                 existingManager.textStorage.replaceCharacters(
                     in: NSRange(location: 0, length: existingManager.textStorage.length),
-                    with: content
+                    with: attributedContent
                 )
             }
             

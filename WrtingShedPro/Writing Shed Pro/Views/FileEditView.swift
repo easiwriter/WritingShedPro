@@ -37,11 +37,10 @@ struct FileEditView: View {
     @StateObject private var textViewCoordinator = TextViewCoordinator()
     
     // Feature 014: Comments
-    @State private var selectedComment: CommentModel?
-    @State private var selectedCommentPosition: Int = -1
-    @State private var showCommentDetail = false
+    @State private var showCommentsList = false
     @State private var showNewCommentDialog = false
     @State private var newCommentText: String = ""
+    @State private var selectedCommentForDetail: CommentModel?
     
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -212,6 +211,8 @@ struct FileEditView: View {
                     }
                 case .insert:
                     showImagePicker()
+                case .commentHistory:
+                    showCommentsList = true
                 }
             }
             .frame(height: 44)
@@ -272,6 +273,7 @@ struct FileEditView: View {
             
             // Comment button (only in edit mode)
             if !isPaginationMode {
+                // Add new comment
                 Button(action: {
                     showNewCommentDialog = true
                 }) {
@@ -379,26 +381,44 @@ struct FileEditView: View {
                 showDocumentPicker: $showDocumentPicker,
                 insertNewComment: insertNewComment
             ))
-            .modifier(CommentOverlayModifier(
-                showCommentDetail: $showCommentDetail,
-                selectedComment: $selectedComment,
-                updateComment: {
-                    if let comment = selectedComment {
-                        // Comment text is already updated in CommentDetailView
-                        try? modelContext.save()
+            .sheet(isPresented: $showCommentsList) {
+                CommentsListView(
+                    textFileID: file.id,
+                    onJumpToComment: { comment in
+                        jumpToComment(comment)
+                    },
+                    onCommentResolvedChanged: { comment in
+                        // Comment resolved state was changed in the list
+                        // Update the visual marker in the text
+                        refreshCommentMarker(comment)
                     }
-                },
-                deleteComment: {
-                    if let comment = selectedComment {
-                        deleteComment(comment)
-                    }
-                },
-                toggleCommentResolved: {
-                    if let comment = selectedComment {
-                        toggleCommentResolved(comment)
-                    }
+                )
+            }
+            .sheet(item: $selectedCommentForDetail) { comment in
+                NavigationView {
+                    CommentDetailView(
+                        comment: comment,
+                        onUpdate: {
+                            // Comment text was updated
+                            saveChanges()
+                        },
+                        onDelete: {
+                            // Comment was deleted, close the sheet
+                            selectedCommentForDetail = nil
+                        },
+                        onResolveToggle: {
+                            // Comment resolved state was toggled
+                            refreshCommentMarker(comment)
+                        },
+                        onClose: {
+                            selectedCommentForDetail = nil
+                        }
+                    )
+                    .navigationBarTitleDisplayMode(.inline)
+                    .navigationTitle("Comment")
                 }
-            ))
+                .presentationDetents([.medium, .large])
+            }
             .onDisappear {
                 saveChanges()
                 saveUndoState()
@@ -476,60 +496,21 @@ struct FileEditView: View {
                 } message: {
                     Text("Select where to choose your image from")
                 }
-                .alert("New Comment", isPresented: $showNewCommentDialog) {
-                    TextField("Comment text", text: $newCommentText)
-                    Button("Add") {
-                        insertNewComment()
-                    }
-                    Button("Cancel", role: .cancel) {
-                        newCommentText = ""
-                    }
-                } message: {
-                    Text("Add a comment at the current cursor position")
+                .sheet(isPresented: $showNewCommentDialog) {
+                    NewCommentSheet(
+                        commentText: $newCommentText,
+                        onAdd: {
+                            insertNewComment()
+                        },
+                        onCancel: {
+                            newCommentText = ""
+                            showNewCommentDialog = false
+                        }
+                    )
+                    .presentationDetents([.medium])
                 }
         }
     }
-    
-    private struct CommentOverlayModifier: ViewModifier {
-        @Binding var showCommentDetail: Bool
-        @Binding var selectedComment: CommentModel?
-        let updateComment: () -> Void
-        let deleteComment: () -> Void
-        let toggleCommentResolved: () -> Void
-        
-        func body(content: Content) -> some View {
-            content
-                .overlay {
-                    if showCommentDetail, let comment = selectedComment {
-                        Color.black.opacity(0.3)
-                            .ignoresSafeArea()
-                            .onTapGesture {
-                                showCommentDetail = false
-                            }
-                        
-                        CommentDetailView(
-                            comment: comment,
-                            onUpdate: {
-                                updateComment()
-                            },
-                            onDelete: {
-                                deleteComment()
-                            },
-                            onResolveToggle: {
-                                toggleCommentResolved()
-                            },
-                            onClose: {
-                                showCommentDetail = false
-                                selectedComment = nil
-                            }
-                        )
-                        .frame(width: 300)
-                        .transition(.scale)
-                    }
-                }
-        }
-    }
-    
     // MARK: - Lifecycle Helpers
     
     private func setupOnAppear() {
@@ -547,8 +528,12 @@ struct FileEditView: View {
             attributedContent = savedContent
             previousContent = savedContent.string
             
+            // CRITICAL: Restore orphaned comment markers from database
+            // Comments created before we added serialization support need to be re-inserted
+            restoreOrphanedCommentMarkers()
+            
             // Position cursor at end of text
-            let textLength = savedContent.length
+            let textLength = attributedContent.length
             selectedRange = NSRange(location: textLength, length: 0)
         }
         
@@ -730,24 +715,36 @@ struct FileEditView: View {
         print("💬 Comment tapped at position \(position)")
         print("💬 Comment ID: \(attachment.commentID)")
         
-        // Load the comment from the database
-        let commentID = attachment.commentID  // Capture in local variable
+        // Fetch the specific comment from the database
+        let commentID = attachment.commentID
         let fetchDescriptor = FetchDescriptor<CommentModel>(
-            predicate: #Predicate { $0.attachmentID == commentID }
+            predicate: #Predicate<CommentModel> { comment in
+                comment.attachmentID == commentID
+            }
         )
         
         do {
             let comments = try modelContext.fetch(fetchDescriptor)
             if let comment = comments.first {
-                selectedComment = comment
-                selectedCommentPosition = position
-                showCommentDetail = true
-                print("💬 Comment loaded: \(comment.text)")
+                print("💬 Found comment in database, showing detail view")
+                selectedCommentForDetail = comment
             } else {
-                print("⚠️ Comment not found in database")
+                print("⚠️ Comment not found in database for ID: \(commentID)")
             }
         } catch {
             print("❌ Error fetching comment: \(error)")
+        }
+    }
+    
+    private func jumpToComment(_ comment: CommentModel) {
+        // Position cursor at the comment location
+        let position = comment.characterPosition
+        if position < attributedContent.length {
+            selectedRange = NSRange(location: position, length: 0)
+            // Optionally scroll to make it visible
+            if let textView = textViewCoordinator.textView {
+                textView.scrollRangeToVisible(NSRange(location: position, length: 1))
+            }
         }
     }
     
@@ -793,32 +790,173 @@ struct FileEditView: View {
         // Delete from database
         CommentManager.shared.deleteComment(comment, context: modelContext)
         
-        // Clear selection
-        selectedComment = nil
-        showCommentDetail = false
-        
         // Save
         saveChanges()
         print("💬 Comment deleted")
     }
     
     private func toggleCommentResolved(_ comment: CommentModel) {
+        print("💬 toggleCommentResolved called - current state: \(comment.isResolved)")
+        
         if comment.isResolved {
             comment.reopen()
         } else {
             comment.resolve()
         }
         
+        print("💬 After toggle - new state: \(comment.isResolved)")
+        print("💬 Comment attachmentID: \(comment.attachmentID)")
+        
         // Update visual indicator in text
-        attributedContent = CommentInsertionHelper.updateCommentResolvedState(
+        let updatedContent = CommentInsertionHelper.updateCommentResolvedState(
             in: attributedContent,
             commentID: comment.attachmentID,
             isResolved: comment.isResolved
         )
         
+        print("💬 Updated content length: \(updatedContent.length)")
+        print("💬 Original content length: \(attributedContent.length)")
+        
+        // Force update the text view to show the new marker color
+        if let textView = textViewCoordinator.textView {
+            print("💬 Updating textView with new resolved state")
+            
+            // CRITICAL: Update the text storage directly to force re-render of attachments
+            textView.textStorage.setAttributedString(updatedContent)
+            
+            // Invalidate layout and display for the entire document
+            let fullRange = NSRange(location: 0, length: updatedContent.length)
+            textView.layoutManager.invalidateLayout(forCharacterRange: fullRange, actualCharacterRange: nil)
+            textView.layoutManager.invalidateDisplay(forCharacterRange: fullRange)
+            
+            // Force layout update
+            textView.layoutManager.ensureLayout(for: textView.textContainer)
+            
+            // Force redraw
+            textView.setNeedsDisplay()
+            textView.setNeedsLayout()
+            textView.layoutIfNeeded()
+            
+            print("💬 TextView updated and forced to redraw")
+        } else {
+            print("⚠️ textView is nil!")
+        }
+        
+        // Update SwiftUI state
+        attributedContent = updatedContent
+        
         try? modelContext.save()
         saveChanges()
-        print("💬 Comment resolved state: \(comment.isResolved)")
+        print("💬 Comment resolved state saved: \(comment.isResolved)")
+    }
+    
+    /// Update the visual marker for a comment after its resolved state changes externally (e.g., from CommentsListView)
+    private func refreshCommentMarker(_ comment: CommentModel) {
+        print("💬🔄 refreshCommentMarker called for comment: \(comment.attachmentID)")
+        print("💬🔄 Current resolved state: \(comment.isResolved)")
+        
+        // Update visual indicator in text
+        let updatedContent = CommentInsertionHelper.updateCommentResolvedState(
+            in: attributedContent,
+            commentID: comment.attachmentID,
+            isResolved: comment.isResolved
+        )
+        
+        // Force update the text view to show the new marker color
+        if let textView = textViewCoordinator.textView {
+            print("💬🔄 Updating textView with new resolved state")
+            
+            // CRITICAL: Update the text storage directly to force re-render of attachments
+            textView.textStorage.setAttributedString(updatedContent)
+            
+            // Invalidate layout and display for the entire document
+            let fullRange = NSRange(location: 0, length: updatedContent.length)
+            textView.layoutManager.invalidateLayout(forCharacterRange: fullRange, actualCharacterRange: nil)
+            textView.layoutManager.invalidateDisplay(forCharacterRange: fullRange)
+            
+            // Force layout update
+            textView.layoutManager.ensureLayout(for: textView.textContainer)
+            
+            // Force redraw
+            textView.setNeedsDisplay()
+            textView.setNeedsLayout()
+            textView.layoutIfNeeded()
+            
+            print("💬🔄 TextView updated and forced to redraw")
+        }
+        
+        // Update SwiftUI state
+        attributedContent = updatedContent
+        
+        saveChanges()
+        print("💬🔄 Comment marker refreshed: resolved=\(comment.isResolved)")
+    }
+    
+    /// Restore comment markers from the database for comments that were created before serialization support
+    /// This handles "orphaned" comments that exist in the database but don't have markers in the attributed text
+    private func restoreOrphanedCommentMarkers() {
+        print("💬🔧 Checking for orphaned comment markers...")
+        
+        // Get all comments for this file from the database
+        let fileID = file.id  // Capture file ID for use in predicate
+        let descriptor = FetchDescriptor<CommentModel>(
+            predicate: #Predicate<CommentModel> { comment in
+                comment.textFileID == fileID
+            },
+            sortBy: [SortDescriptor(\.characterPosition)]
+        )
+        
+        guard let allComments = try? modelContext.fetch(descriptor) else {
+            print("💬🔧 Could not fetch comments from database")
+            return
+        }
+        
+        guard !allComments.isEmpty else {
+            print("💬🔧 No comments found in database")
+            return
+        }
+        
+        print("💬🔧 Found \(allComments.count) comments in database")
+        
+        // Check which comments are missing from the attributed text
+        let mutableText = NSMutableAttributedString(attributedString: attributedContent)
+        var existingCommentIDs = Set<UUID>()
+        
+        // Find all existing comment attachments
+        mutableText.enumerateAttribute(.attachment, in: NSRange(location: 0, length: mutableText.length)) { value, _, _ in
+            if let commentAttachment = value as? CommentAttachment {
+                existingCommentIDs.insert(commentAttachment.commentID)
+            }
+        }
+        
+        print("💬🔧 Found \(existingCommentIDs.count) existing comment markers in text")
+        
+        // Find orphaned comments
+        let orphanedComments = allComments.filter { !existingCommentIDs.contains($0.attachmentID) }
+        
+        guard !orphanedComments.isEmpty else {
+            print("💬🔧 No orphaned comments found - all good!")
+            return
+        }
+        
+        print("💬🔧 Found \(orphanedComments.count) orphaned comments - restoring markers...")
+        
+        // Insert markers for orphaned comments (in reverse order to maintain positions)
+        for comment in orphanedComments.reversed() {
+            let position = min(comment.characterPosition, mutableText.length)
+            let attachment = CommentAttachment(commentID: comment.attachmentID, isResolved: comment.isResolved)
+            let attachmentString = NSAttributedString(attachment: attachment)
+            
+            mutableText.insert(attachmentString, at: position)
+            print("💬🔧 Restored marker for comment '\(comment.text)' at position \(position)")
+        }
+        
+        // Update the attributed content
+        attributedContent = mutableText
+        print("💬🔧 ✅ Restored \(orphanedComments.count) orphaned comment markers")
+        
+        // Save the restored markers
+        saveChanges()
     }
     
     // MARK: - Undo/Redo
@@ -1773,8 +1911,26 @@ struct FileEditView: View {
     
     private func saveChanges() {
         // Save the current attributed content to the model
-        // The attributedContent setter automatically syncs plain text content
-        file.currentVersion?.attributedContent = attributedContent
+        // IMPORTANT: Get the current content from the textView to include all attachments (comments, images)
+        if let textView = textViewCoordinator.textView {
+            let currentContent = textView.attributedText ?? NSAttributedString()
+            file.currentVersion?.attributedContent = currentContent
+            
+            // Count attachments for debugging
+            var commentCount = 0
+            var imageCount = 0
+            currentContent.enumerateAttribute(.attachment, in: NSRange(location: 0, length: currentContent.length)) { value, range, _ in
+                if value is CommentAttachment {
+                    commentCount += 1
+                } else if value is ImageAttachment {
+                    imageCount += 1
+                }
+            }
+            print("💾 Saving attributed content with \(commentCount) comments and \(imageCount) images")
+        } else {
+            file.currentVersion?.attributedContent = attributedContent
+        }
+        
         file.modifiedDate = Date()
         
         do {
@@ -1871,6 +2027,55 @@ struct FileEditView: View {
             }
         }
         return position
+    }
+}
+
+// MARK: - New Comment Sheet
+
+private struct NewCommentSheet: View {
+    @Binding var commentText: String
+    let onAdd: () -> Void
+    let onCancel: () -> Void
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 16) {
+                Text("Add a comment at the current cursor position")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+                
+                TextEditor(text: $commentText)
+                    .frame(minHeight: 150)
+                    .padding(8)
+                    .background(Color(uiColor: .systemGray6))
+                    .cornerRadius(8)
+                    .scrollContentBackground(.hidden)
+                    .padding(.horizontal)
+                
+                Spacer()
+            }
+            .padding(.top)
+            .navigationTitle("New Comment")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        onCancel()
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Add") {
+                        onAdd()
+                        dismiss()
+                    }
+                    .disabled(commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+        }
     }
 }
 

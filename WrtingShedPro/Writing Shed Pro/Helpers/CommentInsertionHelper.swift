@@ -145,6 +145,10 @@ struct CommentInsertionHelper {
         
         // Create new attachment with updated state
         let newAttachment = CommentAttachment(commentID: commentID, isResolved: isResolved)
+        
+        // CRITICAL: Clear any cached image to force re-render with new color
+        newAttachment.image = nil
+        
         let newAttachmentString = NSAttributedString(attachment: newAttachment)
         
         // Replace the old attachment

@@ -93,6 +93,12 @@ struct FormattedTextEditor: UIViewRepresentable {
         context.coordinator.textView = textView
         textViewCoordinator?.textView = textView
         
+        // Wire up comment tap callback
+        let coordinator = context.coordinator
+        textView.onCommentTapped = { [weak coordinator] attachment, position in
+            coordinator?.parent.onCommentTapped?(attachment, position)
+        }
+        
         // Set input accessory view if provided
         if let accessoryView = inputAccessoryView {
             textView.customAccessoryView = accessoryView
@@ -617,14 +623,8 @@ struct FormattedTextEditor: UIViewRepresentable {
                 
                 // Get the character at the cursor position to check for attachment
                 if let attributedText = textView.attributedText {
-                    // Check for comment attachment first
-                    if let commentAttachment = attributedText.attribute(.attachment, at: newRange.location, effectiveRange: nil) as? CommentAttachment {
-                        #if DEBUG
-                        print("💬 Comment tapped at position \(newRange.location)")
-                        #endif
-                        parent.onCommentTapped?(commentAttachment, newRange.location)
-                        return
-                    }
+                    // Note: Comment taps are now handled by CustomTextView tap gesture
+                    // This ensures direct clicking on comments opens them immediately
                     
                     // Check for image attachment
                     if let _ = attributedText.attribute(.attachment, at: newRange.location, effectiveRange: nil) as? ImageAttachment {
@@ -1007,10 +1007,11 @@ struct FormattedTextEditor: UIViewRepresentable {
 // MARK: - Custom UITextView
 
 /// Custom UITextView subclass to support inputAccessoryView
-private class CustomTextView: UITextView {
+private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
     var customAccessoryView: UIView?
     var isImageSelected: Bool = false
     var shouldHideSystemFormattingMenu: Bool = false
+    var onCommentTapped: ((CommentAttachment, Int) -> Void)?
     
     // Selection border view for images
     private let selectionBorderView: UIView = {
@@ -1027,12 +1028,69 @@ private class CustomTextView: UITextView {
     override init(frame: CGRect, textContainer: NSTextContainer?) {
         super.init(frame: frame, textContainer: textContainer)
         addSubview(selectionBorderView)
+        setupCommentInteraction()
     }
     
     required init?(coder: NSCoder) {
         super.init(coder: coder)
         addSubview(selectionBorderView)
+        setupCommentInteraction()
     }
+    
+    private func setupCommentInteraction() {
+        // Add tap gesture to handle comment taps directly
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleTap(_:)))
+        tapGesture.delegate = self
+        addGestureRecognizer(tapGesture)
+    }
+    
+    @objc private func handleTap(_ gesture: UITapGestureRecognizer) {
+        let location = gesture.location(in: self)
+        
+        // Convert tap location to character index
+        var point = location
+        point.x -= textContainerInset.left
+        point.y -= textContainerInset.top
+        
+        let characterIndex = layoutManager.characterIndex(
+            for: point,
+            in: textContainer,
+            fractionOfDistanceBetweenInsertionPoints: nil
+        )
+        
+        guard characterIndex < textStorage.length else { return }
+        
+        // Check if tapped on a comment attachment
+        if let commentAttachment = textStorage.attribute(.attachment, at: characterIndex, effectiveRange: nil) as? CommentAttachment {
+            onCommentTapped?(commentAttachment, characterIndex)
+            // Prevent default text selection
+            gesture.cancelsTouchesInView = true
+        }
+    }
+    
+    // Change cursor to pointer when hovering over comments (iPad with mouse/trackpad)
+    #if targetEnvironment(macCatalyst)
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        var adjustedPoint = point
+        adjustedPoint.x -= textContainerInset.left
+        adjustedPoint.y -= textContainerInset.top
+        
+        let characterIndex = layoutManager.characterIndex(
+            for: adjustedPoint,
+            in: textContainer,
+            fractionOfDistanceBetweenInsertionPoints: nil
+        )
+        
+        if characterIndex < textStorage.length {
+            if let _ = textStorage.attribute(.attachment, at: characterIndex, effectiveRange: nil) as? CommentAttachment {
+                // Change cursor to pointer
+                NSCursor.pointingHand.set()
+            }
+        }
+        
+        return super.hitTest(point, with: event)
+    }
+    #endif
     
     // Show/hide selection border
     func showSelectionBorder(at frame: CGRect) {

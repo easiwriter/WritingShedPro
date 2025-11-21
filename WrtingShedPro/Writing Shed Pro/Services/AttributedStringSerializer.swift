@@ -33,6 +33,11 @@ struct AttributeValues: Codable {
     var hasCaption: Bool?
     var captionText: String?
     var captionStyle: String?
+    
+    // Comment attachment properties
+    var isCommentAttachment: Bool?
+    var commentID: String?
+    var commentIsResolved: Bool?
 }
 
 /// Service for converting between NSAttributedString and storable formats
@@ -148,6 +153,18 @@ struct AttributedStringSerializer {
     /// - Parameter attributedString: The attributed string to encode
     /// - Returns: Encoded data
     static func encode(_ attributedString: NSAttributedString) -> Data {
+        // Debug: Count attachments in the string we're encoding
+        var commentCount = 0
+        var imageCount = 0
+        attributedString.enumerateAttribute(.attachment, in: NSRange(location: 0, length: attributedString.length)) { value, range, _ in
+            if value is CommentAttachment {
+                commentCount += 1
+            } else if value is ImageAttachment {
+                imageCount += 1
+            }
+        }
+        print("💾📝 ENCODE START: String has \(commentCount) comments and \(imageCount) images")
+        
         var allAttributes = [AttributeValues]()
         let range = NSRange(location: 0, length: attributedString.length)
         
@@ -245,7 +262,7 @@ struct AttributedStringSerializer {
                         }
                     
                     case .attachment:
-                        // Handle image attachments
+                        // Handle image and comment attachments
                         // print("💾 ENCODE: Found attachment at \(range.location), type: \(type(of: value))")
                         if let imageAttachment = value as? ImageAttachment {
                             attributes.isImageAttachment = true
@@ -264,8 +281,13 @@ struct AttributedStringSerializer {
                             
                             // Logging commented out to reduce console spam during undo/version saves
                             // print("💾 ENCODE image at \(range.location): id=\(imageAttachment.imageID), scale=\(imageAttachment.scale), alignment=\(imageAttachment.alignment.rawValue)")
+                        } else if let commentAttachment = value as? CommentAttachment {
+                            attributes.isCommentAttachment = true
+                            attributes.commentID = commentAttachment.commentID.uuidString
+                            attributes.commentIsResolved = commentAttachment.isResolved
+                            print("💬💾 ENCODE comment at \(range.location): id=\(commentAttachment.commentID), resolved=\(commentAttachment.isResolved)")
                         } else {
-                            // print("💾 ⚠️ ENCODE: Attachment is NOT an ImageAttachment - skipping image properties")
+                            print("💾 ⚠️ ENCODE: Attachment is neither Image nor Comment - type: \(type(of: value))")
                         }
                         
                     default:
@@ -305,6 +327,10 @@ struct AttributedStringSerializer {
         
         do {
             let jsonAttributesArray = try PropertyListDecoder().decode([AttributeValues].self, from: data)
+            
+            let commentCount = jsonAttributesArray.filter { $0.isCommentAttachment == true }.count
+            let imageCount = jsonAttributesArray.filter { $0.isImageAttachment == true }.count
+            print("📖 DECODE: Found \(commentCount) comments and \(imageCount) images in saved data")
             
             jsonAttributesArray.forEach { jsonAttributes in
                 guard let location = jsonAttributes.location,
@@ -447,6 +473,28 @@ struct AttributedStringSerializer {
                     attributes[.attachment] = attachment
                 }
                 
+                // Comment attachment - reconstruct CommentAttachment
+                if let isComment = jsonAttributes.isCommentAttachment, isComment,
+                   let commentIDString = jsonAttributes.commentID,
+                   let commentID = UUID(uuidString: commentIDString) {
+                    
+                    // Create CommentAttachment
+                    let isResolved = jsonAttributes.commentIsResolved ?? false
+                    let attachment = CommentAttachment(commentID: commentID, isResolved: isResolved)
+                    
+                    // Debug: Check if the character at this position is the attachment character
+                    if location < result.length {
+                        let char = (result.string as NSString).character(at: location)
+                        let isAttachmentChar = (char == 0xFFFC)  // U+FFFC Object Replacement Character
+                        print("💬📖 DECODE comment at \(location): id=\(commentID), resolved=\(isResolved), length=\(length)")
+                        print("       Character at position: \\u{\(String(format: "%04X", char))}, is attachment char: \(isAttachmentChar)")
+                    } else {
+                        print("💬📖 DECODE comment at \(location): id=\(commentID) - POSITION OUT OF BOUNDS (text length: \(result.length))")
+                    }
+                    
+                    attributes[.attachment] = attachment
+                }
+                
                 result.addAttributes(attributes, range: NSRange(location: location, length: length))
             }
         } catch {
@@ -480,17 +528,58 @@ struct AttributedStringSerializer {
     /// Convert RTF Data to NSAttributedString
     /// - Parameter data: The RTF data to convert
     /// - Returns: NSAttributedString, or nil if conversion fails
-    static func fromRTF(_ data: Data) -> NSAttributedString? {
+    static func fromRTF(_ data: Data, scaleFonts: Bool = false) -> NSAttributedString? {
         do {
-            return try NSAttributedString(
+            let rtfString = try NSAttributedString(
                 data: data,
                 options: [.documentType: NSAttributedString.DocumentType.rtf],
                 documentAttributes: nil
             )
+            
+            // Optionally scale fonts for legacy imports (Writing Shed 1.0 used smaller Mac fonts)
+            // iOS/iPadOS needs larger scaling - 1.8x (80% increase) for comfortable reading
+            // This matches the typical zoom level users prefer (130% of 1.4x ≈ 1.8x)
+            if scaleFonts {
+                return self.scaleFonts(rtfString, scaleFactor: 1.8)
+            } else {
+                return rtfString
+            }
         } catch {
             print("❌ AttributedStringSerializer.fromRTF error: \(error.localizedDescription)")
             return nil
         }
+    }
+    
+    /// Decode RTF data with font scaling for legacy imports
+    /// - Parameter data: The RTF data to decode
+    /// - Returns: NSAttributedString with scaled fonts, or nil if decoding fails
+    static func fromLegacyRTF(_ data: Data) -> NSAttributedString? {
+        return fromRTF(data, scaleFonts: true)
+    }
+    
+    /// Scale all fonts in an attributed string by a factor
+    /// Used for legacy imports where Mac font sizes need iOS adjustment
+    /// - Parameters:
+    ///   - attributedString: The attributed string to scale
+    ///   - scaleFactor: Multiplicative scale factor (e.g., 1.8 for 80% increase)
+    /// - Returns: New attributed string with scaled fonts
+    static func scaleFonts(_ attributedString: NSAttributedString, scaleFactor: CGFloat) -> NSAttributedString {
+        guard scaleFactor != 1.0 && attributedString.length > 0 else {
+            return attributedString
+        }
+        
+        let mutableString = NSMutableAttributedString(attributedString: attributedString)
+        let range = NSRange(location: 0, length: mutableString.length)
+        
+        mutableString.enumerateAttribute(.font, in: range, options: []) { value, range, _ in
+            if let font = value as? UIFont {
+                let newSize = font.pointSize * scaleFactor
+                let scaledFont = font.withSize(newSize)
+                mutableString.addAttribute(.font, value: scaledFont, range: range)
+            }
+        }
+        
+        return mutableString
     }
     
     // MARK: - Plain Text Extraction

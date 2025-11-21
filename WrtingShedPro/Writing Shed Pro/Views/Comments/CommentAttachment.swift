@@ -19,8 +19,8 @@ final class CommentAttachment: NSTextAttachment {
     /// Whether the associated comment is resolved
     var isResolved: Bool
     
-    /// Size of the comment icon
-    private static let iconSize: CGFloat = 16
+    /// Size of the comment icon - made larger for better visibility and tappability
+    private static let iconSize: CGFloat = 22
     
     // MARK: - Initialization
     
@@ -35,7 +35,27 @@ final class CommentAttachment: NSTextAttachment {
     }
     
     required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+        // Decode commentID
+        guard let commentIDString = coder.decodeObject(forKey: "commentID") as? String,
+              let commentID = UUID(uuidString: commentIDString) else {
+            return nil
+        }
+        
+        self.commentID = commentID
+        self.isResolved = coder.decodeBool(forKey: "isResolved")
+        super.init(data: nil, ofType: nil)
+    }
+    
+    override func encode(with coder: NSCoder) {
+        super.encode(with: coder)
+        coder.encode(commentID.uuidString, forKey: "commentID")
+        coder.encode(isResolved, forKey: "isResolved")
+    }
+    
+    // MARK: - Secure Coding
+    
+    override class var supportsSecureCoding: Bool {
+        return true
     }
     
     // MARK: - Image Generation
@@ -54,6 +74,10 @@ final class CommentAttachment: NSTextAttachment {
         // Choose icon based on resolved state
         let symbolName = "bubble.left.fill"
         let color: UIColor = isResolved ? .systemGray : .systemBlue
+        
+        #if DEBUG
+        print("💬🎨 CommentAttachment.image() called - commentID: \(commentID), isResolved: \(isResolved), color: \(isResolved ? "gray" : "blue")")
+        #endif
         
         // Create configuration for the SF Symbol
         let config = UIImage.SymbolConfiguration(pointSize: Self.iconSize, weight: .regular)

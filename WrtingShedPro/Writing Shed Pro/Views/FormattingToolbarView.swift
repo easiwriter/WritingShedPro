@@ -14,6 +14,7 @@ struct FormattingToolbarView: UIViewRepresentable {
         case strikethrough
         case imageStyle
         case insert
+        case commentHistory
     }
     
     func makeUIView(context: Context) -> UIToolbar {
@@ -58,7 +59,7 @@ struct FormattingToolbarView: UIViewRepresentable {
         
         // Create insert button with menu
         let insertButton = createMenuButton(
-            systemName: "plus.circle",
+            systemName: "text.badge.plus",
             coordinator: context.coordinator
         )
         
@@ -314,7 +315,9 @@ struct FormattingToolbarView: UIViewRepresentable {
         let listAction = UIAction(title: "List", image: UIImage(systemName: "list.bullet"), attributes: .disabled) { _ in }
         let footnoteAction = UIAction(title: "Footnote", image: UIImage(systemName: "text.append"), attributes: .disabled) { _ in }
         let endnoteAction = UIAction(title: "Endnote", image: UIImage(systemName: "text.append"), attributes: .disabled) { _ in }
-        let commentAction = UIAction(title: "Comment", image: UIImage(systemName: "text.bubble"), attributes: .disabled) { _ in }
+        let commentHistoryAction = UIAction(title: "Comment History", image: UIImage(systemName: "bubble.left.and.bubble.right")) { _ in
+            coordinator.onFormatAction(.commentHistory)
+        }
         let indexAction = UIAction(title: "Index Item", image: UIImage(systemName: "tag"), attributes: .disabled) { _ in }
         
         button.menu = UIMenu(title: "", children: [
@@ -322,7 +325,7 @@ struct FormattingToolbarView: UIViewRepresentable {
             listAction,
             footnoteAction,
             endnoteAction,
-            commentAction,
+            commentHistoryAction,
             indexAction
         ])
         

@@ -69,7 +69,7 @@ struct CommentDetailView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(comment.author)
                         .font(.headline)
-                    Text(comment.createdAt, style: .relative)
+                    Text(comment.createdAt, format: .dateTime.day().month().year().hour().minute())
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -91,40 +91,32 @@ struct CommentDetailView: View {
             // Comment content
             if isEditing {
                 TextEditor(text: $editedText)
-                    .frame(minHeight: 100)
+                    .frame(minHeight: 200, maxHeight: 400)
                     .padding(8)
                     .background(Color(uiColor: .systemGray6))
                     .cornerRadius(8)
+                    .scrollContentBackground(.hidden)
             } else {
                 ScrollView {
                     Text(comment.text)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(8)
                 }
-                .frame(minHeight: 60, maxHeight: 200)
+                .frame(minHeight: 100, maxHeight: 400)
                 .background(Color(uiColor: .systemGray6))
                 .cornerRadius(8)
             }
             
-            // Action buttons
-            HStack(spacing: 12) {
-                // Edit/Save button
-                Button(action: {
-                    if isEditing {
-                        saveChanges()
-                    } else {
-                        isEditing = true
+            // Action buttons - using flexible layout to prevent truncation
+            if isEditing {
+                // Editing mode: Show Save and Cancel
+                HStack(spacing: 12) {
+                    Button(action: saveChanges) {
+                        Label("Save", systemImage: "checkmark")
                     }
-                }) {
-                    Label(
-                        isEditing ? "Save" : "Edit",
-                        systemImage: isEditing ? "checkmark" : "pencil"
-                    )
-                }
-                .buttonStyle(.bordered)
-                
-                // Cancel editing button (only show when editing)
-                if isEditing {
+                    .buttonStyle(.borderedProminent)
+                    .frame(maxWidth: .infinity)
+                    
                     Button(action: {
                         editedText = comment.text
                         isEditing = false
@@ -132,32 +124,37 @@ struct CommentDetailView: View {
                         Label("Cancel", systemImage: "xmark")
                     }
                     .buttonStyle(.bordered)
+                    .frame(maxWidth: .infinity)
                 }
-                
-                Spacer()
-                
-                // Resolve/Reopen button
-                Button(action: {
-                    toggleResolve()
-                }) {
-                    Label(
-                        comment.isResolved ? "Reopen" : "Resolve",
-                        systemImage: comment.isResolved ? "arrow.uturn.backward" : "checkmark.circle"
-                    )
+            } else {
+                // View mode: Show all action buttons in a grid
+                VStack(spacing: 8) {
+                    HStack(spacing: 8) {
+                        Button(action: { isEditing = true }) {
+                            Label("Edit", systemImage: "pencil")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                        
+                        Button(action: toggleResolve) {
+                            Label(
+                                comment.isResolved ? "Reopen" : "Resolve",
+                                systemImage: comment.isResolved ? "arrow.uturn.backward" : "checkmark.circle"
+                            )
+                            .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(comment.isResolved ? .blue : .green)
+                    }
+                    
+                    Button(action: deleteComment) {
+                        Label("Delete", systemImage: "trash")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(.red)
                 }
-                .buttonStyle(.bordered)
-                .tint(comment.isResolved ? .blue : .green)
-                
-                // Delete button
-                Button(action: {
-                    deleteComment()
-                }) {
-                    Label("Delete", systemImage: "trash")
-                }
-                .buttonStyle(.bordered)
-                .tint(.red)
             }
-            .font(.subheadline)
         }
         .padding(16)
         .background(Color(uiColor: .systemBackground))

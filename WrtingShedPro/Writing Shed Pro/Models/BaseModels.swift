@@ -162,7 +162,17 @@ final class Version {
                 return plainText
             }
             
-            // Decode using AttributedStringSerializer (expensive operation)
+            // Try to decode as RTF first (for legacy imports)
+            // Legacy imports from Writing Shed 1.0 store RTF data with font scaling
+            if let rtfDecoded = AttributedStringSerializer.fromLegacyRTF(data) {
+                print("[Version] Successfully decoded legacy RTF data (\(data.count) bytes)")
+                // Cache the result
+                _cachedAttributedContent = rtfDecoded
+                _cachedFormattedContentHash = data
+                return rtfDecoded
+            }
+            
+            // Fall back to JSON format (for current app format)
             // If decoding fails, it will return plain text with default formatting
             let decoded = AttributedStringSerializer.decode(data, text: content)
             
@@ -192,8 +202,18 @@ final class Version {
                 // Encode using AttributedStringSerializer (extracts font traits)
                 formattedContent = AttributedStringSerializer.encode(attributed)
                 
-                // Also update plain text for search/compatibility
+                // CRITICAL: Update plain text for search/compatibility
+                // MUST preserve attachment characters (U+FFFC) for proper reconstruction
+                // attributed.string already includes these characters
                 content = attributed.string
+                
+                #if DEBUG
+                // Debug: Count attachment characters
+                let attachmentCharCount = attributed.string.filter { $0 == "\u{FFFC}" }.count
+                if attachmentCharCount > 0 {
+                    print("💾 Saving plain text with \(attachmentCharCount) attachment characters (U+FFFC)")
+                }
+                #endif
                 
                 // Clear cache when content changes
                 _cachedAttributedContent = nil
