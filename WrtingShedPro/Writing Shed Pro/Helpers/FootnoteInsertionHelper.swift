@@ -269,21 +269,3 @@ struct FootnoteInsertionHelper {
         }
     }
 }
-
-// MARK: - Private Extensions for FootnoteManager
-
-extension FootnoteManager {
-    /// Calculate footnote number - made internal for FootnoteInsertionHelper
-    func calculateFootnoteNumber(
-        forTextFile textFileID: UUID,
-        at characterPosition: Int,
-        context: ModelContext
-    ) -> Int {
-        let activeFootnotes = getActiveFootnotes(forTextFile: textFileID, context: context)
-        
-        // Count how many footnotes come before this position
-        let footnotesBeforeCount = activeFootnotes.filter { $0.characterPosition < characterPosition }.count
-        
-        return footnotesBeforeCount + 1
-    }
-}

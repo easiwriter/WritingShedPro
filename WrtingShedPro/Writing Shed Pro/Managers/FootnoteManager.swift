@@ -165,7 +165,7 @@ final class FootnoteManager: ObservableObject {
     ///   - characterPosition: Position where the footnote will be inserted
     ///   - context: SwiftData model context
     /// - Returns: The footnote number
-    private func calculateFootnoteNumber(
+    internal func calculateFootnoteNumber(
         forTextFile textFileID: UUID,
         at characterPosition: Int,
         context: ModelContext
