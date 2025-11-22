@@ -27,6 +27,9 @@ struct FormattedTextEditor: UIViewRepresentable {
     /// Optional callback when user taps on a comment
     var onCommentTapped: ((CommentAttachment, Int) -> Void)?
     
+    /// Optional callback when user taps on a footnote
+    var onFootnoteTapped: ((FootnoteAttachment, Int) -> Void)?
+    
     /// Coordinator for managing textView reference
     var textViewCoordinator: TextViewCoordinator?
     
@@ -66,7 +69,8 @@ struct FormattedTextEditor: UIViewRepresentable {
         onSelectionChange: ((NSRange) -> Void)? = nil,
         onImageTapped: ((ImageAttachment, CGRect, Int) -> Void)? = nil,
         onClearImageSelection: (() -> Void)? = nil,
-        onCommentTapped: ((CommentAttachment, Int) -> Void)? = nil
+        onCommentTapped: ((CommentAttachment, Int) -> Void)? = nil,
+        onFootnoteTapped: ((FootnoteAttachment, Int) -> Void)? = nil
     ) {
         self._attributedText = attributedText
         self._selectedRange = selectedRange
@@ -82,6 +86,7 @@ struct FormattedTextEditor: UIViewRepresentable {
         self.onImageTapped = onImageTapped
         self.onClearImageSelection = onClearImageSelection
         self.onCommentTapped = onCommentTapped
+        self.onFootnoteTapped = onFootnoteTapped
     }
     
     // MARK: - UIViewRepresentable
@@ -97,6 +102,11 @@ struct FormattedTextEditor: UIViewRepresentable {
         let coordinator = context.coordinator
         textView.onCommentTapped = { [weak coordinator] attachment, position in
             coordinator?.parent.onCommentTapped?(attachment, position)
+        }
+        
+        // Wire up footnote tap callback
+        textView.onFootnoteTapped = { [weak coordinator] attachment, position in
+            coordinator?.parent.onFootnoteTapped?(attachment, position)
         }
         
         // Set input accessory view if provided
@@ -1012,6 +1022,7 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
     var isImageSelected: Bool = false
     var shouldHideSystemFormattingMenu: Bool = false
     var onCommentTapped: ((CommentAttachment, Int) -> Void)?
+    var onFootnoteTapped: ((FootnoteAttachment, Int) -> Void)?
     
     // Selection border view for images
     private let selectionBorderView: UIView = {
@@ -1058,7 +1069,19 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
             fractionOfDistanceBetweenInsertionPoints: nil
         )
         
-        guard characterIndex < textStorage.length else { return }
+        guard characterIndex < textStorage.length else {
+            print("🔢 Tap outside text bounds")
+            return
+        }
+        
+        // Check if tapped on a footnote attachment
+        if let footnoteAttachment = textStorage.attribute(.attachment, at: characterIndex, effectiveRange: nil) as? FootnoteAttachment {
+            print("🔢 Footnote attachment tapped! ID: \(footnoteAttachment.footnoteID), number: \(footnoteAttachment.number)")
+            onFootnoteTapped?(footnoteAttachment, characterIndex)
+            // Prevent default text selection
+            gesture.cancelsTouchesInView = true
+            return
+        }
         
         // Check if tapped on a comment attachment
         if let commentAttachment = textStorage.attribute(.attachment, at: characterIndex, effectiveRange: nil) as? CommentAttachment {
@@ -1082,8 +1105,11 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
         )
         
         if characterIndex < textStorage.length {
-            if let _ = textStorage.attribute(.attachment, at: characterIndex, effectiveRange: nil) as? CommentAttachment {
-                // Change cursor to pointer
+            if let _ = textStorage.attribute(.attachment, at: characterIndex, effectiveRange: nil) as? FootnoteAttachment {
+                // Change cursor to pointer for footnotes
+                NSCursor.pointingHand.set()
+            } else if let _ = textStorage.attribute(.attachment, at: characterIndex, effectiveRange: nil) as? CommentAttachment {
+                // Change cursor to pointer for comments
                 NSCursor.pointingHand.set()
             }
         }

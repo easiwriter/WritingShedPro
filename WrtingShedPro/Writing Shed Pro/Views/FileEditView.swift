@@ -42,6 +42,12 @@ struct FileEditView: View {
     @State private var newCommentText: String = ""
     @State private var selectedCommentForDetail: CommentModel?
     
+    // Feature 017: Footnotes
+    @State private var showFootnotesList = false
+    @State private var showNewFootnoteDialog = false
+    @State private var newFootnoteText: String = ""
+    @State private var selectedFootnoteForDetail: FootnoteModel?
+    
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     
@@ -145,6 +151,9 @@ struct FileEditView: View {
                         },
                         onCommentTapped: { attachment, position in
                             handleCommentTap(attachment: attachment, position: position)
+                        },
+                        onFootnoteTapped: { attachment, position in
+                            handleFootnoteTap(attachment: attachment, position: position)
                         }
                     )
                     .id(refreshTrigger)
@@ -169,6 +178,9 @@ struct FileEditView: View {
                         },
                         onCommentTapped: { attachment, position in
                             handleCommentTap(attachment: attachment, position: position)
+                        },
+                        onFootnoteTapped: { attachment, position in
+                            handleFootnoteTap(attachment: attachment, position: position)
                         }
                     )
                     .id(refreshTrigger)
@@ -271,18 +283,27 @@ struct FileEditView: View {
                 .accessibilityLabel(isPaginationMode ? "Switch to Edit Mode" : "Switch to Pagination Preview")
             }
             
-            // Comment button (only in edit mode)
-            if !isPaginationMode {
-                // Add new comment
-                Button(action: {
-                    showNewCommentDialog = true
-                }) {
-                    Image(systemName: "bubble.left")
-                }
-                .accessibilityLabel("Add Comment")
-            }
-            
-            // Undo button (only in edit mode)
+                    // Comment button (only in edit mode)
+                    if !isPaginationMode {
+                        // Add new comment
+                        Button(action: {
+                            showNewCommentDialog = true
+                        }) {
+                            Image(systemName: "bubble.left")
+                        }
+                        .accessibilityLabel("Add Comment")
+                    }
+                    
+                    // Footnote button (only in edit mode)
+                    if !isPaginationMode {
+                        // Add new footnote
+                        Button(action: {
+                            showNewFootnoteDialog = true
+                        }) {
+                            Image(systemName: "number.circle")
+                        }
+                        .accessibilityLabel("Add Footnote")
+                    }            // Undo button (only in edit mode)
             if !isPaginationMode {
                 Button(action: {
                     performUndo()
@@ -373,13 +394,16 @@ struct FileEditView: View {
                 showImageSourcePicker: $showImageSourcePicker,
                 showNewCommentDialog: $showNewCommentDialog,
                 newCommentText: $newCommentText,
+                showNewFootnoteDialog: $showNewFootnoteDialog,
+                newFootnoteText: $newFootnoteText,
                 attemptedEdit: $attemptedEdit,
                 file: file,
                 textViewCoordinator: textViewCoordinator,
                 dismiss: dismiss,
                 showPhotosPickerFromCoordinator: showPhotosPickerFromCoordinator,
                 showDocumentPicker: $showDocumentPicker,
-                insertNewComment: insertNewComment
+                insertNewComment: insertNewComment,
+                insertNewFootnote: insertNewFootnote
             ))
             .sheet(isPresented: $showCommentsList) {
                 CommentsListView(
@@ -419,6 +443,46 @@ struct FileEditView: View {
                 }
                 .presentationDetents([.medium, .large])
             }
+            .sheet(isPresented: $showFootnotesList) {
+                FootnotesListView(
+                    textFileID: file.id,
+                    onJumpToFootnote: { footnote in
+                        jumpToFootnote(footnote)
+                    },
+                    onDismiss: {
+                        showFootnotesList = false
+                    },
+                    onFootnoteChanged: {
+                        // Footnote was updated, refresh display
+                        saveChanges()
+                    }
+                )
+            }
+            .sheet(item: $selectedFootnoteForDetail) { footnote in
+                NavigationView {
+                    FootnoteDetailView(
+                        footnote: footnote,
+                        onUpdate: {
+                            // Footnote text was updated
+                            saveChanges()
+                        },
+                        onDelete: {
+                            // Footnote was deleted, close the sheet
+                            selectedFootnoteForDetail = nil
+                        },
+                        onRestore: {
+                            // Footnote was restored from trash
+                            saveChanges()
+                        },
+                        onClose: {
+                            selectedFootnoteForDetail = nil
+                        }
+                    )
+                    .navigationBarTitleDisplayMode(.inline)
+                    .navigationTitle("Footnote")
+                }
+                .presentationDetents([.medium, .large])
+            }
             .onDisappear {
                 saveChanges()
                 saveUndoState()
@@ -444,6 +508,8 @@ struct FileEditView: View {
         @Binding var showImageSourcePicker: Bool
         @Binding var showNewCommentDialog: Bool
         @Binding var newCommentText: String
+        @Binding var showNewFootnoteDialog: Bool
+        @Binding var newFootnoteText: String
         @Binding var attemptedEdit: Bool
         let file: TextFile
         let textViewCoordinator: TextViewCoordinator
@@ -451,6 +517,7 @@ struct FileEditView: View {
         let showPhotosPickerFromCoordinator: () -> Void
         @Binding var showDocumentPicker: Bool
         let insertNewComment: () -> Void
+        let insertNewFootnote: () -> Void
         
         func body(content: Content) -> some View {
             content
@@ -505,6 +572,19 @@ struct FileEditView: View {
                         onCancel: {
                             newCommentText = ""
                             showNewCommentDialog = false
+                        }
+                    )
+                    .presentationDetents([.medium])
+                }
+                .sheet(isPresented: $showNewFootnoteDialog) {
+                    NewFootnoteSheet(
+                        footnoteText: $newFootnoteText,
+                        onAdd: {
+                            insertNewFootnote()
+                        },
+                        onCancel: {
+                            newFootnoteText = ""
+                            showNewFootnoteDialog = false
                         }
                     )
                     .presentationDetents([.medium])
@@ -736,9 +816,46 @@ struct FileEditView: View {
         }
     }
     
+    private func handleFootnoteTap(attachment: FootnoteAttachment, position: Int) {
+        print("🔢 Footnote tapped at position \(position)")
+        print("🔢 Footnote ID: \(attachment.footnoteID)")
+        
+        // Fetch the specific footnote from the database
+        let footnoteID = attachment.footnoteID
+        let fetchDescriptor = FetchDescriptor<FootnoteModel>(
+            predicate: #Predicate<FootnoteModel> { footnote in
+                footnote.attachmentID == footnoteID
+            }
+        )
+        
+        do {
+            let footnotes = try modelContext.fetch(fetchDescriptor)
+            if let footnote = footnotes.first {
+                print("🔢 Found footnote in database, showing detail view")
+                selectedFootnoteForDetail = footnote
+            } else {
+                print("⚠️ Footnote not found in database for ID: \(footnoteID)")
+            }
+        } catch {
+            print("❌ Error fetching footnote: \(error)")
+        }
+    }
+    
     private func jumpToComment(_ comment: CommentModel) {
         // Position cursor at the comment location
         let position = comment.characterPosition
+        if position < attributedContent.length {
+            selectedRange = NSRange(location: position, length: 0)
+            // Optionally scroll to make it visible
+            if let textView = textViewCoordinator.textView {
+                textView.scrollRangeToVisible(NSRange(location: position, length: 1))
+            }
+        }
+    }
+    
+    private func jumpToFootnote(_ footnote: FootnoteModel) {
+        // Position cursor at the footnote location
+        let position = footnote.characterPosition
         if position < attributedContent.length {
             selectedRange = NSRange(location: position, length: 0)
             // Optionally scroll to make it visible
@@ -772,6 +889,31 @@ struct FileEditView: View {
         // Reset dialog
         newCommentText = ""
         showNewCommentDialog = false
+    }
+    
+    private func insertNewFootnote() {
+        guard !newFootnoteText.isEmpty else { return }
+        
+        // Insert footnote at cursor position
+        if let textView = textViewCoordinator.textView {
+            let footnote = FootnoteInsertionHelper.insertFootnoteAtCursor(
+                in: textView,
+                footnoteText: newFootnoteText,
+                textFileID: file.id,
+                context: modelContext
+            )
+            
+            if let footnote = footnote {
+                print("🔢 Footnote inserted: \(footnote.text)")
+                // Update the attributed content binding
+                attributedContent = textView.attributedText ?? NSAttributedString()
+                saveChanges()
+            }
+        }
+        
+        // Reset dialog
+        newFootnoteText = ""
+        showNewFootnoteDialog = false
     }
     
     private func updateComment(_ comment: CommentModel, newText: String) {
@@ -2073,6 +2215,53 @@ private struct NewCommentSheet: View {
                         dismiss()
                     }
                     .disabled(commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+        }
+    }
+}
+
+private struct NewFootnoteSheet: View {
+    @Binding var footnoteText: String
+    let onAdd: () -> Void
+    let onCancel: () -> Void
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 16) {
+                Text("Add a footnote at the current cursor position")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+                
+                TextEditor(text: $footnoteText)
+                    .frame(minHeight: 150)
+                    .padding(8)
+                    .background(Color(uiColor: .systemGray6))
+                    .cornerRadius(8)
+                    .scrollContentBackground(.hidden)
+                    .padding(.horizontal)
+                
+                Spacer()
+            }
+            .padding(.top)
+            .navigationTitle("New Footnote")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        onCancel()
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Add") {
+                        onAdd()
+                        dismiss()
+                    }
+                    .disabled(footnoteText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
         }

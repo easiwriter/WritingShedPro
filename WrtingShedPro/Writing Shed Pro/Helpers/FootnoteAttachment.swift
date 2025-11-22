@@ -174,8 +174,10 @@ final class FootnoteAttachment: NSTextAttachment {
         let height = textSize.height + (padding * 2)
         
         // Calculate vertical offset for superscript position
-        // Negative y value moves the attachment up relative to baseline
-        let yOffset = -(Self.superscriptOffset + height)
+        // Use font descender for baseline alignment like CommentAttachment
+        // Then apply superscript offset to raise it above baseline
+        let descent = font.descender
+        let yOffset = descent - Self.superscriptOffset
         
         return CGRect(
             x: 0,
@@ -197,9 +199,14 @@ final class FootnoteAttachment: NSTextAttachment {
         let width = textSize.width + (padding * 2)
         let height = textSize.height + (padding * 2)
         
+        // Use font descender approximation for baseline alignment
+        let font = UIFont.systemFont(ofSize: Self.baseFontSize)
+        let descent = font.descender
+        let yOffset = descent - Self.superscriptOffset
+        
         return CGRect(
             x: 0,
-            y: -(Self.superscriptOffset + height),
+            y: yOffset,
             width: width,
             height: height
         )
