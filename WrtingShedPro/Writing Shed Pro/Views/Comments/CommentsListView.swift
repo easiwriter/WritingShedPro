@@ -62,11 +62,11 @@ struct CommentsListView: View {
                     commentsList
                 }
             }
-            .navigationTitle("Comments")
+            .navigationTitle("commentsList.title")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") {
+                    Button("button.done") {
                         onDismiss?()
                         dismiss()
                     }
@@ -82,9 +82,9 @@ struct CommentsListView: View {
     
     private var emptyState: some View {
         ContentUnavailableView {
-            Label("No Comments", systemImage: "bubble.left")
+            Label("commentsList.empty.title", systemImage: "bubble.left")
         } description: {
-            Text("Add comments to your document to provide feedback or notes.")
+            Text("commentsList.empty.description")
         }
     }
     
@@ -99,7 +99,7 @@ struct CommentsListView: View {
                     }
                 } header: {
                     HStack {
-                        Text("Active")
+                        Text("commentsList.active")
                         Spacer()
                         Text("\(activeComments.count)")
                             .foregroundStyle(.secondary)
@@ -114,7 +114,7 @@ struct CommentsListView: View {
                     }
                 } header: {
                     HStack {
-                        Text("Resolved")
+                        Text("commentsList.resolved")
                         Spacer()
                         Text("\(resolvedComments.count)")
                             .foregroundStyle(.secondary)
@@ -150,7 +150,7 @@ struct CommentsListView: View {
                     .scrollContentBackground(.hidden)
                 
                 HStack {
-                    Button("Cancel") {
+                    Button("button.cancel") {
                         editingComment = nil
                         editText = ""
                     }
@@ -158,13 +158,15 @@ struct CommentsListView: View {
                     
                     Spacer()
                     
-                    Button("Save") {
+                    Button("button.save") {
                         saveEdit(comment)
                     }
                     .buttonStyle(.borderedProminent)
                 }
             }
             .padding(.vertical, 8)
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("commentsList.editingComment.accessibility")
         } else {
             // View mode
             HStack(alignment: .top, spacing: 12) {
@@ -177,6 +179,7 @@ struct CommentsListView: View {
                         .font(.title3)
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(comment.isResolved ? "commentsList.reopen.accessibility" : "commentsList.resolve.accessibility")
                 
                 VStack(alignment: .leading, spacing: 4) {
                     // Date and time
@@ -213,14 +216,14 @@ struct CommentsListView: View {
                     Button {
                         startEditing(comment)
                     } label: {
-                        Label("Edit", systemImage: "pencil")
+                        Label("commentsList.edit", systemImage: "pencil")
                     }
                     
                     Button {
                         onJumpToComment?(comment)
                         dismiss()
                     } label: {
-                        Label("Jump to Text", systemImage: "arrow.right")
+                        Label("commentsList.jumpToText", systemImage: "arrow.right")
                     }
                     
                     Divider()
@@ -228,13 +231,14 @@ struct CommentsListView: View {
                     Button(role: .destructive) {
                         showDeleteConfirmation = comment
                     } label: {
-                        Label("Delete", systemImage: "trash")
+                        Label("commentsList.delete", systemImage: "trash")
                     }
                 } label: {
                     Image(systemName: "ellipsis.circle")
                         .foregroundStyle(.secondary)
                         .font(.title3)
                 }
+                .accessibilityLabel("commentsList.actions.accessibility")
             }
             .contentShape(Rectangle())
             .onTapGesture(count: 2) {
@@ -247,13 +251,13 @@ struct CommentsListView: View {
                 Button(role: .destructive) {
                     deleteComment(comment)
                 } label: {
-                    Label("Delete", systemImage: "trash")
+                    Label("commentsList.delete", systemImage: "trash")
                 }
                 
                 Button {
                     startEditing(comment)
                 } label: {
-                    Label("Edit", systemImage: "pencil")
+                    Label("commentsList.edit", systemImage: "pencil")
                 }
                 .tint(.blue)
             }
@@ -262,7 +266,7 @@ struct CommentsListView: View {
                     toggleResolve(comment)
                 } label: {
                     Label(
-                        comment.isResolved ? "Reopen" : "Resolve",
+                        comment.isResolved ? "commentsList.reopen" : "commentsList.resolve",
                         systemImage: comment.isResolved ? "arrow.uturn.backward" : "checkmark"
                     )
                 }

@@ -53,7 +53,7 @@ struct ImageStyleEditorView: View {
                 // Image Preview Section
                 if let imageData = imageData,
                    let uiImage = UIImage(data: imageData) {
-                    Section("Preview") {
+                    Section("imageStyleEditor.preview") {
                         HStack {
                             Spacer()
                             Image(uiImage: uiImage)
@@ -64,8 +64,8 @@ struct ImageStyleEditorView: View {
                         }
                     }
                 } else {
-                    Section("Preview") {
-                        Text("No image data")
+                    Section("imageStyleEditor.preview") {
+                        Text("imageStyleEditor.noImageData")
                             .foregroundColor(.secondary)
                     }
                 }
@@ -73,7 +73,7 @@ struct ImageStyleEditorView: View {
                 // Scale Section
                 Section {
                     HStack {
-                        Text("Scale")
+                        Text("imageStyleEditor.scale")
                             .frame(width: 80, alignment: .leading)
                         
                         Spacer()
@@ -116,7 +116,7 @@ struct ImageStyleEditorView: View {
                         .buttonStyle(.plain)
                     }
                 } header: {
-                    Text("Size")
+                    Text("imageStyleEditor.size")
                 }
                 
                 // Alignment Section
@@ -146,17 +146,17 @@ struct ImageStyleEditorView: View {
                     }
                     .padding(.vertical, 8)
                 } header: {
-                    Text("Alignment")
+                    Text("imageStyleEditor.alignment")
                 }
                 
                 // Caption Section
                 Section {
-                    Toggle("Show Caption", isOn: $hasCaption)
+                    Toggle("imageStyleEditor.showCaption", isOn: $hasCaption)
                     
                     if hasCaption {
-                        TextField("Caption text", text: $captionText)
+                        TextField("imageStyleEditor.captionText.placeholder", text: $captionText)
                         
-                        Picker("Caption Style", selection: $captionStyle) {
+                        Picker("imageStyleEditor.captionStyle", selection: $captionStyle) {
                             ForEach(availableCaptionStyles, id: \.self) { style in
                                 Text(style.capitalized)
                                     .tag(style)
@@ -164,20 +164,20 @@ struct ImageStyleEditorView: View {
                         }
                     }
                 } header: {
-                    Text("Caption")
+                    Text("imageStyleEditor.caption")
                 }
             }
-            .navigationTitle("Image Properties")
+            .navigationTitle(NSLocalizedString("imageStyleEditor.title", comment: ""))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
+                    Button(NSLocalizedString("button.cancel", comment: "")) {
                         dismiss()
                     }
                 }
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Apply") {
+                    Button(NSLocalizedString("imageStyleEditor.apply", comment: "")) {
                         onApply(imageData, scale, alignment, hasCaption, captionText, captionStyle)
                         dismiss()
                     }
@@ -185,13 +185,13 @@ struct ImageStyleEditorView: View {
                 }
             }
         }
-        .alert("Invalid Scale", isPresented: $showInvalidScaleAlert) {
-            Button("OK", role: .cancel) {
+        .alert(NSLocalizedString("imageStyleEditor.invalidScale.title", comment: ""), isPresented: $showInvalidScaleAlert) {
+            Button(NSLocalizedString("button.ok", comment: ""), role: .cancel) {
                 // Reset to current scale
                 scaleText = "\(Int(scale * 100))"
             }
         } message: {
-            Text("Please enter a number between 10 and 200")
+            Text("imageStyleEditor.invalidScale.message")
         }
     }
     

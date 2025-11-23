@@ -205,10 +205,10 @@ struct FormattingToolbar: View {
                 updateButtonStates()
             }
         }
-        .alert("Coming Soon", isPresented: $showComingSoonAlert) {
-            Button("OK", role: .cancel) { }
+        .alert(NSLocalizedString("formattingToolbar.comingSoon.title", comment: ""), isPresented: $showComingSoonAlert) {
+            Button(NSLocalizedString("button.ok", comment: ""), role: .cancel) { }
         } message: {
-            Text("Page breaks, footnotes, index entries, and comments will be available in a future update.")
+            Text("formattingToolbar.comingSoon.message")
         }
     }
     

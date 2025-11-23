@@ -96,23 +96,23 @@ struct ProjectEditableList: View {
             .presentationDragIndicator(.visible)
         }
         .confirmationDialog(
-            "Delete Projects",
+            Text("projectEditableList.deleteTitle"),
             isPresented: $showDeleteConfirmation,
             presenting: deleteInfo,
             actions: { _ in
-                Button("Delete", role: .destructive) {
+                Button("projectEditableList.delete", role: .destructive) {
                     confirmDeleteProjects()
                 }
-                Button("Cancel", role: .cancel) {
+                Button("button.cancel", role: .cancel) {
                     projectsToDelete = nil
                     deleteInfo = nil
                 }
             },
             message: { info in
                 if info.count == 1 {
-                    return Text("Are you sure you want to delete \"\(info.firstName)\"? This action cannot be undone.")
+                    return Text(String(format: NSLocalizedString("projectEditableList.deleteSingleWarning", comment: "Delete single project warning"), info.firstName))
                 } else {
-                    return Text("Are you sure you want to delete \(info.count) projects? This action cannot be undone.")
+                    return Text(String(format: NSLocalizedString("projectEditableList.deleteMultipleWarning", comment: "Delete multiple projects warning"), info.count))
                 }
             }
         )

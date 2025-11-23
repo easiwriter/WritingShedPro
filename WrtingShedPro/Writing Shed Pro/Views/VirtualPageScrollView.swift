@@ -334,8 +334,40 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         let characterRange = pageInfo.characterRange
         let attributedString = layoutManager.textStorage.attributedSubstring(from: characterRange)
         
+        // TEMPORARY: Remove custom attachments to avoid TextKit 2 compatibility issues
+        // TODO: Phase 6 - Render footnotes properly at bottom of pages
+        // TODO: Feature 014 - Render comments properly in pagination view
+        let mutableString = NSMutableAttributedString(attributedString: attributedString)
+        
+        // Track ranges to replace (in reverse order to avoid index shifting)
+        var replacements: [(range: NSRange, replacement: NSAttributedString)] = []
+        
+        mutableString.enumerateAttribute(.attachment, in: NSRange(location: 0, length: mutableString.length), options: []) { value, range, stop in
+            guard let attachment = value as? NSTextAttachment else { return }
+            
+            if let footnoteAttachment = attachment as? FootnoteAttachment {
+                // Replace footnote marker with superscript number
+                let numberString = "\(footnoteAttachment.number)"
+                let attributes: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.systemFont(ofSize: 11, weight: .medium),
+                    .foregroundColor: UIColor.systemBlue,
+                    .baselineOffset: 8 // Superscript positioning
+                ]
+                replacements.append((range: range, replacement: NSAttributedString(string: numberString, attributes: attributes)))
+            } else if attachment is CommentAttachment {
+                // Remove comment markers entirely from pagination view
+                // Comments are editorial annotations and shouldn't appear in print/paginated output
+                replacements.append((range: range, replacement: NSAttributedString(string: "")))
+            }
+        }
+        
+        // Apply replacements in reverse order to preserve indices
+        for (range, replacement) in replacements.reversed() {
+            mutableString.replaceCharacters(in: range, with: replacement)
+        }
+        
         // Set the text
-        textView.attributedText = attributedString
+        textView.attributedText = mutableString
     }
     
     // MARK: - Page View Recycling

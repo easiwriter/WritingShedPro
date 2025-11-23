@@ -95,7 +95,7 @@ struct MoveDestinationPicker: View {
                         }
                     }
                 } header: {
-                    Text("Select Destination")
+                    Text("moveDestination.selectDestination")
                 } footer: {
                     if !filesToMove.isEmpty {
                         Text("Moving \(filesToMove.count) \(filesToMove.count == 1 ? "file" : "files")")
@@ -107,7 +107,7 @@ struct MoveDestinationPicker: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
+                    Button(NSLocalizedString("button.cancel", comment: "")) {
                         onCancel()
                     }
                 }
@@ -125,10 +125,10 @@ struct MoveDestinationPicker: View {
                 .font(.largeTitle)
                 .foregroundStyle(.secondary)
             
-            Text("No Destination Folders")
+            Text("moveDestination.noFolders.title")
                 .font(.headline)
             
-            Text("All folders are either the current folder or not valid destinations.")
+            Text("moveDestination.noFolders.message")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)

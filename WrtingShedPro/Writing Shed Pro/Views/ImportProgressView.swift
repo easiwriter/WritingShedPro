@@ -25,12 +25,12 @@ struct ImportProgressView: View {
             
             VStack(spacing: 20) {
                 // Title
-                Text("Importing Data")
+                Text("importProgress.title")
                     .font(.title2)
                     .fontWeight(.semibold)
                 
                 // Description
-                Text("Importing your data from the original Writing Shed app...")
+                Text("importProgress.description")
                     .font(.body)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
@@ -68,11 +68,12 @@ struct ImportProgressView: View {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.system(size: 40))
                             .foregroundColor(.green)
+                            .accessibilityLabel("importProgress.success.icon.accessibility")
                         
-                        Text("Import Complete")
+                        Text("importProgress.success.title")
                             .font(.headline)
                         
-                        Text("Your data has been imported successfully.")
+                        Text("importProgress.success.description")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
@@ -82,7 +83,7 @@ struct ImportProgressView: View {
                 
                 // Note about no cancel
                 if isImporting {
-                    Text("This process cannot be cancelled. Please keep the app open.")
+                    Text("importProgress.noCancelWarning")
                         .font(.caption)
                         .foregroundColor(.orange)
                         .multilineTextAlignment(.center)
@@ -93,12 +94,12 @@ struct ImportProgressView: View {
         .onAppear {
             startImport()
         }
-        .alert("Import Failed", isPresented: $showErrorAlert) {
-            Button("OK") {
+        .alert("importProgress.failed.title", isPresented: $showErrorAlert) {
+            Button("button.ok") {
                 // Dismiss and let user retry on next launch
             }
         } message: {
-            Text(importError ?? "An unknown error occurred during import.")
+            Text(importError ?? NSLocalizedString("importProgress.failed.unknownError", comment: "Unknown error"))
         }
     }
     

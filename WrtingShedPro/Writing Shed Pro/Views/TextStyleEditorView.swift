@@ -32,7 +32,8 @@ struct TextStyleEditorView: View {
                     HStack {
                         Image(systemName: "lock.fill")
                             .foregroundStyle(.secondary)
-                        Text("This is a system default style and cannot be edited. Create a custom stylesheet to modify styles.")
+                            .accessibilityLabel("textStyleEditor.systemStyle.icon.accessibility")
+                        Text("textStyleEditor.systemStyle.warning")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -52,17 +53,17 @@ struct TextStyleEditorView: View {
             }
             .disabled(style.styleSheet?.isSystemStyleSheet == true)
         }
-        .navigationTitle(style.styleSheet?.isSystemStyleSheet == true ? "View Style" : "Edit Style")
+        .navigationTitle(style.styleSheet?.isSystemStyleSheet == true ? "textStyleEditor.viewStyle.title" : "textStyleEditor.editStyle.title")
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button(style.styleSheet?.isSystemStyleSheet == true ? "Done" : "Cancel") {
+                Button(style.styleSheet?.isSystemStyleSheet == true ? "button.done" : "button.cancel") {
                     dismiss()
                 }
             }
             
             if style.styleSheet?.isSystemStyleSheet != true {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
+                    Button("button.save") {
                         saveChanges()
                         dismiss()
                     }
@@ -85,17 +86,18 @@ struct TextStyleEditorView: View {
     
     private var styleNameSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Style Name")
+            Text("textStyleEditor.styleName")
                 .font(.headline)
             
-            TextField("Style Name", text: $editedDisplayName)
+            TextField("textStyleEditor.styleName", text: $editedDisplayName)
                 .onChange(of: editedDisplayName) { hasUnsavedChanges = true }
+                .accessibilityLabel("textStyleEditor.styleName.accessibility")
         }
     }
     
     private var fontSettingsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Font Settings")
+            Text("textStyleEditor.fontSettings")
                 .font(.headline)
                 
                 // Font Family Picker Button
@@ -103,10 +105,10 @@ struct TextStyleEditorView: View {
                     showingFontPicker = true
                 }) {
                     HStack {
-                        Text("Font-Typeface")
+                        Text("textStyleEditor.fontTypeface")
                             .foregroundColor(.accentColor)
                         Spacer()
-                        Text(style.fontFamily ?? "System")
+                        Text(style.fontFamily ?? NSLocalizedString("textStyleEditor.fontSystem", comment: "System"))
                             .foregroundColor(.primary)
                         Image(systemName: "chevron.right")
                             .font(.caption)
@@ -114,10 +116,11 @@ struct TextStyleEditorView: View {
                     }
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("textStyleEditor.fontTypeface.accessibility")
                 
                 // Font Size
                 HStack {
-                    Text("Size")
+                    Text("textStyleEditor.fontSize")
                     Spacer()
                     Button(action: {
                         style.fontSize = max(8, style.fontSize - 1)
@@ -129,9 +132,11 @@ struct TextStyleEditorView: View {
                             .cornerRadius(8)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("textStyleEditor.decreaseFontSize.accessibility")
                     
                     Text("\(Int(style.fontSize)) pt")
                         .frame(width: 60)
+                        .accessibilityLabel(String(format: NSLocalizedString("textStyleEditor.fontSizeValue.accessibility", comment: "Font size"), Int(style.fontSize)))
                     
                     Button(action: {
                         style.fontSize = min(96, style.fontSize + 1)
@@ -143,6 +148,7 @@ struct TextStyleEditorView: View {
                             .cornerRadius(8)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("textStyleEditor.increaseFontSize.accessibility")
                 }
                 
                 Divider()
@@ -165,6 +171,7 @@ struct TextStyleEditorView: View {
                             )
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("textStyleEditor.bold.accessibility")
                     
                     Button(action: {
                         style.isItalic.toggle()
@@ -183,6 +190,7 @@ struct TextStyleEditorView: View {
                             )
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("textStyleEditor.italic.accessibility")
                     
                     Button(action: {
                         style.isUnderlined.toggle()
@@ -201,6 +209,7 @@ struct TextStyleEditorView: View {
                             )
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("textStyleEditor.underline.accessibility")
                     
                     Button(action: {
                         style.isStrikethrough.toggle()
@@ -219,6 +228,7 @@ struct TextStyleEditorView: View {
                             )
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("textStyleEditor.strikethrough.accessibility")
                 }
                 .frame(maxWidth: .infinity)
         }
@@ -226,10 +236,10 @@ struct TextStyleEditorView: View {
     
     private var textColourSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Text Colour")
+            Text("textStyleEditor.textColour")
                 .font(.headline)
                 
-                ColorPicker("Text Color", selection: Binding(
+                ColorPicker("textStyleEditor.textColour", selection: Binding(
                     get: {
                         if let uiColor = style.textColor {
                             return Color(uiColor: uiColor)
@@ -241,87 +251,94 @@ struct TextStyleEditorView: View {
                         hasUnsavedChanges = true
                     }
                 ))
+                .accessibilityLabel("textStyleEditor.textColour.accessibility")
         }
     }
     
     private var paragraphSettingsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Paragraph Settings")
+            Text("textStyleEditor.paragraphSettings")
                 .font(.headline)
                 
-                Picker("Alignment", selection: Binding(
+                Picker("textStyleEditor.alignment", selection: Binding(
                     get: { style.alignment },
                     set: { style.alignment = $0; hasUnsavedChanges = true }
                 )) {
-                    Text("Left").tag(NSTextAlignment.left)
-                    Text("Center").tag(NSTextAlignment.center)
-                    Text("Right").tag(NSTextAlignment.right)
-                    Text("Justified").tag(NSTextAlignment.justified)
-                    Text("Natural").tag(NSTextAlignment.natural)
+                    Text("textStyleEditor.alignment.left").tag(NSTextAlignment.left)
+                    Text("textStyleEditor.alignment.center").tag(NSTextAlignment.center)
+                    Text("textStyleEditor.alignment.right").tag(NSTextAlignment.right)
+                    Text("textStyleEditor.alignment.justified").tag(NSTextAlignment.justified)
+                    Text("textStyleEditor.alignment.natural").tag(NSTextAlignment.natural)
                 }
                 
                 HStack {
-                    Text("Line Spacing:")
-                    TextField("Spacing", value: Binding(
+                    Text("textStyleEditor.lineSpacing")
+                    TextField("textStyleEditor.spacing", value: Binding(
                         get: { Double(style.lineSpacing) },
                         set: { style.lineSpacing = CGFloat($0); hasUnsavedChanges = true }
                     ), format: .number.precision(.fractionLength(0...1)))
                         .frame(width: 60)
+                        .accessibilityLabel("textStyleEditor.lineSpacing.accessibility")
                 }
                 
                 HStack {
-                    Text("Paragraph Spacing Before:")
-                    TextField("Spacing", value: Binding(
+                    Text("textStyleEditor.paragraphSpacingBefore")
+                    TextField("textStyleEditor.spacing", value: Binding(
                         get: { Double(style.paragraphSpacingBefore) },
                         set: { style.paragraphSpacingBefore = CGFloat($0); hasUnsavedChanges = true }
                     ), format: .number.precision(.fractionLength(0...1)))
                         .frame(width: 60)
+                        .accessibilityLabel("textStyleEditor.paragraphSpacingBefore.accessibility")
                 }
                 
                 HStack {
-                    Text("Paragraph Spacing After:")
-                    TextField("Spacing", value: Binding(
+                    Text("textStyleEditor.paragraphSpacingAfter")
+                    TextField("textStyleEditor.spacing", value: Binding(
                         get: { Double(style.paragraphSpacingAfter) },
                         set: { style.paragraphSpacingAfter = CGFloat($0); hasUnsavedChanges = true }
                     ), format: .number.precision(.fractionLength(0...1)))
                         .frame(width: 60)
+                        .accessibilityLabel("textStyleEditor.paragraphSpacingAfter.accessibility")
                 }
                 
                 HStack {
-                    Text("First Line Indent:")
-                    TextField("Indent", value: Binding(
+                    Text("textStyleEditor.firstLineIndent")
+                    TextField("textStyleEditor.indent", value: Binding(
                         get: { Double(style.firstLineIndent) },
                         set: { style.firstLineIndent = CGFloat($0); hasUnsavedChanges = true }
                     ), format: .number.precision(.fractionLength(0...1)))
                         .frame(width: 60)
+                        .accessibilityLabel("textStyleEditor.firstLineIndent.accessibility")
                 }
                 
                 HStack {
-                    Text("Head Indent (Left):")
-                    TextField("Indent", value: Binding(
+                    Text("textStyleEditor.headIndent")
+                    TextField("textStyleEditor.indent", value: Binding(
                         get: { Double(style.headIndent) },
                         set: { style.headIndent = CGFloat($0); hasUnsavedChanges = true }
                     ), format: .number.precision(.fractionLength(0...1)))
                         .frame(width: 60)
+                        .accessibilityLabel("textStyleEditor.headIndent.accessibility")
                 }
                 
                 HStack {
-                    Text("Tail Indent (Right):")
-                    TextField("Indent", value: Binding(
+                    Text("textStyleEditor.tailIndent")
+                    TextField("textStyleEditor.indent", value: Binding(
                         get: { Double(style.tailIndent) },
                         set: { style.tailIndent = CGFloat($0); hasUnsavedChanges = true }
                     ), format: .number.precision(.fractionLength(0...1)))
                         .frame(width: 60)
+                        .accessibilityLabel("textStyleEditor.tailIndent.accessibility")
                 }
         }
     }
     
     private var listFormatSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("List Format")
+            Text("textStyleEditor.listFormat")
                 .font(.headline)
             
-            Picker("Number Format", selection: Binding(
+            Picker("textStyleEditor.numberFormat", selection: Binding(
                 get: { style.numberFormat },
                 set: { style.numberFormat = $0; hasUnsavedChanges = true }
             )) {
@@ -329,15 +346,16 @@ struct TextStyleEditorView: View {
                     Text(format.displayName).tag(format)
                 }
             }
+            .accessibilityLabel("textStyleEditor.numberFormat.accessibility")
         }
     }
     
     private var previewSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Preview")
+            Text("textStyleEditor.preview")
                 .font(.headline)
                 
-                Text("The quick brown fox jumps over the lazy dog")
+                Text("textStyleEditor.preview.text")
                     .font(Font(style.generateFont()))
                     .underline(style.isUnderlined)
                     .strikethrough(style.isStrikethrough)
@@ -346,6 +364,7 @@ struct TextStyleEditorView: View {
                     .frame(maxWidth: .infinity)
                     .background(Color.secondary.opacity(0.1))
                     .cornerRadius(8)
+                    .accessibilityLabel("textStyleEditor.preview.accessibility")
         }
     }
     

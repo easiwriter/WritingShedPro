@@ -128,7 +128,7 @@ struct PublicationFormView: View {
                 NSLocalizedString("publications.error.title", comment: "Error title"),
                 isPresented: $showingError
             ) {
-                Button("OK") { }
+                Button("button.ok") { }
             } message: {
                 Text(errorMessage)
             }

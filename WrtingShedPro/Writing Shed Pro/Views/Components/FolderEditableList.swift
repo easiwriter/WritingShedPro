@@ -71,24 +71,24 @@ struct FolderEditableList: View {
             }
         }
         .confirmationDialog(
-            "Delete Folders",
+            Text("folderEditableList.deleteTitle"),
             isPresented: $showDeleteConfirmation,
             presenting: foldersToDelete,
             actions: { _ in
-                Button("Delete", role: .destructive) {
+                Button("folderEditableList.delete", role: .destructive) {
                     confirmDeleteFolders()
                 }
-                Button("Cancel", role: .cancel) {
+                Button("button.cancel", role: .cancel) {
                     foldersToDelete = nil
                 }
             },
             message: { offsets in
                 let count = offsets.count
                 if count == 1 {
-                    let folderName = sortedFolders[offsets.first ?? 0].name ?? "Untitled Folder"
-                    return Text("Are you sure you want to delete \"\(folderName)\"? This will also delete all files and subfolders. This action cannot be undone.")
+                    let folderName = sortedFolders[offsets.first ?? 0].name ?? NSLocalizedString("folderEditableList.untitled", comment: "Untitled Folder")
+                    return Text(String(format: NSLocalizedString("folderEditableList.deleteSingleWarning", comment: "Delete single folder warning"), folderName))
                 } else {
-                    return Text("Are you sure you want to delete \(count) folders? This will also delete all files and subfolders. This action cannot be undone.")
+                    return Text(String(format: NSLocalizedString("folderEditableList.deleteMultipleWarning", comment: "Delete multiple folders warning"), count))
                 }
             }
         )

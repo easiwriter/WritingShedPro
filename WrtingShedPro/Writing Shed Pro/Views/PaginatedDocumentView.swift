@@ -51,8 +51,8 @@ struct PaginatedDocumentView: View {
                                 height: geometry.size.height
                             )
                             .clipped()
-                            .accessibilityLabel("Document pages")
-                            .accessibilityHint("Use zoom controls to adjust view size, scroll to navigate pages")
+                            .accessibilityLabel("paginatedDocument.pages.accessibility")
+                            .accessibilityHint("paginatedDocument.pages.hint")
                             .accessibilityAddTraits(.allowsDirectInteraction)
                         } else {
                             emptyStateView
@@ -105,7 +105,7 @@ struct PaginatedDocumentView: View {
             // Page info
             if let layoutManager = layoutManager, layoutManager.isLayoutValid {
                 Label {
-                    Text("Page \(currentPage + 1) of \(layoutManager.pageCount)")
+                    Text("paginatedDocument.pageIndicator \(currentPage + 1) \(layoutManager.pageCount)")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
@@ -115,7 +115,7 @@ struct PaginatedDocumentView: View {
                         .imageScale(.small)
                 }
                 .accessibilityElement(children: .combine)
-                .accessibilityLabel("Page \(currentPage + 1) of \(layoutManager.pageCount)")
+                .accessibilityLabel(String(format: NSLocalizedString("paginatedDocument.pageIndicator.accessibility", comment: "Page indicator"), currentPage + 1, layoutManager.pageCount))
                 .layoutPriority(1)
                 
                 Spacer(minLength: 8)
@@ -146,8 +146,8 @@ struct PaginatedDocumentView: View {
                     .frame(width: 24, height: 24)
             }
             .disabled(zoomScale <= 0.5)
-            .accessibilityLabel("Zoom Out")
-            .accessibilityHint("Decreases zoom to \(Int((zoomScale - 0.1) * 100))%")
+            .accessibilityLabel("paginatedDocument.zoomOut.accessibility")
+            .accessibilityHint(String(format: NSLocalizedString("paginatedDocument.zoomOut.hint", comment: "Zoom out hint"), Int((zoomScale - 0.1) * 100)))
             
             Text("\(Int(zoomScale * 100))%")
                 .font(.subheadline)
@@ -155,7 +155,7 @@ struct PaginatedDocumentView: View {
                 .foregroundStyle(.primary)
                 .frame(minWidth: 50)
                 .fixedSize()
-                .accessibilityLabel("Zoom level: \(Int(zoomScale * 100)) percent")
+                .accessibilityLabel(String(format: NSLocalizedString("paginatedDocument.zoomLevel.accessibility", comment: "Zoom level"), Int(zoomScale * 100)))
             
             Button {
                 zoomIn()
@@ -166,8 +166,8 @@ struct PaginatedDocumentView: View {
                     .frame(width: 24, height: 24)
             }
             .disabled(zoomScale >= 2.0)
-            .accessibilityLabel("Zoom In")
-            .accessibilityHint("Increases zoom to \(Int((zoomScale + 0.1) * 100))%")
+            .accessibilityLabel("paginatedDocument.zoomIn.accessibility")
+            .accessibilityHint(String(format: NSLocalizedString("paginatedDocument.zoomIn.hint", comment: "Zoom in hint"), Int((zoomScale + 0.1) * 100)))
             
             Button {
                 resetZoom()
@@ -178,8 +178,8 @@ struct PaginatedDocumentView: View {
                     .frame(width: 24, height: 24)
             }
             .disabled(zoomScale == 1.0)
-            .accessibilityLabel("Reset Zoom")
-            .accessibilityHint("Resets zoom to 100%")
+            .accessibilityLabel("paginatedDocument.resetZoom.accessibility")
+            .accessibilityHint("paginatedDocument.resetZoom.hint")
         }
         .fixedSize()
         .accessibilityElement(children: .contain)
@@ -187,9 +187,9 @@ struct PaginatedDocumentView: View {
     
     private var emptyStateView: some View {
         ContentUnavailableView {
-            Label("No Page Setup", systemImage: "doc.text")
+            Label("paginatedDocument.noPageSetup.title", systemImage: "doc.text")
         } description: {
-            Text("Configure page setup in project settings to enable pagination view.")
+            Text("paginatedDocument.noPageSetup.description")
         }
     }
     

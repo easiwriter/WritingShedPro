@@ -104,7 +104,7 @@ struct TrashView: View {
                 trashListView
             }
         }
-        .navigationTitle("Trash")
+        .navigationTitle("trashView.title")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
@@ -117,8 +117,9 @@ struct TrashView: View {
                         }
                         print("🗑️ TrashView: After toggle, new mode: \(editMode)")
                     } label: {
-                        Text(editMode == .inactive ? "Edit" : "Done")
+                        Text(editMode == .inactive ? "button.edit" : "button.done")
                     }
+                    .accessibilityLabel(editMode == .inactive ? "trashView.editMode.accessibility" : "trashView.doneEditing.accessibility")
                 }
             }
             
@@ -129,30 +130,30 @@ struct TrashView: View {
                 }
             }
         }
-        .alert("Put Back \(itemsToPutBack.count) \(itemsToPutBack.count == 1 ? "file" : "files")?",
+        .alert(String(format: NSLocalizedString("trashView.putBackAlert.title", comment: ""), itemsToPutBack.count, itemsToPutBack.count == 1 ? NSLocalizedString("trashView.file", comment: "") : NSLocalizedString("trashView.files", comment: "")),
                isPresented: $showPutBackConfirmation) {
-            Button("Cancel", role: .cancel) {
+            Button("button.cancel", role: .cancel) {
                 itemsToPutBack = []
             }
-            Button("Put Back") {
+            Button("trashView.putBack") {
                 confirmPutBack()
             }
         } message: {
-            Text("Files will be restored to their original folders.")
+            Text("trashView.putBackAlert.message")
         }
-        .alert("Permanently Delete \(itemsToDelete.count) \(itemsToDelete.count == 1 ? "file" : "files")?",
+        .alert(String(format: NSLocalizedString("trashView.deleteAlert.title", comment: ""), itemsToDelete.count, itemsToDelete.count == 1 ? NSLocalizedString("trashView.file", comment: "") : NSLocalizedString("trashView.files", comment: "")),
                isPresented: $showPermanentDeleteConfirmation) {
-            Button("Cancel", role: .cancel) {
+            Button("button.cancel", role: .cancel) {
                 itemsToDelete = []
             }
-            Button("Delete Forever", role: .destructive) {
+            Button("trashView.deleteForever", role: .destructive) {
                 confirmPermanentDelete()
             }
         } message: {
-            Text("This action cannot be undone.")
+            Text("trashView.deleteAlert.message")
         }
-        .alert("Restored to Draft", isPresented: $showFallbackNotification) {
-            Button("OK", role: .cancel) {}
+        .alert("trashView.restoredToDraft.title", isPresented: $showFallbackNotification) {
+            Button("button.ok", role: .cancel) {}
         } message: {
             Text(fallbackMessage)
         }
@@ -169,9 +170,9 @@ struct TrashView: View {
     @ViewBuilder
     private var emptyStateView: some View {
         ContentUnavailableView {
-            Label("No Deleted Files", systemImage: "trash")
+            Label("trashView.empty.title", systemImage: "trash")
         } description: {
-            Text("Files you delete will appear here and can be restored.")
+            Text("trashView.empty.description")
         }
     }
     
@@ -205,7 +206,7 @@ struct TrashView: View {
             
             HStack(spacing: 8) {
                 if let folderName = item.originalFolder?.name {
-                    Label("From: \(folderName)", systemImage: "folder")
+                    Label(String(format: NSLocalizedString("trashView.from", comment: ""), folderName), systemImage: "folder")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -227,14 +228,14 @@ struct TrashView: View {
         Button {
             preparePutBack([item])
         } label: {
-            Label("Put Back", systemImage: "arrow.uturn.backward")
+            Label("trashView.putBack", systemImage: "arrow.uturn.backward")
         }
         .tint(.blue)
         
         Button(role: .destructive) {
             preparePermanentDelete([item])
         } label: {
-            Label("Delete", systemImage: "trash")
+            Label("trashView.delete", systemImage: "trash")
         }
         .tint(.red)
     }
@@ -246,11 +247,12 @@ struct TrashView: View {
             preparePutBack(selectedItems)
         } label: {
             Label(
-                "Put Back \(selectedItems.count)",
+                String(format: NSLocalizedString("trashView.putBackCount", comment: ""), selectedItems.count),
                 systemImage: "arrow.uturn.backward"
             )
         }
         .disabled(selectedItems.isEmpty)
+        .accessibilityLabel("trashView.putBackSelected.accessibility")
         
         Spacer()
         
@@ -258,11 +260,12 @@ struct TrashView: View {
             preparePermanentDelete(selectedItems)
         } label: {
             Label(
-                "Delete \(selectedItems.count)",
+                String(format: NSLocalizedString("trashView.deleteCount", comment: ""), selectedItems.count),
                 systemImage: "trash"
             )
         }
         .disabled(selectedItems.isEmpty)
+        .accessibilityLabel("trashView.deleteSelected.accessibility")
     }
     
     /// Context menu items for macOS right-click
@@ -273,7 +276,7 @@ struct TrashView: View {
         Button {
             preparePutBack([item])
         } label: {
-            Label("Put Back", systemImage: "arrow.uturn.backward")
+            Label("trashView.putBack", systemImage: "arrow.uturn.backward")
         }
         
         Divider()
@@ -281,7 +284,7 @@ struct TrashView: View {
         Button(role: .destructive) {
             preparePermanentDelete([item])
         } label: {
-            Label("Delete Forever", systemImage: "trash")
+            Label("trashView.deleteForever", systemImage: "trash")
         }
         #else
         // iOS: Context menu disabled (use swipe actions instead)
@@ -322,7 +325,7 @@ struct TrashView: View {
         // Show notification if any files went to Draft
         if !restoredToFallback.isEmpty {
             let fileList = restoredToFallback.joined(separator: ", ")
-            fallbackMessage = "The following files were restored to Draft because their original folders no longer exist: \(fileList)"
+            fallbackMessage = String(format: NSLocalizedString("trashView.restoredToDraft.message", comment: ""), fileList)
             showFallbackNotification = true
         }
         

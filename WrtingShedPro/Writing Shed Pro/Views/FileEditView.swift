@@ -261,9 +261,9 @@ struct FileEditView: View {
             .transition(.opacity)
         } else {
             ContentUnavailableView(
-                "No Page Setup",
+                "fileEdit.noPageSetup.title",
                 systemImage: "doc.text",
-                description: Text("Configure page setup for this project to view pagination preview.")
+                description: Text("fileEdit.noPageSetup.description")
             )
         }
     }
@@ -280,7 +280,7 @@ struct FileEditView: View {
                 }) {
                     Image(systemName: isPaginationMode ? "document.on.document.fill" : "document.on.document")
                 }
-                .accessibilityLabel(isPaginationMode ? "Switch to Edit Mode" : "Switch to Pagination Preview")
+                .accessibilityLabel(isPaginationMode ? "fileEdit.switchToEditMode.accessibility" : "fileEdit.switchToPaginationPreview.accessibility")
             }
             
                     // Comment button (only in edit mode)
@@ -291,7 +291,7 @@ struct FileEditView: View {
                         }) {
                             Image(systemName: "bubble.left")
                         }
-                        .accessibilityLabel("Add Comment")
+                        .accessibilityLabel("fileEdit.addComment.accessibility")
                     }
                     
                     // Footnote button (only in edit mode)
@@ -302,7 +302,7 @@ struct FileEditView: View {
                         }) {
                             Image(systemName: "number.circle")
                         }
-                        .accessibilityLabel("Add Footnote")
+                        .accessibilityLabel("fileEdit.addFootnote.accessibility")
                     }            // Undo button (only in edit mode)
             if !isPaginationMode {
                 Button(action: {
@@ -312,7 +312,7 @@ struct FileEditView: View {
                     Image(systemName: "arrow.uturn.backward")
                 }
                 .disabled(!undoManager.canUndo || isPerformingUndoRedo)
-                .accessibilityLabel("Undo")
+                .accessibilityLabel("fileEdit.undo.accessibility")
                 
                 // Redo button
                 Button(action: {
@@ -322,7 +322,7 @@ struct FileEditView: View {
                     Image(systemName: "arrow.uturn.forward")
                 }
                 .disabled(!undoManager.canRedo || isPerformingUndoRedo)
-                .accessibilityLabel("Redo")
+                .accessibilityLabel("fileEdit.redo.accessibility")
             }
         }
     }
@@ -439,7 +439,7 @@ struct FileEditView: View {
                         }
                     )
                     .navigationBarTitleDisplayMode(.inline)
-                    .navigationTitle("Comment")
+                    .navigationTitle(NSLocalizedString("fileEdit.commentSheet.title", comment: ""))
                 }
                 .presentationDetents([.medium, .large])
             }
@@ -479,7 +479,7 @@ struct FileEditView: View {
                         }
                     )
                     .navigationBarTitleDisplayMode(.inline)
-                    .navigationTitle("Footnote")
+                    .navigationTitle(NSLocalizedString("fileEdit.footnoteSheet.title", comment: ""))
                 }
                 .presentationDetents([.medium, .large])
             }
@@ -547,21 +547,21 @@ struct FileEditView: View {
                     }
                 }
                 .confirmationDialog(
-                    "Choose Image Source",
+                    "fileEdit.chooseImageSource.title",
                     isPresented: $showImageSourcePicker,
                     titleVisibility: .visible
                 ) {
-                    Button("Photos") {
+                    Button("fileEdit.chooseImageSource.photos") {
                         showPhotosPickerFromCoordinator()
                     }
-                    Button("Files") {
+                    Button("fileEdit.chooseImageSource.files") {
                         showDocumentPicker = true
                     }
                     Button("button.cancel", role: .cancel) {
                         showImageSourcePicker = false
                     }
                 } message: {
-                    Text("Select where to choose your image from")
+                    Text("fileEdit.chooseImageSource.message")
                 }
                 .sheet(isPresented: $showNewCommentDialog) {
                     NewCommentSheet(
@@ -2061,14 +2061,17 @@ struct FileEditView: View {
             // Count attachments for debugging
             var commentCount = 0
             var imageCount = 0
+            var footnoteCount = 0
             currentContent.enumerateAttribute(.attachment, in: NSRange(location: 0, length: currentContent.length)) { value, range, _ in
                 if value is CommentAttachment {
                     commentCount += 1
                 } else if value is ImageAttachment {
                     imageCount += 1
+                } else if value is FootnoteAttachment {
+                    footnoteCount += 1
                 }
             }
-            print("💾 Saving attributed content with \(commentCount) comments and \(imageCount) images")
+            print("💾 Saving attributed content with \(commentCount) comments, \(imageCount) images, and \(footnoteCount) footnotes")
         } else {
             file.currentVersion?.attributedContent = attributedContent
         }
@@ -2183,7 +2186,7 @@ private struct NewCommentSheet: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 16) {
-                Text("Add a comment at the current cursor position")
+                Text("fileEdit.newComment.description")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
@@ -2196,21 +2199,22 @@ private struct NewCommentSheet: View {
                     .cornerRadius(8)
                     .scrollContentBackground(.hidden)
                     .padding(.horizontal)
+                    .accessibilityLabel("fileEdit.newComment.textEditor.accessibility")
                 
                 Spacer()
             }
             .padding(.top)
-            .navigationTitle("New Comment")
+            .navigationTitle("fileEdit.newComment.title")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
+                    Button("button.cancel") {
                         onCancel()
                         dismiss()
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Add") {
+                    Button("button.add") {
                         onAdd()
                         dismiss()
                     }
@@ -2230,7 +2234,7 @@ private struct NewFootnoteSheet: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 16) {
-                Text("Add a footnote at the current cursor position")
+                Text("fileEdit.newFootnote.description")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
@@ -2243,21 +2247,22 @@ private struct NewFootnoteSheet: View {
                     .cornerRadius(8)
                     .scrollContentBackground(.hidden)
                     .padding(.horizontal)
+                    .accessibilityLabel("fileEdit.newFootnote.textEditor.accessibility")
                 
                 Spacer()
             }
             .padding(.top)
-            .navigationTitle("New Footnote")
+            .navigationTitle("fileEdit.newFootnote.title")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
+                    Button("button.cancel") {
                         onCancel()
                         dismiss()
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Add") {
+                    Button("button.add") {
                         onAdd()
                         dismiss()
                     }
@@ -2288,6 +2293,6 @@ private struct NewFootnoteSheet: View {
                 .modelContainer(container)
         }
     } catch {
-        return Text("Failed to create preview: \(error.localizedDescription)")
+        return Text(String(format: NSLocalizedString("fileEdit.previewError", comment: "Preview creation error"), error.localizedDescription))
     }
 }

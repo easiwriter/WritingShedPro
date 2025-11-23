@@ -22,11 +22,11 @@ final class FootnoteAttachment: NSTextAttachment {
     /// Base font size for calculating superscript size
     private static let baseFontSize: CGFloat = 17
     
-    /// Superscript font size (smaller than base text)
-    private static let superscriptFontSize: CGFloat = 12
+    /// Superscript font size (smaller than base text) - matches CommentAttachment icon size
+    private static let superscriptFontSize: CGFloat = 11
     
-    /// Vertical offset for superscript positioning (positive moves up)
-    private static let superscriptOffset: CGFloat = 6
+    /// Vertical offset for superscript positioning - minimal like CommentAttachment
+    private static let superscriptOffset: CGFloat = 2
     
     // MARK: - Initialization
     
@@ -44,11 +44,19 @@ final class FootnoteAttachment: NSTextAttachment {
         // Decode footnoteID
         guard let footnoteIDString = coder.decodeObject(forKey: "footnoteID") as? String,
               let footnoteID = UUID(uuidString: footnoteIDString) else {
+            #if DEBUG
+            print("❌ FootnoteAttachment: Failed to decode footnoteID")
+            #endif
             return nil
         }
         
         self.footnoteID = footnoteID
         self.number = coder.decodeInteger(forKey: "number")
+        
+        #if DEBUG
+        print("✅ FootnoteAttachment decoded: id=\(footnoteID), number=\(number)")
+        #endif
+        
         super.init(data: nil, ofType: nil)
     }
     
@@ -56,6 +64,10 @@ final class FootnoteAttachment: NSTextAttachment {
         super.encode(with: coder)
         coder.encode(footnoteID.uuidString, forKey: "footnoteID")
         coder.encode(number, forKey: "number")
+        
+        #if DEBUG
+        print("💾 FootnoteAttachment encoding: id=\(footnoteID), number=\(number)")
+        #endif
     }
     
     // MARK: - Secure Coding
@@ -79,7 +91,7 @@ final class FootnoteAttachment: NSTextAttachment {
     ) -> UIImage? {
         
         #if DEBUG
-        print("📝🎨 FootnoteAttachment.image() called - footnoteID: \(footnoteID), number: \(number)")
+        print("📝🎨 FootnoteAttachment.image() generating - footnoteID: \(footnoteID), number: \(number)")
         #endif
         
         // Create attributed string for the number
@@ -96,12 +108,20 @@ final class FootnoteAttachment: NSTextAttachment {
         // Calculate size needed for the text
         let textSize = attributedString.size()
         
-        // Add padding for button-like appearance
-        let padding: CGFloat = 4
+        // Add minimal padding for button-like appearance (reduced to match CommentAttachment compactness)
+        let padding: CGFloat = 3
         let imageSize = CGSize(
             width: textSize.width + (padding * 2),
             height: textSize.height + (padding * 2)
         )
+        
+        // Ensure valid image size
+        guard imageSize.width > 0 && imageSize.height > 0 else {
+            #if DEBUG
+            print("❌ FootnoteAttachment: Invalid image size")
+            #endif
+            return nil
+        }
         
         // Create image with button styling
         let renderer = UIGraphicsImageRenderer(size: imageSize)
@@ -168,8 +188,8 @@ final class FootnoteAttachment: NSTextAttachment {
         ]
         let textSize = (numberString as NSString).size(withAttributes: attributes)
         
-        // Add padding
-        let padding: CGFloat = 4
+        // Add minimal padding (matching image() method)
+        let padding: CGFloat = 3
         let width = textSize.width + (padding * 2)
         let height = textSize.height + (padding * 2)
         
@@ -195,7 +215,7 @@ final class FootnoteAttachment: NSTextAttachment {
         ]
         let textSize = (numberString as NSString).size(withAttributes: attributes)
         
-        let padding: CGFloat = 4
+        let padding: CGFloat = 3
         let width = textSize.width + (padding * 2)
         let height = textSize.height + (padding * 2)
         

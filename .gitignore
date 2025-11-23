@@ -8,10 +8,12 @@
 build/
 DerivedData/
 *.xcuserstate
-*.xcworkspace
-*.xcodeproj
-*.xcassets
-*.plist
+# Don't ignore .xcodeproj files - they define the project structure
+# Only ignore user-specific data inside them
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+# Note: .xcworkspace, .xcassets, and .plist should NOT be ignored globally
+# Only ignore specific user/build artifacts
 # Swift Package Manager
 .build/
 Packages/

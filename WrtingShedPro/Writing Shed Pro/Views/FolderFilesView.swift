@@ -121,9 +121,9 @@ struct FolderFilesView: View {
             } else {
                 // Empty state
                 ContentUnavailableView {
-                    Label("No Files", systemImage: "doc.text")
+                    Label("folderFiles.noFiles", systemImage: "doc.text")
                 } description: {
-                    Text("Tap + to create your first file")
+                    Text("folderFiles.noFiles.hint")
                 }
             }
         }
@@ -156,7 +156,7 @@ struct FolderFilesView: View {
                         } label: {
                             Image(systemName: "arrow.up.arrow.down")
                         }
-                        .accessibilityLabel("Sort files")
+                        .accessibilityLabel("folderFiles.sort.accessibility")
                     }
                     
                     // Add file button (left of Edit)
@@ -166,7 +166,7 @@ struct FolderFilesView: View {
                         } label: {
                             Image(systemName: "plus")
                         }
-                        .accessibilityLabel("Add file")
+                        .accessibilityLabel("folderFiles.addFile.accessibility")
                     }
                     
                     // Manual Edit/Done button on far right (replaces SwiftUI's EditButton which isn't working)
@@ -176,7 +176,7 @@ struct FolderFilesView: View {
                                 editMode = editMode == .inactive ? .active : .inactive
                             }
                         } label: {
-                            Text(editMode == .inactive ? "Edit" : "Done")
+                            Text(editMode == .inactive ? "button.edit" : "button.done")
                         }
                     }
                 }

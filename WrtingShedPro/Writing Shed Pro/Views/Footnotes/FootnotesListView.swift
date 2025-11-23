@@ -42,11 +42,11 @@ struct FootnotesListView: View {
     // MARK: - Computed
     
     private var activeFootnotes: [FootnoteModel] {
-        footnotes.filter { !$0.isDeleted }.sorted()
+        footnotes.filter { $0.isDeleted == false }.sorted()
     }
     
     private var deletedFootnotes: [FootnoteModel] {
-        footnotes.filter { $0.isDeleted }.sorted { ($0.deletedAt ?? Date()) > ($1.deletedAt ?? Date()) }
+        footnotes.filter { $0.isDeleted == true }.sorted { ($0.deletedAt ?? Date()) > ($1.deletedAt ?? Date()) }
     }
     
     // MARK: - Body
@@ -60,11 +60,11 @@ struct FootnotesListView: View {
                     footnotesList
                 }
             }
-            .navigationTitle(showingTrash ? "Footnotes Trash" : "Footnotes")
+            .navigationTitle(showingTrash ? "footnotesList.trash.title" : "footnotesList.title")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") {
+                    Button("button.done") {
                         onDismiss?()
                         dismiss()
                     }
@@ -77,6 +77,7 @@ struct FootnotesListView: View {
                     } label: {
                         Image(systemName: showingTrash ? "doc.text" : "trash")
                     }
+                    .accessibilityLabel(showingTrash ? "footnotesList.showActive.accessibility" : "footnotesList.showTrash.accessibility")
                 }
             }
         }
@@ -89,9 +90,9 @@ struct FootnotesListView: View {
     
     private var emptyState: some View {
         ContentUnavailableView {
-            Label("No Footnotes", systemImage: "number.circle")
+            Label("footnotesList.empty.title", systemImage: "number.circle")
         } description: {
-            Text("Add footnotes to your document to provide additional information or citations.")
+            Text("footnotesList.empty.description")
         }
     }
     
@@ -102,9 +103,9 @@ struct FootnotesListView: View {
             if showingTrash {
                 if deletedFootnotes.isEmpty {
                     ContentUnavailableView {
-                        Label("Trash is Empty", systemImage: "trash")
+                        Label("footnotesList.trashEmpty.title", systemImage: "trash")
                     } description: {
-                        Text("Deleted footnotes will appear here.")
+                        Text("footnotesList.trashEmpty.description")
                     }
                 } else {
                     Section {
@@ -113,13 +114,13 @@ struct FootnotesListView: View {
                         }
                     } header: {
                         HStack {
-                            Text("Deleted Footnotes")
+                            Text("footnotesList.deletedFootnotes")
                             Spacer()
                             Text("\(deletedFootnotes.count)")
                                 .foregroundStyle(.secondary)
                         }
                     } footer: {
-                        Text("Footnotes can be restored or permanently deleted from trash.")
+                        Text("footnotesList.trashFooter")
                             .font(.caption)
                     }
                 }
@@ -131,13 +132,13 @@ struct FootnotesListView: View {
                         }
                     } header: {
                         HStack {
-                            Text("Document Order")
+                            Text("footnotesList.documentOrder")
                             Spacer()
                             Text("\(activeFootnotes.count)")
                                 .foregroundStyle(.secondary)
                         }
                     } footer: {
-                        Text("Footnotes are numbered sequentially based on their position in the document.")
+                        Text("footnotesList.documentOrderFooter")
                             .font(.caption)
                     }
                 }
@@ -180,7 +181,7 @@ struct FootnotesListView: View {
                     .scrollContentBackground(.hidden)
                 
                 HStack {
-                    Button("Cancel") {
+                    Button("button.cancel") {
                         editingFootnote = nil
                         editText = ""
                     }
@@ -188,13 +189,15 @@ struct FootnotesListView: View {
                     
                     Spacer()
                     
-                    Button("Save") {
+                    Button("button.save") {
                         saveEdit(footnote)
                     }
                     .buttonStyle(.borderedProminent)
                 }
             }
             .padding(.vertical, 8)
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("footnotesList.editingFootnote.accessibility")
         } else {
             // View mode
             HStack(alignment: .top, spacing: 12) {
@@ -219,7 +222,7 @@ struct FootnotesListView: View {
                             .foregroundStyle(.secondary)
                         
                         if footnote.isDeleted, let deletedAt = footnote.deletedAt {
-                            Text("• Deleted \(deletedAt, style: .relative)")
+                            Text("• \(Text("footnotesList.deleted")) \(deletedAt, style: .relative)")
                                 .font(.caption2)
                                 .foregroundStyle(.red)
                         }
@@ -232,7 +235,7 @@ struct FootnotesListView: View {
                         .foregroundStyle(footnote.isDeleted ? .secondary : .primary)
                     
                     // Position info
-                    Text("Position: \(footnote.characterPosition)")
+                    Text(String(format: NSLocalizedString("footnotesList.position", comment: ""), footnote.characterPosition))
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                 }
@@ -245,7 +248,7 @@ struct FootnotesListView: View {
                         Button {
                             restoreFootnote(footnote)
                         } label: {
-                            Label("Restore", systemImage: "arrow.uturn.backward")
+                            Label("footnotesList.restore", systemImage: "arrow.uturn.backward")
                         }
                         
                         Divider()
@@ -253,20 +256,20 @@ struct FootnotesListView: View {
                         Button(role: .destructive) {
                             showDeleteConfirmation = footnote
                         } label: {
-                            Label("Delete Forever", systemImage: "trash.fill")
+                            Label("footnotesList.deleteForever", systemImage: "trash.fill")
                         }
                     } else {
                         Button {
                             startEditing(footnote)
                         } label: {
-                            Label("Edit", systemImage: "pencil")
+                            Label("footnotesList.edit", systemImage: "pencil")
                         }
                         
                         Button {
                             onJumpToFootnote?(footnote)
                             dismiss()
                         } label: {
-                            Label("Jump to Text", systemImage: "arrow.right")
+                            Label("footnotesList.jumpToText", systemImage: "arrow.right")
                         }
                         
                         Divider()
@@ -274,7 +277,7 @@ struct FootnotesListView: View {
                         Button(role: .destructive) {
                             showDeleteConfirmation = footnote
                         } label: {
-                            Label("Move to Trash", systemImage: "trash")
+                            Label("footnotesList.moveToTrash", systemImage: "trash")
                         }
                     }
                 } label: {
@@ -282,6 +285,7 @@ struct FootnotesListView: View {
                         .foregroundStyle(.secondary)
                         .font(.title3)
                 }
+                .accessibilityLabel("footnotesList.actions.accessibility")
             }
             .contentShape(Rectangle())
             .onTapGesture(count: 2) {
@@ -297,19 +301,19 @@ struct FootnotesListView: View {
                     Button(role: .destructive) {
                         permanentlyDeleteFootnote(footnote)
                     } label: {
-                        Label("Delete Forever", systemImage: "trash.fill")
+                        Label("footnotesList.deleteForever", systemImage: "trash.fill")
                     }
                 } else {
                     Button(role: .destructive) {
                         moveToTrash(footnote)
                     } label: {
-                        Label("Delete", systemImage: "trash")
+                        Label("footnotesList.delete", systemImage: "trash")
                     }
                     
                     Button {
                         startEditing(footnote)
                     } label: {
-                        Label("Edit", systemImage: "pencil")
+                        Label("footnotesList.edit", systemImage: "pencil")
                     }
                     .tint(.blue)
                 }
@@ -319,7 +323,7 @@ struct FootnotesListView: View {
                     Button {
                         restoreFootnote(footnote)
                     } label: {
-                        Label("Restore", systemImage: "arrow.uturn.backward")
+                        Label("footnotesList.restore", systemImage: "arrow.uturn.backward")
                     }
                     .tint(.green)
                 } else {
@@ -327,7 +331,7 @@ struct FootnotesListView: View {
                         onJumpToFootnote?(footnote)
                         dismiss()
                     } label: {
-                        Label("Jump", systemImage: "arrow.right")
+                        Label("footnotesList.jump", systemImage: "arrow.right")
                     }
                     .tint(.green)
                 }

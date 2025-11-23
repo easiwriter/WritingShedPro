@@ -70,7 +70,7 @@ struct FontPickerView: View {
                 }
             }
             .searchable(text: $searchText, prompt: "Search fonts")
-            .navigationTitle("Fonts")
+            .navigationTitle(NSLocalizedString("fontPicker.title", comment: ""))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

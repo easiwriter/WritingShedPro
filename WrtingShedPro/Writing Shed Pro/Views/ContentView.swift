@@ -32,17 +32,18 @@ struct ContentView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button(action: { showManageStyles = true }) {
-                        Label("Manage Stylesheets", systemImage: "paintbrush")
+                        Label("contentView.manageStylesheets", systemImage: "paintbrush")
                     }
+                    .accessibilityLabel("contentView.manageStylesheets.accessibility")
                 }
                 
                 #if DEBUG
                 // Delete all projects button (debug only)
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(role: .destructive, action: { showDeleteAllConfirmation = true }) {
-                        Label("Delete All", systemImage: "trash")
+                        Label("contentView.deleteAll", systemImage: "trash")
                     }
-                    .accessibilityLabel("Delete all projects (debug only)")
+                    .accessibilityLabel("contentView.deleteAll.accessibility")
                 }
                 #endif
                 
@@ -50,9 +51,9 @@ struct ContentView: View {
                 // Re-import only available on Mac where legacy database is accessible
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: { triggerReimport() }) {
-                        Label("Re-import", systemImage: "arrow.trianglehead.2.clockwise")
+                        Label("contentView.reimport", systemImage: "arrow.trianglehead.2.clockwise")
                     }
-                    .accessibilityLabel("Re-import legacy projects (debug only)")
+                    .accessibilityLabel("contentView.reimport.accessibility")
                 }
                 #endif
                 
@@ -86,18 +87,18 @@ struct ContentView: View {
             ) { result in
                 handleJSONImport(result)
             }
-            .alert("Import Error", isPresented: $showImportError) {
-                Button("OK", role: .cancel) { }
+            .alert("contentView.importError.title", isPresented: $showImportError) {
+                Button("button.ok", role: .cancel) { }
             } message: {
                 Text(importErrorMessage)
             }
-            .alert("Delete All Projects?", isPresented: $showDeleteAllConfirmation) {
-                Button("Cancel", role: .cancel) { }
-                Button("Delete All", role: .destructive) {
+            .alert("contentView.deleteAll.confirmTitle", isPresented: $showDeleteAllConfirmation) {
+                Button("button.cancel", role: .cancel) { }
+                Button("contentView.deleteAll", role: .destructive) {
                     deleteAllProjects()
                 }
             } message: {
-                Text("This will permanently delete all \(projects.count) project(s) and their contents. This action cannot be undone.")
+                Text("contentView.deleteAll.confirmMessage \(projects.count)")
             }
         }
     }
@@ -155,7 +156,7 @@ struct ContentView: View {
                 // CRITICAL: Start accessing security-scoped resource inside the Task
                 guard fileURL.startAccessingSecurityScopedResource() else {
                     await MainActor.run {
-                        importErrorMessage = "Unable to access the selected file. Please try again."
+                        importErrorMessage = NSLocalizedString("contentView.importError.accessDenied", comment: "Unable to access the selected file")
                         showImportError = true
                     }
                     print("[ContentView] Failed to access security-scoped resource")
@@ -191,12 +192,12 @@ struct ContentView: View {
                     
                 } catch ImportError.missingContent {
                     await MainActor.run {
-                        importErrorMessage = "The selected file is empty or corrupt."
+                        importErrorMessage = NSLocalizedString("contentView.importError.emptyFile", comment: "The selected file is empty or corrupt")
                         showImportError = true
                     }
                 } catch {
                     await MainActor.run {
-                        importErrorMessage = "Failed to import project: \(error.localizedDescription)"
+                        importErrorMessage = String(format: NSLocalizedString("contentView.importError.failed", comment: "Failed to import project"), error.localizedDescription)
                         showImportError = true
                     }
                     print("[ContentView] JSON import failed: \(error)")
@@ -204,7 +205,7 @@ struct ContentView: View {
             }
             
         case .failure(let error):
-            importErrorMessage = "Failed to select file: \(error.localizedDescription)"
+            importErrorMessage = String(format: NSLocalizedString("contentView.importError.selectFailed", comment: "Failed to select file"), error.localizedDescription)
             showImportError = true
             print("[ContentView] File selection failed: \(error)")
         }

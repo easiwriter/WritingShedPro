@@ -30,19 +30,19 @@ struct StyleSheetDetailView: View {
             // Stylesheet Info
             Section {
                 HStack {
-                    Text("Name")
+                    Text("styleSheetDetail.name")
                         .foregroundStyle(.secondary)
                     Spacer()
                     if styleSheet.isSystemStyleSheet {
                         Text(styleSheet.name)
                     } else {
-                        TextField("Stylesheet Name", text: $styleSheet.name)
+                        TextField("styleSheetDetail.name.placeholder", text: $styleSheet.name)
                             .multilineTextAlignment(.trailing)
                     }
                 }
                 
                 HStack {
-                    Text("Styles")
+                    Text("styleSheetDetail.stylesCount")
                         .foregroundStyle(.secondary)
                     Spacer()
                     Text("\(styleSheet.textStyles?.count ?? 0)")
@@ -51,7 +51,7 @@ struct StyleSheetDetailView: View {
             }
             
             // Text Styles
-            Section("Text Styles") {
+            Section("styleSheetDetail.textStyles") {
                 ForEach(sortedStyles.filter { $0.styleCategory == .text }, id: \.id) { style in
                     NavigationLink {
                         TextStyleEditorView(style: style, isNewStyle: false)
@@ -63,7 +63,7 @@ struct StyleSheetDetailView: View {
             
             // List Styles
             if sortedStyles.contains(where: { $0.styleCategory == .list }) {
-                Section("List Styles") {
+                Section("styleSheetDetail.listStyles") {
                     ForEach(sortedStyles.filter { $0.styleCategory == .list }, id: \.id) { style in
                         NavigationLink {
                             TextStyleEditorView(style: style, isNewStyle: false)
@@ -75,9 +75,9 @@ struct StyleSheetDetailView: View {
             }
             
             // Image Styles
-            Section("Image Styles") {
+            Section("styleSheetDetail.imageStyles") {
                 if sortedImageStyles.isEmpty {
-                    Text("No image styles")
+                    Text("styleSheetDetail.noImageStyles")
                         .foregroundStyle(.secondary)
                         .italic()
                 } else {
@@ -105,8 +105,9 @@ struct StyleSheetDetailView: View {
                     Button(action: {
                         createNewStyle()
                     }) {
-                        Label("New Style", systemImage: "plus")
+                        Label("styleSheetDetail.newStyle", systemImage: "plus")
                     }
+                    .accessibilityLabel("styleSheetDetail.newStyle.accessibility")
                 }
             }
         }
@@ -160,11 +161,11 @@ private struct ImageStyleRow: View {
                 
                 // Caption
                 if imageStyle.hasCaptionByDefault {
-                    Text("Caption: \(imageStyle.defaultCaptionStyle)")
+                    Text(String(format: NSLocalizedString("styleSheetDetail.caption", comment: "Caption with style"), imageStyle.defaultCaptionStyle))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 } else {
-                    Text("No caption")
+                    Text("styleSheetDetail.noCaption")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -176,13 +177,13 @@ private struct ImageStyleRow: View {
     private func alignmentName(for alignment: ImageAttachment.ImageAlignment) -> String {
         switch alignment {
         case .left:
-            return "Left"
+            return NSLocalizedString("styleSheetDetail.alignment.left", comment: "Left alignment")
         case .center:
-            return "Center"
+            return NSLocalizedString("styleSheetDetail.alignment.center", comment: "Center alignment")
         case .right:
-            return "Right"
+            return NSLocalizedString("styleSheetDetail.alignment.right", comment: "Right alignment")
         case .inline:
-            return "Inline"
+            return NSLocalizedString("styleSheetDetail.alignment.inline", comment: "Inline alignment")
         }
     }
 }
@@ -213,13 +214,13 @@ private struct StyleListRow: View {
                 
                 // Font traits
                 if style.isBold {
-                    Text("Bold")
+                    Text("styleSheetDetail.bold")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
                 
                 if style.isItalic {
-                    Text("Italic")
+                    Text("styleSheetDetail.italic")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -231,7 +232,7 @@ private struct StyleListRow: View {
             }
             
             // Preview
-            Text("The quick brown fox jumps over the lazy dog")
+            Text("styleSheetDetail.previewText")
                 .font(Font(style.generateFont()))
                 .foregroundColor(style.textColor != nil ? Color(uiColor: style.textColor!) : .primary)
                 .lineLimit(1)

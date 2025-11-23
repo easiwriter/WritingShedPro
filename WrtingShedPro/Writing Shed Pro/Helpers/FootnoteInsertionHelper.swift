@@ -99,7 +99,7 @@ struct FootnoteInsertionHelper {
         // Insert at cursor
         textStorage.insert(attachmentString, at: insertPosition)
         
-        // Move cursor after the attachment
+        // Place cursor after the footnote marker
         textView.selectedRange = NSRange(location: insertPosition + 1, length: 0)
         
         // Create the footnote model in the database

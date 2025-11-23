@@ -112,16 +112,17 @@ struct CommentDetailView: View {
                 // Editing mode: Show Save and Cancel
                 HStack(spacing: 12) {
                     Button(action: saveChanges) {
-                        Label("Save", systemImage: "checkmark")
+                        Label("commentDetail.save", systemImage: "checkmark")
                     }
                     .buttonStyle(.borderedProminent)
                     .frame(maxWidth: .infinity)
+                    .accessibilityLabel("commentDetail.save.accessibility")
                     
                     Button(action: {
                         editedText = comment.text
                         isEditing = false
                     }) {
-                        Label("Cancel", systemImage: "xmark")
+                        Label("button.cancel", systemImage: "xmark")
                     }
                     .buttonStyle(.bordered)
                     .frame(maxWidth: .infinity)
@@ -131,28 +132,31 @@ struct CommentDetailView: View {
                 VStack(spacing: 8) {
                     HStack(spacing: 8) {
                         Button(action: { isEditing = true }) {
-                            Label("Edit", systemImage: "pencil")
+                            Label("commentDetail.edit", systemImage: "pencil")
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.bordered)
+                        .accessibilityLabel("commentDetail.edit.accessibility")
                         
                         Button(action: toggleResolve) {
                             Label(
-                                comment.isResolved ? "Reopen" : "Resolve",
+                                comment.isResolved ? "commentDetail.reopen" : "commentDetail.resolve",
                                 systemImage: comment.isResolved ? "arrow.uturn.backward" : "checkmark.circle"
                             )
                             .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.bordered)
                         .tint(comment.isResolved ? .blue : .green)
+                        .accessibilityLabel(comment.isResolved ? "commentDetail.reopen.accessibility" : "commentDetail.resolve.accessibility")
                     }
                     
                     Button(action: deleteComment) {
-                        Label("Delete", systemImage: "trash")
+                        Label("commentDetail.delete", systemImage: "trash")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
                     .tint(.red)
+                    .accessibilityLabel("commentDetail.delete.accessibility")
                 }
             }
         }

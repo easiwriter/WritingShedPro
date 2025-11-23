@@ -179,8 +179,8 @@ struct NewCollectionForBulkOperationView: View {
         }
         .navigationTitle("collections.new.quick.title")
         .navigationBarTitleDisplayMode(.inline)
-        .alert("Error", isPresented: $showingError) {
-            Button("OK", role: .cancel) { }
+        .alert("error.title", isPresented: $showingError) {
+            Button("button.ok", role: .cancel) { }
         } message: {
             Text(errorMessage)
         }

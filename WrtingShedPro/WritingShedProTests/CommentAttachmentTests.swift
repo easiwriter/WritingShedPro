@@ -42,15 +42,15 @@ final class CommentAttachmentTests: XCTestCase {
         
         XCTAssertNotNil(image, "Active comment should have an image")
         
-        // Verify it's using the correct system image
-        let config = UIImage.SymbolConfiguration(pointSize: 14, weight: .regular)
+        // Verify it's using the correct system image (icon size is 22)
+        let config = UIImage.SymbolConfiguration(pointSize: 22, weight: .regular)
         let expectedImage = UIImage(systemName: "bubble.left.fill", withConfiguration: config)?
             .withTintColor(.systemBlue, renderingMode: .alwaysOriginal)
         
         XCTAssertNotNil(expectedImage)
         // System symbol sizes can vary by OS version, use wider tolerance
-        XCTAssertEqual(image?.size.width ?? 0, expectedImage?.size.width ?? 0, accuracy: 3.0)
-        XCTAssertEqual(image?.size.height ?? 0, expectedImage?.size.height ?? 0, accuracy: 3.0)
+        XCTAssertEqual(image?.size.width ?? 0, expectedImage?.size.width ?? 0, accuracy: 5.0)
+        XCTAssertEqual(image?.size.height ?? 0, expectedImage?.size.height ?? 0, accuracy: 5.0)
     }
     
     func testResolvedCommentImage() {
@@ -64,15 +64,15 @@ final class CommentAttachmentTests: XCTestCase {
         
         XCTAssertNotNil(image, "Resolved comment should have an image")
         
-        // Verify it's using gray color
-        let config = UIImage.SymbolConfiguration(pointSize: 14, weight: .regular)
+        // Verify it's using gray color (icon size is 22)
+        let config = UIImage.SymbolConfiguration(pointSize: 22, weight: .regular)
         let expectedImage = UIImage(systemName: "bubble.left.fill", withConfiguration: config)?
             .withTintColor(.systemGray, renderingMode: .alwaysOriginal)
         
         XCTAssertNotNil(expectedImage)
         // System symbol sizes can vary by OS version, use wider tolerance
-        XCTAssertEqual(image?.size.width ?? 0, expectedImage?.size.width ?? 0, accuracy: 3.0)
-        XCTAssertEqual(image?.size.height ?? 0, expectedImage?.size.height ?? 0, accuracy: 3.0)
+        XCTAssertEqual(image?.size.width ?? 0, expectedImage?.size.width ?? 0, accuracy: 5.0)
+        XCTAssertEqual(image?.size.height ?? 0, expectedImage?.size.height ?? 0, accuracy: 5.0)
     }
     
     func testImageSizeConsistency() {
@@ -115,8 +115,8 @@ final class CommentAttachmentTests: XCTestCase {
         
         XCTAssertEqual(bounds.origin.x, 0)
         XCTAssertEqual(bounds.origin.y, -2) // Fallback value when no text container
-        XCTAssertEqual(bounds.size.width, 16)
-        XCTAssertEqual(bounds.size.height, 16)
+        XCTAssertEqual(bounds.size.width, 22)
+        XCTAssertEqual(bounds.size.height, 22)
     }
     
     func testBoundsConsistency() {

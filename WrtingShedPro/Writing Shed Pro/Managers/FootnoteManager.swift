@@ -115,15 +115,28 @@ final class FootnoteManager: ObservableObject {
     ///   - footnote: The footnote to delete
     ///   - context: SwiftData model context
     func moveFootnoteToTrash(_ footnote: FootnoteModel, context: ModelContext) {
-        footnote.moveToTrash()
+        let footnoteID = footnote.id
+        let textFileID = footnote.textFileID
+        
+        // Set all properties at once
+        footnote.isDeleted = true
+        footnote.deletedAt = Date()
+        footnote.modifiedAt = Date()
+        
+        // Force SwiftData to recognize the changes
+        context.processPendingChanges()
         
         do {
             try context.save()
-            // Renumber remaining footnotes
-            renumberFootnotes(forTextFile: footnote.textFileID, context: context)
+            context.processPendingChanges()
+            print("✅ Footnote \(footnoteID) moved to trash, isDeleted=\(footnote.isDeleted)")
         } catch {
             print("❌ Failed to move footnote to trash: \(error)")
+            return
         }
+        
+        // Renumber remaining footnotes after all saves complete
+        renumberFootnotes(forTextFile: textFileID, context: context)
     }
     
     /// Restore footnote from trash
@@ -131,15 +144,27 @@ final class FootnoteManager: ObservableObject {
     ///   - footnote: The footnote to restore
     ///   - context: SwiftData model context
     func restoreFootnote(_ footnote: FootnoteModel, context: ModelContext) {
-        footnote.restoreFromTrash()
+        let textFileID = footnote.textFileID
+        
+        // Set all properties at once
+        footnote.isDeleted = false
+        footnote.deletedAt = nil
+        footnote.modifiedAt = Date()
+        
+        // Force SwiftData to recognize the changes
+        context.processPendingChanges()
         
         do {
             try context.save()
-            // Renumber all footnotes
-            renumberFootnotes(forTextFile: footnote.textFileID, context: context)
+            context.processPendingChanges()
+            print("✅ Footnote \(footnote.id) restored, isDeleted=\(footnote.isDeleted)")
         } catch {
             print("❌ Failed to restore footnote: \(error)")
+            return
         }
+        
+        // Renumber all footnotes after all saves complete
+        renumberFootnotes(forTextFile: textFileID, context: context)
     }
     
     /// Permanently delete a footnote

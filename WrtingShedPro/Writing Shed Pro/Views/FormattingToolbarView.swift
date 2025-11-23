@@ -305,20 +305,20 @@ struct FormattingToolbarView: UIViewRepresentable {
         #if targetEnvironment(macCatalyst)
         // On Mac Catalyst, UIDocumentPickerViewController delegate doesn't work
         // Users should use copy/paste instead (Cmd+C image in Finder, then Cmd+V in document)
-        let imageAction = UIAction(title: "Image (use copy/paste)", image: UIImage(systemName: "photo"), attributes: .disabled) { _ in }
+        let imageAction = UIAction(title: NSLocalizedString("toolbar.insertImage.macCatalyst", comment: "Image insertion on Mac"), image: UIImage(systemName: "photo"), attributes: .disabled) { _ in }
         #else
-        let imageAction = UIAction(title: "Image", image: UIImage(systemName: "photo")) { _ in
+        let imageAction = UIAction(title: NSLocalizedString("toolbar.insertImage", comment: "Insert image"), image: UIImage(systemName: "photo")) { _ in
             coordinator.onFormatAction(.insert)
         }
         #endif
         
-        let listAction = UIAction(title: "List", image: UIImage(systemName: "list.bullet"), attributes: .disabled) { _ in }
-        let footnoteAction = UIAction(title: "Footnote", image: UIImage(systemName: "text.append"), attributes: .disabled) { _ in }
-        let endnoteAction = UIAction(title: "Endnote", image: UIImage(systemName: "text.append"), attributes: .disabled) { _ in }
-        let commentHistoryAction = UIAction(title: "Comment History", image: UIImage(systemName: "bubble.left.and.bubble.right")) { _ in
+        let listAction = UIAction(title: NSLocalizedString("toolbar.insertList", comment: "Insert list"), image: UIImage(systemName: "list.bullet"), attributes: .disabled) { _ in }
+        let footnoteAction = UIAction(title: NSLocalizedString("toolbar.insertFootnote", comment: "Insert footnote"), image: UIImage(systemName: "text.append"), attributes: .disabled) { _ in }
+        let endnoteAction = UIAction(title: NSLocalizedString("toolbar.insertEndnote", comment: "Insert endnote"), image: UIImage(systemName: "text.append"), attributes: .disabled) { _ in }
+        let commentHistoryAction = UIAction(title: NSLocalizedString("toolbar.commentHistory", comment: "Comment history"), image: UIImage(systemName: "bubble.left.and.bubble.right")) { _ in
             coordinator.onFormatAction(.commentHistory)
         }
-        let indexAction = UIAction(title: "Index Item", image: UIImage(systemName: "tag"), attributes: .disabled) { _ in }
+        let indexAction = UIAction(title: NSLocalizedString("toolbar.insertIndex", comment: "Insert index item"), image: UIImage(systemName: "tag"), attributes: .disabled) { _ in }
         
         button.menu = UIMenu(title: "", children: [
             imageAction,

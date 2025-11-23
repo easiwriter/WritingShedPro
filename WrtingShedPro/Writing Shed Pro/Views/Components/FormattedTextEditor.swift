@@ -1091,6 +1091,13 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
         }
     }
     
+    // MARK: - UIGestureRecognizerDelegate
+    
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        // Allow our tap gesture to work alongside the text view's built-in gestures
+        return true
+    }
+    
     // Change cursor to pointer when hovering over comments (iPad with mouse/trackpad)
     #if targetEnvironment(macCatalyst)
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {

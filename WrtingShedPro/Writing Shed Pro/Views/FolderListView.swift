@@ -157,7 +157,7 @@ struct FolderListView: View {
                 }
             }
         }
-        .navigationTitle(selectedFolder?.name ?? project.name ?? "Folders")
+        .navigationTitle(selectedFolder?.name ?? project.name ?? NSLocalizedString("folderList.title", comment: "Folders title"))
         .navigationBarTitleDisplayMode(selectedFolder == nil ? .large : .inline)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
@@ -169,7 +169,7 @@ struct FolderListView: View {
                         Button(action: { showAddFolderSheet = true }) {
                             Image(systemName: "plus")
                         }
-                        .accessibilityLabel(NSLocalizedString("folderList.addFolder", comment: "Add folder button"))
+                        .accessibilityLabel("folderList.addFolder.accessibility")
                     }
                 }
             }

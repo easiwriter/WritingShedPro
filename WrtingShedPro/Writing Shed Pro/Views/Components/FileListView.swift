@@ -167,14 +167,14 @@ struct FileListView: View {
             "Delete \(filesToDelete.count) \(filesToDelete.count == 1 ? "file" : "files")?",
             isPresented: $showDeleteConfirmation
         ) {
-            Button("Cancel", role: .cancel) {
+            Button("button.cancel", role: .cancel) {
                 filesToDelete = []
             }
-            Button("Delete", role: .destructive) {
+            Button("fileList.delete", role: .destructive) {
                 confirmDelete()
             }
         } message: {
-            Text("Deleted files can be restored from Trash.")
+            Text("fileList.deleteConfirmation.message")
         }
         .onChange(of: editMode?.wrappedValue) { _, newValue in
             if useSections {
@@ -291,14 +291,14 @@ struct FileListView: View {
         Button {
             onMove([file])
         } label: {
-            Label("Move", systemImage: "folder")
+            Label("fileList.move", systemImage: "folder")
         }
         .tint(.blue)
         
         Button {
             prepareDelete([file])
         } label: {
-            Label("Delete", systemImage: "trash")
+            Label("fileList.delete", systemImage: "trash")
         }
         .tint(.red)
     }
@@ -346,11 +346,12 @@ struct FileListView: View {
             exitEditMode()
         } label: {
             Label(
-                "Move \(selectedFiles.count)",
+                String(format: NSLocalizedString("fileList.moveCount", comment: "Move count"), selectedFiles.count),
                 systemImage: "folder"
             )
         }
         .disabled(selectedFiles.isEmpty)
+        .accessibilityLabel("fileList.moveSelected.accessibility")
         
         Spacer()
         
@@ -390,11 +391,12 @@ struct FileListView: View {
             prepareDelete(selectedFiles)
         } label: {
             Label(
-                "Delete \(selectedFiles.count)",
+                String(format: NSLocalizedString("fileList.deleteCount", comment: "Delete count"), selectedFiles.count),
                 systemImage: "trash"
             )
         }
         .disabled(selectedFiles.isEmpty)
+        .accessibilityLabel("fileList.deleteSelected.accessibility")
     }
     
     /// Context menu items for macOS right-click
@@ -405,7 +407,7 @@ struct FileListView: View {
         Button {
             onFileSelected(file)
         } label: {
-            Label("Open", systemImage: "doc")
+            Label("fileList.contextMenu.open", systemImage: "doc")
         }
         
         Divider()
@@ -413,7 +415,7 @@ struct FileListView: View {
         Button {
             onMove([file])
         } label: {
-            Label("Move To...", systemImage: "folder")
+            Label("fileList.contextMenu.moveTo", systemImage: "folder")
         }
         
         Divider()
@@ -421,7 +423,7 @@ struct FileListView: View {
         Button(role: .destructive) {
             prepareDelete([file])
         } label: {
-            Label("Delete", systemImage: "trash")
+            Label("fileList.contextMenu.delete", systemImage: "trash")
         }
         #else
         // iOS: Context menu disabled (use swipe actions instead)

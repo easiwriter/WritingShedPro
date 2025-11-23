@@ -123,7 +123,7 @@ struct ProjectInfoSheet: View {
                     HStack {
                         Text(NSLocalizedString("projectDetail.name", comment: "Field label for project name"))
                         Spacer()
-                        TextField("Project Name", text: $editedName)
+                        TextField("projectDetail.name.placeholder", text: $editedName)
                             .textFieldStyle(.roundedBorder)
                             .multilineTextAlignment(.trailing)
                             .padding(.vertical, 4)
@@ -161,7 +161,7 @@ struct ProjectInfoSheet: View {
                     HStack {
                         Text(NSLocalizedString("projectDetail.stylesheet", comment: "Field label for stylesheet"))
                         Spacer()
-                        Picker("Stylesheet", selection: $selectedStyleSheet) {
+                        Picker("projectDetail.stylesheet.picker", selection: $selectedStyleSheet) {
                             ForEach(allStyleSheets, id: \.id) { sheet in
                                 HStack {
                                     Text(sheet.name)

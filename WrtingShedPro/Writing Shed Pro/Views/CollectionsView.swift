@@ -88,15 +88,15 @@ struct CollectionsView: View {
             } else {
                 // Empty state
                 ContentUnavailableView {
-                    Label("No Collections", systemImage: "tray.2")
+                    Label("collectionsView.empty.title", systemImage: "tray.2")
                 } description: {
-                    Text("Create your first Collection to organize your submissions")
+                    Text("collectionsView.empty.description")
                 }
                 .accessibilityElement(children: .combine)
-                .accessibilityLabel("No Collections yet")
+                .accessibilityLabel("collectionsView.empty.accessibility")
             }
         }
-        .navigationTitle("Collections")
+        .navigationTitle("collectionsView.title")
         .navigationBarTitleDisplayMode(.inline)
         .environment(\.editMode, $editMode)
         .toolbar {
@@ -108,7 +108,7 @@ struct CollectionsView: View {
                     } label: {
                         Image(systemName: "plus")
                     }
-                    .accessibilityLabel("Add Collection")
+                    .accessibilityLabel("collectionsView.addCollection.accessibility")
                     
                     // Edit/Done button
                     if !sortedCollections.isEmpty {
@@ -120,7 +120,7 @@ struct CollectionsView: View {
                                 }
                             }
                         } label: {
-                            Text(editMode == .inactive ? "Edit" : "Done")
+                            Text(editMode == .inactive ? "collectionsView.edit" : "collectionsView.done")
                         }
                     }
                 }
@@ -161,7 +161,9 @@ struct CollectionsView: View {
             }
         }
         .confirmationDialog(
-            "Delete \(collectionsToDelete.count) \(collectionsToDelete.count == 1 ? "collection" : "collections")?",
+            String(format: NSLocalizedString("collectionsView.deleteConfirmation.title", comment: "Delete confirmation"), 
+                   collectionsToDelete.count,
+                   collectionsToDelete.count == 1 ? NSLocalizedString("collectionsView.collection.singular", comment: "collection") : NSLocalizedString("collectionsView.collection.plural", comment: "collections")),
             isPresented: $showDeleteConfirmation
         ) {
             Button("button.cancel", role: .cancel) {
@@ -192,7 +194,7 @@ struct CollectionsView: View {
                     .accessibilityHidden(true)
                 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(collection.name ?? "Untitled Collection")
+                    Text(collection.name ?? NSLocalizedString("collectionsView.untitled", comment: "Untitled Collection"))
                         .font(.body)
                     
                     // Show count of files in this collection
@@ -218,7 +220,7 @@ struct CollectionsView: View {
                         .accessibilityHidden(true)
                     
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(collection.name ?? "Untitled Collection")
+                        Text(collection.name ?? NSLocalizedString("collectionsView.untitled", comment: "Untitled Collection"))
                             .font(.body)
                         
                         // Show count of files in this collection
@@ -240,11 +242,12 @@ struct CollectionsView: View {
             deleteSelectedCollections()
         } label: {
             Label(
-                "Delete \(selectedCollections.count)",
+                String(format: NSLocalizedString("collectionsView.deleteCount", comment: "Delete count"), selectedCollections.count),
                 systemImage: "trash"
             )
         }
         .disabled(selectedCollections.isEmpty)
+        .accessibilityLabel("collectionsView.deleteSelected.accessibility")
         
         Spacer()
         
@@ -252,11 +255,12 @@ struct CollectionsView: View {
             showPublicationPicker = true
         } label: {
             Label(
-                "Add to Publication",
+                "collectionsView.addToPublication",
                 systemImage: "book.badge.plus"
             )
         }
         .disabled(selectedCollections.isEmpty)
+        .accessibilityLabel("collectionsView.addToPublication.accessibility")
         
         Spacer()
     }
@@ -400,7 +404,7 @@ struct AddCollectionSheet: View {
                         text: $collectionName
                     )
                     .textInputAutocapitalization(.words)
-                    .accessibilityLabel("Collection name")
+                    .accessibilityLabel("collectionsView.form.name.accessibility")
                     
                     if let errorMessage = error {
                         Text(errorMessage)
@@ -411,7 +415,7 @@ struct AddCollectionSheet: View {
                     Text(NSLocalizedString("collections.form.name.label", comment: "Collection name label"))
                 }
             }
-            .navigationTitle("New Collection")
+            .navigationTitle("collectionsView.form.title")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -473,7 +477,7 @@ struct CollectionDetailView: View {
                                         .font(.body)
                                 }
                                 .buttonStyle(.plain)
-                                .accessibilityLabel("Edit version")
+                                .accessibilityLabel("collectionsView.detail.editVersion.accessibility")
                             }
                         }
                     }
@@ -482,20 +486,20 @@ struct CollectionDetailView: View {
                 .listStyle(.plain)
             } else {
                 ContentUnavailableView {
-                    Label("No Files in Collection", systemImage: "doc.text")
+                    Label("collectionsView.detail.empty.title", systemImage: "doc.text")
                 } description: {
-                    Text("Add files from your Ready folder to this collection")
+                    Text("collectionsView.detail.empty.description")
                 }
                 .accessibilityElement(children: .combine)
-                .accessibilityLabel("No files in collection yet")
+                .accessibilityLabel("collectionsView.detail.empty.accessibility")
             }
         }
-        .navigationTitle("Collection")
+        .navigationTitle("collectionsView.detail.title")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .principal) {
                 VStack(spacing: 2) {
-                    Text(submission.name ?? "Untitled Collection")
+                    Text(submission.name ?? NSLocalizedString("collectionsView.untitled", comment: "Untitled Collection"))
                         .font(.headline)
                         .lineLimit(1)
                 }
@@ -517,7 +521,7 @@ struct CollectionDetailView: View {
                 } label: {
                     Image(systemName: "ellipsis.circle")
                 }
-                .accessibilityLabel("Collection actions")
+                .accessibilityLabel("collectionsView.actions.accessibility")
             }
         }
         .sheet(isPresented: $showAddFilesSheet) {
@@ -630,11 +634,11 @@ struct CollectionFileRowView: View {
                 .accessibilityHidden(true)
             
             VStack(alignment: .leading, spacing: 4) {
-                Text(submittedFile.textFile?.name ?? "Untitled File")
+                Text(submittedFile.textFile?.name ?? NSLocalizedString("collectionsView.untitledFile", comment: "Untitled File"))
                     .font(.body)
                 
                 if let version = submittedFile.version {
-                    Text("Version \(version.versionNumber)")
+                    Text(String(format: NSLocalizedString("collectionsView.version", comment: "Version number"), version.versionNumber))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -643,7 +647,7 @@ struct CollectionFileRowView: View {
             Spacer()
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(submittedFile.textFile?.name ?? "Untitled"), Version \(submittedFile.version?.versionNumber ?? 0)")
+        .accessibilityLabel(String(format: NSLocalizedString("collectionsView.fileVersion.accessibility", comment: "File and version"), submittedFile.textFile?.name ?? NSLocalizedString("collectionsView.untitledFile", comment: "Untitled"), submittedFile.version?.versionNumber ?? 0))
     }
 }
 
@@ -665,7 +669,7 @@ struct AddFilesToCollectionSheet: View {
     var body: some View {
         NavigationStack {
             contentView
-                .navigationTitle("Add Files to Collection")
+                .navigationTitle(NSLocalizedString("collectionsView.addFiles.title", comment: ""))
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .navigationBarLeading) {
@@ -721,12 +725,12 @@ struct AddFilesToCollectionSheet: View {
                     
                     if selectedFiles.contains(file.id),
                        let selectedVersion = selectedVersions[file.id] {
-                        Text("Version \(selectedVersion.versionNumber) selected")
+                        Text(String(format: NSLocalizedString("collectionsView.versionSelected", comment: "Version selected"), selectedVersion.versionNumber))
                             .font(.caption)
                             .foregroundStyle(.blue)
                     } else {
                         let latestVersion = file.versions?.count ?? 0
-                        Text("Latest version: \(latestVersion)")
+                        Text(String(format: NSLocalizedString("collectionsView.latestVersion", comment: "Latest version"), latestVersion))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -755,7 +759,7 @@ struct AddFilesToCollectionSheet: View {
     
     private func versionPickerView(for file: TextFile) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Select Version")
+            Text("collectionsView.selectVersion")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .padding(.leading, 32)
@@ -765,7 +769,7 @@ struct AddFilesToCollectionSheet: View {
                 ForEach(versions, id: \.id) { version in
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Version \(version.versionNumber)")
+                            Text(String(format: NSLocalizedString("collectionsView.version", comment: "Version number"), version.versionNumber))
                                 .font(.body)
                             
                             if let comment = version.comment, !comment.isEmpty {
@@ -799,9 +803,9 @@ struct AddFilesToCollectionSheet: View {
     
     private var emptyState: some View {
         ContentUnavailableView {
-            Label("No Files Available", systemImage: "doc.text")
+            Label("collectionsView.noFilesAvailable.title", systemImage: "doc.text")
         } description: {
-            Text("All files from Ready folder are already in this collection or there are no Ready files")
+            Text("collectionsView.noFilesAvailable.description")
         }
     }
     
@@ -889,14 +893,14 @@ struct EditVersionSheet: View {
                                     .font(.headline)
                                     .foregroundStyle(.primary)
                             } header: {
-                                Text("File")
+                                Text("collectionsView.editVersion.fileHeader")
                             }
                             
                             Section {
                                 ForEach(versions, id: \.id) { version in
                                     HStack {
                                         VStack(alignment: .leading, spacing: 4) {
-                                            Text("Version \(version.versionNumber)")
+                                            Text(String(format: NSLocalizedString("collectionsView.version", comment: "Version number"), version.versionNumber))
                                                 .font(.body)
                                             
                                             if let comment = version.comment, !comment.isEmpty {
@@ -906,7 +910,7 @@ struct EditVersionSheet: View {
                                                     .lineLimit(1)
                                             }
                                             
-                                            Text("\(version.content.count) characters")
+                                            Text(String(format: NSLocalizedString("collectionsView.characterCount", comment: "Character count"), version.content.count))
                                                 .font(.caption2)
                                                 .foregroundStyle(.secondary)
                                         }
@@ -925,25 +929,25 @@ struct EditVersionSheet: View {
                                     }
                                 }
                             } header: {
-                                Text("Available Versions")
+                                Text("collectionsView.editVersion.versionsHeader")
                             }
                         }
                     } else {
                         ContentUnavailableView {
-                            Label("No Versions", systemImage: "doc.text")
+                            Label("collectionsView.editVersion.noVersions.title", systemImage: "doc.text")
                         } description: {
-                            Text("This file has no versions")
+                            Text("collectionsView.editVersion.noVersions.description")
                         }
                     }
                 } else {
                     ContentUnavailableView {
-                        Label("File Not Found", systemImage: "doc.text.xmark")
+                        Label("collectionsView.editVersion.fileNotFound.title", systemImage: "doc.text.xmark")
                     } description: {
-                        Text("The file associated with this submission could not be found")
+                        Text("collectionsView.editVersion.fileNotFound.description")
                     }
                 }
         }
-        .navigationTitle("Select Version")
+        .navigationTitle("collectionsView.editVersion.title")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {

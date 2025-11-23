@@ -174,7 +174,7 @@ struct ImageHandleOverlay: View {
 
 #Preview {
     VStack {
-        Text("Image with handles")
+        Text("imageHandle.preview.title")
             .font(.title)
         
         ZStack {
@@ -191,7 +191,7 @@ struct ImageHandleOverlay: View {
             )
         }
         
-        Text("Drag handles to resize")
+        Text("imageHandle.preview.hint")
             .font(.caption)
             .foregroundColor(.secondary)
     }

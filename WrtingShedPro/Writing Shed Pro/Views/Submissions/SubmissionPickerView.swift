@@ -183,7 +183,7 @@ struct NewPublicationForSubmissionView: View {
                     let count = collection.submittedFiles?.count ?? 0
                     Text(String(format: NSLocalizedString("submissions.files.selected", comment: "Files selected"), count))
                 } else {
-                    Text("No files selected")
+                    Text("submissions.no.files.selected")
                 }
             }
         }

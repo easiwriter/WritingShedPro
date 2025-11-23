@@ -19,27 +19,28 @@ struct ImageStyleSheetEditorView: View {
     var body: some View {
         Form {
             // Name Section
-            Section("Style Name") {
+            Section("imageStyleEditor.styleName") {
                 if imageStyle.isSystemStyle {
                     HStack {
-                        Text("Display Name")
+                        Text("imageStyleEditor.displayName")
                             .foregroundStyle(.secondary)
                         Spacer()
                         Text(imageStyle.displayName)
                     }
                     
-                    Text("System styles cannot be renamed")
+                    Text("imageStyleEditor.systemStyle.warning")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 } else {
-                    TextField("Display Name", text: $imageStyle.displayName)
+                    TextField("imageStyleEditor.displayName", text: $imageStyle.displayName)
+                        .accessibilityLabel("imageStyleEditor.displayName.accessibility")
                 }
             }
             
             // Default Scale Section
             Section {
                 HStack {
-                    Text("Scale")
+                    Text("imageStyleEditor.scale")
                         .frame(width: 80, alignment: .leading)
                     
                     Spacer()
@@ -52,6 +53,7 @@ struct ImageStyleSheetEditorView: View {
                     }
                     .disabled(imageStyle.defaultScale <= 0.1)
                     .buttonStyle(.plain)
+                    .accessibilityLabel("imageStyleEditor.decreaseScale.accessibility")
                     
                     TextField("100", text: $scaleText, onEditingChanged: { isEditing in
                         if !isEditing {
@@ -64,6 +66,7 @@ struct ImageStyleSheetEditorView: View {
                     .multilineTextAlignment(.trailing)
                     .textFieldStyle(.roundedBorder)
                     .keyboardType(.numberPad)
+                    .accessibilityLabel("imageStyleEditor.scaleValue.accessibility")
                     
                     Text("%")
                         .font(.headline)
@@ -76,11 +79,12 @@ struct ImageStyleSheetEditorView: View {
                     }
                     .disabled(imageStyle.defaultScale >= 2.0)
                     .buttonStyle(.plain)
+                    .accessibilityLabel("imageStyleEditor.increaseScale.accessibility")
                 }
             } header: {
-                Text("Size")
+                Text("imageStyleEditor.size")
             } footer: {
-                Text("Images will be inserted at this scale by default (10% to 200%)")
+                Text("imageStyleEditor.size.footer")
                     .font(.caption)
             }
             
@@ -110,33 +114,36 @@ struct ImageStyleSheetEditorView: View {
                     Spacer()
                 }
                 .padding(.vertical, 8)
+                .accessibilityElement(children: .contain)
+                .accessibilityLabel("imageStyleEditor.alignment.accessibility")
             } header: {
-                Text("Alignment")
+                Text("imageStyleEditor.alignment")
             } footer: {
-                Text("Images will be aligned this way by default")
+                Text("imageStyleEditor.alignment.footer")
                     .font(.caption)
             }
             
             // Caption Section
             Section {
-                Toggle("Caption by Default", isOn: $imageStyle.hasCaptionByDefault)
+                Toggle("imageStyleEditor.captionByDefault", isOn: $imageStyle.hasCaptionByDefault)
+                    .accessibilityLabel("imageStyleEditor.captionByDefault.accessibility")
                 
                 if imageStyle.hasCaptionByDefault {
                     HStack {
-                        Text("Caption Style")
+                        Text("imageStyleEditor.captionStyle")
                         Spacer()
                         Text(imageStyle.defaultCaptionStyle)
                             .foregroundStyle(.secondary)
                     }
                 }
             } header: {
-                Text("Caption")
+                Text("imageStyleEditor.caption")
             } footer: {
                 if imageStyle.hasCaptionByDefault {
-                    Text("Images will include a caption using the '\(imageStyle.defaultCaptionStyle)' style")
+                    Text(String(format: NSLocalizedString("imageStyleEditor.caption.footer.enabled", comment: ""), imageStyle.defaultCaptionStyle))
                         .font(.caption)
                 } else {
-                    Text("Images will not have captions by default")
+                    Text("imageStyleEditor.caption.footer.disabled")
                         .font(.caption)
                 }
             }
@@ -145,7 +152,7 @@ struct ImageStyleSheetEditorView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
-                Button("Done") {
+                Button("button.done") {
                     saveChanges()
                     dismiss()
                 }

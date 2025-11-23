@@ -32,7 +32,7 @@ struct StyleSheetManagementView: View {
                                 Text(sheet.name)
                                     .font(.headline)
                                 
-                                Text("\(sheet.textStyles?.count ?? 0) styles")
+                                Text(String(format: NSLocalizedString("styleSheetManagement.stylesCount", comment: ""), sheet.textStyles?.count ?? 0))
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
@@ -42,28 +42,30 @@ struct StyleSheetManagementView: View {
                             Button(action: {
                                 duplicateStyleSheet(sheet)
                             }) {
-                                Label("Duplicate", systemImage: "doc.on.doc")
+                                Label("styleSheetManagement.duplicate", systemImage: "doc.on.doc")
                                     .labelStyle(.iconOnly)
                             }
                             .buttonStyle(.plain)
+                            .accessibilityLabel("styleSheetManagement.duplicate.accessibility")
                             
                             Button(role: .destructive, action: {
                                 sheetToDelete = sheet
                                 showDeleteAlert = true
                             }) {
-                                Label("Delete", systemImage: "trash")
+                                Label("styleSheetManagement.delete", systemImage: "trash")
                                     .labelStyle(.iconOnly)
                             }
                             .buttonStyle(.plain)
+                            .accessibilityLabel("styleSheetManagement.delete.accessibility")
                         }
                         .padding(.vertical, 4)
                     }
                 }
             }
-            .navigationTitle("Stylesheets")
+            .navigationTitle("styleSheetManagement.title")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") {
+                    Button("button.done") {
                         dismiss()
                     }
                 }
@@ -82,8 +84,9 @@ struct StyleSheetManagementView: View {
                     Button(action: {
                         showCreateSheet = true
                     }) {
-                        Label("New Stylesheet", systemImage: "plus")
+                        Label("styleSheetManagement.newStylesheet", systemImage: "plus")
                     }
+                    .accessibilityLabel("styleSheetManagement.newStylesheet.accessibility")
                 }
             }
             .onAppear {
@@ -94,16 +97,16 @@ struct StyleSheetManagementView: View {
                     loadStyleSheets()
                 })
             }
-            .alert("Delete Stylesheet", isPresented: $showDeleteAlert) {
-                Button("Cancel", role: .cancel) { }
-                Button("Delete", role: .destructive) {
+            .alert("styleSheetManagement.deleteAlert.title", isPresented: $showDeleteAlert) {
+                Button("button.cancel", role: .cancel) { }
+                Button("styleSheetManagement.delete", role: .destructive) {
                     if let sheet = sheetToDelete {
                         deleteStyleSheet(sheet)
                     }
                 }
             } message: {
                 if let sheet = sheetToDelete {
-                    Text("Are you sure you want to delete '\(sheet.name)'? Projects using this stylesheet will revert to the system default.")
+                    Text(String(format: NSLocalizedString("styleSheetManagement.deleteAlert.message", comment: ""), sheet.name))
                 }
             }
         }
@@ -238,31 +241,32 @@ struct CreateStyleSheetView: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("Name", text: $name)
+                    TextField("createStyleSheet.name", text: $name)
+                        .accessibilityLabel("createStyleSheet.name.accessibility")
                 } header: {
-                    Text("Stylesheet Name")
+                    Text("createStyleSheet.stylesheetName")
                 } footer: {
-                    Text("New stylesheets start with all default styles which you can then customize.")
+                    Text("createStyleSheet.footer")
                 }
             }
-            .navigationTitle("New Stylesheet")
+            .navigationTitle("createStyleSheet.title")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
+                    Button("button.cancel") {
                         dismiss()
                     }
                 }
                 
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Create") {
+                    Button("button.create") {
                         createStyleSheet()
                     }
                     .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
-            .alert("Error", isPresented: $showError) {
-                Button("OK", role: .cancel) { }
+            .alert("error.title", isPresented: $showError) {
+                Button("button.ok", role: .cancel) { }
             } message: {
                 Text(errorMessage)
             }
@@ -278,7 +282,7 @@ struct CreateStyleSheetView: View {
         )
         
         if let existing = try? modelContext.fetch(descriptor), !existing.isEmpty {
-            errorMessage = "A stylesheet with this name already exists."
+            errorMessage = NSLocalizedString("createStyleSheet.error.duplicate", comment: "")
             showError = true
             return
         }
@@ -351,7 +355,7 @@ struct CreateStyleSheetView: View {
             onCreated()
             dismiss()
         } catch {
-            errorMessage = "Failed to create stylesheet: \(error.localizedDescription)"
+            errorMessage = String(format: NSLocalizedString("createStyleSheet.error.failed", comment: ""), error.localizedDescription)
             showError = true
         }
     }

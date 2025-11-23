@@ -73,11 +73,11 @@ struct FootnoteDetailView: View {
                 }
                 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Footnote \(footnote.number)")
+                    Text(String(format: NSLocalizedString("footnoteDetail.title", comment: "Footnote title"), footnote.number))
                         .font(.headline)
                     
                     if footnote.isDeleted {
-                        Text("In Trash")
+                        Text("footnoteDetail.inTrash")
                             .font(.caption)
                             .foregroundColor(.red)
                     } else {
@@ -106,13 +106,13 @@ struct FootnoteDetailView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     // Formatting toolbar
                     HStack(spacing: 16) {
-                        Text("Format:")
+                        Text("footnoteDetail.format")
                             .font(.caption)
                             .foregroundColor(.secondary)
                         
                         // Note: Rich text formatting will be added in future enhancement
                         // For V1, we support plain text editing
-                        Text("Rich text editing (bold, italic) coming soon")
+                        Text("footnoteDetail.richTextComingSoon")
                             .font(.caption2)
                             .foregroundColor(.secondary)
                             .italic()
@@ -142,23 +142,25 @@ struct FootnoteDetailView: View {
                 // Trash view: Show Restore and Permanent Delete
                 HStack(spacing: 12) {
                     Button(action: restoreFootnote) {
-                        Label("Restore", systemImage: "arrow.uturn.backward")
+                        Label("footnoteDetail.restore", systemImage: "arrow.uturn.backward")
                     }
                     .buttonStyle(.borderedProminent)
                     .frame(maxWidth: .infinity)
+                    .accessibilityLabel("footnoteDetail.restore.accessibility")
                     
                     Button(action: permanentlyDeleteFootnote) {
-                        Label("Delete Forever", systemImage: "trash.fill")
+                        Label("footnoteDetail.deleteForever", systemImage: "trash.fill")
                     }
                     .buttonStyle(.bordered)
                     .tint(.red)
                     .frame(maxWidth: .infinity)
+                    .accessibilityLabel("footnoteDetail.deleteForever.accessibility")
                 }
             } else if isEditing {
                 // Editing mode: Show Save and Cancel
                 HStack(spacing: 12) {
                     Button(action: saveChanges) {
-                        Label("Save", systemImage: "checkmark")
+                        Label("button.save", systemImage: "checkmark")
                     }
                     .buttonStyle(.borderedProminent)
                     .frame(maxWidth: .infinity)
@@ -167,7 +169,7 @@ struct FootnoteDetailView: View {
                         editedText = footnote.text
                         isEditing = false
                     }) {
-                        Label("Cancel", systemImage: "xmark")
+                        Label("button.cancel", systemImage: "xmark")
                     }
                     .buttonStyle(.bordered)
                     .frame(maxWidth: .infinity)
@@ -176,17 +178,19 @@ struct FootnoteDetailView: View {
                 // View mode: Show Edit and Delete
                 HStack(spacing: 12) {
                     Button(action: { isEditing = true }) {
-                        Label("Edit", systemImage: "pencil")
+                        Label("footnoteDetail.edit", systemImage: "pencil")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
+                    .accessibilityLabel("footnoteDetail.edit.accessibility")
                     
                     Button(action: moveToTrash) {
-                        Label("Delete", systemImage: "trash")
+                        Label("footnoteDetail.delete", systemImage: "trash")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
                     .tint(.red)
+                    .accessibilityLabel("footnoteDetail.delete.accessibility")
                 }
             }
             
@@ -195,12 +199,13 @@ struct FootnoteDetailView: View {
                 Divider()
                 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Position: \(footnote.characterPosition)")
+                    Text(String(format: NSLocalizedString("footnoteDetail.position", comment: "Position label"), footnote.characterPosition))
                         .font(.caption2)
                         .foregroundColor(.secondary)
                     
                     if footnote.modifiedAt != footnote.createdAt {
-                        Text("Modified: \(footnote.modifiedAt, format: .dateTime.day().month().year().hour().minute())")
+                        Text(String(format: NSLocalizedString("footnoteDetail.modified", comment: "Modified label"), 
+                                    footnote.modifiedAt.formatted(.dateTime.day().month().year().hour().minute())))
                             .font(.caption2)
                             .foregroundColor(.secondary)
                     }
@@ -208,7 +213,8 @@ struct FootnoteDetailView: View {
             } else if let deletedAt = footnote.deletedAt {
                 Divider()
                 
-                Text("Deleted: \(deletedAt, format: .dateTime.day().month().year().hour().minute())")
+                Text(String(format: NSLocalizedString("footnoteDetail.deleted", comment: "Deleted label"),
+                            deletedAt.formatted(.dateTime.day().month().year().hour().minute())))
                     .font(.caption2)
                     .foregroundColor(.secondary)
             }

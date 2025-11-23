@@ -80,11 +80,11 @@ struct StylePickerSheet: View {
                 }
             }
             .listStyle(.insetGrouped)
-            .navigationTitle("Paragraph Style")
+            .navigationTitle(NSLocalizedString("stylePicker.title", comment: ""))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") {
+                    Button(NSLocalizedString("button.done", comment: "")) {
                         handleDismiss()
                     }
                 }
@@ -101,7 +101,7 @@ struct StylePickerSheet: View {
                             }
                         }
                     }) {
-                        Label("Edit Style", systemImage: "slider.horizontal.3")
+                        Label("stylePicker.editStyle", systemImage: "slider.horizontal.3")
                     }
                     .disabled(currentStyle == nil || project == nil)
                 }
@@ -117,17 +117,17 @@ struct StylePickerSheet: View {
                     )
                 }
             }
-            .alert("Apply Style Changes?", isPresented: $showingApplyChangesAlert) {
-                Button("Apply Now") {
+            .alert(NSLocalizedString("stylePicker.applyChanges.title", comment: ""), isPresented: $showingApplyChangesAlert) {
+                Button(NSLocalizedString("stylePicker.applyNow", comment: "")) {
                     onReapplyStyles?()
                     dismiss()
                 }
-                Button("Apply on Reopen") {
+                Button(NSLocalizedString("stylePicker.applyOnReopen", comment: "")) {
                     dismiss()
                 }
-                Button("Cancel", role: .cancel) { }
+                Button(NSLocalizedString("button.cancel", comment: ""), role: .cancel) { }
             } message: {
-                Text("You've made changes to text styles. Would you like to apply these changes to the document now, or wait until you reopen it?")
+                Text("stylePicker.applyChanges.message")
             }
         }
         .presentationDetents([.medium])

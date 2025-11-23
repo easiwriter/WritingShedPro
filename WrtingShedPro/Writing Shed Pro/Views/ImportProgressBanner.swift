@@ -19,7 +19,7 @@ struct ImportProgressBanner: View {
                     .scaleEffect(0.8)
                 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Importing Data...")
+                    Text("importProgress.importing")
                         .font(.subheadline)
                         .fontWeight(.medium)
                     
@@ -28,6 +28,8 @@ struct ImportProgressBanner: View {
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("importProgress.banner.accessibility")
                 
                 Spacer()
                 
