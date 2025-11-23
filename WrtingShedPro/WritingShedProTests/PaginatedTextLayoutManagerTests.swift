@@ -22,7 +22,9 @@ final class PaginatedTextLayoutManagerTests: XCTestCase {
             Project.self,
             Folder.self,
             TextFile.self,
-            Version.self
+            Version.self,
+            FootnoteModel.self,
+            CommentModel.self
         ])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try ModelContainer(for: schema, configurations: [config])
@@ -548,5 +550,316 @@ final class PaginatedTextLayoutManagerTests: XCTestCase {
         XCTAssertGreaterThan(layoutManager.pageCount, 0)
         XCTAssertNotEqual(layoutManager.contentSize, .zero)
         XCTAssertNotNil(layoutManager.lastCalculationTime)
+    }
+    
+    // MARK: - Footnote Integration Tests
+    
+    func testGetFootnotesForPage_NoFootnotes() throws {
+        let text = String(repeating: "Line of text.\n", count: 50)
+        let textStorage = NSTextStorage(string: text)
+        let layoutManager = PaginatedTextLayoutManager(
+            textStorage: textStorage,
+            pageSetup: pageSetup
+        )
+        
+        layoutManager.calculateLayout()
+        
+        // Create version without footnotes
+        let version = Version(content: text)
+        modelContext.insert(version)
+        
+        // Should return empty array when no footnotes exist
+        let footnotes = layoutManager.getFootnotesForPage(0, version: version, context: modelContext)
+        XCTAssertTrue(footnotes.isEmpty)
+    }
+    
+    func testGetFootnotesForPage_WithFootnotes() throws {
+        // Create multi-page document
+        let text = String(repeating: "Line of text.\n", count: 100)
+        let textStorage = NSTextStorage(string: text)
+        let layoutManager = PaginatedTextLayoutManager(
+            textStorage: textStorage,
+            pageSetup: pageSetup
+        )
+        
+        let result = layoutManager.calculateLayout()
+        XCTAssertGreaterThan(result.totalPages, 1, "Document should have multiple pages")
+        
+        // Create version with footnotes
+        let version = Version(content: text)
+        modelContext.insert(version)
+        
+        // Add footnote on first page
+        guard let page0Range = layoutManager.characterRange(forPage: 0) else {
+            XCTFail("Failed to get character range for page 0")
+            return
+        }
+        let footnote1 = FootnoteModel(
+            version: version,
+            characterPosition: page0Range.location + 10,
+            attachmentID: UUID(),
+            text: "First footnote",
+            number: 1
+        )
+        modelContext.insert(footnote1)
+        
+        // Add footnote on second page
+        if result.totalPages > 1 {
+            guard let page1Range = layoutManager.characterRange(forPage: 1) else {
+                XCTFail("Failed to get character range for page 1")
+                return
+            }
+            let footnote2 = FootnoteModel(
+                version: version,
+                characterPosition: page1Range.location + 10,
+                attachmentID: UUID(),
+                text: "Second footnote",
+                number: 2
+            )
+            modelContext.insert(footnote2)
+        }
+        
+        // Verify footnotes are detected on correct pages
+        let page0Footnotes = layoutManager.getFootnotesForPage(0, version: version, context: modelContext)
+        XCTAssertEqual(page0Footnotes.count, 1)
+        XCTAssertEqual(page0Footnotes.first?.number, 1)
+        
+        if result.totalPages > 1 {
+            let page1Footnotes = layoutManager.getFootnotesForPage(1, version: version, context: modelContext)
+            XCTAssertEqual(page1Footnotes.count, 1)
+            XCTAssertEqual(page1Footnotes.first?.number, 2)
+        }
+    }
+    
+    func testGetFootnotesForPage_MultipleFootnotesOnSamePage() throws {
+        let text = String(repeating: "Line of text.\n", count: 50)
+        let textStorage = NSTextStorage(string: text)
+        let layoutManager = PaginatedTextLayoutManager(
+            textStorage: textStorage,
+            pageSetup: pageSetup
+        )
+        
+        layoutManager.calculateLayout()
+        
+        // Create version with multiple footnotes on first page
+        let version = Version(content: text)
+        modelContext.insert(version)
+        
+        guard let page0Range = layoutManager.characterRange(forPage: 0) else {
+            XCTFail("Failed to get character range for page 0")
+            return
+        }
+        
+        // Add 3 footnotes on first page
+        let positions = [
+            page0Range.location + 50,
+            page0Range.location + 150,
+            page0Range.location + 250
+        ]
+        
+        for (index, position) in positions.enumerated() {
+            let footnote = FootnoteModel(
+                version: version,
+                characterPosition: position,
+                attachmentID: UUID(),
+                text: "Footnote \(index + 1)",
+                number: index + 1
+            )
+            modelContext.insert(footnote)
+        }
+        
+        // Should find all 3 footnotes
+        let footnotes = layoutManager.getFootnotesForPage(0, version: version, context: modelContext)
+        XCTAssertEqual(footnotes.count, 3)
+        
+        // Should be sorted by character position
+        for (index, footnote) in footnotes.enumerated() {
+            XCTAssertEqual(footnote.number, index + 1)
+        }
+    }
+    
+    func testGetFootnotesForPage_DeletedFootnotesExcluded() throws {
+        let text = String(repeating: "Line of text.\n", count: 50)
+        let textStorage = NSTextStorage(string: text)
+        let layoutManager = PaginatedTextLayoutManager(
+            textStorage: textStorage,
+            pageSetup: pageSetup
+        )
+        
+        layoutManager.calculateLayout()
+        
+        // Create version with footnotes
+        let version = Version(content: text)
+        modelContext.insert(version)
+        
+        guard let page0Range = layoutManager.characterRange(forPage: 0) else {
+            XCTFail("Failed to get character range for page 0")
+            return
+        }
+        
+        // Add active footnote
+        let activeFootnote = FootnoteModel(
+            version: version,
+            characterPosition: page0Range.location + 50,
+            attachmentID: UUID(),
+            text: "Active footnote",
+            number: 1
+        )
+        modelContext.insert(activeFootnote)
+        
+        // Add deleted footnote
+        let deletedFootnote = FootnoteModel(
+            version: version,
+            characterPosition: page0Range.location + 100,
+            attachmentID: UUID(),
+            text: "Deleted footnote",
+            number: 2,
+            isDeleted: true,
+            deletedAt: Date()
+        )
+        modelContext.insert(deletedFootnote)
+        
+        // Should only return active footnote
+        let footnotes = layoutManager.getFootnotesForPage(0, version: version, context: modelContext)
+        XCTAssertEqual(footnotes.count, 1)
+        XCTAssertEqual(footnotes.first?.number, 1)
+        XCTAssertFalse(footnotes.first?.isDeleted ?? true)
+    }
+    
+    func testCalculateFootnoteHeight_NoFootnotes() throws {
+        let layoutManager = PaginatedTextLayoutManager(
+            textStorage: NSTextStorage(string: "Test"),
+            pageSetup: pageSetup
+        )
+        
+        let height = layoutManager.calculateFootnoteHeight(for: [], pageWidth: 468.0)
+        XCTAssertEqual(height, 0)
+    }
+    
+    func testCalculateFootnoteHeight_SingleFootnote() throws {
+        let layoutManager = PaginatedTextLayoutManager(
+            textStorage: NSTextStorage(string: "Test"),
+            pageSetup: pageSetup
+        )
+        
+        let version = Version(content: "Test")
+        modelContext.insert(version)
+        
+        let footnote = FootnoteModel(
+            version: version,
+            characterPosition: 0,
+            attachmentID: UUID(),
+            text: "Short footnote text",
+            number: 1
+        )
+        modelContext.insert(footnote)
+        
+        let height = layoutManager.calculateFootnoteHeight(for: [footnote], pageWidth: 468.0)
+        
+        // Should include separator (30pt) + text height
+        XCTAssertGreaterThan(height, 30.0)
+        XCTAssertLessThan(height, 200.0) // Reasonable upper bound
+    }
+    
+    func testCalculateFootnoteHeight_MultipleFootnotes() throws {
+        let layoutManager = PaginatedTextLayoutManager(
+            textStorage: NSTextStorage(string: "Test"),
+            pageSetup: pageSetup
+        )
+        
+        let version = Version(content: "Test")
+        modelContext.insert(version)
+        
+        var footnotes: [FootnoteModel] = []
+        for i in 1...3 {
+            let footnote = FootnoteModel(
+                version: version,
+                characterPosition: i * 10,
+                attachmentID: UUID(),
+                text: "Footnote \(i) with some text",
+                number: i
+            )
+            modelContext.insert(footnote)
+            footnotes.append(footnote)
+        }
+        
+        let height = layoutManager.calculateFootnoteHeight(for: footnotes, pageWidth: 468.0)
+        
+        // Should be taller than single footnote
+        let singleHeight = layoutManager.calculateFootnoteHeight(for: [footnotes[0]], pageWidth: 468.0)
+        XCTAssertGreaterThan(height, singleHeight)
+    }
+    
+    func testGetContentArea_NoFootnotes() throws {
+        let text = "Test content"
+        let textStorage = NSTextStorage(string: text)
+        let layoutManager = PaginatedTextLayoutManager(
+            textStorage: textStorage,
+            pageSetup: pageSetup
+        )
+        
+        layoutManager.calculateLayout()
+        
+        let version = Version(content: text)
+        modelContext.insert(version)
+        
+        // Without footnotes, should return full content area
+        let contentArea = layoutManager.getContentArea(forPage: 0, version: version, context: modelContext)
+        XCTAssertNotNil(contentArea)
+        
+        let pageLayout = PageLayoutCalculator.calculateLayout(from: pageSetup)
+        XCTAssertEqual(contentArea?.height, pageLayout.contentRect.height)
+    }
+    
+    func testGetContentArea_WithFootnotes() throws {
+        let text = String(repeating: "Line of text.\n", count: 50)
+        let textStorage = NSTextStorage(string: text)
+        let layoutManager = PaginatedTextLayoutManager(
+            textStorage: textStorage,
+            pageSetup: pageSetup
+        )
+        
+        layoutManager.calculateLayout()
+        
+        let version = Version(content: text)
+        modelContext.insert(version)
+        
+        guard let page0Range = layoutManager.characterRange(forPage: 0) else {
+            XCTFail("Failed to get character range for page 0")
+            return
+        }
+        
+        // Add footnote
+        let footnote = FootnoteModel(
+            version: version,
+            characterPosition: page0Range.location + 50,
+            attachmentID: UUID(),
+            text: "Test footnote",
+            number: 1
+        )
+        modelContext.insert(footnote)
+        
+        // Content area should be reduced to make room for footnote
+        let contentArea = layoutManager.getContentArea(forPage: 0, version: version, context: modelContext)
+        XCTAssertNotNil(contentArea)
+        
+        let pageLayout = PageLayoutCalculator.calculateLayout(from: pageSetup)
+        XCTAssertLessThan(contentArea?.height ?? 0, pageLayout.contentRect.height)
+    }
+    
+    func testGetContentArea_InvalidPage() throws {
+        let layoutManager = PaginatedTextLayoutManager(
+            textStorage: NSTextStorage(string: "Test"),
+            pageSetup: pageSetup
+        )
+        
+        layoutManager.calculateLayout()
+        
+        let version = Version(content: "Test")
+        modelContext.insert(version)
+        
+        // Invalid page index should return nil
+        let contentArea = layoutManager.getContentArea(forPage: 999, version: version, context: modelContext)
+        XCTAssertNil(contentArea)
     }
 }

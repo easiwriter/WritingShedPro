@@ -2,7 +2,7 @@
 //  FootnoteInsertionHelperTests.swift
 //  Writing Shed Pro Tests
 //
-//  Feature 017: Footnotes - Unit tests for FootnoteInsertionHelper
+//  Feature 015: Footnotes - Unit tests for FootnoteInsertionHelper
 //
 
 import XCTest
@@ -14,7 +14,7 @@ import UIKit
 final class FootnoteInsertionHelperTests: XCTestCase {
     
     var modelContext: ModelContext!
-    var testFileID: UUID!
+    var testVersion: Version!
     
     override func setUpWithError() throws {
         // Create in-memory model container
@@ -29,7 +29,8 @@ final class FootnoteInsertionHelperTests: XCTestCase {
         let container = try ModelContainer(for: schema, configurations: [config])
         modelContext = ModelContext(container)
         
-        testFileID = UUID()
+        testVersion = Version(content: "Test content")
+        modelContext.insert(testVersion)
     }
     
     override func tearDownWithError() throws {
@@ -40,7 +41,7 @@ final class FootnoteInsertionHelperTests: XCTestCase {
         try? modelContext.save()
         
         modelContext = nil
-        testFileID = nil
+        testVersion = nil
     }
     
     // MARK: - Insert Footnote Tests
@@ -53,13 +54,13 @@ final class FootnoteInsertionHelperTests: XCTestCase {
             in: originalText,
             at: position,
             footnoteText: "Test footnote",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
         // Check that footnote was created
         XCTAssertEqual(footnote.text, "Test footnote")
-        XCTAssertEqual(footnote.textFileID, testFileID)
+        XCTAssertEqual(footnote.version?.id, testVersion.id)
         XCTAssertEqual(footnote.characterPosition, position)
         XCTAssertEqual(footnote.number, 1)
         
@@ -85,7 +86,7 @@ final class FootnoteInsertionHelperTests: XCTestCase {
             in: originalText,
             at: 0,
             footnoteText: "Start footnote",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -107,7 +108,7 @@ final class FootnoteInsertionHelperTests: XCTestCase {
             in: originalText,
             at: position,
             footnoteText: "End footnote",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -128,7 +129,7 @@ final class FootnoteInsertionHelperTests: XCTestCase {
             in: originalText,
             at: 5,
             footnoteText: "First",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -139,7 +140,7 @@ final class FootnoteInsertionHelperTests: XCTestCase {
             in: afterFirst,
             at: 7, // After " W" including first attachment
             footnoteText: "Second",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -166,7 +167,7 @@ final class FootnoteInsertionHelperTests: XCTestCase {
             in: originalText,
             at: 6,
             footnoteText: "Second by position",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -177,7 +178,7 @@ final class FootnoteInsertionHelperTests: XCTestCase {
             in: afterFirst,
             at: 2,
             footnoteText: "First by position",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -196,7 +197,7 @@ final class FootnoteInsertionHelperTests: XCTestCase {
         let footnote = FootnoteInsertionHelper.insertFootnoteAtCursor(
             in: textView,
             footnoteText: "Cursor footnote",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -221,7 +222,7 @@ final class FootnoteInsertionHelperTests: XCTestCase {
         let footnote = FootnoteInsertionHelper.insertFootnoteAtCursor(
             in: textView,
             footnoteText: "Start",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -240,7 +241,7 @@ final class FootnoteInsertionHelperTests: XCTestCase {
         let footnote = FootnoteInsertionHelper.insertFootnoteAtCursor(
             in: textView,
             footnoteText: "End",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -260,7 +261,7 @@ final class FootnoteInsertionHelperTests: XCTestCase {
         let footnote1 = FootnoteInsertionHelper.insertFootnoteAtCursor(
             in: textView,
             footnoteText: "First",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -272,7 +273,7 @@ final class FootnoteInsertionHelperTests: XCTestCase {
         let footnote2 = FootnoteInsertionHelper.insertFootnoteAtCursor(
             in: textView,
             footnoteText: "Second",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -289,7 +290,7 @@ final class FootnoteInsertionHelperTests: XCTestCase {
             in: originalText,
             at: 2,
             footnoteText: "One",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -297,7 +298,7 @@ final class FootnoteInsertionHelperTests: XCTestCase {
             in: after1,
             at: 5,
             footnoteText: "Two",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -305,7 +306,7 @@ final class FootnoteInsertionHelperTests: XCTestCase {
             in: after2,
             at: 8,
             footnoteText: "Three",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -322,7 +323,7 @@ final class FootnoteInsertionHelperTests: XCTestCase {
             in: originalText,
             at: 2,
             footnoteText: "First",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -330,7 +331,7 @@ final class FootnoteInsertionHelperTests: XCTestCase {
             in: after1,
             at: 9, // Adjusted for first attachment
             footnoteText: "Third",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -339,7 +340,7 @@ final class FootnoteInsertionHelperTests: XCTestCase {
             in: after2,
             at: 5,
             footnoteText: "Second",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -358,7 +359,7 @@ final class FootnoteInsertionHelperTests: XCTestCase {
             in: originalText,
             at: -5,
             footnoteText: "Negative",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -374,7 +375,7 @@ final class FootnoteInsertionHelperTests: XCTestCase {
             in: originalText,
             at: 100,
             footnoteText: "Beyond",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -392,7 +393,7 @@ final class FootnoteInsertionHelperTests: XCTestCase {
             in: originalText,
             at: 0,
             footnoteText: "Empty",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -409,7 +410,7 @@ final class FootnoteInsertionHelperTests: XCTestCase {
         let footnote = FootnoteInsertionHelper.insertFootnoteAtCursor(
             in: textView,
             footnoteText: "Empty",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -429,7 +430,7 @@ final class FootnoteInsertionHelperTests: XCTestCase {
             in: originalText,
             at: 5,
             footnoteText: longText,
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -441,14 +442,17 @@ final class FootnoteInsertionHelperTests: XCTestCase {
     
     func testFootnoteNumberingIndependentAcrossFiles() throws {
         let text = NSAttributedString(string: "Hello")
-        let file2ID = UUID()
+        
+        // Create a second version for testing
+        let testVersion2 = Version(content: "Test content 2")
+        modelContext.insert(testVersion2)
         
         // Insert in first file
         let (_, fn1) = FootnoteInsertionHelper.insertFootnote(
             in: text,
             at: 2,
             footnoteText: "File 1",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -457,15 +461,15 @@ final class FootnoteInsertionHelperTests: XCTestCase {
             in: text,
             at: 2,
             footnoteText: "File 2",
-            textFileID: file2ID,
+            version: testVersion2,
             context: modelContext
         )
         
         // Both should be numbered independently
         XCTAssertEqual(fn1.number, 1)
         XCTAssertEqual(fn2.number, 1)
-        XCTAssertEqual(fn1.textFileID, testFileID)
-        XCTAssertEqual(fn2.textFileID, file2ID)
+        XCTAssertEqual(fn1.version?.id, testVersion.id)
+        XCTAssertEqual(fn2.version?.id, testVersion2.id)
     }
     
     // MARK: - Attributed Text Preservation Tests
@@ -489,7 +493,7 @@ final class FootnoteInsertionHelperTests: XCTestCase {
             in: mutableText,
             at: 5,
             footnoteText: "Test",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -511,7 +515,7 @@ final class FootnoteInsertionHelperTests: XCTestCase {
             in: originalText,
             at: 3,
             footnoteText: "Test",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -529,7 +533,7 @@ final class FootnoteInsertionHelperTests: XCTestCase {
             in: originalText,
             at: 2,
             footnoteText: "First",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -538,7 +542,7 @@ final class FootnoteInsertionHelperTests: XCTestCase {
             in: after1,
             at: 4,
             footnoteText: "Second",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -558,7 +562,7 @@ final class FootnoteInsertionHelperTests: XCTestCase {
             in: originalText,
             at: 3,
             footnoteText: "",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -574,7 +578,7 @@ final class FootnoteInsertionHelperTests: XCTestCase {
             in: originalText,
             at: 3,
             footnoteText: specialText,
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -589,7 +593,7 @@ final class FootnoteInsertionHelperTests: XCTestCase {
             in: originalText,
             at: 3,
             footnoteText: multilineText,
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         

@@ -74,7 +74,10 @@ class ImportService {
             // First, delete all previously imported legacy projects (for re-import)
             try deleteLegacyProjects(modelContext: modelContext)
             
-            // Connect to legacy database
+            // Disconnect any existing connection to clear cached Core Data objects
+            legacyService.disconnect()
+            
+            // Connect to legacy database with fresh context
             try legacyService.connect()
             print("[ImportService] Connected to legacy database")
             
@@ -90,6 +93,9 @@ class ImportService {
             try engine.executeImport(modelContext: modelContext)
             print("[ImportService] Import completed successfully")
             
+            // Disconnect from legacy database to free resources
+            legacyService.disconnect()
+            
             // Disallow future imports (set to false) unless manually re-enabled
             UserDefaults.standard.set(false, forKey: Self.legacyImportAllowedKey)
             print("[ImportService] Set legacyImportAllowed = false")
@@ -99,6 +105,9 @@ class ImportService {
         } catch {
             print("[ImportService] Import failed: \(error.localizedDescription)")
             errorHandler.addError(error.localizedDescription)
+            
+            // Disconnect from legacy database even on failure
+            legacyService.disconnect()
             
             // Do NOT set legacyImportAllowed flag on failure
             // User can retry on next app launch

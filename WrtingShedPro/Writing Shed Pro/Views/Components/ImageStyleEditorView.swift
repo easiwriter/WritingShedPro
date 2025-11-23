@@ -261,25 +261,4 @@ struct AlignmentButton: View {
     }
 }
 
-// MARK: - Preview
 
-struct ImageStyleEditorView_Previews: PreviewProvider {
-    static var previews: some View {
-        // Create a simple test image
-        let testImage = UIGraphicsImageRenderer(size: CGSize(width: 100, height: 100)).image { context in
-            UIColor.systemBlue.setFill()
-            context.fill(CGRect(x: 0, y: 0, width: 100, height: 100))
-        }
-        let testData = testImage.pngData()
-        
-        ImageStyleEditorView(
-            imageData: testData,
-            scale: 1.0,
-            alignment: .center,
-            hasCaption: true,
-            captionText: "Test Caption",
-            captionStyle: "caption1",
-            onApply: { _, _, _, _, _, _ in }
-        )
-    }
-}

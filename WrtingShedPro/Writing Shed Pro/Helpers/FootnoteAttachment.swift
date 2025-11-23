@@ -2,7 +2,7 @@
 //  FootnoteAttachment.swift
 //  Writing Shed Pro
 //
-//  Feature 017: Footnotes
+//  Feature 015: Footnotes
 //  Created by GitHub Copilot on 21/11/2025.
 //
 

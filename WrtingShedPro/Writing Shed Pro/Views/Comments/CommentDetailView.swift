@@ -193,18 +193,3 @@ struct CommentDetailView: View {
         onDelete?()
     }
 }
-
-// MARK: - Preview
-
-#Preview {
-    let comment = CommentModel(
-        textFileID: UUID(),
-        characterPosition: 100,
-        text: "This is a sample comment that needs to be addressed.",
-        author: "John Doe"
-    )
-    
-    return CommentDetailView(comment: comment)
-        .padding()
-        .frame(width: 400)
-}

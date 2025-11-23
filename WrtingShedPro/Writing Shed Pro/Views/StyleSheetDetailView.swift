@@ -257,12 +257,4 @@ private struct StyleListRow: View {
     }
 }
 
-// MARK: - Preview
 
-#Preview {
-    NavigationStack {
-        StyleSheetDetailView(
-            styleSheet: StyleSheet(name: "Custom", isSystemStyleSheet: false)
-        )
-    }
-}

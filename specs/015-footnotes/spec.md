@@ -1,4 +1,4 @@
-# Feature 017: Footnotes
+# Feature 015: Footnotes
 
 ## Overview
 Writing Shed Pro supports basic footnotes with simple sequential numbering.
@@ -20,8 +20,8 @@ Writing Shed Pro supports basic footnotes with simple sequential numbering.
   - Split long footnotes to next page with continuation indicator
   - Maintain proper spacing and formatting
 
-### Deferred to Feature 018
-Advanced numbering formats (1., (1), bullets, alphabetic) will be part of the comprehensive auto-numbering system in Feature 018.
+### Deferred to Feature 016
+Advanced numbering formats (1., (1), bullets, alphabetic) will be part of the comprehensive auto-numbering system in Feature 016.
 
 ## User Stories
 
@@ -143,7 +143,7 @@ See `plan.md` (updated to reflect simplified scope)
 ## Open Questions
 
 ### Resolved
-1. ✅ Numbering format: Simple 1, 2, 3... (advanced formats in Feature 018)
+1. ✅ Numbering format: Simple 1, 2, 3... (advanced formats in Feature 016)
 2. ✅ Endnote option: Document-level setting
 3. ✅ Marker display: Superscript numbers with button styling
 4. ✅ Overflow rules: Professional typesetting standards

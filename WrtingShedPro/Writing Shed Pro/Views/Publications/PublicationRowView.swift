@@ -125,35 +125,3 @@ struct PublicationRowView: View {
         return label
     }
 }
-
-#Preview("Magazine with approaching deadline") {
-    let publication = Publication(
-        name: "Test Magazine",
-        type: .magazine,
-        deadline: Calendar.current.date(byAdding: .day, value: 5, to: Date())
-    )
-    return List {
-        PublicationRowView(publication: publication)
-    }
-}
-
-#Preview("Competition with past deadline") {
-    let publication = Publication(
-        name: "Writing Competition",
-        type: .competition,
-        deadline: Calendar.current.date(byAdding: .day, value: -5, to: Date())
-    )
-    return List {
-        PublicationRowView(publication: publication)
-    }
-}
-
-#Preview("Magazine no deadline") {
-    let publication = Publication(
-        name: "Open Submissions",
-        type: .magazine
-    )
-    return List {
-        PublicationRowView(publication: publication)
-    }
-}

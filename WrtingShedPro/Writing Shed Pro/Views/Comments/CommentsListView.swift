@@ -18,7 +18,7 @@ struct CommentsListView: View {
     
     // MARK: - Properties
     
-    let textFileID: UUID
+    let version: Version
     
     /// Callback when user wants to jump to a comment in the text
     var onJumpToComment: ((CommentModel) -> Void)?
@@ -278,16 +278,10 @@ struct CommentsListView: View {
     // MARK: - Actions
     
     private func loadComments() {
-        let fetchDescriptor = FetchDescriptor<CommentModel>(
-            predicate: #Predicate { $0.textFileID == textFileID },
-            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
-        )
-        
-        do {
-            comments = try modelContext.fetch(fetchDescriptor)
-        } catch {
-            print("❌ Error loading comments: \(error)")
-        }
+        // Access comments directly from version relationship
+        comments = (version.comments ?? [])
+            .filter { !$0.isDeleted }
+            .sorted { $0.createdAt > $1.createdAt }
     }
     
     private func startEditing(_ comment: CommentModel) {
@@ -324,43 +318,4 @@ struct CommentsListView: View {
         CommentManager.shared.deleteComment(comment, context: modelContext)
         loadComments()
     }
-}
-
-// MARK: - Preview
-
-#Preview {
-    let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: CommentModel.self, configurations: config)
-    
-    let textFileID = UUID()
-    
-    // Add sample comments
-    let comment1 = CommentModel(
-        textFileID: textFileID,
-        characterPosition: 100,
-        text: "This is a great opening paragraph! Really draws the reader in.",
-        author: "Jane Editor"
-    )
-    
-    let comment2 = CommentModel(
-        textFileID: textFileID,
-        characterPosition: 250,
-        text: "Consider revising this section for clarity. The metaphor might be confusing.",
-        author: "John Reviewer"
-    )
-    comment2.resolve()
-    
-    let comment3 = CommentModel(
-        textFileID: textFileID,
-        characterPosition: 500,
-        text: "Excellent dialogue here!",
-        author: "Sarah Beta"
-    )
-    
-    container.mainContext.insert(comment1)
-    container.mainContext.insert(comment2)
-    container.mainContext.insert(comment3)
-    
-    return CommentsListView(textFileID: textFileID)
-        .modelContainer(container)
 }

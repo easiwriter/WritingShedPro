@@ -149,8 +149,4 @@ struct FontVariantPickerView: View {
     }
 }
 
-// MARK: - Preview
 
-#Preview {
-    FontPickerView(selectedFontFamily: .constant("Helvetica Neue"))
-}

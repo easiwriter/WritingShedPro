@@ -14,7 +14,7 @@ import UIKit
 final class CommentInsertionHelperTests: XCTestCase {
     
     var modelContext: ModelContext!
-    var testFileID: UUID!
+    var testVersion: Version!
     
     override func setUpWithError() throws {
         // Create in-memory model container
@@ -29,12 +29,13 @@ final class CommentInsertionHelperTests: XCTestCase {
         let container = try ModelContainer(for: schema, configurations: [config])
         modelContext = ModelContext(container)
         
-        testFileID = UUID()
+        testVersion = Version(content: "Test content")
+        modelContext.insert(testVersion)
     }
     
     override func tearDownWithError() throws {
         modelContext = nil
-        testFileID = nil
+        testVersion = nil
     }
     
     // MARK: - Insert Comment Tests
@@ -48,14 +49,14 @@ final class CommentInsertionHelperTests: XCTestCase {
             at: position,
             commentText: "Test comment",
             author: "Test User",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
         // Check that comment was created
         XCTAssertEqual(comment.text, "Test comment")
         XCTAssertEqual(comment.author, "Test User")
-        XCTAssertEqual(comment.textFileID, testFileID)
+        XCTAssertEqual(comment.version?.id, testVersion.id)
         XCTAssertEqual(comment.characterPosition, position)
         
         // Check that attachment was inserted
@@ -81,7 +82,7 @@ final class CommentInsertionHelperTests: XCTestCase {
             at: 0,
             commentText: "Start comment",
             author: "User",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -102,7 +103,7 @@ final class CommentInsertionHelperTests: XCTestCase {
             at: position,
             commentText: "End comment",
             author: "User",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -123,7 +124,7 @@ final class CommentInsertionHelperTests: XCTestCase {
             at: 5,
             commentText: "First",
             author: "User",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -133,7 +134,7 @@ final class CommentInsertionHelperTests: XCTestCase {
             at: 7, // After " W" including first attachment
             commentText: "Second",
             author: "User",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -159,7 +160,7 @@ final class CommentInsertionHelperTests: XCTestCase {
             at: 5,
             commentText: "Test",
             author: "User",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -182,7 +183,7 @@ final class CommentInsertionHelperTests: XCTestCase {
             in: textView,
             commentText: "Cursor comment",
             author: "User",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -206,7 +207,7 @@ final class CommentInsertionHelperTests: XCTestCase {
             in: textView,
             commentText: "Selection comment",
             author: "User",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -224,7 +225,7 @@ final class CommentInsertionHelperTests: XCTestCase {
             in: textView,
             commentText: "Empty comment",
             author: "User",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -243,7 +244,7 @@ final class CommentInsertionHelperTests: XCTestCase {
             at: 2,
             commentText: "Test",
             author: "User",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -285,7 +286,7 @@ final class CommentInsertionHelperTests: XCTestCase {
             at: 5,
             commentText: "First",
             author: "User",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -294,7 +295,7 @@ final class CommentInsertionHelperTests: XCTestCase {
             at: 7,
             commentText: "Second",
             author: "User",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -324,7 +325,7 @@ final class CommentInsertionHelperTests: XCTestCase {
             at: 5,
             commentText: "Test",
             author: "User",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -360,7 +361,7 @@ final class CommentInsertionHelperTests: XCTestCase {
             at: 5,
             commentText: "First",
             author: "User",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -369,7 +370,7 @@ final class CommentInsertionHelperTests: XCTestCase {
             at: 7,
             commentText: "Second",
             author: "User",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -416,7 +417,7 @@ final class CommentInsertionHelperTests: XCTestCase {
             at: 5,
             commentText: "Test",
             author: "User",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -433,7 +434,7 @@ final class CommentInsertionHelperTests: XCTestCase {
             at: 5,
             commentText: "Test",
             author: "User",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -454,7 +455,7 @@ final class CommentInsertionHelperTests: XCTestCase {
             at: 0,
             commentText: "First",
             author: "User",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -463,7 +464,7 @@ final class CommentInsertionHelperTests: XCTestCase {
             at: 6,
             commentText: "Second",
             author: "User",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -472,7 +473,7 @@ final class CommentInsertionHelperTests: XCTestCase {
             at: 13,
             commentText: "Third",
             author: "User",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -509,7 +510,7 @@ final class CommentInsertionHelperTests: XCTestCase {
             at: 0,
             commentText: "Empty string comment",
             author: "User",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -525,7 +526,7 @@ final class CommentInsertionHelperTests: XCTestCase {
             at: 2,
             commentText: "",
             author: "User",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -542,7 +543,7 @@ final class CommentInsertionHelperTests: XCTestCase {
             at: 0,
             commentText: "1",
             author: "User",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         
@@ -551,7 +552,7 @@ final class CommentInsertionHelperTests: XCTestCase {
             at: 2,
             commentText: "2",
             author: "User",
-            textFileID: testFileID,
+            version: testVersion,
             context: modelContext
         )
         

@@ -204,17 +204,3 @@ struct PublicationsListView: View {
         prepareDelete(publications)
     }
 }
-
-#Preview("All Publications") {
-    NavigationStack {
-        PublicationsListView(project: Project(name: "Test Project"), publicationType: nil)
-            .modelContainer(for: [Project.self, Publication.self, Submission.self, SubmittedFile.self], inMemory: true)
-    }
-}
-
-#Preview("Magazines Only") {
-    NavigationStack {
-        PublicationsListView(project: Project(name: "Test Project"), publicationType: .magazine)
-            .modelContainer(for: [Project.self, Publication.self, Submission.self, SubmittedFile.self], inMemory: true)
-    }
-}

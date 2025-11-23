@@ -2,7 +2,7 @@
 //  FootnotesListView.swift
 //  Writing Shed Pro
 //
-//  Feature 017: Footnotes - List view for all document footnotes
+//  Feature 015: Footnotes - List view for all document footnotes
 //  Created by GitHub Copilot on 21/11/2025.
 //
 
@@ -19,7 +19,7 @@ struct FootnotesListView: View {
     
     // MARK: - Properties
     
-    let textFileID: UUID
+    let version: Version
     
     /// Callback when user wants to jump to a footnote in the text
     var onJumpToFootnote: ((FootnoteModel) -> Void)?
@@ -342,16 +342,8 @@ struct FootnotesListView: View {
     // MARK: - Actions
     
     private func loadFootnotes() {
-        let fetchDescriptor = FetchDescriptor<FootnoteModel>(
-            predicate: #Predicate { $0.textFileID == textFileID },
-            sortBy: [SortDescriptor(\.characterPosition)]
-        )
-        
-        do {
-            footnotes = try modelContext.fetch(fetchDescriptor)
-        } catch {
-            print("❌ Error loading footnotes: \(error)")
-        }
+        // Use the relationship directly - much more efficient!
+        footnotes = version.footnotes ?? []
     }
     
     private func startEditing(_ footnote: FootnoteModel) {
@@ -390,71 +382,4 @@ struct FootnotesListView: View {
         loadFootnotes()
         onFootnoteChanged?()
     }
-}
-
-// MARK: - Preview
-
-#Preview {
-    let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: FootnoteModel.self, configurations: config)
-    
-    let textFileID = UUID()
-    
-    // Add sample footnotes
-    let footnote1 = FootnoteModel(
-        textFileID: textFileID,
-        characterPosition: 100,
-        text: "This is the first footnote with additional information about the topic.",
-        number: 1
-    )
-    
-    let footnote2 = FootnoteModel(
-        textFileID: textFileID,
-        characterPosition: 250,
-        text: "Second footnote providing a citation: Smith, J. (2024). Writing Guide.",
-        number: 2
-    )
-    
-    let footnote3 = FootnoteModel(
-        textFileID: textFileID,
-        characterPosition: 500,
-        text: "Third footnote with more details about the methodology used in the research.",
-        number: 3
-    )
-    
-    container.mainContext.insert(footnote1)
-    container.mainContext.insert(footnote2)
-    container.mainContext.insert(footnote3)
-    
-    return FootnotesListView(textFileID: textFileID)
-        .modelContainer(container)
-}
-
-#Preview("With Deleted") {
-    let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: FootnoteModel.self, configurations: config)
-    
-    let textFileID = UUID()
-    
-    let footnote1 = FootnoteModel(
-        textFileID: textFileID,
-        characterPosition: 100,
-        text: "Active footnote 1",
-        number: 1
-    )
-    
-    let footnote2 = FootnoteModel(
-        textFileID: textFileID,
-        characterPosition: 250,
-        text: "This footnote was deleted",
-        number: 2,
-        isDeleted: true,
-        deletedAt: Date().addingTimeInterval(-3600)
-    )
-    
-    container.mainContext.insert(footnote1)
-    container.mainContext.insert(footnote2)
-    
-    return FootnotesListView(textFileID: textFileID)
-        .modelContainer(container)
 }

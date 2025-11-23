@@ -294,15 +294,4 @@ struct FormattingToolbar: View {
     }
 }
 
-// MARK: - Preview
 
-#Preview {
-    VStack {
-        Spacer()
-        
-        FormattingToolbar(
-            selectedRange: .constant(NSRange(location: 0, length: 0)),
-            attributedText: .constant(NSAttributedString(string: "Sample text"))
-        )
-    }
-}

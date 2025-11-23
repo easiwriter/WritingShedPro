@@ -2,7 +2,7 @@
 //  FootnoteDetailView.swift
 //  Writing Shed Pro
 //
-//  Feature 017: Footnotes
+//  Feature 015: Footnotes
 //  Created by GitHub Copilot on 21/11/2025.
 //
 
@@ -252,34 +252,4 @@ struct FootnoteDetailView: View {
         FootnoteManager.shared.permanentlyDeleteFootnote(footnote, context: modelContext)
         onDelete?()
     }
-}
-
-// MARK: - Preview
-
-#Preview {
-    let footnote = FootnoteModel(
-        textFileID: UUID(),
-        characterPosition: 100,
-        text: "This is a sample footnote with detailed information about a specific point in the document.",
-        number: 1
-    )
-    
-    return FootnoteDetailView(footnote: footnote)
-        .padding()
-        .frame(width: 400)
-}
-
-#Preview("Deleted Footnote") {
-    let footnote = FootnoteModel(
-        textFileID: UUID(),
-        characterPosition: 100,
-        text: "This footnote has been deleted and is in the trash.",
-        number: 3,
-        isDeleted: true,
-        deletedAt: Date()
-    )
-    
-    return FootnoteDetailView(footnote: footnote)
-        .padding()
-        .frame(width: 400)
 }

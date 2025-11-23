@@ -12,7 +12,7 @@ import SwiftData
 final class CommentModelTests: XCTestCase {
     
     var modelContext: ModelContext!
-    var testFileID: UUID!
+    var testVersion: Version!
     
     override func setUpWithError() throws {
         // Create in-memory model container for testing
@@ -27,26 +27,28 @@ final class CommentModelTests: XCTestCase {
         let container = try ModelContainer(for: schema, configurations: [config])
         modelContext = ModelContext(container)
         
-        testFileID = UUID()
+        // Create a test version
+        testVersion = Version(content: "Test content")
+        modelContext.insert(testVersion)
     }
     
     override func tearDownWithError() throws {
         modelContext = nil
-        testFileID = nil
+        testVersion = nil
     }
     
     // MARK: - Initialization Tests
     
     func testCommentInitialization() throws {
         let comment = CommentModel(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 10,
             text: "This is a test comment",
             author: "Test User"
         )
         
         XCTAssertNotNil(comment.id)
-        XCTAssertEqual(comment.textFileID, testFileID)
+        XCTAssertEqual(comment.version?.id, testVersion.id)
         XCTAssertEqual(comment.characterPosition, 10)
         XCTAssertEqual(comment.text, "This is a test comment")
         XCTAssertEqual(comment.author, "Test User")
@@ -57,7 +59,7 @@ final class CommentModelTests: XCTestCase {
     
     func testCommentWithDefaultValues() throws {
         let comment = CommentModel(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 0,
             text: "Comment",
             author: "User"
@@ -74,7 +76,7 @@ final class CommentModelTests: XCTestCase {
     
     func testResolveComment() throws {
         let comment = CommentModel(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 5,
             text: "Test",
             author: "User"
@@ -91,7 +93,7 @@ final class CommentModelTests: XCTestCase {
     
     func testReopenComment() throws {
         let comment = CommentModel(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 5,
             text: "Test",
             author: "User"
@@ -109,7 +111,7 @@ final class CommentModelTests: XCTestCase {
     
     func testResolveReopenCycle() throws {
         let comment = CommentModel(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 5,
             text: "Test",
             author: "User"
@@ -145,7 +147,7 @@ final class CommentModelTests: XCTestCase {
     
     func testUpdateText() throws {
         let comment = CommentModel(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 10,
             text: "Original text",
             author: "User"
@@ -160,7 +162,7 @@ final class CommentModelTests: XCTestCase {
     
     func testUpdateEmptyText() throws {
         let comment = CommentModel(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 10,
             text: "Original",
             author: "User"
@@ -175,7 +177,7 @@ final class CommentModelTests: XCTestCase {
     
     func testUpdatePosition() throws {
         let comment = CommentModel(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 10,
             text: "Test",
             author: "User"
@@ -190,7 +192,7 @@ final class CommentModelTests: XCTestCase {
     
     func testUpdatePositionToZero() throws {
         let comment = CommentModel(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 50,
             text: "Test",
             author: "User"
@@ -205,7 +207,7 @@ final class CommentModelTests: XCTestCase {
     
     func testSaveAndFetchComment() throws {
         let comment = CommentModel(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 15,
             text: "Persistent comment",
             author: "Test User"
@@ -226,31 +228,32 @@ final class CommentModelTests: XCTestCase {
     }
     
     func testFetchCommentsByFileID() throws {
-        let fileID1 = UUID()
-        let fileID2 = UUID()
+        let version1 = Version(content: "File 1 content")
+        let version2 = Version(content: "File 2 content")
+        modelContext.insert(version1)
+        modelContext.insert(version2)
         
         // Create comments for different files
-        let comment1 = CommentModel(textFileID: fileID1, characterPosition: 0, text: "File 1 Comment 1", author: "User")
-        let comment2 = CommentModel(textFileID: fileID1, characterPosition: 10, text: "File 1 Comment 2", author: "User")
-        let comment3 = CommentModel(textFileID: fileID2, characterPosition: 0, text: "File 2 Comment", author: "User")
+        let comment1 = CommentModel(version: version1, characterPosition: 0, text: "File 1 Comment 1", author: "User")
+        let comment2 = CommentModel(version: version1, characterPosition: 10, text: "File 1 Comment 2", author: "User")
+        let comment3 = CommentModel(version: version2, characterPosition: 0, text: "File 2 Comment", author: "User")
         
         modelContext.insert(comment1)
         modelContext.insert(comment2)
         modelContext.insert(comment3)
         try modelContext.save()
         
-        // Fetch comments for fileID1
-        let fetchDescriptor = FetchDescriptor<CommentModel>(
-            predicate: #Predicate { $0.textFileID == fileID1 }
-        )
-        let file1Comments = try modelContext.fetch(fetchDescriptor)
+        // Fetch comments for version1
+        let descriptor = FetchDescriptor<CommentModel>()
+        let allComments = try modelContext.fetch(descriptor)
+        let file1Comments = allComments.filter { $0.version?.id == version1.id }
         
         XCTAssertEqual(file1Comments.count, 2)
     }
     
     func testFetchResolvedComments() throws {
-        let comment1 = CommentModel(textFileID: testFileID, characterPosition: 0, text: "Active", author: "User")
-        let comment2 = CommentModel(textFileID: testFileID, characterPosition: 10, text: "Resolved", author: "User")
+        let comment1 = CommentModel(version: testVersion, characterPosition: 0, text: "Active", author: "User")
+        let comment2 = CommentModel(version: testVersion, characterPosition: 10, text: "Resolved", author: "User")
         comment2.resolve()
         
         modelContext.insert(comment1)
@@ -272,7 +275,7 @@ final class CommentModelTests: XCTestCase {
     func testVeryLongCommentText() throws {
         let longText = String(repeating: "A", count: 10000)
         let comment = CommentModel(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 0,
             text: longText,
             author: "User"
@@ -287,7 +290,7 @@ final class CommentModelTests: XCTestCase {
     func testSpecialCharactersInText() throws {
         let specialText = "Test with émojis 🎉 and spëcial çharåctérs!@#$%^&*()"
         let comment = CommentModel(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 0,
             text: specialText,
             author: "User"

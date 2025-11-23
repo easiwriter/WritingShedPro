@@ -2,7 +2,7 @@
 //  FootnoteManager.swift
 //  Writing Shed Pro
 //
-//  Feature 017: Footnotes
+//  Feature 015: Footnotes
 //  Created by GitHub Copilot on 21/11/2025.
 //
 
@@ -24,14 +24,14 @@ final class FootnoteManager: ObservableObject {
     
     /// Create a new footnote and save it to the database
     /// - Parameters:
-    ///   - textFileID: ID of the text file
+    ///   - version: The version to attach the footnote to
     ///   - characterPosition: Position in the document
     ///   - attachmentID: ID of the text attachment
     ///   - text: Footnote text content
     ///   - context: SwiftData model context
     /// - Returns: The created FootnoteModel
     func createFootnote(
-        textFileID: UUID,
+        version: Version,
         characterPosition: Int,
         attachmentID: UUID = UUID(),
         text: String,
@@ -39,13 +39,13 @@ final class FootnoteManager: ObservableObject {
     ) -> FootnoteModel {
         // Determine the footnote number based on current position
         let number = calculateFootnoteNumber(
-            forTextFile: textFileID,
+            forVersion: version,
             at: characterPosition,
             context: context
         )
         
         let footnote = FootnoteModel(
-            textFileID: textFileID,
+            version: version,
             characterPosition: characterPosition,
             attachmentID: attachmentID,
             text: text,
@@ -57,7 +57,7 @@ final class FootnoteManager: ObservableObject {
         do {
             try context.save()
             // Renumber all footnotes after insertion
-            renumberFootnotes(forTextFile: textFileID, context: context)
+            renumberFootnotes(forVersion: version, context: context)
         } catch {
             print("❌ Failed to save footnote: \(error)")
         }
@@ -116,7 +116,10 @@ final class FootnoteManager: ObservableObject {
     ///   - context: SwiftData model context
     func moveFootnoteToTrash(_ footnote: FootnoteModel, context: ModelContext) {
         let footnoteID = footnote.id
-        let textFileID = footnote.textFileID
+        guard let version = footnote.version else {
+            print("❌ Cannot move footnote to trash: no version relationship")
+            return
+        }
         
         // Set all properties at once
         footnote.isDeleted = true
@@ -136,7 +139,7 @@ final class FootnoteManager: ObservableObject {
         }
         
         // Renumber remaining footnotes after all saves complete
-        renumberFootnotes(forTextFile: textFileID, context: context)
+        renumberFootnotes(forVersion: version, context: context)
     }
     
     /// Restore footnote from trash
@@ -144,7 +147,10 @@ final class FootnoteManager: ObservableObject {
     ///   - footnote: The footnote to restore
     ///   - context: SwiftData model context
     func restoreFootnote(_ footnote: FootnoteModel, context: ModelContext) {
-        let textFileID = footnote.textFileID
+        guard let version = footnote.version else {
+            print("❌ Cannot restore footnote: no version relationship")
+            return
+        }
         
         // Set all properties at once
         footnote.isDeleted = false
@@ -164,7 +170,7 @@ final class FootnoteManager: ObservableObject {
         }
         
         // Renumber all footnotes after all saves complete
-        renumberFootnotes(forTextFile: textFileID, context: context)
+        renumberFootnotes(forVersion: version, context: context)
     }
     
     /// Permanently delete a footnote
@@ -186,16 +192,16 @@ final class FootnoteManager: ObservableObject {
     
     /// Calculate the appropriate footnote number for a new footnote at the given position
     /// - Parameters:
-    ///   - textFileID: ID of the text file
+    ///   - version: The version to calculate footnote number for
     ///   - characterPosition: Position where the footnote will be inserted
     ///   - context: SwiftData model context
     /// - Returns: The footnote number
     internal func calculateFootnoteNumber(
-        forTextFile textFileID: UUID,
+        forVersion version: Version,
         at characterPosition: Int,
         context: ModelContext
     ) -> Int {
-        let activeFootnotes = getActiveFootnotes(forTextFile: textFileID, context: context)
+        let activeFootnotes = getActiveFootnotes(forVersion: version, context: context)
         
         // Count how many footnotes come before this position
         let footnotesBeforeCount = activeFootnotes.filter { $0.characterPosition < characterPosition }.count
@@ -205,10 +211,10 @@ final class FootnoteManager: ObservableObject {
     
     /// Renumber all footnotes in a document based on their character positions
     /// - Parameters:
-    ///   - textFileID: ID of the text file
+    ///   - version: The version to renumber footnotes for
     ///   - context: SwiftData model context
-    func renumberFootnotes(forTextFile textFileID: UUID, context: ModelContext) {
-        let activeFootnotes = getActiveFootnotes(forTextFile: textFileID, context: context)
+    func renumberFootnotes(forVersion version: Version, context: ModelContext) {
+        let activeFootnotes = getActiveFootnotes(forVersion: version, context: context)
         
         // Sort by position
         let sortedFootnotes = activeFootnotes.sorted()
@@ -233,17 +239,17 @@ final class FootnoteManager: ObservableObject {
     
     /// Update footnote positions after text edits
     /// - Parameters:
-    ///   - textFileID: ID of the text file
+    ///   - version: The version to update footnote positions for
     ///   - editPosition: Where the edit occurred
     ///   - lengthDelta: Change in text length (positive for insertions, negative for deletions)
     ///   - context: SwiftData model context
     func updatePositionsAfterEdit(
-        textFileID: UUID,
+        version: Version,
         editPosition: Int,
         lengthDelta: Int,
         context: ModelContext
     ) {
-        let footnotes = getActiveFootnotes(forTextFile: textFileID, context: context)
+        let footnotes = getActiveFootnotes(forVersion: version, context: context)
         
         for footnote in footnotes {
             // Only update positions after the edit point
@@ -256,7 +262,7 @@ final class FootnoteManager: ObservableObject {
         do {
             try context.save()
             // Renumber in case order changed
-            renumberFootnotes(forTextFile: textFileID, context: context)
+            renumberFootnotes(forVersion: version, context: context)
         } catch {
             print("❌ Failed to update footnote positions: \(error)")
         }
@@ -264,58 +270,61 @@ final class FootnoteManager: ObservableObject {
     
     // MARK: - Query Methods
     
-    /// Get all footnotes for a specific text file (including deleted)
+    /// Get all footnotes for a specific version (including deleted)
     /// - Parameters:
-    ///   - textFileID: ID of the text file
+    ///   - version: The version to get footnotes for
     ///   - context: SwiftData model context
     /// - Returns: Array of footnotes sorted by position
-    func getAllFootnotes(forTextFile textFileID: UUID, context: ModelContext) -> [FootnoteModel] {
+    nonisolated func getAllFootnotes(forVersion version: Version, context: ModelContext) -> [FootnoteModel] {
+        // Use FetchDescriptor to query database directly instead of relying on cached relationship
+        let versionID = version.id
         let descriptor = FetchDescriptor<FootnoteModel>(
             predicate: #Predicate { footnote in
-                footnote.textFileID == textFileID
+                footnote.version?.id == versionID
             },
-            sortBy: [SortDescriptor(\.characterPosition)]
+            sortBy: [SortDescriptor(\.characterPosition, order: .forward)]
         )
-        
         return (try? context.fetch(descriptor)) ?? []
     }
     
-    /// Get active (not deleted) footnotes for a text file
+    /// Get active (not deleted) footnotes for a version
     /// - Parameters:
-    ///   - textFileID: ID of the text file
+    ///   - version: The version to get footnotes for
     ///   - context: SwiftData model context
     /// - Returns: Array of active footnotes sorted by position
-    func getActiveFootnotes(forTextFile textFileID: UUID, context: ModelContext) -> [FootnoteModel] {
+    nonisolated func getActiveFootnotes(forVersion version: Version, context: ModelContext) -> [FootnoteModel] {
+        // Use FetchDescriptor to query database directly instead of relying on cached relationship
+        let versionID = version.id
         let descriptor = FetchDescriptor<FootnoteModel>(
             predicate: #Predicate { footnote in
-                footnote.textFileID == textFileID && footnote.isDeleted == false
+                footnote.version?.id == versionID && footnote.isDeleted == false
             },
-            sortBy: [SortDescriptor(\.characterPosition)]
+            sortBy: [SortDescriptor(\.characterPosition, order: .forward)]
         )
-        
         return (try? context.fetch(descriptor)) ?? []
     }
     
-    /// Get deleted footnotes for a text file (in trash)
+    /// Get deleted footnotes for a version (in trash)
     /// - Parameters:
-    ///   - textFileID: ID of the text file
+    ///   - version: The version to get deleted footnotes for
     ///   - context: SwiftData model context
     /// - Returns: Array of deleted footnotes sorted by deletion date
-    func getDeletedFootnotes(forTextFile textFileID: UUID, context: ModelContext) -> [FootnoteModel] {
+    nonisolated func getDeletedFootnotes(forVersion version: Version, context: ModelContext) -> [FootnoteModel] {
+        // Use FetchDescriptor to query database directly instead of relying on cached relationship
+        let versionID = version.id
         let descriptor = FetchDescriptor<FootnoteModel>(
             predicate: #Predicate { footnote in
-                footnote.textFileID == textFileID && footnote.isDeleted == true
+                footnote.version?.id == versionID && footnote.isDeleted == true
             },
             sortBy: [SortDescriptor(\.deletedAt, order: .reverse)]
         )
-        
         return (try? context.fetch(descriptor)) ?? []
     }
     
     /// Get all deleted footnotes across all files (for trash view)
     /// - Parameter context: SwiftData model context
     /// - Returns: Array of deleted footnotes sorted by deletion date
-    func getAllDeletedFootnotes(context: ModelContext) -> [FootnoteModel] {
+    nonisolated func getAllDeletedFootnotes(context: ModelContext) -> [FootnoteModel] {
         let descriptor = FetchDescriptor<FootnoteModel>(
             predicate: #Predicate { footnote in
                 footnote.isDeleted == true
@@ -326,27 +335,27 @@ final class FootnoteManager: ObservableObject {
         return (try? context.fetch(descriptor)) ?? []
     }
     
-    /// Get footnote count for a text file
+    /// Get footnote count for a version
     /// - Parameters:
-    ///   - textFileID: ID of the text file
+    ///   - version: The version to get footnote count for
     ///   - includeDeleted: Whether to include deleted footnotes
     ///   - context: SwiftData model context
     /// - Returns: Number of footnotes
-    func getFootnoteCount(forTextFile textFileID: UUID, includeDeleted: Bool = false, context: ModelContext) -> Int {
+    nonisolated func getFootnoteCount(forVersion version: Version, includeDeleted: Bool = false, context: ModelContext) -> Int {
         if includeDeleted {
-            return getAllFootnotes(forTextFile: textFileID, context: context).count
+            return getAllFootnotes(forVersion: version, context: context).count
         } else {
-            return getActiveFootnotes(forTextFile: textFileID, context: context).count
+            return getActiveFootnotes(forVersion: version, context: context).count
         }
     }
     
-    /// Get the next available footnote number for a text file
+    /// Get the next available footnote number for a version
     /// - Parameters:
-    ///   - textFileID: ID of the text file
+    ///   - version: The version to get next footnote number for
     ///   - context: SwiftData model context
     /// - Returns: The next sequential number
-    func getNextFootnoteNumber(forTextFile textFileID: UUID, context: ModelContext) -> Int {
-        let activeFootnotes = getActiveFootnotes(forTextFile: textFileID, context: context)
+    func getNextFootnoteNumber(forVersion version: Version, context: ModelContext) -> Int {
+        let activeFootnotes = getActiveFootnotes(forVersion: version, context: context)
         return activeFootnotes.count + 1
     }
 }

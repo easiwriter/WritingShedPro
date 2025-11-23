@@ -116,6 +116,14 @@ final class Version {
     // SwiftData Relationships
     var textFile: TextFile?
     
+    // Feature 014: Comments - Version-specific annotations
+    @Relationship(deleteRule: .cascade, inverse: \CommentModel.version)
+    var comments: [CommentModel]? = []
+    
+    // Feature 015: Footnotes - Version-specific annotations
+    @Relationship(deleteRule: .cascade, inverse: \FootnoteModel.version)
+    var footnotes: [FootnoteModel]? = []
+    
     // Feature 008b: Publication Management
     @Relationship(deleteRule: .nullify, inverse: \SubmittedFile.version) 
     var submittedFiles: [SubmittedFile]? = []
@@ -148,6 +156,7 @@ final class Version {
             
             // No formatted content - return plain text
             guard let data = formattedContent, !data.isEmpty else {
+                print("[Version] ⚠️ No formattedContent, returning plain text")
                 // Fall back to plain text with body font and textStyle attribute if no formatted content
                 let plainText = NSAttributedString(
                     string: content,
@@ -165,7 +174,17 @@ final class Version {
             // Try to decode as RTF first (for legacy imports)
             // Legacy imports from Writing Shed 1.0 store RTF data with font scaling
             if let rtfDecoded = AttributedStringSerializer.fromLegacyRTF(data) {
+                // DEBUG: Check what traits are in the final result being returned
+                var boldCount = 0
+                var italicCount = 0
+                rtfDecoded.enumerateAttribute(.font, in: NSRange(location: 0, length: rtfDecoded.length)) { value, _, _ in
+                    if let font = value as? UIFont {
+                        if font.fontDescriptor.symbolicTraits.contains(.traitBold) { boldCount += 1 }
+                        if font.fontDescriptor.symbolicTraits.contains(.traitItalic) { italicCount += 1 }
+                    }
+                }
                 print("[Version] Successfully decoded legacy RTF data (\(data.count) bytes)")
+                print("[Version] 🎯 RETURNING attributed content with \(boldCount) bold ranges, \(italicCount) italic ranges")
                 // Cache the result
                 _cachedAttributedContent = rtfDecoded
                 _cachedFormattedContentHash = data
@@ -174,7 +193,17 @@ final class Version {
             
             // Fall back to JSON format (for current app format)
             // If decoding fails, it will return plain text with default formatting
+            print("[Version] 📦 Trying JSON decode (not legacy RTF)")
             let decoded = AttributedStringSerializer.decode(data, text: content)
+            
+            // DEBUG: Check traits in JSON decoded result
+            var boldCount = 0
+            decoded.enumerateAttribute(.font, in: NSRange(location: 0, length: decoded.length)) { value, _, _ in
+                if let font = value as? UIFont {
+                    if font.fontDescriptor.symbolicTraits.contains(.traitBold) { boldCount += 1 }
+                }
+            }
+            print("[Version] 📦 JSON decoded has \(boldCount) bold ranges")
             
             // If decode returned empty or very short content, but we have plain text content, fall back
             if decoded.length < content.count / 2 && !content.isEmpty {
@@ -194,6 +223,7 @@ final class Version {
             // Cache the result
             _cachedAttributedContent = decoded
             _cachedFormattedContentHash = data
+            print("[Version] 🎯 RETURNING JSON decoded content with \(boldCount) bold ranges")
             
             return decoded
         }

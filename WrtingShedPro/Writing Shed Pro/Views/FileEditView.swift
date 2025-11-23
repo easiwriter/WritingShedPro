@@ -42,7 +42,7 @@ struct FileEditView: View {
     @State private var newCommentText: String = ""
     @State private var selectedCommentForDetail: CommentModel?
     
-    // Feature 017: Footnotes
+    // Feature 015: Footnotes
     @State private var showFootnotesList = false
     @State private var showNewFootnoteDialog = false
     @State private var newFootnoteText: String = ""
@@ -406,17 +406,19 @@ struct FileEditView: View {
                 insertNewFootnote: insertNewFootnote
             ))
             .sheet(isPresented: $showCommentsList) {
-                CommentsListView(
-                    textFileID: file.id,
-                    onJumpToComment: { comment in
-                        jumpToComment(comment)
-                    },
-                    onCommentResolvedChanged: { comment in
-                        // Comment resolved state was changed in the list
-                        // Update the visual marker in the text
-                        refreshCommentMarker(comment)
-                    }
-                )
+                if let currentVersion = file.currentVersion {
+                    CommentsListView(
+                        version: currentVersion,
+                        onJumpToComment: { comment in
+                            jumpToComment(comment)
+                        },
+                        onCommentResolvedChanged: { comment in
+                            // Comment resolved state was changed in the list
+                            // Update the visual marker in the text
+                            refreshCommentMarker(comment)
+                        }
+                    )
+                }
             }
             .sheet(item: $selectedCommentForDetail) { comment in
                 NavigationView {
@@ -444,19 +446,21 @@ struct FileEditView: View {
                 .presentationDetents([.medium, .large])
             }
             .sheet(isPresented: $showFootnotesList) {
-                FootnotesListView(
-                    textFileID: file.id,
-                    onJumpToFootnote: { footnote in
-                        jumpToFootnote(footnote)
-                    },
-                    onDismiss: {
-                        showFootnotesList = false
-                    },
-                    onFootnoteChanged: {
-                        // Footnote was updated, refresh display
-                        saveChanges()
-                    }
-                )
+                if let currentVersion = file.currentVersion {
+                    FootnotesListView(
+                        version: currentVersion,
+                        onJumpToFootnote: { footnote in
+                            jumpToFootnote(footnote)
+                        },
+                        onDismiss: {
+                            showFootnotesList = false
+                        },
+                        onFootnoteChanged: {
+                            // Footnote was updated, refresh display
+                            saveChanges()
+                        }
+                    )
+                }
             }
             .sheet(item: $selectedFootnoteForDetail) { footnote in
                 NavigationView {
@@ -630,8 +634,18 @@ struct FileEditView: View {
         // Set typing attributes from current content or stylesheet
         if let project = file.project {
             if attributedContent.length > 0 {
-                print("📝 onAppear: Reapplying styles to pick up any changes")
-                reapplyAllStyles()
+                // CRITICAL: Don't reapply styles to legacy RTF documents!
+                // Legacy imports have direct formatting (bold/italic) baked in, not stylesheet styles
+                // Reapplying styles would destroy all the bold/italic formatting
+                let isLegacyRTF = file.currentVersion?.formattedContent != nil && 
+                                  file.currentVersion?.formattedContent?.count ?? 0 > 0
+                
+                if !isLegacyRTF {
+                    print("📝 onAppear: Reapplying styles to pick up any changes")
+                    reapplyAllStyles()
+                } else {
+                    print("📝 onAppear: Skipping style reapply for legacy RTF document (preserves direct formatting)")
+                }
                 
                 let attrs = attributedContent.attributes(at: 0, effectiveRange: nil)
                 textViewCoordinator.modifyTypingAttributes { textView in
@@ -867,6 +881,10 @@ struct FileEditView: View {
     
     private func insertNewComment() {
         guard !newCommentText.isEmpty else { return }
+        guard let currentVersion = file.currentVersion else {
+            print("❌ Cannot insert comment: no current version")
+            return
+        }
         
         // Insert comment at cursor position
         if let textView = textViewCoordinator.textView {
@@ -874,7 +892,7 @@ struct FileEditView: View {
                 in: textView,
                 commentText: newCommentText,
                 author: "User", // TODO: Get actual user name
-                textFileID: file.id,
+                version: currentVersion,
                 context: modelContext
             )
             
@@ -893,13 +911,17 @@ struct FileEditView: View {
     
     private func insertNewFootnote() {
         guard !newFootnoteText.isEmpty else { return }
+        guard let currentVersion = file.currentVersion else {
+            print("❌ Cannot insert footnote: no current version")
+            return
+        }
         
         // Insert footnote at cursor position
         if let textView = textViewCoordinator.textView {
             let footnote = FootnoteInsertionHelper.insertFootnoteAtCursor(
                 in: textView,
                 footnoteText: newFootnoteText,
-                textFileID: file.id,
+                version: currentVersion,
                 context: modelContext
             )
             
@@ -1039,26 +1061,20 @@ struct FileEditView: View {
     private func restoreOrphanedCommentMarkers() {
         print("💬🔧 Checking for orphaned comment markers...")
         
-        // Get all comments for this file from the database
-        let fileID = file.id  // Capture file ID for use in predicate
-        let descriptor = FetchDescriptor<CommentModel>(
-            predicate: #Predicate<CommentModel> { comment in
-                comment.textFileID == fileID
-            },
-            sortBy: [SortDescriptor(\.characterPosition)]
-        )
-        
-        guard let allComments = try? modelContext.fetch(descriptor) else {
-            print("💬🔧 Could not fetch comments from database")
+        // Get all comments for this version from the relationship
+        guard let currentVersion = file.currentVersion else {
+            print("💬🔧 No current version available")
             return
         }
+        
+        let allComments = currentVersion.comments ?? []
         
         guard !allComments.isEmpty else {
-            print("💬🔧 No comments found in database")
+            print("💬🔧 No comments found in version")
             return
         }
         
-        print("💬🔧 Found \(allComments.count) comments in database")
+        print("💬🔧 Found \(allComments.count) comments in version")
         
         // Check which comments are missing from the attributed text
         let mutableText = NSMutableAttributedString(attributedString: attributedContent)
@@ -2270,29 +2286,5 @@ private struct NewFootnoteSheet: View {
                 }
             }
         }
-    }
-}
-
-#Preview {
-    do {
-        let config = ModelConfiguration(isStoredInMemoryOnly: true)
-        let container = try ModelContainer(for: Project.self, Folder.self, TextFile.self, configurations: config)
-        let context = container.mainContext
-        
-        let project = Project(name: "Sample Project", type: .novel)
-        context.insert(project)
-        
-        let folder = Folder(name: "Draft", project: project)
-        context.insert(folder)
-        
-        let file = TextFile(name: "Chapter 1", initialContent: "Once upon a time...", parentFolder: folder)
-        context.insert(file)
-        
-        return NavigationStack {
-            FileEditView(file: file)
-                .modelContainer(container)
-        }
-    } catch {
-        return Text(String(format: NSLocalizedString("fileEdit.previewError", comment: "Preview creation error"), error.localizedDescription))
     }
 }

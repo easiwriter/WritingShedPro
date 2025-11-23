@@ -24,7 +24,7 @@ final class CommentManager: ObservableObject {
     
     /// Create a new comment and save it to the database
     /// - Parameters:
-    ///   - textFileID: ID of the text file
+    ///   - version: The version this comment belongs to
     ///   - characterPosition: Position in the document
     ///   - attachmentID: ID of the text attachment
     ///   - text: Comment text content
@@ -32,7 +32,7 @@ final class CommentManager: ObservableObject {
     ///   - context: SwiftData model context
     /// - Returns: The created CommentModel
     func createComment(
-        textFileID: UUID,
+        version: Version,
         characterPosition: Int,
         attachmentID: UUID = UUID(),
         text: String,
@@ -40,7 +40,7 @@ final class CommentManager: ObservableObject {
         context: ModelContext
     ) -> CommentModel {
         let comment = CommentModel(
-            textFileID: textFileID,
+            version: version,
             characterPosition: characterPosition,
             attachmentID: attachmentID,
             text: text,
@@ -149,17 +149,17 @@ final class CommentManager: ObservableObject {
     
     /// Update comment positions after text edits
     /// - Parameters:
-    ///   - textFileID: ID of the text file
+    ///   - version: The version being edited
     ///   - editPosition: Where the edit occurred
     ///   - lengthDelta: Change in text length (positive for insertions, negative for deletions)
     ///   - context: SwiftData model context
     func updatePositionsAfterEdit(
-        textFileID: UUID,
+        version: Version,
         editPosition: Int,
         lengthDelta: Int,
         context: ModelContext
     ) {
-        let comments = getComments(forTextFile: textFileID, context: context)
+        let comments = getComments(forVersion: version, context: context)
         
         for comment in comments {
             // Only update positions after the edit point
@@ -178,65 +178,68 @@ final class CommentManager: ObservableObject {
     
     // MARK: - Query Methods
     
-    /// Get all comments for a specific text file
+    /// Get all comments for a specific version
     /// - Parameters:
-    ///   - textFileID: ID of the text file
+    ///   - version: The version to get comments for
     ///   - context: SwiftData model context
     /// - Returns: Array of comments sorted by position
-    func getComments(forTextFile textFileID: UUID, context: ModelContext) -> [CommentModel] {
+    func getComments(forVersion version: Version, context: ModelContext) -> [CommentModel] {
+        // Use FetchDescriptor to query database directly instead of relying on cached relationship
+        let versionID = version.id
         let descriptor = FetchDescriptor<CommentModel>(
             predicate: #Predicate { comment in
-                comment.textFileID == textFileID
+                comment.version?.id == versionID
             },
-            sortBy: [SortDescriptor(\.characterPosition)]
+            sortBy: [SortDescriptor(\.characterPosition, order: .forward)]
         )
-        
         return (try? context.fetch(descriptor)) ?? []
     }
     
-    /// Get active (unresolved) comments for a text file
+    /// Get active (unresolved) comments for a version
     /// - Parameters:
-    ///   - textFileID: ID of the text file
+    ///   - version: The version to get comments for
     ///   - context: SwiftData model context
     /// - Returns: Array of active comments sorted by position
-    func getActiveComments(forTextFile textFileID: UUID, context: ModelContext) -> [CommentModel] {
+    func getActiveComments(forVersion version: Version, context: ModelContext) -> [CommentModel] {
+        // Use FetchDescriptor to query database directly instead of relying on cached relationship
+        let versionID = version.id
         let descriptor = FetchDescriptor<CommentModel>(
             predicate: #Predicate { comment in
-                comment.textFileID == textFileID && comment.resolvedAt == nil
+                comment.version?.id == versionID && comment.resolvedAt == nil
             },
-            sortBy: [SortDescriptor(\.characterPosition)]
+            sortBy: [SortDescriptor(\.characterPosition, order: .forward)]
         )
-        
         return (try? context.fetch(descriptor)) ?? []
     }
     
-    /// Get resolved comments for a text file
+    /// Get resolved comments for a version
     /// - Parameters:
-    ///   - textFileID: ID of the text file
+    ///   - version: The version to get comments for
     ///   - context: SwiftData model context
     /// - Returns: Array of resolved comments sorted by position
-    func getResolvedComments(forTextFile textFileID: UUID, context: ModelContext) -> [CommentModel] {
+    func getResolvedComments(forVersion version: Version, context: ModelContext) -> [CommentModel] {
+        // Use FetchDescriptor to query database directly instead of relying on cached relationship
+        let versionID = version.id
         let descriptor = FetchDescriptor<CommentModel>(
             predicate: #Predicate { comment in
-                comment.textFileID == textFileID && comment.resolvedAt != nil
+                comment.version?.id == versionID && comment.resolvedAt != nil
             },
-            sortBy: [SortDescriptor(\.characterPosition)]
+            sortBy: [SortDescriptor(\.characterPosition, order: .forward)]
         )
-        
         return (try? context.fetch(descriptor)) ?? []
     }
     
-    /// Get comment count for a text file
+    /// Get comment count for a version
     /// - Parameters:
-    ///   - textFileID: ID of the text file
+    ///   - version: The version to get comments for
     ///   - includeResolved: Whether to include resolved comments
     ///   - context: SwiftData model context
     /// - Returns: Number of comments
-    func getCommentCount(forTextFile textFileID: UUID, includeResolved: Bool = true, context: ModelContext) -> Int {
+    func getCommentCount(forVersion version: Version, includeResolved: Bool = true, context: ModelContext) -> Int {
         if includeResolved {
-            return getComments(forTextFile: textFileID, context: context).count
+            return version.comments?.count ?? 0
         } else {
-            return getActiveComments(forTextFile: textFileID, context: context).count
+            return getActiveComments(forVersion: version, context: context).count
         }
     }
 }

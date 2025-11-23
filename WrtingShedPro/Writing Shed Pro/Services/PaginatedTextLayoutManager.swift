@@ -8,6 +8,7 @@
 
 import Foundation
 import UIKit
+import SwiftData
 
 /// Manages the text layout for paginated document view
 /// Uses NSLayoutManager to calculate how text flows across pages
@@ -266,6 +267,103 @@ class PaginatedTextLayoutManager {
     /// Time taken for last layout calculation
     var lastCalculationTime: TimeInterval? {
         return layoutResult?.calculationTime
+    }
+    
+    // MARK: - Footnote Support
+    
+    /// Get all footnotes that appear on a specific page
+    /// - Parameters:
+    ///   - pageNumber: Zero-based page index
+    ///   - version: The version to get footnotes for
+    ///   - context: SwiftData model context
+    /// - Returns: Array of footnotes appearing on this page, sorted by position
+    func getFootnotesForPage(_ pageNumber: Int, version: Version, context: ModelContext) -> [FootnoteModel] {
+        // Get text range for this page
+        guard let textRange = characterRange(forPage: pageNumber) else {
+            return []
+        }
+        
+        // Get all active footnotes for version
+        let allFootnotes = FootnoteManager.shared.getActiveFootnotes(forVersion: version, context: context)
+        
+        // Filter to footnotes within this page's text range
+        return allFootnotes.filter { footnote in
+            NSLocationInRange(footnote.characterPosition, textRange)
+        }
+    }
+    
+    /// Calculate the height needed to display footnotes on a page
+    /// - Parameters:
+    ///   - footnotes: Array of footnotes to display
+    ///   - pageWidth: Width of the page content area
+    /// - Returns: Total height needed in points
+    func calculateFootnoteHeight(for footnotes: [FootnoteModel], pageWidth: CGFloat) -> CGFloat {
+        guard !footnotes.isEmpty else { return 0 }
+        
+        // Separator line (1.5 inches = 108pt) + 10pt spacing above and below
+        let separatorHeight: CGFloat = 30
+        
+        // Calculate height for each footnote
+        let footnoteTextHeight = footnotes.reduce(0) { total, footnote in
+            let textHeight = estimateTextHeight(footnote.text, width: pageWidth - 20) // Account for number spacing
+            return total + textHeight + 4 // 4pt spacing between footnotes
+        }
+        
+        return separatorHeight + footnoteTextHeight
+    }
+    
+    /// Estimate the height needed to render text at a given width
+    /// - Parameters:
+    ///   - text: The text to measure
+    ///   - width: Available width
+    /// - Returns: Estimated height in points
+    private func estimateTextHeight(_ text: String, width: CGFloat) -> CGFloat {
+        let font = UIFont.systemFont(ofSize: 10) // Footnote font size
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: font
+        ]
+        
+        let attributedText = NSAttributedString(string: text, attributes: attributes)
+        let boundingRect = attributedText.boundingRect(
+            with: CGSize(width: width, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            context: nil
+        )
+        
+        return ceil(boundingRect.height)
+    }
+    
+    /// Get the content area for a page, adjusted for footnotes if present
+    /// - Parameters:
+    ///   - pageNumber: Zero-based page index
+    ///   - version: The version to check for footnotes
+    ///   - context: SwiftData model context
+    /// - Returns: Content rect adjusted for footnote space, or nil if page invalid
+    func getContentArea(forPage pageNumber: Int, version: Version, context: ModelContext) -> CGRect? {
+        // Validate page number
+        guard pageNumber >= 0 && pageNumber < pageCount else {
+            return nil
+        }
+        
+        // Get base content area from page layout
+        let pageLayout = PageLayoutCalculator.calculateLayout(from: pageSetup)
+        var contentArea = pageLayout.contentRect
+        
+        // Get footnotes for this page
+        let footnotes = getFootnotesForPage(pageNumber, version: version, context: context)
+        
+        if footnotes.isEmpty {
+            return contentArea
+        }
+        
+        // Calculate space needed for footnotes
+        let footnoteHeight = calculateFootnoteHeight(for: footnotes, pageWidth: contentArea.width)
+        
+        // Reduce content area height to make room for footnotes
+        // Add 20pt buffer between body text and footnotes
+        contentArea.size.height = max(0, contentArea.size.height - footnoteHeight - 20)
+        
+        return contentArea
     }
     
     // MARK: - Private Methods

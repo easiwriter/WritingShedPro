@@ -569,6 +569,19 @@ struct AttributedStringSerializer {
                 documentAttributes: nil
             )
             
+            // DEBUG: Log traits in RTF before scaling
+            if scaleFonts {
+                var boldCount = 0
+                var italicCount = 0
+                rtfString.enumerateAttribute(.font, in: NSRange(location: 0, length: rtfString.length)) { value, _, _ in
+                    if let font = value as? UIFont {
+                        if font.fontDescriptor.symbolicTraits.contains(.traitBold) { boldCount += 1 }
+                        if font.fontDescriptor.symbolicTraits.contains(.traitItalic) { italicCount += 1 }
+                    }
+                }
+                print("📝 fromRTF: Decoded RTF has \(boldCount) bold ranges, \(italicCount) italic ranges")
+            }
+            
             // Optionally scale fonts for legacy imports (Writing Shed 1.0 used smaller Mac fonts)
             // iOS/iPadOS needs larger scaling - 1.8x (80% increase) for comfortable reading
             // This matches the typical zoom level users prefer (130% of 1.4x ≈ 1.8x)
@@ -592,10 +605,16 @@ struct AttributedStringSerializer {
     
     /// Scale all fonts in an attributed string by a factor
     /// Used for legacy imports where Mac font sizes need iOS adjustment
+    /// 
+    /// DESIGN: The scaling is purely for readability, not semantic meaning:
+    /// - All text is marked as .body style regardless of final font size
+    /// - Bold/italic/underline traits are preserved in the UIFont
+    /// - The .textStyle attribute ensures text is treated as Body, not matched by size
+    /// 
     /// - Parameters:
     ///   - attributedString: The attributed string to scale
     ///   - scaleFactor: Multiplicative scale factor (e.g., 1.8 for 80% increase)
-    /// - Returns: New attributed string with scaled fonts
+    /// - Returns: New attributed string with scaled fonts and .textStyle = .body attributes
     static func scaleFonts(_ attributedString: NSAttributedString, scaleFactor: CGFloat) -> NSAttributedString {
         guard scaleFactor != 1.0 && attributedString.length > 0 else {
             return attributedString
@@ -604,12 +623,52 @@ struct AttributedStringSerializer {
         let mutableString = NSMutableAttributedString(attributedString: attributedString)
         let range = NSRange(location: 0, length: mutableString.length)
         
+        var boldRangesBefore = 0
+        var italicRangesBefore = 0
+        var boldRangesAfter = 0
+        var italicRangesAfter = 0
+        
+        // Count traits BEFORE scaling
+        mutableString.enumerateAttribute(.font, in: range, options: []) { value, _, _ in
+            if let font = value as? UIFont {
+                if font.fontDescriptor.symbolicTraits.contains(.traitBold) { boldRangesBefore += 1 }
+                if font.fontDescriptor.symbolicTraits.contains(.traitItalic) { italicRangesBefore += 1 }
+            }
+        }
+        
         mutableString.enumerateAttribute(.font, in: range, options: []) { value, range, _ in
             if let font = value as? UIFont {
                 let newSize = font.pointSize * scaleFactor
-                let scaledFont = font.withSize(newSize)
+                
+                // CRITICAL: Preserve symbolic traits (bold, italic) when scaling
+                // UIFont.withSize() loses traits, so we must use the font descriptor
+                let descriptor = font.fontDescriptor
+                let scaledDescriptor = descriptor.withSize(newSize)
+                let scaledFont = UIFont(descriptor: scaledDescriptor, size: newSize)
+                
                 mutableString.addAttribute(.font, value: scaledFont, range: range)
+                
+                // IMPORTANT: Set .textStyle = .body for all legacy imported text
+                // The 1.8x scaling is purely for readability (Mac 12pt → iOS 21.6pt)
+                // This should NOT affect semantic meaning - all body text should remain Body style
+                // The .textStyle attribute takes priority over font-size-based style matching
+                // Bold/italic/underline traits are preserved in the scaled font descriptor
+                mutableString.addAttribute(.textStyle, value: UIFont.TextStyle.body.attributeValue, range: range)
             }
+        }
+        
+        // Count traits AFTER scaling
+        mutableString.enumerateAttribute(.font, in: range, options: []) { value, _, _ in
+            if let font = value as? UIFont {
+                if font.fontDescriptor.symbolicTraits.contains(.traitBold) { boldRangesAfter += 1 }
+                if font.fontDescriptor.symbolicTraits.contains(.traitItalic) { italicRangesAfter += 1 }
+            }
+        }
+        
+        print("📝 scaleFonts: BEFORE: \(boldRangesBefore) bold, \(italicRangesBefore) italic | AFTER: \(boldRangesAfter) bold, \(italicRangesAfter) italic")
+        
+        if boldRangesBefore != boldRangesAfter || italicRangesBefore != italicRangesAfter {
+            print("⚠️ WARNING: Trait counts changed during scaling!")
         }
         
         return mutableString

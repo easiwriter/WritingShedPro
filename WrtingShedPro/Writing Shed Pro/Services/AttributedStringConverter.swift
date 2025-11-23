@@ -47,16 +47,33 @@ class AttributedStringConverter {
     /// - Parameter attributedString: The NSAttributedString to convert
     /// - Returns: RTF data or nil if conversion fails
     private static func convertToRTF(_ attributedString: NSAttributedString) -> Data? {
+        // DEBUG: Log traits BEFORE conversion
+        var boldCount = 0
+        var italicCount = 0
+        attributedString.enumerateAttribute(.font, in: NSRange(location: 0, length: attributedString.length)) { value, range, _ in
+            if let font = value as? UIFont {
+                if font.fontDescriptor.symbolicTraits.contains(.traitBold) {
+                    boldCount += 1
+                }
+                if font.fontDescriptor.symbolicTraits.contains(.traitItalic) {
+                    italicCount += 1
+                }
+            }
+        }
+        print("[AttributedStringConverter] BEFORE RTF conversion: \(boldCount) bold ranges, \(italicCount) italic ranges")
+        
         do {
             let range = NSRange(location: 0, length: attributedString.length)
             let rtfData = try attributedString.data(
                 from: range,
                 documentAttributes: [.documentType: NSAttributedString.DocumentType.rtf]
             )
+            print("[AttributedStringConverter] RTF conversion successful: \(rtfData.count) bytes")
             return rtfData
         } catch {
             // RTF conversion failed, return nil
             // Caller will use plain text fallback
+            print("[AttributedStringConverter] RTF conversion failed: \(error)")
             return nil
         }
     }

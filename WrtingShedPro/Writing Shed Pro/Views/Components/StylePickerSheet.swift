@@ -196,13 +196,4 @@ private struct StylePreviewRow: View {
     }
 }
 
-// MARK: - Preview
 
-#Preview {
-    StylePickerSheet(
-        currentStyle: .constant(.body),
-        onStyleSelected: { style in
-            print("Selected style: \(style)")
-        }
-    )
-}

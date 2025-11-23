@@ -2,7 +2,7 @@
 //  FootnoteAttachmentTests.swift
 //  Writing Shed Pro Tests
 //
-//  Feature 017: Footnotes - Unit tests for FootnoteAttachment
+//  Feature 015: Footnotes - Unit tests for FootnoteAttachment
 //
 
 import XCTest

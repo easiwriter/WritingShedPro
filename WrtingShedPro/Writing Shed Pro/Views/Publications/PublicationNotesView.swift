@@ -49,17 +49,3 @@ struct PublicationNotesView: View {
         }
     }
 }
-
-#Preview("Magazine with notes") {
-    let publication = Publication(
-        name: "OWP",
-        type: .magazine,
-        notes: """
-        OBSESSED WITH PIPEWORK is a stapled A5 quarterly magazine of new poetry begun in Autumn 1997 as an essential complement to Flarestack Publishing's poetry pamphlet programme, to provide a platform for established or beginning writers' poems that surprise and delight.
-        
-        Subscription
-        Subscriptions cost £12 for four issues by post. Publication dates are normally at the beginning of January, April, July and October.
-        """
-    )
-    return PublicationNotesView(publication: publication)
-}

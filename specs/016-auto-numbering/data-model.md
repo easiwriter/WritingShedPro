@@ -1,4 +1,4 @@
-# Feature 018: Automatic Paragraph Numbering - Data Model
+# Feature 016: Automatic Paragraph Numbering - Data Model
 
 ## Core Models
 

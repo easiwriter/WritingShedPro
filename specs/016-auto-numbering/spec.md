@@ -1,4 +1,4 @@
-# Feature 018: Automatic Paragraph Numbering
+# Feature 016: Automatic Paragraph Numbering
 
 ## Overview
 Writing Shed Pro provides comprehensive automatic numbering for all paragraph styles, enabling structured documents like outlines, legal documents, technical manuals, and academic papers.
@@ -255,11 +255,11 @@ Add numbering configuration section:
 
 - Feature 005: Text Formatting (paragraph styles)
 - Feature 003: Text File Creation (document structure)
-- Feature 017: Footnotes (uses basic numbering)
+- Feature 015: Footnotes (uses basic numbering)
 
 ## Related Features
 
-- Feature 017: Footnotes (consumer of numbering system)
+- Feature 015: Footnotes (consumer of numbering system)
 - Feature 019: Table of Contents (may use numbering)
 - Feature 020: Outlining (benefits from hierarchical numbering)
 

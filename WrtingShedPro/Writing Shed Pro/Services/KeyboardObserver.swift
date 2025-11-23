@@ -180,69 +180,6 @@ enum ToolbarPosition {
     case top
 }
 
-// MARK: - Preview
-
-#Preview {
-    struct PreviewWrapper: View {
-        @StateObject private var keyboardObserver = KeyboardObserver()
-        @State private var text = ""
-        
-        var body: some View {
-            VStack(spacing: 20) {
-                Text("Keyboard Observer Demo")
-                    .font(.headline)
-                
-                GroupBox("Status") {
-                    VStack(alignment: .leading, spacing: 8) {
-                        StatusRow(label: "Keyboard Visible", value: keyboardObserver.isKeyboardVisible)
-                        StatusRow(label: "On-Screen Keyboard", value: keyboardObserver.isOnScreenKeyboard)
-                        StatusRow(label: "External Keyboard", value: keyboardObserver.isExternalKeyboard)
-                        
-                        HStack {
-                            Text("Height:")
-                                .font(.caption)
-                            Text("\(Int(keyboardObserver.keyboardHeight))pt")
-                                .font(.caption.bold())
-                        }
-                        
-                        HStack {
-                            Text("Toolbar Position:")
-                                .font(.caption)
-                            Text("\(keyboardObserver.toolbarPosition)")
-                                .font(.caption.bold())
-                        }
-                    }
-                }
-                
-                TextField("Tap to show keyboard", text: $text)
-                    .textFieldStyle(.roundedBorder)
-                    .padding()
-                
-                Spacer()
-            }
-            .padding()
-        }
-    }
-    
-    struct StatusRow: View {
-        let label: String
-        let value: Bool
-        
-        var body: some View {
-            HStack {
-                Text(label + ":")
-                    .font(.caption)
-                Spacer()
-                Image(systemName: value ? "checkmark.circle.fill" : "circle")
-                    .foregroundColor(value ? .green : .gray)
-                    .font(.caption)
-            }
-        }
-    }
-    
-    return PreviewWrapper()
-}
-
 // MARK: - CustomStringConvertible
 
 extension ToolbarPosition: CustomStringConvertible {

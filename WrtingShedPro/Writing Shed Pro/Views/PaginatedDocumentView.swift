@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import SwiftData
 
 /// Main paginated document view
 struct PaginatedDocumentView: View {
@@ -15,6 +16,8 @@ struct PaginatedDocumentView: View {
     
     let textFile: TextFile
     let project: Project
+    
+    @Environment(\.modelContext) private var modelContext
     
     @State private var layoutManager: PaginatedTextLayoutManager?
     @State private var currentPage: Int = 0
@@ -39,6 +42,8 @@ struct PaginatedDocumentView: View {
                                 layoutManager: layoutManager,
                                 pageSetup: pageSetup,
                                 zoomScale: 1.0, // Always render at 100%
+                                version: textFile.currentVersion,
+                                modelContext: modelContext,
                                 currentPage: $currentPage
                             )
                             .frame(

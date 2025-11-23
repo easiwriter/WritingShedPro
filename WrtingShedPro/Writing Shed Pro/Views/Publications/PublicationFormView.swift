@@ -267,20 +267,3 @@ struct PublicationFormView: View {
         return true
     }
 }
-
-#Preview("Add Publication") {
-    PublicationFormView(project: Project(name: "Test Project"), publication: nil)
-        .modelContainer(for: [Project.self, Publication.self], inMemory: true)
-}
-
-#Preview("Edit Publication") {
-    let publication = Publication(
-        name: "Test Magazine",
-        type: .magazine,
-        url: "https://example.com",
-        notes: "Test notes",
-        deadline: Date().addingTimeInterval(86400 * 30)
-    )
-    return PublicationFormView(project: Project(name: "Test Project"), publication: publication)
-        .modelContainer(for: [Project.self, Publication.self], inMemory: true)
-}

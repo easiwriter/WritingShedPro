@@ -2,7 +2,7 @@
 //  FootnoteModelTests.swift
 //  Writing Shed Pro Tests
 //
-//  Feature 017: Footnotes - Unit tests for FootnoteModel
+//  Feature 015: Footnotes - Unit tests for FootnoteModel
 //
 
 import XCTest
@@ -12,7 +12,7 @@ import SwiftData
 final class FootnoteModelTests: XCTestCase {
     
     var modelContext: ModelContext!
-    var testFileID: UUID!
+    var testVersion: Version!
     
     override func setUpWithError() throws {
         // Create in-memory model container for testing
@@ -27,26 +27,28 @@ final class FootnoteModelTests: XCTestCase {
         let container = try ModelContainer(for: schema, configurations: [config])
         modelContext = ModelContext(container)
         
-        testFileID = UUID()
+        // Create a test version
+        testVersion = Version(content: "Test content")
+        modelContext.insert(testVersion)
     }
     
     override func tearDownWithError() throws {
         modelContext = nil
-        testFileID = nil
+        testVersion = nil
     }
     
     // MARK: - Initialization Tests
     
     func testFootnoteInitialization() throws {
         let footnote = FootnoteModel(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 10,
             text: "This is a test footnote",
             number: 1
         )
         
         XCTAssertNotNil(footnote.id)
-        XCTAssertEqual(footnote.textFileID, testFileID)
+        XCTAssertEqual(footnote.version?.id, testVersion.id)
         XCTAssertEqual(footnote.characterPosition, 10)
         XCTAssertEqual(footnote.text, "This is a test footnote")
         XCTAssertEqual(footnote.number, 1)
@@ -58,7 +60,7 @@ final class FootnoteModelTests: XCTestCase {
     
     func testFootnoteWithDefaultValues() throws {
         let footnote = FootnoteModel(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 0,
             text: "Footnote",
             number: 1
@@ -80,7 +82,7 @@ final class FootnoteModelTests: XCTestCase {
         
         let footnote = FootnoteModel(
             id: id,
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 50,
             attachmentID: attachmentID,
             text: "Complete footnote",
@@ -101,7 +103,7 @@ final class FootnoteModelTests: XCTestCase {
     
     func testUpdateText() throws {
         let footnote = FootnoteModel(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 10,
             text: "Original text",
             number: 1
@@ -122,7 +124,7 @@ final class FootnoteModelTests: XCTestCase {
     
     func testUpdateEmptyText() throws {
         let footnote = FootnoteModel(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 10,
             text: "Original",
             number: 1
@@ -135,7 +137,7 @@ final class FootnoteModelTests: XCTestCase {
     
     func testUpdateLongText() throws {
         let footnote = FootnoteModel(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 10,
             text: "Short",
             number: 1
@@ -151,7 +153,7 @@ final class FootnoteModelTests: XCTestCase {
     
     func testUpdateNumber() throws {
         let footnote = FootnoteModel(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 10,
             text: "Test",
             number: 1
@@ -170,7 +172,7 @@ final class FootnoteModelTests: XCTestCase {
     
     func testUpdateNumberToZero() throws {
         let footnote = FootnoteModel(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 10,
             text: "Test",
             number: 5
@@ -185,7 +187,7 @@ final class FootnoteModelTests: XCTestCase {
     
     func testUpdatePosition() throws {
         let footnote = FootnoteModel(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 10,
             text: "Test",
             number: 1
@@ -204,7 +206,7 @@ final class FootnoteModelTests: XCTestCase {
     
     func testUpdatePositionToZero() throws {
         let footnote = FootnoteModel(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 50,
             text: "Test",
             number: 1
@@ -217,7 +219,7 @@ final class FootnoteModelTests: XCTestCase {
     
     func testUpdatePositionMultipleTimes() throws {
         let footnote = FootnoteModel(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 10,
             text: "Test",
             number: 1
@@ -237,7 +239,7 @@ final class FootnoteModelTests: XCTestCase {
     
     func testMoveToTrash() throws {
         let footnote = FootnoteModel(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 5,
             text: "Test",
             number: 1
@@ -258,7 +260,7 @@ final class FootnoteModelTests: XCTestCase {
     
     func testRestoreFromTrash() throws {
         let footnote = FootnoteModel(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 5,
             text: "Test",
             number: 1
@@ -280,7 +282,7 @@ final class FootnoteModelTests: XCTestCase {
     
     func testMoveToTrashRestoreCycle() throws {
         let footnote = FootnoteModel(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 5,
             text: "Test",
             number: 1
@@ -319,14 +321,14 @@ final class FootnoteModelTests: XCTestCase {
     
     func testFootnotesComparableByPosition() throws {
         let footnote1 = FootnoteModel(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 10,
             text: "First",
             number: 1
         )
         
         let footnote2 = FootnoteModel(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 20,
             text: "Second",
             number: 2
@@ -338,9 +340,9 @@ final class FootnoteModelTests: XCTestCase {
     
     func testFootnotesSorting() throws {
         let footnotes = [
-            FootnoteModel(textFileID: testFileID, characterPosition: 50, text: "Third", number: 3),
-            FootnoteModel(textFileID: testFileID, characterPosition: 10, text: "First", number: 1),
-            FootnoteModel(textFileID: testFileID, characterPosition: 30, text: "Second", number: 2)
+            FootnoteModel(version: testVersion, characterPosition: 50, text: "Third", number: 3),
+            FootnoteModel(version: testVersion, characterPosition: 10, text: "First", number: 1),
+            FootnoteModel(version: testVersion, characterPosition: 30, text: "Second", number: 2)
         ]
         
         let sorted = footnotes.sorted()
@@ -354,7 +356,7 @@ final class FootnoteModelTests: XCTestCase {
     
     func testFootnotePersistence() throws {
         let footnote = FootnoteModel(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 15,
             text: "Persistent footnote",
             number: 1
@@ -381,7 +383,7 @@ final class FootnoteModelTests: XCTestCase {
     
     func testFootnoteUpdate() throws {
         let footnote = FootnoteModel(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 10,
             text: "Original",
             number: 1
@@ -408,7 +410,7 @@ final class FootnoteModelTests: XCTestCase {
     
     func testFootnoteDeletion() throws {
         let footnote = FootnoteModel(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 10,
             text: "To be deleted",
             number: 1
@@ -437,7 +439,7 @@ final class FootnoteModelTests: XCTestCase {
     func testAllPropertiesAreOptionalOrHaveDefaults() throws {
         // This test verifies CloudKit requirement: all properties must be optional or have defaults
         let footnote = FootnoteModel(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 10,
             text: "Test",
             number: 1
@@ -445,7 +447,7 @@ final class FootnoteModelTests: XCTestCase {
         
         // All required properties have defaults
         XCTAssertNotNil(footnote.id)
-        XCTAssertNotNil(footnote.textFileID)
+        XCTAssertNotNil(footnote.version?.id)
         XCTAssertNotNil(footnote.characterPosition)
         XCTAssertNotNil(footnote.attachmentID)
         XCTAssertNotNil(footnote.text)
@@ -462,7 +464,7 @@ final class FootnoteModelTests: XCTestCase {
     
     func testCustomDescription() throws {
         let footnote = FootnoteModel(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 25,
             text: "This is a test footnote for description",
             number: 3
@@ -478,7 +480,7 @@ final class FootnoteModelTests: XCTestCase {
     func testDescriptionWithLongText() throws {
         let longText = String(repeating: "This is very long text. ", count: 10)
         let footnote = FootnoteModel(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 100,
             text: longText,
             number: 7
@@ -496,21 +498,21 @@ final class FootnoteModelTests: XCTestCase {
     
     func testMultipleFootnotesInSameFile() throws {
         let footnote1 = FootnoteModel(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 10,
             text: "First",
             number: 1
         )
         
         let footnote2 = FootnoteModel(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 20,
             text: "Second",
             number: 2
         )
         
         let footnote3 = FootnoteModel(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 30,
             text: "Third",
             number: 3
@@ -522,26 +524,26 @@ final class FootnoteModelTests: XCTestCase {
         try modelContext.save()
         
         // Fetch all footnotes for this file
-        let descriptor = FetchDescriptor<FootnoteModel>(
-            predicate: #Predicate { $0.textFileID == testFileID }
-        )
-        let fetchedFootnotes = try modelContext.fetch(descriptor)
+        let descriptor = FetchDescriptor<FootnoteModel>()
+        let allFootnotes = try modelContext.fetch(descriptor)
+        let fetchedFootnotes = allFootnotes.filter { $0.version?.id == testVersion.id }
         
         XCTAssertEqual(fetchedFootnotes.count, 3)
     }
     
     func testFootnotesInDifferentFiles() throws {
-        let otherFileID = UUID()
+        let otherVersion = Version(content: "Other file content")
+        modelContext.insert(otherVersion)
         
         let footnote1 = FootnoteModel(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 10,
             text: "File 1 footnote",
             number: 1
         )
         
         let footnote2 = FootnoteModel(
-            textFileID: otherFileID,
+            version: otherVersion,
             characterPosition: 10,
             text: "File 2 footnote",
             number: 1
@@ -552,16 +554,12 @@ final class FootnoteModelTests: XCTestCase {
         try modelContext.save()
         
         // Fetch footnotes for first file
-        let descriptor1 = FetchDescriptor<FootnoteModel>(
-            predicate: #Predicate { $0.textFileID == testFileID }
-        )
-        let file1Footnotes = try modelContext.fetch(descriptor1)
+        let descriptor = FetchDescriptor<FootnoteModel>()
+        let allFootnotes = try modelContext.fetch(descriptor)
+        let file1Footnotes = allFootnotes.filter { $0.version?.id == testVersion.id }
         
         // Fetch footnotes for second file
-        let descriptor2 = FetchDescriptor<FootnoteModel>(
-            predicate: #Predicate { $0.textFileID == otherFileID }
-        )
-        let file2Footnotes = try modelContext.fetch(descriptor2)
+        let file2Footnotes = allFootnotes.filter { $0.version?.id == otherVersion.id }
         
         XCTAssertEqual(file1Footnotes.count, 1)
         XCTAssertEqual(file2Footnotes.count, 1)
@@ -570,7 +568,7 @@ final class FootnoteModelTests: XCTestCase {
     
     func testPrepareForPermanentDeletion() throws {
         let footnote = FootnoteModel(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 10,
             text: "To be permanently deleted",
             number: 1

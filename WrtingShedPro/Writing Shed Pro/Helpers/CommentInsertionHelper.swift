@@ -21,7 +21,7 @@ struct CommentInsertionHelper {
     ///   - position: Character position where to insert the comment
     ///   - commentText: The comment text content
     ///   - author: Author of the comment
-    ///   - textFileID: ID of the text file
+    ///   - version: The version to attach the comment to
     ///   - context: SwiftData model context
     /// - Returns: Tuple of (updated attributed string, created CommentModel)
     @MainActor
@@ -30,7 +30,7 @@ struct CommentInsertionHelper {
         at position: Int,
         commentText: String,
         author: String,
-        textFileID: UUID,
+        version: Version,
         context: ModelContext
     ) -> (NSAttributedString, CommentModel) {
         let mutableText = NSMutableAttributedString(attributedString: attributedText)
@@ -48,7 +48,7 @@ struct CommentInsertionHelper {
         
         // Create the comment model in the database
         let comment = CommentManager.shared.createComment(
-            textFileID: textFileID,
+            version: version,
             characterPosition: safePosition,
             attachmentID: attachmentID,
             text: commentText,
@@ -64,7 +64,7 @@ struct CommentInsertionHelper {
     ///   - textView: The text view
     ///   - commentText: The comment text content
     ///   - author: Author of the comment
-    ///   - textFileID: ID of the text file
+    ///   - version: The version to attach the comment to
     ///   - context: SwiftData model context
     /// - Returns: The created CommentModel
     @MainActor
@@ -73,7 +73,7 @@ struct CommentInsertionHelper {
         in textView: UITextView,
         commentText: String,
         author: String,
-        textFileID: UUID,
+        version: Version,
         context: ModelContext
     ) -> CommentModel? {
         let textStorage = textView.textStorage
@@ -95,7 +95,7 @@ struct CommentInsertionHelper {
         
         // Create the comment model in the database
         let comment = CommentManager.shared.createComment(
-            textFileID: textFileID,
+            version: version,
             characterPosition: insertPosition,
             attachmentID: attachmentID,
             text: commentText,

@@ -1,4 +1,4 @@
-# Feature 018: Automatic Paragraph Numbering - Implementation Plan
+# Feature 016: Automatic Paragraph Numbering - Implementation Plan
 
 ## Overview
 This feature adds comprehensive automatic numbering to all paragraph styles, enabling hierarchical document structures, lists, and professional formatting.
@@ -232,7 +232,7 @@ This feature adds comprehensive automatic numbering to all paragraph styles, ena
    - Ensure numbers appear on all pages
    - Handle page breaks mid-list
    - Maintain consistency
-   - Test with Feature 017 footnotes
+   - Test with Feature 015 footnotes
 
 4. **Preserve in RTF/PDF exports** (1 hour)
    - Map to RTF list codes

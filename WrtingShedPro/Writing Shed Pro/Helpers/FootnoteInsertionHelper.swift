@@ -2,7 +2,7 @@
 //  FootnoteInsertionHelper.swift
 //  Writing Shed Pro
 //
-//  Feature 017: Footnotes
+//  Feature 015: Footnotes
 //  Created by GitHub Copilot on 21/11/2025.
 //
 
@@ -20,7 +20,7 @@ struct FootnoteInsertionHelper {
     ///   - attributedText: The attributed string to modify
     ///   - position: Character position where to insert the footnote
     ///   - footnoteText: The footnote text content
-    ///   - textFileID: ID of the text file
+    ///   - version: The version to attach the footnote to
     ///   - context: SwiftData model context
     /// - Returns: Tuple of (updated attributed string, created FootnoteModel)
     @MainActor
@@ -28,14 +28,14 @@ struct FootnoteInsertionHelper {
         in attributedText: NSAttributedString,
         at position: Int,
         footnoteText: String,
-        textFileID: UUID,
+        version: Version,
         context: ModelContext
     ) -> (NSAttributedString, FootnoteModel) {
         let mutableText = NSMutableAttributedString(attributedString: attributedText)
         
         // Calculate the footnote number
         let number = FootnoteManager.shared.calculateFootnoteNumber(
-            forTextFile: textFileID,
+            forVersion: version,
             at: position,
             context: context
         )
@@ -53,7 +53,7 @@ struct FootnoteInsertionHelper {
         
         // Create the footnote model in the database
         let footnote = FootnoteManager.shared.createFootnote(
-            textFileID: textFileID,
+            version: version,
             characterPosition: safePosition,
             attachmentID: attachmentID,
             text: footnoteText,
@@ -67,7 +67,7 @@ struct FootnoteInsertionHelper {
     /// - Parameters:
     ///   - textView: The text view
     ///   - footnoteText: The footnote text content
-    ///   - textFileID: ID of the text file
+    ///   - version: The version to attach the footnote to
     ///   - context: SwiftData model context
     /// - Returns: The created FootnoteModel
     @MainActor
@@ -75,7 +75,7 @@ struct FootnoteInsertionHelper {
     static func insertFootnoteAtCursor(
         in textView: UITextView,
         footnoteText: String,
-        textFileID: UUID,
+        version: Version,
         context: ModelContext
     ) -> FootnoteModel? {
         let textStorage = textView.textStorage
@@ -84,7 +84,7 @@ struct FootnoteInsertionHelper {
         
         // Calculate the footnote number
         let number = FootnoteManager.shared.calculateFootnoteNumber(
-            forTextFile: textFileID,
+            forVersion: version,
             at: insertPosition,
             context: context
         )
@@ -104,7 +104,7 @@ struct FootnoteInsertionHelper {
         
         // Create the footnote model in the database
         let footnote = FootnoteManager.shared.createFootnote(
-            textFileID: textFileID,
+            version: version,
             characterPosition: insertPosition,
             attachmentID: attachmentID,
             text: footnoteText,
@@ -149,19 +149,19 @@ struct FootnoteInsertionHelper {
     /// Update all footnote numbers in attributed text based on database state
     /// - Parameters:
     ///   - attributedText: The attributed string
-    ///   - textFileID: ID of the text file
+    ///   - version: The version to update footnote numbers for
     ///   - context: SwiftData model context
     /// - Returns: Updated attributed string
     @MainActor
     static func updateAllFootnoteNumbers(
         in attributedText: NSAttributedString,
-        forTextFile textFileID: UUID,
+        forVersion version: Version,
         context: ModelContext
     ) -> NSAttributedString {
         var mutableText = NSMutableAttributedString(attributedString: attributedText)
         
         // Get all footnotes from database
-        let footnotes = FootnoteManager.shared.getActiveFootnotes(forTextFile: textFileID, context: context)
+        let footnotes = FootnoteManager.shared.getActiveFootnotes(forVersion: version, context: context)
         
         // Update each footnote attachment
         for footnote in footnotes {

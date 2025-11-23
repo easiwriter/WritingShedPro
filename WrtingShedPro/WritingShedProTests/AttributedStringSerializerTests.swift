@@ -308,7 +308,7 @@ final class AttributedStringSerializerTests: XCTestCase {
         XCTAssertLessThan(conversionTime, 1.0, "Conversion should be fast (< 1 second)")
     }
     
-    // MARK: - Footnote Attachment Tests (Feature 017)
+    // MARK: - Footnote Attachment Tests (Feature 015)
     
     func testRoundTripFootnoteAttachment() {
         // Given

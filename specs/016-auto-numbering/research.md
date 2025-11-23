@@ -1,4 +1,4 @@
-# Feature 018: Automatic Paragraph Numbering - Research
+# Feature 016: Automatic Paragraph Numbering - Research
 
 ## Industry Standards
 
@@ -398,7 +398,7 @@ Keep advanced options collapsed to avoid overwhelming users.
    - **Recommendation**: Add in Phase 2 as advanced feature
 
 2. **How to handle numbered footnotes interaction?**
-   - Feature 017 uses simple sequential numbering
+   - Feature 015 uses simple sequential numbering
    - Should share counter system or separate?
    - **Recommendation**: Keep separate for now, unify later
 

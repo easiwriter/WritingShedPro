@@ -2,7 +2,7 @@
 //  FootnoteManagerTests.swift
 //  Writing Shed Pro Tests
 //
-//  Feature 017: Footnotes - Unit tests for FootnoteManager
+//  Feature 015: Footnotes - Unit tests for FootnoteManager
 //
 
 import XCTest
@@ -14,7 +14,7 @@ final class FootnoteManagerTests: XCTestCase {
     
     var manager: FootnoteManager!
     var modelContext: ModelContext!
-    var testFileID: UUID!
+    var testVersion: Version!
     
     override func setUpWithError() throws {
         manager = FootnoteManager.shared
@@ -31,7 +31,9 @@ final class FootnoteManagerTests: XCTestCase {
         let container = try ModelContainer(for: schema, configurations: [config])
         modelContext = ModelContext(container)
         
-        testFileID = UUID()
+        // Create a test version
+        testVersion = Version(content: "Test content")
+        modelContext.insert(testVersion)
     }
     
     override func tearDownWithError() throws {
@@ -43,14 +45,14 @@ final class FootnoteManagerTests: XCTestCase {
         
         manager = nil
         modelContext = nil
-        testFileID = nil
+        testVersion = nil
     }
     
     // MARK: - Create Footnote Tests
     
     func testCreateFootnote() throws {
         let footnote = manager.createFootnote(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 10,
             attachmentID: UUID(),
             text: "Test footnote",
@@ -58,7 +60,7 @@ final class FootnoteManagerTests: XCTestCase {
         )
         
         XCTAssertNotNil(footnote.id)
-        XCTAssertEqual(footnote.textFileID, testFileID)
+        XCTAssertEqual(footnote.version?.id, testVersion.id)
         XCTAssertEqual(footnote.characterPosition, 10)
         XCTAssertEqual(footnote.text, "Test footnote")
         XCTAssertEqual(footnote.number, 1)
@@ -68,7 +70,7 @@ final class FootnoteManagerTests: XCTestCase {
     
     func testCreateMultipleFootnotes() throws {
         let footnote1 = manager.createFootnote(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 5,
             attachmentID: UUID(),
             text: "First",
@@ -76,7 +78,7 @@ final class FootnoteManagerTests: XCTestCase {
         )
         
         let footnote2 = manager.createFootnote(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 15,
             attachmentID: UUID(),
             text: "Second",
@@ -92,7 +94,7 @@ final class FootnoteManagerTests: XCTestCase {
     func testCreateFootnotesOutOfOrder() throws {
         // Create at position 50
         let footnote1 = manager.createFootnote(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 50,
             attachmentID: UUID(),
             text: "Third",
@@ -101,7 +103,7 @@ final class FootnoteManagerTests: XCTestCase {
         
         // Create at position 10 (before the first one)
         let footnote2 = manager.createFootnote(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 10,
             attachmentID: UUID(),
             text: "First",
@@ -110,7 +112,7 @@ final class FootnoteManagerTests: XCTestCase {
         
         // Create at position 25 (in the middle)
         let footnote3 = manager.createFootnote(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 25,
             attachmentID: UUID(),
             text: "Second",
@@ -127,7 +129,7 @@ final class FootnoteManagerTests: XCTestCase {
     
     func testGetFootnoteByID() throws {
         let footnote = manager.createFootnote(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 10,
             attachmentID: UUID(),
             text: "Find me",
@@ -151,7 +153,7 @@ final class FootnoteManagerTests: XCTestCase {
     func testGetFootnoteByAttachmentID() throws {
         let attachmentID = UUID()
         let footnote = manager.createFootnote(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 10,
             attachmentID: attachmentID,
             text: "Find by attachment",
@@ -170,7 +172,7 @@ final class FootnoteManagerTests: XCTestCase {
     func testGetAllFootnotesForFile() throws {
         // Create footnotes for test file
         _ = manager.createFootnote(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 0,
             attachmentID: UUID(),
             text: "Footnote 1",
@@ -178,7 +180,7 @@ final class FootnoteManagerTests: XCTestCase {
         )
         
         _ = manager.createFootnote(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 10,
             attachmentID: UUID(),
             text: "Footnote 2",
@@ -186,24 +188,26 @@ final class FootnoteManagerTests: XCTestCase {
         )
         
         // Create footnote for different file
-        let otherFileID = UUID()
+        let otherVersion = Version(content: "Other content")
+        modelContext.insert(otherVersion)
         _ = manager.createFootnote(
-            textFileID: otherFileID,
+            version: otherVersion,
             characterPosition: 0,
             attachmentID: UUID(),
             text: "Other file footnote",
             context: modelContext
         )
         
-        let footnotes = manager.getAllFootnotes(forTextFile: testFileID, context: modelContext)
+        let footnotes = manager.getAllFootnotes(forVersion: testVersion, context: modelContext)
         
         XCTAssertEqual(footnotes.count, 2)
-        XCTAssertTrue(footnotes.allSatisfy { $0.textFileID == testFileID })
+        XCTAssertTrue(footnotes.allSatisfy { $0.version?.id == testVersion.id })
     }
     
     func testGetAllFootnotesEmptyFile() throws {
-        let emptyFileID = UUID()
-        let footnotes = manager.getAllFootnotes(forTextFile: emptyFileID, context: modelContext)
+        let emptyVersion = Version(content: "Empty content")
+        modelContext.insert(emptyVersion)
+        let footnotes = manager.getAllFootnotes(forVersion: emptyVersion, context: modelContext)
         
         XCTAssertEqual(footnotes.count, 0)
     }
@@ -211,7 +215,7 @@ final class FootnoteManagerTests: XCTestCase {
     func testGetAllFootnotesOrderedByPosition() throws {
         // Create footnotes out of order
         _ = manager.createFootnote(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 50,
             attachmentID: UUID(),
             text: "Last",
@@ -219,7 +223,7 @@ final class FootnoteManagerTests: XCTestCase {
         )
         
         _ = manager.createFootnote(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 10,
             attachmentID: UUID(),
             text: "First",
@@ -227,14 +231,14 @@ final class FootnoteManagerTests: XCTestCase {
         )
         
         _ = manager.createFootnote(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 25,
             attachmentID: UUID(),
             text: "Middle",
             context: modelContext
         )
         
-        let footnotes = manager.getAllFootnotes(forTextFile: testFileID, context: modelContext)
+        let footnotes = manager.getAllFootnotes(forVersion: testVersion, context: modelContext)
         
         XCTAssertEqual(footnotes.count, 3)
         XCTAssertEqual(footnotes[0].characterPosition, 10)
@@ -246,7 +250,7 @@ final class FootnoteManagerTests: XCTestCase {
     
     func testGetActiveFootnotes() throws {
         let footnote1 = manager.createFootnote(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 0,
             attachmentID: UUID(),
             text: "Active",
@@ -254,16 +258,17 @@ final class FootnoteManagerTests: XCTestCase {
         )
         
         let footnote2 = manager.createFootnote(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 10,
             attachmentID: UUID(),
             text: "Deleted",
             context: modelContext
         )
-        footnote2.moveToTrash()
-        try modelContext.save()
         
-        let activeFootnotes = manager.getActiveFootnotes(forTextFile: testFileID, context: modelContext)
+        // Use manager method to move to trash (handles renumbering and save)
+        manager.moveFootnoteToTrash(footnote2, context: modelContext)
+        
+        let activeFootnotes = manager.getActiveFootnotes(forVersion: testVersion, context: modelContext)
         
         XCTAssertEqual(activeFootnotes.count, 1)
         XCTAssertEqual(activeFootnotes.first?.id, footnote1.id)
@@ -272,16 +277,17 @@ final class FootnoteManagerTests: XCTestCase {
     
     func testGetActiveFootnotesWhenAllDeleted() throws {
         let footnote = manager.createFootnote(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 0,
             attachmentID: UUID(),
             text: "Deleted",
             context: modelContext
         )
-        footnote.moveToTrash()
-        try modelContext.save()
         
-        let activeFootnotes = manager.getActiveFootnotes(forTextFile: testFileID, context: modelContext)
+        // Use manager method to move to trash (handles renumbering and save)
+        manager.moveFootnoteToTrash(footnote, context: modelContext)
+        
+        let activeFootnotes = manager.getActiveFootnotes(forVersion: testVersion, context: modelContext)
         
         XCTAssertEqual(activeFootnotes.count, 0)
     }
@@ -290,7 +296,7 @@ final class FootnoteManagerTests: XCTestCase {
     
     func testGetDeletedFootnotes() throws {
         let footnote1 = manager.createFootnote(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 0,
             attachmentID: UUID(),
             text: "Active",
@@ -298,7 +304,7 @@ final class FootnoteManagerTests: XCTestCase {
         )
         
         let footnote2 = manager.createFootnote(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 10,
             attachmentID: UUID(),
             text: "Deleted 1",
@@ -306,7 +312,7 @@ final class FootnoteManagerTests: XCTestCase {
         )
         
         let footnote3 = manager.createFootnote(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 20,
             attachmentID: UUID(),
             text: "Deleted 2",
@@ -318,11 +324,11 @@ final class FootnoteManagerTests: XCTestCase {
         manager.moveFootnoteToTrash(footnote3, context: modelContext)
         
         // Test behavior: check that deleted footnotes are returned by query
-        let deletedFootnotes = manager.getDeletedFootnotes(forTextFile: testFileID, context: modelContext)
+        let deletedFootnotes = manager.getDeletedFootnotes(forVersion: testVersion, context: modelContext)
         XCTAssertEqual(deletedFootnotes.count, 2, "Should return 2 deleted footnotes")
         
         // Test behavior: check that active footnotes doesn't include deleted ones
-        let activeFootnotes = manager.getActiveFootnotes(forTextFile: testFileID, context: modelContext)
+        let activeFootnotes = manager.getActiveFootnotes(forVersion: testVersion, context: modelContext)
         XCTAssertEqual(activeFootnotes.count, 1, "Should only return 1 active footnote")
         XCTAssertEqual(activeFootnotes.first?.id, footnote1.id, "Active footnote should be footnote1")
     }
@@ -330,7 +336,7 @@ final class FootnoteManagerTests: XCTestCase {
     func testGetAllDeletedFootnotesAcrossFiles() throws {
         // File 1
         let footnote1 = manager.createFootnote(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 0,
             attachmentID: UUID(),
             text: "File 1 deleted",
@@ -338,9 +344,10 @@ final class FootnoteManagerTests: XCTestCase {
         )
         
         // File 2
-        let otherFileID = UUID()
+        let otherVersion = Version(content: "Other content")
+        modelContext.insert(otherVersion)
         let footnote2 = manager.createFootnote(
-            textFileID: otherFileID,
+            version: otherVersion,
             characterPosition: 0,
             attachmentID: UUID(),
             text: "File 2 deleted",
@@ -356,7 +363,7 @@ final class FootnoteManagerTests: XCTestCase {
         XCTAssertEqual(allDeletedFootnotes.count, 2, "Should return 2 deleted footnotes across all files")
         
         // Verify they're from different files
-        let fileIDs = Set(allDeletedFootnotes.map { $0.textFileID })
+        let fileIDs = Set(allDeletedFootnotes.map { $0.version?.id })
         XCTAssertEqual(fileIDs.count, 2, "Deleted footnotes should be from 2 different files")
     }
     
@@ -364,7 +371,7 @@ final class FootnoteManagerTests: XCTestCase {
     
     func testUpdateFootnoteText() throws {
         let footnote = manager.createFootnote(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 10,
             attachmentID: UUID(),
             text: "Original text",
@@ -380,7 +387,7 @@ final class FootnoteManagerTests: XCTestCase {
     
     func testMoveFootnoteToTrash() throws {
         let footnote = manager.createFootnote(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 0,
             attachmentID: UUID(),
             text: "To trash",
@@ -392,18 +399,18 @@ final class FootnoteManagerTests: XCTestCase {
         manager.moveFootnoteToTrash(footnote, context: modelContext)
         
         // Test behavior: footnote should appear in deleted query
-        let deletedFootnotes = manager.getDeletedFootnotes(forTextFile: testFileID, context: modelContext)
+        let deletedFootnotes = manager.getDeletedFootnotes(forVersion: testVersion, context: modelContext)
         XCTAssertEqual(deletedFootnotes.count, 1, "Should have 1 deleted footnote")
         XCTAssertEqual(deletedFootnotes.first?.id, footnoteID, "Deleted footnote should be the one we moved to trash")
         
         // Test behavior: footnote should NOT appear in active query
-        let activeFootnotes = manager.getActiveFootnotes(forTextFile: testFileID, context: modelContext)
+        let activeFootnotes = manager.getActiveFootnotes(forVersion: testVersion, context: modelContext)
         XCTAssertEqual(activeFootnotes.count, 0, "Should have no active footnotes")
     }
     
     func testRestoreFootnote() throws {
         let footnote = manager.createFootnote(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 0,
             attachmentID: UUID(),
             text: "To restore",
@@ -414,24 +421,24 @@ final class FootnoteManagerTests: XCTestCase {
         manager.moveFootnoteToTrash(footnote, context: modelContext)
         
         // Test behavior: footnote should be in deleted query
-        let deletedFootnotes = manager.getDeletedFootnotes(forTextFile: testFileID, context: modelContext)
+        let deletedFootnotes = manager.getDeletedFootnotes(forVersion: testVersion, context: modelContext)
         XCTAssertEqual(deletedFootnotes.count, 1, "Should have 1 deleted footnote")
         
         manager.restoreFootnote(footnote, context: modelContext)
         
         // Test behavior: footnote should be back in active query
-        let activeFootnotes = manager.getActiveFootnotes(forTextFile: testFileID, context: modelContext)
+        let activeFootnotes = manager.getActiveFootnotes(forVersion: testVersion, context: modelContext)
         XCTAssertEqual(activeFootnotes.count, 1, "Should have 1 active footnote after restore")
         XCTAssertEqual(activeFootnotes.first?.id, footnoteID, "Active footnote should be the restored one")
         
         // Test behavior: footnote should NOT be in deleted query anymore
-        let stillDeletedFootnotes = manager.getDeletedFootnotes(forTextFile: testFileID, context: modelContext)
+        let stillDeletedFootnotes = manager.getDeletedFootnotes(forVersion: testVersion, context: modelContext)
         XCTAssertEqual(stillDeletedFootnotes.count, 0, "Should have no deleted footnotes after restore")
     }
     
     func testPermanentlyDeleteFootnote() throws {
         let footnote = manager.createFootnote(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 0,
             attachmentID: UUID(),
             text: "To permanently delete",
@@ -439,12 +446,12 @@ final class FootnoteManagerTests: XCTestCase {
         )
         try modelContext.save()
         
-        let footnotesBefore = manager.getAllFootnotes(forTextFile: testFileID, context: modelContext)
+        let footnotesBefore = manager.getAllFootnotes(forVersion: testVersion, context: modelContext)
         XCTAssertEqual(footnotesBefore.count, 1)
         
         manager.permanentlyDeleteFootnote(footnote, context: modelContext)
         
-        let footnotesAfter = manager.getAllFootnotes(forTextFile: testFileID, context: modelContext)
+        let footnotesAfter = manager.getAllFootnotes(forVersion: testVersion, context: modelContext)
         XCTAssertEqual(footnotesAfter.count, 0)
     }
     
@@ -452,7 +459,7 @@ final class FootnoteManagerTests: XCTestCase {
     
     func testCalculateFootnoteNumberFirst() throws {
         let number = manager.calculateFootnoteNumber(
-            forTextFile: testFileID,
+            forVersion: testVersion,
             at: 10,
             context: modelContext
         )
@@ -462,7 +469,7 @@ final class FootnoteManagerTests: XCTestCase {
     
     func testCalculateFootnoteNumberAfterExisting() throws {
         _ = manager.createFootnote(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 10,
             attachmentID: UUID(),
             text: "First",
@@ -470,7 +477,7 @@ final class FootnoteManagerTests: XCTestCase {
         )
         
         _ = manager.createFootnote(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 20,
             attachmentID: UUID(),
             text: "Second",
@@ -479,7 +486,7 @@ final class FootnoteManagerTests: XCTestCase {
         
         // New footnote at position 30 should be number 3
         let number = manager.calculateFootnoteNumber(
-            forTextFile: testFileID,
+            forVersion: testVersion,
             at: 30,
             context: modelContext
         )
@@ -489,7 +496,7 @@ final class FootnoteManagerTests: XCTestCase {
     
     func testCalculateFootnoteNumberInMiddle() throws {
         _ = manager.createFootnote(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 10,
             attachmentID: UUID(),
             text: "First",
@@ -497,7 +504,7 @@ final class FootnoteManagerTests: XCTestCase {
         )
         
         _ = manager.createFootnote(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 30,
             attachmentID: UUID(),
             text: "Third",
@@ -506,7 +513,7 @@ final class FootnoteManagerTests: XCTestCase {
         
         // New footnote at position 20 should be number 2 (between 1 and 3)
         let number = manager.calculateFootnoteNumber(
-            forTextFile: testFileID,
+            forVersion: testVersion,
             at: 20,
             context: modelContext
         )
@@ -516,7 +523,7 @@ final class FootnoteManagerTests: XCTestCase {
     
     func testCalculateFootnoteNumberAtStart() throws {
         _ = manager.createFootnote(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 20,
             attachmentID: UUID(),
             text: "Second",
@@ -524,7 +531,7 @@ final class FootnoteManagerTests: XCTestCase {
         )
         
         _ = manager.createFootnote(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 30,
             attachmentID: UUID(),
             text: "Third",
@@ -533,7 +540,7 @@ final class FootnoteManagerTests: XCTestCase {
         
         // New footnote at position 5 should be number 1 (before all)
         let number = manager.calculateFootnoteNumber(
-            forTextFile: testFileID,
+            forVersion: testVersion,
             at: 5,
             context: modelContext
         )
@@ -545,7 +552,7 @@ final class FootnoteManagerTests: XCTestCase {
     
     func testRenumberFootnotesAfterInsertion() throws {
         let footnote1 = manager.createFootnote(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 10,
             attachmentID: UUID(),
             text: "First",
@@ -553,7 +560,7 @@ final class FootnoteManagerTests: XCTestCase {
         )
         
         let footnote2 = manager.createFootnote(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 30,
             attachmentID: UUID(),
             text: "Third",
@@ -565,7 +572,7 @@ final class FootnoteManagerTests: XCTestCase {
         
         // Insert in the middle
         let footnote3 = manager.createFootnote(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 20,
             attachmentID: UUID(),
             text: "Second",
@@ -580,7 +587,7 @@ final class FootnoteManagerTests: XCTestCase {
     
     func testRenumberFootnotesAfterDeletion() throws {
         let footnote1 = manager.createFootnote(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 10,
             attachmentID: UUID(),
             text: "First",
@@ -588,7 +595,7 @@ final class FootnoteManagerTests: XCTestCase {
         )
         
         let footnote2 = manager.createFootnote(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 20,
             attachmentID: UUID(),
             text: "Second",
@@ -596,7 +603,7 @@ final class FootnoteManagerTests: XCTestCase {
         )
         
         let footnote3 = manager.createFootnote(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 30,
             attachmentID: UUID(),
             text: "Third",
@@ -610,14 +617,19 @@ final class FootnoteManagerTests: XCTestCase {
         // Delete the middle one
         manager.moveFootnoteToTrash(footnote2, context: modelContext)
         
+        // Get fresh footnote data from database
+        let activeFootnotes = manager.getActiveFootnotes(forVersion: testVersion, context: modelContext)
+        let refreshedFootnote1 = activeFootnotes.first { $0.id == footnote1.id }!
+        let refreshedFootnote3 = activeFootnotes.first { $0.id == footnote3.id }!
+        
         // Remaining should renumber
-        XCTAssertEqual(footnote1.number, 1)
-        XCTAssertEqual(footnote3.number, 2) // Was 3, now 2
+        XCTAssertEqual(refreshedFootnote1.number, 1)
+        XCTAssertEqual(refreshedFootnote3.number, 2) // Was 3, now 2
     }
     
     func testRenumberFootnotesAfterRestore() throws {
         let footnote1 = manager.createFootnote(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 10,
             attachmentID: UUID(),
             text: "First",
@@ -625,7 +637,7 @@ final class FootnoteManagerTests: XCTestCase {
         )
         
         let footnote2 = manager.createFootnote(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 20,
             attachmentID: UUID(),
             text: "Second",
@@ -634,21 +646,30 @@ final class FootnoteManagerTests: XCTestCase {
         
         // Delete footnote2
         manager.moveFootnoteToTrash(footnote2, context: modelContext)
-        XCTAssertEqual(footnote1.number, 1)
+        
+        // Get fresh data after deletion
+        var activeFootnotes = manager.getActiveFootnotes(forVersion: testVersion, context: modelContext)
+        let refreshedFootnote1AfterDelete = activeFootnotes.first { $0.id == footnote1.id }!
+        XCTAssertEqual(refreshedFootnote1AfterDelete.number, 1)
         
         // Restore footnote2
         manager.restoreFootnote(footnote2, context: modelContext)
         
+        // Get fresh data after restore
+        activeFootnotes = manager.getActiveFootnotes(forVersion: testVersion, context: modelContext)
+        let refreshedFootnote1AfterRestore = activeFootnotes.first { $0.id == footnote1.id }!
+        let refreshedFootnote2AfterRestore = activeFootnotes.first { $0.id == footnote2.id }!
+        
         // Should renumber correctly
-        XCTAssertEqual(footnote1.number, 1)
-        XCTAssertEqual(footnote2.number, 2)
+        XCTAssertEqual(refreshedFootnote1AfterRestore.number, 1)
+        XCTAssertEqual(refreshedFootnote2AfterRestore.number, 2)
     }
     
     // MARK: - Position Update Tests
     
     func testUpdatePositionsAfterInsertion() throws {
         let footnote1 = manager.createFootnote(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 10,
             attachmentID: UUID(),
             text: "First",
@@ -656,7 +677,7 @@ final class FootnoteManagerTests: XCTestCase {
         )
         
         let footnote2 = manager.createFootnote(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 20,
             attachmentID: UUID(),
             text: "Second",
@@ -664,7 +685,7 @@ final class FootnoteManagerTests: XCTestCase {
         )
         
         let footnote3 = manager.createFootnote(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 30,
             attachmentID: UUID(),
             text: "Third",
@@ -673,7 +694,7 @@ final class FootnoteManagerTests: XCTestCase {
         
         // Text inserted at position 15, length 5 characters
         manager.updatePositionsAfterEdit(
-            textFileID: testFileID,
+            version: testVersion,
             editPosition: 15,
             lengthDelta: 5,
             context: modelContext
@@ -691,7 +712,7 @@ final class FootnoteManagerTests: XCTestCase {
     
     func testUpdatePositionsAfterDeletion() throws {
         let footnote1 = manager.createFootnote(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 10,
             attachmentID: UUID(),
             text: "First",
@@ -699,7 +720,7 @@ final class FootnoteManagerTests: XCTestCase {
         )
         
         let footnote2 = manager.createFootnote(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 30,
             attachmentID: UUID(),
             text: "Second",
@@ -707,7 +728,7 @@ final class FootnoteManagerTests: XCTestCase {
         )
         
         let footnote3 = manager.createFootnote(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 50,
             attachmentID: UUID(),
             text: "Third",
@@ -716,7 +737,7 @@ final class FootnoteManagerTests: XCTestCase {
         
         // Text deleted at position 20, length 10 characters (negative delta)
         manager.updatePositionsAfterEdit(
-            textFileID: testFileID,
+            version: testVersion,
             editPosition: 20,
             lengthDelta: -10,
             context: modelContext
@@ -734,7 +755,7 @@ final class FootnoteManagerTests: XCTestCase {
     
     func testUpdatePositionsDoesNotMoveBelowEditPosition() throws {
         let footnote = manager.createFootnote(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 25,
             attachmentID: UUID(),
             text: "Test",
@@ -744,7 +765,7 @@ final class FootnoteManagerTests: XCTestCase {
         // Large deletion that would move footnote before edit position
         // Deletion at position 20, length 20 characters
         manager.updatePositionsAfterEdit(
-            textFileID: testFileID,
+            version: testVersion,
             editPosition: 20,
             lengthDelta: -20,
             context: modelContext
@@ -759,7 +780,7 @@ final class FootnoteManagerTests: XCTestCase {
     func testMultipleFootnotesAtSamePosition() throws {
         // While unlikely in practice, test that footnotes at same position are handled
         let footnote1 = manager.createFootnote(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 10,
             attachmentID: UUID(),
             text: "First",
@@ -767,7 +788,7 @@ final class FootnoteManagerTests: XCTestCase {
         )
         
         let footnote2 = manager.createFootnote(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 10,
             attachmentID: UUID(),
             text: "Second",
@@ -780,10 +801,11 @@ final class FootnoteManagerTests: XCTestCase {
     }
     
     func testFootnotesInDifferentFiles() throws {
-        let otherFileID = UUID()
+        let otherVersion = Version(content: "Other file content")
+        modelContext.insert(otherVersion)
         
         let footnote1 = manager.createFootnote(
-            textFileID: testFileID,
+            version: testVersion,
             characterPosition: 10,
             attachmentID: UUID(),
             text: "File 1 footnote",
@@ -791,7 +813,7 @@ final class FootnoteManagerTests: XCTestCase {
         )
         
         let footnote2 = manager.createFootnote(
-            textFileID: otherFileID,
+            version: otherVersion,
             characterPosition: 10,
             attachmentID: UUID(),
             text: "File 2 footnote",
@@ -803,8 +825,8 @@ final class FootnoteManagerTests: XCTestCase {
         XCTAssertEqual(footnote2.number, 1)
         
         // Fetch should be file-specific
-        let file1Footnotes = manager.getActiveFootnotes(forTextFile: testFileID, context: modelContext)
-        let file2Footnotes = manager.getActiveFootnotes(forTextFile: otherFileID, context: modelContext)
+        let file1Footnotes = manager.getActiveFootnotes(forVersion: testVersion, context: modelContext)
+        let file2Footnotes = manager.getActiveFootnotes(forVersion: otherVersion, context: modelContext)
         
         XCTAssertEqual(file1Footnotes.count, 1)
         XCTAssertEqual(file2Footnotes.count, 1)

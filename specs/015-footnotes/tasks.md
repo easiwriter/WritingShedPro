@@ -1,4 +1,4 @@
-# Feature 017: Footnotes - Tasks
+# Feature 015: Footnotes - Tasks
 
 ## Current Sprint
 

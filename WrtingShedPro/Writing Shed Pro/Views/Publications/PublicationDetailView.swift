@@ -162,29 +162,3 @@ struct PublicationDetailView: View {
         }
     }
 }
-
-#Preview("Magazine with deadline") {
-    let publication = Publication(
-        name: "Test Magazine",
-        type: .magazine,
-        url: "https://example.com",
-        notes: "This is a test magazine with a deadline approaching.",
-        deadline: Calendar.current.date(byAdding: .day, value: 5, to: Date())
-    )
-    return NavigationStack {
-        PublicationDetailView(publication: publication)
-    }
-    .modelContainer(for: [Project.self, Publication.self], inMemory: true)
-}
-
-#Preview("Competition past deadline") {
-    let publication = Publication(
-        name: "Writing Competition",
-        type: .competition,
-        deadline: Calendar.current.date(byAdding: .day, value: -5, to: Date())
-    )
-    return NavigationStack {
-        PublicationDetailView(publication: publication)
-    }
-    .modelContainer(for: [Project.self, Publication.self], inMemory: true)
-}

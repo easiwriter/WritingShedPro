@@ -133,9 +133,3 @@ struct ImportProgressView: View {
         }
     }
 }
-
-#Preview {
-    @Previewable @State var isPresented = true
-    ImportProgressView(isPresented: $isPresented)
-        .modelContainer(for: Project.self, inMemory: true)
-}

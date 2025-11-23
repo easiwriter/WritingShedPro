@@ -1,4 +1,4 @@
-# Feature 017: Footnotes - Research
+# Feature 015: Footnotes - Research
 
 ## Academic/Technical Writing Standards
 

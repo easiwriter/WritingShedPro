@@ -156,6 +156,21 @@ class LegacyDatabaseService {
         }
     }
     
+    /// Disconnect from legacy database and clear all cached objects
+    /// Call this before reconnecting to ensure fresh context
+    func disconnect() {
+        // Reset the context to clear all cached managed objects
+        if let context = managedObjectContext {
+            context.reset()
+        }
+        
+        // Clear references
+        managedObjectContext = nil
+        persistentContainer = nil
+        
+        print("[LegacyDatabaseService] Disconnected and cleared cache")
+    }
+    
     // MARK: - Entity Fetching
     
     /// Get NSManagedObject from objectID string (for fetching related entities)

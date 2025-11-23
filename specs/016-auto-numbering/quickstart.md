@@ -1,4 +1,4 @@
-# Feature 018: Automatic Paragraph Numbering - Quick Start
+# Feature 016: Automatic Paragraph Numbering - Quick Start
 
 ## For Users
 
@@ -277,10 +277,10 @@ func testFullDocumentNumbering() {
 
 ## Resources
 
-- **Data Model**: `specs/018-auto-numbering/data-model.md`
-- **Implementation Plan**: `specs/018-auto-numbering/plan.md`
-- **Research**: `specs/018-auto-numbering/research.md`
-- **Full Specification**: `specs/018-auto-numbering/spec.md`
+- **Data Model**: `specs/016-auto-numbering/data-model.md`
+- **Implementation Plan**: `specs/016-auto-numbering/plan.md`
+- **Research**: `specs/016-auto-numbering/research.md`
+- **Full Specification**: `specs/016-auto-numbering/spec.md`
 
 ## Status
 **Planning** - Feature not yet implemented

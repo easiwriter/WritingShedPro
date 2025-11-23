@@ -340,7 +340,9 @@ class LegacyImportEngine {
                         }
                         
                         // Get the version to use - try to find from WS_CollectedVersion_Entity
-                        var versionToUse: Version? = textFile.currentVersion
+                        // IMPORTANT: Don't use textFile.currentVersion during import as it triggers
+                        // SwiftData relationship traversal that may access deallocated objects
+                        var versionToUse: Version? = textFile.versions?.sorted(by: { $0.versionNumber < $1.versionNumber }).last
                         
                         // Try to get specific version from WS_CollectedVersion_Entity via WS_TextCollection_Entity
                         if let textCollection = legacyCollection.value(forKey: "textCollection") as? NSManagedObject {
@@ -466,7 +468,9 @@ class LegacyImportEngine {
                             }
                             
                             // Get the version - try to find from WS_CollectedVersion_Entity
-                            var versionToUse: Version? = textFile.currentVersion
+                            // IMPORTANT: Don't use textFile.currentVersion during import as it triggers
+                            // SwiftData relationship traversal that may access deallocated objects
+                            var versionToUse: Version? = textFile.versions?.sorted(by: { $0.versionNumber < $1.versionNumber }).last
                             var submissionStatus: SubmissionStatus = .pending
                             
                             // Check if there was a returnedOn string (for rejection detection)

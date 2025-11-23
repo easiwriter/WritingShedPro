@@ -1,9 +1,9 @@
-# Feature 017 & 018: Scope Separation Complete
+# Feature 015 & 018: Scope Separation Complete
 
 ## Summary
-Successfully separated the original ambitious Feature 017 requirements into two manageable features:
+Successfully separated the original ambitious Feature 015 requirements into two manageable features:
 
-### Feature 017: Footnotes (Simplified)
+### Feature 015: Footnotes (Simplified)
 **Scope**: Basic footnote functionality with simple sequential numbering
 - Sequential numbering: 1, 2, 3...
 - Superscript markers with button styling
@@ -16,7 +16,7 @@ Successfully separated the original ambitious Feature 017 requirements into two 
 **Status**: Specification complete, ready for implementation
 **Estimate**: 16-23 hours
 
-### Feature 018: Automatic Paragraph Numbering (New)
+### Feature 016: Automatic Paragraph Numbering (New)
 **Scope**: Comprehensive automatic numbering system for all paragraph styles
 - Hierarchical numbering (1, 1.1, 1.2, 2, 2.1)
 - Multiple formats: Numeric, Alphabetic (upper/lower), Roman (upper/lower), Bullets
@@ -31,7 +31,7 @@ Successfully separated the original ambitious Feature 017 requirements into two 
 
 ## What Changed
 
-### Original Feature 017
+### Original Feature 015
 Initially contained requirements for a full auto-numbering system:
 - All numbering formats (numeric, alphabetic, roman, bullets)
 - All adornments (period, parentheses, dashes, custom)
@@ -39,14 +39,14 @@ Initially contained requirements for a full auto-numbering system:
 - Hierarchical numbering
 - List support
 
-### Simplified Feature 017
+### Simplified Feature 015
 Now focused only on basic footnotes:
 - Simple sequential numbering only (1, 2, 3...)
 - Footnote/endnote mode
 - Pagination display
 - Professional overflow handling
 
-### New Feature 018
+### New Feature 016
 Contains all the advanced numbering capabilities:
 - All complex numbering formats
 - Style sheet integration
@@ -56,17 +56,17 @@ Contains all the advanced numbering capabilities:
 
 ## Files Created
 
-### Feature 018 Specification
-✅ `/specs/018-auto-numbering/spec.md` - Complete feature specification
-✅ `/specs/018-auto-numbering/data-model.md` - Data structures and models
-✅ `/specs/018-auto-numbering/plan.md` - 7-phase implementation plan (44-58 hours)
-✅ `/specs/018-auto-numbering/research.md` - Industry standards and technical research
-✅ `/specs/018-auto-numbering/tasks.md` - Detailed development backlog
-✅ `/specs/018-auto-numbering/quickstart.md` - Quick reference for users and developers
+### Feature 016 Specification
+✅ `/specs/016-auto-numbering/spec.md` - Complete feature specification
+✅ `/specs/016-auto-numbering/data-model.md` - Data structures and models
+✅ `/specs/016-auto-numbering/plan.md` - 7-phase implementation plan (44-58 hours)
+✅ `/specs/016-auto-numbering/research.md` - Industry standards and technical research
+✅ `/specs/016-auto-numbering/tasks.md` - Detailed development backlog
+✅ `/specs/016-auto-numbering/quickstart.md` - Quick reference for users and developers
 
-### Feature 017 Updates
-✅ Updated `/specs/017-footnotes/spec.md` - Simplified overview, added comprehensive sections
-- Added "Deferred to Feature 018" note
+### Feature 015 Updates
+✅ Updated `/specs/015-footnotes/spec.md` - Simplified overview, added comprehensive sections
+- Added "Deferred to Feature 016" note
 - Added 8 user stories
 - Added technical requirements
 - Added UI/UX requirements
@@ -101,8 +101,8 @@ Contains all the advanced numbering capabilities:
 **Reason**: Professional appearance, sufficient for first version
 
 ### 6. Bulleted Lists
-**Question**: Include in Feature 017 or 018?
-**Answer**: Feature 018
+**Question**: Include in Feature 015 or 018?
+**Answer**: Feature 016
 **Reason**: Requires full numbering system infrastructure
 
 ### 7. Default Format
@@ -118,10 +118,10 @@ Contains all the advanced numbering capabilities:
 3. Pagination display with professional overflow
 **Reason**: Core functionality first, advanced features later
 
-## Open Questions for Feature 017
+## Open Questions for Feature 015
 
 ### Resolved
-1. ✅ Numbering formats: Deferred to Feature 018
+1. ✅ Numbering formats: Deferred to Feature 016
 2. ✅ Endnote mode: Document-level setting
 3. ✅ Marker style: Inline superscript with button styling
 4. ✅ Overflow handling: Professional typesetting standards
@@ -137,30 +137,30 @@ Contains all the advanced numbering capabilities:
 ## Implementation Sequence
 
 ### Recommended Order
-1. **Feature 017**: Footnotes (16-23 hours)
+1. **Feature 015**: Footnotes (16-23 hours)
    - Self-contained feature
    - Builds on proven patterns (Feature 014 Comments)
    - Delivers immediate user value
    
-2. **Feature 018**: Auto-Numbering (44-58 hours)
+2. **Feature 016**: Auto-Numbering (44-58 hours)
    - More complex, affects multiple systems
    - Can benefit from footnote experience
    - Foundation for future features (Table of Contents, Outlining)
 
 ### Dependencies
-- **Feature 017** depends on:
+- **Feature 015** depends on:
   - Feature 014 (Comments) - proven patterns
   - Feature 005 (Text Formatting) - text system
   - AttributedStringSerializer - existing serialization
   
-- **Feature 018** depends on:
+- **Feature 016** depends on:
   - Feature 005 (Text Formatting) - paragraph styles
   - Feature 003 (Text File Creation) - document structure
-  - Feature 017 (Footnotes) - consumer of basic numbering
+  - Feature 015 (Footnotes) - consumer of basic numbering
 
 ## Architecture Notes
 
-### Feature 017: Footnotes
+### Feature 015: Footnotes
 ```
 FootnoteModel (SwiftData)
 ├── Simple int counter (1, 2, 3...)
@@ -182,7 +182,7 @@ UI Components
 └── Toolbar button
 ```
 
-### Feature 018: Auto-Numbering
+### Feature 016: Auto-Numbering
 ```
 NumberingManager (Singleton)
 ├── DocumentNumberingState (SwiftData)
@@ -219,7 +219,7 @@ UI Components
 ### 2. Incremental Delivery
 - Users get footnotes sooner
 - Can gather feedback before auto-numbering
-- Adjust Feature 018 based on Feature 017 experience
+- Adjust Feature 016 based on Feature 015 experience
 
 ### 3. Better Testing
 - Smaller test surface per feature
@@ -233,17 +233,17 @@ UI Components
 
 ### 5. Flexible Scheduling
 - Can prioritize based on user needs
-- Can defer Feature 018 if needed
+- Can defer Feature 016 if needed
 - Independent release cycles
 
 ## Next Steps
 
 ### Immediate
-1. Answer 5 open questions for Feature 017
+1. Answer 5 open questions for Feature 015
 2. Review and approve specifications
-3. Commit Feature 018 specification to repository
+3. Commit Feature 016 specification to repository
 
-### Feature 017 Implementation
+### Feature 015 Implementation
 1. Phase 1: Core Data Model (4-6 hours)
 2. Phase 2: Footnote Manager (4-6 hours)
 3. Phase 3: UI Components (3-4 hours)
@@ -252,7 +252,7 @@ UI Components
 6. Phase 6: Export Support (3-4 hours)
 7. Testing & Polish (2-3 hours)
 
-### Feature 018 Planning
+### Feature 016 Planning
 1. Review specification with stakeholders
 2. Prioritize phases (can we defer some?)
 3. Identify any missing requirements
@@ -261,8 +261,8 @@ UI Components
 
 ## Timeline
 
-**Feature 017**: 16-23 hours (~2-3 weeks)
-**Feature 018**: 44-58 hours (~6-8 weeks)
+**Feature 015**: 16-23 hours (~2-3 weeks)
+**Feature 016**: 44-58 hours (~6-8 weeks)
 
 **Total**: 60-81 hours (~8-11 weeks)
 
@@ -270,7 +270,7 @@ vs. Original Combined Feature: Would have been ~80-100 hours with higher risk an
 
 ## Success Metrics
 
-### Feature 017
+### Feature 015
 - ✅ Specifications complete and reviewed
 - ✅ Scope clearly defined
 - ✅ Open questions identified
@@ -286,8 +286,8 @@ vs. Original Combined Feature: Would have been ~80-100 hours with higher risk an
 ## Conclusion
 
 Successfully decomposed an overly ambitious feature into two manageable, well-scoped features:
-- **Feature 017**: Basic footnotes (ready to implement)
-- **Feature 018**: Comprehensive auto-numbering (fully planned)
+- **Feature 015**: Basic footnotes (ready to implement)
+- **Feature 016**: Comprehensive auto-numbering (fully planned)
 
 Each feature now has:
 - Clear scope and boundaries
@@ -299,4 +299,4 @@ Each feature now has:
 
 Both features follow proven patterns from existing codebase (Feature 014 Comments, Feature 005 Text Formatting) and maintain architectural consistency.
 
-**Status**: Ready to proceed with Feature 017 implementation or answer open questions.
+**Status**: Ready to proceed with Feature 015 implementation or answer open questions.

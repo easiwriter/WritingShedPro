@@ -1,4 +1,4 @@
-# Feature 017: Footnotes - Implementation Plan
+# Feature 015: Footnotes - Implementation Plan
 
 ## Phase 1: Core Data Model ✅ Planned
 

@@ -1,4 +1,4 @@
-# Feature 017: Footnotes - Data Model
+# Feature 015: Footnotes - Data Model
 
 ## SwiftData Models
 

@@ -17,6 +17,7 @@ tests/
 
 ## Code Style
 : Follow standard conventions
+- **Do NOT create #Preview blocks** - Previews are not used in this project
 
 ## SwiftData + CloudKit Requirements
 When creating SwiftData @Model classes with CloudKit integration:

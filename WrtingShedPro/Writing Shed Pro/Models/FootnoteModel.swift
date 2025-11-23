@@ -2,21 +2,25 @@
 //  FootnoteModel.swift
 //  Writing Shed Pro
 //
-//  Feature 017: Footnotes
+//  Feature 015: Footnotes
 //  Created by GitHub Copilot on 21/11/2025.
+//  UPDATED: 23 November 2025 - Changed to use SwiftData relationships
 //
 
 import Foundation
 import SwiftData
 
-/// Represents a footnote attached to a specific position in a text document
+/// Represents a footnote attached to a specific position in a text document version
+/// ARCHITECTURE: Footnotes belong to a specific Version, not TextFile
+/// This allows footnotes to be version-specific and properly cascade when versions are deleted
 @Model
 final class FootnoteModel {
     /// Unique identifier for the footnote
     var id: UUID = UUID()
     
-    /// ID of the TextFile this footnote belongs to
-    var textFileID: UUID = UUID()
+    /// The Version this footnote belongs to (replaces textFileID)
+    /// Inverse relationship defined in Version.footnotes
+    var version: Version?
     
     /// Character position in the document where the footnote marker appears
     var characterPosition: Int = 0
@@ -45,7 +49,7 @@ final class FootnoteModel {
     /// Initialize a new footnote
     init(
         id: UUID = UUID(),
-        textFileID: UUID,
+        version: Version,
         characterPosition: Int,
         attachmentID: UUID = UUID(),
         text: String,
@@ -56,7 +60,7 @@ final class FootnoteModel {
         deletedAt: Date? = nil
     ) {
         self.id = id
-        self.textFileID = textFileID
+        self.version = version
         self.characterPosition = characterPosition
         self.attachmentID = attachmentID
         self.text = text

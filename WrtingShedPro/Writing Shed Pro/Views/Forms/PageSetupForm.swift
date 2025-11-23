@@ -198,14 +198,3 @@ struct PageSetupForm: View {
         try? modelContext.save()
     }
 }
-
-#Preview {
-    let config = ModelConfiguration(isStoredInMemoryOnly: true)
-    let container = try! ModelContainer(for: Project.self, PageSetup.self, PrinterPaper.self, configurations: config)
-    
-    let sampleProject = Project(name: "Sample Project", type: .novel)
-    container.mainContext.insert(sampleProject)
-    
-    return PageSetupForm(project: sampleProject)
-        .modelContainer(container)
-}

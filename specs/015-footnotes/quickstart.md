@@ -1,4 +1,4 @@
-# Feature 017: Footnotes - Quick Start
+# Feature 015: Footnotes - Quick Start
 
 ## Quick Overview
 

@@ -171,29 +171,3 @@ struct ImageHandleOverlay: View {
         onResize(newSize, anchor)
     }
 }
-
-#Preview {
-    VStack {
-        Text("imageHandle.preview.title")
-            .font(.title)
-        
-        ZStack {
-            Rectangle()
-                .fill(Color.gray.opacity(0.3))
-                .frame(width: 300, height: 200)
-            
-            ImageHandleOverlay(
-                imageFrame: CGRect(x: 0, y: 0, width: 300, height: 200),
-                alignment: .center,
-                onResize: { size, anchor in
-                    print("New size: \(size), anchor: \(anchor)")
-                }
-            )
-        }
-        
-        Text("imageHandle.preview.hint")
-            .font(.caption)
-            .foregroundColor(.secondary)
-    }
-    .padding()
-}

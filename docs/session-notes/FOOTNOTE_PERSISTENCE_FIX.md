@@ -27,7 +27,7 @@ let schema = Schema([
     Submission.self,
     SubmittedFile.self,
     CommentModel.self,
-    // Feature 017: Footnotes
+    // Feature 015: Footnotes
     FootnoteModel.self  // ← ADDED
 ])
 ```

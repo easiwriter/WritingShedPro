@@ -9,6 +9,7 @@
 import Foundation
 import CoreData
 import SwiftData
+import UIKit
 
 /// Maps legacy Core Data entities to new SwiftData models
 class DataMapper {
@@ -166,6 +167,24 @@ class DataMapper {
         }
         
         print("[DataMapper] Found NSAttributedString with length: \(nsAttributedString.length)")
+        
+        // DEBUG: Check what traits exist in the ORIGINAL legacy data
+        var boldCount = 0
+        var italicCount = 0
+        nsAttributedString.enumerateAttribute(.font, in: NSRange(location: 0, length: nsAttributedString.length)) { value, range, _ in
+            if let font = value as? UIFont {
+                let traits = font.fontDescriptor.symbolicTraits
+                if traits.contains(.traitBold) {
+                    boldCount += 1
+                    let text = (nsAttributedString.string as NSString).substring(with: range)
+                    print("[DataMapper] 🔵 Found BOLD text in legacy DB: '\(text.prefix(30))...' at range \(range)")
+                }
+                if traits.contains(.traitItalic) {
+                    italicCount += 1
+                }
+            }
+        }
+        print("[DataMapper] Legacy data has \(boldCount) bold ranges, \(italicCount) italic ranges")
         
         // Convert using AttributedStringConverter
         let (plainText, rtfData) = AttributedStringConverter.convert(nsAttributedString)

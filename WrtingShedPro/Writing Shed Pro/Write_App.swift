@@ -29,7 +29,7 @@ struct Write_App: App {
             SubmittedFile.self,
             // Feature 014: Comments
             CommentModel.self,
-            // Feature 017: Footnotes
+            // Feature 015: Footnotes
             FootnoteModel.self
         ])
         let modelConfiguration = ModelConfiguration(

@@ -1,4 +1,4 @@
-# Feature 018: Automatic Paragraph Numbering - Development Tasks
+# Feature 016: Automatic Paragraph Numbering - Development Tasks
 
 ## Backlog
 
@@ -126,7 +126,7 @@
 - [ ] Implement pagination numbering display
 - [ ] Handle page breaks in numbered lists
 - [ ] Maintain consistency across pages
-- [ ] Test interaction with Feature 017 footnotes
+- [ ] Test interaction with Feature 015 footnotes
 - [ ] Write unit tests for serialization
 - [ ] Write integration tests for export formats
 - [ ] Manual testing of all export formats
@@ -169,7 +169,7 @@ _No tasks completed yet_
 ### Dependencies
 - **Feature 005**: Text Formatting - paragraph style system
 - **Feature 003**: Text File Creation - document structure
-- **Feature 017**: Footnotes - consumer of basic numbering
+- **Feature 015**: Footnotes - consumer of basic numbering
 
 ### Testing Strategy
 - Unit tests for all format conversions and logic

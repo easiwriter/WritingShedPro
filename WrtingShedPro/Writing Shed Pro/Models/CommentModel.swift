@@ -4,19 +4,23 @@
 //
 //  Feature 014: Comments
 //  Created by GitHub Copilot on 20/11/2025.
+//  UPDATED: 23 November 2025 - Changed to use SwiftData relationships
 //
 
 import Foundation
 import SwiftData
 
-/// Represents a comment attached to a specific position in a text document
+/// Represents a comment attached to a specific position in a text document version
+/// ARCHITECTURE: Comments belong to a specific Version, not TextFile
+/// This allows comments to be version-specific and properly cascade when versions are deleted
 @Model
 final class CommentModel {
     /// Unique identifier for the comment
     var id: UUID = UUID()
     
-    /// ID of the TextFile this comment belongs to
-    var textFileID: UUID = UUID()
+    /// The Version this comment belongs to (replaces textFileID)
+    /// Inverse relationship defined in Version.comments
+    var version: Version?
     
     /// Character position in the document where the comment is attached
     var characterPosition: Int = 0
@@ -44,7 +48,7 @@ final class CommentModel {
     /// Initialize a new comment
     init(
         id: UUID = UUID(),
-        textFileID: UUID,
+        version: Version,
         characterPosition: Int,
         attachmentID: UUID = UUID(),
         text: String,
@@ -53,7 +57,7 @@ final class CommentModel {
         resolvedAt: Date? = nil
     ) {
         self.id = id
-        self.textFileID = textFileID
+        self.version = version
         self.characterPosition = characterPosition
         self.attachmentID = attachmentID
         self.text = text
