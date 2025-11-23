@@ -1,0 +1,43 @@
+# macOS/iOS/Swift project ignore patterns
+.DS_Store
+*.swp
+*.tmp
+.idea/
+.vscode/
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+# Don't ignore .xcodeproj files - they define the project structure
+# Only ignore user-specific data inside them
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+# Note: .xcworkspace, .xcassets, and .plist should NOT be ignored globally
+# Only ignore specific user/build artifacts
+# Swift Package Manager
+.build/
+Packages/
+# CocoaPods
+Pods/
+# Carthage
+Carthage/
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/
+fastlane/test_output/
+# Archives
+*.ipa
+*.dSYM
+*.app
+*.framework
+*.xcarchive
+*.xctest
+*.playground
+*.swiftpm
+# Logs
+*.log
+# Environment
+.env*
+# Coverage
+coverage/
