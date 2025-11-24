@@ -13,8 +13,6 @@ struct FormattingToolbarView: UIViewRepresentable {
         case underline
         case strikethrough
         case imageStyle
-        case insert
-        case commentHistory
     }
     
     func makeUIView(context: Context) -> UIToolbar {
@@ -54,12 +52,6 @@ struct FormattingToolbarView: UIViewRepresentable {
         let imageStyleButton = createStandardButton(
             systemName: "photo",
             action: #selector(context.coordinator.showImageStyle),
-            coordinator: context.coordinator
-        )
-        
-        // Create insert button with menu
-        let insertButton = createMenuButton(
-            systemName: "text.badge.plus",
             coordinator: context.coordinator
         )
         
@@ -103,7 +95,6 @@ struct FormattingToolbarView: UIViewRepresentable {
         let underlineBarItem = UIBarButtonItem(customView: underlineButton)
         let strikethroughBarItem = UIBarButtonItem(customView: strikethroughButton)
         let imageStyleBarItem = UIBarButtonItem(customView: imageStyleButton)
-        let insertBarItem = UIBarButtonItem(customView: insertButton)
         let leftArrowBarItem = UIBarButtonItem(customView: leftArrowButton)
         let rightArrowBarItem = UIBarButtonItem(customView: rightArrowButton)
         let keyboardDismissBarItem = UIBarButtonItem(customView: keyboardDismissButton)
@@ -115,7 +106,6 @@ struct FormattingToolbarView: UIViewRepresentable {
         context.coordinator.underlineBarItem = underlineBarItem
         context.coordinator.strikethroughBarItem = strikethroughBarItem
         context.coordinator.imageStyleBarItem = imageStyleBarItem
-        context.coordinator.insertBarItem = insertBarItem
         context.coordinator.leftArrowBarItem = leftArrowBarItem
         context.coordinator.rightArrowBarItem = rightArrowBarItem
         context.coordinator.keyboardToggleBarItem = keyboardDismissBarItem
@@ -157,11 +147,7 @@ struct FormattingToolbarView: UIViewRepresentable {
                 createSpace(20),
                 underlineBarItem,
                 createSpace(20),
-                strikethroughBarItem,
-                createSpace(20),
-                createDivider(),
-                createSpace(20),
-                insertBarItem
+                strikethroughBarItem
             ]
             
             // Only show cursor arrows and keyboard toggle on iOS (not Mac Catalyst)
@@ -294,44 +280,6 @@ struct FormattingToolbarView: UIViewRepresentable {
         return button
     }
     
-    // Menu button for insert options
-    private func createMenuButton(systemName: String, coordinator: Coordinator) -> UIButton {
-        let button = UIButton(type: .system)
-        button.setImage(UIImage(systemName: systemName, withConfiguration: UIImage.SymbolConfiguration(scale: .large)), for: .normal)
-        button.frame = CGRect(x: 0, y: 0, width: 44, height: 44)
-        button.showsMenuAsPrimaryAction = true
-        
-        // Create menu
-        #if targetEnvironment(macCatalyst)
-        // On Mac Catalyst, UIDocumentPickerViewController delegate doesn't work
-        // Users should use copy/paste instead (Cmd+C image in Finder, then Cmd+V in document)
-        let imageAction = UIAction(title: NSLocalizedString("toolbar.insertImage.macCatalyst", comment: "Image insertion on Mac"), image: UIImage(systemName: "photo"), attributes: .disabled) { _ in }
-        #else
-        let imageAction = UIAction(title: NSLocalizedString("toolbar.insertImage", comment: "Insert image"), image: UIImage(systemName: "photo")) { _ in
-            coordinator.onFormatAction(.insert)
-        }
-        #endif
-        
-        let listAction = UIAction(title: NSLocalizedString("toolbar.insertList", comment: "Insert list"), image: UIImage(systemName: "list.bullet"), attributes: .disabled) { _ in }
-        let footnoteAction = UIAction(title: NSLocalizedString("toolbar.insertFootnote", comment: "Insert footnote"), image: UIImage(systemName: "text.append"), attributes: .disabled) { _ in }
-        let endnoteAction = UIAction(title: NSLocalizedString("toolbar.insertEndnote", comment: "Insert endnote"), image: UIImage(systemName: "text.append"), attributes: .disabled) { _ in }
-        let commentHistoryAction = UIAction(title: NSLocalizedString("toolbar.commentHistory", comment: "Comment history"), image: UIImage(systemName: "bubble.left.and.bubble.right")) { _ in
-            coordinator.onFormatAction(.commentHistory)
-        }
-        let indexAction = UIAction(title: NSLocalizedString("toolbar.insertIndex", comment: "Insert index item"), image: UIImage(systemName: "tag"), attributes: .disabled) { _ in }
-        
-        button.menu = UIMenu(title: "", children: [
-            imageAction,
-            listAction,
-            footnoteAction,
-            endnoteAction,
-            commentHistoryAction,
-            indexAction
-        ])
-        
-        return button
-    }
-    
     class Coordinator: NSObject {
         weak var textView: UITextView?
         let onFormatAction: (FormattingAction) -> Void
@@ -356,7 +304,6 @@ struct FormattingToolbarView: UIViewRepresentable {
         weak var underlineBarItem: UIBarButtonItem?
         weak var strikethroughBarItem: UIBarButtonItem?
         weak var imageStyleBarItem: UIBarButtonItem?
-        weak var insertBarItem: UIBarButtonItem?
         weak var leftArrowBarItem: UIBarButtonItem?
         weak var rightArrowBarItem: UIBarButtonItem?
         weak var keyboardToggleBarItem: UIBarButtonItem?
@@ -410,12 +357,6 @@ struct FormattingToolbarView: UIViewRepresentable {
         @objc func showImageStyle() {
             print("🖼️ showImageStyle() called")
             onFormatAction(.imageStyle)
-        }
-        
-        @objc func showInsert() {
-            print("🎯 showInsert() called")
-            // Just trigger the insert action - let SwiftUI handle the menu
-            onFormatAction(.insert)
         }
         
         @objc func moveCursorLeft() {

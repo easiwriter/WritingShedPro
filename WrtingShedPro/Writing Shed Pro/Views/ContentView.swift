@@ -12,7 +12,14 @@ struct ContentView: View {
     @State private var showImportError = false
     @State private var importErrorMessage = ""
     @State private var showDeleteAllConfirmation = false
+    @State private var selectedSortOrder: SortOrder = .byName
+    @State private var editMode: EditMode = .inactive
     @Environment(\.modelContext) var modelContext
+    
+    // Computed property to sync EditMode with Bool for backward compatibility
+    private var isEditMode: Bool {
+        editMode == .active
+    }
     
     var body: some View {
         NavigationStack {
@@ -22,11 +29,26 @@ struct ContentView: View {
                     ImportProgressBanner(progressTracker: importService.getProgressTracker())
                 }
                 
-                ProjectEditableList(projects: projects)
+                ProjectEditableList(
+                    projects: projects,
+                    selectedSortOrder: $selectedSortOrder,
+                    isEditMode: Binding(
+                        get: { editMode == .active },
+                        set: { editMode = $0 ? .active : .inactive }
+                    )
+                )
             }
+            .environment(\.editMode, $editMode)
             .onAppear {
                 initializeUserOrderIfNeeded()
                 checkForImport()
+            }
+            .onChange(of: projects.isEmpty) { _, isEmpty in
+                if isEmpty && editMode == .active {
+                    withAnimation {
+                        editMode = .inactive
+                    }
+                }
             }
             .navigationTitle(NSLocalizedString("contentView.title", comment: "Title of projects list"))
             .toolbar {
@@ -37,38 +59,62 @@ struct ContentView: View {
                     .accessibilityLabel("contentView.manageStylesheets.accessibility")
                 }
                 
-                #if DEBUG
-                // Delete all projects button (debug only)
+                // Use HStack pattern like FolderFilesView (which works)
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(role: .destructive, action: { showDeleteAllConfirmation = true }) {
-                        Label("contentView.deleteAll", systemImage: "trash")
+                    HStack(spacing: 16) {
+                        #if DEBUG && (targetEnvironment(macCatalyst) || os(macOS))
+                        // Delete all projects button (debug only, Mac only)
+                        Button(role: .destructive, action: { showDeleteAllConfirmation = true }) {
+                            Label("contentView.deleteAll", systemImage: "trash")
+                        }
+                        .accessibilityLabel("contentView.deleteAll.accessibility")
+                        
+                        // Re-import only available on Mac where legacy database is accessible
+                        Button(action: { triggerReimport() }) {
+                            Label("contentView.reimport", systemImage: "arrow.trianglehead.2.clockwise")
+                        }
+                        .accessibilityLabel("contentView.reimport.accessibility")
+                        #endif
+                        
+                        Button(action: { showingJSONImportPicker = true }) {
+                            Label(NSLocalizedString("contentView.import", comment: "Import button label"), systemImage: "arrow.down.doc")
+                        }
+                        .accessibilityLabel(NSLocalizedString("contentView.importAccessibility", comment: "Accessibility label for import button"))
+                        
+                        Button(action: { showAddProject = true }) {
+                            Label(NSLocalizedString("contentView.addProject", comment: "Button to add new project"), systemImage: "plus")
+                        }
+                        .accessibilityLabel(NSLocalizedString("contentView.addProjectAccessibility", comment: "Accessibility label for add project button"))
+                        
+                        // Sort Menu
+                        Menu {
+                            ForEach(ProjectSortService.sortOptions(), id: \.order) { option in
+                                Button(action: {
+                                    selectedSortOrder = option.order
+                                }) {
+                                    HStack {
+                                        Text(option.title)
+                                        if selectedSortOrder == option.order {
+                                            Image(systemName: "checkmark")
+                                        }
+                                    }
+                                }
+                            }
+                        } label: {
+                            Image(systemName: "arrow.up.arrow.down")
+                        }
+                        
+                        // Edit/Done button (manual toggle like FolderFilesView)
+                        if !projects.isEmpty {
+                            Button {
+                                withAnimation {
+                                    editMode = editMode == .inactive ? .active : .inactive
+                                }
+                            } label: {
+                                Text(editMode == .inactive ? "Edit" : "Done")
+                            }
+                        }
                     }
-                    .accessibilityLabel("contentView.deleteAll.accessibility")
-                }
-                #endif
-                
-                #if DEBUG && (targetEnvironment(macCatalyst) || os(macOS))
-                // Re-import only available on Mac where legacy database is accessible
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: { triggerReimport() }) {
-                        Label("contentView.reimport", systemImage: "arrow.trianglehead.2.clockwise")
-                    }
-                    .accessibilityLabel("contentView.reimport.accessibility")
-                }
-                #endif
-                
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: { showingJSONImportPicker = true }) {
-                        Label(NSLocalizedString("contentView.import", comment: "Import button label"), systemImage: "arrow.down.doc")
-                    }
-                    .accessibilityLabel(NSLocalizedString("contentView.importAccessibility", comment: "Accessibility label for import button"))
-                }
-                
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: { showAddProject = true }) {
-                        Label(NSLocalizedString("contentView.addProject", comment: "Button to add new project"), systemImage: "plus")
-                    }
-                    .accessibilityLabel(NSLocalizedString("contentView.addProjectAccessibility", comment: "Accessibility label for add project button"))
                 }
             }
             .sheet(isPresented: $showAddProject) {

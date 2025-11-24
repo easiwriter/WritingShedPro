@@ -17,7 +17,18 @@ final class FootnoteAttachment: NSTextAttachment {
     let footnoteID: UUID
     
     /// The footnote number to display
-    var number: Int
+    var number: Int {
+        didSet {
+            // Clear cached image when number changes to force regeneration
+            if number != oldValue {
+                self.image = nil
+                self.contents = nil
+                #if DEBUG
+                print("🔄 FootnoteAttachment: Number changed from \(oldValue) to \(number), clearing cached image")
+                #endif
+            }
+        }
+    }
     
     /// Base font size for calculating superscript size
     private static let baseFontSize: CGFloat = 17

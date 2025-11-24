@@ -221,10 +221,6 @@ struct FileEditView: View {
                         }
                         imageToEdit = image
                     }
-                case .insert:
-                    showImagePicker()
-                case .commentHistory:
-                    showCommentsList = true
                 }
             }
             .frame(height: 44)
@@ -283,27 +279,40 @@ struct FileEditView: View {
                 .accessibilityLabel(isPaginationMode ? "fileEdit.switchToEditMode.accessibility" : "fileEdit.switchToPaginationPreview.accessibility")
             }
             
-                    // Comment button (only in edit mode)
-                    if !isPaginationMode {
-                        // Add new comment
-                        Button(action: {
-                            showNewCommentDialog = true
-                        }) {
-                            Image(systemName: "bubble.left")
-                        }
-                        .accessibilityLabel("fileEdit.addComment.accessibility")
+            // Insert menu (only in edit mode)
+            if !isPaginationMode {
+                Menu {
+                    Button(action: {
+                        showImagePicker()
+                    }) {
+                        Label("Insert Image", systemImage: "photo")
                     }
                     
-                    // Footnote button (only in edit mode)
-                    if !isPaginationMode {
-                        // Add new footnote
-                        Button(action: {
-                            showNewFootnoteDialog = true
-                        }) {
-                            Image(systemName: "number.circle")
-                        }
-                        .accessibilityLabel("fileEdit.addFootnote.accessibility")
-                    }            // Undo button (only in edit mode)
+                    Button(action: {
+                        // TODO: Implement list insertion
+                    }) {
+                        Label("List", systemImage: "list.bullet")
+                    }
+                    .disabled(true)
+                    
+                    Button(action: {
+                        showNewCommentDialog = true
+                    }) {
+                        Label("Comment", systemImage: "bubble.left")
+                    }
+                    
+                    Button(action: {
+                        showNewFootnoteDialog = true
+                    }) {
+                        Label("Footnote", systemImage: "number.circle")
+                    }
+                } label: {
+                    Image(systemName: "text.badge.plus")
+                }
+                .accessibilityLabel("fileEdit.insertMenu.accessibility")
+            }
+            
+            // Undo button (only in edit mode)
             if !isPaginationMode {
                 Button(action: {
                     performUndo()
@@ -403,7 +412,8 @@ struct FileEditView: View {
                 showPhotosPickerFromCoordinator: showPhotosPickerFromCoordinator,
                 showDocumentPicker: $showDocumentPicker,
                 insertNewComment: insertNewComment,
-                insertNewFootnote: insertNewFootnote
+                insertNewFootnote: insertNewFootnote,
+                showCommentsList: { showCommentsList = true }
             ))
             .sheet(isPresented: $showCommentsList) {
                 if let currentVersion = file.currentVersion {
@@ -522,6 +532,7 @@ struct FileEditView: View {
         @Binding var showDocumentPicker: Bool
         let insertNewComment: () -> Void
         let insertNewFootnote: () -> Void
+        let showCommentsList: () -> Void
         
         func body(content: Content) -> some View {
             content
@@ -576,6 +587,9 @@ struct FileEditView: View {
                         onCancel: {
                             newCommentText = ""
                             showNewCommentDialog = false
+                        },
+                        onShowComments: {
+                            showCommentsList()
                         }
                     )
                     .presentationDetents([.medium])
@@ -927,8 +941,19 @@ struct FileEditView: View {
             
             if let footnote = footnote {
                 print("🔢 Footnote inserted: \(footnote.text)")
+                
+                // CRITICAL: Update all footnote numbers in the text to match database
+                let updatedContent = FootnoteInsertionHelper.updateAllFootnoteNumbers(
+                    in: textView.attributedText ?? NSAttributedString(),
+                    forVersion: currentVersion,
+                    context: modelContext
+                )
+                
+                // Update the text view with renumbered footnotes
+                textView.textStorage.setAttributedString(updatedContent)
+                
                 // Update the attributed content binding
-                attributedContent = textView.attributedText ?? NSAttributedString()
+                attributedContent = updatedContent
                 saveChanges()
             }
         }
@@ -2197,6 +2222,7 @@ private struct NewCommentSheet: View {
     @Binding var commentText: String
     let onAdd: () -> Void
     let onCancel: () -> Void
+    let onShowComments: () -> Void
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
@@ -2216,6 +2242,17 @@ private struct NewCommentSheet: View {
                     .scrollContentBackground(.hidden)
                     .padding(.horizontal)
                     .accessibilityLabel("fileEdit.newComment.textEditor.accessibility")
+                
+                // Show Comments button
+                Button(action: {
+                    dismiss()
+                    onShowComments()
+                }) {
+                    Label("Show Comments", systemImage: "bubble.left.and.bubble.right")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .padding(.horizontal)
                 
                 Spacer()
             }

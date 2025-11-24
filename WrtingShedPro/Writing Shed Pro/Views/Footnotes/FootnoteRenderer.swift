@@ -12,6 +12,28 @@ import SwiftUI
 struct FootnoteRenderer: View {
     let footnotes: [FootnoteModel]
     let pageWidth: CGFloat
+    let stylesheet: StyleSheet?
+    
+    // Get the footnote style from stylesheet
+    private var footnoteStyle: TextStyleModel? {
+        let styleName = UIFont.TextStyle.footnote.rawValue
+        return stylesheet?.textStyles?.first { $0.name == styleName }
+    }
+    
+    // Font size for footnotes (from stylesheet or default 10pt)
+    private var footnoteFontSize: CGFloat {
+        footnoteStyle?.fontSize ?? 10
+    }
+    
+    // Font for footnotes
+    private var footnoteFont: Font {
+        if let style = footnoteStyle {
+            let size = style.fontSize
+            let weight: Font.Weight = style.isBold ? .bold : .regular
+            return .system(size: size, weight: weight)
+        }
+        return .system(size: 10)
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -37,22 +59,26 @@ struct FootnoteRenderer: View {
             }
         }
         .frame(width: pageWidth)
+        .background(Color(UIColor.systemBackground))
     }
     
     @ViewBuilder
     private func footnoteEntry(_ footnote: FootnoteModel) -> some View {
         HStack(alignment: .top, spacing: 6) {
-            // Superscript number
+            // Superscript number (slightly smaller than body text)
             Text("\(footnote.number)")
-                .font(.system(size: 10))
+                .font(.system(size: footnoteFontSize * 0.9))
                 .baselineOffset(4)
-                .foregroundStyle(.primary)
+                .foregroundStyle(footnoteStyle?.textColor.map { Color($0) } ?? .primary)
             
-            // Footnote text
+            // Footnote text (respects stylesheet - all attributes)
             Text(footnote.text)
-                .font(.system(size: 10))
+                .font(footnoteFont)
+                .italic(footnoteStyle?.isItalic ?? false)
+                .underline(footnoteStyle?.isUnderlined ?? false)
+                .strikethrough(footnoteStyle?.isStrikethrough ?? false)
+                .foregroundStyle(footnoteStyle?.textColor.map { Color($0) } ?? .primary)
                 .lineSpacing(1.2)
-                .foregroundStyle(.primary)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)

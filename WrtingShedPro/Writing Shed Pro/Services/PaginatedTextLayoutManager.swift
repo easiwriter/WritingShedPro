@@ -318,7 +318,8 @@ class PaginatedTextLayoutManager {
     ///   - width: Available width
     /// - Returns: Estimated height in points
     private func estimateTextHeight(_ text: String, width: CGFloat) -> CGFloat {
-        let font = UIFont.systemFont(ofSize: 10) // Footnote font size
+        // Default to 10pt if no stylesheet available
+        let font = UIFont.systemFont(ofSize: 10)
         let attributes: [NSAttributedString.Key: Any] = [
             .font: font
         ]

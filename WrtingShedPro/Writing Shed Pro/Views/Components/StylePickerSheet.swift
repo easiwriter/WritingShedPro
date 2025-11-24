@@ -40,9 +40,8 @@ struct StylePickerSheet: View {
         (.title3, "Title 3", "Tertiary title style for smaller headings"),
         (.headline, "Headline", "Bold text for emphasizing content"),
         (.body, "Body", "The default reading text style"),
-        (.callout, "Callout", "Slightly smaller than body, for secondary text"),
-        (.subheadline, "Subheadline", "Smaller text for labels and captions"),
-        (.footnote, "Footnote", "Small text for footnotes and annotations"),
+        (.callout, "Body 1", "Secondary body text style (16pt)"),
+        (.subheadline, "Body 2", "Tertiary body text style (14pt)"),
         (.caption1, "Caption 1", "Very small text for image captions"),
         (.caption2, "Caption 2", "The smallest text style")
     ]

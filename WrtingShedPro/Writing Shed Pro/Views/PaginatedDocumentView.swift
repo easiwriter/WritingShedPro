@@ -44,6 +44,7 @@ struct PaginatedDocumentView: View {
                                 zoomScale: 1.0, // Always render at 100%
                                 version: textFile.currentVersion,
                                 modelContext: modelContext,
+                                project: project,
                                 currentPage: $currentPage
                             )
                             .frame(
@@ -99,6 +100,12 @@ struct PaginatedDocumentView: View {
         }
         .onChange(of: project.pageSetup) { _, _ in
             print("📄 Page setup changed")
+            recalculateLayout()
+        }
+        .onChange(of: project.styleSheet?.modifiedDate) { _, _ in
+            print("🎨 Stylesheet modified")
+            // Stylesheet changed - need to re-render pages with new styles
+            // This affects footnote rendering in pagination view
             recalculateLayout()
         }
     }

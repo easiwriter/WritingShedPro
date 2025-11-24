@@ -5,8 +5,8 @@ import SwiftData
 struct ProjectEditableList: View {
     @Environment(\.modelContext) private var modelContext
     let projects: [Project]
-    @State private var selectedSortOrder: SortOrder
-    @State private var isEditMode = false
+    @Binding var selectedSortOrder: SortOrder
+    @Binding var isEditMode: Bool
     @State private var selectedProjectForInfo: Project?
     @State private var showDeleteConfirmation = false
     @State private var projectsToDelete: IndexSet?
@@ -15,11 +15,6 @@ struct ProjectEditableList: View {
     // Sort and display state
     private var sortedProjects: [Project] {
         ProjectSortService.sortProjects(projects, by: selectedSortOrder)
-    }
-    
-    init(projects: [Project], initialSort: SortOrder = .byName) {
-        self.projects = projects
-        self._selectedSortOrder = State(initialValue: initialSort)
     }
     
     var body: some View {
@@ -43,37 +38,6 @@ struct ProjectEditableList: View {
         }
         .listStyle(.plain)
         .environment(\.editMode, .constant(isEditMode ? .active : .inactive))
-        .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                // Sort Menu
-                Menu {
-                    ForEach(ProjectSortService.sortOptions(), id: \.order) { option in
-                        Button(action: {
-                            selectedSortOrder = option.order
-                        }) {
-                            HStack {
-                                Text(option.title)
-                                if selectedSortOrder == option.order {
-                                    Image(systemName: "checkmark")
-                                }
-                            }
-                        }
-                    }
-                } label: {
-                    Image(systemName: "arrow.up.arrow.down")
-                }
-            }
-            
-            ToolbarItem(placement: .navigationBarTrailing) {
-                // Edit Button
-                Button(isEditMode ? "Done" : "Edit") {
-                    withAnimation {
-                        isEditMode.toggle()
-                    }
-                }
-                .disabled(projects.isEmpty)
-            }
-        }
         .onChange(of: projects.isEmpty) { _, isEmpty in
             if isEmpty && isEditMode {
                 withAnimation {

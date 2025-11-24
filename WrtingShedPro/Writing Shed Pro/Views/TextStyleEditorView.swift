@@ -373,6 +373,11 @@ struct TextStyleEditorView: View {
     private func saveChanges() {
         style.displayName = editedDisplayName
         
+        // Update stylesheet's modified date to trigger view updates
+        if let stylesheet = style.styleSheet {
+            stylesheet.modifiedDate = Date()
+        }
+        
         do {
             try modelContext.save()
             onSave?() // Notify that changes were saved

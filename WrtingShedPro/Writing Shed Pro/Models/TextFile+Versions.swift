@@ -75,6 +75,45 @@ extension TextFile {
         newVersion.attributedContent = currentVersion.attributedContent
         newVersion.textFile = self
         
+        // Duplicate comments from current version
+        if let currentComments = currentVersion.comments {
+            for comment in currentComments {
+                let newComment = CommentModel(
+                    version: newVersion,
+                    characterPosition: comment.characterPosition,
+                    attachmentID: comment.attachmentID,
+                    text: comment.text,
+                    author: comment.author,
+                    createdAt: comment.createdAt,
+                    resolvedAt: comment.resolvedAt
+                )
+                if newVersion.comments == nil {
+                    newVersion.comments = []
+                }
+                newVersion.comments?.append(newComment)
+            }
+        }
+        
+        // Duplicate footnotes from current version
+        if let currentFootnotes = currentVersion.footnotes {
+            for footnote in currentFootnotes {
+                let newFootnote = FootnoteModel(
+                    version: newVersion,
+                    characterPosition: footnote.characterPosition,
+                    attachmentID: footnote.attachmentID,
+                    text: footnote.text,
+                    number: footnote.number
+                )
+                if let deletedAt = footnote.deletedAt {
+                    newFootnote.deletedAt = deletedAt
+                }
+                if newVersion.footnotes == nil {
+                    newVersion.footnotes = []
+                }
+                newVersion.footnotes?.append(newFootnote)
+            }
+        }
+        
         // Add to versions array
         if versions == nil {
             versions = []

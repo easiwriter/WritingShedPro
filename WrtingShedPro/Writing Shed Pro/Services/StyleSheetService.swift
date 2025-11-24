@@ -18,23 +18,23 @@ struct StyleSheetService {
         let sheet = StyleSheet(name: "Default", isSystemStyleSheet: true)
         
         // System text styles based on UIFont.TextStyle
-        let systemStyles: [(UIFont.TextStyle, String, StyleCategory, Int)] = [
-            (.largeTitle, "Large Title", .heading, 0),
-            (.title1, "Title 1", .heading, 1),
-            (.title2, "Title 2", .heading, 2),
-            (.title3, "Title 3", .heading, 3),
-            (.headline, "Headline", .heading, 4),
-            (.body, "Body", .text, 5),
-            (.callout, "Callout", .text, 6),
-            (.subheadline, "Subheadline", .text, 7),
-            (.footnote, "Footnote", .footnote, 8),
-            (.caption1, "Caption 1", .text, 9),
-            (.caption2, "Caption 2", .text, 10)
+        let systemStyles: [(UIFont.TextStyle, String, StyleCategory, Int, CGFloat?)] = [
+            (.largeTitle, "Large Title", .heading, 0, nil),
+            (.title1, "Title 1", .heading, 1, nil),
+            (.title2, "Title 2", .heading, 2, nil),
+            (.title3, "Title 3", .heading, 3, nil),
+            (.headline, "Headline", .heading, 4, nil),
+            (.body, "Body", .text, 5, nil),
+            (.callout, "Body 1", .text, 6, 16),  // Renamed to Body 1, set to 16pt
+            (.subheadline, "Body 2", .text, 7, 14),  // Renamed to Body 2, set to 14pt
+            (.footnote, "Footnote", .footnote, 8, nil),  // Keep for pagination but hidden from picker
+            (.caption1, "Caption 1", .text, 9, nil),
+            (.caption2, "Caption 2", .text, 10, nil)
         ]
         
         var styles: [TextStyleModel] = []
         
-        for (textStyle, displayName, category, order) in systemStyles {
+        for (textStyle, displayName, category, order, customFontSize) in systemStyles {
             let font = UIFont.preferredFont(forTextStyle: textStyle)
             
             // Set bold/italic explicitly based on style type
@@ -42,11 +42,14 @@ struct StyleSheetService {
             let isBold = (textStyle == .headline)
             let isItalic = false
             
+            // Use custom font size if provided, otherwise use system default
+            let fontSize = customFontSize ?? font.pointSize
+            
             let style = TextStyleModel(
                 name: textStyle.rawValue,
                 displayName: displayName,
                 displayOrder: order,
-                fontSize: font.pointSize,
+                fontSize: fontSize,
                 isBold: isBold,
                 isItalic: isItalic,
                 alignment: .left,  // Explicitly set left alignment for system styles

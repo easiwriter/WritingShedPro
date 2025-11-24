@@ -107,7 +107,7 @@ struct TrashView: View {
         .navigationTitle("trashView.title")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
+            ToolbarItemGroup(placement: .navigationBarTrailing) {
                 // Manual Edit/Done button (EditButton doesn't work with local @State)
                 if !allTrashItems.isEmpty {
                     Button {
@@ -179,22 +179,37 @@ struct TrashView: View {
     /// List of trashed items
     @ViewBuilder
     private var trashListView: some View {
-        List(selection: $selectedItemIDs) {
+        List {
             ForEach(allTrashItems) { item in
-                trashItemRow(for: item)
-                    .tag(item.id)
-                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        if !isEditMode {
-                            swipeActionButtons(for: item)
-                        }
+                HStack {
+                    // Selection indicator in edit mode
+                    if isEditMode {
+                        Image(systemName: selectedItemIDs.contains(item.id) ? "checkmark.circle.fill" : "circle")
+                            .foregroundStyle(selectedItemIDs.contains(item.id) ? .blue : .gray)
+                            .imageScale(.large)
                     }
-                    .contextMenu {
-                        contextMenuItems(for: item)
+                    
+                    trashItemRow(for: item)
+                    Spacer()
+                }
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    if isEditMode {
+                        // Edit mode: toggle selection
+                        toggleSelection(for: item)
                     }
+                }
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                    if !isEditMode {
+                        swipeActionButtons(for: item)
+                    }
+                }
+                .contextMenu {
+                    contextMenuItems(for: item)
+                }
             }
         }
-        .environment(\.editMode, $editMode)
-        .listStyle(.plain)
+        .listStyle(.insetGrouped)
     }
     
     /// Row for a single trash item
@@ -293,6 +308,15 @@ struct TrashView: View {
     }
     
     // MARK: - Actions
+    
+    /// Toggle selection for an item in edit mode
+    private func toggleSelection(for item: TrashItem) {
+        if selectedItemIDs.contains(item.id) {
+            selectedItemIDs.remove(item.id)
+        } else {
+            selectedItemIDs.insert(item.id)
+        }
+    }
     
     /// Prepares items for Put Back and shows confirmation
     private func preparePutBack(_ items: [TrashItem]) {

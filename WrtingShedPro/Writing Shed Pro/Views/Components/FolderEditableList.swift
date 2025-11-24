@@ -31,6 +31,7 @@ struct FolderEditableList: View {
             }
             .onDelete(perform: deleteFolders)
         }
+        .listStyle(.plain)
         .environment(\.editMode, .constant(isEditMode ? .active : .inactive))
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
