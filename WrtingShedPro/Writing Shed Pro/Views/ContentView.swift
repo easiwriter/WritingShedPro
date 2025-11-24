@@ -22,6 +22,8 @@ struct ContentView: View {
     @State private var showImportOptions = false
     @State private var showLegacyProjectPicker = false
     @State private var availableLegacyProjects: [LegacyProjectData] = []
+    // Debug
+    @State private var showSyncDiagnostics = false
     @Environment(\.modelContext) var modelContext
     
     // Computed property to sync EditMode with Bool for backward compatibility
@@ -78,6 +80,14 @@ struct ContentView: View {
                         Button(action: { handleImportMenu() }) {
                             Label("Import", systemImage: "arrow.down.doc")
                         }
+                        
+                        Divider()
+                        
+                        #if DEBUG
+                        Button(action: { showSyncDiagnostics = true }) {
+                            Label("Sync Diagnostics", systemImage: "arrow.triangle.2.circlepath")
+                        }
+                        #endif
                         
                         Button(action: { showContactSupport = true }) {
                             Label("Contact Support", systemImage: "envelope")
@@ -151,6 +161,9 @@ struct ContentView: View {
             }
             .sheet(isPresented: $showContactSupport) {
                 ContactSupportView()
+            }
+            .sheet(isPresented: $showSyncDiagnostics) {
+                SyncDiagnosticsView()
             }
             .sheet(isPresented: $showLegacyProjectPicker) {
                 LegacyProjectPickerView(
