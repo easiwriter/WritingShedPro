@@ -18,6 +18,10 @@ struct ContentView: View {
     @State private var showAbout = false
     @State private var showPageSetup = false
     @State private var showContactSupport = false
+    // Import options
+    @State private var showImportOptions = false
+    @State private var showLegacyProjectPicker = false
+    @State private var availableLegacyProjects: [LegacyProjectData] = []
     @Environment(\.modelContext) var modelContext
     
     // Computed property to sync EditMode with Bool for backward compatibility
@@ -148,6 +152,26 @@ struct ContentView: View {
             .sheet(isPresented: $showContactSupport) {
                 ContactSupportView()
             }
+            .sheet(isPresented: $showLegacyProjectPicker) {
+                LegacyProjectPickerView(
+                    availableProjects: availableLegacyProjects,
+                    isPresented: $showLegacyProjectPicker,
+                    onImport: { selectedProjects in
+                        importSelectedLegacyProjects(selectedProjects)
+                    }
+                )
+            }
+            .confirmationDialog("Choose Import Source", isPresented: $showImportOptions) {
+                Button("Import from Writing Shed (\(availableLegacyProjects.count) available)") {
+                    showLegacyProjectPicker = true
+                }
+                Button("Import from File...") {
+                    showingJSONImportPicker = true
+                }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text("Choose where to import projects from")
+            }
             .fileImporter(
                 isPresented: $showingJSONImportPicker,
                 allowedContentTypes: [
@@ -184,19 +208,46 @@ struct ContentView: View {
             let unimported = importService.getUnimportedProjects(modelContext: modelContext)
             
             if !unimported.isEmpty {
-                // Show submenu: Import from Writing Shed OR Import from File
-                // For now, trigger legacy import directly
-                // TODO: Show submenu with both options
-                print("[ContentView] Found \(unimported.count) unimported legacy projects")
-                isImporting = true
-                startImport()
+                // Store available projects and show options dialog
+                availableLegacyProjects = unimported
+                showImportOptions = true
                 return
             }
         }
         #endif
         
-        // No legacy database or no unimported projects - show file picker
+        // No legacy database or no unimported projects - show file picker directly
         showingJSONImportPicker = true
+    }
+    
+    /// Import selected legacy projects
+    private func importSelectedLegacyProjects(_ selectedProjects: [LegacyProjectData]) {
+        print("[ContentView] Importing \(selectedProjects.count) selected projects")
+        
+        // Start import with progress indicator
+        isImporting = true
+        
+        let container = modelContext.container
+        
+        Task.detached {
+            let backgroundContext = ModelContext(container)
+            
+            let success = await self.importService.executeSelectiveImport(
+                projectsToImport: selectedProjects,
+                modelContext: backgroundContext
+            )
+            
+            await MainActor.run {
+                self.isImporting = false
+                
+                if success {
+                    print("[ContentView] Selective import completed successfully")
+                } else {
+                    print("[ContentView] Selective import failed with errors")
+                    // TODO: Show error alert
+                }
+            }
+        }
     }
     
     private func checkForImport() {

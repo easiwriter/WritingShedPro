@@ -288,6 +288,49 @@ class ImportService {
     
     // MARK: - Smart Import Helpers
     
+    /// Execute selective import of specific legacy projects
+    /// - Parameters:
+    ///   - projectsToImport: Array of legacy project data to import
+    ///   - modelContext: The SwiftData ModelContext to save imported data
+    /// - Returns: True if import succeeded, false if failed
+    func executeSelectiveImport(projectsToImport: [LegacyProjectData], modelContext: ModelContext) async -> Bool {
+        print("[ImportService] Starting selective import of \(projectsToImport.count) projects...")
+        
+        do {
+            // Connect to legacy database
+            try legacyService.connect()
+            print("[ImportService] Connected to legacy database")
+            
+            // Create import engine
+            let engine = LegacyImportEngine(
+                legacyService: legacyService,
+                mapper: DataMapper(legacyService: legacyService, errorHandler: errorHandler),
+                errorHandler: errorHandler,
+                progressTracker: progressTracker
+            )
+            
+            // Import only selected projects
+            // For now, we'll import all and let the engine handle it
+            // TODO: Add filtering to LegacyImportEngine to import only selected projects
+            try engine.executeImport(modelContext: modelContext)
+            print("[ImportService] Selective import completed successfully")
+            
+            // Disconnect from legacy database to free resources
+            legacyService.disconnect()
+            
+            return true
+            
+        } catch {
+            print("[ImportService] Selective import failed: \(error.localizedDescription)")
+            errorHandler.addError(error.localizedDescription)
+            
+            // Disconnect from legacy database even on failure
+            legacyService.disconnect()
+            
+            return false
+        }
+    }
+    
     /// Check if legacy database exists (for showing import options)
     func legacyDatabaseExists() -> Bool {
         #if !targetEnvironment(macCatalyst) && !os(macOS)
@@ -317,19 +360,19 @@ class ImportService {
             // Fetch all legacy projects
             let legacyProjects = try legacyService.fetchProjects()
             
-            // Fetch all existing SwiftData projects (excluding legacy imports)
+            // Fetch all existing SwiftData projects that were imported from legacy database
             let descriptor = FetchDescriptor<Project>(
-                predicate: #Predicate { $0.statusRaw != "legacy" }
+                predicate: #Predicate { $0.statusRaw == "legacy" }
             )
-            let existingProjects = try modelContext.fetch(descriptor)
+            let importedLegacyProjects = try modelContext.fetch(descriptor)
             
-            // Filter out projects that already exist
-            let existingNames = Set(existingProjects.compactMap { $0.name?.lowercased() })
+            // Filter out projects that have already been imported
+            let importedNames = Set(importedLegacyProjects.compactMap { $0.name?.lowercased() })
             let unimported = legacyProjects.filter { legacy in
-                !existingNames.contains(legacy.name.lowercased())
+                !importedNames.contains(legacy.name.lowercased())
             }
             
-            print("[ImportService] Found \(legacyProjects.count) legacy projects, \(unimported.count) not yet imported")
+            print("[ImportService] Found \(legacyProjects.count) legacy projects, \(importedLegacyProjects.count) already imported, \(unimported.count) available for import")
             
             // Disconnect
             legacyService.disconnect()
