@@ -297,7 +297,10 @@ class ImportService {
         print("[ImportService] Starting selective import of \(projectsToImport.count) projects...")
         
         do {
-            // Connect to legacy database
+            // Disconnect any existing connection to clear cached Core Data objects
+            legacyService.disconnect()
+            
+            // Connect to legacy database with fresh context
             try legacyService.connect()
             print("[ImportService] Connected to legacy database")
             
@@ -309,10 +312,8 @@ class ImportService {
                 progressTracker: progressTracker
             )
             
-            // Import only selected projects
-            // For now, we'll import all and let the engine handle it
-            // TODO: Add filtering to LegacyImportEngine to import only selected projects
-            try engine.executeImport(modelContext: modelContext)
+            // Import only selected projects (using the new selective import method)
+            try engine.executeSelectiveImport(projectsToImport: projectsToImport, modelContext: modelContext)
             print("[ImportService] Selective import completed successfully")
             
             // Disconnect from legacy database to free resources
