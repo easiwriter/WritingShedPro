@@ -2,17 +2,16 @@
 //  PageSetupForm.swift
 //  Writing Shed Pro
 //
-//  Page setup configuration form
+//  Global page setup configuration form
+//  Page setup is stored in UserDefaults and applies to all projects
 //
 
 import SwiftUI
-import SwiftData
 
 struct PageSetupForm: View {
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.modelContext) private var modelContext
     
-    @Bindable var project: Project
+    private let prefs = PageSetupPreferences.shared
     
     @State private var paperName: String
     @State private var orientation: Int16
@@ -28,24 +27,20 @@ struct PageSetupForm: View {
     @State private var scaleFactor: Double
     @State private var units: Units
     
-    init(project: Project) {
-        self.project = project
-        
-        // Initialize from existing page setup or use defaults
-        let pageSetup = project.pageSetup ?? PageSetup()
-        
-        _paperName = State(initialValue: pageSetup.paperName ?? PaperSizes.defaultForRegion.rawValue)
-        _orientation = State(initialValue: pageSetup.orientation)
-        _headers = State(initialValue: pageSetup.headers == 1)
-        _footers = State(initialValue: pageSetup.footers == 1)
-        _facingPages = State(initialValue: pageSetup.facingPages == 1)
-        _leftMargin = State(initialValue: pageSetup.marginLeft)
-        _rightMargin = State(initialValue: pageSetup.marginRight)
-        _topMargin = State(initialValue: pageSetup.marginTop)
-        _bottomMargin = State(initialValue: pageSetup.marginBottom)
-        _headerDepth = State(initialValue: pageSetup.headerDepth)
-        _footerDepth = State(initialValue: pageSetup.footerDepth)
-        _scaleFactor = State(initialValue: pageSetup.scaleFactor)
+    init() {
+        // Initialize from global page setup preferences
+        _paperName = State(initialValue: PageSetupPreferences.shared.paperName)
+        _orientation = State(initialValue: PageSetupPreferences.shared.orientation.rawValue)
+        _headers = State(initialValue: PageSetupPreferences.shared.headers)
+        _footers = State(initialValue: PageSetupPreferences.shared.footers)
+        _facingPages = State(initialValue: PageSetupPreferences.shared.facingPages)
+        _leftMargin = State(initialValue: PageSetupPreferences.shared.marginLeft)
+        _rightMargin = State(initialValue: PageSetupPreferences.shared.marginRight)
+        _topMargin = State(initialValue: PageSetupPreferences.shared.marginTop)
+        _bottomMargin = State(initialValue: PageSetupPreferences.shared.marginBottom)
+        _headerDepth = State(initialValue: PageSetupPreferences.shared.headerDepth)
+        _footerDepth = State(initialValue: PageSetupPreferences.shared.footerDepth)
+        _scaleFactor = State(initialValue: PageSetupPreferences.shared.scaleFactor)
         _units = State(initialValue: .inches)
     }
     
@@ -165,36 +160,21 @@ struct PageSetupForm: View {
     }
     
     private func savePageSetup() {
-        // Get or create page setup
-        let pageSetup = project.pageSetup ?? {
-            let newPageSetup = PageSetup()
-            project.pageSetup = newPageSetup
-            return newPageSetup
-        }()
+        // Save to global page setup preferences (UserDefaults)
+        prefs.setPaperName(paperName)
+        prefs.setOrientation(Orientation(rawValue: orientation) ?? .portrait)
+        prefs.setHeaders(headers)
+        prefs.setFooters(footers)
+        prefs.setFacingPages(facingPages)
+        prefs.setMarginTop(topMargin)
+        prefs.setMarginLeft(leftMargin)
+        prefs.setMarginBottom(bottomMargin)
+        prefs.setMarginRight(rightMargin)
+        prefs.setHeaderDepth(headerDepth)
+        prefs.setFooterDepth(footerDepth)
+        prefs.setScaleFactor(units.scaleFactor)
         
-        // Update properties
-        pageSetup.paperName = paperName
-        pageSetup.orientation = orientation
-        pageSetup.headers = headers ? 1 : 0
-        pageSetup.footers = footers ? 1 : 0
-        pageSetup.facingPages = facingPages ? 1 : 0
-        pageSetup.marginTop = topMargin
-        pageSetup.marginLeft = leftMargin
-        pageSetup.marginBottom = bottomMargin
-        pageSetup.marginRight = rightMargin
-        pageSetup.headerDepth = headerDepth
-        pageSetup.footerDepth = footerDepth
-        pageSetup.scaleFactor = units.scaleFactor
-        
-        // Update scale factor for all printer papers
-        pageSetup.printerPapers?.forEach { paper in
-            paper.scalefactor = units.scaleFactor
-        }
-        
-        // Update project modified date
-        project.modifiedDate = Date()
-        
-        // Save context
-        try? modelContext.save()
+        // Note: Page setup changes will take effect on next document view refresh
+        // Consider adding a notification to refresh open paginated views if needed
     }
 }

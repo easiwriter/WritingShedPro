@@ -30,9 +30,7 @@ final class Project {
     // Style sheet reference (Phase 5)
     var styleSheet: StyleSheet?
     
-    // Page setup reference
-    @Relationship(deleteRule: .cascade)
-    var pageSetup: PageSetup?
+    // Note: Page setup is now global (stored in UserDefaults), not per-project
     
     var type: ProjectType {
         get {

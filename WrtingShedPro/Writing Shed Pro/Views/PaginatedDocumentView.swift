@@ -24,6 +24,9 @@ struct PaginatedDocumentView: View {
     @State private var zoomScale: CGFloat = 1.0
     @State private var isCalculatingLayout: Bool = false
     
+    // Global page setup (from UserDefaults)
+    private let pageSetupPrefs = PageSetupPreferences.shared
+    
     // MARK: - Body
     
     var body: some View {
@@ -36,33 +39,30 @@ struct PaginatedDocumentView: View {
             if let layoutManager = layoutManager, layoutManager.isLayoutValid {
                 GeometryReader { geometry in
                     ZStack {
-                        // Virtual page scroll view  
-                        if let pageSetup = project.pageSetup {
-                            VirtualPageScrollView(
-                                layoutManager: layoutManager,
-                                pageSetup: pageSetup,
-                                zoomScale: 1.0, // Always render at 100%
-                                version: textFile.currentVersion,
-                                modelContext: modelContext,
-                                project: project,
-                                currentPage: $currentPage
-                            )
-                            .frame(
-                                width: geometry.size.width / zoomScale,
-                                height: geometry.size.height / zoomScale
-                            )
-                            .scaleEffect(zoomScale, anchor: .center)
-                            .frame(
-                                width: geometry.size.width,
-                                height: geometry.size.height
-                            )
-                            .clipped()
-                            .accessibilityLabel("paginatedDocument.pages.accessibility")
-                            .accessibilityHint("paginatedDocument.pages.hint")
-                            .accessibilityAddTraits(.allowsDirectInteraction)
-                        } else {
-                            emptyStateView
-                        }
+                        // Virtual page scroll view using global page setup
+                        let pageSetup = pageSetupPrefs.createPageSetup()
+                        VirtualPageScrollView(
+                            layoutManager: layoutManager,
+                            pageSetup: pageSetup,
+                            zoomScale: 1.0, // Always render at 100%
+                            version: textFile.currentVersion,
+                            modelContext: modelContext,
+                            project: project,
+                            currentPage: $currentPage
+                        )
+                        .frame(
+                            width: geometry.size.width / zoomScale,
+                            height: geometry.size.height / zoomScale
+                        )
+                        .scaleEffect(zoomScale, anchor: .center)
+                        .frame(
+                            width: geometry.size.width,
+                            height: geometry.size.height
+                        )
+                        .clipped()
+                        .accessibilityLabel("paginatedDocument.pages.accessibility")
+                        .accessibilityHint("paginatedDocument.pages.hint")
+                        .accessibilityAddTraits(.allowsDirectInteraction)
                     }
                 }
             } else if isCalculatingLayout {
@@ -98,10 +98,7 @@ struct PaginatedDocumentView: View {
             print("📝 Version content changed: \(oldValue?.count ?? 0) → \(newValue?.count ?? 0)")
             recalculateLayout()
         }
-        .onChange(of: project.pageSetup) { _, _ in
-            print("📄 Page setup changed")
-            recalculateLayout()
-        }
+        // Note: Page setup is now global (UserDefaults), changes require app restart
         .onChange(of: project.styleSheet?.modifiedDate) { _, _ in
             print("🎨 Stylesheet modified")
             // Stylesheet changed - need to re-render pages with new styles
@@ -216,10 +213,9 @@ struct PaginatedDocumentView: View {
             print("   ❌ No currentVersion content")
             return
         }
-        guard let pageSetup = project.pageSetup else {
-            print("   ❌ No pageSetup")
-            return
-        }
+        
+        // Use global page setup from UserDefaults
+        let pageSetup = pageSetupPrefs.createPageSetup()
         
         print("   - content length: \(content.count)")
         
@@ -254,10 +250,8 @@ struct PaginatedDocumentView: View {
         print("   - currentVersion: \(textFile.currentVersion?.id.uuidString.prefix(8) ?? "nil")")
         print("   - content length: \(textFile.currentVersion?.content.count ?? 0)")
         
-        guard let pageSetup = project.pageSetup else {
-            print("   ❌ No pageSetup")
-            return
-        }
+        // Use global page setup from UserDefaults
+        let pageSetup = pageSetupPrefs.createPageSetup()
         
         if let existingManager = layoutManager {
             print("   ♻️ Updating existing manager")

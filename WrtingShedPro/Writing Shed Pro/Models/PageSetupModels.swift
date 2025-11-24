@@ -35,8 +35,7 @@ final class PageSetup {
     var scaleFactor: Double = 96.0  // Default to inches
     
     // Relationships
-    @Relationship(inverse: \Project.pageSetup)
-    var project: Project?
+    // Note: Project relationship removed - page setup is now global (UserDefaults)
     
     @Relationship(deleteRule: .cascade, inverse: \PrinterPaper.pageSetup)
     var printerPapers: [PrinterPaper]?
