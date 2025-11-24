@@ -14,6 +14,10 @@ struct ContentView: View {
     @State private var showDeleteAllConfirmation = false
     @State private var selectedSortOrder: SortOrder = .byName
     @State private var editMode: EditMode = .inactive
+    // Settings menu sheets
+    @State private var showAbout = false
+    @State private var showPageSetup = false
+    @State private var showContactSupport = false
     @Environment(\.modelContext) var modelContext
     
     // Computed property to sync EditMode with Bool for backward compatibility
@@ -52,11 +56,32 @@ struct ContentView: View {
             }
             .navigationTitle(NSLocalizedString("contentView.title", comment: "Title of projects list"))
             .toolbar {
+                // Settings menu (replaces stylesheet button)
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: { showManageStyles = true }) {
-                        Label("contentView.manageStylesheets", systemImage: "paintbrush")
+                    Menu {
+                        Button(action: { showAbout = true }) {
+                            Label("About Writing Shed Pro", systemImage: "info.circle")
+                        }
+                        
+                        Button(action: { showManageStyles = true }) {
+                            Label("Stylesheet Editor", systemImage: "paintbrush")
+                        }
+                        
+                        Button(action: { showPageSetup = true }) {
+                            Label("Page Setup", systemImage: "doc.richtext")
+                        }
+                        
+                        Button(action: { handleImportMenu() }) {
+                            Label("Import", systemImage: "arrow.down.doc")
+                        }
+                        
+                        Button(action: { showContactSupport = true }) {
+                            Label("Contact Support", systemImage: "envelope")
+                        }
+                    } label: {
+                        Image(systemName: "gearshape")
                     }
-                    .accessibilityLabel("contentView.manageStylesheets.accessibility")
+                    .accessibilityLabel("Settings")
                 }
                 
                 // Use HStack pattern like FolderFilesView (which works)
@@ -68,18 +93,9 @@ struct ContentView: View {
                             Label("contentView.deleteAll", systemImage: "trash")
                         }
                         .accessibilityLabel("contentView.deleteAll.accessibility")
-                        
-                        // Re-import only available on Mac where legacy database is accessible
-                        Button(action: { triggerReimport() }) {
-                            Label("contentView.reimport", systemImage: "arrow.trianglehead.2.clockwise")
-                        }
-                        .accessibilityLabel("contentView.reimport.accessibility")
                         #endif
                         
-                        Button(action: { showingJSONImportPicker = true }) {
-                            Label(NSLocalizedString("contentView.import", comment: "Import button label"), systemImage: "arrow.down.doc")
-                        }
-                        .accessibilityLabel(NSLocalizedString("contentView.importAccessibility", comment: "Accessibility label for import button"))
+                        // Note: Import and re-import buttons removed - now in Settings menu
                         
                         Button(action: { showAddProject = true }) {
                             Label(NSLocalizedString("contentView.addProject", comment: "Button to add new project"), systemImage: "plus")
@@ -123,6 +139,15 @@ struct ContentView: View {
             .sheet(isPresented: $showManageStyles) {
                 StyleSheetListView()
             }
+            .sheet(isPresented: $showAbout) {
+                AboutView()
+            }
+            .sheet(isPresented: $showPageSetup) {
+                PageSetupForm()
+            }
+            .sheet(isPresented: $showContactSupport) {
+                ContactSupportView()
+            }
             .fileImporter(
                 isPresented: $showingJSONImportPicker,
                 allowedContentTypes: [
@@ -147,6 +172,14 @@ struct ContentView: View {
                 Text("contentView.deleteAll.confirmMessage \(projects.count)")
             }
         }
+    }
+    
+    /// Handle Import menu action - shows file picker for now
+    /// TODO: Implement smart import logic (detect legacy database, show appropriate options)
+    private func handleImportMenu() {
+        // For now, directly show the file picker
+        // Future enhancement: Check if legacy database exists and show submenu
+        showingJSONImportPicker = true
     }
     
     private func checkForImport() {

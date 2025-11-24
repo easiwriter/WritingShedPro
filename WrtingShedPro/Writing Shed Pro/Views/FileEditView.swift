@@ -267,17 +267,15 @@ struct FileEditView: View {
     @ViewBuilder
     private func navigationBarButtons() -> some View {
         HStack(spacing: 16) {
-            // Pagination mode toggle (only show if project has page setup)
-            if file.project?.pageSetup != nil {
-                Button(action: {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        isPaginationMode.toggle()
-                    }
-                }) {
-                    Image(systemName: isPaginationMode ? "document.on.document.fill" : "document.on.document")
+            // Pagination mode toggle (always available - uses global page setup)
+            Button(action: {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    isPaginationMode.toggle()
                 }
-                .accessibilityLabel(isPaginationMode ? "fileEdit.switchToEditMode.accessibility" : "fileEdit.switchToPaginationPreview.accessibility")
+            }) {
+                Image(systemName: isPaginationMode ? "document.on.document.fill" : "document.on.document")
             }
+            .accessibilityLabel(isPaginationMode ? "fileEdit.switchToEditMode.accessibility" : "fileEdit.switchToPaginationPreview.accessibility")
             
             // Insert menu (only in edit mode)
             if !isPaginationMode {

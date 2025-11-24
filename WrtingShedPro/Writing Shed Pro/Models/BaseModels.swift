@@ -66,8 +66,7 @@ final class Project {
         self.notes = notes
         self.userOrder = userOrder
         
-        // Create default page setup with region-appropriate paper size
-        self.pageSetup = PageSetup()
+        // Note: Page setup is now global (stored in UserDefaults), not per-project
     }
 }
 
