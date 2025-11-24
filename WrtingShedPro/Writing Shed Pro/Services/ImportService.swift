@@ -285,4 +285,61 @@ class ImportService {
         }
         // If old flag doesn't exist or is false, leave new flag as default (true for first launch)
     }
+    
+    // MARK: - Smart Import Helpers
+    
+    /// Check if legacy database exists (for showing import options)
+    func legacyDatabaseExists() -> Bool {
+        #if !targetEnvironment(macCatalyst) && !os(macOS)
+        return false // iOS can't access legacy database
+        #endif
+        
+        guard let databaseURL = getLegacyDatabaseURL() else {
+            return false
+        }
+        
+        return FileManager.default.fileExists(atPath: databaseURL.path)
+    }
+    
+    /// Get list of legacy projects that haven't been imported yet
+    /// - Parameter modelContext: SwiftData context to check against existing projects
+    /// - Returns: Array of legacy project data that hasn't been imported
+    func getUnimportedProjects(modelContext: ModelContext) -> [LegacyProjectData] {
+        guard legacyDatabaseExists() else {
+            print("[ImportService] Legacy database not found")
+            return []
+        }
+        
+        do {
+            // Connect to legacy database
+            try legacyService.connect()
+            
+            // Fetch all legacy projects
+            let legacyProjects = try legacyService.fetchProjects()
+            
+            // Fetch all existing SwiftData projects (excluding legacy imports)
+            let descriptor = FetchDescriptor<Project>(
+                predicate: #Predicate { $0.statusRaw != "legacy" }
+            )
+            let existingProjects = try modelContext.fetch(descriptor)
+            
+            // Filter out projects that already exist
+            let existingNames = Set(existingProjects.compactMap { $0.name?.lowercased() })
+            let unimported = legacyProjects.filter { legacy in
+                !existingNames.contains(legacy.name.lowercased())
+            }
+            
+            print("[ImportService] Found \(legacyProjects.count) legacy projects, \(unimported.count) not yet imported")
+            
+            // Disconnect
+            legacyService.disconnect()
+            
+            return unimported
+            
+        } catch {
+            print("[ImportService] Error checking unimported projects: \(error)")
+            legacyService.disconnect()
+            return []
+        }
+    }
 }

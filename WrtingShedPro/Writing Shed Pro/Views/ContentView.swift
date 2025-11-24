@@ -174,11 +174,28 @@ struct ContentView: View {
         }
     }
     
-    /// Handle Import menu action - shows file picker for now
-    /// TODO: Implement smart import logic (detect legacy database, show appropriate options)
+    /// Handle Import menu action with smart logic
+    /// Checks for legacy database and shows appropriate import options
     private func handleImportMenu() {
-        // For now, directly show the file picker
-        // Future enhancement: Check if legacy database exists and show submenu
+        // Check if legacy database exists (Mac only)
+        #if targetEnvironment(macCatalyst) || os(macOS)
+        if importService.legacyDatabaseExists() {
+            // Check if there are unimported projects
+            let unimported = importService.getUnimportedProjects(modelContext: modelContext)
+            
+            if !unimported.isEmpty {
+                // Show submenu: Import from Writing Shed OR Import from File
+                // For now, trigger legacy import directly
+                // TODO: Show submenu with both options
+                print("[ContentView] Found \(unimported.count) unimported legacy projects")
+                isImporting = true
+                startImport()
+                return
+            }
+        }
+        #endif
+        
+        // No legacy database or no unimported projects - show file picker
         showingJSONImportPicker = true
     }
     
