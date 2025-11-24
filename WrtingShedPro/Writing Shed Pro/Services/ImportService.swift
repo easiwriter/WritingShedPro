@@ -344,6 +344,14 @@ class ImportService {
         return FileManager.default.fileExists(atPath: databaseURL.path)
     }
     
+    /// Clean project name by removing timestamp data after <>
+    private func cleanProjectName(_ name: String) -> String {
+        if let range = name.range(of: "<>") {
+            return String(name[..<range.lowerBound]).trimmingCharacters(in: .whitespaces)
+        }
+        return name
+    }
+    
     /// Get list of legacy projects that haven't been imported yet
     /// - Parameter modelContext: SwiftData context to check against existing projects
     /// - Returns: Array of legacy project data that hasn't been imported
@@ -367,9 +375,15 @@ class ImportService {
             let importedLegacyProjects = try modelContext.fetch(descriptor)
             
             // Filter out projects that have already been imported
-            let importedNames = Set(importedLegacyProjects.compactMap { $0.name?.lowercased() })
+            // Clean names (remove <> timestamp suffix) for comparison
+            let importedNames = Set(importedLegacyProjects.compactMap { project -> String? in
+                guard let name = project.name else { return nil }
+                return cleanProjectName(name).lowercased()
+            })
+            
             let unimported = legacyProjects.filter { legacy in
-                !importedNames.contains(legacy.name.lowercased())
+                let cleanName = cleanProjectName(legacy.name).lowercased()
+                return !importedNames.contains(cleanName)
             }
             
             print("[ImportService] Found \(legacyProjects.count) legacy projects, \(importedLegacyProjects.count) already imported, \(unimported.count) available for import")

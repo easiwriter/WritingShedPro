@@ -15,6 +15,14 @@ struct LegacyProjectPickerView: View {
     
     @State private var selectedProjects: Set<String> = []
     
+    /// Clean project name by removing timestamp data after <>
+    private func cleanProjectName(_ name: String) -> String {
+        if let range = name.range(of: "<>") {
+            return String(name[..<range.lowerBound]).trimmingCharacters(in: .whitespaces)
+        }
+        return name
+    }
+    
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
@@ -28,7 +36,7 @@ struct LegacyProjectPickerView: View {
                     List(availableProjects, id: \.objectID, selection: $selectedProjects) { project in
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(project.name)
+                                Text(cleanProjectName(project.name))
                                     .font(.headline)
                                 
                                 HStack(spacing: 12) {
