@@ -2132,7 +2132,9 @@ struct FileEditView: View {
         
         if let versionContent = currentVersion.attributedContent {
             // Version has saved content - use it
-            newAttributedContent = versionContent
+            // CRITICAL: Strip adaptive colors (black/white/gray) to support dark mode properly
+            // This is especially important for legacy imports which may have fixed black text
+            newAttributedContent = AttributedStringSerializer.stripAdaptiveColors(from: versionContent)
             print("📝 loadCurrentVersion: Loaded existing content, length: \(versionContent.length)")
         } else {
             // New/empty version - initialize with Body style from project stylesheet
