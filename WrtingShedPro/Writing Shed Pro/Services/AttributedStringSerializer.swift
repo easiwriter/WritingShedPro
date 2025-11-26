@@ -590,11 +590,19 @@ struct AttributedStringSerializer {
             // Optionally scale fonts for legacy imports (Writing Shed 1.0 used smaller Mac fonts)
             // iOS/iPadOS needs larger scaling - 1.8x (80% increase) for comfortable reading
             // This matches the typical zoom level users prefer (130% of 1.4x ≈ 1.8x)
+            let processedString: NSAttributedString
             if scaleFonts {
-                return self.scaleFonts(restoredString, scaleFactor: 1.8)
+                processedString = self.scaleFonts(restoredString, scaleFactor: 1.8)
             } else {
-                return restoredString
+                processedString = restoredString
             }
+            
+            // CRITICAL: Strip adaptive colors (black/white/gray) from RTF imports
+            // RTF data from Mac often contains explicit black color that doesn't adapt to dark mode
+            // This is especially important for legacy imports from Writing Shed 1.0
+            // The stripAdaptiveColors function removes black/white/gray colors while preserving
+            // user-selected colors (red, blue, etc.) so text adapts to appearance mode
+            return stripAdaptiveColors(from: processedString)
         } catch {
             print("❌ AttributedStringSerializer.fromRTF error: \(error.localizedDescription)")
             return nil
