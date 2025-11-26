@@ -9,7 +9,10 @@ import SwiftUI
 import UIKit
 
 struct FontPickerView: View {
-    @Binding var selectedFontFamily: String?
+    @Binding var selectedFontFamily: String?  // Font family name (e.g., "Helvetica")
+    @Binding var selectedFontName: String?     // Full font name (e.g., "Helvetica-Bold")
+    var onFontSelected: (() -> Void)?          // Callback when font changes
+    
     @Environment(\.dismiss) private var dismiss
     
     @State private var searchText = ""
@@ -29,9 +32,42 @@ struct FontPickerView: View {
         return fontFamilies.filter { $0.localizedCaseInsensitiveContains(searchText) }
     }
     
+    // Helper to check if any variant of this family is selected
+    private func isFamilySelected(_ family: String) -> Bool {
+        // Check if the selected font name belongs to this family
+        guard let fontName = selectedFontName else { return false }
+        let variants = UIFont.fontNames(forFamilyName: family)
+        return variants.contains(fontName)
+    }
+    
     var body: some View {
         NavigationStack {
             List {
+                // System Font option at the top
+                Button(action: {
+                    selectedFontFamily = nil
+                    selectedFontName = nil
+                    onFontSelected?()
+                    dismiss()
+                }) {
+                    HStack {
+                        Text("System Font")
+                            .foregroundColor(.primary)
+                        
+                        Spacer()
+                        
+                        // Checkmark if system font is selected
+                        if selectedFontFamily == nil && selectedFontName == nil {
+                            Image(systemName: "checkmark")
+                                .foregroundColor(.accentColor)
+                        }
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                
+                Divider()
+                
                 ForEach(filteredFamilies, id: \.self) { family in
                     Button(action: {
                         selectedFamily = family
@@ -40,7 +76,11 @@ struct FontPickerView: View {
                             showingVariantPicker = true
                         } else {
                             // Only one variant, select it directly
-                            selectedFontFamily = family
+                            if let variantName = availableVariants.first {
+                                selectedFontFamily = family
+                                selectedFontName = variantName
+                                onFontSelected?()
+                            }
                             dismiss()
                         }
                     }) {
@@ -52,8 +92,8 @@ struct FontPickerView: View {
                             
                             Spacer()
                             
-                            // Checkmark if selected
-                            if selectedFontFamily == family {
+                            // Checkmark if this family is selected
+                            if isFamilySelected(family) {
                                 Image(systemName: "checkmark")
                                     .foregroundColor(.accentColor)
                             }
@@ -84,7 +124,11 @@ struct FontPickerView: View {
                     FontVariantPickerView(
                         fontFamily: family,
                         variants: availableVariants,
-                        selectedFontFamily: $selectedFontFamily
+                        selectedFontName: $selectedFontName,
+                        onFontSelected: {
+                            selectedFontFamily = family
+                            onFontSelected?()
+                        }
                     )
                 }
             }
@@ -97,7 +141,8 @@ struct FontPickerView: View {
 struct FontVariantPickerView: View {
     let fontFamily: String
     let variants: [String]
-    @Binding var selectedFontFamily: String?
+    @Binding var selectedFontName: String?
+    var onFontSelected: (() -> Void)?
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
@@ -105,7 +150,8 @@ struct FontVariantPickerView: View {
             List {
                 ForEach(variants, id: \.self) { variant in
                     Button(action: {
-                        selectedFontFamily = fontFamily
+                        selectedFontName = variant
+                        onFontSelected?()
                         dismiss()
                     }) {
                         HStack {
@@ -116,8 +162,8 @@ struct FontVariantPickerView: View {
                             
                             Spacer()
                             
-                            // Checkmark if this is current
-                            if selectedFontFamily == fontFamily {
+                            // Checkmark if THIS SPECIFIC variant is selected
+                            if selectedFontName == variant {
                                 Image(systemName: "checkmark")
                                     .foregroundColor(.accentColor)
                             }

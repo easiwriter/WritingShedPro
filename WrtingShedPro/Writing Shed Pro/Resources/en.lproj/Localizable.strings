@@ -614,6 +614,15 @@
 "textStyleEditor.preview" = "Preview";
 "textStyleEditor.preview.text" = "The quick brown fox jumps over the lazy dog";
 "textStyleEditor.preview.accessibility" = "Style preview text";
+"textStyleEditor.delete.title" = "Delete Style";
+"textStyleEditor.delete.confirm" = "Are you sure you want to delete this style? This action cannot be undone.";
+"textStyleEditor.delete.inUse" = "This style is used in %d file(s): %@. You must select a replacement style before deleting.";
+"textStyleEditor.delete.replaceAndDelete" = "Replace and Delete";
+"textStyleEditor.selectReplacement" = "Select Replacement Style";
+"textStyleEditor.saveOptions.title" = "Save Style Changes";
+"textStyleEditor.saveOptions.message" = "Do you want to update the existing style (changes will apply to all documents) or create a new style with these attributes?";
+"textStyleEditor.saveOptions.updateStyle" = "Update Existing Style";
+"textStyleEditor.saveOptions.createNewStyle" = "Create New Style";
 
 /* ImageStyleSheetEditorView - New Keys */
 "imageStyleEditor.styleName" = "Style Name";
@@ -688,6 +697,30 @@
 "styleSheetManagement.newStylesheet.accessibility" = "Create new stylesheet";
 "styleSheetManagement.deleteAlert.title" = "Delete Stylesheet";
 "styleSheetManagement.deleteAlert.message" = "Are you sure you want to delete '%@'? Projects using this stylesheet will revert to the system default.";
+
+/* StyleSheetDetailView - New Keys */
+"styleSheetDetail.name" = "Name";
+"styleSheetDetail.name.placeholder" = "Stylesheet Name";
+"styleSheetDetail.stylesCount" = "Styles";
+"styleSheetDetail.headingStyles" = "HEADING STYLES";
+"styleSheetDetail.textStyles" = "TEXT STYLES";
+"styleSheetDetail.listStyles" = "LIST STYLES";
+"styleSheetDetail.footnoteStyles" = "FOOTNOTE STYLES";
+"styleSheetDetail.imageStyles" = "IMAGE STYLES";
+"styleSheetDetail.noImageStyles" = "No image styles";
+"styleSheetDetail.newStyle" = "New Style";
+"styleSheetDetail.newStyle.accessibility" = "Create new style";
+"styleSheetDetail.bold" = "Bold";
+"styleSheetDetail.italic" = "Italic";
+"styleSheetDetail.previewText" = "Sample preview text";
+"styleSheetDetail.caption" = "Caption: %@";
+"styleSheetDetail.noCaption" = "No caption";
+"styleSheetDetail.alignment.left" = "Left";
+"styleSheetDetail.alignment.center" = "Center";
+"styleSheetDetail.alignment.right" = "Right";
+"styleSheetDetail.alignment.justified" = "Justified";
+"styleSheetDetail.alignment.natural" = "Natural";
+"styleSheetDetail.alignment.inline" = "Inline";
 
 /* CreateStyleSheetView - New Keys */
 "createStyleSheet.title" = "New Stylesheet";

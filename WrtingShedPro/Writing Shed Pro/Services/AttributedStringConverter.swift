@@ -62,9 +62,14 @@ class AttributedStringConverter {
         }
         print("[AttributedStringConverter] BEFORE RTF conversion: \(boldCount) bold ranges, \(italicCount) italic ranges")
         
+        // CRITICAL: Preserve multiple consecutive spaces for poetry formatting
+        // RTF automatically collapses multiple spaces during encoding/decoding
+        // Replace consecutive spaces with non-breaking spaces to preserve them
+        let preservedString = preserveMultipleSpaces(attributedString)
+        
         do {
-            let range = NSRange(location: 0, length: attributedString.length)
-            let rtfData = try attributedString.data(
+            let range = NSRange(location: 0, length: preservedString.length)
+            let rtfData = try preservedString.data(
                 from: range,
                 documentAttributes: [.documentType: NSAttributedString.DocumentType.rtf]
             )
@@ -76,6 +81,39 @@ class AttributedStringConverter {
             print("[AttributedStringConverter] RTF conversion failed: \(error)")
             return nil
         }
+    }
+    
+    /// Preserve multiple consecutive spaces by replacing with non-breaking spaces
+    /// RTF format collapses multiple spaces, so we need to use U+00A0 (non-breaking space)
+    /// - Parameter attributedString: The attributed string to process
+    /// - Returns: New attributed string with preserved spaces
+    private static func preserveMultipleSpaces(_ attributedString: NSAttributedString) -> NSAttributedString {
+        let mutableString = NSMutableAttributedString(attributedString: attributedString)
+        let pattern = "  +" // Two or more consecutive spaces
+        
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else {
+            return attributedString
+        }
+        
+        let range = NSRange(location: 0, length: mutableString.length)
+        let matches = regex.matches(in: mutableString.string, options: [], range: range)
+        
+        // Process matches in reverse to maintain correct indices
+        for match in matches.reversed() {
+            let matchRange = match.range
+            let spaces = (mutableString.string as NSString).substring(with: matchRange)
+            
+            // Replace regular spaces with non-breaking spaces (U+00A0)
+            let nonBreakingSpaces = String(repeating: "\u{00A0}", count: spaces.count)
+            
+            // Get attributes from the first character of the match
+            let attrs = mutableString.attributes(at: matchRange.location, effectiveRange: nil)
+            let replacement = NSAttributedString(string: nonBreakingSpaces, attributes: attrs)
+            
+            mutableString.replaceCharacters(in: matchRange, with: replacement)
+        }
+        
+        return mutableString
     }
     
     // MARK: - Formatting Detection

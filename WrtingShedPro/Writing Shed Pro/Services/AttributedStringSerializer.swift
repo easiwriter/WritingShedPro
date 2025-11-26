@@ -582,18 +582,63 @@ struct AttributedStringSerializer {
                 print("📝 fromRTF: Decoded RTF has \(boldCount) bold ranges, \(italicCount) italic ranges")
             }
             
+            // CRITICAL: Restore multiple spaces that were preserved as non-breaking spaces
+            // During RTF encoding, we replaced consecutive spaces with U+00A0 to preserve them
+            // Now convert them back to regular spaces for normal display
+            let restoredString = restoreMultipleSpaces(rtfString)
+            
             // Optionally scale fonts for legacy imports (Writing Shed 1.0 used smaller Mac fonts)
             // iOS/iPadOS needs larger scaling - 1.8x (80% increase) for comfortable reading
             // This matches the typical zoom level users prefer (130% of 1.4x ≈ 1.8x)
             if scaleFonts {
-                return self.scaleFonts(rtfString, scaleFactor: 1.8)
+                return self.scaleFonts(restoredString, scaleFactor: 1.8)
             } else {
-                return rtfString
+                return restoredString
             }
         } catch {
             print("❌ AttributedStringSerializer.fromRTF error: \(error.localizedDescription)")
             return nil
         }
+    }
+    
+    /// Restore multiple consecutive spaces from non-breaking spaces
+    /// During RTF encoding, we preserved spaces as U+00A0, now convert back to regular spaces
+    /// - Parameter attributedString: The attributed string to process
+    /// - Returns: New attributed string with restored regular spaces
+    private static func restoreMultipleSpaces(_ attributedString: NSAttributedString) -> NSAttributedString {
+        let text = attributedString.string
+        
+        // Only process if there are non-breaking spaces
+        guard text.contains("\u{00A0}") else {
+            return attributedString
+        }
+        
+        let mutableString = NSMutableAttributedString(attributedString: attributedString)
+        let pattern = "\u{00A0}+" // One or more non-breaking spaces
+        
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else {
+            return attributedString
+        }
+        
+        let range = NSRange(location: 0, length: mutableString.length)
+        let matches = regex.matches(in: mutableString.string, options: [], range: range)
+        
+        // Process matches in reverse to maintain correct indices
+        for match in matches.reversed() {
+            let matchRange = match.range
+            let nonBreakingSpaces = (mutableString.string as NSString).substring(with: matchRange)
+            
+            // Replace non-breaking spaces with regular spaces
+            let regularSpaces = String(repeating: " ", count: nonBreakingSpaces.count)
+            
+            // Get attributes from the first character of the match
+            let attrs = mutableString.attributes(at: matchRange.location, effectiveRange: nil)
+            let replacement = NSAttributedString(string: regularSpaces, attributes: attrs)
+            
+            mutableString.replaceCharacters(in: matchRange, with: replacement)
+        }
+        
+        return mutableString
     }
     
     /// Decode RTF data with font scaling for legacy imports

@@ -84,6 +84,7 @@ final class TextStyleModel {
     
     // MARK: - Font Attributes
     var fontFamily: String?  // nil = use system font
+    var fontName: String?  // Full font name (e.g., "Helvetica-Bold"), nil = derive from family + traits
     var fontSize: CGFloat = 17
     var isBold: Bool = false
     var isItalic: Bool = false
@@ -200,9 +201,31 @@ final class TextStyleModel {
     
     // MARK: - Font Generation
     
+    /// Update bold/italic flags based on the current font name
+    func updateTraitsFromFontName() {
+        guard let fontName = fontName else { return }
+        
+        let lowercased = fontName.lowercased()
+        
+        // Check for bold
+        isBold = lowercased.contains("bold") || lowercased.contains("-b-") || lowercased.hasSuffix("-b")
+        
+        // Check for italic
+        isItalic = lowercased.contains("italic") || lowercased.contains("oblique") || 
+                   lowercased.contains("-i-") || lowercased.hasSuffix("-i")
+    }
+    
     /// Generate a UIFont from this style's attributes
     func generateFont() -> UIFont {
         let baseSize = fontSize
+        
+        // If a specific font name is set (e.g., "Helvetica-Bold"), use it directly
+        if let specificFontName = fontName, !specificFontName.isEmpty {
+            if let font = UIFont(name: specificFontName, size: baseSize) {
+                return font
+            }
+            // Fall through if font name is invalid
+        }
         
         // Start with either custom font family or system font
         var font: UIFont
@@ -212,14 +235,16 @@ final class TextStyleModel {
             font = UIFont.systemFont(ofSize: baseSize)
         }
         
-        // Apply traits (bold, italic)
-        var traits: UIFontDescriptor.SymbolicTraits = []
-        if isBold { traits.insert(.traitBold) }
-        if isItalic { traits.insert(.traitItalic) }
-        
-        if !traits.isEmpty {
-            if let descriptor = font.fontDescriptor.withSymbolicTraits(traits) {
-                font = UIFont(descriptor: descriptor, size: 0) // 0 = use descriptor's size
+        // Apply traits (bold, italic) only if no specific font name was set
+        if fontName == nil {
+            var traits: UIFontDescriptor.SymbolicTraits = []
+            if isBold { traits.insert(.traitBold) }
+            if isItalic { traits.insert(.traitItalic) }
+            
+            if !traits.isEmpty {
+                if let descriptor = font.fontDescriptor.withSymbolicTraits(traits) {
+                    font = UIFont(descriptor: descriptor, size: 0) // 0 = use descriptor's size
+                }
             }
         }
         

@@ -134,9 +134,9 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
     // MARK: - Setup
     
     private func setupScrollView() {
-        // Calculate layout if needed
+        // Calculate layout if needed (pass version and context for footnote-aware layout)
         if !layoutManager.isLayoutValid {
-            layoutManager.calculateLayout()
+            layoutManager.calculateLayout(version: version, context: modelContext)
         }
         
         guard let result = layoutManager.layoutResult else { return }
@@ -178,9 +178,9 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         // Clear all rendered pages (they have old dimensions/positions)
         clearAllPages()
         
-        // Recalculate layout with new page setup
+        // Recalculate layout with new page setup (pass version and context for footnote-aware layout)
         if !layoutManager.isLayoutValid {
-            layoutManager.calculateLayout()
+            layoutManager.calculateLayout(version: version, context: modelContext)
         }
         
         // Update scroll view content size
@@ -251,18 +251,9 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         // Get page frame
         let pageFrame = frameForPage(pageIndex)
         
-        // Get or create text view (with standard insets)
-        let textView = dequeueReusableTextView() ?? createNewTextView()
-        textView.frame = pageFrame
-        
-        // Configure text view with page content
-        configureTextView(textView, for: pageInfo)
-        
-        // Add to scroll view
-        addSubview(textView)
-        
-        // Query footnotes for this page (if version is available)
+        // Query footnotes for this page FIRST (needed to calculate text area)
         var footnoteController: UIHostingController<FootnoteRenderer>? = nil
+        var footnoteHeight: CGFloat = 0
         
         if let version = version {
             let footnotes = layoutManager.getFootnotesForPage(pageIndex, version: version, context: modelContext)
@@ -284,29 +275,102 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
                 )
                 footnoteController = UIHostingController(rootView: renderer)
                 
-                // Calculate footnote height
-                let footnoteHeight = layoutManager.calculateFootnoteHeight(for: footnotes, pageWidth: contentWidth)
-                
-                // Position footnote view at bottom of content area (inside margins)
-                // Account for margins: left margin and bottom margin
-                let leftMargin = pageSetup.marginLeft
-                let bottomMargin = pageSetup.marginBottom
-                
-                let footnoteFrame = CGRect(
-                    x: pageFrame.origin.x + leftMargin,
-                    y: pageFrame.origin.y + pageFrame.height - bottomMargin - footnoteHeight,
-                    width: contentWidth,
-                    height: footnoteHeight
-                )
+                // Calculate footnote height for text area adjustment
+                footnoteHeight = layoutManager.calculateFootnoteHeight(for: footnotes, pageWidth: contentWidth)
                 
                 #if DEBUG
-                print("📍 Footnote frame: \(footnoteFrame)")
-                print("📏 Page frame: \(pageFrame), leftMargin: \(leftMargin), bottomMargin: \(bottomMargin)")
+                print("📏 Footnote height for page \(pageIndex): \(footnoteHeight)pt")
                 #endif
-                
-                footnoteController!.view.frame = footnoteFrame
-                addSubview(footnoteController!.view)
             }
+        }
+        
+        // Get or create text view
+        let textView = dequeueReusableTextView() ?? createNewTextView()
+        
+        // CRITICAL FIX: Calculate the actual text area height for this page
+        // This determines how much vertical space text can use before hitting the footnote
+        let pageIndex = pageInfo.pageIndex
+        let contentHeight: CGFloat
+        
+        if pageIndex < layoutManager.layoutManager.textContainers.count {
+            let calculatedContainer = layoutManager.layoutManager.textContainers[pageIndex]
+            contentHeight = calculatedContainer.size.height
+            
+            #if DEBUG
+            print("   📦 Page \(pageIndex) calculated content height: \(contentHeight)pt")
+            #endif
+        } else {
+            contentHeight = pageLayout.contentRect.height
+        }
+        
+        // Calculate frame and insets
+        let topInset = pageSetup.marginTop + (pageSetup.hasHeaders ? pageSetup.headerDepth : 0)
+        let leftInset = pageSetup.marginLeft
+        let rightInset = pageSetup.marginRight
+        
+        // For pages with footnotes, we need to limit the text view's visible height
+        // The text view frame should only cover the content area, not the footnote area
+        let textViewHeight = topInset + contentHeight
+        
+        textView.frame = CGRect(
+            x: pageFrame.origin.x,
+            y: pageFrame.origin.y,
+            width: pageFrame.width,
+            height: textViewHeight
+        )
+        
+        // CRITICAL: Enable clipping so any text beyond frame boundary is hidden
+        textView.clipsToBounds = true
+        
+        textView.textContainerInset = UIEdgeInsets(
+            top: topInset,
+            left: leftInset,
+            bottom: 0, // No bottom inset - frame height controls clipping
+            right: rightInset
+        )
+        
+        // Set container size to match calculation
+        textView.textContainer.size = CGSize(
+            width: pageLayout.contentRect.width,
+            height: contentHeight
+        )
+        textView.textContainer.lineFragmentPadding = 0
+        
+        #if DEBUG
+        print("   � Text view frame: height=\(textViewHeight)pt (topInset: \(topInset)pt + content: \(contentHeight)pt)")
+        if footnoteHeight > 0 {
+            print("   📐 Footnote space reserved: \(footnoteHeight)pt")
+        }
+        #endif
+        
+        // Configure text view with page content
+        configureTextView(textView, for: pageInfo)
+        
+        // Add to scroll view
+        addSubview(textView)
+        
+        // Position footnote view if it exists
+        if let footnoteController = footnoteController {
+            // Position footnote view at bottom of content area (inside margins)
+            // Account for margins: left margin and bottom margin
+            let leftMargin = pageSetup.marginLeft
+            let bottomMargin = pageSetup.marginBottom
+            
+            let footnoteFrame = CGRect(
+                x: pageFrame.origin.x + leftMargin,
+                y: pageFrame.origin.y + pageFrame.height - bottomMargin - footnoteHeight,
+                width: pageLayout.contentRect.width,
+                height: footnoteHeight
+            )
+            
+            #if DEBUG
+            print("📍 Footnote frame: \(footnoteFrame)")
+            print("📏 Page frame: \(pageFrame), leftMargin: \(leftMargin), bottomMargin: \(bottomMargin)")
+            #endif
+            
+            footnoteController.view.frame = footnoteFrame
+            footnoteController.view.backgroundColor = .clear // Transparent background
+            addSubview(footnoteController.view)
         }
         
         // Store page info
@@ -352,14 +416,15 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
             // Text view frame stays as full page
             pageViewInfo.textView.frame = newFrame
             
-            // Reposition footnote view if present
+            // Recalculate and reposition footnote view if present
+            var footnoteHeight: CGFloat = 0
             if let footnoteController = pageViewInfo.footnoteHostingController,
                let version = version {
                 let footnotes = layoutManager.getFootnotesForPage(pageIndex, version: version, context: modelContext)
                 
                 // Use contentRect width for footnotes (respects page margins)
                 let contentWidth = pageLayout.contentRect.width
-                let footnoteHeight = layoutManager.calculateFootnoteHeight(for: footnotes, pageWidth: contentWidth)
+                footnoteHeight = layoutManager.calculateFootnoteHeight(for: footnotes, pageWidth: contentWidth)
                 
                 // Position footnote view at bottom of content area (inside margins)
                 let leftMargin = pageSetup.marginLeft
@@ -373,6 +438,18 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
                 )
                 footnoteController.view.frame = footnoteFrame
             }
+            
+            // Update text view insets to account for footnotes
+            let topInset = pageSetup.marginTop + (pageSetup.hasHeaders ? pageSetup.headerDepth : 0)
+            let baseBottomInset = pageSetup.marginBottom + (pageSetup.hasFooters ? pageSetup.footerDepth : 0)
+            let adjustedBottomInset = baseBottomInset + footnoteHeight
+            
+            pageViewInfo.textView.textContainerInset = UIEdgeInsets(
+                top: topInset,
+                left: pageSetup.marginLeft,
+                bottom: adjustedBottomInset,
+                right: pageSetup.marginRight
+            )
             
             // Update stored frame
             renderedPages[pageIndex] = PageViewInfo(
@@ -395,6 +472,10 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         
         // Remove default text container padding (5pt on each side)
         textView.textContainer.lineFragmentPadding = 0
+        
+        // CRITICAL: Prevent container from auto-resizing - we control the size explicitly
+        textView.textContainer.widthTracksTextView = false
+        textView.textContainer.heightTracksTextView = false
         
         // Calculate insets from page margins (at original 100% size)
         // The text view frame is the full page, so insets represent margins
@@ -426,16 +507,12 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
     }
     
     private func configureTextView(_ textView: UITextView, for pageInfo: PaginatedTextLayoutManager.PageInfo) {
-        // Get the text for this page
+        // Extract ONLY the text for this specific page (substring approach)
         let characterRange = pageInfo.characterRange
         let attributedString = layoutManager.textStorage.attributedSubstring(from: characterRange)
         
-        // TEMPORARY: Remove custom attachments to avoid TextKit 2 compatibility issues
-        // TODO: Phase 6 - Render footnotes properly at bottom of pages
-        // TODO: Feature 014 - Render comments properly in pagination view
+        // Process attachments
         let mutableString = NSMutableAttributedString(attributedString: attributedString)
-        
-        // Track ranges to replace (in reverse order to avoid index shifting)
         var replacements: [(range: NSRange, replacement: NSAttributedString)] = []
         
         mutableString.enumerateAttribute(.attachment, in: NSRange(location: 0, length: mutableString.length), options: []) { value, range, stop in
@@ -447,23 +524,40 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
                 let attributes: [NSAttributedString.Key: Any] = [
                     .font: UIFont.systemFont(ofSize: 11, weight: .medium),
                     .foregroundColor: UIColor.systemBlue,
-                    .baselineOffset: 8 // Superscript positioning
+                    .baselineOffset: 8
                 ]
                 replacements.append((range: range, replacement: NSAttributedString(string: numberString, attributes: attributes)))
             } else if attachment is CommentAttachment {
-                // Remove comment markers entirely from pagination view
-                // Comments are editorial annotations and shouldn't appear in print/paginated output
                 replacements.append((range: range, replacement: NSAttributedString(string: "")))
             }
         }
         
-        // Apply replacements in reverse order to preserve indices
         for (range, replacement) in replacements.reversed() {
             mutableString.replaceCharacters(in: range, with: replacement)
         }
         
-        // Set the text
+        // CRITICAL FIX: Use the SAME container size that was calculated during layout
+        // Get the actual container size from the layout manager
+        let pageIndex = pageInfo.pageIndex
+        if pageIndex < layoutManager.layoutManager.textContainers.count {
+            let calculatedContainer = layoutManager.layoutManager.textContainers[pageIndex]
+            let containerSize = calculatedContainer.size
+            
+            // Set the text view's container to match EXACTLY
+            textView.textContainer.size = containerSize
+            
+            #if DEBUG
+            print("   📐 Forcing container size: \(containerSize.width) x \(containerSize.height)")
+            #endif
+        }
+        
+        // Set ONLY this page's text
         textView.attributedText = mutableString
+        
+        #if DEBUG
+        let preview = String(mutableString.string.prefix(50))
+        print("   📝 Set text for page \(pageInfo.pageIndex): '\(preview)...' (\(mutableString.length) chars)")
+        #endif
     }
     
     // MARK: - Page View Recycling

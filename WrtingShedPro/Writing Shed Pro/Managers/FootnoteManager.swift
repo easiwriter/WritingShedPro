@@ -10,6 +10,13 @@ import Foundation
 import SwiftData
 import SwiftUI
 
+// MARK: - Notification Names
+
+extension Notification.Name {
+    /// Posted when footnote numbers have changed (after renumbering)
+    static let footnoteNumbersDidChange = Notification.Name("footnoteNumbersDidChange")
+}
+
 /// Manages footnote operations including CRUD, numbering, position tracking, and queries
 @MainActor
 final class FootnoteManager: ObservableObject {
@@ -58,6 +65,13 @@ final class FootnoteManager: ObservableObject {
             try context.save()
             // Renumber all footnotes after insertion
             renumberFootnotes(forVersion: version, context: context)
+            
+            // Post notification so views can update footnote attachment numbers
+            NotificationCenter.default.post(
+                name: .footnoteNumbersDidChange,
+                object: nil,
+                userInfo: ["versionID": version.id.uuidString]
+            )
         } catch {
             print("❌ Failed to save footnote: \(error)")
         }
@@ -140,6 +154,13 @@ final class FootnoteManager: ObservableObject {
         
         // Renumber remaining footnotes after all saves complete
         renumberFootnotes(forVersion: version, context: context)
+        
+        // Post notification so views can update footnote attachment numbers
+        NotificationCenter.default.post(
+            name: .footnoteNumbersDidChange,
+            object: nil,
+            userInfo: ["versionID": version.id.uuidString]
+        )
     }
     
     /// Restore footnote from trash

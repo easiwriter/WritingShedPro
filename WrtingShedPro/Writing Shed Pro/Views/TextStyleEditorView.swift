@@ -16,6 +16,16 @@ struct TextStyleEditorView: View {
     @State private var hasUnsavedChanges = false
     @State private var editedDisplayName: String
     @State private var showingFontPicker = false
+    @State private var showingDeleteAlert = false
+    @State private var deleteErrorMessage: String?
+    @State private var showingReplacementPicker = false
+    @State private var filesUsingStyle: [String] = []
+    @State private var showingSaveOptionsAlert = false
+    
+    // Get the project associated with this style's stylesheet
+    private var project: Project? {
+        style.styleSheet?.projects?.first
+    }
     
     init(style: TextStyleModel, isNewStyle: Bool = false, onSave: (() -> Void)? = nil) {
         self.style = style
@@ -62,23 +72,105 @@ struct TextStyleEditorView: View {
             }
             
             if style.styleSheet?.isSystemStyleSheet != true {
+                // Delete button (only for non-system styles)
+                if !style.isSystemStyle {
+                    ToolbarItem(placement: .destructiveAction) {
+                        Button(role: .destructive) {
+                            handleDeleteAttempt()
+                        } label: {
+                            Label("button.delete", systemImage: "trash")
+                        }
+                    }
+                }
+                
                 ToolbarItem(placement: .confirmationAction) {
                     Button("button.save") {
-                        saveChanges()
-                        dismiss()
+                        if isNewStyle {
+                            // For new styles, just save directly
+                            saveChanges()
+                            dismiss()
+                        } else {
+                            // For existing styles, show options alert
+                            showingSaveOptionsAlert = true
+                        }
                     }
                     .disabled(!hasUnsavedChanges || editedDisplayName.isEmpty)
                 }
             }
         }
         .sheet(isPresented: $showingFontPicker) {
-            FontPickerView(selectedFontFamily: Binding(
-                get: { style.fontFamily },
-                set: { newValue in
-                    style.fontFamily = newValue
+            FontPickerView(
+                selectedFontFamily: Binding(
+                    get: { style.fontFamily },
+                    set: { newValue in
+                        style.fontFamily = newValue
+                        hasUnsavedChanges = true
+                    }
+                ),
+                selectedFontName: Binding(
+                    get: { style.fontName },
+                    set: { newValue in
+                        style.fontName = newValue
+                        // Update bold/italic flags based on font name
+                        if newValue != nil {
+                            style.updateTraitsFromFontName()
+                        }
+                        hasUnsavedChanges = true
+                    }
+                ),
+                onFontSelected: {
+                    // Font changed, mark as unsaved
                     hasUnsavedChanges = true
                 }
-            ))
+            )
+        }
+        .alert("textStyleEditor.delete.title", isPresented: $showingDeleteAlert) {
+            if filesUsingStyle.isEmpty {
+                Button("button.delete", role: .destructive) {
+                    performDelete()
+                }
+                Button("button.cancel", role: .cancel) { }
+            } else {
+                Button("textStyleEditor.delete.replaceAndDelete", role: .destructive) {
+                    showingReplacementPicker = true
+                }
+                Button("button.cancel", role: .cancel) { }
+            }
+        } message: {
+            if filesUsingStyle.isEmpty {
+                Text("textStyleEditor.delete.confirm")
+            } else {
+                let fileList = filesUsingStyle.prefix(3).joined(separator: ", ")
+                Text(String(format: NSLocalizedString("textStyleEditor.delete.inUse", comment: ""), filesUsingStyle.count, fileList))
+            }
+        }
+        .sheet(isPresented: $showingReplacementPicker) {
+            if let project = project {
+                StyleReplacementPickerView(
+                    currentStyle: style,
+                    project: project,
+                    onStyleSelected: { replacementStyle in
+                        performDelete(replacementStyle: replacementStyle)
+                        showingReplacementPicker = false
+                        dismiss()
+                    }
+                )
+            }
+        }
+        .alert("textStyleEditor.saveOptions.title", isPresented: $showingSaveOptionsAlert) {
+            Button("textStyleEditor.saveOptions.updateStyle") {
+                // Update the existing style - changes apply to all documents automatically
+                saveChanges()
+                dismiss()
+            }
+            Button("textStyleEditor.saveOptions.createNewStyle") {
+                // Create a new style with asterisk suffix
+                createNewStyleFromChanges()
+                dismiss()
+            }
+            Button("button.cancel", role: .cancel) { }
+        } message: {
+            Text("textStyleEditor.saveOptions.message")
         }
     }
     
@@ -157,6 +249,7 @@ struct TextStyleEditorView: View {
                 HStack(spacing: 20) {
                     Button(action: {
                         style.isBold.toggle()
+                        updateFontVariant()
                         hasUnsavedChanges = true
                     }) {
                         Text("B")
@@ -175,6 +268,7 @@ struct TextStyleEditorView: View {
                     
                     Button(action: {
                         style.isItalic.toggle()
+                        updateFontVariant()
                         hasUnsavedChanges = true
                     }) {
                         Text("I")
@@ -368,6 +462,45 @@ struct TextStyleEditorView: View {
         }
     }
     
+    // MARK: - Font Variant Helpers
+    
+    /// Find and select the appropriate font variant when bold/italic are toggled
+    private func updateFontVariant() {
+        guard let family = style.fontFamily else {
+            // No custom font family, just toggle the flags
+            return
+        }
+        
+        let variants = UIFont.fontNames(forFamilyName: family)
+        
+        // Try to find a variant that matches the bold/italic state
+        let targetVariant = variants.first { variantName in
+            let lowercased = variantName.lowercased()
+            let hasBold = lowercased.contains("bold")
+            let hasItalic = lowercased.contains("italic") || lowercased.contains("oblique")
+            
+            if style.isBold && style.isItalic {
+                return hasBold && hasItalic
+            } else if style.isBold {
+                return hasBold && !hasItalic
+            } else if style.isItalic {
+                return hasItalic && !hasBold
+            } else {
+                // Neither bold nor italic - find "Regular" or the base variant
+                return !hasBold && !hasItalic
+            }
+        }
+        
+        // If we found a matching variant, use it
+        if let variant = targetVariant {
+            style.fontName = variant
+        } else if !style.isBold && !style.isItalic {
+            // If we're trying to go to regular but can't find it, use the first variant
+            style.fontName = variants.first
+        }
+        // Otherwise keep the current fontName and rely on symbolic traits
+    }
+    
     // MARK: - Save
     
     private func saveChanges() {
@@ -396,6 +529,172 @@ struct TextStyleEditorView: View {
             }
         } catch {
             print("Error saving style: \(error)")
+        }
+    }
+    
+    private func createNewStyleFromChanges() {
+        guard let stylesheet = style.styleSheet else {
+            print("⚠️ Cannot create new style - no stylesheet")
+            return
+        }
+        
+        // Create new style name with asterisk suffix
+        let newStyleName = style.name + "*"
+        let newDisplayName = editedDisplayName + "*"
+        
+        // Find the next available display order
+        let maxOrder = stylesheet.textStyles?.map { $0.displayOrder }.max() ?? 0
+        
+        // Create new style with current edited properties
+        let newStyle = TextStyleModel(
+            name: newStyleName,
+            displayName: newDisplayName,
+            displayOrder: maxOrder + 1,
+            styleCategory: style.styleCategory,
+            isSystemStyle: false
+        )
+        
+        // Copy all the edited properties from the current style
+        newStyle.fontFamily = style.fontFamily
+        newStyle.fontName = style.fontName
+        newStyle.fontSize = style.fontSize
+        newStyle.isBold = style.isBold
+        newStyle.isItalic = style.isItalic
+        newStyle.textColor = style.textColor
+        newStyle.alignment = style.alignment
+        newStyle.lineSpacing = style.lineSpacing
+        newStyle.paragraphSpacingBefore = style.paragraphSpacingBefore
+        newStyle.paragraphSpacingAfter = style.paragraphSpacingAfter
+        newStyle.firstLineIndent = style.firstLineIndent
+        newStyle.headIndent = style.headIndent
+        newStyle.tailIndent = style.tailIndent
+        
+        // Add to stylesheet
+        newStyle.styleSheet = stylesheet
+        if stylesheet.textStyles == nil {
+            stylesheet.textStyles = []
+        }
+        stylesheet.textStyles?.append(newStyle)
+        
+        // Update stylesheet's modified date
+        stylesheet.modifiedDate = Date()
+        
+        do {
+            modelContext.insert(newStyle)
+            try modelContext.save()
+            onSave?()
+            
+            print("✅ Created new style: \(newDisplayName) (\(newStyleName))")
+            
+            // Notify that stylesheet was modified
+            NotificationCenter.default.post(
+                name: NSNotification.Name("StyleSheetModified"),
+                object: nil,
+                userInfo: ["stylesheetID": stylesheet.id]
+            )
+        } catch {
+            print("❌ Error creating new style: \(error)")
+        }
+    }
+    
+    // MARK: - Delete
+    
+    private func handleDeleteAttempt() {
+        #if DEBUG
+        print("🗑️ handleDeleteAttempt called for style: \(style.displayName) (\(style.name))")
+        #endif
+        
+        // Check if style is in use
+        guard let proj = project else {
+            #if DEBUG
+            print("⚠️ No project found for this style's stylesheet")
+            print("   Stylesheet: \(style.styleSheet?.name ?? "nil")")
+            print("   Stylesheet projects count: \(style.styleSheet?.projects?.count ?? 0)")
+            #endif
+            showingDeleteAlert = true
+            return
+        }
+        
+        #if DEBUG
+        print("✅ Found project: \(proj.name ?? "Untitled")")
+        #endif
+        
+        filesUsingStyle = StyleSheetService.findStyleUsage(style: style, in: proj)
+        
+        #if DEBUG
+        print("📊 handleDeleteAttempt: filesUsingStyle = \(filesUsingStyle)")
+        #endif
+        
+        showingDeleteAlert = true
+    }
+    
+    private func performDelete(replacementStyle: TextStyleModel? = nil) {
+        guard let proj = project else { return }
+        
+        do {
+            try StyleSheetService.deleteStyle(
+                style,
+                replacementStyle: replacementStyle,
+                from: proj,
+                context: modelContext
+            )
+            
+            onSave?() // Notify parent that changes occurred
+            dismiss()
+        } catch {
+            deleteErrorMessage = error.localizedDescription
+        }
+    }
+}
+
+// MARK: - Style Replacement Picker
+
+/// A picker for selecting a replacement style when deleting a style in use
+private struct StyleReplacementPickerView: View {
+    let currentStyle: TextStyleModel
+    let project: Project
+    let onStyleSelected: (TextStyleModel) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+    
+    private var availableStyles: [TextStyleModel] {
+        guard let stylesheet = project.styleSheet,
+              let styles = stylesheet.textStyles else {
+            return []
+        }
+        
+        // Exclude the current style and footnote styles
+        return styles
+            .filter { $0.id != currentStyle.id && $0.styleCategory != .footnote }
+            .sorted { $0.displayOrder < $1.displayOrder }
+    }
+    
+    var body: some View {
+        NavigationView {
+            List {
+                ForEach(availableStyles, id: \.id) { style in
+                    Button(action: {
+                        onStyleSelected(style)
+                    }) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(style.displayName)
+                                .font(.headline)
+                            Text("\(style.styleCategory.rawValue.capitalized) • \(Int(style.fontSize))pt")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+            .navigationTitle("textStyleEditor.selectReplacement")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("button.cancel") {
+                        dismiss()
+                    }
+                }
+            }
         }
     }
 }

@@ -85,18 +85,45 @@ class PaginatedTextLayoutManager {
     
     // MARK: - Layout Calculation
     
-    /// Calculate the complete page layout
-    /// This is the main method that determines how many pages are needed
-    /// and which text appears on each page
+    /// Calculate the complete page layout with footnote-aware pagination
+    /// This method performs iterative layout calculation to ensure footnotes fit properly
+    /// - Parameters:
+    ///   - version: Optional version to check for footnotes during layout
+    ///   - context: Optional model context for footnote queries
     /// - Returns: Layout result with page count and page information
     @discardableResult
-    func calculateLayout() -> LayoutResult {
+    func calculateLayout(version: Version? = nil, context: ModelContext? = nil) -> LayoutResult {
         let startTime = Date()
         
         // Get page layout from calculator
         let pageLayout = PageLayoutCalculator.calculateLayout(from: pageSetup)
-        let containerSize = pageLayout.contentRect.size
+        let baseContainerSize = pageLayout.contentRect.size
         
+        // If no version/context provided, use simple layout (no footnote adjustment)
+        if version == nil || context == nil {
+            #if DEBUG
+            print("🔧 Using SIMPLE layout (no version/context)")
+            #endif
+            return calculateSimpleLayout(containerSize: baseContainerSize, pageLayout: pageLayout, startTime: startTime)
+        }
+        
+        #if DEBUG
+        print("🔧 Using FOOTNOTE-AWARE layout with version: \(version!.id.uuidString.prefix(8))")
+        print("   📏 Base container size: \(baseContainerSize.width) x \(baseContainerSize.height)")
+        #endif
+        
+        // Footnote-aware layout: iteratively adjust for footnote space
+        return calculateFootnoteAwareLayout(
+            containerSize: baseContainerSize,
+            pageLayout: pageLayout,
+            version: version!,
+            context: context!,
+            startTime: startTime
+        )
+    }
+    
+    /// Simple layout calculation without footnote adjustment
+    private func calculateSimpleLayout(containerSize: CGSize, pageLayout: PageLayoutCalculator.PageLayout, startTime: Date) -> LayoutResult {
         // Calculate pages by measuring how much text fits in each page container
         var pageInfos: [PageInfo] = []
         var characterIndex = 0
@@ -175,6 +202,202 @@ class PaginatedTextLayoutManager {
         let result = LayoutResult(
             totalPages: pageInfos.count,
             pageInfos: pageInfos,
+            contentSize: contentSize,
+            calculationTime: calculationTime
+        )
+        
+        self.layoutResult = result
+        self.isLayoutValid = true
+        
+        return result
+    }
+    
+    /// Footnote-aware layout calculation with iterative convergence
+    /// Iterates until page breaks stabilize with footnote space reservation
+    private func calculateFootnoteAwareLayout(
+        containerSize: CGSize,
+        pageLayout: PageLayoutCalculator.PageLayout,
+        version: Version,
+        context: ModelContext,
+        startTime: Date
+    ) -> LayoutResult {
+        // Get all footnotes for this version
+        let allFootnotes = FootnoteManager.shared.getActiveFootnotes(forVersion: version, context: context)
+        let maxIterations = 5  // Prevent infinite loops
+        
+        var currentPageInfos: [PageInfo] = []
+        var previousPageRanges: [NSRange] = []
+        var footnotesPerPage: [[FootnoteModel]] = []  // Track footnotes for each page
+        var iteration = 0
+        var hasConverged = false
+        
+        while !hasConverged && iteration < maxIterations {
+            iteration += 1
+            #if DEBUG
+            print("🔄 Footnote layout iteration \(iteration)")
+            #endif
+            
+            // Calculate pagination with current footnote assignments
+            var pageInfos: [PageInfo] = []
+            var characterIndex = 0
+            let totalCharacters = textStorage.length
+            var newFootnotesPerPage: [[FootnoteModel]] = []
+            
+            while characterIndex < totalCharacters || pageInfos.isEmpty {
+                let pageIndex = pageInfos.count
+                
+                // For iteration 1, assume no footnotes (full height)
+                // For iterations 2+, check if previous iteration found footnotes on this page
+                let footnotesOnPreviousPage: [FootnoteModel]
+                if iteration == 1 || pageIndex >= currentPageInfos.count {
+                    footnotesOnPreviousPage = []
+                } else {
+                    let previousPageRange = currentPageInfos[pageIndex].characterRange
+                    footnotesOnPreviousPage = allFootnotes.filter { footnote in
+                        NSLocationInRange(footnote.characterPosition, previousPageRange)
+                    }
+                }
+                
+                // Calculate actual footnote height for this page
+                let footnoteHeight: CGFloat
+                if !footnotesOnPreviousPage.isEmpty {
+                    footnoteHeight = calculateFootnoteHeight(for: footnotesOnPreviousPage, pageWidth: containerSize.width)
+                    #if DEBUG
+                    print("   📏 Page \(pageIndex): \(footnotesOnPreviousPage.count) footnotes need \(footnoteHeight)pt")
+                    #endif
+                } else {
+                    footnoteHeight = 0
+                }
+                
+                // Determine container size based on actual footnote height
+                let pageContainerSize: CGSize
+                if footnoteHeight > 0 {
+                    pageContainerSize = CGSize(
+                        width: containerSize.width,
+                        height: containerSize.height - footnoteHeight
+                    )
+                    #if DEBUG
+                    print("   📐 Container adjusted: \(containerSize.height)pt - \(footnoteHeight)pt = \(pageContainerSize.height)pt")
+                    #endif
+                } else {
+                    pageContainerSize = containerSize
+                }
+                
+                // Create container for this page
+                let container = NSTextContainer(size: pageContainerSize)
+                container.lineFragmentPadding = 0
+                layoutManager.addTextContainer(container)
+                
+                let glyphRange = layoutManager.glyphRange(for: container)
+                let characterRange = layoutManager.characterRange(forGlyphRange: glyphRange, actualGlyphRange: nil)
+                let usedRect = layoutManager.usedRect(for: container)
+                
+                let pageInfo = PageInfo(
+                    pageIndex: pageIndex,
+                    glyphRange: glyphRange,
+                    characterRange: characterRange,
+                    usedRect: usedRect
+                )
+                pageInfos.append(pageInfo)
+                
+                characterIndex = NSMaxRange(characterRange)
+                
+                if characterIndex >= totalCharacters || characterRange.length == 0 {
+                    break
+                }
+            }
+            
+            // Remove temporary containers
+            while !layoutManager.textContainers.isEmpty {
+                layoutManager.removeTextContainer(at: 0)
+            }
+            
+            // Check if page ranges have stabilized (converged)
+            let currentRanges = pageInfos.map { $0.characterRange }
+            if iteration > 1 && currentRanges == previousPageRanges {
+                hasConverged = true
+                #if DEBUG
+                print("✅ Footnote layout converged after \(iteration) iterations")
+                #endif
+            }
+            
+            currentPageInfos = pageInfos
+            previousPageRanges = currentRanges
+        }
+        
+        if !hasConverged {
+            #if DEBUG
+            print("⚠️ Footnote layout did not converge after \(maxIterations) iterations, using last result")
+            #endif
+        }
+        
+        // Now add final containers based on converged page ranges with actual footnote heights
+        var finalPageInfos: [PageInfo] = []
+        for (pageIndex, pageInfo) in currentPageInfos.enumerated() {
+            // Check if THIS page has footnotes in the converged layout
+            let footnotesOnPage = allFootnotes.filter { footnote in
+                NSLocationInRange(footnote.characterPosition, pageInfo.characterRange)
+            }
+            
+            // Calculate actual footnote height for final container
+            let footnoteHeight: CGFloat
+            if !footnotesOnPage.isEmpty {
+                footnoteHeight = calculateFootnoteHeight(for: footnotesOnPage, pageWidth: containerSize.width)
+            } else {
+                footnoteHeight = 0
+            }
+            
+            let pageContainerSize: CGSize
+            if footnoteHeight > 0 {
+                pageContainerSize = CGSize(
+                    width: containerSize.width,
+                    height: containerSize.height - footnoteHeight
+                )
+                #if DEBUG
+                print("📐 Final: Page \(pageIndex) has \(footnotesOnPage.count) footnotes, reserved \(footnoteHeight)pt")
+                #endif
+            } else {
+                pageContainerSize = containerSize
+                #if DEBUG
+                print("📐 Final: Page \(pageIndex) has no footnotes, full height")
+                #endif
+            }
+            
+            let container = NSTextContainer(size: pageContainerSize)
+            container.lineFragmentPadding = 0
+            layoutManager.addTextContainer(container)
+            
+            finalPageInfos.append(pageInfo)
+        }
+        
+        // Ensure at least one page
+        if finalPageInfos.isEmpty {
+            let emptyPageInfo = PageInfo(
+                pageIndex: 0,
+                glyphRange: NSRange(location: 0, length: 0),
+                characterRange: NSRange(location: 0, length: 0),
+                usedRect: .zero
+            )
+            finalPageInfos.append(emptyPageInfo)
+            
+            let container = NSTextContainer(size: containerSize)
+            container.lineFragmentPadding = 0
+            layoutManager.addTextContainer(container)
+        }
+        
+        // Calculate total content size
+        let pageHeight = pageLayout.pageRect.height
+        let totalHeight = CGFloat(finalPageInfos.count) * (pageHeight + pageSpacing) - pageSpacing
+        let contentSize = CGSize(
+            width: pageLayout.pageRect.width,
+            height: max(totalHeight, pageHeight)
+        )
+        
+        let calculationTime = Date().timeIntervalSince(startTime)
+        
+        let result = LayoutResult(
+            totalPages: finalPageInfos.count,
+            pageInfos: finalPageInfos,
             contentSize: contentSize,
             calculationTime: calculationTime
         )

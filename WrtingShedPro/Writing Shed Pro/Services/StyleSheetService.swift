@@ -244,4 +244,284 @@ struct StyleSheetService {
     ) -> TextStyleModel? {
         return resolveStyle(named: textStyle.rawValue, for: project, context: context)
     }
+    
+    // MARK: - Style Usage Detection
+    
+    /// Check if a text style is used in any file within the project
+    /// Returns a list of file names that use this style
+    static func findStyleUsage(
+        style: TextStyleModel,
+        in project: Project
+    ) -> [String] {
+        #if DEBUG
+        print("🔍 findStyleUsage: Looking for style '\(style.name)' in project '\(project.name ?? "Untitled")'")
+        #endif
+        
+        var filesUsingStyle: [String] = []
+        let styleName = style.name
+        
+        // Get all folders in the project
+        guard let folders = project.folders else {
+            #if DEBUG
+            print("⚠️ findStyleUsage: No folders in project")
+            #endif
+            return []
+        }
+        
+        #if DEBUG
+        print("📁 findStyleUsage: Found \(folders.count) root folder(s)")
+        #endif
+        
+        // Recursively check all files
+        func checkFolder(_ folder: Folder) {
+            #if DEBUG
+            print("📂 Checking folder: \(folder.name ?? "Untitled")")
+            #endif
+            
+            // Check text files in this folder
+            if let textFiles = folder.textFiles {
+                #if DEBUG
+                print("   \(textFiles.count) file(s) in folder")
+                #endif
+                for textFile in textFiles {
+                    if fileUsesStyle(textFile, styleName: styleName) {
+                        filesUsingStyle.append(textFile.name ?? "Untitled")
+                    }
+                }
+            }
+            
+            // Check subfolders
+            if let subfolders = folder.folders {
+                for subfolder in subfolders {
+                    checkFolder(subfolder)
+                }
+            }
+        }
+        
+        // Check each root folder
+        for folder in folders {
+            checkFolder(folder)
+        }
+        
+        #if DEBUG
+        print("✅ findStyleUsage: Found \(filesUsingStyle.count) file(s) using style '\(styleName)'")
+        if !filesUsingStyle.isEmpty {
+            print("   Files: \(filesUsingStyle.joined(separator: ", "))")
+        }
+        #endif
+        
+        return filesUsingStyle
+    }
+    
+    /// Check if a text file uses a specific style
+    private static func fileUsesStyle(_ file: TextFile, styleName: String) -> Bool {
+        // Check current version
+        guard let currentVersion = file.currentVersion,
+              let attributedString = currentVersion.attributedContent else {
+            #if DEBUG
+            print("⚠️ fileUsesStyle: No current version or attributed content for file: \(file.name ?? "Untitled")")
+            #endif
+            return false
+        }
+        
+        #if DEBUG
+        print("🔍 fileUsesStyle: Checking file '\(file.name ?? "Untitled")' for style '\(styleName)'")
+        print("   Content length: \(attributedString.length)")
+        #endif
+        
+        // Search for the style attribute in the string
+        var foundStyle = false
+        let fullRange = NSRange(location: 0, length: attributedString.length)
+        
+        attributedString.enumerateAttribute(
+            NSAttributedString.Key.textStyle,
+            in: fullRange,
+            options: []
+        ) { value, range, stop in
+            #if DEBUG
+            if let styleValue = value as? String {
+                print("   Found style '\(styleValue)' at range \(range)")
+                if styleValue == styleName {
+                    print("   ✅ MATCH!")
+                }
+            } else if value != nil {
+                print("   Found non-string style value: \(String(describing: value))")
+            }
+            #endif
+            
+            if let styleValue = value as? String,
+               styleValue == styleName {
+                foundStyle = true
+                stop.pointee = true
+            }
+        }
+        
+        #if DEBUG
+        print("   Result: \(foundStyle ? "FOUND" : "NOT FOUND")")
+        #endif
+        
+        return foundStyle
+    }
+    
+    /// Check if a style can be safely deleted
+    /// Returns nil if safe, or an error message if not
+    static func canDeleteStyle(
+        _ style: TextStyleModel,
+        from project: Project
+    ) -> (canDelete: Bool, message: String?) {
+        // System styles cannot be deleted
+        if style.isSystemStyle {
+            return (false, "System styles cannot be deleted.")
+        }
+        
+        // Check if style is in use
+        let filesUsing = findStyleUsage(style: style, in: project)
+        
+        if filesUsing.isEmpty {
+            return (true, nil)
+        } else {
+            let fileList = filesUsing.prefix(5).joined(separator: ", ")
+            let moreCount = filesUsing.count - 5
+            let message = "This style is used in \(filesUsing.count) file(s): \(fileList)\(moreCount > 0 ? ", and \(moreCount) more" : "")"
+            return (false, message)
+        }
+    }
+    
+    /// Delete a style and optionally replace it with another style in all files
+    /// If the style is in use and no replacement is provided, this will throw an error
+    static func deleteStyle(
+        _ style: TextStyleModel,
+        replacementStyle: TextStyleModel?,
+        from project: Project,
+        context: ModelContext
+    ) throws {
+        // Don't allow deleting system styles
+        guard !style.isSystemStyle else {
+            throw NSError(domain: "StyleSheetService", code: 1, 
+                         userInfo: [NSLocalizedDescriptionKey: "Cannot delete system styles"])
+        }
+        
+        // Check if style is in use
+        let filesUsing = findStyleUsage(style: style, in: project)
+        
+        // If style is in use, replacement is required
+        if !filesUsing.isEmpty && replacementStyle == nil {
+            throw NSError(domain: "StyleSheetService", code: 2,
+                         userInfo: [NSLocalizedDescriptionKey: "Cannot delete style that is in use without providing a replacement"])
+        }
+        
+        // If replacement style is provided, update all files
+        if let replacement = replacementStyle {
+            replaceStyleInProject(
+                oldStyleName: style.name,
+                newStyleName: replacement.name,
+                in: project,
+                context: context
+            )
+        }
+        
+        // Remove from stylesheet
+        if let stylesheet = style.styleSheet {
+            stylesheet.textStyles?.removeAll { $0.id == style.id }
+        }
+        
+        // Delete the style
+        context.delete(style)
+        try context.save()
+    }
+    
+    /// Replace all occurrences of one style with another in the project
+    private static func replaceStyleInProject(
+        oldStyleName: String,
+        newStyleName: String,
+        in project: Project,
+        context: ModelContext
+    ) {
+        guard let folders = project.folders else { return }
+        
+        func processFolder(_ folder: Folder) {
+            // Process text files
+            if let textFiles = folder.textFiles {
+                for textFile in textFiles {
+                    replaceStyleInFile(textFile, oldStyleName: oldStyleName, newStyleName: newStyleName, context: context)
+                }
+            }
+            
+            // Process subfolders
+            if let subfolders = folder.folders {
+                for subfolder in subfolders {
+                    processFolder(subfolder)
+                }
+            }
+        }
+        
+        for folder in folders {
+            processFolder(folder)
+        }
+    }
+    
+    /// Replace a style in a single file
+    /// This both updates the .textStyle attribute AND applies the new style's formatting
+    private static func replaceStyleInFile(
+        _ file: TextFile,
+        oldStyleName: String,
+        newStyleName: String,
+        context: ModelContext
+    ) {
+        guard let currentVersion = file.currentVersion,
+              let attributedString = currentVersion.attributedContent,
+              let project = file.project,
+              let newStyle = resolveStyle(named: newStyleName, for: project, context: context) else {
+            return
+        }
+        
+        // Use the Version model's attributedContent getter to properly deserialize
+        let mutableString = NSMutableAttributedString(attributedString: attributedString)
+        let fullRange = NSRange(location: 0, length: mutableString.length)
+        
+        // Get the new style's attributes once (for efficiency)
+        let newStyleAttributes = newStyle.generateAttributes()
+        guard let newFont = newStyleAttributes[NSAttributedString.Key.font] as? UIFont else {
+            return
+        }
+        
+        // Replace all occurrences of the old style with the new style
+        // AND apply the new style's formatting
+        mutableString.enumerateAttribute(
+            NSAttributedString.Key.textStyle,
+            in: fullRange,
+            options: []
+        ) { value, range, _ in
+            if let styleValue = value as? String,
+               styleValue == oldStyleName {
+                
+                // Update the style name
+                mutableString.addAttribute(NSAttributedString.Key.textStyle, value: newStyleName, range: range)
+                
+                // Apply the new style's formatting attributes
+                // Preserve character-level traits (bold, italic) within the paragraph
+                mutableString.enumerateAttributes(in: range, options: []) { attributes, subrange, _ in
+                    var newAttributes = newStyleAttributes
+                    
+                    // Preserve existing font traits
+                    let existingFont = attributes[.font] as? UIFont ?? newFont
+                    let existingTraits = existingFont.fontDescriptor.symbolicTraits
+                    
+                    if !existingTraits.isEmpty {
+                        if let descriptor = newFont.fontDescriptor.withSymbolicTraits(existingTraits) {
+                            newAttributes[.font] = UIFont(descriptor: descriptor, size: 0)
+                        } else {
+                            newAttributes[.font] = newFont
+                        }
+                    }
+                    
+                    mutableString.setAttributes(newAttributes, range: subrange)
+                }
+            }
+        }
+        
+        // Save back using the Version model's setter
+        // This will use AttributedStringSerializer.encode to preserve custom attributes
+        currentVersion.attributedContent = mutableString
+    }
 }

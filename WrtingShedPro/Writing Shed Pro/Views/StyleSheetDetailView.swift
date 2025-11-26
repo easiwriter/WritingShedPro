@@ -30,19 +30,19 @@ struct StyleSheetDetailView: View {
             // Stylesheet Info
             Section {
                 HStack {
-                    Text("styleSheetDetail.name")
+                    Text(NSLocalizedString("styleSheetDetail.name", comment: "Stylesheet name"))
                         .foregroundStyle(.secondary)
                     Spacer()
                     if styleSheet.isSystemStyleSheet {
                         Text(styleSheet.name)
                     } else {
-                        TextField("styleSheetDetail.name.placeholder", text: $styleSheet.name)
+                        TextField(NSLocalizedString("styleSheetDetail.name.placeholder", comment: "Name placeholder"), text: $styleSheet.name)
                             .multilineTextAlignment(.trailing)
                     }
                 }
                 
                 HStack {
-                    Text("styleSheetDetail.stylesCount")
+                    Text(NSLocalizedString("styleSheetDetail.stylesCount", comment: "Number of styles"))
                         .foregroundStyle(.secondary)
                     Spacer()
                     Text("\(styleSheet.textStyles?.count ?? 0)")
@@ -50,8 +50,21 @@ struct StyleSheetDetailView: View {
                 }
             }
             
+            // Heading Styles
+            if sortedStyles.contains(where: { $0.styleCategory == .heading }) {
+                Section(NSLocalizedString("styleSheetDetail.headingStyles", comment: "Heading styles section")) {
+                    ForEach(sortedStyles.filter { $0.styleCategory == .heading }, id: \.id) { style in
+                        NavigationLink {
+                            TextStyleEditorView(style: style, isNewStyle: false)
+                        } label: {
+                            StyleListRow(style: style)
+                        }
+                    }
+                }
+            }
+            
             // Text Styles
-            Section("styleSheetDetail.textStyles") {
+            Section(NSLocalizedString("styleSheetDetail.textStyles", comment: "Text styles section")) {
                 ForEach(sortedStyles.filter { $0.styleCategory == .text }, id: \.id) { style in
                     NavigationLink {
                         TextStyleEditorView(style: style, isNewStyle: false)
@@ -63,7 +76,7 @@ struct StyleSheetDetailView: View {
             
             // List Styles
             if sortedStyles.contains(where: { $0.styleCategory == .list }) {
-                Section("styleSheetDetail.listStyles") {
+                Section(NSLocalizedString("styleSheetDetail.listStyles", comment: "List styles section")) {
                     ForEach(sortedStyles.filter { $0.styleCategory == .list }, id: \.id) { style in
                         NavigationLink {
                             TextStyleEditorView(style: style, isNewStyle: false)
@@ -74,10 +87,23 @@ struct StyleSheetDetailView: View {
                 }
             }
             
+            // Footnote Styles
+            if sortedStyles.contains(where: { $0.styleCategory == .footnote }) {
+                Section(NSLocalizedString("styleSheetDetail.footnoteStyles", comment: "Footnote styles section")) {
+                    ForEach(sortedStyles.filter { $0.styleCategory == .footnote }, id: \.id) { style in
+                        NavigationLink {
+                            TextStyleEditorView(style: style, isNewStyle: false)
+                        } label: {
+                            StyleListRow(style: style)
+                        }
+                    }
+                }
+            }
+            
             // Image Styles
-            Section("styleSheetDetail.imageStyles") {
+            Section(NSLocalizedString("styleSheetDetail.imageStyles", comment: "Image styles section")) {
                 if sortedImageStyles.isEmpty {
-                    Text("styleSheetDetail.noImageStyles")
+                    Text(NSLocalizedString("styleSheetDetail.noImageStyles", comment: "No image styles"))
                         .foregroundStyle(.secondary)
                         .italic()
                 } else {
@@ -105,9 +131,9 @@ struct StyleSheetDetailView: View {
                     Button(action: {
                         createNewStyle()
                     }) {
-                        Label("styleSheetDetail.newStyle", systemImage: "plus")
+                        Label(NSLocalizedString("styleSheetDetail.newStyle", comment: "New style button"), systemImage: "plus")
                     }
-                    .accessibilityLabel("styleSheetDetail.newStyle.accessibility")
+                    .accessibilityLabel(NSLocalizedString("styleSheetDetail.newStyle.accessibility", comment: "New style accessibility"))
                 }
             }
         }
@@ -165,7 +191,7 @@ private struct ImageStyleRow: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 } else {
-                    Text("styleSheetDetail.noCaption")
+                    Text(NSLocalizedString("styleSheetDetail.noCaption", comment: "No caption"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -214,13 +240,13 @@ private struct StyleListRow: View {
                 
                 // Font traits
                 if style.isBold {
-                    Text("styleSheetDetail.bold")
+                    Text(NSLocalizedString("styleSheetDetail.bold", comment: "Bold trait"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
                 
                 if style.isItalic {
-                    Text("styleSheetDetail.italic")
+                    Text(NSLocalizedString("styleSheetDetail.italic", comment: "Italic trait"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -232,7 +258,7 @@ private struct StyleListRow: View {
             }
             
             // Preview
-            Text("styleSheetDetail.previewText")
+            Text(NSLocalizedString("styleSheetDetail.previewText", comment: "Preview text for style"))
                 .font(Font(style.generateFont()))
                 .foregroundColor(style.textColor != nil ? Color(uiColor: style.textColor!) : .primary)
                 .lineLimit(1)
@@ -244,15 +270,15 @@ private struct StyleListRow: View {
     private func alignmentName(for alignment: NSTextAlignment) -> String {
         switch alignment {
         case .left:
-            return "Left"
+            return NSLocalizedString("styleSheetDetail.alignment.left", comment: "Left alignment")
         case .center:
-            return "Center"
+            return NSLocalizedString("styleSheetDetail.alignment.center", comment: "Center alignment")
         case .right:
-            return "Right"
+            return NSLocalizedString("styleSheetDetail.alignment.right", comment: "Right alignment")
         case .justified:
-            return "Justified"
+            return NSLocalizedString("styleSheetDetail.alignment.justified", comment: "Justified alignment")
         default:
-            return "Natural"
+            return NSLocalizedString("styleSheetDetail.alignment.natural", comment: "Natural alignment")
         }
     }
 }

@@ -232,8 +232,12 @@ struct PaginatedDocumentView: View {
         )
         
         // Calculate layout (async to avoid blocking UI)
+        // Pass version and context for footnote-aware pagination
+        let version = textFile.currentVersion
+        let context = modelContext
+        
         DispatchQueue.global(qos: .userInitiated).async {
-            let _ = manager.calculateLayout()
+            let _ = manager.calculateLayout(version: version, context: context)
             print("   ✅ Layout calculated: \(manager.pageCount) pages")
             
             DispatchQueue.main.async {
@@ -268,9 +272,13 @@ struct PaginatedDocumentView: View {
             
             existingManager.updatePageSetup(pageSetup)
             
+            // Pass version and context for footnote-aware pagination
+            let version = textFile.currentVersion
+            let context = modelContext
+            
             isCalculatingLayout = true
             DispatchQueue.global(qos: .userInitiated).async {
-                let _ = existingManager.calculateLayout()
+                let _ = existingManager.calculateLayout(version: version, context: context)
                 print("   ✅ Recalculated: \(existingManager.pageCount) pages")
                 
                 DispatchQueue.main.async {

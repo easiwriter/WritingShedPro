@@ -31,8 +31,10 @@ class PageSetupPreferences {
         static let scaleFactor = "pageSetup.scaleFactor"
     }
     
-    // Use iCloud key-value store for cross-device sync
-    private let store = NSUbiquitousKeyValueStore.default
+    // TEMPORARY: Use UserDefaults instead of iCloud key-value store
+    // NSUbiquitousKeyValueStore is not persisting values correctly
+    // This ensures PageSetup works reliably - iCloud sync can be added later
+    private let store = UserDefaults.standard
     
     // MARK: - Singleton
     
@@ -42,74 +44,32 @@ class PageSetupPreferences {
         // Initialize defaults on first launch
         registerDefaults()
         
-        // Listen for external changes from other devices
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(iCloudStoreDidChange(_:)),
-            name: NSUbiquitousKeyValueStore.didChangeExternallyNotification,
-            object: store
-        )
-        
-        // Ensure we have the latest values from iCloud
-        store.synchronize()
-    }
-    
-    @objc private func iCloudStoreDidChange(_ notification: Notification) {
-        // Post notification that page setup changed from another device
-        NotificationCenter.default.post(name: .pageSetupDidChange, object: nil)
-        print("[PageSetupPreferences] Received iCloud update from another device")
+        // Note: Using UserDefaults (not iCloud) until iCloud sync issues are resolved
+        // External changes won't be detected across devices currently
     }
     
     // MARK: - Register Defaults
     
     private func registerDefaults() {
-        // Set defaults only if not already set
-        // iCloud store doesn't have a register() method like UserDefaults
-        if store.object(forKey: Keys.paperName) == nil {
-            store.set(PaperSizes.defaultForRegion.rawValue, forKey: Keys.paperName)
-        }
-        if store.object(forKey: Keys.orientation) == nil {
-            store.set(Int(Orientation.portrait.rawValue), forKey: Keys.orientation)
-        }
-        if store.object(forKey: Keys.headers) == nil {
-            store.set(false, forKey: Keys.headers)
-        }
-        if store.object(forKey: Keys.footers) == nil {
-            store.set(false, forKey: Keys.footers)
-        }
-        if store.object(forKey: Keys.facingPages) == nil {
-            store.set(false, forKey: Keys.facingPages)
-        }
-        if store.object(forKey: Keys.hideFirstSection) == nil {
-            store.set(false, forKey: Keys.hideFirstSection)
-        }
-        if store.object(forKey: Keys.matchPreviousSection) == nil {
-            store.set(false, forKey: Keys.matchPreviousSection)
-        }
-        if store.object(forKey: Keys.marginTop) == nil {
-            store.set(PageSetupDefaults.marginTop, forKey: Keys.marginTop)
-        }
-        if store.object(forKey: Keys.marginBottom) == nil {
-            store.set(PageSetupDefaults.marginBottom, forKey: Keys.marginBottom)
-        }
-        if store.object(forKey: Keys.marginLeft) == nil {
-            store.set(PageSetupDefaults.marginLeft, forKey: Keys.marginLeft)
-        }
-        if store.object(forKey: Keys.marginRight) == nil {
-            store.set(PageSetupDefaults.marginRight, forKey: Keys.marginRight)
-        }
-        if store.object(forKey: Keys.headerDepth) == nil {
-            store.set(PageSetupDefaults.headerDepth, forKey: Keys.headerDepth)
-        }
-        if store.object(forKey: Keys.footerDepth) == nil {
-            store.set(PageSetupDefaults.footerDepth, forKey: Keys.footerDepth)
-        }
-        if store.object(forKey: Keys.scaleFactor) == nil {
-            store.set(PageSetupDefaults.scaleFactorInches, forKey: Keys.scaleFactor)
-        }
-        
-        // Synchronize to ensure defaults are saved
-        store.synchronize()
+        // Use UserDefaults.register() to set defaults
+        // These defaults don't get saved, they're just fallbacks when no value is set
+        let defaults: [String: Any] = [
+            Keys.paperName: PaperSizes.defaultForRegion.rawValue,
+            Keys.orientation: Int(Orientation.portrait.rawValue),
+            Keys.headers: false,
+            Keys.footers: false,
+            Keys.facingPages: false,
+            Keys.hideFirstSection: false,
+            Keys.matchPreviousSection: false,
+            Keys.marginTop: PageSetupDefaults.marginTop,
+            Keys.marginBottom: PageSetupDefaults.marginBottom,
+            Keys.marginLeft: PageSetupDefaults.marginLeft,
+            Keys.marginRight: PageSetupDefaults.marginRight,
+            Keys.headerDepth: PageSetupDefaults.headerDepth,
+            Keys.footerDepth: PageSetupDefaults.footerDepth,
+            Keys.scaleFactor: PageSetupDefaults.scaleFactorInches
+        ]
+        store.register(defaults: defaults)
     }
     
     // MARK: - Public API - Getters
@@ -181,73 +141,62 @@ class PageSetupPreferences {
     // MARK: - Public API - Setters
     
     func setPaperName(_ value: String) {
+        print("[PageSetupPreferences] Setting paperName to: '\(value)'")
+        print("[PageSetupPreferences] Before set, store has: '\(store.string(forKey: Keys.paperName) ?? "nil")'")
         store.set(value, forKey: Keys.paperName)
-        store.synchronize()
+        print("[PageSetupPreferences] After set, store has: '\(store.string(forKey: Keys.paperName) ?? "nil")'")
     }
     
     func setOrientation(_ value: Orientation) {
         store.set(Int(value.rawValue), forKey: Keys.orientation)
-        store.synchronize()
     }
     
     func setHeaders(_ value: Bool) {
         store.set(value, forKey: Keys.headers)
-        store.synchronize()
     }
     
     func setFooters(_ value: Bool) {
         store.set(value, forKey: Keys.footers)
-        store.synchronize()
     }
     
     func setFacingPages(_ value: Bool) {
         store.set(value, forKey: Keys.facingPages)
-        store.synchronize()
     }
     
     func setHideFirstSection(_ value: Bool) {
         store.set(value, forKey: Keys.hideFirstSection)
-        store.synchronize()
     }
     
     func setMatchPreviousSection(_ value: Bool) {
         store.set(value, forKey: Keys.matchPreviousSection)
-        store.synchronize()
     }
     
     func setMarginTop(_ value: Double) {
         store.set(value, forKey: Keys.marginTop)
-        store.synchronize()
     }
     
     func setMarginBottom(_ value: Double) {
         store.set(value, forKey: Keys.marginBottom)
-        store.synchronize()
     }
     
     func setMarginLeft(_ value: Double) {
         store.set(value, forKey: Keys.marginLeft)
-        store.synchronize()
     }
     
     func setMarginRight(_ value: Double) {
         store.set(value, forKey: Keys.marginRight)
-        store.synchronize()
     }
     
     func setHeaderDepth(_ value: Double) {
         store.set(value, forKey: Keys.headerDepth)
-        store.synchronize()
     }
     
     func setFooterDepth(_ value: Double) {
         store.set(value, forKey: Keys.footerDepth)
-        store.synchronize()
     }
     
     func setScaleFactor(_ value: Double) {
         store.set(value, forKey: Keys.scaleFactor)
-        store.synchronize()
     }
     
     // MARK: - Convenience

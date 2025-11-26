@@ -511,6 +511,12 @@ struct FileEditView: View {
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ProjectStyleSheetChanged"))) { notification in
                 handleStyleSheetChanged(notification)
             }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("StyleSheetModified"))) { notification in
+                handleStyleSheetModified(notification)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .footnoteNumbersDidChange)) { notification in
+                handleFootnoteNumbersChanged(notification)
+            }
     }
     
     // MARK: - View Modifiers Helper
@@ -621,8 +627,9 @@ struct FileEditView: View {
         // Load content from database on first appearance
         if attributedContent.length == 0, let savedContent = file.currentVersion?.attributedContent {
             print("📂 onAppear: Initial load of content, length: \(savedContent.length)")
-            attributedContent = savedContent
-            previousContent = savedContent.string
+            // Strip adaptive colors (black/white/gray) to support dark mode properly
+            attributedContent = AttributedStringSerializer.stripAdaptiveColors(from: savedContent)
+            previousContent = attributedContent.string
             
             // CRITICAL: Restore orphaned comment markers from database
             // Comments created before we added serialization support need to be re-inserted
@@ -717,6 +724,94 @@ struct FileEditView: View {
             print("📋 Document is empty, skipping reapply")
         }
         print("📋 ========== END ==========")
+    }
+    
+    private func handleStyleSheetModified(_ notification: Notification) {
+        print("📝 ========== StyleSheetModified NOTIFICATION ===========")
+        print("📝 Notification userInfo: \(notification.userInfo ?? [:])")
+        
+        guard let notifiedStyleSheetID = notification.userInfo?["stylesheetID"] as? UUID else {
+            print("⚠️ No stylesheetID in notification")
+            print("📝 ========== END ==========")
+            return
+        }
+        
+        guard let ourStyleSheetID = file.project?.styleSheet?.id else {
+            print("⚠️ Our file has no project or stylesheet")
+            print("📝 ========== END ==========")
+            return
+        }
+        
+        print("📝 Notified stylesheet ID: \(notifiedStyleSheetID.uuidString)")
+        print("📝 Our stylesheet ID: \(ourStyleSheetID.uuidString)")
+        print("📝 Match: \(notifiedStyleSheetID == ourStyleSheetID)")
+        
+        guard notifiedStyleSheetID == ourStyleSheetID else {
+            print("📝 Not for us - ignoring")
+            print("📝 ========== END ==========")
+            return
+        }
+        
+        print("📝 Received StyleSheetModified notification for our stylesheet")
+        
+        if attributedContent.length > 0 {
+            print("📝 Reapplying all styles due to style modification")
+            reapplyAllStyles()
+        } else {
+            print("📝 Document is empty, skipping reapply")
+        }
+        print("📝 ========== END ==========")
+    }
+    
+    private func handleFootnoteNumbersChanged(_ notification: Notification) {
+        print("🔢 Received footnoteNumbersDidChange notification")
+        
+        guard let versionIDString = notification.userInfo?["versionID"] as? String,
+              let notifiedVersionID = UUID(uuidString: versionIDString) else {
+            print("⚠️ No versionID in notification")
+            return
+        }
+        
+        guard let currentVersion = file.currentVersion else {
+            print("⚠️ No current version")
+            return
+        }
+        
+        guard notifiedVersionID == currentVersion.id else {
+            print("🔢 Not for our version - ignoring")
+            return
+        }
+        
+        print("🔢 Updating footnote attachment numbers for our version")
+        updateFootnoteAttachmentNumbers()
+    }
+    
+    /// Update footnote attachment numbers in the attributed string
+    private func updateFootnoteAttachmentNumbers() {
+        guard let currentVersion = file.currentVersion else { return }
+        
+        let mutableContent = NSMutableAttributedString(attributedString: attributedContent)
+        var needsUpdate = false
+        
+        // Enumerate through all attachments
+        mutableContent.enumerateAttribute(.attachment, in: NSRange(location: 0, length: mutableContent.length)) { value, range, stop in
+            guard let attachment = value as? FootnoteAttachment else { return }
+            
+            // Look up the current number from the database
+            if let footnote = FootnoteManager.shared.getFootnote(id: attachment.footnoteID, context: modelContext) {
+                if attachment.number != footnote.number {
+                    print("🔢 Updating attachment \(attachment.footnoteID) from \(attachment.number) to \(footnote.number)")
+                    attachment.number = footnote.number
+                    needsUpdate = true
+                }
+            }
+        }
+        
+        if needsUpdate {
+            // Update the attributed content
+            attributedContent = mutableContent
+            print("✅ Footnote attachment numbers updated")
+        }
     }
     
     // MARK: - Attributed Text Handling
