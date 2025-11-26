@@ -51,7 +51,7 @@ struct ContentView: View {
                 )
             }
             .environment(\.editMode, $editMode)
-            #if os(iOS)
+            #if !targetEnvironment(macCatalyst)
             .preferredColorScheme(appearancePreferences.colorScheme)
             #endif
             .onAppear {
@@ -86,8 +86,8 @@ struct ContentView: View {
                             Label("Import", systemImage: "arrow.down.doc")
                         }
                         
-                        #if os(iOS)
-                        // Appearance Mode submenu (iOS only - preferredColorScheme doesn't work on Mac)
+                        #if !targetEnvironment(macCatalyst)
+                        // Appearance Mode submenu (iOS/iPadOS only - preferredColorScheme doesn't work on Mac Catalyst)
                         Menu {
                             ForEach(AppearanceMode.allCases) { mode in
                                 Button(action: {
