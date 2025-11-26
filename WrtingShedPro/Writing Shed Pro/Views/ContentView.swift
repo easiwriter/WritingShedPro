@@ -24,6 +24,8 @@ struct ContentView: View {
     @State private var availableLegacyProjects: [LegacyProjectData] = []
     // Debug
     @State private var showSyncDiagnostics = false
+    // Appearance preferences
+    @State private var appearancePreferences = AppearancePreferences.shared
     @Environment(\.modelContext) var modelContext
     
     // Computed property to sync EditMode with Bool for backward compatibility
@@ -49,6 +51,9 @@ struct ContentView: View {
                 )
             }
             .environment(\.editMode, $editMode)
+            #if os(iOS)
+            .preferredColorScheme(appearancePreferences.colorScheme)
+            #endif
             .onAppear {
                 initializeUserOrderIfNeeded()
                 checkForImport()
@@ -80,6 +85,27 @@ struct ContentView: View {
                         Button(action: { handleImportMenu() }) {
                             Label("Import", systemImage: "arrow.down.doc")
                         }
+                        
+                        #if os(iOS)
+                        // Appearance Mode submenu (iOS only - preferredColorScheme doesn't work on Mac)
+                        Menu {
+                            ForEach(AppearanceMode.allCases) { mode in
+                                Button(action: {
+                                    appearancePreferences.appearanceMode = mode
+                                }) {
+                                    HStack {
+                                        Label(mode.displayName, systemImage: mode.icon)
+                                        if appearancePreferences.appearanceMode == mode {
+                                            Spacer()
+                                            Image(systemName: "checkmark")
+                                        }
+                                    }
+                                }
+                            }
+                        } label: {
+                            Label("Appearance", systemImage: appearancePreferences.appearanceMode.icon)
+                        }
+                        #endif
                         
                         Divider()
                         
