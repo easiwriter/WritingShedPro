@@ -125,29 +125,34 @@ struct AttributedStringSerializer {
         let fullRange = NSRange(location: 0, length: mutableString.length)
         
         var rangesToStrip: [(NSRange, UIColor)] = []
+        var hasAnyColorAttribute = false
         
         // Find all color attributes that should be stripped
         mutableString.enumerateAttribute(.foregroundColor, in: fullRange, options: []) { value, range, _ in
             if let color = value as? UIColor {
+                hasAnyColorAttribute = true
+                print("🧹 Found foreground color at range {\(range.location), \(range.length)}: \(color.toHex() ?? "unknown")")
                 if isAdaptiveSystemColor(color) || isFixedBlackOrWhite(color) {
                     rangesToStrip.append((range, color))
                 }
             }
         }
         
+        if !hasAnyColorAttribute {
+            print("🧹 WARNING: No foreground color attributes found in string (length: \(mutableString.length))")
+        }
+        
         // Remove adaptive colors
         for (range, color) in rangesToStrip {
             mutableString.removeAttribute(.foregroundColor, range: range)
-            #if DEBUG
             print("🧹 Stripped adaptive color \(color.toHex() ?? "unknown") from range {\(range.location), \(range.length)}")
-            #endif
         }
         
-        #if DEBUG
         if !rangesToStrip.isEmpty {
             print("🧹 Stripped \(rangesToStrip.count) adaptive color ranges - text will now adapt to appearance mode")
+        } else if hasAnyColorAttribute {
+            print("🧹 Found colors but none were adaptive - preserving user colors")
         }
-        #endif
         
         return mutableString
     }
