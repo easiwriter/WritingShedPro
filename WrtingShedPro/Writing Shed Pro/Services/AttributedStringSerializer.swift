@@ -125,33 +125,48 @@ struct AttributedStringSerializer {
         let fullRange = NSRange(location: 0, length: mutableString.length)
         
         var rangesToStrip: [(NSRange, UIColor)] = []
+        var rangesToAddLabel: [NSRange] = []
         var hasAnyColorAttribute = false
         
-        // Find all color attributes that should be stripped
+        // Find all color attributes that should be stripped or ranges with no color
         mutableString.enumerateAttribute(.foregroundColor, in: fullRange, options: []) { value, range, _ in
             if let color = value as? UIColor {
                 hasAnyColorAttribute = true
                 print("🧹 Found foreground color at range {\(range.location), \(range.length)}: \(color.toHex() ?? "unknown")")
                 if isAdaptiveSystemColor(color) || isFixedBlackOrWhite(color) {
                     rangesToStrip.append((range, color))
+                    rangesToAddLabel.append(range)
                 }
+            } else {
+                // No color attribute in this range - need to add .label for dark mode support
+                rangesToAddLabel.append(range)
             }
         }
         
         if !hasAnyColorAttribute {
             print("🧹 WARNING: No foreground color attributes found in string (length: \(mutableString.length))")
+            print("🧹 Will add .label color explicitly for dark mode support")
         }
         
-        // Remove adaptive colors
+        // Remove adaptive colors first
         for (range, color) in rangesToStrip {
             mutableString.removeAttribute(.foregroundColor, range: range)
             print("🧹 Stripped adaptive color \(color.toHex() ?? "unknown") from range {\(range.location), \(range.length)}")
         }
         
+        // Add .label color to ranges that have no color or had adaptive colors removed
+        // This ensures UITextView uses adaptive color instead of defaulting to black
+        for range in rangesToAddLabel {
+            mutableString.addAttribute(.foregroundColor, value: UIColor.label, range: range)
+            print("🧹 Added .label color for adaptive dark mode at range {\(range.location), \(range.length)}")
+        }
+        
         if !rangesToStrip.isEmpty {
-            print("🧹 Stripped \(rangesToStrip.count) adaptive color ranges - text will now adapt to appearance mode")
+            print("🧹 Stripped \(rangesToStrip.count) adaptive color ranges and added .label")
         } else if hasAnyColorAttribute {
             print("🧹 Found colors but none were adaptive - preserving user colors")
+        } else if !rangesToAddLabel.isEmpty {
+            print("🧹 Added .label to \(rangesToAddLabel.count) ranges with no color")
         }
         
         return mutableString
