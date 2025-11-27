@@ -262,20 +262,9 @@ final class PageSetupModelsTests: XCTestCase {
     
     // MARK: - Relationship Tests
     
-    func testPageSetupProjectRelationship() throws {
-        // Given
-        let project = Project(name: "Test Project", type: .blank)
-        let pageSetup = PageSetup()
-        
-        // When
-        modelContext.insert(project)
-        modelContext.insert(pageSetup)
-        project.pageSetup = pageSetup
-        
-        // Then
-        XCTAssertEqual(pageSetup.project?.id, project.id, "PageSetup should reference project")
-        XCTAssertEqual(project.pageSetup?.id, pageSetup.id, "Project should reference pageSetup")
-    }
+    // Note: PageSetup no longer has a relationship with Project
+    // PageSetup is now global (stored in UserDefaults via PageSetupPreferences)
+    // See PageSetupPreferences.swift for global page setup management
     
     func testPageSetupPrinterPapersRelationship() throws {
         // Given

@@ -48,6 +48,10 @@ struct FileEditView: View {
     @State private var newFootnoteText: String = ""
     @State private var selectedFootnoteForDetail: FootnoteModel?
     
+    // Feature 020: Printing
+    @State private var showPrintError = false
+    @State private var printErrorMessage = ""
+    
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     
@@ -331,6 +335,15 @@ struct FileEditView: View {
                 .disabled(!undoManager.canRedo || isPerformingUndoRedo)
                 .accessibilityLabel("fileEdit.redo.accessibility")
             }
+            
+            // Print button (available in both modes)
+            Button(action: {
+                printFile()
+            }) {
+                Image(systemName: "printer")
+            }
+            .disabled(!PrintService.isPrintingAvailable())
+            .accessibilityLabel("fileEdit.print.accessibility")
         }
     }
     
@@ -516,6 +529,11 @@ struct FileEditView: View {
             }
             .onReceive(NotificationCenter.default.publisher(for: .footnoteNumbersDidChange)) { notification in
                 handleFootnoteNumbersChanged(notification)
+            }
+            .alert("Print Error", isPresented: $showPrintError) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(printErrorMessage)
             }
     }
     
@@ -1304,6 +1322,51 @@ struct FileEditView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             self.isPerformingUndoRedo = false
             print("🔄 Reset isPerformingUndoRedo flag")
+        }
+    }
+    
+    // MARK: - Printing
+    
+    /// Handle print action
+    private func printFile() {
+        print("🖨️ Print button tapped")
+        
+        // Save any pending changes before printing
+        saveChanges()
+        
+        // Get the view controller to present from
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let window = windowScene.windows.first,
+              let viewController = window.rootViewController else {
+            print("❌ Could not find view controller for print dialog")
+            printErrorMessage = "Unable to present print dialog"
+            showPrintError = true
+            return
+        }
+        
+        // Call print service (need project for stylesheet)
+        guard let project = file.project else {
+            print("❌ Could not find project for file")
+            printErrorMessage = "Unable to find project"
+            showPrintError = true
+            return
+        }
+        
+        PrintService.printFile(
+            file,
+            project: project,
+            context: modelContext,
+            from: viewController
+        ) { success, error in
+            if let error = error {
+                print("❌ Print failed: \(error.localizedDescription)")
+                printErrorMessage = error.localizedDescription
+                showPrintError = true
+            } else if success {
+                print("✅ Print completed successfully")
+            } else {
+                print("⚠️ Print was cancelled")
+            }
         }
     }
     

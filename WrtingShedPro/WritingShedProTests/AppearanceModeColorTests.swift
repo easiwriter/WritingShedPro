@@ -121,7 +121,7 @@ final class AppearanceModeColorTests: XCTestCase {
         // Then
         XCTAssertEqual(stripped.string, text, "Text should be preserved")
         let color = stripped.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? UIColor
-        XCTAssertNil(color, "Black color should be stripped")
+        XCTAssertEqual(color, UIColor.label, "Black color should be replaced with .label for adaptive behavior")
     }
     
     func testStripAdaptiveColors_RemovesWhiteColor() {
@@ -137,7 +137,7 @@ final class AppearanceModeColorTests: XCTestCase {
         // Then
         XCTAssertEqual(stripped.string, text, "Text should be preserved")
         let color = stripped.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? UIColor
-        XCTAssertNil(color, "White color should be stripped")
+        XCTAssertEqual(color, UIColor.label, "White color should be replaced with .label for adaptive behavior")
     }
     
     func testStripAdaptiveColors_RemovesGrayColor() {
@@ -153,7 +153,7 @@ final class AppearanceModeColorTests: XCTestCase {
         // Then
         XCTAssertEqual(stripped.string, text, "Text should be preserved")
         let color = stripped.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? UIColor
-        XCTAssertNil(color, "Gray color should be stripped")
+        XCTAssertEqual(color, UIColor.label, "Gray color should be replaced with .label for adaptive behavior")
     }
     
     func testStripAdaptiveColors_PreservesCustomColor() {
@@ -189,7 +189,7 @@ final class AppearanceModeColorTests: XCTestCase {
         XCTAssertEqual(stripped.string, text, "Text should be preserved")
         
         let helloColor = stripped.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? UIColor
-        XCTAssertNil(helloColor, "Black color in 'Hello' should be stripped")
+        XCTAssertEqual(helloColor, UIColor.label, "Black color in 'Hello' should be replaced with .label")
         
         let worldColor = stripped.attribute(.foregroundColor, at: 6, effectiveRange: nil) as? UIColor
         XCTAssertNotNil(worldColor, "Cyan color in 'World' should be preserved")
@@ -211,7 +211,7 @@ final class AppearanceModeColorTests: XCTestCase {
         // Then
         XCTAssertEqual(decoded.string, text, "Text should be preserved")
         let color = decoded.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? UIColor
-        XCTAssertNil(color, "Black color should not be saved/restored")
+        XCTAssertEqual(color, UIColor.label, "Black color should not be saved but .label should be added for adaptive behavior")
     }
     
     func testEncode_DoesNotSaveWhiteColor() {
@@ -228,7 +228,7 @@ final class AppearanceModeColorTests: XCTestCase {
         // Then
         XCTAssertEqual(decoded.string, text, "Text should be preserved")
         let color = decoded.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? UIColor
-        XCTAssertNil(color, "White color should not be saved/restored")
+        XCTAssertEqual(color, UIColor.label, "White color should not be saved but .label should be added for adaptive behavior")
     }
     
     func testEncode_DoesNotSaveGrayColor() {
@@ -245,7 +245,7 @@ final class AppearanceModeColorTests: XCTestCase {
         // Then
         XCTAssertEqual(decoded.string, text, "Text should be preserved")
         let color = decoded.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? UIColor
-        XCTAssertNil(color, "Gray color should not be saved/restored")
+        XCTAssertEqual(color, UIColor.label, "Gray color should not be saved but .label should be added for adaptive behavior")
     }
     
     func testEncode_SavesCustomColor() {
@@ -286,9 +286,9 @@ final class AppearanceModeColorTests: XCTestCase {
         let font = decoded.attribute(.font, at: 0, effectiveRange: nil) as? UIFont
         XCTAssertTrue(font?.fontDescriptor.symbolicTraits.contains(.traitBold) ?? false, "Bold should be preserved")
         
-        // Black color should be stripped
+        // Black color should not be saved but .label should be added
         let color = decoded.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? UIColor
-        XCTAssertNil(color, "Black color should not be saved")
+        XCTAssertEqual(color, UIColor.label, "Black color should not be saved but .label should be added for adaptive behavior")
     }
     
     func testDecode_StripsAdaptiveColorsFromOldDocuments() {
@@ -307,8 +307,8 @@ final class AppearanceModeColorTests: XCTestCase {
         // When: Decode (which should strip the black color)
         let decoded = AttributedStringSerializer.decode(data, text: text)
         
-        // Then
+        // Then: Black color should be stripped and .label added for adaptive behavior
         let color = decoded.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? UIColor
-        XCTAssertNil(color, "Black color from old document should be stripped during decode")
+        XCTAssertEqual(color, UIColor.label, "Black color from old document should be stripped and .label added for adaptive behavior")
     }
 }

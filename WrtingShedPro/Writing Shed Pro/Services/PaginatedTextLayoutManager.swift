@@ -124,6 +124,10 @@ class PaginatedTextLayoutManager {
     
     /// Simple layout calculation without footnote adjustment
     private func calculateSimpleLayout(containerSize: CGSize, pageLayout: PageLayoutCalculator.PageLayout, startTime: Date) -> LayoutResult {
+        print("📄 Pagination Layout Setup:")
+        print("   - Container size: \(containerSize.width) x \(containerSize.height)")
+        print("   - lineFragmentPadding: 0")
+        
         // Calculate pages by measuring how much text fits in each page container
         var pageInfos: [PageInfo] = []
         var characterIndex = 0

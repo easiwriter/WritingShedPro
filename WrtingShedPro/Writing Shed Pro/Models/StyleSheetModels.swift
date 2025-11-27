@@ -216,8 +216,17 @@ final class TextStyleModel {
     }
     
     /// Generate a UIFont from this style's attributes
-    func generateFont() -> UIFont {
-        let baseSize = fontSize
+    /// Applies platform-specific scaling for Mac Catalyst (unless disabled)
+    /// - Parameter applyPlatformScaling: If false, uses actual font size (for print preview/pagination)
+    func generateFont(applyPlatformScaling: Bool = true) -> UIFont {
+        // Apply platform scaling for Mac Catalyst (unless explicitly disabled for print preview)
+        #if targetEnvironment(macCatalyst)
+        let platformScaleFactor: CGFloat = applyPlatformScaling ? 1.3 : 1.0  // 30% larger on Mac for editing
+        #else
+        let platformScaleFactor: CGFloat = 1.0  // Standard size on iOS/iPadOS
+        #endif
+        
+        let baseSize = fontSize * platformScaleFactor
         
         // If a specific font name is set (e.g., "Helvetica-Bold"), use it directly
         if let specificFontName = fontName, !specificFontName.isEmpty {

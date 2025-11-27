@@ -23,6 +23,8 @@ struct PaginatedDocumentView: View {
     @State private var currentPage: Int = 0
     @State private var zoomScale: CGFloat = 1.0
     @State private var isCalculatingLayout: Bool = false
+    @State private var showPrintError = false
+    @State private var printErrorMessage = ""
     
     // Global page setup (from UserDefaults)
     private let pageSetupPrefs = PageSetupPreferences.shared
@@ -104,6 +106,11 @@ struct PaginatedDocumentView: View {
             // Stylesheet changed - need to re-render pages with new styles
             // This affects footnote rendering in pagination view
             recalculateLayout()
+        }
+        .alert("Print Error", isPresented: $showPrintError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(printErrorMessage)
         }
     }
     
@@ -189,6 +196,21 @@ struct PaginatedDocumentView: View {
             .disabled(zoomScale == 1.0)
             .accessibilityLabel("paginatedDocument.resetZoom.accessibility")
             .accessibilityHint("paginatedDocument.resetZoom.hint")
+            
+            Divider()
+                .frame(height: 24)
+            
+            // Print button
+            Button {
+                printDocument()
+            } label: {
+                Image(systemName: "printer")
+                    .font(.body)
+                    .imageScale(.medium)
+                    .frame(width: 24, height: 24)
+            }
+            .disabled(!PrintService.isPrintingAvailable())
+            .accessibilityLabel("paginatedDocument.print.accessibility")
         }
         .fixedSize()
         .accessibilityElement(children: .contain)
@@ -222,8 +244,10 @@ struct PaginatedDocumentView: View {
         isCalculatingLayout = true
         
         // Create text storage from attributed content to preserve formatting
+        // On Mac Catalyst, scale down fonts to actual print size (undo 1.3x editor scaling)
         let attributedContent = textFile.currentVersion?.attributedContent ?? NSAttributedString(string: content)
-        let textStorage = NSTextStorage(attributedString: attributedContent)
+        let printSizeContent = removePlatformScaling(from: attributedContent)
+        let textStorage = NSTextStorage(attributedString: printSizeContent)
         
         // Create layout manager
         let manager = PaginatedTextLayoutManager(
@@ -264,9 +288,10 @@ struct PaginatedDocumentView: View {
             if let content = textFile.currentVersion?.content {
                 print("   📝 Updating textStorage with new content")
                 let attributedContent = textFile.currentVersion?.attributedContent ?? NSAttributedString(string: content)
+                let printSizeContent = removePlatformScaling(from: attributedContent)
                 existingManager.textStorage.replaceCharacters(
                     in: NSRange(location: 0, length: existingManager.textStorage.length),
-                    with: attributedContent
+                    with: printSizeContent
                 )
             }
             
@@ -292,6 +317,51 @@ struct PaginatedDocumentView: View {
         }
     }
     
+    // MARK: - Font Scaling Helper
+    
+    /// Scale fonts for print-accurate pagination view to match across all platforms
+    /// Both Mac and iOS pagination should show the same amount of text per page
+    private func removePlatformScaling(from attributedString: NSAttributedString) -> NSAttributedString {
+        // GOAL: Show print-accurate preview - same on Mac and iOS
+        // Database stores fonts at base iOS size (17pt for Body)
+        // Mac Catalyst scales 1.3x for display, so we need to undo that
+        // iOS stores and displays at base size, so no scaling needed
+        
+        #if targetEnvironment(macCatalyst)
+        // On Mac Catalyst, edit view applies 1.3x scaling at render time
+        // Divide by 1.3 to show print-accurate size
+        // 22.1pt (Mac display) → 17pt (pagination/print preview)
+        let scaleFactor: CGFloat = 1.0 / 1.3
+        #else
+        // On iOS/iPad, database contains Mac-rendered fonts (22.1pt from generateFont())
+        // Divide by 1.3 to get actual print size, same as Mac
+        // 22.1pt (database) → 17pt (pagination/print preview)
+        let scaleFactor: CGFloat = 1.0 / 1.3
+        #endif
+        
+        let mutableString = NSMutableAttributedString(attributedString: attributedString)
+        let fullRange = NSRange(location: 0, length: mutableString.length)
+        
+        var fontSizesFound: Set<CGFloat> = []
+        var scaledFontSizes: Set<CGFloat> = []
+        
+        mutableString.enumerateAttribute(.font, in: fullRange, options: []) { value, range, _ in
+            guard let font = value as? UIFont else { return }
+            fontSizesFound.insert(font.pointSize)
+            let newSize = font.pointSize * scaleFactor
+            scaledFontSizes.insert(newSize)
+            let newFont = font.withSize(newSize)
+            mutableString.addAttribute(.font, value: newFont, range: range)
+        }
+        
+        print("📐 [Pagination] Scaling fonts:")
+        print("   - Scale factor: \(scaleFactor)")
+        print("   - Original font sizes: \(fontSizesFound.sorted())")
+        print("   - Scaled font sizes: \(scaledFontSizes.sorted())")
+        
+        return mutableString
+    }
+    
     // MARK: - Zoom Controls
     
     private func zoomIn() {
@@ -309,6 +379,40 @@ struct PaginatedDocumentView: View {
     private func resetZoom() {
         withAnimation(.easeInOut(duration: 0.2)) {
             zoomScale = 1.0
+        }
+    }
+    
+    // MARK: - Printing
+    
+    private func printDocument() {
+        print("🖨️ Print button tapped from pagination view")
+        
+        // Get the view controller to present from
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let window = windowScene.windows.first,
+              let viewController = window.rootViewController else {
+            print("❌ Could not find view controller for print dialog")
+            printErrorMessage = "Unable to present print dialog"
+            showPrintError = true
+            return
+        }
+        
+        // Call print service with project and context
+        PrintService.printFile(
+            textFile,
+            project: project,
+            context: modelContext,
+            from: viewController
+        ) { success, error in
+            if let error = error {
+                print("❌ Print failed: \(error.localizedDescription)")
+                printErrorMessage = error.localizedDescription
+                showPrintError = true
+            } else if success {
+                print("✅ Print completed successfully")
+            } else {
+                print("⚠️ Print was cancelled")
+            }
         }
     }
 }

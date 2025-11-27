@@ -43,6 +43,7 @@ struct StyleSheetService {
             let isItalic = false
             
             // Use custom font size if provided, otherwise use system default
+            // Platform scaling (Mac Catalyst) now applied at render time in generateFont()
             let fontSize = customFontSize ?? font.pointSize
             
             let style = TextStyleModel(
@@ -73,7 +74,7 @@ struct StyleSheetService {
                 name: name,
                 displayName: displayName,
                 displayOrder: order,
-                fontSize: 17,
+                fontSize: 17,  // Platform scaling now applied at render time in generateFont()
                 alignment: .left,  // Explicitly set left alignment for list styles
                 numberFormat: numberFormat,
                 styleCategory: .list,
