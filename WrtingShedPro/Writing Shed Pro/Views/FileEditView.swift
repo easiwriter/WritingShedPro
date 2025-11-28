@@ -2479,7 +2479,16 @@ struct FileEditView: View {
             return
         }
         
+        // Capture the before state for undo/redo
+        let beforeContent = attributedContent
+        
         // Update the attachment properties
+        let oldScale = attachment.scale
+        let oldAlignment = attachment.alignment
+        let oldHasCaption = attachment.hasCaption
+        let oldCaptionText = attachment.captionText
+        let oldCaptionStyle = attachment.captionStyle
+        
         attachment.scale = scale
         attachment.alignment = alignment
         attachment.hasCaption = hasCaption
@@ -2513,6 +2522,26 @@ struct FileEditView: View {
         } catch {
             print("❌ Error saving image update: \(error)")
         }
+        
+        // Create undo/redo command to restore image properties
+        let command = ImageUpdateCommand(
+            description: "Update Image",
+            beforeContent: beforeContent,
+            afterContent: mutableContent,
+            attachment: attachment,
+            oldScale: oldScale,
+            oldAlignment: oldAlignment,
+            oldHasCaption: oldHasCaption,
+            oldCaptionText: oldCaptionText,
+            oldCaptionStyle: oldCaptionStyle,
+            newScale: scale,
+            newAlignment: alignment,
+            newHasCaption: hasCaption,
+            newCaptionText: captionText,
+            newCaptionStyle: captionStyle,
+            targetFile: file
+        )
+        undoManager.execute(command)
         
         // Trigger view refresh to show updated image
         refreshTrigger = UUID()
