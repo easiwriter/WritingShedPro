@@ -92,14 +92,31 @@ class PrintService {
         // Get page setup
         let pageSetup = PageSetupPreferences.shared.createPageSetup()
         
-        // Present print dialog (using simple formatter for multi-file)
-        presentSimplePrintDialog(
-            content: content,
-            pageSetup: pageSetup,
-            title: collection.name ?? "Collection",
-            from: viewController,
-            completion: completion
-        )
+        // Check if page breaks are enabled
+        let usePageBreaks = PageSetupPreferences.shared.pageBreakBetweenFiles
+        
+        if usePageBreaks {
+            // Use custom renderer for proper page break support
+            print("   - Using custom renderer for page breaks")
+            presentCustomRendererPrintDialog(
+                content: content,
+                pageSetup: pageSetup,
+                title: collection.name ?? "Collection",
+                project: collection.project ?? sortedFiles.first?.project,
+                from: viewController,
+                completion: completion
+            )
+        } else {
+            // Use simple formatter for continuous flow
+            print("   - Using simple formatter for continuous flow")
+            presentSimplePrintDialog(
+                content: content,
+                pageSetup: pageSetup,
+                title: collection.name ?? "Collection",
+                from: viewController,
+                completion: completion
+            )
+        }
     }
     
     // MARK: - Submission Printing
@@ -138,14 +155,31 @@ class PrintService {
         // Get page setup
         let pageSetup = PageSetupPreferences.shared.createPageSetup()
         
-        // Present print dialog (using simple formatter for multi-file)
-        presentSimplePrintDialog(
-            content: content,
-            pageSetup: pageSetup,
-            title: submission.publication?.name ?? submission.name ?? "Submission",
-            from: viewController,
-            completion: completion
-        )
+        // Check if page breaks are enabled
+        let usePageBreaks = PageSetupPreferences.shared.pageBreakBetweenFiles
+        
+        if usePageBreaks {
+            // Use custom renderer for proper page break support
+            print("   - Using custom renderer for page breaks")
+            presentCustomRendererPrintDialog(
+                content: content,
+                pageSetup: pageSetup,
+                title: submission.publication?.name ?? submission.name ?? "Submission",
+                project: submission.project ?? sortedFiles.first?.project,
+                from: viewController,
+                completion: completion
+            )
+        } else {
+            // Use simple formatter for continuous flow
+            print("   - Using simple formatter for continuous flow")
+            presentSimplePrintDialog(
+                content: content,
+                pageSetup: pageSetup,
+                title: submission.publication?.name ?? submission.name ?? "Submission",
+                from: viewController,
+                completion: completion
+            )
+        }
     }
     
     // MARK: - Print Dialog Presentation
@@ -303,6 +337,112 @@ class PrintService {
         print("🖨️ Simple Print Dialog (Multi-file):")
         print("   - Job name: \(title)")
         print("   - Note: Using simple formatter (no footnote support for combined files)")
+        
+        // Present print dialog
+        #if targetEnvironment(macCatalyst)
+        printController.present(animated: true) { (controller, completed, error) in
+            if let error = error {
+                print("❌ [PrintService] Print error: \(error.localizedDescription)")
+                completion(false, error)
+            } else if completed {
+                print("✅ [PrintService] Print job completed")
+                completion(true, nil)
+            } else {
+                print("⚠️ [PrintService] Print job cancelled")
+                completion(false, nil)
+            }
+        }
+        #else
+        // On iOS/iPad, present from view controller with popover support
+        printController.present(from: viewController.view.bounds, in: viewController.view, animated: true) { (controller, completed, error) in
+            if let error = error {
+                print("❌ [PrintService] Print error: \(error.localizedDescription)")
+                completion(false, error)
+            } else if completed {
+                print("✅ [PrintService] Print job completed")
+                completion(true, nil)
+            } else {
+                print("⚠️ [PrintService] Print job cancelled")
+                completion(false, nil)
+            }
+        }
+        #endif
+    }
+    
+    /// Present print dialog with custom renderer for multi-file content with page breaks
+    /// - Parameters:
+    ///   - content: The combined attributed string
+    ///   - pageSetup: Page configuration
+    ///   - title: Document title
+    ///   - project: Optional project (for stylesheet)
+    ///   - viewController: View controller to present from
+    ///   - completion: Completion handler
+    private static func presentCustomRendererPrintDialog(
+        content: NSAttributedString,
+        pageSetup: PageSetup,
+        title: String,
+        project: Project?,
+        from viewController: UIViewController,
+        completion: @escaping (Bool, Error?) -> Void
+    ) {
+        guard let project = project else {
+            print("❌ [PrintService] No project available for custom renderer")
+            // Fall back to simple formatter
+            presentSimplePrintDialog(
+                content: content,
+                pageSetup: pageSetup,
+                title: title,
+                from: viewController,
+                completion: completion
+            )
+            return
+        }
+        
+        // Create print interaction controller
+        let printController = UIPrintInteractionController.shared
+        
+        // Configure print info
+        let printInfo = UIPrintInfo.printInfo()
+        printInfo.jobName = title
+        printInfo.outputType = .general
+        
+        // Set orientation based on page setup
+        let isLandscape = pageSetup.orientationEnum == .landscape
+        printInfo.orientation = isLandscape ? .landscape : .portrait
+        
+        printController.printInfo = printInfo
+        
+        // Create text storage and layout manager using our pagination system
+        let textStorage = NSTextStorage(attributedString: content)
+        let layoutManager = PaginatedTextLayoutManager(
+            textStorage: textStorage,
+            pageSetup: pageSetup
+        )
+        
+        // Calculate layout (no version/context for multi-file - footnotes not supported)
+        let _ = layoutManager.calculateLayout()
+        
+        print("🖨️ Custom Renderer Print Dialog (Multi-file with page breaks):")
+        print("   - Using CustomPDFPageRenderer for proper page break support")
+        print("   - Calculated pages: \(layoutManager.pageCount)")
+        print("   - Job name: \(title)")
+        
+        // Create custom renderer
+        let renderer = CustomPDFPageRenderer(
+            layoutManager: layoutManager,
+            pageSetup: pageSetup,
+            version: nil,  // No version for multi-file
+            context: nil,  // No context for multi-file
+            project: project
+        )
+        
+        // Use the custom renderer
+        printController.printPageRenderer = renderer
+        
+        // Show print preview
+        printController.showsNumberOfCopies = true
+        printController.showsPageRange = true
+        printController.showsPaperSelectionForLoadedPapers = true
         
         // Present print dialog
         #if targetEnvironment(macCatalyst)

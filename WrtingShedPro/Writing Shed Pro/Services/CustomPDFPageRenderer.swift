@@ -185,6 +185,29 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
             mutableString.replaceCharacters(in: range, with: replacement)
         }
         
+        // CRITICAL: Convert dynamic colors to fixed colors for PDF rendering
+        // Dynamic colors (like .label, .systemBackground) don't resolve correctly in PDF context
+        mutableString.enumerateAttribute(.foregroundColor, in: NSRange(location: 0, length: mutableString.length), options: []) { value, range, stop in
+            if let color = value as? UIColor {
+                // Check if this is a dynamic color by trying to resolve it
+                // Dynamic colors will have different values in light/dark mode
+                // For PDFs, we always want light mode (black text on white)
+                let resolvedColor = color.resolvedColor(with: UITraitCollection(userInterfaceStyle: .light))
+                if resolvedColor != color {
+                    // This was a dynamic color, replace it with the light mode version
+                    mutableString.addAttribute(.foregroundColor, value: resolvedColor, range: range)
+                }
+            }
+        }
+        
+        // Also ensure any text without an explicit foreground color gets black
+        // (default in PDF context should be black, but let's be explicit)
+        mutableString.enumerateAttributes(in: NSRange(location: 0, length: mutableString.length), options: []) { attributes, range, stop in
+            if attributes[.foregroundColor] == nil {
+                mutableString.addAttribute(.foregroundColor, value: UIColor.black, range: range)
+            }
+        }
+        
         // Calculate draw rect (accounting for insets)
         let pageLayout = PageLayoutCalculator.calculateLayout(from: pageSetup)
         let drawRect = CGRect(

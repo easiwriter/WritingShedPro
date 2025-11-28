@@ -25,6 +25,7 @@ struct PageSetupForm: View {
     @State private var headerDepth: Double
     @State private var footerDepth: Double
     @State private var scaleFactor: Double
+    @State private var pageBreakBetweenFiles: Bool
     @State private var units: Units
     
     // Track original values to detect changes
@@ -40,6 +41,7 @@ struct PageSetupForm: View {
     @State private var originalHeaderDepth: Double = 0
     @State private var originalFooterDepth: Double = 0
     @State private var originalScaleFactor: Double = 0
+    @State private var originalPageBreakBetweenFiles: Bool = false
     
     init() {
         // Initialize with empty values - will load in onAppear
@@ -55,6 +57,7 @@ struct PageSetupForm: View {
         _headerDepth = State(initialValue: 0)
         _footerDepth = State(initialValue: 0)
         _scaleFactor = State(initialValue: 0)
+        _pageBreakBetweenFiles = State(initialValue: false)
         _units = State(initialValue: .inches)
     }
     
@@ -73,6 +76,7 @@ struct PageSetupForm: View {
         headerDepth = prefs.headerDepth
         footerDepth = prefs.footerDepth
         scaleFactor = prefs.scaleFactor
+        pageBreakBetweenFiles = prefs.pageBreakBetweenFiles
         
         print("[PageSetupForm] Loaded paperName: '\(paperName)'")
         print("[PageSetupForm] Loaded orientation: \(orientation)")
@@ -90,6 +94,7 @@ struct PageSetupForm: View {
         originalHeaderDepth = headerDepth
         originalFooterDepth = footerDepth
         originalScaleFactor = scaleFactor
+        originalPageBreakBetweenFiles = pageBreakBetweenFiles
         
         print("[PageSetupForm] Captured original paperName: '\(originalPaperName)'")
     }
@@ -188,6 +193,11 @@ struct PageSetupForm: View {
                 
                 Section {
                     Toggle(NSLocalizedString("pageSetup.facingPages", comment: "Facing pages toggle"), isOn: $facingPages)
+                }
+                
+                Section(header: Text("Multi-File Printing")) {
+                    Toggle("Page break between files", isOn: $pageBreakBetweenFiles)
+                        .accessibilityLabel("Add page breaks between files when printing collections or submissions")
                 }
             }
             .navigationTitle(NSLocalizedString("pageSetup.title", comment: "Page Setup"))
@@ -291,6 +301,11 @@ struct PageSetupForm: View {
         if abs(units.scaleFactor - originalScaleFactor) > 0.001 {
             print("[PageSetupForm] Scale factor changed")
             prefs.setScaleFactor(units.scaleFactor)
+        }
+        
+        if pageBreakBetweenFiles != originalPageBreakBetweenFiles {
+            print("[PageSetupForm] Page break between files changed")
+            prefs.setPageBreakBetweenFiles(pageBreakBetweenFiles)
         }
         
         print("[PageSetupForm] Save complete")

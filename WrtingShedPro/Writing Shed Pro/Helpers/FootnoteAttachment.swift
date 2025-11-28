@@ -108,9 +108,12 @@ final class FootnoteAttachment: NSTextAttachment {
         // Create attributed string for the number
         let numberString = "\(number)"
         
+        // Use a darker blue color for better visibility
+        let footnoteColor = UIColor.systemBlue.withAlphaComponent(1.0).darker(by: 0.3) ?? UIColor(red: 0.0, green: 0.3, blue: 0.8, alpha: 1.0)
+        
         let attributes: [NSAttributedString.Key: Any] = [
-            .font: UIFont.systemFont(ofSize: Self.superscriptFontSize, weight: .medium),
-            .foregroundColor: UIColor.systemBlue,
+            .font: UIFont.systemFont(ofSize: Self.superscriptFontSize, weight: .semibold),  // Changed to semibold for more prominence
+            .foregroundColor: footnoteColor,
             .baselineOffset: 0 // Baseline handled by attachmentBounds
         ]
         
@@ -139,14 +142,15 @@ final class FootnoteAttachment: NSTextAttachment {
         let image = renderer.image { context in
             let rect = CGRect(origin: .zero, size: imageSize)
             
-            // Draw button background (light blue tint)
+            // Draw button background (slightly more prominent blue tint)
             let backgroundPath = UIBezierPath(roundedRect: rect, cornerRadius: 4)
-            UIColor.systemBlue.withAlphaComponent(0.1).setFill()
+            UIColor.systemBlue.withAlphaComponent(0.15).setFill()  // Increased from 0.1 to 0.15
             backgroundPath.fill()
             
-            // Draw border
-            UIColor.systemBlue.withAlphaComponent(0.3).setStroke()
-            backgroundPath.lineWidth = 0.5
+            // Draw border (darker and more visible)
+            let borderColor = footnoteColor.withAlphaComponent(0.5)  // Use the darker color for border
+            borderColor.setStroke()
+            backgroundPath.lineWidth = 0.75  // Increased from 0.5
             backgroundPath.stroke()
             
             // Draw the number text centered

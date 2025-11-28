@@ -129,6 +129,8 @@ class PaginatedTextLayoutManager {
         print("   - lineFragmentPadding: 0")
         
         // Calculate pages by measuring how much text fits in each page container
+        // Note: Form feed characters (\u{000C}) in the text will naturally cause page breaks
+        // as NSLayoutManager treats them as paragraph separators that end the current container
         var pageInfos: [PageInfo] = []
         var characterIndex = 0
         let totalCharacters = textStorage.length
@@ -142,13 +144,29 @@ class PaginatedTextLayoutManager {
             layoutManager.addTextContainer(container)
             
             // Get the glyph range for this container
-            let glyphRange = layoutManager.glyphRange(for: container)
+            var glyphRange = layoutManager.glyphRange(for: container)
             
             // Convert to character range
-            let characterRange = layoutManager.characterRange(
+            var characterRange = layoutManager.characterRange(
                 forGlyphRange: glyphRange,
                 actualGlyphRange: nil
             )
+            
+            // Check for form feed character (\u{000C}) in this range
+            // If found, truncate the page at that point and start next page after it
+            let pageText = (textStorage.string as NSString).substring(with: characterRange)
+            if let formFeedIndex = pageText.firstIndex(of: "\u{000C}") {
+                let offsetInPage = pageText.distance(from: pageText.startIndex, to: formFeedIndex)
+                let formFeedLocation = characterRange.location + offsetInPage
+                
+                // Truncate character range to end at the form feed
+                characterRange = NSRange(location: characterRange.location, length: offsetInPage)
+                
+                // Convert back to glyph range
+                glyphRange = layoutManager.glyphRange(forCharacterRange: characterRange, actualCharacterRange: nil)
+                
+                print("   📄 Page break found at character \(formFeedLocation), ending page \(pageIndex)")
+            }
             
             // Get the used rect (actual bounds of text in container)
             let usedRect = layoutManager.usedRect(for: container)
@@ -163,7 +181,23 @@ class PaginatedTextLayoutManager {
             pageInfos.append(pageInfo)
             
             // Move to next page
-            characterIndex = NSMaxRange(characterRange)
+            // If we truncated at a form feed, skip past it
+            if characterRange.length > 0 {
+                let nextChar = NSMaxRange(characterRange)
+                if nextChar < totalCharacters {
+                    let nextCharString = (textStorage.string as NSString).substring(with: NSRange(location: nextChar, length: 1))
+                    if nextCharString == "\u{000C}" {
+                        characterIndex = nextChar + 1  // Skip the form feed character
+                        print("   ⏭️  Skipping form feed character at \(nextChar)")
+                    } else {
+                        characterIndex = nextChar
+                    }
+                } else {
+                    characterIndex = nextChar
+                }
+            } else {
+                characterIndex = NSMaxRange(characterRange)
+            }
             
             // If we've processed all text, we're done
             if characterIndex >= totalCharacters {

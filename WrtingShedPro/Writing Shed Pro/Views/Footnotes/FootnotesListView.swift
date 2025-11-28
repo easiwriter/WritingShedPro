@@ -30,6 +30,9 @@ struct FootnotesListView: View {
     /// Callback when footnote is updated/deleted
     var onFootnoteChanged: (() -> Void)?
     
+    /// Callback when footnote is deleted (needs marker removal)
+    var onFootnoteDeleted: ((FootnoteModel) -> Void)?
+    
     // MARK: - State
     
     @State private var footnotes: [FootnoteModel] = []
@@ -37,52 +40,55 @@ struct FootnotesListView: View {
     @State private var editingFootnote: FootnoteModel?
     @State private var editText: String = ""
     @State private var showDeleteConfirmation: FootnoteModel?
-    @State private var showingTrash: Bool = false
-    
-    // MARK: - Computed
-    
-    private var activeFootnotes: [FootnoteModel] {
-        footnotes.filter { $0.isDeleted == false }.sorted()
-    }
-    
-    private var deletedFootnotes: [FootnoteModel] {
-        footnotes.filter { $0.isDeleted == true }.sorted { ($0.deletedAt ?? Date()) > ($1.deletedAt ?? Date()) }
-    }
     
     // MARK: - Body
-    
+
     var body: some View {
         NavigationView {
             Group {
-                if activeFootnotes.isEmpty && !showingTrash {
+                if footnotes.isEmpty {
                     emptyState
                 } else {
                     footnotesList
                 }
             }
-            .navigationTitle(showingTrash ? "footnotesList.trash.title" : "footnotesList.title")
+            .navigationTitle("footnotesList.title")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("button.done") {
-                        onDismiss?()
-                        dismiss()
-                    }
-                }
-                
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        showingTrash.toggle()
-                        loadFootnotes()
-                    } label: {
-                        Image(systemName: showingTrash ? "doc.text" : "trash")
-                    }
-                    .accessibilityLabel(showingTrash ? "footnotesList.showActive.accessibility" : "footnotesList.showTrash.accessibility")
+        }
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("button.done") {
+                    onDismiss?()
+                    dismiss()
                 }
             }
         }
         .onAppear {
             loadFootnotes()
+        }
+        .onChange(of: footnotes) { oldValue, newValue in
+            // Auto-dismiss when all footnotes are deleted
+            if newValue.isEmpty && !oldValue.isEmpty {
+                onDismiss?()
+                dismiss()
+            }
+        }
+        .confirmationDialog(
+            "footnotesList.confirmDelete.title",
+            isPresented: .constant(showDeleteConfirmation != nil),
+            titleVisibility: .visible,
+            presenting: showDeleteConfirmation
+        ) { footnote in
+            Button("footnotesList.confirmDelete.button", role: .destructive) {
+                deleteFootnote(footnote)
+                showDeleteConfirmation = nil
+            }
+
+            Button("button.cancel", role: .cancel) {
+                showDeleteConfirmation = nil
+            }
+        } message: { footnote in
+            Text("footnotesList.confirmDelete.message")
         }
     }
     
@@ -97,50 +103,24 @@ struct FootnotesListView: View {
     }
     
     // MARK: - Footnotes List
-    
+
     private var footnotesList: some View {
         List {
-            if showingTrash {
-                if deletedFootnotes.isEmpty {
-                    ContentUnavailableView {
-                        Label("footnotesList.trashEmpty.title", systemImage: "trash")
-                    } description: {
-                        Text("footnotesList.trashEmpty.description")
+            if !footnotes.isEmpty {
+                Section {
+                    ForEach(footnotes) { footnote in
+                        footnoteRow(footnote)
                     }
-                } else {
-                    Section {
-                        ForEach(deletedFootnotes) { footnote in
-                            footnoteRow(footnote)
-                        }
-                    } header: {
-                        HStack {
-                            Text("footnotesList.deletedFootnotes")
-                            Spacer()
-                            Text("\(deletedFootnotes.count)")
-                                .foregroundStyle(.secondary)
-                        }
-                    } footer: {
-                        Text("footnotesList.trashFooter")
-                            .font(.caption)
+                } header: {
+                    HStack {
+                        Text("footnotesList.documentOrder")
+                        Spacer()
+                        Text("\(footnotes.count)")
+                            .foregroundStyle(.secondary)
                     }
-                }
-            } else {
-                if !activeFootnotes.isEmpty {
-                    Section {
-                        ForEach(activeFootnotes) { footnote in
-                            footnoteRow(footnote)
-                        }
-                    } header: {
-                        HStack {
-                            Text("footnotesList.documentOrder")
-                            Spacer()
-                            Text("\(activeFootnotes.count)")
-                                .foregroundStyle(.secondary)
-                        }
-                    } footer: {
-                        Text("footnotesList.documentOrderFooter")
-                            .font(.caption)
-                    }
+                } footer: {
+                    Text("footnotesList.documentOrderFooter")
+                        .font(.caption)
                 }
             }
         }
@@ -204,13 +184,13 @@ struct FootnotesListView: View {
                 // Footnote number badge
                 ZStack {
                     Circle()
-                        .fill(footnote.isDeleted ? Color.gray.opacity(0.1) : Color.blue.opacity(0.1))
+                        .fill(Color.blue.opacity(0.1))
                         .frame(width: 32, height: 32)
                     Text("\(footnote.number)")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(footnote.isDeleted ? .gray : .blue)
+                        .foregroundColor(.blue)
                 }
-                
+
                 VStack(alignment: .leading, spacing: 4) {
                     // Date and time
                     HStack(spacing: 8) {
@@ -220,65 +200,43 @@ struct FootnotesListView: View {
                         Text(footnote.createdAt, style: .time)
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        
-                        if footnote.isDeleted, let deletedAt = footnote.deletedAt {
-                            Text("• \(Text("footnotesList.deleted")) \(deletedAt, style: .relative)")
-                                .font(.caption2)
-                                .foregroundStyle(.red)
-                        }
                     }
-                    
+
                     // Footnote text (truncated)
                     Text(footnote.text)
                         .font(.body)
                         .lineLimit(2)
-                        .foregroundStyle(footnote.isDeleted ? .secondary : .primary)
-                    
+                        .foregroundStyle(.primary)
+
                     // Position info
                     Text(String(format: NSLocalizedString("footnotesList.position", comment: ""), footnote.characterPosition))
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                 }
-                
+
                 Spacer()
-                
+
                 // Actions menu
                 Menu {
-                    if footnote.isDeleted {
-                        Button {
-                            restoreFootnote(footnote)
-                        } label: {
-                            Label("footnotesList.restore", systemImage: "arrow.uturn.backward")
-                        }
-                        
-                        Divider()
-                        
-                        Button(role: .destructive) {
-                            showDeleteConfirmation = footnote
-                        } label: {
-                            Label("footnotesList.deleteForever", systemImage: "trash.fill")
-                        }
-                    } else {
-                        Button {
-                            startEditing(footnote)
-                        } label: {
-                            Label("footnotesList.edit", systemImage: "pencil")
-                        }
-                        
-                        Button {
-                            onJumpToFootnote?(footnote)
-                            dismiss()
-                        } label: {
-                            Label("footnotesList.jumpToText", systemImage: "arrow.right")
-                        }
-                        
-                        Divider()
-                        
-                        Button(role: .destructive) {
-                            showDeleteConfirmation = footnote
-                        } label: {
-                            Label("footnotesList.moveToTrash", systemImage: "trash")
-                        }
+                    Button {
+                        startEditing(footnote)
+                    } label: {
+                        Label("footnotesList.edit", systemImage: "pencil")
+                    }
+
+                    Button {
+                        onJumpToFootnote?(footnote)
+                        dismiss()
+                    } label: {
+                        Label("footnotesList.jumpToText", systemImage: "arrow.right")
+                    }
+
+                    Divider()
+
+                    Button(role: .destructive) {
+                        showDeleteConfirmation = footnote
+                    } label: {
+                        Label("footnotesList.delete", systemImage: "trash")
                     }
                 } label: {
                     Image(systemName: "ellipsis.circle")
@@ -289,52 +247,33 @@ struct FootnotesListView: View {
             }
             .contentShape(Rectangle())
             .onTapGesture(count: 2) {
-                if !footnote.isDeleted {
-                    startEditing(footnote)
-                }
+                startEditing(footnote)
             }
             .onTapGesture(count: 1) {
                 selectedFootnote = footnote
             }
             .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                if footnote.isDeleted {
-                    Button(role: .destructive) {
-                        permanentlyDeleteFootnote(footnote)
-                    } label: {
-                        Label("footnotesList.deleteForever", systemImage: "trash.fill")
-                    }
-                } else {
-                    Button(role: .destructive) {
-                        moveToTrash(footnote)
-                    } label: {
-                        Label("footnotesList.delete", systemImage: "trash")
-                    }
-                    
-                    Button {
-                        startEditing(footnote)
-                    } label: {
-                        Label("footnotesList.edit", systemImage: "pencil")
-                    }
-                    .tint(.blue)
+                Button(role: .destructive) {
+                    showDeleteConfirmation = footnote
+                } label: {
+                    Label("footnotesList.delete", systemImage: "trash")
                 }
+
+                Button {
+                    startEditing(footnote)
+                } label: {
+                    Label("footnotesList.edit", systemImage: "pencil")
+                }
+                .tint(.blue)
             }
             .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                if footnote.isDeleted {
-                    Button {
-                        restoreFootnote(footnote)
-                    } label: {
-                        Label("footnotesList.restore", systemImage: "arrow.uturn.backward")
-                    }
-                    .tint(.green)
-                } else {
-                    Button {
-                        onJumpToFootnote?(footnote)
-                        dismiss()
-                    } label: {
-                        Label("footnotesList.jump", systemImage: "arrow.right")
-                    }
-                    .tint(.green)
+                Button {
+                    onJumpToFootnote?(footnote)
+                    dismiss()
+                } label: {
+                    Label("footnotesList.jump", systemImage: "arrow.right")
                 }
+                .tint(.green)
             }
         }
     }
@@ -365,21 +304,10 @@ struct FootnotesListView: View {
         onFootnoteChanged?()
     }
     
-    private func moveToTrash(_ footnote: FootnoteModel) {
-        FootnoteManager.shared.moveFootnoteToTrash(footnote, context: modelContext)
+    private func deleteFootnote(_ footnote: FootnoteModel) {
+        FootnoteManager.shared.deleteFootnote(footnote, context: modelContext)
         loadFootnotes()
         onFootnoteChanged?()
-    }
-    
-    private func restoreFootnote(_ footnote: FootnoteModel) {
-        FootnoteManager.shared.restoreFootnote(footnote, context: modelContext)
-        loadFootnotes()
-        onFootnoteChanged?()
-    }
-    
-    private func permanentlyDeleteFootnote(_ footnote: FootnoteModel) {
-        FootnoteManager.shared.permanentlyDeleteFootnote(footnote, context: modelContext)
-        loadFootnotes()
-        onFootnoteChanged?()
+        onFootnoteDeleted?(footnote) // Notify parent to remove marker from text
     }
 }

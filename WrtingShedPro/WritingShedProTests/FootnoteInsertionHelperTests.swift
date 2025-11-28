@@ -599,4 +599,231 @@ final class FootnoteInsertionHelperTests: XCTestCase {
         
         XCTAssertEqual(footnote.text, multilineText)
     }
+    
+    // MARK: - Remove Footnote Tests
+    
+    func testRemoveFootnoteFromAttributedString() throws {
+        // Create text with a footnote
+        let originalText = NSAttributedString(string: "Hello World")
+        let (textWithFootnote, footnote) = FootnoteInsertionHelper.insertFootnote(
+            in: originalText,
+            at: 5,
+            footnoteText: "Test footnote",
+            version: testVersion,
+            context: modelContext
+        )
+        
+        XCTAssertEqual(textWithFootnote.length, 12) // 11 chars + 1 attachment
+        
+        // Remove the footnote using its attachmentID
+        let result = FootnoteInsertionHelper.removeFootnote(
+            from: textWithFootnote,
+            footnoteID: footnote.attachmentID
+        )
+        
+        // Verify attachment was removed
+        XCTAssertEqual(result.length, 11) // Back to original length
+        XCTAssertEqual(result.string, "Hello World")
+        
+        // Verify no attachment remains at position 5
+        let attachment = result.attribute(.attachment, at: 5, effectiveRange: nil)
+        XCTAssertNil(attachment)
+    }
+    
+    func testRemoveFootnoteFromTextView() throws {
+        // Create a UITextView with a footnote
+        let textView = UITextView()
+        let originalText = NSAttributedString(string: "Hello World")
+        textView.attributedText = originalText
+        
+        // Insert footnote
+        let (textWithFootnote, footnote) = FootnoteInsertionHelper.insertFootnote(
+            in: originalText,
+            at: 5,
+            footnoteText: "Test footnote",
+            version: testVersion,
+            context: modelContext
+        )
+        
+        textView.attributedText = textWithFootnote
+        XCTAssertEqual(textView.attributedText.length, 12)
+        
+        // Remove the footnote
+        let removedRange = FootnoteInsertionHelper.removeFootnoteFromTextView(
+            textView,
+            footnoteID: footnote.attachmentID
+        )
+        
+        // Verify removal succeeded
+        XCTAssertNotNil(removedRange)
+        XCTAssertEqual(removedRange?.location, 5)
+        XCTAssertEqual(removedRange?.length, 1)
+        
+        // Verify text view updated
+        XCTAssertEqual(textView.attributedText.length, 11)
+        XCTAssertEqual(textView.attributedText.string, "Hello World")
+    }
+    
+    func testRemoveNonexistentFootnote() throws {
+        // Create text without footnotes
+        let text = NSAttributedString(string: "Hello World")
+        
+        // Try to remove a footnote that doesn't exist
+        let result = FootnoteInsertionHelper.removeFootnote(
+            from: text,
+            footnoteID: UUID() // Random UUID that won't match anything
+        )
+        
+        // Text should be unchanged
+        XCTAssertEqual(result.length, text.length)
+        XCTAssertEqual(result.string, text.string)
+    }
+    
+    func testRemoveFootnoteFromTextViewReturnsNilIfNotFound() throws {
+        // Create text view without footnotes
+        let textView = UITextView()
+        textView.attributedText = NSAttributedString(string: "Hello World")
+        
+        // Try to remove a footnote that doesn't exist
+        let removedRange = FootnoteInsertionHelper.removeFootnoteFromTextView(
+            textView,
+            footnoteID: UUID()
+        )
+        
+        // Should return nil when not found
+        XCTAssertNil(removedRange)
+        
+        // Text should be unchanged
+        XCTAssertEqual(textView.attributedText.length, 11)
+    }
+    
+    func testRemoveMiddleFootnote() throws {
+        // Create text with three footnotes
+        let originalText = NSAttributedString(string: "One Two Three")
+        
+        let (afterFirst, footnote1) = FootnoteInsertionHelper.insertFootnote(
+            in: originalText,
+            at: 3, // After "One"
+            footnoteText: "First",
+            version: testVersion,
+            context: modelContext
+        )
+        
+        let (afterSecond, footnote2) = FootnoteInsertionHelper.insertFootnote(
+            in: afterFirst,
+            at: 8, // After "Two" (adjusted for first attachment)
+            footnoteText: "Second",
+            version: testVersion,
+            context: modelContext
+        )
+        
+        let (afterThird, footnote3) = FootnoteInsertionHelper.insertFootnote(
+            in: afterSecond,
+            at: 15, // After "Three" (adjusted for two attachments)
+            footnoteText: "Third",
+            version: testVersion,
+            context: modelContext
+        )
+        
+        XCTAssertEqual(afterThird.length, 16) // 13 chars + 3 attachments
+        
+        // Remove the middle footnote
+        let result = FootnoteInsertionHelper.removeFootnote(
+            from: afterThird,
+            footnoteID: footnote2.attachmentID
+        )
+        
+        // Should have removed one attachment
+        XCTAssertEqual(result.length, 15) // 13 chars + 2 attachments
+        
+        // Verify first and third footnotes still exist
+        let attachment1 = result.attribute(.attachment, at: 3, effectiveRange: nil) as? FootnoteAttachment
+        let attachment3 = result.attribute(.attachment, at: 14, effectiveRange: nil) as? FootnoteAttachment
+        
+        XCTAssertNotNil(attachment1)
+        XCTAssertEqual(attachment1?.footnoteID, footnote1.attachmentID)
+        
+        XCTAssertNotNil(attachment3)
+        XCTAssertEqual(attachment3?.footnoteID, footnote3.attachmentID)
+    }
+    
+    func testRemoveAllFootnotes() throws {
+        // Create text with multiple footnotes
+        let originalText = NSAttributedString(string: "Hello World")
+        
+        let (afterFirst, footnote1) = FootnoteInsertionHelper.insertFootnote(
+            in: originalText,
+            at: 5,
+            footnoteText: "First",
+            version: testVersion,
+            context: modelContext
+        )
+        
+        let (afterSecond, footnote2) = FootnoteInsertionHelper.insertFootnote(
+            in: afterFirst,
+            at: 11,
+            footnoteText: "Second",
+            version: testVersion,
+            context: modelContext
+        )
+        
+        XCTAssertEqual(afterSecond.length, 13) // 11 chars + 2 attachments
+        
+        // Remove first footnote
+        let afterRemoveFirst = FootnoteInsertionHelper.removeFootnote(
+            from: afterSecond,
+            footnoteID: footnote1.attachmentID
+        )
+        
+        XCTAssertEqual(afterRemoveFirst.length, 12)
+        
+        // Remove second footnote
+        let final = FootnoteInsertionHelper.removeFootnote(
+            from: afterRemoveFirst,
+            footnoteID: footnote2.attachmentID
+        )
+        
+        // Should be back to original text
+        XCTAssertEqual(final.length, 11)
+        XCTAssertEqual(final.string, "Hello World")
+        
+        // Verify no attachments remain
+        var foundAttachment = false
+        final.enumerateAttribute(.attachment, in: NSRange(location: 0, length: final.length)) { value, range, stop in
+            if value != nil {
+                foundAttachment = true
+            }
+        }
+        XCTAssertFalse(foundAttachment)
+    }
+    
+    func testRemoveFootnotePreservesOtherFormatting() throws {
+        // Create attributed text with formatting
+        let mutableText = NSMutableAttributedString(string: "Hello World")
+        mutableText.addAttribute(.font, value: UIFont.boldSystemFont(ofSize: 17), range: NSRange(location: 0, length: 5))
+        mutableText.addAttribute(.foregroundColor, value: UIColor.red, range: NSRange(location: 6, length: 5))
+        
+        // Insert footnote
+        let (textWithFootnote, footnote) = FootnoteInsertionHelper.insertFootnote(
+            in: mutableText,
+            at: 5,
+            footnoteText: "Test",
+            version: testVersion,
+            context: modelContext
+        )
+        
+        // Remove footnote
+        let result = FootnoteInsertionHelper.removeFootnote(
+            from: textWithFootnote,
+            footnoteID: footnote.attachmentID
+        )
+        
+        // Verify formatting preserved
+        let boldFont = result.attribute(.font, at: 0, effectiveRange: nil) as? UIFont
+        XCTAssertTrue(boldFont?.fontDescriptor.symbolicTraits.contains(.traitBold) ?? false)
+        
+        let redColor = result.attribute(.foregroundColor, at: 6, effectiveRange: nil) as? UIColor
+        XCTAssertEqual(redColor, UIColor.red)
+    }
 }
+

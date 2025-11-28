@@ -29,6 +29,7 @@ class PageSetupPreferences {
         static let headerDepth = "pageSetup.headerDepth"
         static let footerDepth = "pageSetup.footerDepth"
         static let scaleFactor = "pageSetup.scaleFactor"
+        static let pageBreakBetweenFiles = "pageSetup.pageBreakBetweenFiles"
     }
     
     // TEMPORARY: Use UserDefaults instead of iCloud key-value store
@@ -67,7 +68,8 @@ class PageSetupPreferences {
             Keys.marginRight: PageSetupDefaults.marginRight,
             Keys.headerDepth: PageSetupDefaults.headerDepth,
             Keys.footerDepth: PageSetupDefaults.footerDepth,
-            Keys.scaleFactor: PageSetupDefaults.scaleFactorInches
+            Keys.scaleFactor: PageSetupDefaults.scaleFactorInches,
+            Keys.pageBreakBetweenFiles: false
         ]
         store.register(defaults: defaults)
     }
@@ -138,6 +140,10 @@ class PageSetupPreferences {
         return value > 0 ? value : PageSetupDefaults.scaleFactorInches
     }
     
+    var pageBreakBetweenFiles: Bool {
+        store.bool(forKey: Keys.pageBreakBetweenFiles)
+    }
+    
     // MARK: - Public API - Setters
     
     func setPaperName(_ value: String) {
@@ -197,6 +203,10 @@ class PageSetupPreferences {
     
     func setScaleFactor(_ value: Double) {
         store.set(value, forKey: Keys.scaleFactor)
+    }
+    
+    func setPageBreakBetweenFiles(_ value: Bool) {
+        store.set(value, forKey: Keys.pageBreakBetweenFiles)
     }
     
     // MARK: - Convenience

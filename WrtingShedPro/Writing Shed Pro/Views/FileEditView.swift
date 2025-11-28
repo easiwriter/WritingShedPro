@@ -297,16 +297,54 @@ struct FileEditView: View {
                     }
                     .disabled(true)
                     
-                    Button(action: {
-                        showNewCommentDialog = true
-                    }) {
+                    // Comments submenu
+                    Menu {
+                        Button(action: {
+                            showNewCommentDialog = true
+                        }) {
+                            Label("Add Comment", systemImage: "square.and.pencil")
+                        }
+                        
+                        if let currentVersion = file.currentVersion, currentVersion.comments?.isEmpty == false {
+                            Divider()
+                            
+                            Button(action: {
+                                showCommentsList = true
+                            }) {
+                                Label("Show Comments", systemImage: "bubble.left.and.bubble.right")
+                            }
+                        }
+                    } label: {
                         Label("Comment", systemImage: "bubble.left")
                     }
                     
-                    Button(action: {
-                        showNewFootnoteDialog = true
-                    }) {
+                    // Footnotes submenu
+                    Menu {
+                        Button(action: {
+                            showNewFootnoteDialog = true
+                        }) {
+                            Label("Add Footnote", systemImage: "square.and.pencil")
+                        }
+                        
+                        if let currentVersion = file.currentVersion, currentVersion.footnotes?.isEmpty == false {
+                            Divider()
+                            
+                            Button(action: {
+                                showFootnotesList = true
+                            }) {
+                                Label("Show Footnotes", systemImage: "list.number")
+                            }
+                        }
+                    } label: {
                         Label("Footnote", systemImage: "number.circle")
+                    }
+                    
+                    Divider()
+                    
+                    Button(action: {
+                        insertPageBreak()
+                    }) {
+                        Label("Page Break", systemImage: "page.break")
                     }
                 } label: {
                     Image(systemName: "text.badge.plus")
@@ -437,6 +475,10 @@ struct FileEditView: View {
                             // Comment resolved state was changed in the list
                             // Update the visual marker in the text
                             refreshCommentMarker(comment)
+                        },
+                        onCommentDeleted: { comment in
+                            // Comment was deleted, remove marker from text
+                            removeCommentMarker(comment)
                         }
                     )
                 }
@@ -449,8 +491,9 @@ struct FileEditView: View {
                             // Comment text was updated
                             saveChanges()
                         },
-                        onDelete: {
-                            // Comment was deleted, close the sheet
+                        onDelete: { deletedComment in
+                            // Comment was deleted, remove marker from text
+                            removeCommentMarker(deletedComment)
                             selectedCommentForDetail = nil
                         },
                         onResolveToggle: {
@@ -479,6 +522,10 @@ struct FileEditView: View {
                         onFootnoteChanged: {
                             // Footnote was updated, refresh display
                             saveChanges()
+                        },
+                        onFootnoteDeleted: { footnote in
+                            // Footnote was deleted, remove marker from text
+                            removeFootnoteFromText(footnote)
                         }
                     )
                 }
@@ -488,16 +535,15 @@ struct FileEditView: View {
                     FootnoteDetailView(
                         footnote: footnote,
                         onUpdate: {
-                            // Footnote text was updated
-                            saveChanges()
+                            // Footnote text was updated - no need to save, already saved in FootnoteManager
+                            // Just refresh the view
+                            forceRefresh.toggle()
                         },
                         onDelete: {
-                            // Footnote was deleted, close the sheet
+                            // Footnote was deleted, remove it from the text
+                            print("🗑️ FootnoteDetailView onDelete callback triggered for footnote: \(footnote.id)")
+                            removeFootnoteFromText(footnote)
                             selectedFootnoteForDetail = nil
-                        },
-                        onRestore: {
-                            // Footnote was restored from trash
-                            saveChanges()
                         },
                         onClose: {
                             selectedFootnoteForDetail = nil
@@ -529,6 +575,9 @@ struct FileEditView: View {
             }
             .onReceive(NotificationCenter.default.publisher(for: .footnoteNumbersDidChange)) { notification in
                 handleFootnoteNumbersChanged(notification)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("UndoRedoContentRestored"))) { notification in
+                handleUndoRedoContentRestored(notification)
             }
             .alert("Print Error", isPresented: $showPrintError) {
                 Button("OK", role: .cancel) { }
@@ -603,6 +652,7 @@ struct FileEditView: View {
                 .sheet(isPresented: $showNewCommentDialog) {
                     NewCommentSheet(
                         commentText: $newCommentText,
+                        hasExistingComments: (file.currentVersion?.comments?.isEmpty ?? true) == false,
                         onAdd: {
                             insertNewComment()
                         },
@@ -815,13 +865,16 @@ struct FileEditView: View {
         mutableContent.enumerateAttribute(.attachment, in: NSRange(location: 0, length: mutableContent.length)) { value, range, stop in
             guard let attachment = value as? FootnoteAttachment else { return }
             
-            // Look up the current number from the database
-            if let footnote = FootnoteManager.shared.getFootnote(id: attachment.footnoteID, context: modelContext) {
+            // CRITICAL: Look up by attachmentID, not id!
+            // attachment.footnoteID corresponds to FootnoteModel.attachmentID
+            if let footnote = FootnoteManager.shared.getFootnoteByAttachment(attachmentID: attachment.footnoteID, context: modelContext) {
                 if attachment.number != footnote.number {
                     print("🔢 Updating attachment \(attachment.footnoteID) from \(attachment.number) to \(footnote.number)")
                     attachment.number = footnote.number
                     needsUpdate = true
                 }
+            } else {
+                print("⚠️ Footnote not found in database for attachmentID: \(attachment.footnoteID)")
             }
         }
         
@@ -830,6 +883,27 @@ struct FileEditView: View {
             attributedContent = mutableContent
             print("✅ Footnote attachment numbers updated")
         }
+    }
+    
+    /// Handle undo/redo content restoration notification from FormatApplyCommand
+    private func handleUndoRedoContentRestored(_ notification: Notification) {
+        guard let restoredContent = notification.userInfo?["content"] as? NSAttributedString else {
+            print("⚠️ handleUndoRedoContentRestored - no content in notification")
+            return
+        }
+        
+        print("🔄 handleUndoRedoContentRestored - updating UI with restored content")
+        
+        // Update the UI with restored content
+        attributedContent = restoredContent
+        previousContent = restoredContent.string
+        
+        // Position cursor at end
+        selectedRange = NSRange(location: restoredContent.length, length: 0)
+        
+        // Force refresh
+        forceRefresh.toggle()
+        refreshTrigger = UUID()
     }
     
     // MARK: - Attributed Text Handling
@@ -882,10 +956,20 @@ struct FileEditView: View {
         print("🔄 Content changed - registering with undo manager")
         
         // Create and execute undo command
-        if let change = TextDiffService.diff(from: previousContent, to: newContent) {
-            let command = TextDiffService.createCommand(from: change, file: file)
-            undoManager.execute(command)
-        }
+        // IMPORTANT: Use FormatApplyCommand to preserve formatting, not TextDiffService (which only stores plain text)
+        let previousAttributedContent = file.currentVersion?.attributedContent ?? NSAttributedString(
+            string: previousContent,
+            attributes: [.font: UIFont.preferredFont(forTextStyle: .body)]
+        )
+        
+        let command = FormatApplyCommand(
+            description: "Typing",
+            range: NSRange(location: 0, length: newAttributedText.length),
+            beforeContent: previousAttributedContent,
+            afterContent: newAttributedText,
+            targetFile: file
+        )
+        undoManager.execute(command)
         
         // Update previous content for next comparison
         previousContent = newContent
@@ -957,23 +1041,26 @@ struct FileEditView: View {
     
     private func handleFootnoteTap(attachment: FootnoteAttachment, position: Int) {
         print("🔢 Footnote tapped at position \(position)")
-        print("🔢 Footnote ID: \(attachment.footnoteID)")
+        print("🔢 Attachment footnoteID: \(attachment.footnoteID)")
         
         // Fetch the specific footnote from the database
-        let footnoteID = attachment.footnoteID
+        let attachmentID = attachment.footnoteID
         let fetchDescriptor = FetchDescriptor<FootnoteModel>(
             predicate: #Predicate<FootnoteModel> { footnote in
-                footnote.attachmentID == footnoteID
+                footnote.attachmentID == attachmentID
             }
         )
         
         do {
             let footnotes = try modelContext.fetch(fetchDescriptor)
             if let footnote = footnotes.first {
-                print("🔢 Found footnote in database, showing detail view")
+                print("🔢 Found footnote in database:")
+                print("   - Database ID: \(footnote.id)")
+                print("   - AttachmentID: \(footnote.attachmentID)")
+                print("   - Number: \(footnote.number)")
                 selectedFootnoteForDetail = footnote
             } else {
-                print("⚠️ Footnote not found in database for ID: \(footnoteID)")
+                print("⚠️ Footnote not found in database for attachmentID: \(attachmentID)")
             }
         } catch {
             print("❌ Error fetching footnote: \(error)")
@@ -1074,6 +1161,87 @@ struct FileEditView: View {
         showNewFootnoteDialog = false
     }
     
+    /// Remove a footnote attachment from the text when it's moved to trash
+    private func removeFootnoteFromText(_ footnote: FootnoteModel) {
+        guard let textView = textViewCoordinator.textView else {
+            print("❌ Cannot remove footnote: no text view")
+            return
+        }
+        
+        print("🗑️ Removing footnote \(footnote.id) from text (attachmentID: \(footnote.attachmentID))")
+        
+        // Set flag FIRST before any text modifications
+        isPerformingUndoRedo = true
+        
+        // CRITICAL: Use attachmentID, not id! The FootnoteAttachment stores attachmentID, not the footnote's database ID
+        // Remove the footnote attachment from the text view
+        if let removedRange = FootnoteInsertionHelper.removeFootnoteFromTextView(textView, footnoteID: footnote.attachmentID) {
+            // Get the updated text from text view
+            let updatedText = textView.attributedText ?? NSAttributedString()
+            
+            // Update the model directly WITHOUT triggering attributedContent observer
+            file.currentVersion?.attributedContent = updatedText
+            previousContent = updatedText.string
+            file.modifiedDate = Date()
+            
+            // Save context
+            do {
+                try modelContext.save()
+            } catch {
+                print("❌ Error saving context: \(error)")
+            }
+            
+            // Update attributedContent LAST, after flag is set
+            // This ensures the observer sees isPerformingUndoRedo = true
+            attributedContent = updatedText
+            
+            print("✅ Footnote removed from position \(removedRange.location)")
+        } else {
+            print("⚠️ Footnote attachment not found in text")
+        }
+        
+        // Reset flag AFTER attributedContent update completes
+        // Use asyncAfter with minimal delay to ensure binding update has fired
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            self.isPerformingUndoRedo = false
+            print("🗑️ Reset isPerformingUndoRedo flag")
+        }
+    }
+    
+    
+    
+    private func insertPageBreak() {
+        print("📄 Inserting page break at cursor")
+        
+        guard let textView = textViewCoordinator.textView else {
+            print("❌ Cannot insert page break: no text view")
+            return
+        }
+        
+        // Get current selection/cursor position
+        let currentRange = textView.selectedRange
+        
+        // Create page break with visual indicator (attachment) and actual page break (form feed)
+        // The attachment provides visual feedback in the editor
+        // The form feed (\u{000C}) provides the actual page break for pagination/printing
+        let pageBreakAttributed = PageBreakAttachment.createPageBreakString()
+        
+        // Insert the page break at cursor position
+        textView.textStorage.insert(pageBreakAttributed, at: currentRange.location)
+        
+        // Move cursor after the page break
+        let newLocation = currentRange.location + pageBreakAttributed.length
+        textView.selectedRange = NSRange(location: newLocation, length: 0)
+        
+        // Update the attributed content binding
+        attributedContent = textView.attributedText ?? NSAttributedString()
+        
+        // Save changes
+        saveChanges()
+        
+        print("✅ Page break inserted at position \(currentRange.location)")
+    }
+    
     private func updateComment(_ comment: CommentModel, newText: String) {
         comment.updateText(newText)
         try? modelContext.save()
@@ -1093,6 +1261,18 @@ struct FileEditView: View {
         // Save
         saveChanges()
         print("💬 Comment deleted")
+    }
+    
+    private func removeCommentMarker(_ comment: CommentModel) {
+        // Remove the comment marker from text (called when comment is deleted from detail view)
+        attributedContent = CommentInsertionHelper.removeComment(
+            from: attributedContent,
+            commentID: comment.attachmentID
+        )
+        
+        // Save
+        saveChanges()
+        print("💬 Comment marker removed: \(comment.attachmentID)")
     }
     
     private func toggleCommentResolved(_ comment: CommentModel) {
@@ -1261,27 +1441,12 @@ struct FileEditView: View {
         
         isPerformingUndoRedo = true
         
+        // Execute the undo command
+        // FormatApplyCommand will restore the attributed content and post a notification
+        // that we listen for in handleUndoRedoContentRestored()
         undoManager.undo()
         
-        // Reload from model (attributedContent getter handles plain text fallback)
-        let newAttributedContent = file.currentVersion?.attributedContent ?? NSAttributedString(
-            string: "",
-            attributes: [.font: UIFont.preferredFont(forTextStyle: .body)]
-        )
-        
-        print("🔄 After undo - new content: '\(newAttributedContent.string)' (length: \(newAttributedContent.string.count))")
-        
-        // Update all state
-        attributedContent = newAttributedContent
-        previousContent = newAttributedContent.string
-        
-        // FIX: Position cursor at end of new content
-        selectedRange = NSRange(location: newAttributedContent.string.count, length: 0)
-        print("🔄 Set selectedRange to end: \(selectedRange)")
-        
-        // Force refresh
-        forceRefresh.toggle()
-        refreshTrigger = UUID()
+        print("🔄 Undo command executed")
         
         // Reset flag after UI has updated
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -2378,6 +2543,7 @@ struct FileEditView: View {
 
 private struct NewCommentSheet: View {
     @Binding var commentText: String
+    let hasExistingComments: Bool
     let onAdd: () -> Void
     let onCancel: () -> Void
     let onShowComments: () -> Void
@@ -2401,16 +2567,18 @@ private struct NewCommentSheet: View {
                     .padding(.horizontal)
                     .accessibilityLabel("fileEdit.newComment.textEditor.accessibility")
                 
-                // Show Comments button
-                Button(action: {
-                    dismiss()
-                    onShowComments()
-                }) {
-                    Label("Show Comments", systemImage: "bubble.left.and.bubble.right")
-                        .frame(maxWidth: .infinity)
+                // Show Comments button (only if there are existing comments)
+                if hasExistingComments {
+                    Button(action: {
+                        dismiss()
+                        onShowComments()
+                    }) {
+                        Label("Show Comments", systemImage: "bubble.left.and.bubble.right")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .padding(.horizontal)
                 }
-                .buttonStyle(.bordered)
-                .padding(.horizontal)
                 
                 Spacer()
             }

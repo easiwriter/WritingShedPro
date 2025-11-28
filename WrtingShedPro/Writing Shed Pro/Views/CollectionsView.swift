@@ -447,6 +447,8 @@ struct CollectionDetailView: View {
     @State private var editingSubmittedFile: SubmittedFile?
     @State private var showVersionPicker = false
     @State private var showSubmissionPicker = false
+    @State private var showPrintError = false
+    @State private var printErrorMessage = ""
     
     private var submittedFiles: [SubmittedFile] {
         let files = submission.submittedFiles ?? []
@@ -517,6 +519,10 @@ struct CollectionDetailView: View {
                         Button(action: { showSubmissionPicker = true }) {
                             Label("Submit to Publication", systemImage: "paperplane")
                         }
+                        
+                        Button(action: { printCollection() }) {
+                            Label("Print Collection", systemImage: "printer")
+                        }
                     }
                 } label: {
                     Image(systemName: "ellipsis.circle")
@@ -569,6 +575,44 @@ struct CollectionDetailView: View {
                         }
                     )
                 }
+            }
+        }
+        .alert("Print Error", isPresented: $showPrintError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(printErrorMessage)
+        }
+    }
+    
+    // MARK: - Printing
+    
+    /// Handle print collection action
+    private func printCollection() {
+        print("🖨️ Print Collection button tapped")
+        
+        // Get the view controller to present from
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let window = windowScene.windows.first,
+              let viewController = window.rootViewController else {
+            print("❌ Could not find view controller for print dialog")
+            printErrorMessage = "Unable to present print dialog"
+            showPrintError = true
+            return
+        }
+        
+        PrintService.printCollection(
+            submission,
+            modelContext: modelContext,
+            from: viewController
+        ) { success, error in
+            if let error = error {
+                print("❌ Print failed: \(error.localizedDescription)")
+                printErrorMessage = error.localizedDescription
+                showPrintError = true
+            } else if success {
+                print("✅ Print completed successfully")
+            } else {
+                print("⚠️ Print was cancelled")
             }
         }
     }

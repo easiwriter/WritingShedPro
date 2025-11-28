@@ -27,8 +27,6 @@ struct FootnoteDetailView: View {
     /// Callback when footnote is deleted
     var onDelete: (() -> Void)?
     
-    /// Callback when footnote is restored from trash
-    var onRestore: (() -> Void)?
     
     /// Callback to close the detail view
     var onClose: (() -> Void)?
@@ -37,6 +35,7 @@ struct FootnoteDetailView: View {
     
     @State private var editedText: String
     @State private var isEditing: Bool = false
+    @State private var showDeleteConfirmation: Bool = false
     
     // MARK: - Initialization
     
@@ -44,13 +43,11 @@ struct FootnoteDetailView: View {
         footnote: FootnoteModel,
         onUpdate: (() -> Void)? = nil,
         onDelete: (() -> Void)? = nil,
-        onRestore: (() -> Void)? = nil,
         onClose: (() -> Void)? = nil
     ) {
         self.footnote = footnote
         self.onUpdate = onUpdate
         self.onDelete = onDelete
-        self.onRestore = onRestore
         self.onClose = onClose
         self._editedText = State(initialValue: footnote.text)
     }
@@ -64,27 +61,21 @@ struct FootnoteDetailView: View {
                 // Footnote number badge
                 ZStack {
                     Circle()
-                        .fill(footnote.isDeleted ? Color.gray.opacity(0.2) : Color.blue.opacity(0.1))
+                        .fill(Color.blue.opacity(0.1))
                         .frame(width: 36, height: 36)
-                    
+
                     Text("\(footnote.number)")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(footnote.isDeleted ? .gray : .blue)
+                        .foregroundColor(.blue)
                 }
-                
+
                 VStack(alignment: .leading, spacing: 2) {
                     Text(String(format: NSLocalizedString("footnoteDetail.title", comment: "Footnote title"), footnote.number))
                         .font(.headline)
-                    
-                    if footnote.isDeleted {
-                        Text("footnoteDetail.inTrash")
-                            .font(.caption)
-                            .foregroundColor(.red)
-                    } else {
-                        Text(footnote.createdAt, format: .dateTime.day().month().year().hour().minute())
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
+
+                    Text(footnote.createdAt, format: .dateTime.day().month().year().hour().minute())
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
                 
                 Spacer()
@@ -137,26 +128,8 @@ struct FootnoteDetailView: View {
                 .cornerRadius(8)
             }
             
-            // Action buttons - conditional based on trash state
-            if footnote.isDeleted {
-                // Trash view: Show Restore and Permanent Delete
-                HStack(spacing: 12) {
-                    Button(action: restoreFootnote) {
-                        Label("footnoteDetail.restore", systemImage: "arrow.uturn.backward")
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .frame(maxWidth: .infinity)
-                    .accessibilityLabel("footnoteDetail.restore.accessibility")
-                    
-                    Button(action: permanentlyDeleteFootnote) {
-                        Label("footnoteDetail.deleteForever", systemImage: "trash.fill")
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(.red)
-                    .frame(maxWidth: .infinity)
-                    .accessibilityLabel("footnoteDetail.deleteForever.accessibility")
-                }
-            } else if isEditing {
+            // Action buttons
+            if isEditing {
                 // Editing mode: Show Save and Cancel
                 HStack(spacing: 12) {
                     Button(action: saveChanges) {
@@ -183,8 +156,10 @@ struct FootnoteDetailView: View {
                     }
                     .buttonStyle(.bordered)
                     .accessibilityLabel("footnoteDetail.edit.accessibility")
-                    
-                    Button(action: moveToTrash) {
+
+                    Button {
+                        showDeleteConfirmation = true
+                    } label: {
                         Label("footnoteDetail.delete", systemImage: "trash")
                             .frame(maxWidth: .infinity)
                     }
@@ -195,34 +170,37 @@ struct FootnoteDetailView: View {
             }
             
             // Metadata section
-            if !footnote.isDeleted {
-                Divider()
-                
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(String(format: NSLocalizedString("footnoteDetail.position", comment: "Position label"), footnote.characterPosition))
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                    
-                    if footnote.modifiedAt != footnote.createdAt {
-                        Text(String(format: NSLocalizedString("footnoteDetail.modified", comment: "Modified label"), 
-                                    footnote.modifiedAt.formatted(.dateTime.day().month().year().hour().minute())))
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    }
-                }
-            } else if let deletedAt = footnote.deletedAt {
-                Divider()
-                
-                Text(String(format: NSLocalizedString("footnoteDetail.deleted", comment: "Deleted label"),
-                            deletedAt.formatted(.dateTime.day().month().year().hour().minute())))
+            Divider()
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(String(format: NSLocalizedString("footnoteDetail.position", comment: "Position label"), footnote.characterPosition))
                     .font(.caption2)
                     .foregroundColor(.secondary)
+
+                if footnote.modifiedAt != footnote.createdAt {
+                    Text(String(format: NSLocalizedString("footnoteDetail.modified", comment: "Modified label"),
+                                footnote.modifiedAt.formatted(.dateTime.day().month().year().hour().minute())))
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
             }
         }
         .padding(16)
         .background(Color(uiColor: .systemBackground))
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 2)
+        .confirmationDialog(
+            "footnoteDetail.confirmDelete.title",
+            isPresented: $showDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("footnoteDetail.confirmDelete.button", role: .destructive) {
+                deleteFootnote()
+            }
+            Button("button.cancel", role: .cancel) {}
+        } message: {
+            Text("footnoteDetail.confirmDelete.message")
+        }
     }
     
     // MARK: - Actions
@@ -239,17 +217,12 @@ struct FootnoteDetailView: View {
     }
     
     private func moveToTrash() {
-        FootnoteManager.shared.moveFootnoteToTrash(footnote, context: modelContext)
-        onDelete?()
+        // Migrate to permanent delete - kept for backward compatibility but now removed
+        deleteFootnote()
     }
     
-    private func restoreFootnote() {
-        FootnoteManager.shared.restoreFootnote(footnote, context: modelContext)
-        onRestore?()
-    }
-    
-    private func permanentlyDeleteFootnote() {
-        FootnoteManager.shared.permanentlyDeleteFootnote(footnote, context: modelContext)
+    private func deleteFootnote() {
+        FootnoteManager.shared.deleteFootnote(footnote, context: modelContext)
         onDelete?()
     }
 }

@@ -114,6 +114,9 @@ final class PrintFormatterTests: XCTestCase {
         modelContext.insert(file2)
         modelContext.insert(file3)
         
+        // Ensure page breaks are disabled for this test (use continuous separator)
+        PageSetupPreferences.shared.setPageBreakBetweenFiles(false)
+        
         // When: Formatting multiple files
         let result = PrintFormatter.formatMultipleFiles([file1, file2, file3])
         

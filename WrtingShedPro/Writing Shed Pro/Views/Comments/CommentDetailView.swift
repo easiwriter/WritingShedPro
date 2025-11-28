@@ -24,8 +24,8 @@ struct CommentDetailView: View {
     /// Callback when comment is updated
     var onUpdate: (() -> Void)?
     
-    /// Callback when comment is deleted
-    var onDelete: (() -> Void)?
+    /// Callback when comment is deleted (passes the deleted comment)
+    var onDelete: ((CommentModel) -> Void)?
     
     /// Callback when comment is resolved/reopened
     var onResolveToggle: (() -> Void)?
@@ -37,13 +37,14 @@ struct CommentDetailView: View {
     
     @State private var editedText: String
     @State private var isEditing: Bool = false
+    @State private var showDeleteConfirmation: Bool = false
     
     // MARK: - Initialization
     
     init(
         comment: CommentModel,
         onUpdate: (() -> Void)? = nil,
-        onDelete: (() -> Void)? = nil,
+        onDelete: ((CommentModel) -> Void)? = nil,
         onResolveToggle: (() -> Void)? = nil,
         onClose: (() -> Void)? = nil
     ) {
@@ -150,7 +151,7 @@ struct CommentDetailView: View {
                         .accessibilityLabel(comment.isResolved ? "commentDetail.reopen.accessibility" : "commentDetail.resolve.accessibility")
                     }
                     
-                    Button(action: deleteComment) {
+                    Button(action: { showDeleteConfirmation = true }) {
                         Label("commentDetail.delete", systemImage: "trash")
                             .frame(maxWidth: .infinity)
                     }
@@ -164,6 +165,18 @@ struct CommentDetailView: View {
         .background(Color(uiColor: .systemBackground))
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 2)
+        .confirmationDialog(
+            "commentDetail.confirmDelete.title",
+            isPresented: $showDeleteConfirmation,
+            presenting: comment
+        ) { _ in
+            Button("commentDetail.confirmDelete.button", role: .destructive) {
+                deleteComment()
+            }
+            Button("button.cancel", role: .cancel) { }
+        } message: { _ in
+            Text("commentDetail.confirmDelete.message")
+        }
     }
     
     // MARK: - Actions
@@ -190,6 +203,6 @@ struct CommentDetailView: View {
     
     private func deleteComment() {
         CommentManager.shared.deleteComment(comment, context: modelContext)
-        onDelete?()
+        onDelete?(comment)
     }
 }

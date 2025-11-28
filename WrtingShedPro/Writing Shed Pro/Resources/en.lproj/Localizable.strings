@@ -669,6 +669,12 @@
 "footnotesList.actions.accessibility" = "Footnote actions";
 "footnotesList.delete" = "Delete";
 "footnotesList.jump" = "Jump";
+"footnotesList.confirmDelete.title" = "Delete Footnote?";
+"footnotesList.confirmDelete.message" = "This will permanently delete the footnote and remove its marker from your text. This cannot be undone.";
+"footnotesList.confirmDelete.button" = "Delete";
+"footnotesList.confirmDeleteForever.title" = "Delete Footnote Forever?";
+"footnotesList.confirmDeleteForever.message" = "This footnote will be permanently deleted and cannot be recovered.";
+"footnotesList.confirmDeleteForever.button" = "Delete Forever";
 
 /* CommentsListView - New Keys */
 "commentsList.title" = "Comments";
@@ -685,6 +691,9 @@
 "commentsList.actions.accessibility" = "Comment actions";
 "commentsList.reopen" = "Reopen";
 "commentsList.resolve" = "Resolve";
+"commentsList.confirmDelete.title" = "Delete Comment?";
+"commentsList.confirmDelete.message" = "This will permanently delete the comment and remove its marker from your text. This cannot be undone.";
+"commentsList.confirmDelete.button" = "Delete";
 
 /* StyleSheetManagementView - New Keys */
 "styleSheetManagement.title" = "Stylesheets";
@@ -837,6 +846,9 @@
 "commentDetail.reopen.accessibility" = "Reopen resolved comment";
 "commentDetail.delete" = "Delete";
 "commentDetail.delete.accessibility" = "Delete comment";
+"commentDetail.confirmDelete.title" = "Delete Comment?";
+"commentDetail.confirmDelete.message" = "This will permanently delete the comment and remove its marker from your text. This cannot be undone.";
+"commentDetail.confirmDelete.button" = "Delete";
 
 /* FootnoteDetailView */
 "footnoteDetail.title" = "Footnote %d";
@@ -854,6 +866,12 @@
 "footnoteDetail.position" = "Position: %d";
 "footnoteDetail.modified" = "Modified: %@";
 "footnoteDetail.deleted" = "Deleted: %@";
+"footnoteDetail.confirmDelete.title" = "Delete Footnote?";
+"footnoteDetail.confirmDelete.message" = "This will permanently delete the footnote and remove its marker from your text. This cannot be undone.";
+"footnoteDetail.confirmDelete.button" = "Delete";
+"footnoteDetail.confirmDeleteForever.title" = "Delete Footnote Forever?";
+"footnoteDetail.confirmDeleteForever.message" = "This footnote will be permanently deleted and cannot be recovered.";
+"footnoteDetail.confirmDeleteForever.button" = "Delete Forever";
 
 /* FormattingToolbarView */
 "toolbar.insertImage" = "Image";

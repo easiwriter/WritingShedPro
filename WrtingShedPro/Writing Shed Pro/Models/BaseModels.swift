@@ -137,6 +137,11 @@ final class Version {
     
     func updateContent(_ newContent: String) {
         self.content = newContent
+        // NOTE: This method is legacy from plain text era (Phase 003/004)
+        // It should NOT update formattedContent/attributedContent
+        // because that would destroy formatting when called by undo/redo commands
+        // The commands work with plain text, but the UI has already saved
+        // the full attributed content before the command was created
     }
     
     // MARK: - Formatted Content Support

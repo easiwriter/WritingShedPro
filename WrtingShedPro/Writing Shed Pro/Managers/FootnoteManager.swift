@@ -124,35 +124,28 @@ final class FootnoteManager: ObservableObject {
         }
     }
     
-    /// Move footnote to trash (soft delete)
+    /// Delete a footnote permanently
     /// - Parameters:
     ///   - footnote: The footnote to delete
     ///   - context: SwiftData model context
-    func moveFootnoteToTrash(_ footnote: FootnoteModel, context: ModelContext) {
-        let footnoteID = footnote.id
+    func deleteFootnote(_ footnote: FootnoteModel, context: ModelContext) {
         guard let version = footnote.version else {
-            print("❌ Cannot move footnote to trash: no version relationship")
+            print("❌ Cannot delete footnote: no version relationship")
             return
         }
         
-        // Set all properties at once
-        footnote.isDeleted = true
-        footnote.deletedAt = Date()
-        footnote.modifiedAt = Date()
-        
-        // Force SwiftData to recognize the changes
-        context.processPendingChanges()
+        footnote.prepareForPermanentDeletion()
+        context.delete(footnote)
         
         do {
             try context.save()
-            context.processPendingChanges()
-            print("✅ Footnote \(footnoteID) moved to trash, isDeleted=\(footnote.isDeleted)")
+            print("✅ Footnote permanently deleted")
         } catch {
-            print("❌ Failed to move footnote to trash: \(error)")
+            print("❌ Failed to delete footnote: \(error)")
             return
         }
         
-        // Renumber remaining footnotes after all saves complete
+        // Renumber remaining footnotes
         renumberFootnotes(forVersion: version, context: context)
         
         // Post notification so views can update footnote attachment numbers
@@ -161,52 +154,6 @@ final class FootnoteManager: ObservableObject {
             object: nil,
             userInfo: ["versionID": version.id.uuidString]
         )
-    }
-    
-    /// Restore footnote from trash
-    /// - Parameters:
-    ///   - footnote: The footnote to restore
-    ///   - context: SwiftData model context
-    func restoreFootnote(_ footnote: FootnoteModel, context: ModelContext) {
-        guard let version = footnote.version else {
-            print("❌ Cannot restore footnote: no version relationship")
-            return
-        }
-        
-        // Set all properties at once
-        footnote.isDeleted = false
-        footnote.deletedAt = nil
-        footnote.modifiedAt = Date()
-        
-        // Force SwiftData to recognize the changes
-        context.processPendingChanges()
-        
-        do {
-            try context.save()
-            context.processPendingChanges()
-            print("✅ Footnote \(footnote.id) restored, isDeleted=\(footnote.isDeleted)")
-        } catch {
-            print("❌ Failed to restore footnote: \(error)")
-            return
-        }
-        
-        // Renumber all footnotes after all saves complete
-        renumberFootnotes(forVersion: version, context: context)
-    }
-    
-    /// Permanently delete a footnote
-    /// - Parameters:
-    ///   - footnote: The footnote to delete
-    ///   - context: SwiftData model context
-    func permanentlyDeleteFootnote(_ footnote: FootnoteModel, context: ModelContext) {
-        footnote.prepareForPermanentDeletion()
-        context.delete(footnote)
-        
-        do {
-            try context.save()
-        } catch {
-            print("❌ Failed to permanently delete footnote: \(error)")
-        }
     }
     
     // MARK: - Numbering Logic
@@ -308,66 +255,30 @@ final class FootnoteManager: ObservableObject {
         return (try? context.fetch(descriptor)) ?? []
     }
     
-    /// Get active (not deleted) footnotes for a version
+    /// Get all footnotes for a version
     /// - Parameters:
     ///   - version: The version to get footnotes for
     ///   - context: SwiftData model context
-    /// - Returns: Array of active footnotes sorted by position
+    /// - Returns: Array of footnotes sorted by position
     nonisolated func getActiveFootnotes(forVersion version: Version, context: ModelContext) -> [FootnoteModel] {
         // Use FetchDescriptor to query database directly instead of relying on cached relationship
         let versionID = version.id
         let descriptor = FetchDescriptor<FootnoteModel>(
             predicate: #Predicate { footnote in
-                footnote.version?.id == versionID && footnote.isDeleted == false
+                footnote.version?.id == versionID
             },
             sortBy: [SortDescriptor(\.characterPosition, order: .forward)]
         )
         return (try? context.fetch(descriptor)) ?? []
     }
     
-    /// Get deleted footnotes for a version (in trash)
-    /// - Parameters:
-    ///   - version: The version to get deleted footnotes for
-    ///   - context: SwiftData model context
-    /// - Returns: Array of deleted footnotes sorted by deletion date
-    nonisolated func getDeletedFootnotes(forVersion version: Version, context: ModelContext) -> [FootnoteModel] {
-        // Use FetchDescriptor to query database directly instead of relying on cached relationship
-        let versionID = version.id
-        let descriptor = FetchDescriptor<FootnoteModel>(
-            predicate: #Predicate { footnote in
-                footnote.version?.id == versionID && footnote.isDeleted == true
-            },
-            sortBy: [SortDescriptor(\.deletedAt, order: .reverse)]
-        )
-        return (try? context.fetch(descriptor)) ?? []
-    }
-    
-    /// Get all deleted footnotes across all files (for trash view)
-    /// - Parameter context: SwiftData model context
-    /// - Returns: Array of deleted footnotes sorted by deletion date
-    nonisolated func getAllDeletedFootnotes(context: ModelContext) -> [FootnoteModel] {
-        let descriptor = FetchDescriptor<FootnoteModel>(
-            predicate: #Predicate { footnote in
-                footnote.isDeleted == true
-            },
-            sortBy: [SortDescriptor(\.deletedAt, order: .reverse)]
-        )
-        
-        return (try? context.fetch(descriptor)) ?? []
-    }
-    
     /// Get footnote count for a version
     /// - Parameters:
     ///   - version: The version to get footnote count for
-    ///   - includeDeleted: Whether to include deleted footnotes
     ///   - context: SwiftData model context
     /// - Returns: Number of footnotes
-    nonisolated func getFootnoteCount(forVersion version: Version, includeDeleted: Bool = false, context: ModelContext) -> Int {
-        if includeDeleted {
-            return getAllFootnotes(forVersion: version, context: context).count
-        } else {
-            return getActiveFootnotes(forVersion: version, context: context).count
-        }
+    nonisolated func getFootnoteCount(forVersion version: Version, context: ModelContext) -> Int {
+        return getActiveFootnotes(forVersion: version, context: context).count
     }
     
     /// Get the next available footnote number for a version

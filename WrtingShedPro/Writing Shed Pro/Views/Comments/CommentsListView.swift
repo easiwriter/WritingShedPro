@@ -29,6 +29,9 @@ struct CommentsListView: View {
     /// Callback when comment resolved state changes
     var onCommentResolvedChanged: ((CommentModel) -> Void)?
     
+    /// Callback when comment is deleted
+    var onCommentDeleted: ((CommentModel) -> Void)?
+    
     // MARK: - State
     
     @State private var comments: [CommentModel] = []
@@ -64,17 +67,41 @@ struct CommentsListView: View {
             }
             .navigationTitle("commentsList.title")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("button.done") {
-                        onDismiss?()
-                        dismiss()
-                    }
+        }
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("button.done") {
+                    onDismiss?()
+                    dismiss()
                 }
             }
         }
         .onAppear {
             loadComments()
+        }
+        .onChange(of: comments) { oldValue, newValue in
+            // Auto-dismiss when all comments are deleted
+            if newValue.isEmpty && !oldValue.isEmpty {
+                onDismiss?()
+                dismiss()
+            }
+        }
+        .confirmationDialog(
+            "commentsList.confirmDelete.title",
+            isPresented: .constant(showDeleteConfirmation != nil),
+            titleVisibility: .visible,
+            presenting: showDeleteConfirmation
+        ) { comment in
+            Button("commentsList.confirmDelete.button", role: .destructive) {
+                deleteComment(comment)
+                showDeleteConfirmation = nil
+            }
+
+            Button("button.cancel", role: .cancel) {
+                showDeleteConfirmation = nil
+            }
+        } message: { comment in
+            Text("commentsList.confirmDelete.message")
         }
     }
     
@@ -249,7 +276,7 @@ struct CommentsListView: View {
             }
             .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                 Button(role: .destructive) {
-                    deleteComment(comment)
+                    showDeleteConfirmation = comment
                 } label: {
                     Label("commentsList.delete", systemImage: "trash")
                 }
@@ -317,5 +344,6 @@ struct CommentsListView: View {
     private func deleteComment(_ comment: CommentModel) {
         CommentManager.shared.deleteComment(comment, context: modelContext)
         loadComments()
+        onCommentDeleted?(comment)
     }
 }

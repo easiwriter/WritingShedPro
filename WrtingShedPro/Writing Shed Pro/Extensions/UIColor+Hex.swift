@@ -72,4 +72,25 @@ extension UIColor {
         
         self.init(red: r, green: g, blue: b, alpha: a)
     }
+    
+    /// Create a darker version of the color
+    /// - Parameter percentage: Amount to darken (0.0 to 1.0)
+    /// - Returns: Darker color or nil if components can't be extracted
+    func darker(by percentage: CGFloat = 0.3) -> UIColor? {
+        var red: CGFloat = 0
+        var green: CGFloat = 0
+        var blue: CGFloat = 0
+        var alpha: CGFloat = 0
+        
+        guard getRed(&red, green: &green, blue: &blue, alpha: &alpha) else {
+            return nil
+        }
+        
+        return UIColor(
+            red: max(red * (1.0 - percentage), 0.0),
+            green: max(green * (1.0 - percentage), 0.0),
+            blue: max(blue * (1.0 - percentage), 0.0),
+            alpha: alpha
+        )
+    }
 }

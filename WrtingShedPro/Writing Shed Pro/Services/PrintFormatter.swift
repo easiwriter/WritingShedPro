@@ -28,8 +28,11 @@ class PrintFormatter {
             return nil
         }
         
+        // Remove visual page break markers (editor-only indicators)
+        let contentWithoutVisualMarkers = PageBreakAttachment.removeVisualMarkers(from: attributedContent)
+        
         // Remove platform scaling to get print-accurate sizes
-        let printContent = removePlatformScaling(from: attributedContent)
+        let printContent = removePlatformScaling(from: contentWithoutVisualMarkers)
         
         print("✅ [PrintFormatter] Formatted file '\(file.name)' for printing")
         print("   - Original length: \(attributedContent.length)")
@@ -41,7 +44,7 @@ class PrintFormatter {
     // MARK: - Multi-File Formatting
     
     /// Combine multiple files for printing
-    /// Files flow continuously without page breaks between them
+    /// Files flow continuously without page breaks between them (unless enabled in preferences)
     /// - Parameter files: Array of text files to combine
     /// - Returns: Combined attributed string ready for printing
     static func formatMultipleFiles(_ files: [TextFile]) -> NSAttributedString? {
@@ -51,6 +54,7 @@ class PrintFormatter {
         }
         
         let combined = NSMutableAttributedString()
+        let usePageBreaks = PageSetupPreferences.shared.pageBreakBetweenFiles
         
         for (index, file) in files.enumerated() {
             guard let fileContent = formatFile(file) else {
@@ -61,16 +65,36 @@ class PrintFormatter {
             // Add the file content
             combined.append(fileContent)
             
-            // Add spacing between files (but not after the last one)
-            // Use a paragraph break for visual separation
+            // Add spacing/page break between files (but not after the last one)
             if index < files.count - 1 {
-                let separator = NSAttributedString(string: "\n\n")
-                combined.append(separator)
+                if usePageBreaks {
+                    // Create a paragraph with page break styling
+                    // Use both form feed character AND paragraph style for maximum compatibility
+                    let paragraphStyle = NSMutableParagraphStyle()
+                    paragraphStyle.paragraphSpacing = 0
+                    paragraphStyle.lineSpacing = 0
+                    
+                    // Create attributed string with form feed and page break paragraph style
+                    let pageBreakString = NSMutableAttributedString(string: "\n\u{000C}\n")
+                    pageBreakString.addAttribute(
+                        .paragraphStyle,
+                        value: paragraphStyle,
+                        range: NSRange(location: 0, length: pageBreakString.length)
+                    )
+                    
+                    combined.append(pageBreakString)
+                    print("   - Added page break after '\(file.name)'")
+                } else {
+                    // Use paragraph break for visual separation
+                    let separator = NSAttributedString(string: "\n\n")
+                    combined.append(separator)
+                }
             }
         }
         
         print("✅ [PrintFormatter] Combined \(files.count) files for printing")
         print("   - Total length: \(combined.length) characters")
+        print("   - Page breaks: \(usePageBreaks ? "enabled" : "disabled")")
         
         return combined
     }

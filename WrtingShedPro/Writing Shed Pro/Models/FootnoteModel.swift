@@ -40,12 +40,6 @@ final class FootnoteModel {
     /// When the footnote was last modified
     var modifiedAt: Date = Date()
     
-    /// Whether the footnote has been deleted (soft delete for trash)
-    var isDeleted: Bool = false
-    
-    /// When the footnote was deleted (for trash functionality)
-    var deletedAt: Date?
-    
     /// Initialize a new footnote
     init(
         id: UUID = UUID(),
@@ -55,9 +49,7 @@ final class FootnoteModel {
         text: String,
         number: Int,
         createdAt: Date = Date(),
-        modifiedAt: Date = Date(),
-        isDeleted: Bool = false,
-        deletedAt: Date? = nil
+        modifiedAt: Date = Date()
     ) {
         self.id = id
         self.version = version
@@ -67,8 +59,6 @@ final class FootnoteModel {
         self.number = number
         self.createdAt = createdAt
         self.modifiedAt = modifiedAt
-        self.isDeleted = isDeleted
-        self.deletedAt = deletedAt
     }
     
     /// Update the footnote text
@@ -89,21 +79,7 @@ final class FootnoteModel {
         modifiedAt = Date()
     }
     
-    /// Move to trash (soft delete)
-    func moveToTrash() {
-        isDeleted = true
-        deletedAt = Date()
-        modifiedAt = Date()
-    }
-    
-    /// Restore from trash
-    func restoreFromTrash() {
-        isDeleted = false
-        deletedAt = nil
-        modifiedAt = Date()
-    }
-    
-    /// Permanently delete (called when emptying trash)
+    /// Prepare for permanent deletion
     /// Note: Actual deletion handled by SwiftData context
     func prepareForPermanentDeletion() {
         // Cleanup any references before permanent deletion

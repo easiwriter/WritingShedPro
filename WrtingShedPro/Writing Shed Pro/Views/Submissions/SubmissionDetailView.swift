@@ -15,6 +15,8 @@ struct SubmissionDetailView: View {
     @Bindable var submission: Submission
     
     @State private var showingDeleteConfirmation = false
+    @State private var showPrintError = false
+    @State private var printErrorMessage = ""
     
     var body: some View {
         List {
@@ -80,6 +82,20 @@ struct SubmissionDetailView: View {
         }
         .navigationTitle(Text(NSLocalizedString("submissions.detail.title", comment: "Submission details")))
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button(action: { printSubmission() }) {
+                    Image(systemName: "printer")
+                }
+                .accessibilityLabel("Print Submission")
+                .disabled(submission.submittedFiles?.isEmpty ?? true)
+            }
+        }
+        .alert("Print Error", isPresented: $showPrintError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(printErrorMessage)
+        }
         .confirmationDialog(
             NSLocalizedString("submissions.delete.title", comment: "Delete submission"),
             isPresented: $showingDeleteConfirmation,
@@ -96,6 +112,39 @@ struct SubmissionDetailView: View {
     private func deleteSubmission() {
         modelContext.delete(submission)
         dismiss()
+    }
+    
+    // MARK: - Printing
+    
+    /// Handle print submission action
+    private func printSubmission() {
+        print("🖨️ Print Submission button tapped")
+        
+        // Get the view controller to present from
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let window = windowScene.windows.first,
+              let viewController = window.rootViewController else {
+            print("❌ Could not find view controller for print dialog")
+            printErrorMessage = "Unable to present print dialog"
+            showPrintError = true
+            return
+        }
+        
+        PrintService.printSubmission(
+            submission,
+            modelContext: modelContext,
+            from: viewController
+        ) { success, error in
+            if let error = error {
+                print("❌ Print failed: \(error.localizedDescription)")
+                printErrorMessage = error.localizedDescription
+                showPrintError = true
+            } else if success {
+                print("✅ Print completed successfully")
+            } else {
+                print("⚠️ Print was cancelled")
+            }
+        }
     }
     
     private func updateStatus(_ submittedFile: SubmittedFile, to status: SubmissionStatus) {

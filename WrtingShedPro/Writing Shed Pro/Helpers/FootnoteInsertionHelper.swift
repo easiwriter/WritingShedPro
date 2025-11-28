@@ -220,6 +220,14 @@ struct FootnoteInsertionHelper {
     ) -> NSRange? {
         let textStorage = textView.textStorage
         
+        // Debug: Log all footnote attachments in the text
+        let allFootnotes = textStorage.footnoteAttachments()
+        print("📝🔍 Searching for footnote with attachmentID: \(footnoteID)")
+        print("📝🔍 Found \(allFootnotes.count) footnote attachments in text:")
+        for (attachment, range) in allFootnotes {
+            print("   - Attachment at position \(range.location), footnoteID: \(attachment.footnoteID), number: \(attachment.number)")
+        }
+        
         // Find the footnote attachment
         if let (_, range) = textStorage.footnoteAttachment(withID: footnoteID) {
             // Delete the attachment
@@ -230,6 +238,7 @@ struct FootnoteInsertionHelper {
             return range
         }
         
+        print("⚠️ Footnote attachment with ID \(footnoteID) not found in text")
         return nil
     }
     

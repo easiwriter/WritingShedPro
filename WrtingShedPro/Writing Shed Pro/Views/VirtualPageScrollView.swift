@@ -468,7 +468,7 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         textView.isScrollEnabled = false
         textView.isEditable = false
         textView.isSelectable = true
-        textView.backgroundColor = .white
+        textView.backgroundColor = .systemBackground
         
         // Remove default text container padding (5pt on each side)
         textView.textContainer.lineFragmentPadding = 0

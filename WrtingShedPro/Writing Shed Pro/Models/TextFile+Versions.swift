@@ -104,9 +104,6 @@ extension TextFile {
                     text: footnote.text,
                     number: footnote.number
                 )
-                if let deletedAt = footnote.deletedAt {
-                    newFootnote.deletedAt = deletedAt
-                }
                 if newVersion.footnotes == nil {
                     newVersion.footnotes = []
                 }

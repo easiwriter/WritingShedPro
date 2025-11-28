@@ -251,37 +251,40 @@ struct FileListView: View {
     @ViewBuilder
     private func fileRow(for file: TextFile) -> some View {
         HStack {
-            // Selection circle in edit mode
-            if isEditMode {
-                Image(systemName: selectedFileIDs.contains(file.id) ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(selectedFileIDs.contains(file.id) ? .blue : .gray)
-                    .imageScale(.large)
+            // Main content area - clickable to select/navigate
+            HStack {
+                // Selection circle in edit mode
+                if isEditMode {
+                    Image(systemName: selectedFileIDs.contains(file.id) ? "checkmark.circle.fill" : "circle")
+                        .foregroundStyle(selectedFileIDs.contains(file.id) ? .blue : .gray)
+                        .imageScale(.large)
+                }
+                
+                Image(systemName: "doc.text")
+                    .foregroundStyle(.secondary)
+                
+                Text(file.name)
+                
+                Spacer(minLength: 8)  // Ensure some spacing before the button
+            }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                if isEditMode {
+                    // Edit mode: toggle selection
+                    toggleSelection(for: file)
+                } else {
+                    // Normal mode: navigate to file
+                    onFileSelected(file)
+                }
+            }
+            .contextMenu {
+                contextMenuItems(for: file)
             }
             
-            Image(systemName: "doc.text")
-                .foregroundStyle(.secondary)
-            
-            Text(file.name)
-            
-            Spacer()
-            
-            // Submissions button (only in normal mode)
+            // Submissions button (only in normal mode) - separate tap target
             if !isEditMode {
                 SubmissionsButton(file: file)
             }
-        }
-        .contentShape(Rectangle())
-        .onTapGesture {
-            if isEditMode {
-                // Edit mode: toggle selection
-                toggleSelection(for: file)
-            } else {
-                // Normal mode: navigate to file
-                onFileSelected(file)
-            }
-        }
-        .contextMenu {
-            contextMenuItems(for: file)
         }
     }
     
