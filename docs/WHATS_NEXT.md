@@ -1,22 +1,33 @@
 # What's Next - Writing Shed Pro Roadmap
 
-**Date:** November 2, 2025  
-**Current Status:** Phase 005 Complete (Text Formatting) ✅  
-**Tests Passing:** 253/253 ✅
+**Date:** November 28, 2025  
+**Current Status:** Phase 015 (Footnotes) Complete + Phase 019 (Settings/Import) Complete ✅  
+**Tests Passing:** All integration tests passing ✅  
+**Latest Work:** Legacy database import filtering (Nov 28, 2025)
 
 ---
 
 ## 🎉 Current Achievement
 
-### Phase 005: Text Formatting - COMPLETE
-- ✅ Rich text editing (bold, italic, underline, strikethrough)
-- ✅ Database-driven paragraph style system
-- ✅ Style sheet management (create, edit, duplicate, delete)
-- ✅ Cross-platform (iOS, iPadOS, macOS Catalyst)
-- ✅ CloudKit sync for formatted content
-- ✅ Basic undo/redo integration
-- ✅ Comprehensive test coverage (~1,870 new test lines)
-- ✅ All 253 tests passing
+### Phase 015: Footnotes - COMPLETE ✅
+- ✅ Insert/edit/delete footnotes at any character position
+- ✅ Auto-numbering and renumbering
+- ✅ Footnote display at bottom of page with separator
+- ✅ Accurate pagination with footnote height calculation
+- ✅ Full undo/redo integration
+- ✅ CloudKit sync for footnotes
+- ✅ Cross-platform support (iOS, iPadOS, macOS Catalyst)
+- ✅ Comprehensive integration tests
+- ✅ See: `FOOTNOTES_FEATURE_COMPLETE.md`
+
+### Phase 019: Settings Menu & Smart Import - COMPLETE ✅
+- ✅ Legacy database detection (Writing Shed app)
+- ✅ Smart import flow with project preview
+- ✅ Selective project import
+- ✅ JSON import fallback
+- ✅ "No Projects" storyboard placeholder filtering (Nov 28)
+- ✅ Project import status tracking
+- ✅ User-friendly import dialogs
 
 ### Previous Phases Complete
 - ✅ Phase 001: Project Management
@@ -24,104 +35,96 @@
 - ✅ Phase 003: Text File Creation
 - ✅ Phase 004: Undo/Redo System
 - ✅ Phase 005: Text Formatting
+- ✅ Phase 006-014: Various features (collections, comments, etc.)
 
 ---
 
-## 🔄 Immediate Next Steps (Phase 005 Refinement)
+## 📋 Recent Fixes (November 2025)
 
-### 1. Complete Phase 6: Undo/Redo Polish (1-2 days)
+### November 28 - Legacy Import Enhancement
+- ✅ Identified "No Projects" as legacy app storyboard placeholder
+- ✅ Added filtering to exclude from import picker
+- ✅ Improved UX: Shows "0 projects available" instead of hiding button
+- ✅ Clear messaging: "No Writing Shed projects to import"
+- ✅ Also filters empty project names (corrupted entries)
 
-**Current Status:** Basic undo/redo works, but typing coalescing needs refinement
-
-**Tasks:**
-- [ ] Fix typing coalescing with format preservation
-  - Detect format changes during typing
-  - Flush typing buffer on format change
-  - Test type→format→type→undo scenario
-- [ ] Expand UndoRedoTests for formatting coverage
-- [ ] Test undo/redo with style changes
-- [ ] Performance testing with large documents
-
-**Files to Update:**
-- `Services/TextFileUndoManager.swift` - Add format change detection
-- `WritingShedProTests/UndoRedoTests.swift` - Add formatting scenarios
-- `WritingShedProTests/TypingCoalescingTests.swift` - Already created, verify coverage
-
-**Documentation:**
-- Update `specs/005-text-formatting/checklists/requirements.md`
-- Mark typing coalescing complete
+### November 27 - Collections Sheet Bug Fix
+- ✅ Fixed empty sheet on first tap of "show versions"
+- ✅ Switched from `.sheet(isPresented:)` to `.sheet(item:)`
+- ✅ Added atomic state management with `EditVersionItem` struct
+- ✅ Verified fix on new and existing collections
 
 ---
 
-### 2. Performance & Scale Testing (1 day)
+## 🔄 Immediate Next Steps
 
-**Goal:** Verify app handles production workloads
+### 1. Collections Feature Refinement (Optional)
+**Status:** Working, but could be enhanced
 
-**Tests Needed:**
-- [ ] Large document testing (10,000+ words)
-- [ ] Heavily formatted text (multiple styles, colors)
-- [ ] Memory usage profiling
-- [ ] RTF serialization performance
-- [ ] Style reapplication performance
+**Optional Improvements:**
+- [ ] Sort collections by date or name
+- [ ] Filter collections by status
+- [ ] Bulk operations on collections
+- [ ] Archive old collections
 
-**Create:**
-- `WritingShedProTests/PerformanceTests.swift` - Already exists, verify coverage
-- Manual test documents with realistic content
-
----
-
-### 3. User Documentation (1 day)
-
-**Create User-Facing Guides:**
-- [ ] User guide for formatting features
-  - How to apply character formatting
-  - How to use paragraph styles
-  - How to manage stylesheets
-- [ ] Style management guide
-  - Creating custom styles
-  - Duplicating and editing styles
-  - Best practices for style organization
-- [ ] Known limitations guide
-  - Cursor positioning behavior
-  - Platform-specific quirks
-
-**Location:** `/docs/user-guides/`
+**Priority:** LOW - Feature is functional
+**Complexity:** LOW - UI only
 
 ---
 
-## 🚀 Next Major Features
+### 2. Comments Feature Completion (Optional)
+**Status:** Partially implemented
 
-### Option A: Phase 006 - Advanced Text Features (2-3 weeks)
+**Current State:**
+- Comments are stored in SwiftData
+- Comments can be added/edited/deleted
+- Version-aware (comments tied to versions)
+
+**Optional Enhancements:**
+- [ ] Comment threading/replies
+- [ ] Comment search
+- [ ] Comment export
+- [ ] Comment filtering
+
+**Priority:** MEDIUM - Useful for collaboration
+**Complexity:** MEDIUM
+
+---
+
+## 🚀 Next Major Features to Consider
+
+### Option A: Phase 020 - Export & Publishing (2-3 weeks)
+
+**Features:**
+- Export to PDF (with footnotes)
+- Export to DOCX
+- Export to Markdown
+- Print support (with footnotes)
+- Share sheet integration
+- Template system
+
+**Priority:** HIGH - Core user need
+**Complexity:** MEDIUM
+**Dependencies:** Footnotes (✅ complete), formatting (✅ complete)
+
+---
+
+### Option B: Phase 021 - Advanced Text Features (3-4 weeks)
 
 **Features:**
 - Lists (ordered/unordered)
 - Tables (basic grid)
 - Images (insertion, sizing, alignment)
 - Hyperlinks
-- Comments/annotations
 - Find & Replace
 
-**Priority:** HIGH - These are core writing features
-**Complexity:** MEDIUM - Build on existing text infrastructure
+**Priority:** HIGH - Standard writing features
+**Complexity:** MEDIUM-HIGH
+**Dependencies:** None blocking
 
 ---
 
-### Option B: Phase 007 - Export & Publishing (1-2 weeks)
-
-**Features:**
-- Export to PDF
-- Export to DOCX
-- Export to Markdown
-- Print support
-- Share sheet integration
-- Template system for export formats
-
-**Priority:** HIGH - Users need to get work out
-**Complexity:** MEDIUM - Use existing serialization
-
----
-
-### Option C: Phase 008 - Writing Tools (1-2 weeks)
+### Option C: Phase 022 - Writing Tools (1-2 weeks)
 
 **Features:**
 - Word count (characters, words, pages)
@@ -131,23 +134,86 @@
 - Progress tracking
 - Focus mode (distraction-free)
 
-**Priority:** MEDIUM - Nice to have, differentiates app
-**Complexity:** LOW - Mostly UI and counting
+**Priority:** MEDIUM - Differentiator
+**Complexity:** LOW-MEDIUM
 
 ---
 
-### Option D: Phase 009 - Collaboration Features (3-4 weeks)
+### Option D: Phase 023 - Collaboration (3-4 weeks)
 
 **Features:**
 - Share projects with collaborators
-- Real-time editing (operational transforms)
+- Real-time editing
 - Comments and suggestions
-- Version history
+- Version history browser
 - Change tracking
-- Merge conflict resolution
+- Conflict resolution
 
-**Priority:** MEDIUM - Advanced feature
-**Complexity:** HIGH - Requires complex CloudKit integration
+**Priority:** MEDIUM-HIGH - Advanced feature
+**Complexity:** HIGH - Complex CloudKit work
+
+---
+
+## 📊 App Stability Status
+
+### ✅ Core Features (Stable)
+- Project management
+- File creation and editing
+- Text formatting
+- Footnotes (NEW in Phase 015)
+- Collections/submissions
+- Comments (partial)
+- Undo/Redo
+- CloudKit sync
+
+### ⚠️ Known Limitations
+- Export to PDF not yet implemented
+- List formatting not yet implemented
+- Table support not yet implemented
+- Image support not yet implemented
+
+### 🔧 Recent Fixes
+- Collections sheet timing issue (Nov 27)
+- Legacy import placeholder filtering (Nov 28)
+- Footnote undo/redo integration (Nov 27)
+
+---
+
+## 💡 Development Notes
+
+### Current Architecture Strengths
+1. SwiftUI + SwiftData foundation is solid
+2. CloudKit sync working reliably
+3. Undo/redo system properly integrated
+4. Model structure supports extensions
+5. Test coverage improving steadily
+
+### Build on Success
+- Phase 020 can leverage existing export patterns
+- Phase 021 can build on formatting infrastructure
+- Phase 023 can enhance existing sync system
+
+---
+
+## Recommendation
+
+### For Next Work
+
+**Suggested Priority Order:**
+1. **Phase 020 (Export)** - Highest user value, medium complexity
+2. **Phase 021 (Advanced Text)** - Core features users expect
+3. **Phase 022 (Writing Tools)** - Unique selling point
+4. **Phase 023 (Collaboration)** - Advanced feature for later
+
+**Why:** Export is the immediate user need (get work out). Advanced text features expand usability. Writing tools differentiate the app. Collaboration can follow later.
+
+---
+
+## 🏁 Conclusion
+
+**The app is in excellent shape.** Core functionality is solid, Footnotes are complete and tested, and recent bug fixes (collections sheet, legacy import) have improved stability. Ready to proceed with next major feature (Export recommended).
+
+**Next decision:** Choose which feature to implement next from the options above.
 
 ---
 
