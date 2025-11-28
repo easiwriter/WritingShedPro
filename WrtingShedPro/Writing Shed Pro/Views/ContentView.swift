@@ -201,15 +201,23 @@ struct ContentView: View {
                 )
             }
             .confirmationDialog("Choose Import Source", isPresented: $showImportOptions) {
-                Button("Import from Writing Shed (\(availableLegacyProjects.count) available)") {
-                    showLegacyProjectPicker = true
+                let displayCount = importService.getDisplayableProjectCount(availableLegacyProjects)
+                if displayCount > 0 {
+                    Button("Import from Writing Shed (\(displayCount) available)") {
+                        showLegacyProjectPicker = true
+                    }
                 }
                 Button("Import from File...") {
                     showingJSONImportPicker = true
                 }
                 Button("Cancel", role: .cancel) { }
             } message: {
-                Text("Choose where to import projects from")
+                let displayCount = importService.getDisplayableProjectCount(availableLegacyProjects)
+                if displayCount > 0 {
+                    Text("Choose where to import projects from")
+                } else {
+                    Text("No Writing Shed projects to import")
+                }
             }
             .fileImporter(
                 isPresented: $showingJSONImportPicker,

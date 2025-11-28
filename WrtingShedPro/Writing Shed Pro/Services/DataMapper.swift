@@ -39,6 +39,11 @@ class DataMapper {
             name = String(components).trimmingCharacters(in: .whitespaces)
         }
         
+        // Ensure project has a name (fallback to "Untitled" if empty)
+        if name.isEmpty {
+            name = "Untitled"
+        }
+        
         let type = mapProjectType(legacyData.projectType)
         let creationDate = legacyData.createdOn
         

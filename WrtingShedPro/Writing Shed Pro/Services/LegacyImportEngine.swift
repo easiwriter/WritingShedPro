@@ -164,7 +164,20 @@ class LegacyImportEngine {
         _ legacyProjectData: LegacyProjectData,
         modelContext: ModelContext
     ) throws {
-        let projectName = legacyProjectData.name
+        let projectName = legacyProjectData.name.trimmingCharacters(in: .whitespaces)
+        
+        // Skip projects with empty names (phantom/corrupted entries)
+        guard !projectName.isEmpty else {
+            print("[LegacyImportEngine] Skipping project with empty name (phantom entry)")
+            return
+        }
+        
+        // Skip the "No Projects" storyboard placeholder from legacy app
+        guard projectName.lowercased() != "no projects" else {
+            print("[LegacyImportEngine] Skipping 'No Projects' storyboard placeholder")
+            return
+        }
+        
         progressTracker.setCurrentItem(projectName)
         
         // Check if project already exists (by name and creation date)

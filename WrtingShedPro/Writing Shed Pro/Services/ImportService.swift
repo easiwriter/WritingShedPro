@@ -384,7 +384,9 @@ class ImportService {
             
             let unimported = legacyProjects.filter { legacy in
                 let cleanName = cleanProjectName(legacy.name).lowercased()
-                return !importedNames.contains(cleanName)
+                // Exclude projects with empty names (phantom/corrupted entries)
+                let hasName = !cleanName.trimmingCharacters(in: .whitespaces).isEmpty
+                return hasName && !importedNames.contains(cleanName)
             }
             
             print("[ImportService] Found \(legacyProjects.count) legacy projects, \(importedLegacyProjects.count) already imported, \(unimported.count) available for import")
@@ -400,4 +402,12 @@ class ImportService {
             return []
         }
     }
+    
+    /// Count displayable legacy projects (excluding "No Projects" placeholder)
+    func getDisplayableProjectCount(_ projects: [LegacyProjectData]) -> Int {
+        projects.filter { project in
+            cleanProjectName(project.name).lowercased() != "no projects"
+        }.count
+    }
 }
+

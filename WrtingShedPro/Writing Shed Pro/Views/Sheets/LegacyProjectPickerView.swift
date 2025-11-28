@@ -23,17 +23,24 @@ struct LegacyProjectPickerView: View {
         return name
     }
     
+    /// Filter out "No Projects" storyboard placeholder
+    private var displayProjects: [LegacyProjectData] {
+        availableProjects.filter { project in
+            cleanProjectName(project.name).lowercased() != "no projects"
+        }
+    }
+    
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                if availableProjects.isEmpty {
+                if displayProjects.isEmpty {
                     ContentUnavailableView(
                         "No Projects Available",
                         systemImage: "tray",
                         description: Text("All legacy projects have already been imported")
                     )
                 } else {
-                    List(availableProjects, id: \.objectID, selection: $selectedProjects) { project in
+                    List(displayProjects, id: \.objectID, selection: $selectedProjects) { project in
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(cleanProjectName(project.name))

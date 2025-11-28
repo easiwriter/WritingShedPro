@@ -9,6 +9,15 @@
 import SwiftUI
 import SwiftData
 
+// MARK: - Edit Version Item (for sheet presentation)
+
+struct EditVersionItem: Identifiable {
+    let submittedFile: SubmittedFile
+    let textFile: TextFile
+    
+    var id: UUID { submittedFile.id }
+}
+
 /// View for displaying Collections in the Collections folder
 /// Collections are Submission objects with no publication attached
 struct CollectionsView: View {
@@ -444,8 +453,7 @@ struct CollectionDetailView: View {
     @Environment(\.modelContext) var modelContext
     
     @State private var showAddFilesSheet = false
-    @State private var editingSubmittedFile: SubmittedFile?
-    @State private var showVersionPicker = false
+    @State private var editingVersionItem: EditVersionItem?
     @State private var showSubmissionPicker = false
     @State private var showPrintError = false
     @State private var printErrorMessage = ""
@@ -471,8 +479,7 @@ struct CollectionDetailView: View {
                                 }
                                 
                                 Button {
-                                    editingSubmittedFile = submittedFile
-                                    showVersionPicker = true
+                                    editingVersionItem = EditVersionItem(submittedFile: submittedFile, textFile: file)
                                 } label: {
                                     Image(systemName: "pencil.circle")
                                         .foregroundStyle(.blue)
@@ -541,24 +548,22 @@ struct CollectionDetailView: View {
                 }
             )
         }
-        .sheet(isPresented: $showVersionPicker) {
-            if let submittedFile = editingSubmittedFile {
-                NavigationStack {
-                    EditVersionSheet(
-                        submittedFile: submittedFile,
-                        onCancel: {
-                            showVersionPicker = false
-                            editingSubmittedFile = nil
-                        },
-                        onSave: {
-                            showVersionPicker = false
-                            editingSubmittedFile = nil
-                            try? modelContext.save()
-                        }
-                    )
-                    .id(submittedFile.id)  // Force rebuild when submittedFile changes
-                }
+        .sheet(item: $editingVersionItem) { item in
+            NavigationStack {
+                EditVersionSheet(
+                    submittedFile: item.submittedFile,
+                    textFile: item.textFile,
+                    onCancel: {
+                        editingVersionItem = nil
+                    },
+                    onSave: {
+                        editingVersionItem = nil
+                        try? modelContext.save()
+                    }
+                )
+                .id(item.submittedFile.id)
             }
+            .presentationDetents([.medium, .large])
         }
         .sheet(isPresented: $showSubmissionPicker) {
             if let project = submission.project {
@@ -577,6 +582,11 @@ struct CollectionDetailView: View {
                     )
                 }
             }
+        }
+        .onAppear {
+            // Prefetch submittedFiles relationship to ensure it's loaded before first access
+            let count = submission.submittedFiles?.count ?? 0
+            _ = count
         }
         .alert("Print Error", isPresented: $showPrintError) {
             Button("OK", role: .cancel) { }
@@ -922,75 +932,69 @@ struct AddFilesToCollectionSheet: View {
 
 struct EditVersionSheet: View {
     @Bindable var submittedFile: SubmittedFile
+    var textFile: TextFile
     @Environment(\.dismiss) var dismiss
     
     let onCancel: () -> Void
     let onSave: () -> Void
     
     var body: some View {
-        Group {
-                if let file = submittedFile.textFile {
-                    let versions = file.sortedVersions
-                    if !versions.isEmpty {
-                        List {
-                            Section {
-                                Text(file.name)
-                                    .font(.headline)
-                                    .foregroundStyle(.primary)
-                            } header: {
-                                Text("collectionsView.editVersion.fileHeader")
-                            }
-                            
-                            Section {
-                                ForEach(versions, id: \.id) { version in
-                                    HStack {
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text(String(format: NSLocalizedString("collectionsView.version", comment: "Version number"), version.versionNumber))
-                                                .font(.body)
-                                            
-                                            if let comment = version.comment, !comment.isEmpty {
-                                                Text(comment)
-                                                    .font(.caption)
-                                                    .foregroundStyle(.secondary)
-                                                    .lineLimit(1)
-                                            }
-                                            
-                                            Text(String(format: NSLocalizedString("collectionsView.characterCount", comment: "Character count"), version.content.count))
-                                                .font(.caption2)
-                                                .foregroundStyle(.secondary)
-                                        }
-                                        
-                                        Spacer()
-                                        
-                                        if submittedFile.version?.id == version.id {
-                                            Image(systemName: "checkmark.circle.fill")
-                                                .foregroundStyle(.blue)
-                                                .font(.body)
-                                        }
-                                    }
-                                    .contentShape(Rectangle())
-                                    .onTapGesture {
-                                        submittedFile.version = version
-                                    }
-                                }
-                            } header: {
-                                Text("collectionsView.editVersion.versionsHeader")
-                            }
-                        }
-                    } else {
-                        ContentUnavailableView {
-                            Label("collectionsView.editVersion.noVersions.title", systemImage: "doc.text")
-                        } description: {
-                            Text("collectionsView.editVersion.noVersions.description")
-                        }
+        let versions = textFile.sortedVersions
+        
+        return Group {
+            if !versions.isEmpty {
+                List {
+                    Section {
+                        Text(textFile.name)
+                            .font(.headline)
+                            .foregroundStyle(.primary)
+                    } header: {
+                        Text("collectionsView.editVersion.fileHeader")
                     }
-                } else {
-                    ContentUnavailableView {
-                        Label("collectionsView.editVersion.fileNotFound.title", systemImage: "doc.text.xmark")
-                    } description: {
-                        Text("collectionsView.editVersion.fileNotFound.description")
+                    
+                    Section {
+                        ForEach(versions, id: \.id) { version in
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(String(format: NSLocalizedString("collectionsView.version", comment: "Version number"), version.versionNumber))
+                                        .font(.body)
+                                    
+                                    if let comment = version.comment, !comment.isEmpty {
+                                        Text(comment)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                            .lineLimit(1)
+                                    }
+                                    
+                                    Text(String(format: NSLocalizedString("collectionsView.characterCount", comment: "Character count"), version.content.count))
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                }
+                                
+                                Spacer()
+                                
+                                if submittedFile.version?.id == version.id {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundStyle(.blue)
+                                        .font(.body)
+                                }
+                            }
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                submittedFile.version = version
+                            }
+                        }
+                    } header: {
+                        Text("collectionsView.editVersion.versionsHeader")
                     }
                 }
+            } else {
+                ContentUnavailableView {
+                    Label("collectionsView.editVersion.noVersions.title", systemImage: "doc.text")
+                } description: {
+                    Text("collectionsView.editVersion.noVersions.description")
+                }
+            }
         }
         .navigationTitle("collectionsView.editVersion.title")
         .navigationBarTitleDisplayMode(.inline)
