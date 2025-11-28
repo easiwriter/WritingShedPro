@@ -556,6 +556,7 @@ struct CollectionDetailView: View {
                             try? modelContext.save()
                         }
                     )
+                    .id(submittedFile.id)  // Force rebuild when submittedFile changes
                 }
             }
         }
