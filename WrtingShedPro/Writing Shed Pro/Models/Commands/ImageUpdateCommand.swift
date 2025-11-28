@@ -77,7 +77,12 @@ final class ImageUpdateCommand: UndoableCommand {
         // The image update has already been applied in the UI
         // This is called when the command is first executed
         // Update the file's attributed content
-        targetFile?.currentVersion?.attributedContent = afterContent
+        guard let file = targetFile else {
+            print("⚠️ ImageUpdateCommand.execute() - targetFile is nil")
+            return
+        }
+        
+        file.currentVersion?.attributedContent = afterContent
         
         // Update attachment properties to new state
         attachment?.scale = newScale
@@ -89,6 +94,13 @@ final class ImageUpdateCommand: UndoableCommand {
         #if DEBUG
         print("✅ ImageUpdateCommand.execute() - Applied image update: \(description)")
         #endif
+        
+        // Post notification that content was restored (FileEditView will listen)
+        NotificationCenter.default.post(
+            name: NSNotification.Name("UndoRedoContentRestored"),
+            object: file,
+            userInfo: ["content": afterContent]
+        )
     }
     
     func undo() {
