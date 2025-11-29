@@ -47,17 +47,19 @@ struct Write_App: App {
             let context = container.mainContext
             StyleSheetService.initializeStyleSheetsIfNeeded(context: context)
             
-            // Log CloudKit configuration for debugging
-            print("✅ [CloudKit Config] Container: iCloud.com.appworks.writingshedpro")
-            print("✅ [CloudKit Config] Database: private")
-            print("✅ [CloudKit Config] aps-environment: production")
-            checkCloudKitStatus()
-            
             return container
         } catch {
             fatalError("Could not create ModelContainer: \(error)")
         }
     }()
+
+    init() {
+        // Log CloudKit configuration for debugging
+        print("✅ [CloudKit Config] Container: iCloud.com.appworks.writingshedpro")
+        print("✅ [CloudKit Config] Database: private")
+        print("✅ [CloudKit Config] aps-environment: production")
+        checkCloudKitStatus()
+    }
 
     var body: some Scene {
         WindowGroup {
