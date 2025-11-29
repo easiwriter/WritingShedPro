@@ -36,6 +36,10 @@
         </array>
     </dict>
 </array>
+<key>LSSupportsOpeningDocumentsInPlace</key>
+<true/>
+<key>UISupportsDocumentBrowser</key>
+<true/>
 <key>LSApplicationCategoryType</key>
 <string>public.app-category.productivity</string>
 <key>UIBackgroundModes</key>
