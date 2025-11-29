@@ -25,7 +25,7 @@ final class FootnoteManager: ObservableObject {
     
     nonisolated static let shared = FootnoteManager()
     
-    private init() {}
+    nonisolated private init() {}
     
     // MARK: - CRUD Operations
     

@@ -372,7 +372,7 @@ class LegacyImportEngine {
                 publicationMap[legacyPublication] = newPublication
                 
                 let typeString = newPublication.type?.rawValue ?? "unknown"
-                print("[LegacyImportEngine] Imported publication: '\(newPublication.name ?? "Untitled")' (type: \(typeString))")
+                print("[LegacyImportEngine] Imported publication: '\(newPublication.name)' (type: \(typeString))")
             } catch {
                 errorHandler.addWarning("Failed to import publication: \(error.localizedDescription)")
             }
@@ -518,7 +518,7 @@ class LegacyImportEngine {
                     // Set name based on publication and collection
                     // Get collection name from WS_CollectionComponent_Entity parent
                     let collectionName = (legacyCollection.value(forKey: "name") as? String) ?? "Collection"
-                    newSubmission.name = "\(collectionName) → \(publication.name ?? "Publication")"
+                    newSubmission.name = "\(collectionName) → \(publication.name)"
                     
                     modelContext.insert(newSubmission)
                     
@@ -588,7 +588,7 @@ class LegacyImportEngine {
                         }
                     }
                     
-                    print("[LegacyImportEngine] Imported submission to '\(publication.name ?? "Unknown")' with \(newSubmission.submittedFiles?.count ?? 0) files")
+                    print("[LegacyImportEngine] Imported submission to '\(publication.name)' with \(newSubmission.submittedFiles?.count ?? 0) files")
                 }
             } catch {
                 errorHandler.addWarning("Failed to import collection submissions: \(error.localizedDescription)")
