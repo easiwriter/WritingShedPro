@@ -33,15 +33,15 @@ struct ContentView: View {
             
             if !unimported.isEmpty {
                 // Store available projects and show options dialog
-                availableLegacyProjects = unimported
-                showImportOptions = true
+                state.availableLegacyProjects = unimported
+                state.showImportOptions = true
                 return
             }
         }
         #endif
         
         // No legacy database or no unimported projects - show file picker directly
-        showingJSONImportPicker = true
+        state.showingJSONImportPicker = true
     }
     
     /// Import selected legacy projects
@@ -49,7 +49,7 @@ struct ContentView: View {
         print("[ContentView] Importing \(selectedProjects.count) selected projects")
         
         // Start import with progress indicator
-        isImporting = true
+        state.isImporting = true
         
         let container = modelContext.container
         
@@ -62,7 +62,7 @@ struct ContentView: View {
             )
             
             await MainActor.run {
-                self.isImporting = false
+                self.state.isImporting = false
                 
                 if success {
                     print("[ContentView] Selective import completed successfully")
@@ -77,7 +77,7 @@ struct ContentView: View {
     private func checkForImport() {
         if importService.shouldPerformImport() {
             print("[ContentView] Import should be performed")
-            isImporting = true
+            state.isImporting = true
             startImport()
         }
     }
@@ -93,7 +93,7 @@ struct ContentView: View {
             let success = await importService.executeImport(modelContext: backgroundContext)
             
             await MainActor.run {
-                isImporting = false
+                state.isImporting = false
                 
                 if success {
                     print("[ContentView] Import completed successfully")
@@ -111,7 +111,7 @@ struct ContentView: View {
         // Enable legacy import
         UserDefaults.standard.set(true, forKey: "legacyImportAllowed")
         // Trigger import
-        isImporting = true
+        state.isImporting = true
         startImport()
     }
     #endif
@@ -127,8 +127,8 @@ struct ContentView: View {
                 // CRITICAL: Start accessing security-scoped resource inside the Task
                 guard fileURL.startAccessingSecurityScopedResource() else {
                     await MainActor.run {
-                        importErrorMessage = NSLocalizedString("contentView.importError.accessDenied", comment: "Unable to access the selected file")
-                        showImportError = true
+                        state.importErrorMessage = NSLocalizedString("contentView.importError.accessDenied", comment: "Unable to access the selected file")
+                        state.showImportError = true
                     }
                     print("[ContentView] Failed to access security-scoped resource")
                     return
@@ -163,21 +163,21 @@ struct ContentView: View {
                     
                 } catch ImportError.missingContent {
                     await MainActor.run {
-                        importErrorMessage = NSLocalizedString("contentView.importError.emptyFile", comment: "The selected file is empty or corrupt")
-                        showImportError = true
+                        state.importErrorMessage = NSLocalizedString("contentView.importError.emptyFile", comment: "The selected file is empty or corrupt")
+                        state.showImportError = true
                     }
                 } catch {
                     await MainActor.run {
-                        importErrorMessage = String(format: NSLocalizedString("contentView.importError.failed", comment: "Failed to import project"), error.localizedDescription)
-                        showImportError = true
+                        state.importErrorMessage = String(format: NSLocalizedString("contentView.importError.failed", comment: "Failed to import project"), error.localizedDescription)
+                        state.showImportError = true
                     }
                     print("[ContentView] JSON import failed: \(error)")
                 }
             }
             
         case .failure(let error):
-            importErrorMessage = String(format: NSLocalizedString("contentView.importError.selectFailed", comment: "Failed to select file"), error.localizedDescription)
-            showImportError = true
+            state.importErrorMessage = String(format: NSLocalizedString("contentView.importError.selectFailed", comment: "Failed to select file"), error.localizedDescription)
+            state.showImportError = true
             print("[ContentView] File selection failed: \(error)")
         }
     }
