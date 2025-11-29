@@ -36,217 +36,33 @@ struct ContentView: View {
     }
     
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                // Simple import progress banner at top
-                if isImporting {
-                    ImportProgressBanner(progressTracker: importService.getProgressTracker())
-                }
-                
-                ProjectEditableList(
-                    projects: projects,
-                    selectedSortOrder: $selectedSortOrder,
-                    isEditMode: Binding(
-                        get: { editMode == .active },
-                        set: { editMode = $0 ? .active : .inactive }
-                    )
-                )
-            }
-            .environment(\.editMode, $editMode)
-            #if !targetEnvironment(macCatalyst)
-            .preferredColorScheme(appearancePreferences.colorScheme)
-            #endif
-            .onAppear {
-                initializeUserOrderIfNeeded()
-                checkForImport()
-            }
-            .onChange(of: projects.isEmpty) { _, isEmpty in
-                if isEmpty && editMode == .active {
-                    withAnimation {
-                        editMode = .inactive
-                    }
-                }
-            }
-            .navigationTitle(NSLocalizedString("contentView.title", comment: "Title of projects list"))
-            .toolbar {
-                // Settings menu (replaces stylesheet button)
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Menu {
-                        Button(action: { showAbout = true }) {
-                            Label("About Writing Shed Pro", systemImage: "info.circle")
-                        }
-                        
-                        Button(action: { showManageStyles = true }) {
-                            Label("Stylesheet Editor", systemImage: "paintbrush")
-                        }
-                        
-                        Button(action: { showPageSetup = true }) {
-                            Label("Page Setup", systemImage: "doc.richtext")
-                        }
-                        
-                        Button(action: { handleImportMenu() }) {
-                            Label("Import", systemImage: "arrow.down.doc")
-                        }
-                        
-                        #if !targetEnvironment(macCatalyst)
-                        // Appearance Mode submenu (iOS/iPadOS only - preferredColorScheme doesn't work on Mac Catalyst)
-                        Menu {
-                            ForEach(AppearanceMode.allCases) { mode in
-                                Button(action: {
-                                    appearancePreferences.appearanceMode = mode
-                                }) {
-                                    HStack {
-                                        Label(mode.displayName, systemImage: mode.icon)
-                                        if appearancePreferences.appearanceMode == mode {
-                                            Spacer()
-                                            Image(systemName: "checkmark")
-                                        }
-                                    }
-                                }
-                            }
-                        } label: {
-                            Label("Appearance", systemImage: appearancePreferences.appearanceMode.icon)
-                        }
-                        #endif
-                        
-                        Divider()
-                        
-                        #if DEBUG
-                        Button(action: { showSyncDiagnostics = true }) {
-                            Label("Sync Diagnostics", systemImage: "arrow.triangle.2.circlepath")
-                        }
-                        #endif
-                        
-                        Button(action: { showContactSupport = true }) {
-                            Label("Contact Support", systemImage: "envelope")
-                        }
-                    } label: {
-                        Image(systemName: "gearshape")
-                    }
-                    .accessibilityLabel("Settings")
-                }
-                
-                // Use HStack pattern like FolderFilesView (which works)
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    HStack(spacing: 16) {
-                        #if DEBUG && (targetEnvironment(macCatalyst) || os(macOS))
-                        // Delete all projects button (debug only, Mac only)
-                        Button(role: .destructive, action: { showDeleteAllConfirmation = true }) {
-                            Label("contentView.deleteAll", systemImage: "trash")
-                        }
-                        .accessibilityLabel("contentView.deleteAll.accessibility")
-                        #endif
-                        
-                        // Note: Import and re-import buttons removed - now in Settings menu
-                        
-                        Button(action: { showAddProject = true }) {
-                            Label(NSLocalizedString("contentView.addProject", comment: "Button to add new project"), systemImage: "plus")
-                        }
-                        .accessibilityLabel(NSLocalizedString("contentView.addProjectAccessibility", comment: "Accessibility label for add project button"))
-                        
-                        // Sort Menu
-                        Menu {
-                            ForEach(ProjectSortService.sortOptions(), id: \.order) { option in
-                                Button(action: {
-                                    selectedSortOrder = option.order
-                                }) {
-                                    HStack {
-                                        Text(option.title)
-                                        if selectedSortOrder == option.order {
-                                            Image(systemName: "checkmark")
-                                        }
-                                    }
-                                }
-                            }
-                        } label: {
-                            Image(systemName: "arrow.up.arrow.down")
-                        }
-                        
-                        // Edit/Done button (manual toggle like FolderFilesView)
-                        if !projects.isEmpty {
-                            Button {
-                                withAnimation {
-                                    editMode = editMode == .inactive ? .active : .inactive
-                                }
-                            } label: {
-                                Text(editMode == .inactive ? "Edit" : "Done")
-                            }
-                        }
-                    }
-                }
-            }
-            .sheet(isPresented: $showAddProject) {
-                AddProjectSheet(isPresented: $showAddProject)
-            }
-            .sheet(isPresented: $showManageStyles) {
-                StyleSheetListView()
-            }
-            .sheet(isPresented: $showAbout) {
-                AboutView()
-            }
-            .sheet(isPresented: $showPageSetup) {
-                PageSetupForm()
-            }
-            .sheet(isPresented: $showContactSupport) {
-                ContactSupportView()
-            }
-            .sheet(isPresented: $showSyncDiagnostics) {
-                SyncDiagnosticsView()
-            }
-            .sheet(isPresented: $showLegacyProjectPicker) {
-                LegacyProjectPickerView(
-                    availableProjects: availableLegacyProjects,
-                    isPresented: $showLegacyProjectPicker,
-                    onImport: { selectedProjects in
-                        importSelectedLegacyProjects(selectedProjects)
-                    }
-                )
-            }
-            .confirmationDialog("Choose Import Source", isPresented: $showImportOptions) {
-                let displayCount = importService.getDisplayableProjectCount(availableLegacyProjects)
-                if displayCount > 0 {
-                    Button("Import from Writing Shed (\(displayCount) available)") {
-                        showLegacyProjectPicker = true
-                    }
-                }
-                Button("Import from File...") {
-                    showingJSONImportPicker = true
-                }
-                Button("Cancel", role: .cancel) { }
-            } message: {
-                let displayCount = importService.getDisplayableProjectCount(availableLegacyProjects)
-                if displayCount > 0 {
-                    Text("Choose where to import projects from")
-                } else {
-                    Text("No Writing Shed projects to import")
-                }
-            }
-            .fileImporter(
-                isPresented: $showingJSONImportPicker,
-                allowedContentTypes: [
-                    UTType(filenameExtension: "wsd") ?? .data,
-                    .json
-                ],
-                allowsMultipleSelection: false
-            ) { result in
-                handleJSONImport(result)
-            }
-            .alert("contentView.importError.title", isPresented: $showImportError) {
-                Button("button.ok", role: .cancel) { }
-            } message: {
-                Text(importErrorMessage)
-            }
-            #if DEBUG && (targetEnvironment(macCatalyst) || os(macOS))
-            .alert("contentView.deleteAll.confirmTitle", isPresented: $showDeleteAllConfirmation) {
-                Button("button.cancel", role: .cancel) { }
-                Button("contentView.deleteAll", role: .destructive) {
-                    deleteAllProjects()
-                }
-            } message: {
-                Text("contentView.deleteAll.confirmMessage \(projects.count)")
-            }
-            #endif
-        }
+        ContentViewBody(
+            projects: projects,
+            selectedSortOrder: $selectedSortOrder,
+            editMode: $editMode,
+            showAddProject: $showAddProject,
+            showManageStyles: $showManageStyles,
+            showAbout: $showAbout,
+            showPageSetup: $showPageSetup,
+            showContactSupport: $showContactSupport,
+            showDeleteAllConfirmation: $showDeleteAllConfirmation,
+            showSyncDiagnostics: $showSyncDiagnostics,
+            showImportOptions: $showImportOptions,
+            showLegacyProjectPicker: $showLegacyProjectPicker,
+            showingJSONImportPicker: $showingJSONImportPicker,
+            showImportError: $showImportError,
+            isImporting: isImporting,
+            appearancePreferences: appearancePreferences,
+            availableLegacyProjects: availableLegacyProjects,
+            importErrorMessage: importErrorMessage,
+            importService: importService,
+            onInitialize: initializeUserOrderIfNeeded,
+            onCheckImport: checkForImport,
+            onHandleImportMenu: handleImportMenu,
+            onImportSelectedProjects: importSelectedLegacyProjects,
+            onHandleJSONImport: handleJSONImport,
+            onDeleteAllProjects: deleteAllProjects
+        )
     }
     
     /// Handle Import menu action with smart logic
