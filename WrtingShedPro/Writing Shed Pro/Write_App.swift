@@ -48,12 +48,10 @@ struct Write_App: App {
             StyleSheetService.initializeStyleSheetsIfNeeded(context: context)
             
             // Log CloudKit configuration for debugging
-            #if DEBUG
             print("✅ [CloudKit Config] Container: iCloud.com.appworks.writingshedpro")
             print("✅ [CloudKit Config] Database: private")
             print("✅ [CloudKit Config] aps-environment: production")
             checkCloudKitStatus()
-            #endif
             
             return container
         } catch {
