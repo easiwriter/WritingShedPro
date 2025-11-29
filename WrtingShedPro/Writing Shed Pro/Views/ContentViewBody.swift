@@ -10,7 +10,7 @@ import UniformTypeIdentifiers
 
 struct ContentViewBody: View {
     let projects: [Project]
-    @Binding var selectedSortOrder: ProjectSortService.SortOrder
+    @Binding var selectedSortOrder: SortOrder
     @Binding var editMode: EditMode
     @Binding var showAddProject: Bool
     @Binding var showManageStyles: Bool

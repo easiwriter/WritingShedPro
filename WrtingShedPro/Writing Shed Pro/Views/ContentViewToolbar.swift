@@ -17,7 +17,7 @@ struct ContentViewToolbar: ToolbarContent {
     @Binding var showDeleteAllConfirmation: Bool
     @Binding var showSyncDiagnostics: Bool
     @Binding var showImportMenu: Bool
-    @Binding var selectedSortOrder: ProjectSortService.SortOrder
+    @Binding var selectedSortOrder: SortOrder
     @Binding var editMode: EditMode
     
     @State private var appearancePreferences = AppearancePreferences.shared
