@@ -11,7 +11,9 @@ struct ContentView: View {
     @State private var showingJSONImportPicker = false
     @State private var showImportError = false
     @State private var importErrorMessage = ""
+    #if DEBUG && (targetEnvironment(macCatalyst) || os(macOS))
     @State private var showDeleteAllConfirmation = false
+    #endif
     @State private var selectedSortOrder: SortOrder = .byName
     @State private var editMode: EditMode = .inactive
     // Settings menu sheets
@@ -234,6 +236,7 @@ struct ContentView: View {
             } message: {
                 Text(importErrorMessage)
             }
+            #if DEBUG && (targetEnvironment(macCatalyst) || os(macOS))
             .alert("contentView.deleteAll.confirmTitle", isPresented: $showDeleteAllConfirmation) {
                 Button("button.cancel", role: .cancel) { }
                 Button("contentView.deleteAll", role: .destructive) {
@@ -242,6 +245,7 @@ struct ContentView: View {
             } message: {
                 Text("contentView.deleteAll.confirmMessage \(projects.count)")
             }
+            #endif
         }
     }
     
