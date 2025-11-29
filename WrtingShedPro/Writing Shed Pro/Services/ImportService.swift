@@ -37,7 +37,7 @@ class ImportService {
         #if !targetEnvironment(macCatalyst) && !os(macOS)
         print("[ImportService] iOS: Import check skipped (database not accessible)")
         return false
-        #endif
+        #else
         
         // Migrate old flag if it exists
         migrateOldImportFlag()
@@ -62,6 +62,7 @@ class ImportService {
         print("[ImportService] Legacy database exists: \(exists) at \(databaseURL.path)")
         
         return exists
+        #endif
     }
     
     /// Execute the import process
@@ -336,13 +337,14 @@ class ImportService {
     func legacyDatabaseExists() -> Bool {
         #if !targetEnvironment(macCatalyst) && !os(macOS)
         return false // iOS can't access legacy database
-        #endif
+        #else
         
         guard let databaseURL = getLegacyDatabaseURL() else {
             return false
         }
         
         return FileManager.default.fileExists(atPath: databaseURL.path)
+        #endif
     }
     
     /// Clean project name by removing timestamp data after <>
