@@ -8,38 +8,26 @@
 import SwiftUI
 
 struct ContentViewToolbar: ToolbarContent {
-    @Binding var showSettings: Bool
-    @Binding var showAddProject: Bool
-    @Binding var showAbout: Bool
-    @Binding var showManageStyles: Bool
-    @Binding var showPageSetup: Bool
-    @Binding var showContactSupport: Bool
-    @Binding var showDeleteAllConfirmation: Bool
-    @Binding var showSyncDiagnostics: Bool
-    @Binding var showImportMenu: Bool
-    @Binding var selectedSortOrder: SortOrder
-    @Binding var editMode: EditMode
-    
-    @State private var appearancePreferences = AppearancePreferences.shared
+    @ObservedObject var state: ContentViewState
     let projects: [Project]
     
     var body: some ToolbarContent {
         // Settings menu (leading)
         ToolbarItem(placement: .navigationBarLeading) {
             Menu {
-                Button(action: { showAbout = true }) {
+                Button(action: { state.showAbout = true }) {
                     Label("About Writing Shed Pro", systemImage: "info.circle")
                 }
                 
-                Button(action: { showManageStyles = true }) {
+                Button(action: { state.showManageStyles = true }) {
                     Label("Stylesheet Editor", systemImage: "paintbrush")
                 }
                 
-                Button(action: { showPageSetup = true }) {
+                Button(action: { state.showPageSetup = true }) {
                     Label("Page Setup", systemImage: "doc.richtext")
                 }
                 
-                Button(action: { showImportMenu = true }) {
+                Button(action: { state.showImportOptions = true }) {
                     Label("Import", systemImage: "arrow.down.doc")
                 }
                 
@@ -47,11 +35,11 @@ struct ContentViewToolbar: ToolbarContent {
                 Menu {
                     ForEach(AppearanceMode.allCases) { mode in
                         Button(action: {
-                            appearancePreferences.appearanceMode = mode
+                            state.appearancePreferences.appearanceMode = mode
                         }) {
                             HStack {
                                 Label(mode.displayName, systemImage: mode.icon)
-                                if appearancePreferences.appearanceMode == mode {
+                                if state.appearancePreferences.appearanceMode == mode {
                                     Spacer()
                                     Image(systemName: "checkmark")
                                 }
@@ -59,19 +47,19 @@ struct ContentViewToolbar: ToolbarContent {
                         }
                     }
                 } label: {
-                    Label("Appearance", systemImage: appearancePreferences.appearanceMode.icon)
+                    Label("Appearance", systemImage: state.appearancePreferences.appearanceMode.icon)
                 }
                 #endif
                 
                 Divider()
                 
                 #if DEBUG
-                Button(action: { showSyncDiagnostics = true }) {
+                Button(action: { state.showSyncDiagnostics = true }) {
                     Label("Sync Diagnostics", systemImage: "arrow.triangle.2.circlepath")
                 }
                 #endif
                 
-                Button(action: { showContactSupport = true }) {
+                Button(action: { state.showContactSupport = true }) {
                     Label("Contact Support", systemImage: "envelope")
                 }
             } label: {
@@ -84,13 +72,13 @@ struct ContentViewToolbar: ToolbarContent {
         ToolbarItem(placement: .navigationBarTrailing) {
             HStack(spacing: 16) {
                 #if DEBUG && (targetEnvironment(macCatalyst) || os(macOS))
-                Button(role: .destructive, action: { showDeleteAllConfirmation = true }) {
+                Button(role: .destructive, action: { state.showDeleteAllConfirmation = true }) {
                     Label("contentView.deleteAll", systemImage: "trash")
                 }
                 .accessibilityLabel("contentView.deleteAll.accessibility")
                 #endif
                 
-                Button(action: { showAddProject = true }) {
+                Button(action: { state.showAddProject = true }) {
                     Label(NSLocalizedString("contentView.addProject", comment: "Button to add new project"), systemImage: "plus")
                 }
                 .accessibilityLabel(NSLocalizedString("contentView.addProjectAccessibility", comment: "Accessibility label for add project button"))
@@ -99,11 +87,11 @@ struct ContentViewToolbar: ToolbarContent {
                 Menu {
                     ForEach(ProjectSortService.sortOptions(), id: \.order) { option in
                         Button(action: {
-                            selectedSortOrder = option.order
+                            state.selectedSortOrder = option.order
                         }) {
                             HStack {
                                 Text(option.title)
-                                if selectedSortOrder == option.order {
+                                if state.selectedSortOrder == option.order {
                                     Image(systemName: "checkmark")
                                 }
                             }
@@ -117,10 +105,10 @@ struct ContentViewToolbar: ToolbarContent {
                 if !projects.isEmpty {
                     Button {
                         withAnimation {
-                            editMode = editMode == .inactive ? .active : .inactive
+                            state.editMode = state.editMode == .inactive ? .active : .inactive
                         }
                     } label: {
-                        Text(editMode == .inactive ? "Edit" : "Done")
+                        Text(state.editMode == .inactive ? "Edit" : "Done")
                     }
                 }
             }

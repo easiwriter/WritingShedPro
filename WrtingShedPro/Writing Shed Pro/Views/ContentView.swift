@@ -4,55 +4,14 @@ import UniformTypeIdentifiers
 
 struct ContentView: View {
     @Query var projects: [Project]
-    @State private var showAddProject = false
-    @State private var showManageStyles = false
-    @State private var isImporting = false
+    @StateObject private var state = ContentViewState()
     @State private var importService = ImportService()
-    @State private var showingJSONImportPicker = false
-    @State private var showImportError = false
-    @State private var importErrorMessage = ""
-    @State private var showDeleteAllConfirmation = false
-    @State private var selectedSortOrder: SortOrder = .byName
-    @State private var editMode: EditMode = .inactive
-    // Settings menu sheets
-    @State private var showAbout = false
-    @State private var showPageSetup = false
-    @State private var showContactSupport = false
-    // Import options
-    @State private var showImportOptions = false
-    @State private var showLegacyProjectPicker = false
-    @State private var availableLegacyProjects: [LegacyProjectData] = []
-    // Debug
-    @State private var showSyncDiagnostics = false
-    // Appearance preferences
-    @State private var appearancePreferences = AppearancePreferences.shared
     @Environment(\.modelContext) var modelContext
-    
-    // Computed property to sync EditMode with Bool for backward compatibility
-    private var isEditMode: Bool {
-        editMode == .active
-    }
     
     var body: some View {
         ContentViewBody(
             projects: projects,
-            selectedSortOrder: $selectedSortOrder,
-            editMode: $editMode,
-            showAddProject: $showAddProject,
-            showManageStyles: $showManageStyles,
-            showAbout: $showAbout,
-            showPageSetup: $showPageSetup,
-            showContactSupport: $showContactSupport,
-            showDeleteAllConfirmation: $showDeleteAllConfirmation,
-            showSyncDiagnostics: $showSyncDiagnostics,
-            showImportOptions: $showImportOptions,
-            showLegacyProjectPicker: $showLegacyProjectPicker,
-            showingJSONImportPicker: $showingJSONImportPicker,
-            showImportError: $showImportError,
-            isImporting: isImporting,
-            appearancePreferences: appearancePreferences,
-            availableLegacyProjects: availableLegacyProjects,
-            importErrorMessage: importErrorMessage,
+            state: state,
             importService: importService,
             onInitialize: initializeUserOrderIfNeeded,
             onCheckImport: checkForImport,

@@ -10,24 +10,7 @@ import UniformTypeIdentifiers
 
 struct ContentViewBody: View {
     let projects: [Project]
-    @Binding var selectedSortOrder: SortOrder
-    @Binding var editMode: EditMode
-    @Binding var showAddProject: Bool
-    @Binding var showManageStyles: Bool
-    @Binding var showAbout: Bool
-    @Binding var showPageSetup: Bool
-    @Binding var showContactSupport: Bool
-    @Binding var showDeleteAllConfirmation: Bool
-    @Binding var showSyncDiagnostics: Bool
-    @Binding var showImportOptions: Bool
-    @Binding var showLegacyProjectPicker: Bool
-    @Binding var showingJSONImportPicker: Bool
-    @Binding var showImportError: Bool
-    
-    let isImporting: Bool
-    let appearancePreferences: AppearancePreferences
-    let availableLegacyProjects: [LegacyProjectData]
-    let importErrorMessage: String
+    @ObservedObject var state: ContentViewState
     let importService: ImportService
     
     let onInitialize: () -> Void
@@ -40,91 +23,78 @@ struct ContentViewBody: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                if isImporting {
+                if state.isImporting {
                     ImportProgressBanner(progressTracker: importService.getProgressTracker())
                 }
                 
                 ProjectEditableList(
                     projects: projects,
-                    selectedSortOrder: $selectedSortOrder,
+                    selectedSortOrder: $state.selectedSortOrder,
                     isEditMode: Binding(
-                        get: { editMode == .active },
-                        set: { editMode = $0 ? .active : .inactive }
+                        get: { state.editMode == .active },
+                        set: { state.editMode = $0 ? .active : .inactive }
                     )
                 )
             }
-            .environment(\.editMode, $editMode)
+            .environment(\.editMode, $state.editMode)
             #if !targetEnvironment(macCatalyst)
-            .preferredColorScheme(appearancePreferences.colorScheme)
+            .preferredColorScheme(state.appearancePreferences.colorScheme)
             #endif
             .onAppear {
                 onInitialize()
                 onCheckImport()
             }
             .onChange(of: projects.isEmpty) { _, isEmpty in
-                if isEmpty && editMode == .active {
+                if isEmpty && state.editMode == .active {
                     withAnimation {
-                        editMode = .inactive
+                        state.editMode = .inactive
                     }
                 }
             }
             .navigationTitle(NSLocalizedString("contentView.title", comment: "Title of projects list"))
             .toolbar {
-                ContentViewToolbar(
-                    showSettings: $showImportOptions,
-                    showAddProject: $showAddProject,
-                    showAbout: $showAbout,
-                    showManageStyles: $showManageStyles,
-                    showPageSetup: $showPageSetup,
-                    showContactSupport: $showContactSupport,
-                    showDeleteAllConfirmation: $showDeleteAllConfirmation,
-                    showSyncDiagnostics: $showSyncDiagnostics,
-                    showImportMenu: $showImportOptions,
-                    selectedSortOrder: $selectedSortOrder,
-                    editMode: $editMode,
-                    projects: projects
-                )
+                ContentViewToolbar(state: state, projects: projects)
             }
-            .sheet(isPresented: $showAddProject) {
-                AddProjectSheet(isPresented: $showAddProject)
+            .sheet(isPresented: $state.showAddProject) {
+                AddProjectSheet(isPresented: $state.showAddProject)
             }
-            .sheet(isPresented: $showManageStyles) {
+            .sheet(isPresented: $state.showManageStyles) {
                 StyleSheetListView()
             }
-            .sheet(isPresented: $showAbout) {
+            .sheet(isPresented: $state.showAbout) {
                 AboutView()
             }
-            .sheet(isPresented: $showPageSetup) {
+            .sheet(isPresented: $state.showPageSetup) {
                 PageSetupForm()
             }
-            .sheet(isPresented: $showContactSupport) {
+            .sheet(isPresented: $state.showContactSupport) {
                 ContactSupportView()
             }
-            .sheet(isPresented: $showSyncDiagnostics) {
+            .sheet(isPresented: $state.showSyncDiagnostics) {
                 SyncDiagnosticsView()
             }
-            .sheet(isPresented: $showLegacyProjectPicker) {
+            .sheet(isPresented: $state.showLegacyProjectPicker) {
                 LegacyProjectPickerView(
-                    availableProjects: availableLegacyProjects,
-                    isPresented: $showLegacyProjectPicker,
+                    availableProjects: state.availableLegacyProjects,
+                    isPresented: $state.showLegacyProjectPicker,
                     onImport: { selectedProjects in
                         onImportSelectedProjects(selectedProjects)
                     }
                 )
             }
-            .confirmationDialog("Choose Import Source", isPresented: $showImportOptions) {
-                let displayCount = importService.getDisplayableProjectCount(availableLegacyProjects)
+            .confirmationDialog("Choose Import Source", isPresented: $state.showImportOptions) {
+                let displayCount = importService.getDisplayableProjectCount(state.availableLegacyProjects)
                 if displayCount > 0 {
                     Button("Import from Writing Shed (\(displayCount) available)") {
-                        showLegacyProjectPicker = true
+                        state.showLegacyProjectPicker = true
                     }
                 }
                 Button("Import from File...") {
-                    showingJSONImportPicker = true
+                    state.showingJSONImportPicker = true
                 }
                 Button("Cancel", role: .cancel) { }
             } message: {
-                let displayCount = importService.getDisplayableProjectCount(availableLegacyProjects)
+                let displayCount = importService.getDisplayableProjectCount(state.availableLegacyProjects)
                 if displayCount > 0 {
                     Text("Choose where to import projects from")
                 } else {
@@ -132,7 +102,7 @@ struct ContentViewBody: View {
                 }
             }
             .fileImporter(
-                isPresented: $showingJSONImportPicker,
+                isPresented: $state.showingJSONImportPicker,
                 allowedContentTypes: [
                     UTType(filenameExtension: "wsd") ?? .data,
                     .json
@@ -141,13 +111,13 @@ struct ContentViewBody: View {
             ) { result in
                 onHandleJSONImport(result)
             }
-            .alert("contentView.importError.title", isPresented: $showImportError) {
+            .alert("contentView.importError.title", isPresented: $state.showImportError) {
                 Button("button.ok", role: .cancel) { }
             } message: {
-                Text(importErrorMessage)
+                Text(state.importErrorMessage)
             }
             #if DEBUG && (targetEnvironment(macCatalyst) || os(macOS))
-            .alert("contentView.deleteAll.confirmTitle", isPresented: $showDeleteAllConfirmation) {
+            .alert("contentView.deleteAll.confirmTitle", isPresented: $state.showDeleteAllConfirmation) {
                 Button("button.cancel", role: .cancel) { }
                 Button("contentView.deleteAll", role: .destructive) {
                     onDeleteAllProjects()
