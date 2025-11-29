@@ -411,16 +411,14 @@ class LegacyImportEngine {
                         var versionToUse: Version? = textFile.versions?.sorted(by: { $0.versionNumber < $1.versionNumber }).last
                         
                         // Try to get specific version from WS_CollectedVersion_Entity via WS_TextCollection_Entity
-                        if let textCollection = legacyCollection.value(forKey: "textCollection") as? NSManagedObject {
-                            let collectedVersions = try legacyService.fetchCollectedVersions(for: legacyCollection)
-                            
-                            for collectedVersion in collectedVersions {
-                                if let legacyVersion = collectedVersion.value(forKey: "version") as? NSManagedObject,
-                                   let mappedVersion = versionMap[legacyVersion],
-                                   mappedVersion.textFile?.id == textFile.id {
-                                    versionToUse = mappedVersion
-                                    break
-                                }
+                        let collectedVersions = try legacyService.fetchCollectedVersions(for: legacyCollection)
+                        
+                        for collectedVersion in collectedVersions {
+                            if let legacyVersion = collectedVersion.value(forKey: "version") as? NSManagedObject,
+                               let mappedVersion = versionMap[legacyVersion],
+                               mappedVersion.textFile?.id == textFile.id {
+                                versionToUse = mappedVersion
+                                break
                             }
                         }
                         

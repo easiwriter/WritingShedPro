@@ -163,10 +163,6 @@ extension PageBreakAttachment {
         guard index < attributedString.length else { return false }
         
         let attributes = attributedString.attributes(at: index, effectiveRange: nil)
-        if let attachment = attributes[.attachment] as? PageBreakAttachment {
-            return true
-        }
-        
-        return false
+        return attributes[.attachment] is PageBreakAttachment
     }
 }

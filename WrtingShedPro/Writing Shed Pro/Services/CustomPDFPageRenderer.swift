@@ -121,7 +121,6 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
         // Calculate insets
         let topInset = pageSetup.marginTop + (pageSetup.hasHeaders ? pageSetup.headerDepth : 0)
         let leftInset = pageSetup.marginLeft
-        let rightInset = pageSetup.marginRight
         
         // Draw text content
         drawTextContent(

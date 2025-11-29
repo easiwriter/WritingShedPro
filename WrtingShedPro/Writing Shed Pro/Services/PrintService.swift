@@ -248,7 +248,6 @@ class PrintService {
         
         // Show print preview
         printController.showsNumberOfCopies = true
-        printController.showsPageRange = true
         printController.showsPaperSelectionForLoadedPapers = true
         
         print("   - Job name: \(title)")
@@ -319,19 +318,12 @@ class PrintService {
         
         // Use simple formatter for multi-file content
         let formatter = UISimpleTextPrintFormatter(attributedText: content)
-        formatter.contentInsets = UIEdgeInsets(
-            top: pageSetup.marginTop,
-            left: pageSetup.marginLeft,
-            bottom: pageSetup.marginBottom,
-            right: pageSetup.marginRight
-        )
         formatter.maximumContentWidth = pageSetup.paperSize.dimensions.width - pageSetup.marginLeft - pageSetup.marginRight
         
         printController.printFormatter = formatter
         
         // Show print preview
         printController.showsNumberOfCopies = true
-        printController.showsPageRange = true
         printController.showsPaperSelectionForLoadedPapers = true
         
         print("🖨️ Simple Print Dialog (Multi-file):")
@@ -441,7 +433,6 @@ class PrintService {
         
         // Show print preview
         printController.showsNumberOfCopies = true
-        printController.showsPageRange = true
         printController.showsPaperSelectionForLoadedPapers = true
         
         // Present print dialog

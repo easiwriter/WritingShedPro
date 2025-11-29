@@ -212,7 +212,7 @@ class PaginatedTextLayoutManager {
         
         // Remove the temporary containers (we only needed them for calculation)
         let containers = layoutManager.textContainers
-        for container in containers {
+        for _ in containers {
             layoutManager.removeTextContainer(at: 0)
         }
         
@@ -265,7 +265,6 @@ class PaginatedTextLayoutManager {
         
         var currentPageInfos: [PageInfo] = []
         var previousPageRanges: [NSRange] = []
-        var footnotesPerPage: [[FootnoteModel]] = []  // Track footnotes for each page
         var iteration = 0
         var hasConverged = false
         
@@ -279,7 +278,6 @@ class PaginatedTextLayoutManager {
             var pageInfos: [PageInfo] = []
             var characterIndex = 0
             let totalCharacters = textStorage.length
-            var newFootnotesPerPage: [[FootnoteModel]] = []
             
             while characterIndex < totalCharacters || pageInfos.isEmpty {
                 let pageIndex = pageInfos.count

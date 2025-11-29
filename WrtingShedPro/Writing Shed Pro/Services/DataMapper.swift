@@ -353,7 +353,7 @@ class DataMapper {
         pubSubmission.project = collectionSubmission.project
         
         // Get publication (if mapped)
-        if let pubEntity = legacySubmission.value(forKey: "publication") as? NSManagedObject {
+        if legacySubmission.value(forKey: "publication") is NSManagedObject {
             // Try to find mapped publication - for now, skip if not found
             // In future phases, could auto-create publications
             errorHandler.addWarning("Publication submissions require manual mapping - skipping for now")

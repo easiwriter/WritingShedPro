@@ -158,7 +158,7 @@ struct FootnoteInsertionHelper {
         forVersion version: Version,
         context: ModelContext
     ) -> NSAttributedString {
-        var mutableText = NSMutableAttributedString(attributedString: attributedText)
+        let mutableText = NSMutableAttributedString(attributedString: attributedText)
         
         // Get all footnotes from database
         let footnotes = FootnoteManager.shared.getActiveFootnotes(forVersion: version, context: context)

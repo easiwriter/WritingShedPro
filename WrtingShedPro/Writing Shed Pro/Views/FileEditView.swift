@@ -856,7 +856,7 @@ struct FileEditView: View {
     
     /// Update footnote attachment numbers in the attributed string
     private func updateFootnoteAttachmentNumbers() {
-        guard let currentVersion = file.currentVersion else { return }
+        guard file.currentVersion != nil else { return }
         
         let mutableContent = NSMutableAttributedString(attributedString: attributedContent)
         var needsUpdate = false

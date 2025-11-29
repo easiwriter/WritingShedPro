@@ -23,7 +23,7 @@ final class FootnoteManager: ObservableObject {
     
     // MARK: - Singleton
     
-    static let shared = FootnoteManager()
+    nonisolated static let shared = FootnoteManager()
     
     private init() {}
     

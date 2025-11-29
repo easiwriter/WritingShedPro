@@ -286,7 +286,7 @@ struct StyleSheetService {
                 #endif
                 for textFile in textFiles {
                     if fileUsesStyle(textFile, styleName: styleName) {
-                        filesUsingStyle.append(textFile.name ?? "Untitled")
+                        filesUsingStyle.append(textFile.name)
                     }
                 }
             }
