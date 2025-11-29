@@ -11,9 +11,7 @@ struct ContentView: View {
     @State private var showingJSONImportPicker = false
     @State private var showImportError = false
     @State private var importErrorMessage = ""
-    #if DEBUG && (targetEnvironment(macCatalyst) || os(macOS))
     @State private var showDeleteAllConfirmation = false
-    #endif
     @State private var selectedSortOrder: SortOrder = .byName
     @State private var editMode: EditMode = .inactive
     // Settings menu sheets
@@ -238,8 +236,8 @@ struct ContentView: View {
         }
     }
     
-    #if DEBUG
     private func deleteAllProjects() {
+        #if DEBUG
         print("[ContentView] DEBUG: Deleting all \(projects.count) projects")
         for project in projects {
             modelContext.delete(project)
@@ -250,8 +248,8 @@ struct ContentView: View {
         } catch {
             print("[ContentView] DEBUG: Failed to delete projects: \(error)")
         }
+        #endif
     }
-    #endif
 }
 
 //#Preview {
