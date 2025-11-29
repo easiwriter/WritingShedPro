@@ -8,6 +8,7 @@
 import SwiftUI
 import SwiftData
 import CloudKit
+import os.log
 
 @main
 struct Write_App: App {
@@ -55,9 +56,15 @@ struct Write_App: App {
 
     init() {
         // Log CloudKit configuration for debugging
+        let logger = os.log.init(subsystem: "com.appworks.writingshedpro", category: "CloudKit")
+        os_log("🚀 App initializing...", log: logger, type: .info)
+        print("🚀 App initializing...")
+        
         print("✅ [CloudKit Config] Container: iCloud.com.appworks.writingshedpro")
         print("✅ [CloudKit Config] Database: private")
         print("✅ [CloudKit Config] aps-environment: production")
+        os_log("✅ [CloudKit Config] Configured for production", log: logger, type: .info)
+        
         checkCloudKitStatus()
     }
 
@@ -69,48 +76,73 @@ struct Write_App: App {
     }
     
     private func checkCloudKitStatus() {
+        let logger = os.log.init(subsystem: "com.appworks.writingshedpro", category: "CloudKit")
+        
         // Check iCloud account status
         CKContainer.default().accountStatus { status, error in
+            let statusMsg: String
             switch status {
             case .available:
-                print("✅ iCloud account available")
+                statusMsg = "✅ iCloud account available"
+                os_log("✅ iCloud account available", log: logger, type: .info)
                 self.checkContainerStatus()
             case .noAccount:
-                print("❌ No iCloud account signed in")
+                statusMsg = "❌ No iCloud account signed in"
+                os_log("❌ No iCloud account", log: logger, type: .error)
             case .restricted:
-                print("⚠️ iCloud restricted (parental controls?)")
+                statusMsg = "⚠️ iCloud restricted (parental controls?)"
+                os_log("⚠️ iCloud restricted", log: logger, type: .warning)
             case .couldNotDetermine:
-                print("❓ Could not determine iCloud status")
+                statusMsg = "❓ Could not determine iCloud status"
+                os_log("❓ iCloud status unknown", log: logger, type: .debug)
             case .temporarilyUnavailable:
-                print("⏳ iCloud temporarily unavailable")
+                statusMsg = "⏳ iCloud temporarily unavailable"
+                os_log("⏳ iCloud temporarily unavailable", log: logger, type: .warning)
             @unknown default:
-                print("❓ Unknown iCloud status")
+                statusMsg = "❓ Unknown iCloud status"
+                os_log("❓ Unknown iCloud status", log: logger, type: .debug)
             }
+            print(statusMsg)
+            
             if let error = error {
-                print("❌ Error checking account: \(error.localizedDescription)")
+                let errorMsg = "❌ Error checking account: \(error.localizedDescription)"
+                print(errorMsg)
+                os_log("❌ Account error: %@", log: logger, type: .error, error.localizedDescription)
             }
         }
     }
     
     private func checkContainerStatus() {
+        let logger = os.log.init(subsystem: "com.appworks.writingshedpro", category: "CloudKit")
         let container = CKContainer(identifier: "iCloud.com.appworks.writingshedpro")
+        
         container.accountStatus { status, error in
             if status == .available {
                 print("✅ CloudKit container accessible")
+                os_log("✅ CloudKit container accessible", log: logger, type: .info)
+                
                 // Try to access the private database
                 container.privateCloudDatabase.fetchAllRecordZones { zones, error in
                     if let zones = zones {
-                        print("✅ Private database accessible, zones: \(zones.count)")
+                        let zoneMsg = "✅ Private database accessible, zones: \(zones.count)"
+                        print(zoneMsg)
+                        os_log("✅ Private DB accessible: %d zones", log: logger, type: .info, zones.count)
                     }
                     if let error = error {
-                        print("❌ Error fetching zones: \(error.localizedDescription)")
+                        let errorMsg = "❌ Error fetching zones: \(error.localizedDescription)"
+                        print(errorMsg)
+                        os_log("❌ Zone fetch error: %@", log: logger, type: .error, error.localizedDescription)
                     }
                 }
             } else {
-                print("❌ CloudKit container not accessible: \(status)")
+                let statusMsg = "❌ CloudKit container not accessible: \(status)"
+                print(statusMsg)
+                os_log("❌ CloudKit container not accessible", log: logger, type: .error)
             }
             if let error = error {
-                print("❌ Container error: \(error.localizedDescription)")
+                let errorMsg = "❌ Container error: \(error.localizedDescription)"
+                print(errorMsg)
+                os_log("❌ Container error: %@", log: logger, type: .error, error.localizedDescription)
             }
         }
     }
