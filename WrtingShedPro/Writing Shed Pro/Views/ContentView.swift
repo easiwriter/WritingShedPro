@@ -31,16 +31,10 @@ struct ContentView: View {
         state.availableLegacyProjects = importService.getUnimportedProjects(modelContext: modelContext)
         print("[ContentView] handleImportMenu: Found \(state.availableLegacyProjects.count) legacy projects")
         
-        // If no projects found, show file picker to manually select database
+        // If no projects found, open file picker to manually select database
         if state.availableLegacyProjects.isEmpty {
             print("[ContentView] No legacy projects found - opening file picker for manual selection")
-            state.importErrorMessage = "Could not access the legacy Writing Shed database automatically. Please browse and select the database file (Writing-Shed.sqlite)."
-            state.showImportError = true
-            
-            // Schedule file picker to open after alert is dismissed
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                state.showManualDatabasePicker = true
-            }
+            state.showManualDatabasePicker = true
             return
         }
         
