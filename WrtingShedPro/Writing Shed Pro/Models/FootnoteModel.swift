@@ -14,6 +14,7 @@ import SwiftData
 /// ARCHITECTURE: Footnotes belong to a specific Version, not TextFile
 /// This allows footnotes to be version-specific and properly cascade when versions are deleted
 @Model
+@Syncable
 final class FootnoteModel {
     /// Unique identifier for the footnote
     var id: UUID = UUID()

@@ -10,6 +10,7 @@ import Foundation
 import SwiftData
 
 @Model
+@Syncable
 class Submission {
     var id: UUID = UUID()
     var publication: Publication?

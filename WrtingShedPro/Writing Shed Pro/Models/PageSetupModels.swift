@@ -11,6 +11,7 @@ import SwiftData
 // MARK: - PageSetup Model
 
 @Model
+@Syncable
 final class PageSetup {
     var id: UUID = UUID()
     var paperName: String?
@@ -109,6 +110,7 @@ final class PageSetup {
 // MARK: - PrinterPaper Model
 
 @Model
+@Syncable
 final class PrinterPaper {
     var id: UUID = UUID()
     var paperName: String?
