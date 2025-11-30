@@ -54,11 +54,9 @@ struct ContentViewToolbar: ToolbarContent {
                 
                 Divider()
                 
-                #if DEBUG
                 Button(action: { state.showSyncDiagnostics = true }) {
                     Label("Sync Diagnostics", systemImage: "arrow.triangle.2.circlepath")
                 }
-                #endif
                 
                 Button(action: { state.showContactSupport = true }) {
                     Label("Contact Support", systemImage: "envelope")
