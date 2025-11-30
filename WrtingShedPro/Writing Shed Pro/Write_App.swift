@@ -91,13 +91,13 @@ struct Write_App: App {
                 os_log("❌ No iCloud account", log: logger, type: .error)
             case .restricted:
                 statusMsg = "⚠️ iCloud restricted (parental controls?)"
-                os_log("⚠️ iCloud restricted", log: logger, type: .warning)
+                os_log("⚠️ iCloud restricted", log: logger, type: .default)
             case .couldNotDetermine:
                 statusMsg = "❓ Could not determine iCloud status"
                 os_log("❓ iCloud status unknown", log: logger, type: .debug)
             case .temporarilyUnavailable:
                 statusMsg = "⏳ iCloud temporarily unavailable"
-                os_log("⏳ iCloud temporarily unavailable", log: logger, type: .warning)
+                os_log("⏳ iCloud temporarily unavailable", log: logger, type: .default)
             @unknown default:
                 statusMsg = "❓ Unknown iCloud status"
                 os_log("❓ Unknown iCloud status", log: logger, type: .debug)
