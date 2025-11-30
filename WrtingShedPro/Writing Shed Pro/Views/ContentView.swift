@@ -18,6 +18,7 @@ struct ContentView: View {
             onHandleImportMenu: handleImportMenu,
             onImportSelectedProjects: importSelectedLegacyProjects,
             onHandleJSONImport: handleJSONImport,
+            onHandleManualDatabase: handleManualDatabaseSelection,
             onDeleteAllProjects: deleteAllProjects
         )
     }
@@ -30,7 +31,20 @@ struct ContentView: View {
         state.availableLegacyProjects = importService.getUnimportedProjects(modelContext: modelContext)
         print("[ContentView] handleImportMenu: Found \(state.availableLegacyProjects.count) legacy projects")
         
-        // Always show import options - let user choose between legacy or file
+        // If no projects found, show file picker to manually select database
+        if state.availableLegacyProjects.isEmpty {
+            print("[ContentView] No legacy projects found - opening file picker for manual selection")
+            state.importErrorMessage = "Could not access the legacy Writing Shed database automatically. Please browse and select the database file (Writing-Shed.sqlite)."
+            state.showImportError = true
+            
+            // Schedule file picker to open after alert is dismissed
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                state.showManualDatabasePicker = true
+            }
+            return
+        }
+        
+        // Show import options - let user choose between legacy or file
         state.showImportOptions = true
     }
     
@@ -91,6 +105,39 @@ struct ContentView: View {
                     print("[ContentView] Import failed with errors")
                 }
             }
+        }
+    }
+    
+    /// Handle manual database file selection when auto-detect fails
+    private func handleManualDatabaseSelection(_ result: Result<[URL], Error>) {
+        switch result {
+        case .success(let urls):
+            guard let databaseURL = urls.first else { return }
+            
+            print("[ContentView] User selected database: \(databaseURL.path)")
+            
+            // Try to load projects from the manually selected database
+            let legacyService = LegacyDatabaseService(databaseURL: databaseURL)
+            
+            do {
+                try legacyService.connect()
+                let projects = try legacyService.fetchProjects()
+                legacyService.disconnect()
+                
+                print("[ContentView] Loaded \(projects.count) projects from selected database")
+                state.availableLegacyProjects = projects
+                state.showImportOptions = true
+                
+            } catch {
+                print("[ContentView] Failed to load database: \(error)")
+                state.importErrorMessage = "Unable to read the selected database: \(error.localizedDescription)"
+                state.showImportError = true
+            }
+            
+        case .failure(let error):
+            print("[ContentView] Database selection failed: \(error)")
+            state.importErrorMessage = "Failed to select database: \(error.localizedDescription)"
+            state.showImportError = true
         }
     }
     

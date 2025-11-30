@@ -18,6 +18,7 @@ struct ContentViewBody: View {
     let onHandleImportMenu: () -> Void
     let onImportSelectedProjects: ([LegacyProjectData]) -> Void
     let onHandleJSONImport: (Result<[URL], Error>) -> Void
+    let onHandleManualDatabase: (Result<[URL], Error>) -> Void
     let onDeleteAllProjects: () -> Void
     
     var body: some View {
@@ -110,6 +111,16 @@ struct ContentViewBody: View {
                 allowsMultipleSelection: false
             ) { result in
                 onHandleJSONImport(result)
+            }
+            .fileImporter(
+                isPresented: $state.showManualDatabasePicker,
+                allowedContentTypes: [
+                    UTType(filenameExtension: "sqlite") ?? .data,
+                    UTType(filenameExtension: "db") ?? .data
+                ],
+                allowsMultipleSelection: false
+            ) { result in
+                onHandleManualDatabase(result)
             }
             .alert("contentView.importError.title", isPresented: $state.showImportError) {
                 Button("button.ok", role: .cancel) { }
