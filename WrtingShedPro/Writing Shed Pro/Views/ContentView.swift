@@ -25,6 +25,11 @@ struct ContentView: View {
     /// Handle Import menu action with smart logic
     /// Always shows import options dialog
     private func handleImportMenu() {
+        // Load legacy projects first
+        print("[ContentView] handleImportMenu: Loading legacy projects...")
+        state.availableLegacyProjects = importService.getUnimportedProjects(modelContext: modelContext)
+        print("[ContentView] handleImportMenu: Found \(state.availableLegacyProjects.count) legacy projects")
+        
         // Always show import options - let user choose between legacy or file
         state.showImportOptions = true
     }
