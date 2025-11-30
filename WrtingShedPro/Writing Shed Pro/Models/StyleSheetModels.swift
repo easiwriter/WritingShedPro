@@ -17,7 +17,6 @@ import UIKit
 // MARK: - StyleSheet Model
 
 @Model
-@Syncable
 final class StyleSheet {
     var id: UUID = UUID()
     var name: String = ""
@@ -77,7 +76,6 @@ final class StyleSheet {
 // MARK: - TextStyle Model
 
 @Model
-@Syncable
 final class TextStyleModel {
     var id: UUID = UUID()
     var name: String = ""  // "body", "title1", "headline", "custom-quote", etc.
@@ -343,7 +341,6 @@ final class TextStyleModel {
 /// - User customizations are preserved and never overwritten by stylesheet changes
 /// - Predictable behavior familiar from word processors
 @Model
-@Syncable
 final class ImageStyle {
     var id: UUID = UUID()
     var name: String = ""  // "default", "figure", "photo", "diagram", etc.

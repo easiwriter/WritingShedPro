@@ -14,7 +14,6 @@ import SwiftData
 /// ARCHITECTURE: Comments belong to a specific Version, not TextFile
 /// This allows comments to be version-specific and properly cascade when versions are deleted
 @Model
-@Syncable
 final class CommentModel {
     /// Unique identifier for the comment
     var id: UUID = UUID()

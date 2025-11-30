@@ -85,8 +85,6 @@ struct Write_App: App {
     }
     
     private func checkCloudKitStatus() {
-        let logger = OSLog(subsystem: "com.appworks.writingshedpro", category: "CloudKit")
-        
         // Check iCloud account status
         CKContainer.default().accountStatus { status, error in
             let statusMsg: String

@@ -10,7 +10,6 @@ import Foundation
 import SwiftData
 
 @Model
-@Syncable
 class Publication {
     var id: UUID = UUID()
     var name: String = ""

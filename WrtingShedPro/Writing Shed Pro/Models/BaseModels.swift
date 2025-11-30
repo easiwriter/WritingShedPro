@@ -9,7 +9,6 @@ enum ProjectStatus: String, Codable {
 }
 
 @Model
-@Syncable
 final class Project {
     var id: UUID = UUID()
     var name: String?
@@ -76,7 +75,6 @@ enum ProjectType: String, Codable, CaseIterable {
 }
 
 @Model
-@Syncable
 final class Folder {
     var id: UUID = UUID()
     var name: String?
@@ -96,7 +94,6 @@ final class Folder {
 }
 
 @Model
-@Syncable
 final class Version {
     var id: UUID = UUID()
     var content: String = ""
@@ -304,7 +301,6 @@ final class Version {
 }
 
 @Model
-@Syncable
 final class TextFile {
     var id: UUID = UUID()
     var name: String = ""
@@ -432,7 +428,6 @@ final class TextFile {
 
 /// Represents a deleted file in the Trash with metadata for restoration
 @Model
-@Syncable
 final class TrashItem {
     var id: UUID = UUID()
     var deletedDate: Date = Date()

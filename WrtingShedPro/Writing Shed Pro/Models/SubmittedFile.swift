@@ -10,7 +10,6 @@ import Foundation
 import SwiftData
 
 @Model
-@Syncable
 class SubmittedFile {
     var id: UUID = UUID()
     var submission: Submission?
