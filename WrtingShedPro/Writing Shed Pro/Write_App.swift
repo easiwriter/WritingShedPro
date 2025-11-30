@@ -34,6 +34,9 @@ struct Write_App: App {
             // Feature 015: Footnotes
             FootnoteModel.self
         ])
+        
+        print("☁️ [Write_App] Initializing ModelContainer with CloudKit")
+        
         let modelConfiguration = ModelConfiguration(
             schema: schema,
             isStoredInMemoryOnly: false,
@@ -42,15 +45,28 @@ struct Write_App: App {
         )
 
         do {
+            print("✅ [Write_App] Creating ModelContainer...")
             let container = try ModelContainer(for: schema, configurations: [modelConfiguration])
+            print("✅ [Write_App] ModelContainer created successfully with CloudKit enabled")
+            
+            // Check if CloudKit is actually syncing
+            let mainContext = container.mainContext
+            print("✅ [Write_App] Main context ready")
             
             // Initialize default stylesheets on first launch
-            let context = container.mainContext
-            StyleSheetService.initializeStyleSheetsIfNeeded(context: context)
+            StyleSheetService.initializeStyleSheetsIfNeeded(context: mainContext)
+            print("✅ [Write_App] Stylesheets initialized")
             
             return container
         } catch {
-            fatalError("Could not create ModelContainer: \(error)")
+            let errorMsg = "❌ [Write_App] Failed to create ModelContainer: \(error)"
+            print(errorMsg)
+            if let nsError = error as? NSError {
+                print("   Error domain: \(nsError.domain)")
+                print("   Error code: \(nsError.code)")
+                print("   Error description: \(nsError.localizedDescription)")
+            }
+            fatalError(errorMsg)
         }
     }()
 

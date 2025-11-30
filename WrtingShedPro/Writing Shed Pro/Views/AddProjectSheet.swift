@@ -101,6 +101,17 @@ struct AddProjectSheet: View {
         // Create default folder structure
         ProjectTemplateService.createDefaultFolders(for: newProject, in: modelContext)
         
+        // Explicitly save to trigger CloudKit sync
+        do {
+            try modelContext.save()
+            print("✅ Project saved successfully: \(newProject.name ?? "Unnamed")")
+        } catch {
+            print("❌ Error saving project: \(error)")
+            errorMessage = "Failed to save project: \(error.localizedDescription)"
+            showErrorAlert = true
+            return
+        }
+        
         isPresented = false
     }
     

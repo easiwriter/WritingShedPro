@@ -72,6 +72,9 @@ struct AddFolderSheet: View {
             parentFolder.folders?.append(newFolder)
         }
         
+        // Explicitly save to trigger CloudKit sync
+        try? modelContext.save()
+        
         isPresented = false
     }
 }
