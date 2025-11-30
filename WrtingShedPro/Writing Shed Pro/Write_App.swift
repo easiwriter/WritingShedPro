@@ -160,6 +160,9 @@ struct Write_App: App {
                         let zoneMsg = "✅ Private database accessible, zones: \(zones.count)"
                         print(zoneMsg)
                         self.logToFile(zoneMsg)
+                        
+                        // Try a test write to verify CloudKit actually works
+                        self.verifyCloudKitWritable(container: container)
                     }
                     if let error = error {
                         let errorMsg = "❌ Error fetching zones: \(error.localizedDescription)"
@@ -176,6 +179,33 @@ struct Write_App: App {
                 let errorMsg = "❌ Container error: \(error.localizedDescription)"
                 print(errorMsg)
                 self.logToFile(errorMsg)
+            }
+        }
+    }
+    
+    private func verifyCloudKitWritable(container: CKContainer) {
+        let testRecord = CKRecord(recordType: "_CloudKitWriteTest", recordID: CKRecordID(recordName: "writetest-\(UUID().uuidString)"))
+        testRecord["timestamp"] = Date()
+        
+        container.privateCloudDatabase.save(testRecord) { record, error in
+            if let error = error {
+                let errorMsg = "❌ [CloudKit Write Test] Failed to write test record: \(error.localizedDescription)"
+                print(errorMsg)
+                self.logToFile(errorMsg)
+                if let ckError = error as? CKError {
+                    print("   CKError code: \(ckError.code)")
+                    self.logToFile("   CKError code: \(ckError.code)")
+                }
+            } else if let record = record {
+                print("✅ [CloudKit Write Test] Successfully wrote test record to Production")
+                self.logToFile("✅ [CloudKit Write Test] Successfully wrote test record to Production")
+                
+                // Clean up the test record
+                container.privateCloudDatabase.delete(withRecordID: record.recordID) { _, error in
+                    if error == nil {
+                        print("✅ [CloudKit Write Test] Cleaned up test record")
+                    }
+                }
             }
         }
     }
