@@ -56,8 +56,6 @@ struct Write_App: App {
 
     init() {
         // Log CloudKit configuration for debugging
-        let logger = OSLog(subsystem: "com.appworks.writingshedpro", category: "CloudKit")
-        
         print("========================================")
         print("🚀 Writing Shed Pro APP LAUNCHED")
         print("========================================")
@@ -66,6 +64,15 @@ struct Write_App: App {
         print("✅ [CloudKit Config] Container: iCloud.com.appworks.writingshedpro")
         print("✅ [CloudKit Config] Database: private")
         print("✅ [CloudKit Config] aps-environment: production")
+        
+        // Log to file for TestFlight diagnostics
+        logToFile("========================================")
+        logToFile("🚀 Writing Shed Pro APP LAUNCHED")
+        logToFile("========================================")
+        logToFile("🚀 App initializing...")
+        logToFile("✅ [CloudKit Config] Container: iCloud.com.appworks.writingshedpro")
+        logToFile("✅ [CloudKit Config] Database: private")
+        logToFile("✅ [CloudKit Config] aps-environment: production")
         
         checkCloudKitStatus()
     }
@@ -99,10 +106,12 @@ struct Write_App: App {
                 statusMsg = "❓ Unknown iCloud status"
             }
             print(statusMsg)
+            self.logToFile(statusMsg)
             
             if let error = error {
                 let errorMsg = "❌ Error checking account: \(error.localizedDescription)"
                 print(errorMsg)
+                self.logToFile(errorMsg)
             }
         }
     }
@@ -113,26 +122,58 @@ struct Write_App: App {
         container.accountStatus { status, error in
             if status == .available {
                 print("✅ CloudKit container accessible")
+                self.logToFile("✅ CloudKit container accessible")
                 
                 // Try to access the private database
                 container.privateCloudDatabase.fetchAllRecordZones { zones, error in
                     if let zones = zones {
                         let zoneMsg = "✅ Private database accessible, zones: \(zones.count)"
                         print(zoneMsg)
+                        self.logToFile(zoneMsg)
                     }
                     if let error = error {
                         let errorMsg = "❌ Error fetching zones: \(error.localizedDescription)"
                         print(errorMsg)
+                        self.logToFile(errorMsg)
                     }
                 }
             } else {
                 let statusMsg = "❌ CloudKit container not accessible: \(status)"
                 print(statusMsg)
+                self.logToFile(statusMsg)
             }
             if let error = error {
                 let errorMsg = "❌ Container error: \(error.localizedDescription)"
                 print(errorMsg)
+                self.logToFile(errorMsg)
             }
+        }
+    }
+    
+    /// Log messages to a file in the app's documents directory for TestFlight diagnostics
+    private func logToFile(_ message: String) {
+        guard let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            return
+        }
+        
+        let logFileURL = documentsDirectory.appendingPathComponent("CloudKitDiagnostics.log")
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
+        let timestamp = formatter.string(from: Date())
+        let logEntry = "[\(timestamp)] \(message)\n"
+        
+        if FileManager.default.fileExists(atPath: logFileURL.path) {
+            // Append to existing file
+            if let fileHandle = FileHandle(forWritingAtPath: logFileURL.path) {
+                fileHandle.seekToEndOfFile()
+                if let data = logEntry.data(using: .utf8) {
+                    fileHandle.write(data)
+                }
+                fileHandle.closeFile()
+            }
+        } else {
+            // Create new file
+            try? logEntry.write(to: logFileURL, atomically: true, encoding: .utf8)
         }
     }
 }
