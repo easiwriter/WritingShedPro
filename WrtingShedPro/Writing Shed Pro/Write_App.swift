@@ -37,10 +37,11 @@ struct Write_App: App {
         
         print("☁️ [Write_App] Initializing ModelContainer with CloudKit")
         
+        let storeURL = URL.documentsDirectory.appending(path: "writingshed.sqlite")
         let modelConfiguration = ModelConfiguration(
+            "WritingShedProConfiguration",
             schema: schema,
-            isStoredInMemoryOnly: false,
-            allowsSave: true,
+            url: storeURL,
             cloudKitDatabase: .private("iCloud.com.appworks.writingshedpro")
         )
 
@@ -52,6 +53,21 @@ struct Write_App: App {
             // Check if CloudKit is actually syncing
             let mainContext = container.mainContext
             print("✅ [Write_App] Main context ready")
+            
+            // Try to trigger an immediate sync attempt
+            DispatchQueue.global(qos: .background).asyncAfter(deadline: .now() + 2.0) {
+                do {
+                    // Force a context save which should trigger CloudKit sync
+                    try mainContext.save()
+                    print("✅ [Write_App] Background sync save triggered")
+                } catch {
+                    print("❌ [Write_App] Background sync save failed: \(error)")
+                    if let nsError = error as? NSError {
+                        print("   Domain: \(nsError.domain), Code: \(nsError.code)")
+                        print("   UserInfo: \(nsError.userInfo)")
+                    }
+                }
+            }
             
             // Initialize default stylesheets on first launch
             StyleSheetService.initializeStyleSheetsIfNeeded(context: mainContext)
