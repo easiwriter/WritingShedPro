@@ -320,13 +320,13 @@ struct StyleSheetService {
         guard let currentVersion = file.currentVersion,
               let attributedString = currentVersion.attributedContent else {
             #if DEBUG
-            print("⚠️ fileUsesStyle: No current version or attributed content for file: \(file.name ?? "Untitled")")
+            print("⚠️ fileUsesStyle: No current version or attributed content for file: \(file.name)")
             #endif
             return false
         }
         
         #if DEBUG
-        print("🔍 fileUsesStyle: Checking file '\(file.name ?? "Untitled")' for style '\(styleName)'")
+        print("🔍 fileUsesStyle: Checking file '\(file.name)' for style '\(styleName)'")
         print("   Content length: \(attributedString.length)")
         #endif
         

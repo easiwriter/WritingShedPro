@@ -8,7 +8,7 @@
 import SwiftUI
 import SwiftData
 import CloudKit
-import os.log
+import os
 
 @main
 struct Write_App: App {
@@ -56,7 +56,7 @@ struct Write_App: App {
 
     init() {
         // Log CloudKit configuration for debugging
-        let logger = os.log.init(subsystem: "com.appworks.writingshedpro", category: "CloudKit")
+        let logger = OSLog(subsystem: "com.appworks.writingshedpro", category: "CloudKit")
         os_log("🚀 App initializing...", log: logger, type: .info)
         print("🚀 App initializing...")
         
@@ -76,7 +76,7 @@ struct Write_App: App {
     }
     
     private func checkCloudKitStatus() {
-        let logger = os.log.init(subsystem: "com.appworks.writingshedpro", category: "CloudKit")
+        let logger = OSLog(subsystem: "com.appworks.writingshedpro", category: "CloudKit")
         
         // Check iCloud account status
         CKContainer.default().accountStatus { status, error in
@@ -113,7 +113,7 @@ struct Write_App: App {
     }
     
     private func checkContainerStatus() {
-        let logger = os.log.init(subsystem: "com.appworks.writingshedpro", category: "CloudKit")
+        let logger = OSLog(subsystem: "com.appworks.writingshedpro", category: "CloudKit")
         let container = CKContainer(identifier: "iCloud.com.appworks.writingshedpro")
         
         container.accountStatus { status, error in
