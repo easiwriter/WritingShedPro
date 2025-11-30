@@ -44,21 +44,27 @@ class LegacyDatabaseService {
             let userName = NSUserName()
             var foundURL: URL? = nil
             
+            print("[LegacyDatabaseService] Searching for legacy database...")
+            print("[LegacyDatabaseService] Username: \(userName)")
+            print("[LegacyDatabaseService] Looking for bundle IDs: \(legacyBundleIDs)")
+            
             // Try all combinations: sandboxed first, then non-sandboxed
             for bundleID in legacyBundleIDs {
                 for filename in possibleFilenames {
                     // Check sandboxed location first (App Store apps)
                     let sandboxedPath = "/Users/\(userName)/Library/Containers/\(bundleID)/Data/Library/Application Support/\(bundleID)/\(filename)"
+                    print("[LegacyDatabaseService] Checking: \(sandboxedPath)")
                     if fileManager.fileExists(atPath: sandboxedPath) {
-                        print("[LegacyDatabaseService] Found database at (sandboxed): \(sandboxedPath)")
+                        print("[LegacyDatabaseService] ✓ Found database at (sandboxed): \(sandboxedPath)")
                         foundURL = URL(fileURLWithPath: sandboxedPath)
                         break
                     }
                     
                     // Check non-sandboxed location
                     let normalPath = "/Users/\(userName)/Library/Application Support/\(bundleID)/\(filename)"
+                    print("[LegacyDatabaseService] Checking: \(normalPath)")
                     if fileManager.fileExists(atPath: normalPath) {
-                        print("[LegacyDatabaseService] Found database at: \(normalPath)")
+                        print("[LegacyDatabaseService] ✓ Found database at: \(normalPath)")
                         foundURL = URL(fileURLWithPath: normalPath)
                         break
                     }
@@ -68,10 +74,11 @@ class LegacyDatabaseService {
             
             if let url = foundURL {
                 self.legacyDatabaseURL = url
+                print("[LegacyDatabaseService] Using database: \(url.path)")
             } else {
                 // Fallback to sandboxed path (will fail during connect() with clear error)
                 let fallbackPath = "/Users/\(userName)/Library/Containers/\(legacyBundleIDs[0])/Data/Library/Application Support/\(legacyBundleIDs[0])/\(possibleFilenames[0])"
-                print("[LegacyDatabaseService] Using fallback path: \(fallbackPath)")
+                print("[LegacyDatabaseService] ✗ Database NOT found! Using fallback path: \(fallbackPath)")
                 self.legacyDatabaseURL = URL(fileURLWithPath: fallbackPath)
             }
             
@@ -119,6 +126,21 @@ class LegacyDatabaseService {
             throw ImportError.databaseNotFound(legacyDatabaseURL.path)
         }
         
+        // Check file attributes and permissions
+        do {
+            let attributes = try FileManager.default.attributesOfItem(atPath: legacyDatabaseURL.path)
+            let fileSize = attributes[.size] as? Int ?? 0
+            let readable = FileManager.default.isReadableFile(atPath: legacyDatabaseURL.path)
+            let writable = FileManager.default.isWritableFile(atPath: legacyDatabaseURL.path)
+            print("[LegacyDatabaseService] Database file: \(legacyDatabaseURL.path)")
+            print("[LegacyDatabaseService]   Size: \(fileSize) bytes")
+            print("[LegacyDatabaseService]   Readable: \(readable)")
+            print("[LegacyDatabaseService]   Writable: \(writable)")
+            print("[LegacyDatabaseService]   Attributes: \(attributes)")
+        } catch {
+            print("[LegacyDatabaseService] Error checking file attributes: \(error)")
+        }
+        
         // Load the Core Data model
         guard let modelURL = Bundle.main.url(forResource: "Writing_Shed", withExtension: "momd"),
               let model = NSManagedObjectModel(contentsOf: modelURL) else {
@@ -136,12 +158,14 @@ class LegacyDatabaseService {
                 NSReadOnlyPersistentStoreOption: true
             ] as [String: Any]
             
+            print("[LegacyDatabaseService] Attempting to connect to: \(legacyDatabaseURL)")
             try coordinator.addPersistentStore(
                 ofType: NSSQLiteStoreType,
                 configurationName: nil,
                 at: legacyDatabaseURL,
                 options: options
             )
+            print("[LegacyDatabaseService] Successfully connected to database")
             
             // Create managed object context
             let context = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
@@ -150,6 +174,10 @@ class LegacyDatabaseService {
             
             self.managedObjectContext = context
         } catch {
+            print("[LegacyDatabaseService] Failed to connect: \(error)")
+            print("[LegacyDatabaseService] Error code: \((error as NSError).code)")
+            print("[LegacyDatabaseService] Error domain: \((error as NSError).domain)")
+            print("[LegacyDatabaseService] Full error: \(error as NSError)")
             throw ImportError.connectionFailed(error.localizedDescription)
         }
     }
