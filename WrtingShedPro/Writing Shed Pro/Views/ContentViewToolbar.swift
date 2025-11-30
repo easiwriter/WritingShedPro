@@ -10,6 +10,7 @@ import SwiftUI
 struct ContentViewToolbar: ToolbarContent {
     @ObservedObject var state: ContentViewState
     let projects: [Project]
+    let onHandleImportMenu: () -> Void
     
     var body: some ToolbarContent {
         // Settings menu (leading)
@@ -27,7 +28,7 @@ struct ContentViewToolbar: ToolbarContent {
                     Label("Page Setup", systemImage: "doc.richtext")
                 }
                 
-                Button(action: { state.showImportOptions = true }) {
+                Button(action: { onHandleImportMenu() }) {
                     Label("Import", systemImage: "arrow.down.doc")
                 }
                 

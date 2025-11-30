@@ -53,7 +53,7 @@ struct ContentViewBody: View {
             }
             .navigationTitle(NSLocalizedString("contentView.title", comment: "Title of projects list"))
             .toolbar {
-                ContentViewToolbar(state: state, projects: projects)
+                ContentViewToolbar(state: state, projects: projects, onHandleImportMenu: onHandleImportMenu)
             }
             .sheet(isPresented: $state.showAddProject) {
                 AddProjectSheet(isPresented: $state.showAddProject)
