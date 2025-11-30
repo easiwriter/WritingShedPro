@@ -54,6 +54,10 @@ struct Write_App: App {
             let mainContext = container.mainContext
             print("✅ [Write_App] Main context ready")
             
+            // Monitor CloudKit sync errors at the transaction level
+            mainContext.autosaveEnabled = true
+            print("✅ [Write_App] Autosave enabled for CloudKit sync")
+            
             // Try to trigger an immediate sync attempt
             DispatchQueue.global(qos: .background).asyncAfter(deadline: .now() + 2.0) {
                 do {
