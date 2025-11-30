@@ -143,9 +143,11 @@ class ImportService {
     /// Get the URL for the legacy database
     /// If not found, prompt user to select it manually
     private func getLegacyDatabaseURL() -> URL? {
+        print("[ImportService] getLegacyDatabaseURL called")
         // First, try auto-detection
         let autoDetected = attemptAutoDetect()
         if let url = autoDetected {
+            print("[ImportService] Auto-detect found database: \(url)")
             return url
         }
         
