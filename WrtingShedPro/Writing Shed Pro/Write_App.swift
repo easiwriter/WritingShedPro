@@ -42,7 +42,7 @@ struct Write_App: App {
             "WritingShedProConfiguration",
             schema: schema,
             url: storeURL,
-            cloudKitDatabase: .private("iCloud.com.appworks.writingshedpro")
+            cloudKitDatabase: .private("iCloud.com.appworks.writingshedpro.v2")
         )
 
         do {
@@ -93,7 +93,7 @@ struct Write_App: App {
         print("========================================")
         print("🚀 App initializing...")
         
-        print("✅ [CloudKit Config] Container: iCloud.com.appworks.writingshedpro")
+        print("✅ [CloudKit Config] Container: iCloud.com.appworks.writingshedpro.v2")
         print("✅ [CloudKit Config] Database: private")
         print("✅ [CloudKit Config] aps-environment: production")
         
@@ -102,7 +102,7 @@ struct Write_App: App {
         logToFile("🚀 Writing Shed Pro APP LAUNCHED")
         logToFile("========================================")
         logToFile("🚀 App initializing...")
-        logToFile("✅ [CloudKit Config] Container: iCloud.com.appworks.writingshedpro")
+        logToFile("✅ [CloudKit Config] Container: iCloud.com.appworks.writingshedpro.v2")
         logToFile("✅ [CloudKit Config] Database: private")
         logToFile("✅ [CloudKit Config] aps-environment: production")
         
@@ -147,7 +147,7 @@ struct Write_App: App {
     }
     
     private func checkContainerStatus() {
-        let container = CKContainer(identifier: "iCloud.com.appworks.writingshedpro")
+        let container = CKContainer(identifier: "iCloud.com.appworks.writingshedpro.v2")
         
         container.accountStatus { status, error in
             if status == .available {

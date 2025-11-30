@@ -11,6 +11,7 @@ import CloudKit
 
 struct SyncDiagnosticsView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
     @Query private var stylesheets: [StyleSheet]
     @Query private var projects: [Project]
     
@@ -65,6 +66,13 @@ struct SyncDiagnosticsView: View {
             }
             .navigationTitle("Sync Diagnostics")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                }
+            }
             .onAppear {
                 checkiCloudStatus()
             }
@@ -100,7 +108,7 @@ struct SyncDiagnosticsView: View {
     }
     
     private func checkContainerStatus() {
-        let container = CKContainer(identifier: "iCloud.com.appworks.writingshedpro")
+        let container = CKContainer(identifier: "iCloud.com.appworks.writingshedpro.v2")
         
         container.privateCloudDatabase.fetch(withRecordID: CKRecord.ID(recordName: "test")) { record, error in
             DispatchQueue.main.async {
