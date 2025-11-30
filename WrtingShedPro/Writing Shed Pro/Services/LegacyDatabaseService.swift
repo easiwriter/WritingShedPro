@@ -129,13 +129,11 @@ class LegacyDatabaseService {
         let coordinator = NSPersistentStoreCoordinator(managedObjectModel: model)
         
         do {
-            // Add persistent store with migration support
-            // Note: We don't use NSReadOnlyPersistentStoreOption because Core Data needs write access
-            // to perform schema migration. The import process itself is read-only, but the store
-            // connection requires write permission for migration.
+            // Add persistent store as read-only
+            // We only need to read legacy data, not modify it
+            // Read-only access prevents schema migration attempts and avoids file locking issues
             let options = [
-                NSMigratePersistentStoresAutomaticallyOption: true,
-                NSInferMappingModelAutomaticallyOption: true
+                NSReadOnlyPersistentStoreOption: true
             ] as [String: Any]
             
             try coordinator.addPersistentStore(
