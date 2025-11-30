@@ -20,7 +20,7 @@ final class Project {
     var notes: String?
     var userOrder: Int?
     @Relationship(deleteRule: .cascade, inverse: \Folder.project) var folders: [Folder]?
-    @Relationship(deleteRule: .cascade, inverse: \TrashItem.project) var trashedItems: [TrashItem]?
+    var trashedItems: [TrashItem]? // Inverse for TrashItem.project
     
     // Feature 008b: Publication Management
     @Relationship(deleteRule: .cascade, inverse: \Publication.project) var publications: [Publication]? = []
@@ -82,7 +82,7 @@ final class Folder {
     @Relationship(deleteRule: .cascade) var textFiles: [TextFile]?  // Inverse is TextFile.parentFolder
     @Relationship(inverse: \Folder.folders) var parentFolder: Folder?  // Inverse is folders
     var project: Project?
-    @Relationship(deleteRule: .cascade, inverse: \TrashItem.originalFolder) var trashedItems: [TrashItem]?
+    var trashedItems: [TrashItem]? // Inverse for TrashItem.originalFolder
     
     init(name: String?, project: Project? = nil, parentFolder: Folder? = nil) {
         self.name = name
@@ -322,8 +322,7 @@ final class TextFile {
     @Relationship(deleteRule: .cascade, inverse: \Version.textFile) 
     var versions: [Version]? = nil
     
-    @Relationship(deleteRule: .nullify, inverse: \TrashItem.textFile) 
-    var trashItem: TrashItem?
+    var trashItem: TrashItem? // Inverse for TrashItem.textFile
     
     // Feature 008b: Publication Management
     @Relationship(deleteRule: .nullify, inverse: \SubmittedFile.textFile) 
