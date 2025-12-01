@@ -124,11 +124,10 @@ struct AddProjectSheet: View {
             }
         } catch {
             print("❌ Error saving project: \(error)")
-            if let nsError = error as? NSError {
-                print("   Error domain: \(nsError.domain)")
-                print("   Error code: \(nsError.code)")
-                print("   UserInfo: \(nsError.userInfo)")
-            }
+            let nsError = error as NSError
+            print("   Error domain: \(nsError.domain)")
+            print("   Error code: \(nsError.code)")
+            print("   UserInfo: \(nsError.userInfo)")
             errorMessage = "Failed to save project: \(error.localizedDescription)"
             showErrorAlert = true
             return

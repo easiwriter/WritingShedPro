@@ -66,10 +66,9 @@ struct Write_App: App {
                     print("✅ [Write_App] Background sync save triggered")
                 } catch {
                     print("❌ [Write_App] Background sync save failed: \(error)")
-                    if let nsError = error as? NSError {
-                        print("   Domain: \(nsError.domain), Code: \(nsError.code)")
-                        print("   UserInfo: \(nsError.userInfo)")
-                    }
+                    let nsError = error as NSError
+                    print("   Domain: \(nsError.domain), Code: \(nsError.code)")
+                    print("   UserInfo: \(nsError.userInfo)")
                 }
             }
             
@@ -81,11 +80,10 @@ struct Write_App: App {
         } catch {
             let errorMsg = "❌ [Write_App] Failed to create ModelContainer: \(error)"
             print(errorMsg)
-            if let nsError = error as? NSError {
-                print("   Error domain: \(nsError.domain)")
-                print("   Error code: \(nsError.code)")
-                print("   Error description: \(nsError.localizedDescription)")
-            }
+            let nsError = error as NSError
+            print("   Error domain: \(nsError.domain)")
+            print("   Error code: \(nsError.code)")
+            print("   Error description: \(nsError.localizedDescription)")
             fatalError(errorMsg)
         }
     }()
@@ -188,7 +186,7 @@ struct Write_App: App {
     }
     
     private func verifyCloudKitWritable(container: CKContainer) {
-        let testRecord = CKRecord(recordType: "_CloudKitWriteTest", recordID: CKRecordID(recordName: "writetest-\(UUID().uuidString)"))
+        let testRecord = CKRecord(recordType: "_CloudKitWriteTest", recordID: CKRecord.ID(recordName: "writetest-\(UUID().uuidString)"))
         testRecord["timestamp"] = Date()
         
         container.privateCloudDatabase.save(testRecord) { record, error in
