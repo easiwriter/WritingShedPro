@@ -87,6 +87,8 @@ struct Write_App: App {
             // Initialize default stylesheets on first launch
             StyleSheetService.initializeStyleSheetsIfNeeded(context: mainContext)
             print("✅ [Write_App] Stylesheets initialized")
+            
+            return container
         } catch let error as NSError {
             let errorMsg = "❌ [Write_App] CRITICAL: ModelContainer initialization failed"
             print(errorMsg)
