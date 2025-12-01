@@ -189,6 +189,9 @@ struct Write_App: App {
         let testRecord = CKRecord(recordType: "_CloudKitWriteTest", recordID: CKRecord.ID(recordName: "writetest-\(UUID().uuidString)"))
         testRecord["timestamp"] = Date()
         
+        print("📝 [CloudKit Write Test] Attempting to write test record...")
+        self.logToFile("📝 [CloudKit Write Test] Attempting to write test record...")
+        
         container.privateCloudDatabase.save(testRecord) { record, error in
             if let error = error {
                 let errorMsg = "❌ [CloudKit Write Test] Failed to write test record: \(error.localizedDescription)"
@@ -196,16 +199,22 @@ struct Write_App: App {
                 self.logToFile(errorMsg)
                 if let ckError = error as? CKError {
                     print("   CKError code: \(ckError.code)")
+                    print("   CKError message: \(ckError.localizedDescription)")
                     self.logToFile("   CKError code: \(ckError.code)")
+                    self.logToFile("   CKError message: \(ckError.localizedDescription)")
                 }
             } else if let record = record {
-                print("✅ [CloudKit Write Test] Successfully wrote test record to Production")
-                self.logToFile("✅ [CloudKit Write Test] Successfully wrote test record to Production")
+                let successMsg = "✅ [CloudKit Write Test] Successfully wrote test record to Production (ID: \(record.recordID.recordName))"
+                print(successMsg)
+                self.logToFile(successMsg)
                 
                 // Clean up the test record
                 container.privateCloudDatabase.delete(withRecordID: record.recordID) { _, error in
                     if error == nil {
                         print("✅ [CloudKit Write Test] Cleaned up test record")
+                        self.logToFile("✅ [CloudKit Write Test] Cleaned up test record")
+                    } else if let error = error {
+                        print("⚠️ [CloudKit Write Test] Could not clean up test record: \(error.localizedDescription)")
                     }
                 }
             }
