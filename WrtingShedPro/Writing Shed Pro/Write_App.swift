@@ -72,7 +72,7 @@ struct Write_App: App {
             print("   Error code: \(error.code)")
             print("   Error description: \(error.localizedDescription)")
             print("   Full error: \(error)")
-            if let underlyingError = error.underlyingError {
+            if let underlyingError = error.userInfo[NSUnderlyingErrorKey] as? NSError {
                 print("   Underlying error: \(underlyingError)")
             }
             // Log to file as well using direct file I/O
