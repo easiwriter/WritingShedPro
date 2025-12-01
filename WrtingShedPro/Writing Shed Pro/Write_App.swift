@@ -56,21 +56,6 @@ struct Write_App: App {
             
             // Monitor CloudKit sync errors at the transaction level
             mainContext.autosaveEnabled = true
-            print("✅ [Write_App] Autosave enabled for CloudKit sync")
-            
-            // Try to trigger an immediate sync attempt
-            DispatchQueue.global(qos: .background).asyncAfter(deadline: .now() + 2.0) {
-                do {
-                    // Force a context save which should trigger CloudKit sync
-                    try mainContext.save()
-                    print("✅ [Write_App] Background sync save triggered")
-                } catch {
-                    print("❌ [Write_App] Background sync save failed: \(error)")
-                    let nsError = error as NSError
-                    print("   Domain: \(nsError.domain), Code: \(nsError.code)")
-                    print("   UserInfo: \(nsError.userInfo)")
-                }
-            }
             
             // Initialize default stylesheets on first launch
             StyleSheetService.initializeStyleSheetsIfNeeded(context: mainContext)
@@ -162,9 +147,6 @@ struct Write_App: App {
                         let zoneMsg = "✅ Private database accessible, zones: \(zones.count)"
                         print(zoneMsg)
                         self.logToFile(zoneMsg)
-                        
-                        // Try a test write to verify CloudKit actually works
-                        self.verifyCloudKitWritable(container: container)
                     }
                     if let error = error {
                         let errorMsg = "❌ Error fetching zones: \(error.localizedDescription)"
@@ -185,41 +167,6 @@ struct Write_App: App {
         }
     }
     
-    private func verifyCloudKitWritable(container: CKContainer) {
-        let testRecord = CKRecord(recordType: "_CloudKitWriteTest", recordID: CKRecord.ID(recordName: "writetest-\(UUID().uuidString)"))
-        testRecord["timestamp"] = Date()
-        
-        print("📝 [CloudKit Write Test] Attempting to write test record...")
-        self.logToFile("📝 [CloudKit Write Test] Attempting to write test record...")
-        
-        container.privateCloudDatabase.save(testRecord) { record, error in
-            if let error = error {
-                let errorMsg = "❌ [CloudKit Write Test] Failed to write test record: \(error.localizedDescription)"
-                print(errorMsg)
-                self.logToFile(errorMsg)
-                if let ckError = error as? CKError {
-                    print("   CKError code: \(ckError.code)")
-                    print("   CKError message: \(ckError.localizedDescription)")
-                    self.logToFile("   CKError code: \(ckError.code)")
-                    self.logToFile("   CKError message: \(ckError.localizedDescription)")
-                }
-            } else if let record = record {
-                let successMsg = "✅ [CloudKit Write Test] Successfully wrote test record to Production (ID: \(record.recordID.recordName))"
-                print(successMsg)
-                self.logToFile(successMsg)
-                
-                // Clean up the test record
-                container.privateCloudDatabase.delete(withRecordID: record.recordID) { _, error in
-                    if error == nil {
-                        print("✅ [CloudKit Write Test] Cleaned up test record")
-                        self.logToFile("✅ [CloudKit Write Test] Cleaned up test record")
-                    } else if let error = error {
-                        print("⚠️ [CloudKit Write Test] Could not clean up test record: \(error.localizedDescription)")
-                    }
-                }
-            }
-        }
-    }
     
     /// Log messages to a file in the app's documents directory for TestFlight diagnostics
     private func logToFile(_ message: String) {
