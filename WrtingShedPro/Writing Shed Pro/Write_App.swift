@@ -60,11 +60,37 @@ struct Write_App: App {
             // Monitor CloudKit sync errors at the transaction level
             mainContext.autosaveEnabled = true
             
+            // Add observer for sync errors
+            NotificationCenter.default.addObserver(
+                forName: NSNotification.Name("NSPersistentStoreRemoteChangeNotification"),
+                object: nil,
+                queue: .main
+            ) { notification in
+                print("🔄 [CloudKit] Remote change notification received")
+                Write_App.logErrorToFile("🔄 [CloudKit] Remote change notification received")
+            }
+            
+            // Monitor for CloudKit errors through transaction notifications
+            NotificationCenter.default.addObserver(
+                forName: NSNotification.Name("NSPersistentStoreCoordinatorStoresDidChangeNotification"),
+                object: nil,
+                queue: .main
+            ) { notification in
+                print("🔄 [CloudKit] Stores changed - possible sync event")
+                Write_App.logErrorToFile("🔄 [CloudKit] Stores changed - possible sync event")
+            }
+            
+            // Check the actual store URL and configuration
+            print("✅ [Write_App] Database configuration:")
+            print("   Store URL: \(storeURL)")
+            print("   Schema types: \(schema.models.count)")
+            for model in schema.models {
+                print("   - \(model.name)")
+            }
+            
             // Initialize default stylesheets on first launch
             StyleSheetService.initializeStyleSheetsIfNeeded(context: mainContext)
             print("✅ [Write_App] Stylesheets initialized")
-            
-            return container
         } catch let error as NSError {
             let errorMsg = "❌ [Write_App] CRITICAL: ModelContainer initialization failed"
             print(errorMsg)

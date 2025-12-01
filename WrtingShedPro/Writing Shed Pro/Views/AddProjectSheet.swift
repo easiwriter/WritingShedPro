@@ -103,7 +103,9 @@ struct AddProjectSheet: View {
         
         // Explicitly save to trigger CloudKit sync
         do {
+            print("💾 [AddProjectSheet] Attempting to save new project: \(projectName)")
             try modelContext.save()
+            print("✅ [AddProjectSheet] Project saved to local database")
             
             // Force CloudKit sync by attempting a fetch
             DispatchQueue.global(qos: .background).asyncAfter(deadline: .now() + 0.5) {
@@ -111,12 +113,13 @@ struct AddProjectSheet: View {
                     // Force the sync by doing a no-op fetch
                     let descriptor = FetchDescriptor<Project>()
                     let allProjects = try modelContext.fetch(descriptor)
-                    print("✅ Forced CloudKit sync with fetch: \(allProjects.count) projects now visible")
+                    print("✅ [AddProjectSheet] Forced CloudKit sync with fetch: \(allProjects.count) projects now visible")
                 } catch {
-                    print("⚠️ Fetch for sync failed (non-critical): \(error)")
+                    print("⚠️ [AddProjectSheet] Fetch for sync failed (non-critical): \(error)")
                 }
             }
         } catch {
+            print("❌ [AddProjectSheet] Failed to save project: \(error.localizedDescription)")
             errorMessage = "Failed to save project: \(error.localizedDescription)"
             showErrorAlert = true
             return
