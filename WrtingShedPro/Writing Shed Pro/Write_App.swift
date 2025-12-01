@@ -47,6 +47,9 @@ struct Write_App: App {
 
         do {
             print("✅ [Write_App] Creating ModelContainer...")
+            print("   Container ID: iCloud.com.appworks.writingshedpro")
+            print("   Database URL: \(storeURL.path)")
+            print("   Configuration: WritingShedProConfiguration")
             let container = try ModelContainer(for: schema, configurations: [modelConfiguration])
             print("✅ [Write_App] ModelContainer created successfully with CloudKit enabled")
             
@@ -62,13 +65,26 @@ struct Write_App: App {
             print("✅ [Write_App] Stylesheets initialized")
             
             return container
-        } catch {
-            let errorMsg = "❌ [Write_App] Failed to create ModelContainer: \(error)"
+        } catch let error as NSError {
+            let errorMsg = "❌ [Write_App] CRITICAL: ModelContainer initialization failed"
             print(errorMsg)
-            let nsError = error as NSError
-            print("   Error domain: \(nsError.domain)")
-            print("   Error code: \(nsError.code)")
-            print("   Error description: \(nsError.localizedDescription)")
+            print("   Error domain: \(error.domain)")
+            print("   Error code: \(error.code)")
+            print("   Error description: \(error.localizedDescription)")
+            print("   Full error: \(error)")
+            if let underlyingError = error.underlyingError {
+                print("   Underlying error: \(underlyingError)")
+            }
+            // Log to file as well using direct file I/O
+            Write_App.logErrorToFile(errorMsg)
+            Write_App.logErrorToFile("   Error domain: \(error.domain)")
+            Write_App.logErrorToFile("   Error code: \(error.code)")
+            Write_App.logErrorToFile("   Error description: \(error.localizedDescription)")
+            fatalError(errorMsg)
+        } catch {
+            let errorMsg = "❌ [Write_App] CRITICAL: ModelContainer initialization failed with unknown error: \(error)"
+            print(errorMsg)
+            Write_App.logErrorToFile(errorMsg)
             fatalError(errorMsg)
         }
     }()
@@ -191,6 +207,31 @@ struct Write_App: App {
             }
         } else {
             // Create new file
+            try? logEntry.write(to: logFileURL, atomically: true, encoding: .utf8)
+        }
+    }
+    
+    /// Static helper to log errors during initialization
+    private static func logErrorToFile(_ message: String) {
+        guard let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            return
+        }
+        
+        let logFileURL = documentsDirectory.appendingPathComponent("CloudKitDiagnostics.log")
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
+        let timestamp = formatter.string(from: Date())
+        let logEntry = "[\(timestamp)] \(message)\n"
+        
+        if FileManager.default.fileExists(atPath: logFileURL.path) {
+            if let fileHandle = FileHandle(forWritingAtPath: logFileURL.path) {
+                fileHandle.seekToEndOfFile()
+                if let data = logEntry.data(using: .utf8) {
+                    fileHandle.write(data)
+                }
+                fileHandle.closeFile()
+            }
+        } else {
             try? logEntry.write(to: logFileURL, atomically: true, encoding: .utf8)
         }
     }
