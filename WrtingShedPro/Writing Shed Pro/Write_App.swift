@@ -83,10 +83,6 @@ struct Write_App: App {
             // Check the actual store URL and configuration
             print("✅ [Write_App] Database configuration:")
             print("   Store URL: \(storeURL)")
-            print("   Schema types: \(schema.models.count)")
-            for model in schema.models {
-                print("   - \(model.name)")
-            }
             
             // Initialize default stylesheets on first launch
             StyleSheetService.initializeStyleSheetsIfNeeded(context: mainContext)
