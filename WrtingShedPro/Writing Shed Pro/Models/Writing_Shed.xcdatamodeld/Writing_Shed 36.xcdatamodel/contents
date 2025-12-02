@@ -1,0 +1,545 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="19206" systemVersion="21A5506j" minimumToolsVersion="Xcode 7.3" sourceLanguage="Swift" userDefinedModelVersionIdentifier="v36.0">
+    <entity name="WS_AppStore_Entity" representedClassName="WS_AppStore_Entity" syncable="YES" codeGenerationType="class">
+        <attribute name="alertFlags" optional="YES" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="NO" syncable="YES"/>
+        <attribute name="timeLeft" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="NO" syncable="YES"/>
+        <attribute name="uniqueIdentifier" optional="YES" attributeType="String" syncable="YES"/>
+    </entity>
+    <entity name="WS_Chapter_Entity" representedClassName="WS_Chapter_Entity" parentEntity="WS_Collection_Entity" elementID="Chapter" syncable="YES"/>
+    <entity name="WS_Character_Entity" representedClassName="WS_Character_Entity" parentEntity="WS_SceneComponent_Entity" elementID="Character" syncable="YES">
+        <attribute name="history" attributeType="String" defaultValueString="@&quot;&quot;" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="history"/>
+            </userInfo>
+        </attribute>
+        <attribute name="looks" attributeType="String" defaultValueString="@&quot;&quot;" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="looks"/>
+            </userInfo>
+        </attribute>
+        <attribute name="traits" attributeType="String" defaultValueString="@&quot;&quot;" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="traits"/>
+            </userInfo>
+        </attribute>
+        <attribute name="work" attributeType="String" defaultValueString="@&quot;&quot;" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="work"/>
+            </userInfo>
+        </attribute>
+    </entity>
+    <entity name="WS_CollectedVersion_Entity" representedClassName="WS_CollectedVersion_Entity" elementID="CollectedVersion" syncable="YES">
+        <attribute name="imported" optional="YES" attributeType="String" syncable="YES"/>
+        <attribute name="positionInCollection" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="NO" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="positionInCollection"/>
+            </userInfo>
+        </attribute>
+        <attribute name="status" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="NO" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="status"/>
+            </userInfo>
+        </attribute>
+        <attribute name="uniqueIdentifier" optional="YES" attributeType="String" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="uniqueIdentifier"/>
+            </userInfo>
+        </attribute>
+        <relationship name="textCollection" maxCount="1" deletionRule="Nullify" destinationEntity="WS_TextCollection_Entity" inverseName="collectedVersions" inverseEntity="WS_TextCollection_Entity" syncable="YES"/>
+        <relationship name="version" maxCount="1" deletionRule="Nullify" destinationEntity="WS_Version_Entity" inverseName="collectedVersions" inverseEntity="WS_Version_Entity" syncable="YES"/>
+        <userInfo>
+            <entry key="identityAttribute" value="uniqueIdentifier"/>
+        </userInfo>
+    </entity>
+    <entity name="WS_Collection_Entity" representedClassName="WS_Collection_Entity" parentEntity="WS_CollectionComponent_Entity" elementID="Collection" syncable="YES">
+        <attribute name="dateCreated" attributeType="Date" defaultDateTimeInterval="513677760" usesScalarValueType="NO" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="dateCreated"/>
+            </userInfo>
+        </attribute>
+        <attribute name="groupName" attributeType="String" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="groupName"/>
+            </userInfo>
+        </attribute>
+        <attribute name="position" attributeType="Integer 16" defaultValueString="-1" usesScalarValueType="NO" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="position"/>
+            </userInfo>
+        </attribute>
+        <relationship name="collectionSubmissions" toMany="YES" deletionRule="Cascade" destinationEntity="WS_CollectionSubmission_Entity" inverseName="collection" inverseEntity="WS_CollectionSubmission_Entity" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="collectionSubmissions"/>
+            </userInfo>
+        </relationship>
+        <relationship name="textCollection" maxCount="1" deletionRule="Cascade" destinationEntity="WS_TextCollection_Entity" inverseName="collection" inverseEntity="WS_TextCollection_Entity" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="textCollection"/>
+            </userInfo>
+        </relationship>
+        <relationship name="texts" toMany="YES" deletionRule="Nullify" destinationEntity="WS_Text_Entity" inverseName="collections" inverseEntity="WS_Text_Entity" syncable="YES"/>
+        <userInfo>
+            <entry key="entityMapperName" value="WS_CollectionEntityMapper"/>
+        </userInfo>
+    </entity>
+    <entity name="WS_CollectionComponent_Entity" representedClassName="WS_CollectionComponent_Entity" elementID="CollectionComponent" syncable="YES">
+        <attribute name="createdOn" attributeType="Date" defaultDateTimeInterval="513160200" usesScalarValueType="NO" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="createdOn"/>
+            </userInfo>
+        </attribute>
+        <attribute name="imported" optional="YES" attributeType="String" syncable="YES"/>
+        <attribute name="name" attributeType="String" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="name"/>
+            </userInfo>
+        </attribute>
+        <attribute name="notes" optional="YES" attributeType="Transformable" valueTransformerName="AttributedStringTransformer" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="notes"/>
+            </userInfo>
+        </attribute>
+        <attribute name="sectionIdentifier" attributeType="String" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="sectionIdentifier"/>
+            </userInfo>
+        </attribute>
+        <attribute name="uniqueIdentifier" attributeType="String" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="uniqueIdentifier"/>
+            </userInfo>
+        </attribute>
+        <relationship name="project" maxCount="1" deletionRule="Nullify" destinationEntity="WS_Project_Entity" inverseName="collectionComponents" inverseEntity="WS_Project_Entity" syncable="YES"/>
+        <userInfo>
+            <entry key="entityMapperName" value="WS_CollectionComponentEntityMapper"/>
+            <entry key="identityAttribute" value="uniqueIdentifier"/>
+        </userInfo>
+    </entity>
+    <entity name="WS_CollectionSubmission_Entity" representedClassName="WS_CollectionSubmission_Entity" elementID="CollectionSubmission" syncable="YES">
+        <attribute name="accepted" attributeType="Integer 16" defaultValueString="NO" usesScalarValueType="NO" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="accepted"/>
+            </userInfo>
+        </attribute>
+        <attribute name="imported" optional="YES" attributeType="String" syncable="YES"/>
+        <attribute name="notes" attributeType="String" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="notes"/>
+            </userInfo>
+        </attribute>
+        <attribute name="returnedOn" attributeType="String" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="returnedOn"/>
+            </userInfo>
+        </attribute>
+        <attribute name="returnExpectedBy" attributeType="Date" defaultDateTimeInterval="-31622400" usesScalarValueType="NO" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="returnExpectedBy"/>
+            </userInfo>
+        </attribute>
+        <attribute name="submittedOn" attributeType="Date" defaultDateTimeInterval="526292520" usesScalarValueType="NO" syncable="YES">
+            <userInfo>
+                <entry key="JSONTransformerName" value="Date"/>
+            </userInfo>
+        </attribute>
+        <attribute name="uniqueIdentifier" attributeType="String" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="uniqueIdentifier"/>
+            </userInfo>
+        </attribute>
+        <relationship name="collection" maxCount="1" deletionRule="Nullify" destinationEntity="WS_Collection_Entity" inverseName="collectionSubmissions" inverseEntity="WS_Collection_Entity" syncable="YES"/>
+        <relationship name="submission" maxCount="1" deletionRule="Nullify" destinationEntity="WS_Submission_Entity" inverseName="collectionSubmissions" inverseEntity="WS_Submission_Entity" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="submission"/>
+            </userInfo>
+        </relationship>
+        <userInfo>
+            <entry key="identityAttribute" value="uniqueIdentifier"/>
+        </userInfo>
+    </entity>
+    <entity name="WS_Location_Entity" representedClassName="WS_Location_Entity" parentEntity="WS_SceneComponent_Entity" elementID="Location" syncable="YES">
+        <attribute name="detail" optional="YES" attributeType="String" defaultValueString="@&quot;&quot;" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="detail"/>
+            </userInfo>
+        </attribute>
+        <attribute name="sights" optional="YES" attributeType="String" defaultValueString="@&quot;&quot;" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="sights"/>
+            </userInfo>
+        </attribute>
+        <attribute name="smells" optional="YES" attributeType="String" defaultValueString="@&quot;&quot;" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="smells"/>
+            </userInfo>
+        </attribute>
+        <attribute name="sounds" optional="YES" attributeType="String" defaultValueString="@&quot;&quot;" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="sounds"/>
+            </userInfo>
+        </attribute>
+    </entity>
+    <entity name="WS_Project_Entity" representedClassName="WS_Project_Entity" elementID="Project" syncable="YES">
+        <attribute name="bottom" attributeType="Float" minValueString="0" defaultValueString="108" usesScalarValueType="NO" syncable="YES"/>
+        <attribute name="centreFooter" optional="YES" attributeType="String" valueTransformerName="" syncable="YES"/>
+        <attribute name="centreHeader" optional="YES" attributeType="String" valueTransformerName="" syncable="YES"/>
+        <attribute name="createdOn" optional="YES" attributeType="Date" defaultDateTimeInterval="510312360" usesScalarValueType="NO" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="createdOn"/>
+            </userInfo>
+        </attribute>
+        <attribute name="footerSpacing" attributeType="Integer 16" defaultValueString="30" usesScalarValueType="NO" syncable="YES"/>
+        <attribute name="headerSpacing" attributeType="Integer 16" defaultValueString="30" usesScalarValueType="NO" syncable="YES"/>
+        <attribute name="imported" optional="YES" attributeType="String" syncable="YES"/>
+        <attribute name="left" attributeType="Float" minValueString="0" defaultValueString="72" usesScalarValueType="NO" syncable="YES"/>
+        <attribute name="leftFooter" optional="YES" attributeType="String" valueTransformerName="" syncable="YES"/>
+        <attribute name="leftHeader" optional="YES" attributeType="String" valueTransformerName="" syncable="YES"/>
+        <attribute name="name" attributeType="String" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="name"/>
+            </userInfo>
+        </attribute>
+        <attribute name="notes" optional="YES" attributeType="String" defaultValueString=" " syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="notes"/>
+            </userInfo>
+        </attribute>
+        <attribute name="pageLayout" optional="YES" attributeType="Transformable" valueTransformerName="PageLayoutTransformer" syncable="YES"/>
+        <attribute name="projectType" attributeType="String" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="projectType"/>
+            </userInfo>
+        </attribute>
+        <attribute name="right" optional="YES" attributeType="Float" minValueString="0" defaultValueString="72" usesScalarValueType="NO" syncable="YES"/>
+        <attribute name="rightFooter" optional="YES" attributeType="String" valueTransformerName="" syncable="YES"/>
+        <attribute name="rightHeader" optional="YES" attributeType="String" valueTransformerName="" syncable="YES"/>
+        <attribute name="targetWordCount" attributeType="Integer 32" defaultValueString="150000" usesScalarValueType="NO" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="targetWordCount"/>
+            </userInfo>
+        </attribute>
+        <attribute name="top" attributeType="Float" minValueString="0" defaultValueString="108" usesScalarValueType="NO" syncable="YES"/>
+        <attribute name="uniqueIdentifier" optional="YES" attributeType="String" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="uniqueIdentifier"/>
+            </userInfo>
+        </attribute>
+        <attribute name="updatedOn" optional="YES" attributeType="Date" defaultDateTimeInterval="510312360" usesScalarValueType="NO" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="updatedOn"/>
+            </userInfo>
+        </attribute>
+        <relationship name="collectionComponents" toMany="YES" deletionRule="Cascade" ordered="YES" destinationEntity="WS_CollectionComponent_Entity" inverseName="project" inverseEntity="WS_CollectionComponent_Entity" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="collectionComponents"/>
+            </userInfo>
+        </relationship>
+        <relationship name="sceneComponents" toMany="YES" deletionRule="Cascade" destinationEntity="WS_SceneComponent_Entity" inverseName="project" inverseEntity="WS_SceneComponent_Entity" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="sceneComponents"/>
+            </userInfo>
+        </relationship>
+        <relationship name="settings" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="WS_Settings_Entity" inverseName="projects" inverseEntity="WS_Settings_Entity" syncable="YES"/>
+        <relationship name="texts" toMany="YES" deletionRule="Cascade" destinationEntity="WS_Text_Entity" inverseName="project" inverseEntity="WS_Text_Entity" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="texts"/>
+            </userInfo>
+        </relationship>
+        <userInfo>
+            <entry key="identityAttribute" value="uniqueIdentifier"/>
+        </userInfo>
+    </entity>
+    <entity name="WS_Scene_Entity" representedClassName="WS_Scene_Entity" parentEntity="WS_Text_Entity" elementID="Scene" syncable="YES">
+        <attribute name="action" optional="YES" attributeType="String" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="action"/>
+            </userInfo>
+        </attribute>
+        <attribute name="notes" optional="YES" attributeType="String" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="notes"/>
+            </userInfo>
+        </attribute>
+        <attribute name="position" optional="YES" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="NO" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="position"/>
+            </userInfo>
+        </attribute>
+        <attribute name="role" optional="YES" attributeType="String" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="role"/>
+            </userInfo>
+        </attribute>
+        <relationship name="sceneComponents" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="WS_SceneComponent_Entity" inverseName="scenes" inverseEntity="WS_SceneComponent_Entity" syncable="YES"/>
+        <userInfo>
+            <entry key="entityMapperName" value="WS_SceneEntityMapper"/>
+        </userInfo>
+    </entity>
+    <entity name="WS_SceneComponent_Entity" representedClassName="WS_SceneComponent_Entity" elementID="SceneComponent" syncable="YES">
+        <attribute name="groupName" attributeType="String" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="groupName"/>
+            </userInfo>
+        </attribute>
+        <attribute name="imported" optional="YES" attributeType="String" syncable="YES"/>
+        <attribute name="name" attributeType="String" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="name"/>
+            </userInfo>
+        </attribute>
+        <attribute name="role" attributeType="String" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="role"/>
+            </userInfo>
+        </attribute>
+        <attribute name="sectionIdentifier" attributeType="String" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="sectionIdentifier"/>
+            </userInfo>
+        </attribute>
+        <attribute name="uniqueIdentifier" attributeType="String" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="uniqueIdentifier"/>
+            </userInfo>
+        </attribute>
+        <relationship name="project" maxCount="1" deletionRule="Nullify" destinationEntity="WS_Project_Entity" inverseName="sceneComponents" inverseEntity="WS_Project_Entity" syncable="YES"/>
+        <relationship name="scenes" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="WS_Scene_Entity" inverseName="sceneComponents" inverseEntity="WS_Scene_Entity" syncable="YES"/>
+        <userInfo>
+            <entry key="entityMapperName" value="WS_SceneComponentEntityMapper"/>
+            <entry key="identityAttribute" value="uniqueIdentifier"/>
+        </userInfo>
+    </entity>
+    <entity name="WS_Settings_Entity" representedClassName="WS_Settings_Entity" elementID="Settings" syncable="YES">
+        <attribute name="address" attributeType="String" defaultValueString="Unspecified" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="address"/>
+            </userInfo>
+        </attribute>
+        <attribute name="alertFlags" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="NO" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="alertFlags"/>
+            </userInfo>
+        </attribute>
+        <attribute name="author" attributeType="String" defaultValueString="Unspecified" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="author"/>
+            </userInfo>
+        </attribute>
+        <attribute name="currentProject" attributeType="String" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="currentProject"/>
+            </userInfo>
+        </attribute>
+        <attribute name="email" optional="YES" attributeType="String" defaultValueString="Unspecified" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="email"/>
+            </userInfo>
+        </attribute>
+        <attribute name="fontDefault" optional="YES" attributeType="String" defaultValueString="Time New Roman" syncable="YES"/>
+        <attribute name="fontSizeDefault" optional="YES" attributeType="Integer 16" defaultValueString="12" usesScalarValueType="NO" syncable="YES"/>
+        <attribute name="lastVersionReviewed" optional="YES" attributeType="String" syncable="YES"/>
+        <attribute name="nextReviewDate" optional="YES" attributeType="Date" usesScalarValueType="NO" elementID="trialEndDate" syncable="YES"/>
+        <attribute name="uniqueIdentifier" optional="YES" attributeType="String" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="uniqueIdentifier"/>
+            </userInfo>
+        </attribute>
+        <attribute name="units" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="NO" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="units"/>
+            </userInfo>
+        </attribute>
+        <relationship name="projects" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="WS_Project_Entity" inverseName="settings" inverseEntity="WS_Project_Entity" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="projects"/>
+            </userInfo>
+        </relationship>
+        <userInfo>
+            <entry key="identityAttribute" value="uniqueIdentifier"/>
+        </userInfo>
+    </entity>
+    <entity name="WS_Story_Entity" representedClassName="WS_Story_Entity" parentEntity="WS_Scene_Entity" elementID="Story" syncable="YES">
+        <attribute name="dummy" optional="YES" attributeType="String" defaultValueString="story" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="storyType"/>
+            </userInfo>
+        </attribute>
+    </entity>
+    <entity name="WS_Submission_Entity" representedClassName="WS_Submission_Entity" parentEntity="WS_CollectionComponent_Entity" elementID="Submission" syncable="YES">
+        <attribute name="groupName" attributeType="String" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="groupName"/>
+            </userInfo>
+        </attribute>
+        <relationship name="collectionSubmissions" toMany="YES" deletionRule="Nullify" destinationEntity="WS_CollectionSubmission_Entity" inverseName="submission" inverseEntity="WS_CollectionSubmission_Entity" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="collectionSubmissions"/>
+            </userInfo>
+        </relationship>
+    </entity>
+    <entity name="WS_Text_Entity" representedClassName="WS_Text_Entity" elementID="Text" syncable="YES">
+        <attribute name="dateCreated" attributeType="Date" defaultDateTimeInterval="469795260" usesScalarValueType="NO" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="dateCreated"/>
+            </userInfo>
+        </attribute>
+        <attribute name="dateLastUpdated" optional="YES" attributeType="Date" defaultDateTimeInterval="469795200" usesScalarValueType="NO" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="dateLastUpdated"/>
+            </userInfo>
+        </attribute>
+        <attribute name="groupName" attributeType="String" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="groupName"/>
+            </userInfo>
+        </attribute>
+        <attribute name="imported" optional="YES" attributeType="String" syncable="YES"/>
+        <attribute name="name" attributeType="String" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="name"/>
+            </userInfo>
+        </attribute>
+        <attribute name="quicklook" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="NO" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="quicklook"/>
+            </userInfo>
+        </attribute>
+        <attribute name="searchResult" optional="YES" attributeType="String" defaultValueString="@&quot;N&quot;" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="searchResult"/>
+            </userInfo>
+        </attribute>
+        <attribute name="sectionIdentifier" attributeType="String" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="sectionIdentifier"/>
+            </userInfo>
+        </attribute>
+        <attribute name="uniqueIdentifier" optional="YES" attributeType="String" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="uniqueIdentifier"/>
+            </userInfo>
+        </attribute>
+        <relationship name="collections" toMany="YES" deletionRule="Cascade" destinationEntity="WS_Collection_Entity" inverseName="texts" inverseEntity="WS_Collection_Entity" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="collections"/>
+            </userInfo>
+        </relationship>
+        <relationship name="project" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="WS_Project_Entity" inverseName="texts" inverseEntity="WS_Project_Entity" syncable="YES"/>
+        <relationship name="versions" toMany="YES" deletionRule="Cascade" destinationEntity="WS_Version_Entity" inverseName="text" inverseEntity="WS_Version_Entity" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="versions"/>
+            </userInfo>
+        </relationship>
+        <userInfo>
+            <entry key="entityMapperName" value="WS_TextEntityMapper"/>
+            <entry key="identityAttribute" value="uniqueIdentifier"/>
+        </userInfo>
+    </entity>
+    <entity name="WS_TextCollection_Entity" representedClassName="WS_TextCollection_Entity" parentEntity="WS_Text_Entity" elementID="TextCollection" syncable="YES">
+        <attribute name="unused" optional="YES" attributeType="String" defaultValueString="unused" syncable="YES"/>
+        <relationship name="collectedVersions" toMany="YES" deletionRule="Cascade" destinationEntity="WS_CollectedVersion_Entity" inverseName="textCollection" inverseEntity="WS_CollectedVersion_Entity" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="collectedVersions"/>
+            </userInfo>
+        </relationship>
+        <relationship name="collection" maxCount="1" deletionRule="Nullify" destinationEntity="WS_Collection_Entity" inverseName="textCollection" inverseEntity="WS_Collection_Entity" syncable="YES"/>
+    </entity>
+    <entity name="WS_TextString_Entity" representedClassName="WS_TextString_Entity" elementID="TextString" syncable="YES">
+        <attribute name="fileType" attributeType="String" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="fileType"/>
+            </userInfo>
+        </attribute>
+        <attribute name="imported" optional="YES" attributeType="String" syncable="YES"/>
+        <attribute name="textFile" attributeType="Transformable" valueTransformerName="AttributedStringTransformer" elementID="attributedText" syncable="YES"/>
+        <attribute name="uniqueIdentifier" optional="YES" attributeType="String" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="uniqueIdentifier"/>
+            </userInfo>
+        </attribute>
+        <relationship name="version" maxCount="1" deletionRule="Nullify" destinationEntity="WS_Version_Entity" inverseName="textString" inverseEntity="WS_Version_Entity" syncable="YES">
+            <userInfo>
+                <entry key="CDEMigrationBatchSizeKey" value="10"/>
+                <entry key="CDEMigrationPriorityKey" value="1"/>
+            </userInfo>
+        </relationship>
+        <userInfo>
+            <entry key="identityAttribute" value="uniqueIdentifier"/>
+        </userInfo>
+    </entity>
+    <entity name="WS_Version_Entity" representedClassName=".WS_Version_Entity" elementID="Version" syncable="YES">
+        <attribute name="date" attributeType="Date" usesScalarValueType="NO" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="date"/>
+            </userInfo>
+        </attribute>
+        <attribute name="dateLastUpdated" optional="YES" attributeType="Date" defaultDateTimeInterval="469796280" usesScalarValueType="NO" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="dateLastUpdated"/>
+            </userInfo>
+        </attribute>
+        <attribute name="imported" optional="YES" attributeType="String" syncable="YES"/>
+        <attribute name="locked" attributeType="Integer 16" defaultValueString="NO" usesScalarValueType="NO" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="locked"/>
+            </userInfo>
+        </attribute>
+        <attribute name="notes" optional="YES" attributeType="Transformable" valueTransformerName="AttributedStringTransformer" syncable="YES"/>
+        <attribute name="uniqueIdentifier" optional="YES" attributeType="String" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="uniqueIdentifier"/>
+            </userInfo>
+        </attribute>
+        <relationship name="collectedVersions" toMany="YES" deletionRule="Cascade" destinationEntity="WS_CollectedVersion_Entity" inverseName="version" inverseEntity="WS_CollectedVersion_Entity" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="collectedVersions"/>
+            </userInfo>
+        </relationship>
+        <relationship name="text" maxCount="1" deletionRule="Nullify" destinationEntity="WS_Text_Entity" inverseName="versions" inverseEntity="WS_Text_Entity" syncable="YES"/>
+        <relationship name="textString" maxCount="1" deletionRule="Cascade" destinationEntity="WS_TextString_Entity" inverseName="version" inverseEntity="WS_TextString_Entity" syncable="YES">
+            <userInfo>
+                <entry key="JSONKeyPath" value="testString"/>
+            </userInfo>
+        </relationship>
+        <userInfo>
+            <entry key="identityAttribute" value="uniqueIdentifier"/>
+        </userInfo>
+    </entity>
+    <fetchRequest name="WS_Chapter_Entity" entity="WS_Chapter_Entity" predicateString="NOT FALSEPREDICATE"/>
+    <fetchRequest name="WS_Character_Entity" entity="WS_Character_Entity" predicateString="NOT FALSEPREDICATE"/>
+    <fetchRequest name="WS_CollectedVersion_Entity" entity="WS_CollectedVersion_Entity" predicateString="NOT (FALSEPREDICATE)"/>
+    <fetchRequest name="WS_Collection_Entity" entity="WS_Collection_Entity" predicateString="groupName == &quot;Collections&quot;"/>
+    <fetchRequest name="WS_CollectionComponent_Entity" entity="WS_CollectionComponent_Entity" predicateString="NOT (FALSEPREDICATE)"/>
+    <fetchRequest name="WS_CollectionSubmission_Entity" entity="WS_CollectionSubmission_Entity" predicateString="NOT (FALSEPREDICATE)"/>
+    <fetchRequest name="WS_Location_Entity" entity="WS_Location_Entity" predicateString="NOT FALSEPREDICATE"/>
+    <fetchRequest name="WS_Project_Entity" entity="WS_Project_Entity" predicateString="NOT (FALSEPREDICATE)"/>
+    <fetchRequest name="WS_Scene_Entity" entity="WS_Scene_Entity" predicateString="NOT FALSEPREDICATE"/>
+    <fetchRequest name="WS_SceneComponent_Entity" entity="WS_SceneComponent_Entity" predicateString="NOT (FALSEPREDICATE)"/>
+    <fetchRequest name="WS_Settings_Entity" entity="WS_Settings_Entity" predicateString="NOT (FALSEPREDICATE)"/>
+    <fetchRequest name="WS_Story_Entity" entity="WS_Story_Entity" predicateString="NOT FALSEPREDICATE"/>
+    <fetchRequest name="WS_Submission_Entity" entity="WS_Submission_Entity" predicateString="NOT (FALSEPREDICATE)"/>
+    <fetchRequest name="WS_Text_Entity" entity="WS_Text_Entity" predicateString="NOT (FALSEPREDICATE)"/>
+    <fetchRequest name="WS_TextCollection_Entity" entity="WS_TextCollection_Entity" predicateString="NOT (FALSEPREDICATE)"/>
+    <fetchRequest name="WS_TextString_Entity" entity="WS_TextString_Entity" predicateString="NOT (FALSEPREDICATE)"/>
+    <fetchRequest name="WS_Version_Entity" entity="WS_Version_Entity" predicateString="NOT (FALSEPREDICATE)"/>
+    <elements>
+        <element name="WS_AppStore_Entity" positionX="-1125" positionY="63" width="128" height="88"/>
+        <element name="WS_Chapter_Entity" positionX="171" positionY="326" width="128" height="43"/>
+        <element name="WS_Character_Entity" positionX="-486" positionY="-240" width="128" height="103"/>
+        <element name="WS_CollectedVersion_Entity" positionX="-236" positionY="207" width="128" height="133"/>
+        <element name="WS_Collection_Entity" positionX="-29" positionY="252" width="128" height="133"/>
+        <element name="WS_CollectionComponent_Entity" positionX="-290" positionY="-217" width="128" height="134"/>
+        <element name="WS_CollectionSubmission_Entity" positionX="70" positionY="0" width="128" height="164"/>
+        <element name="WS_Location_Entity" positionX="-632" positionY="-240" width="128" height="103"/>
+        <element name="WS_Project_Entity" positionX="-947" positionY="-226" width="128" height="404"/>
+        <element name="WS_Scene_Entity" positionX="-776" positionY="425" width="128" height="118"/>
+        <element name="WS_SceneComponent_Entity" positionX="-479" positionY="-72" width="128" height="163"/>
+        <element name="WS_Settings_Entity" positionX="-1125" positionY="-189" width="128" height="223"/>
+        <element name="WS_Story_Entity" positionX="-963" positionY="455" width="128" height="58"/>
+        <element name="WS_Submission_Entity" positionX="-108" positionY="-144" width="128" height="73"/>
+        <element name="WS_Text_Entity" positionX="-767" positionY="180" width="128" height="223"/>
+        <element name="WS_TextCollection_Entity" positionX="-324" positionY="447" width="128" height="88"/>
+        <element name="WS_TextString_Entity" positionX="-252" positionY="81" width="128" height="104"/>
+        <element name="WS_Version_Entity" positionX="-480.39990234375" positionY="112.1629333496094" width="128" height="164"/>
+    </elements>
+</model>

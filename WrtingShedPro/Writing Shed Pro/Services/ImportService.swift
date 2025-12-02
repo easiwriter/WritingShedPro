@@ -165,36 +165,39 @@ class ImportService {
         
         let possibleFilenames = ["Writing-Shed.sqlite"]
         let legacyBundleIDs = [
-            "com.writing-shed.osx-writing-shed",  // Official macOS Writing Shed
-            "com.appworks.WriteBang"               // Developer's test build
+            "com.writing-shed.osx-writing-shed"   // Official macOS Writing Shed
         ]
         let fileManager = FileManager.default
         
         #if targetEnvironment(macCatalyst) || os(macOS)
         // For Mac: Check both sandboxed and non-sandboxed locations
         let userName = NSUserName()
+        print("[ImportService] attemptAutoDetect: Checking for legacy database...")
+        print("[ImportService] Current username: \(userName)")
         
         // Try all combinations: sandboxed first, then non-sandboxed
         for bundleID in legacyBundleIDs {
             for filename in possibleFilenames {
                 // Check sandboxed location first (App Store apps)
                 let sandboxedPath = "/Users/\(userName)/Library/Containers/\(bundleID)/Data/Library/Application Support/\(bundleID)/\(filename)"
+                print("[ImportService] Checking sandboxed path: \(sandboxedPath)")
                 if fileManager.fileExists(atPath: sandboxedPath) {
-                    print("[ImportService] Found legacy database at (sandboxed): \(sandboxedPath)")
+                    print("[ImportService] ✅ Found legacy database at (sandboxed): \(sandboxedPath)")
                     return URL(fileURLWithPath: sandboxedPath)
                 }
                 
                 // Check non-sandboxed location
                 let normalPath = "/Users/\(userName)/Library/Application Support/\(bundleID)/\(filename)"
+                print("[ImportService] Checking normal path: \(normalPath)")
                 if fileManager.fileExists(atPath: normalPath) {
-                    print("[ImportService] Found legacy database at: \(normalPath)")
+                    print("[ImportService] ✅ Found legacy database at: \(normalPath)")
                     return URL(fileURLWithPath: normalPath)
                 }
             }
         }
         
         // Log what we looked for
-        print("[ImportService] Legacy database not found. Checked paths:")
+        print("[ImportService] ❌ Legacy database not found. Checked paths:")
         for bundleID in legacyBundleIDs {
             for filename in possibleFilenames {
                 print("[ImportService]   - /Users/\(userName)/Library/Containers/\(bundleID)/Data/Library/Application Support/\(bundleID)/\(filename)")

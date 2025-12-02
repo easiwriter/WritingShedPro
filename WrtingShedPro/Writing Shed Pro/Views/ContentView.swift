@@ -24,22 +24,24 @@ struct ContentView: View {
     }
     
     /// Handle Import menu action with smart logic
-    /// Always shows import options dialog
+    /// Checks for legacy database and shows appropriate import options
     private func handleImportMenu() {
-        // Load legacy projects first
-        print("[ContentView] handleImportMenu: Loading legacy projects...")
-        state.availableLegacyProjects = importService.getUnimportedProjects(modelContext: modelContext)
-        print("[ContentView] handleImportMenu: Found \(state.availableLegacyProjects.count) legacy projects")
-        
-        // If no projects found, open file picker to manually select database
-        if state.availableLegacyProjects.isEmpty {
-            print("[ContentView] No legacy projects found - opening file picker for manual selection")
-            state.showManualDatabasePicker = true
-            return
+        // Check if legacy database exists (Mac only)
+        #if targetEnvironment(macCatalyst) || os(macOS)
+        if importService.legacyDatabaseExists() {
+            // Check if there are unimported projects
+            let unimported = importService.getUnimportedProjects(modelContext: modelContext)
+            if !unimported.isEmpty {
+                // Store available projects and show options dialog
+                state.availableLegacyProjects = unimported
+                state.showImportOptions = true
+                return
+            }
         }
+        #endif
         
-        // Show import options - let user choose between legacy or file
-        state.showImportOptions = true
+        // No legacy database or no unimported projects - show file picker directly
+        state.showingJSONImportPicker = true
     }
     
     /// Import selected legacy projects
