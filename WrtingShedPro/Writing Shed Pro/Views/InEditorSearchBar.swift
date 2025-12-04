@@ -202,6 +202,8 @@ struct InEditorSearchBar: View {
                         .buttonStyle(.borderless)
                         .font(.system(size: 15))
                         .disabled(!manager.canReplace)
+                        
+                        Spacer()
                     }
                     .padding(.horizontal, 16)
                     .padding(.bottom, 12)
