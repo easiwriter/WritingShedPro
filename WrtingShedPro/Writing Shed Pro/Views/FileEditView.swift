@@ -956,6 +956,9 @@ struct FileEditView: View {
         // Force refresh
         forceRefresh.toggle()
         refreshTrigger = UUID()
+        
+        // Notify search manager that content changed (undo/redo)
+        searchManager.notifyTextChanged()
     }
     
     // MARK: - Attributed Text Handling
