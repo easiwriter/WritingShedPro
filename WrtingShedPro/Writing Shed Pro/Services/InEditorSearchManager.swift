@@ -12,7 +12,7 @@ import Combine
 
 /// Manages search and replace operations within the active text editor
 @MainActor
-class InEditorSearchManager: NSObject, ObservableObject, UITextViewDelegate {
+class InEditorSearchManager: ObservableObject {
     
     // MARK: - Published Properties
     
@@ -59,6 +59,7 @@ class InEditorSearchManager: NSObject, ObservableObject, UITextViewDelegate {
     private let searchEngine = TextSearchEngine()
     private var matches: [SearchMatch] = []
     private var cancellables = Set<AnyCancellable>()
+    private var textChangeObserver: NSObjectProtocol?
     
     weak var textView: UITextView?
     weak var textStorage: NSTextStorage?
@@ -72,8 +73,7 @@ class InEditorSearchManager: NSObject, ObservableObject, UITextViewDelegate {
     
     // MARK: - Initialization
     
-    override init() {
-        super.init()
+    init() {
         setupDebouncing()
     }
     
@@ -342,37 +342,34 @@ extension InEditorSearchManager {
         self.textView = textView
         self.textStorage = textView.textStorage
         
-        // Set self as delegate to receive textViewDidChange callbacks
-        // This is called for ALL text changes including undo/redo
-        textView.delegate = self
+        // Observe text changes (including undo/redo)
+        textChangeObserver = NotificationCenter.default.addObserver(
+            forName: UITextView.textDidChangeNotification,
+            object: textView,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self = self else { return }
+            // Re-run search if we have an active search
+            Task { @MainActor in
+                if !self.searchText.isEmpty {
+                    self.performSearch()
+                }
+            }
+        }
     }
     
     /// Disconnect from text view
     func disconnect() {
         clearHighlights()
         
-        if let textView = self.textView {
-            textView.delegate = nil
+        // Remove text change observer
+        if let observer = textChangeObserver {
+            NotificationCenter.default.removeObserver(observer)
+            textChangeObserver = nil
         }
         
         self.textView = nil
         self.textStorage = nil
-    }
-    
-    // MARK: - UITextViewDelegate
-    
-    /// Called when text view content changes (including undo/redo)
-    func textViewDidChange(_ textView: UITextView) {
-        print("📢 textViewDidChange delegate called")
-        print("  - searchText: '\(self.searchText)'")
-        
-        // Re-run search if we have an active search
-        if !self.searchText.isEmpty {
-            print("  - Triggering performSearch()")
-            self.performSearch()
-        } else {
-            print("  - searchText is empty, not searching")
-        }
     }
 }
 
