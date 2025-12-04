@@ -44,6 +44,10 @@ struct FolderFilesView: View {
     @State private var showCollectionPicker = false
     @State private var filesToAddToCollection: [TextFile] = []
     
+    // State for rename
+    @State private var showRenamePicker = false
+    @State private var filesToRename: [TextFile] = []
+    
     // Sorted files based on current sort order
     private var sortedFiles: [TextFile] {
         let files: [TextFile]
@@ -105,17 +109,14 @@ struct FolderFilesView: View {
                     onDelete: { files in
                         deleteFiles(files)
                     },
-                    onSubmit: isReadyFolder ? { files in
-                        filesToSubmit = files
-                        showSubmissionPicker = true
-                    } : nil,
-                    onAddToCollection: isReadyFolder ? { files in
-                        filesToAddToCollection = files
-                        showCollectionPicker = true
-                    } : nil,
+                    onSubmit: fileListOnSubmit,
+                    onAddToCollection: fileListOnAddToCollection,
                     onReorder: {
-                        // User dragged to reorder - switch to Custom sort
                         sortOrder = .byUserOrder
+                    },
+                    onRename: { files in
+                        filesToRename = files
+                        showRenamePicker = true
                     }
                 )
             } else {
@@ -157,6 +158,7 @@ struct FolderFilesView: View {
                             Image(systemName: "arrow.up.arrow.down")
                         }
                         .accessibilityLabel("folderFiles.sort.accessibility")
+                        .disabled(editMode == .active)
                     }
                     
                     // Add file button (left of Edit)
@@ -167,6 +169,7 @@ struct FolderFilesView: View {
                             Image(systemName: "plus")
                         }
                         .accessibilityLabel("folderFiles.addFile.accessibility")
+                        .disabled(editMode == .active)
                     }
                     
                     // Manual Edit/Done button on far right (replaces SwiftUI's EditButton which isn't working)
@@ -243,6 +246,35 @@ struct FolderFilesView: View {
                 }
             }
         }
+        .sheet(isPresented: $showRenamePicker) {
+            if let file = filesToRename.first {
+                NavigationStack {
+                    RenameFileModal(
+                        file: file,
+                        filesInFolder: sortedFiles,
+                        onRename: { newName in
+                            renameFile(newName: newName)
+                        }
+                    )
+                }
+            }
+        }
+    }
+    
+    // MARK: - Computed Properties for Callbacks
+    
+    private var fileListOnSubmit: (([TextFile]) -> Void)? {
+        isReadyFolder ? { files in
+            filesToSubmit = files
+            showSubmissionPicker = true
+        } : nil
+    }
+    
+    private var fileListOnAddToCollection: (([TextFile]) -> Void)? {
+        isReadyFolder ? { files in
+            filesToAddToCollection = files
+            showCollectionPicker = true
+        } : nil
     }
     
     // MARK: - Actions
@@ -327,5 +359,21 @@ struct FolderFilesView: View {
         }
         
         filesToAddToCollection = []
+    }
+    
+    private func renameFile(newName: String) {
+        guard let file = filesToRename.first else { return }
+        
+        file.name = newName
+        
+        do {
+            try modelContext.save()
+        } catch {
+            print("Error renaming file: \(error)")
+            // TODO: Show error alert
+        }
+        
+        filesToRename = []
+        showRenamePicker = false
     }
 }

@@ -2232,6 +2232,24 @@ struct FileEditView: View {
                         print("🖼️ Using hardcoded defaults: scale=1.0, alignment=center")
                     }
                     
+                    // Calculate scale to fit image to window width
+                    if let uiImage = UIImage(data: compressedData),
+                       let textView = self.textViewCoordinator.textView {
+                        let imageWidth = uiImage.size.width
+                        // Get available width (text view width minus container insets)
+                        let availableWidth = textView.frame.width - textView.textContainerInset.left - textView.textContainerInset.right - (textView.textContainer.lineFragmentPadding * 2)
+                        
+                        // Only scale down if image is wider than available space
+                        if imageWidth > availableWidth {
+                            let fitToWidthScale = availableWidth / imageWidth
+                            // Clamp to valid range (0.1 to 2.0)
+                            scale = max(0.1, min(2.0, fitToWidthScale))
+                            print("🖼️ Image scaled to fit window: \(imageWidth)px → \(availableWidth)px, scale=\(scale)")
+                        } else {
+                            print("🖼️ Image fits naturally, using scale=\(scale)")
+                        }
+                    }
+                    
                     print("🖼️ Inserting image with settings from stylesheet")
                     self.insertImage(
                         imageData: compressedData,

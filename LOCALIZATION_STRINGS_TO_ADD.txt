@@ -1,0 +1,16 @@
+// Add these strings to your Localizable.strings file:
+
+// Rename functionality
+"fileList.rename" = "Rename";
+"fileList.rename.title" = "Rename File";
+"fileList.rename.prompt" = "Enter a new name for the file";
+"fileList.rename.placeholder" = "File name";
+"fileList.rename.confirm" = "Rename";
+"fileList.rename.cancel" = "Cancel";
+"fileList.rename.accessibility" = "Rename selected file";
+
+// Duplicate name warning
+"fileList.rename.duplicateTitle" = "Name Already Exists";
+"fileList.rename.duplicateMessage" = "A file with this name already exists in this folder. Do you want to continue?";
+"fileList.rename.duplicateConfirm" = "Continue";
+"fileList.rename.duplicateCancel" = "Cancel";

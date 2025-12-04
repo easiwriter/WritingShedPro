@@ -10,6 +10,15 @@ import Foundation
 import SwiftData
 import UIKit
 
+/// Errors that can occur during import
+public enum ImportError: Error {
+    case missingContent
+    case invalidData
+    case decodingFailed
+    case fileNotFound
+    case unknownError
+}
+
 /// Handles import of JSON files exported from Writing Shed v1
 class JSONImportService {
     
@@ -38,19 +47,37 @@ class JSONImportService {
     /// - Returns: The imported project
     /// - Throws: ImportError if import fails
     func importFromJSON(fileURL: URL) throws -> Project {
+        print("[JSONImport] ========== IMPORT START ==========")
+        print("[JSONImport] File: \(fileURL.lastPathComponent)")
+        
         // Read JSON file
         let jsonData = try Data(contentsOf: fileURL)
+        print("[JSONImport] File size: \(jsonData.count) bytes")
         
         // Decode JSON
         let decoder = JSONDecoder()
         let writingShedData = try decoder.decode(WritingShedData.self, from: jsonData)
         
         // Debug logging
+        print("[JSONImport] ===== FILE STRUCTURE =====")
         print("[JSONImport] Project Name: \(writingShedData.projectName)")
         print("[JSONImport] Project Model: \(writingShedData.projectModel)")
         print("[JSONImport] Text Files Count: \(writingShedData.textFileDatas.count)")
         print("[JSONImport] Collection Components Count: \(writingShedData.collectionComponentDatas.count)")
         print("[JSONImport] Scene Components Count: \(writingShedData.sceneComponentDatas.count)")
+        
+        // Detailed breakdown of collection components
+        var submissionCount = 0
+        var textCollectionCount = 0
+        for component in writingShedData.collectionComponentDatas {
+            if component.type == "WS_Submission_Entity" {
+                submissionCount += 1
+            } else if component.type == "WS_TextCollection_Entity" {
+                textCollectionCount += 1
+            }
+        }
+        print("[JSONImport] - Submissions: \(submissionCount)")
+        print("[JSONImport] - Text Collections: \(textCollectionCount)")
         
         // Validate project name
         guard !writingShedData.projectName.isEmpty else {
@@ -80,6 +107,16 @@ class JSONImportService {
         
         // Save
         try modelContext.save()
+        
+        print("[JSONImport] ===== IMPORT COMPLETE =====")
+        print("[JSONImport] Warnings: \(errorHandler.warnings.count)")
+        if !errorHandler.warnings.isEmpty {
+            print("[JSONImport] Warnings:")
+            for (index, warning) in errorHandler.warnings.enumerated() {
+                print("[JSONImport]   \(index + 1). \(warning)")
+            }
+        }
+        print("[JSONImport] ========== IMPORT END ==========")
         
         return project
     }

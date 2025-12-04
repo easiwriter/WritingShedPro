@@ -481,7 +481,7 @@ struct CollectionDetailView: View {
                                 Button {
                                     editingVersionItem = EditVersionItem(submittedFile: submittedFile, textFile: file)
                                 } label: {
-                                    Image(systemName: "pencil.circle")
+                                    Image(systemName: "square.and.pencil.circle")
                                         .foregroundStyle(.blue)
                                         .font(.body)
                                 }

@@ -90,10 +90,10 @@ final class FootnoteAttachmentRenumberingTests: XCTestCase {
         XCTAssertEqual(footnote3.number, 3)
         
         // Delete first footnote from database
-        FootnoteManager.shared.moveFootnoteToTrash(footnote1, context: modelContext)
+        FootnoteManager.shared.deleteFootnote(footnote1, context: modelContext)
         
         // Get fresh footnote data
-        let activeFootnotes = FootnoteManager.shared.getActiveFootnotes(forVersion: testVersion, context: modelContext)
+        let activeFootnotes = FootnoteManager.shared.getAllFootnotes(forVersion: testVersion, context: modelContext)
         let updatedFootnote2 = activeFootnotes.first { $0.id == footnote2.id }
         let updatedFootnote3 = activeFootnotes.first { $0.id == footnote3.id }
         
@@ -156,10 +156,10 @@ final class FootnoteAttachmentRenumberingTests: XCTestCase {
         )
         
         // Delete middle footnote
-        FootnoteManager.shared.moveFootnoteToTrash(footnote2, context: modelContext)
+        FootnoteManager.shared.deleteFootnote(footnote2, context: modelContext)
         
         // Get fresh data
-        let activeFootnotes = FootnoteManager.shared.getActiveFootnotes(forVersion: testVersion, context: modelContext)
+        let activeFootnotes = FootnoteManager.shared.getAllFootnotes(forVersion: testVersion, context: modelContext)
         let updatedFootnote1 = activeFootnotes.first { $0.id == footnote1.id }
         let updatedFootnote3 = activeFootnotes.first { $0.id == footnote3.id }
         
@@ -188,8 +188,8 @@ final class FootnoteAttachmentRenumberingTests: XCTestCase {
         XCTAssertEqual(attachment3?.number, 2) // Updated from 3 to 2
     }
     
-    func testFootnoteAttachmentsRenumberAfterRestore() throws {
-        // Create and delete a footnote
+    func testFootnoteAttachmentsRenumberAfterDelete() throws {
+        // Create footnotes
         let originalText = NSAttributedString(string: "One Two")
         
         let (afterFirst, footnote1) = FootnoteInsertionHelper.insertFootnote(
@@ -208,26 +208,17 @@ final class FootnoteAttachmentRenumberingTests: XCTestCase {
             context: modelContext
         )
         
-        // Delete first footnote
-        FootnoteManager.shared.moveFootnoteToTrash(footnote1, context: modelContext)
+        // Delete first footnote permanently
+        FootnoteManager.shared.deleteFootnote(footnote1, context: modelContext)
         
-        // Verify renumbering
-        let activeAfterDelete = FootnoteManager.shared.getActiveFootnotes(forVersion: testVersion, context: modelContext)
+        // Verify renumbering - footnote2 should now be #1
+        let activeAfterDelete = FootnoteManager.shared.getAllFootnotes(forVersion: testVersion, context: modelContext)
         let footnote2AfterDelete = activeAfterDelete.first { $0.id == footnote2.id }
         XCTAssertEqual(footnote2AfterDelete?.number, 1) // Was 2, now 1
         
-        // Restore first footnote
-        FootnoteManager.shared.restoreFootnote(footnote1, context: modelContext)
-        
-        // Verify renumbering again
-        let activeAfterRestore = FootnoteManager.shared.getActiveFootnotes(forVersion: testVersion, context: modelContext)
-        let footnote1AfterRestore = activeAfterRestore.first { $0.id == footnote1.id }
-        let footnote2AfterRestore = activeAfterRestore.first { $0.id == footnote2.id }
-        
-        XCTAssertEqual(footnote1AfterRestore?.number, 1) // Restored to 1
-        XCTAssertEqual(footnote2AfterRestore?.number, 2) // Back to 2
-        
-        // Update attachment numbers
+        // Verify first footnote is gone
+        let footnote1Found = activeAfterDelete.first { $0.id == footnote1.id }
+        XCTAssertNil(footnote1Found)
         let mutableText = NSMutableAttributedString(attributedString: textWithTwo)
         
         mutableText.enumerateAttribute(.attachment, in: NSRange(location: 0, length: mutableText.length)) { value, range, stop in

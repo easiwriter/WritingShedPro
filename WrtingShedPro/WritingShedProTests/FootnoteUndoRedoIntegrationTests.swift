@@ -108,13 +108,8 @@ final class FootnoteUndoRedoIntegrationTests: XCTestCase {
         version.footnotes?.append(footnote)
         
         // When - Delete the footnote (simulating user action)
-        // Note: In real app, this would call removeFootnoteFromText() which uses isPerformingUndoRedo flag
-        footnote.isDeleted = true
-        footnote.deletedAt = Date()
-        
-        // Simulate the programmatic operation by directly manipulating model
-        // without going through undoManager.execute()
-        // This mimics what removeFootnoteFromText() should do with isPerformingUndoRedo = true
+        // Remove footnote from version's collection (hard delete)
+        version.footnotes?.removeAll { $0.id == footnote.id }
         
         try? modelContext.save()
         
@@ -162,8 +157,6 @@ final class FootnoteUndoRedoIntegrationTests: XCTestCase {
             text: "Test footnote",
             number: 1
         )
-        footnote.isDeleted = true
-        footnote.deletedAt = Date()
         modelContext.insert(footnote)
         if version.footnotes == nil {
             version.footnotes = []
@@ -171,9 +164,8 @@ final class FootnoteUndoRedoIntegrationTests: XCTestCase {
         version.footnotes?.append(footnote)
         
         // When - Restore the footnote (simulating user action)
-        // Note: In real app, this would call restoreFootnoteToText() which uses isPerformingUndoRedo flag
-        footnote.isDeleted = false
-        footnote.deletedAt = nil
+        // Footnotes are already in the version, so this is a no-op
+        // In a soft-delete scenario, we'd mark isDeleted = false
         
         // Simulate the programmatic operation by directly manipulating model
         // without going through undoManager.execute()
@@ -298,8 +290,8 @@ final class FootnoteUndoRedoIntegrationTests: XCTestCase {
         version.footnotes?.append(footnote)
         
         // Delete without creating undo command (simulating isPerformingUndoRedo = true)
-        footnote.isDeleted = true
-        footnote.deletedAt = Date()
+        // Remove the footnote from the version
+        version.footnotes?.removeAll { $0.id == footnote.id }
         try? modelContext.save()
         
         // CRITICAL: Redo stack should still be intact
@@ -357,8 +349,8 @@ final class FootnoteUndoRedoIntegrationTests: XCTestCase {
         XCTAssertTrue(undoManager.canRedo, "Should be able to redo after undo")
         
         // When - Delete middle footnote and trigger renumbering (programmatic)
-        footnote2.isDeleted = true
-        footnote2.deletedAt = Date()
+        // Remove footnote2 from version
+        version.footnotes?.removeAll { $0.id == footnote2.id }
         
         // Renumber remaining footnotes (programmatic, should not affect undo/redo)
         footnote3.number = 2  // Renumbered from 3 to 2

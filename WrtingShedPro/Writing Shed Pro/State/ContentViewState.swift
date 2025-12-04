@@ -25,12 +25,6 @@ final class ContentViewState: ObservableObject {
     @Published var showPageSetup = false
     @Published var showContactSupport = false
     
-    // Import options
-    @Published var showImportOptions = false
-    @Published var showLegacyProjectPicker = false
-    @Published var availableLegacyProjects: [LegacyProjectData] = []
-    @Published var showManualDatabasePicker = false
-    
     // Debug
     @Published var showSyncDiagnostics = false
     

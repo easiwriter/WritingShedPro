@@ -11,23 +11,15 @@ import UniformTypeIdentifiers
 struct ContentViewBody: View {
     let projects: [Project]
     @ObservedObject var state: ContentViewState
-    let importService: ImportService
     
     let onInitialize: () -> Void
-    let onCheckImport: () -> Void
     let onHandleImportMenu: () -> Void
-    let onImportSelectedProjects: ([LegacyProjectData]) -> Void
     let onHandleJSONImport: (Result<[URL], Error>) -> Void
-    let onHandleManualDatabase: (Result<[URL], Error>) -> Void
     let onDeleteAllProjects: () -> Void
     
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                if state.isImporting {
-                    ImportProgressBanner(progressTracker: importService.getProgressTracker())
-                }
-                
                 ProjectEditableList(
                     projects: projects,
                     selectedSortOrder: $state.selectedSortOrder,
@@ -43,7 +35,6 @@ struct ContentViewBody: View {
             #endif
             .onAppear {
                 onInitialize()
-                onCheckImport()
             }
             .onChange(of: projects.isEmpty) { _, isEmpty in
                 if isEmpty && state.editMode == .active {
@@ -74,34 +65,6 @@ struct ContentViewBody: View {
             .sheet(isPresented: $state.showSyncDiagnostics) {
                 SyncDiagnosticsView()
             }
-            .sheet(isPresented: $state.showLegacyProjectPicker) {
-                LegacyProjectPickerView(
-                    availableProjects: state.availableLegacyProjects,
-                    isPresented: $state.showLegacyProjectPicker,
-                    onImport: { selectedProjects in
-                        onImportSelectedProjects(selectedProjects)
-                    }
-                )
-            }
-            .confirmationDialog("Choose Import Source", isPresented: $state.showImportOptions) {
-                let displayCount = importService.getDisplayableProjectCount(state.availableLegacyProjects)
-                if displayCount > 0 {
-                    Button("Import from Writing Shed (\(displayCount) available)") {
-                        state.showLegacyProjectPicker = true
-                    }
-                }
-                Button("Import from File...") {
-                    state.showingJSONImportPicker = true
-                }
-                Button("Cancel", role: .cancel) { }
-            } message: {
-                let displayCount = importService.getDisplayableProjectCount(state.availableLegacyProjects)
-                if displayCount > 0 {
-                    Text("Choose where to import projects from")
-                } else {
-                    Text("No Writing Shed projects to import")
-                }
-            }
             .fileImporter(
                 isPresented: $state.showingJSONImportPicker,
                 allowedContentTypes: [
@@ -111,16 +74,6 @@ struct ContentViewBody: View {
                 allowsMultipleSelection: false
             ) { result in
                 onHandleJSONImport(result)
-            }
-            .fileImporter(
-                isPresented: $state.showManualDatabasePicker,
-                allowedContentTypes: [
-                    UTType(filenameExtension: "sqlite") ?? .data,
-                    UTType(filenameExtension: "db") ?? .data
-                ],
-                allowsMultipleSelection: false
-            ) { result in
-                onHandleManualDatabase(result)
             }
             .alert("contentView.importError.title", isPresented: $state.showImportError) {
                 Button("button.ok", role: .cancel) { }

@@ -133,7 +133,7 @@ struct CommentDetailView: View {
                 VStack(spacing: 8) {
                     HStack(spacing: 8) {
                         Button(action: { isEditing = true }) {
-                            Label("commentDetail.edit", systemImage: "pencil")
+                            Label("commentDetail.edit", systemImage: "square.and.pencil")
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.bordered)

@@ -2,47 +2,34 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleDevelopmentRegion</key>
-    <string>en</string>
-    <key>CFBundleDisplayName</key>
-    <string>${PRODUCT_NAME}</string>
-    <key>CFBundleDocumentTypes</key>
-    <array>
-    <!-- Writing Shed Database Files (.wsd) -->
-    <dict>
-        <key>CFBundleTypeName</key>
-        <string>Writing Shed Data</string>
-        <key>CFBundleTypeRole</key>
-        <string>Editor</string>
-        <key>LSHandlerRank</key>
-        <string>Owner</string>
-        <key>LSItemContentTypes</key>
-        <array>
-            <string>www.writing-shed.comuk.Writing-Shed.data</string>
-        </array>
-    </dict>
-    
-    <!-- Writing Shed JSON Export Files (.json) -->
-    <dict>
-        <key>CFBundleTypeName</key>
-        <string>Writing Shed Export</string>
-        <key>CFBundleTypeRole</key>
-        <string>Viewer</string>
-        <key>LSHandlerRank</key>
-        <string>Alternate</string>
-        <key>LSItemContentTypes</key>
-        <array>
-            <string>public.json</string>
-        </array>
-    </dict>
-</array>
-<key>LSSupportsOpeningDocumentsInPlace</key>
-<true/>
-<key>UISupportsDocumentBrowser</key>
-<true/>
-<key>LSApplicationCategoryType</key>
-<string>public.app-category.productivity</string>
-<key>UIBackgroundModes</key>
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Writing Shed Data</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>www.writing-shed.comuk.Writing-Shed.data</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Writing Shed Export</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.json</string>
+			</array>
+		</dict>
+	</array>
+	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
 	</array>

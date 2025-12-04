@@ -57,6 +57,9 @@ struct FileListView: View {
     /// Called when user drags to reorder files (parent should switch to Custom sort)
     let onReorder: (() -> Void)?
     
+    /// Called when user renames a file
+    let onRename: (([TextFile]) -> Void)?
+    
     // MARK: - State
     
     /// Edit mode state - read from environment (set by parent view with EditButton)
@@ -71,6 +74,9 @@ struct FileListView: View {
     
     /// Files pending deletion (cached for confirmation alert)
     @State private var filesToDelete: [TextFile] = []
+    
+    /// Controls rename modal visibility
+    @State private var showRenameModal = false
     
     /// Tracks which alphabetical sections are expanded (collapsed by default)
     @State private var expandedSections: Set<String> = []
@@ -199,6 +205,18 @@ struct FileListView: View {
         .onAppear {
             if useSections {
                 loadLastOpenedSection()
+            }
+        }
+        .sheet(isPresented: $showRenameModal) {
+            if let fileToRename = selectedFiles.first {
+                RenameFileModal(
+                    file: fileToRename,
+                    filesInFolder: files,
+                    onRename: { _ in
+                        onRename?([fileToRename])
+                        selectedFileIDs.removeAll()
+                    }
+                )
             }
         }
     }
@@ -386,6 +404,21 @@ struct FileListView: View {
                 )
             }
             .disabled(selectedFiles.isEmpty)
+            
+            Spacer()
+        }
+        
+        // Rename button (only when exactly 1 file is selected)
+        if selectedFiles.count == 1, onRename != nil {
+            Button {
+                showRenameModal = true
+            } label: {
+                Label(
+                    NSLocalizedString("fileList.rename", comment: "Rename file"),
+                    systemImage: "square.and.pencil"
+                )
+            }
+            .accessibilityLabel("fileList.rename.accessibility")
             
             Spacer()
         }

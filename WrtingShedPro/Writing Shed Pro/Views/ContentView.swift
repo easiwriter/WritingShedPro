@@ -5,149 +5,26 @@ import UniformTypeIdentifiers
 struct ContentView: View {
     @Query var projects: [Project]
     @StateObject private var state = ContentViewState()
-    @State private var importService = ImportService()
     @Environment(\.modelContext) var modelContext
     
     var body: some View {
         ContentViewBody(
             projects: projects,
             state: state,
-            importService: importService,
             onInitialize: initializeUserOrderIfNeeded,
-            onCheckImport: checkForImport,
             onHandleImportMenu: handleImportMenu,
-            onImportSelectedProjects: importSelectedLegacyProjects,
             onHandleJSONImport: handleJSONImport,
-            onHandleManualDatabase: handleManualDatabaseSelection,
             onDeleteAllProjects: deleteAllProjects
         )
     }
     
-    /// Handle Import menu action with smart logic
-    /// Checks for legacy database and shows appropriate import options
+    /// Handle Import menu action - show file picker directly
     private func handleImportMenu() {
-        // Check if legacy database exists (Mac only)
-        #if targetEnvironment(macCatalyst) || os(macOS)
-        if importService.legacyDatabaseExists() {
-            // Check if there are unimported projects
-            let unimported = importService.getUnimportedProjects(modelContext: modelContext)
-            if !unimported.isEmpty {
-                // Store available projects and show options dialog
-                state.availableLegacyProjects = unimported
-                state.showImportOptions = true
-                return
-            }
-        }
-        #endif
-        
-        // No legacy database or no unimported projects - show file picker directly
+        print("[ContentView] Import menu clicked - showing file picker")
         state.showingJSONImportPicker = true
     }
     
-    /// Import selected legacy projects
-    private func importSelectedLegacyProjects(_ selectedProjects: [LegacyProjectData]) {
-        print("[ContentView] Importing \(selectedProjects.count) selected projects")
-        
-        // Start import with progress indicator
-        state.isImporting = true
-        
-        let container = modelContext.container
-        
-        Task.detached {
-            let backgroundContext = ModelContext(container)
-            
-            let success = await self.importService.executeSelectiveImport(
-                projectsToImport: selectedProjects,
-                modelContext: backgroundContext
-            )
-            
-            await MainActor.run {
-                self.state.isImporting = false
-                
-                if success {
-                    print("[ContentView] Selective import completed successfully")
-                } else {
-                    print("[ContentView] Selective import failed with errors")
-                    // TODO: Show error alert
-                }
-            }
-        }
-    }
-    
-    private func checkForImport() {
-        if importService.shouldPerformImport() {
-            print("[ContentView] Import should be performed")
-            state.isImporting = true
-            startImport()
-        }
-    }
-    
-    private func startImport() {
-        // Capture the container from the main thread context
-        let container = modelContext.container
-        
-        Task.detached {
-            // Create a background ModelContext for this thread
-            let backgroundContext = ModelContext(container)
-            
-            let success = await importService.executeImport(modelContext: backgroundContext)
-            
-            await MainActor.run {
-                state.isImporting = false
-                
-                if success {
-                    print("[ContentView] Import completed successfully")
-                } else {
-                    print("[ContentView] Import failed with errors")
-                }
-            }
-        }
-    }
-    
-    /// Handle manual database file selection when auto-detect fails
-    private func handleManualDatabaseSelection(_ result: Result<[URL], Error>) {
-        switch result {
-        case .success(let urls):
-            guard let databaseURL = urls.first else { return }
-            
-            print("[ContentView] User selected database: \(databaseURL.path)")
-            
-            // Try to load projects from the manually selected database
-            let legacyService = LegacyDatabaseService(databaseURL: databaseURL)
-            
-            do {
-                try legacyService.connect()
-                let projects = try legacyService.fetchProjects()
-                legacyService.disconnect()
-                
-                print("[ContentView] Loaded \(projects.count) projects from selected database")
-                state.availableLegacyProjects = projects
-                state.showImportOptions = true
-                
-            } catch {
-                print("[ContentView] Failed to load database: \(error)")
-                state.importErrorMessage = "Unable to read the selected database: \(error.localizedDescription)"
-                state.showImportError = true
-            }
-            
-        case .failure(let error):
-            print("[ContentView] Database selection failed: \(error)")
-            state.importErrorMessage = "Failed to select database: \(error.localizedDescription)"
-            state.showImportError = true
-        }
-    }
-    
-    #if DEBUG && (targetEnvironment(macCatalyst) || os(macOS))
-    /// Debug-only: Re-enable legacy import for testing (Mac only)
-    private func triggerReimport() {
-        print("[ContentView] Re-import triggered (debug only)")
-        // Enable legacy import
-        UserDefaults.standard.set(true, forKey: "legacyImportAllowed")
-        // Trigger import
-        state.isImporting = true
-        startImport()
-    }
-    #endif
+
     
     private func handleJSONImport(_ result: Result<[URL], Error>) {
         switch result {

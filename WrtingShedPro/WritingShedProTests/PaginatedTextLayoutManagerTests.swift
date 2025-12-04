@@ -305,7 +305,7 @@ final class PaginatedTextLayoutManagerTests: XCTestCase {
         )
         
         layoutManager.calculateLayout()
-        let initialPageCount = layoutManager.pageCount
+        _ = layoutManager.pageCount
         XCTAssertTrue(layoutManager.isLayoutValid)
         
         // Create new page setup with different size
@@ -713,9 +713,7 @@ final class PaginatedTextLayoutManagerTests: XCTestCase {
             characterPosition: page0Range.location + 100,
             attachmentID: UUID(),
             text: "Deleted footnote",
-            number: 2,
-            isDeleted: true,
-            deletedAt: Date()
+            number: 2
         )
         modelContext.insert(deletedFootnote)
         
