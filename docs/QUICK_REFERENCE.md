@@ -269,13 +269,98 @@ Add: SQLITEDEBUG=1
 
 ---
 
-## What's NOT Included (Phase 003+)
+## Feature 017: Search and Replace (In-Editor)
 
-- ❌ Text editing (Phase 003)
-- ❌ Rich text formatting (Phase 003)
-- ❌ File search (Phase 004)
-- ❌ Export/import (Phase 005)
-- ❌ File sharing (Phase 006)
+**Status**: ✅ Phase 1 Complete | **Commits**: 5a88cef, 7bd2a57, 3687634, ce0e9e8, a431d77
+
+### Quick Start
+
+1. **Open Search**: Press `⌘F` or click magnifying glass button in toolbar
+2. **Type Search**: Enter text in search field (auto-searches with 300ms debounce)
+3. **Navigate**: Use `⌘G` (next) / `⌘⇧G` (previous) or chevron buttons
+4. **Replace**: Click chevron to expand replace mode, enter text, click Replace/Replace All
+5. **Close**: Press `⎋` (Escape) or click X button
+
+### Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| ⌘F | Open/close search bar |
+| ⌘G | Next match |
+| ⌘⇧G | Previous match |
+| ⎋ | Close search bar |
+| ⏎ | Next match (or replace if in replace mode) |
+| ⇧⏎ | Previous match |
+
+### Search Options
+
+| Option | Icon | What It Does |
+|--------|------|-------------|
+| **Case Sensitive** | Aa | Match exact case (A ≠ a) |
+| **Whole Word** | ⌶ | Match complete words only |
+| **Regular Expression** | .* | Use regex patterns |
+
+### Features
+
+- ✅ **Real-time highlighting**: All matches in yellow, current in orange
+- ✅ **Auto-scroll**: Current match automatically visible
+- ✅ **Circular navigation**: Previous from first → last, next from last → first
+- ✅ **Match counter**: Shows "3 of 12" or "No results"
+- ✅ **Debounced search**: 300ms delay prevents lag while typing
+- ✅ **Regex support**: Validate patterns, show errors, support capture groups
+- ✅ **Replace with undo**: All replacements support undo/redo
+- ✅ **Replace all**: Batch replace with count feedback
+
+### Architecture
+
+```
+Data Layer
+├── SearchQuery (search text, options, scope)
+├── SearchMatch (range, context, line number)
+└── SearchOptions (persistent preferences)
+
+Service Layer
+├── TextSearchEngine (search algorithms)
+└── InEditorSearchManager (state & UI integration)
+
+UI Layer
+├── InEditorSearchBar (SwiftUI view)
+└── FileEditView (integration)
+```
+
+### Code Locations
+
+| Component | File | Lines |
+|-----------|------|-------|
+| Data Models | Services/SearchQuery.swift | 62 |
+| | Services/SearchMatch.swift | 72 |
+| | Services/SearchOptions.swift | 105 |
+| Search Engine | Services/TextSearchEngine.swift | 270 |
+| Search Manager | Services/InEditorSearchManager.swift | 320 |
+| Search Bar UI | Views/InEditorSearchBar.swift | 393 |
+| Integration | Views/FileEditView.swift | +32 |
+
+### Test Coverage
+
+- ✅ **Data Models**: 23 tests (SearchDataModelTests.swift)
+- ✅ **Search Engine**: 46 tests (TextSearchEngineTests.swift)
+- ✅ **Search Manager**: 19 tests (InEditorSearchManagerTests.swift)
+- ✅ **Total**: 88 tests with >95% coverage
+
+### What's NOT Included (Future Phases)
+
+- ❌ Project-wide search (Phase 2)
+- ❌ Collection-scoped search (Phase 2)
+- ❌ Multi-file replace (Phase 3)
+- ❌ Search results panel (Phase 3)
+- ❌ Advanced regex features (Phase 4)
+
+---
+
+## What's NOT Included (Other Features)
+
+- ❌ Export/import (Future)
+- ❌ File sharing (Future)
 
 ---
 
