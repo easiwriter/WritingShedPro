@@ -187,24 +187,21 @@ struct InEditorSearchBar: View {
                         .cornerRadius(8)
                         .frame(minWidth: 200, maxWidth: 400)
                         
-                        // Replace buttons (aligned after text field)
-                        HStack(spacing: 10) {
-                            Button("Replace") {
-                                manager.replaceCurrentMatch()
-                            }
-                            .buttonStyle(.borderless)
-                            .font(.system(size: 15))
-                            .disabled(!manager.canReplace)
-                            
-                            Button("Replace All") {
-                                let count = manager.replaceAllMatches()
-                                // TODO: Show toast notification with count
-                                print("Replaced \(count) matches")
-                            }
-                            .buttonStyle(.borderless)
-                            .font(.system(size: 15))
-                            .disabled(!manager.canReplace)
+                        // Replace buttons
+                        Button("Replace") {
+                            let _ = manager.replaceCurrentMatch()
                         }
+                        .buttonStyle(.borderless)
+                        .font(.system(size: 15))
+                        .disabled(!manager.canReplace)
+                        
+                        Button("Replace All") {
+                            let count = manager.replaceAllMatches()
+                            print("Replaced \(count) matches")
+                        }
+                        .buttonStyle(.borderless)
+                        .font(.system(size: 15))
+                        .disabled(!manager.canReplace)
                         
                         Spacer()
                     }

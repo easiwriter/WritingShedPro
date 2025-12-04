@@ -245,22 +245,19 @@ class InEditorSearchManager: ObservableObject {
     func replaceCurrentMatch() -> Bool {
         guard !matches.isEmpty,
               currentMatchIndex < matches.count,
-              let textView = textView,
-              let textStorage = textStorage else {
+              let textView = textView else {
             return false
         }
         
         let match = matches[currentMatchIndex]
         
-        // Perform replacement
-        let newText = searchEngine.replace(
-            in: textStorage.string,
-            at: match.range,
-            with: replaceText
-        )
+        // Convert NSRange to UITextRange
+        guard let textRange = textView.textRange(from: match.range) else {
+            return false
+        }
         
-        // Update text storage
-        textStorage.replaceCharacters(in: match.range, with: replaceText)
+        // Use textView's replace method to ensure proper delegate calls and undo registration
+        textView.replace(textRange, withText: replaceText)
         
         // Re-perform search to update matches
         performSearch()
@@ -271,28 +268,27 @@ class InEditorSearchManager: ObservableObject {
     /// Replace all matches
     func replaceAllMatches() -> Int {
         guard !matches.isEmpty,
-              let textStorage = textStorage else {
+              let textView = textView else {
             return 0
         }
         
         let replaceCount = matches.count
         
-        // Perform replacement (search engine handles descending order)
-        let newText = searchEngine.replaceAll(
-            in: textStorage.string,
-            matches: matches,
-            with: replaceText
-        )
+        // Replace in reverse order to maintain valid ranges
+        // Sort matches by location in descending order
+        let sortedMatches = matches.sorted { $0.range.location > $1.range.location }
         
-        // Update text storage
-        let fullRange = NSRange(location: 0, length: textStorage.length)
-        textStorage.replaceCharacters(in: fullRange, with: newText)
+        // Replace each match using textView's replace method
+        for match in sortedMatches {
+            // Convert NSRange to UITextRange
+            guard let textRange = textView.textRange(from: match.range) else {
+                continue
+            }
+            textView.replace(textRange, withText: replaceText)
+        }
         
-        // Clear search (no more matches)
-        matches = []
-        totalMatches = 0
-        currentMatchIndex = 0
-        clearHighlights()
+        // Re-perform search to update matches (should find no more)
+        performSearch()
         
         return replaceCount
     }
@@ -353,5 +349,18 @@ extension InEditorSearchManager {
         clearHighlights()
         self.textView = nil
         self.textStorage = nil
+    }
+}
+
+// MARK: - UITextView Extension
+
+extension UITextView {
+    /// Convert NSRange to UITextRange
+    func textRange(from range: NSRange) -> UITextRange? {
+        guard let start = position(from: beginningOfDocument, offset: range.location),
+              let end = position(from: start, offset: range.length) else {
+            return nil
+        }
+        return textRange(from: start, to: end)
     }
 }
