@@ -10,12 +10,12 @@
 ## Pre-Testing Checklist
 
 Before starting manual tests:
-- [ ] Build succeeds (`⌘+B`)
-- [ ] All 88 unit tests pass (`⌘+U`)
-- [ ] No compilation errors
-- [ ] App launches successfully (`⌘+R`)
-- [ ] Can open a text file in FileEditView
-- [ ] Text file has some content to search
+- [x] Build succeeds (`⌘+B`)
+- [x] All 88 unit tests pass (`⌘+U`)
+- [x] No compilation errors
+- [x] App launches successfully (`⌘+R`)
+- [x] Can open a text file in FileEditView
+- [x] Text file has some content to search
 
 ---
 
@@ -32,7 +32,7 @@ Before starting manual tests:
 2. **Basic Search**
    - Type "the" in search field
    - ✓ Wait 300ms for debounce
-   - ✓ Matches highlighted in yellow
+   - x Matches highlighted in yellow
    - ✓ Current match highlighted in orange
    - ✓ Counter shows "1 of X" (where X is total matches)
 

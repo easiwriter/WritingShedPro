@@ -33,15 +33,15 @@ struct InEditorSearchBar: View {
                 // Main search row
                 HStack(spacing: 8) {
                     // Search text field
-                    HStack(spacing: 4) {
+                    HStack(spacing: 6) {
                         Image(systemName: "magnifyingglass")
                             .foregroundColor(.secondary)
-                            .font(.system(size: 14))
+                            .font(.system(size: 18))
                         
                         TextField("Search", text: $manager.searchText)
                             .textFieldStyle(.plain)
                             .focused($focusedField, equals: .search)
-                            .font(.system(size: 13))
+                            .font(.system(size: 17))
                         
                         if !manager.searchText.isEmpty {
                             Button(action: {
@@ -49,37 +49,38 @@ struct InEditorSearchBar: View {
                             }) {
                                 Image(systemName: "xmark.circle.fill")
                                     .foregroundColor(.secondary)
-                                    .font(.system(size: 14))
+                                    .font(.system(size: 18))
                             }
                             .buttonStyle(.plain)
                         }
                     }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
                     .background(Color(uiColor: .systemGray6))
-                    .cornerRadius(6)
-                    .frame(minWidth: 150, maxWidth: 250)
+                    .cornerRadius(8)
+                    .frame(minWidth: 200, maxWidth: 400)
                     
                     // Match counter
                     if manager.hasMatches {
                         Text(manager.matchCountText)
-                            .font(.system(size: 12))
+                            .font(.system(size: 15))
                             .foregroundColor(.secondary)
-                            .frame(minWidth: 60)
+                            .frame(minWidth: 80)
                     } else if !manager.searchText.isEmpty && manager.totalMatches == 0 {
                         Text("No results")
-                            .font(.system(size: 12))
+                            .font(.system(size: 15))
                             .foregroundColor(.secondary)
-                            .frame(minWidth: 60)
+                            .frame(minWidth: 80)
                     }
                     
                     // Navigation buttons
-                    HStack(spacing: 4) {
+                    HStack(spacing: 6) {
                         Button(action: {
                             manager.previousMatch()
                         }) {
                             Image(systemName: "chevron.up")
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.system(size: 16, weight: .medium))
+                                .frame(width: 32, height: 32)
                         }
                         .buttonStyle(.plain)
                         .disabled(!manager.hasMatches)
@@ -89,7 +90,8 @@ struct InEditorSearchBar: View {
                             manager.nextMatch()
                         }) {
                             Image(systemName: "chevron.down")
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.system(size: 16, weight: .medium))
+                                .frame(width: 32, height: 32)
                         }
                         .buttonStyle(.plain)
                         .disabled(!manager.hasMatches)
@@ -134,8 +136,8 @@ struct InEditorSearchBar: View {
                         }
                     }) {
                         Image(systemName: showReplace ? "chevron.down" : "chevron.right")
-                            .font(.system(size: 12, weight: .medium))
-                            .frame(width: 20, height: 20)
+                            .font(.system(size: 16, weight: .medium))
+                            .frame(width: 32, height: 32)
                     }
                     .buttonStyle(.plain)
                     .help("Toggle replace")
@@ -145,28 +147,28 @@ struct InEditorSearchBar: View {
                         dismissSearchBar()
                     }) {
                         Image(systemName: "xmark")
-                            .font(.system(size: 12, weight: .medium))
-                            .frame(width: 20, height: 20)
+                            .font(.system(size: 16, weight: .medium))
+                            .frame(width: 32, height: 32)
                     }
                     .buttonStyle(.plain)
                     .help("Close (⎋)")
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
                 
                 // Replace row (conditionally shown)
                 if showReplace {
-                    HStack(spacing: 8) {
+                    HStack(spacing: 10) {
                         // Replace text field
-                        HStack(spacing: 4) {
+                        HStack(spacing: 6) {
                             Image(systemName: "arrow.triangle.2.circlepath")
                                 .foregroundColor(.secondary)
-                                .font(.system(size: 14))
+                                .font(.system(size: 18))
                             
                             TextField("Replace", text: $manager.replaceText)
                                 .textFieldStyle(.plain)
                                 .focused($focusedField, equals: .replace)
-                                .font(.system(size: 13))
+                                .font(.system(size: 17))
                             
                             if !manager.replaceText.isEmpty {
                                 Button(action: {
@@ -174,24 +176,24 @@ struct InEditorSearchBar: View {
                                 }) {
                                     Image(systemName: "xmark.circle.fill")
                                         .foregroundColor(.secondary)
-                                        .font(.system(size: 14))
+                                        .font(.system(size: 18))
                                 }
                                 .buttonStyle(.plain)
                             }
                         }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
                         .background(Color(uiColor: .systemGray6))
-                        .cornerRadius(6)
-                        .frame(minWidth: 150, maxWidth: 250)
+                        .cornerRadius(8)
+                        .frame(minWidth: 200, maxWidth: 400)
                         
                         // Replace buttons
-                        HStack(spacing: 8) {
+                        HStack(spacing: 10) {
                             Button("Replace") {
                                 manager.replaceCurrentMatch()
                             }
                             .buttonStyle(.borderless)
-                            .font(.system(size: 12))
+                            .font(.system(size: 15))
                             .disabled(!manager.canReplace)
                             
                             Button("Replace All") {
@@ -200,14 +202,14 @@ struct InEditorSearchBar: View {
                                 print("Replaced \(count) matches")
                             }
                             .buttonStyle(.borderless)
-                            .font(.system(size: 12))
+                            .font(.system(size: 15))
                             .disabled(!manager.canReplace)
                         }
                         
                         Spacer()
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.bottom, 8)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 12)
                     .transition(.move(edge: .top).combined(with: .opacity))
                 }
                 
@@ -216,16 +218,16 @@ struct InEditorSearchBar: View {
                     HStack {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .foregroundColor(.orange)
-                            .font(.system(size: 12))
+                            .font(.system(size: 15))
                         
                         Text(error)
-                            .font(.system(size: 11))
+                            .font(.system(size: 14))
                             .foregroundColor(.secondary)
                         
                         Spacer()
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.bottom, 8)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 12)
                 }
             }
             .background(Color(uiColor: .systemBackground))
@@ -285,11 +287,11 @@ private struct OptionToggleButton: View {
             isOn.toggle()
         }) {
             Image(systemName: icon)
-                .font(.system(size: 13, weight: .medium))
-                .frame(width: 24, height: 24)
+                .font(.system(size: 16, weight: .medium))
+                .frame(width: 36, height: 36)
                 .background(isOn ? Color.accentColor.opacity(0.2) : Color.clear)
                 .foregroundColor(isOn ? .accentColor : .secondary)
-                .cornerRadius(4)
+                .cornerRadius(6)
         }
         .buttonStyle(.plain)
         .help(tooltip)

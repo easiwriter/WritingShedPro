@@ -90,7 +90,7 @@ class InEditorSearchManager: ObservableObject {
             clearSearch()
             return
         }
-        // Search is already performed in didSet, but this handles debounced updates
+        performSearch()
     }
     
     // MARK: - Search Operations
