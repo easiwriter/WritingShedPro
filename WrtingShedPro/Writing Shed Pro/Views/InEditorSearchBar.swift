@@ -205,6 +205,7 @@ struct InEditorSearchBar: View {
                         
                         Spacer()
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 16)
                     .padding(.bottom, 12)
                     .transition(.move(edge: .top).combined(with: .opacity))
