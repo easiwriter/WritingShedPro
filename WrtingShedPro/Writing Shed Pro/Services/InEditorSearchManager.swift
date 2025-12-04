@@ -350,8 +350,10 @@ extension InEditorSearchManager {
         ) { [weak self] _ in
             guard let self = self else { return }
             // Re-run search if we have an active search
-            if !self.searchText.isEmpty {
-                self.performSearch()
+            Task { @MainActor in
+                if !self.searchText.isEmpty {
+                    self.performSearch()
+                }
             }
         }
     }

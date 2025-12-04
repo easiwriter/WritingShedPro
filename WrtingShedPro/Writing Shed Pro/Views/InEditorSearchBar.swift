@@ -239,7 +239,7 @@ struct InEditorSearchBar: View {
                 onEscape: { dismissSearchBar() },
                 onReturn: {
                     if showReplace && !manager.replaceText.isEmpty {
-                        manager.replaceCurrentMatch()
+                        _ = manager.replaceCurrentMatch()
                     } else {
                         manager.nextMatch()
                     }
