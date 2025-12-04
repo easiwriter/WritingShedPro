@@ -431,6 +431,26 @@ struct FileEditView: View {
                 textEditorSection()
                 formattingToolbar()
             }
+            
+            // Hidden keyboard shortcut handlers for search navigation
+            // Using invisible buttons to capture ⌘G and ⌘⇧G
+            Group {
+                Button("") {
+                    if showSearchBar && searchManager.hasMatches {
+                        searchManager.nextMatch()
+                    }
+                }
+                .keyboardShortcut("g", modifiers: .command)
+                .hidden()
+                
+                Button("") {
+                    if showSearchBar && searchManager.hasMatches {
+                        searchManager.previousMatch()
+                    }
+                }
+                .keyboardShortcut("g", modifiers: [.command, .shift])
+                .hidden()
+            }
         }
         .sheet(isPresented: $showStylePicker) {
             StylePickerSheet(
@@ -585,21 +605,6 @@ struct FileEditView: View {
                     .navigationTitle(NSLocalizedString("fileEdit.footnoteSheet.title", comment: ""))
                 }
                 .presentationDetents([.medium, .large])
-            }
-            // Feature 017: Search keyboard shortcuts
-            .onKeyPress(.init("g"), modifiers: .command) {
-                if showSearchBar && searchManager.hasMatches {
-                    searchManager.nextMatch()
-                    return .handled
-                }
-                return .ignored
-            }
-            .onKeyPress(.init("g"), modifiers: [.command, .shift]) {
-                if showSearchBar && searchManager.hasMatches {
-                    searchManager.previousMatch()
-                    return .handled
-                }
-                return .ignored
             }
             .onDisappear {
                 saveChanges()
