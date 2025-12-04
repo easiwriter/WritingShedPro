@@ -97,6 +97,10 @@ class InEditorSearchManager: ObservableObject {
     
     /// Perform search in the current text
     func performSearch() {
+        print("🔍 performSearch called: searchText='\(searchText)'")
+        print("  - textView: \(textView != nil ? "✅" : "❌")")
+        print("  - textStorage: \(textStorage != nil ? "✅" : "❌")")
+        
         guard !searchText.isEmpty, let text = textView?.text else {
             clearSearch()
             return
@@ -128,6 +132,8 @@ class InEditorSearchManager: ObservableObject {
         // Perform search
         matches = searchEngine.search(in: text, query: query)
         totalMatches = matches.count
+        
+        print("  - Found \(totalMatches) matches")
         
         // Reset to first match
         if !matches.isEmpty {
@@ -171,7 +177,12 @@ class InEditorSearchManager: ObservableObject {
     
     /// Highlight all matches in the text
     private func highlightMatches() {
-        guard let textStorage = textStorage else { return }
+        guard let textStorage = textStorage else {
+            print("⚠️ highlightMatches: textStorage is nil")
+            return
+        }
+        
+        print("✅ highlightMatches: applying highlights to \(matches.count) matches")
         
         // Clear previous highlights
         clearHighlights()
@@ -179,8 +190,12 @@ class InEditorSearchManager: ObservableObject {
         // Highlight all matches
         for (index, match) in matches.enumerated() {
             let color = (index == currentMatchIndex) ? currentMatchHighlightColor : matchHighlightColor
+            print("  - Match \(index): range=\(match.range.location)-\(match.range.location+match.range.length), color=\(color)")
             textStorage.addAttribute(.backgroundColor, value: color, range: match.range)
         }
+        
+        // Force textStorage to process the changes
+        textStorage.edited(.editedAttributes, range: NSRange(location: 0, length: textStorage.length), changeInLength: 0)
     }
     
     /// Clear all highlight attributes
