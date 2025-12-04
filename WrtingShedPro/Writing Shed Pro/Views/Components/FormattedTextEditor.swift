@@ -265,6 +265,10 @@ struct FormattedTextEditor: UIViewRepresentable {
         // Skip if we're already in the middle of an update to prevent feedback loops
         guard !context.coordinator.isUpdatingFromSwiftUI else {
             print("📝 Skipping - already updating from SwiftUI")
+            defer {
+                print("📝 Reset isUpdatingFromSwiftUI flag")
+                context.coordinator.isUpdatingFromSwiftUI = false
+            }
             return
         }
         
