@@ -323,9 +323,34 @@ struct FormattedTextEditor: UIViewRepresentable {
             
             let oldSelectedRange = textView.selectedRange
             
+            // CRITICAL: Preserve search highlights (background colors) before updating
+            // The search manager applies background colors that we don't want to lose
+            var backgroundColors: [(range: NSRange, color: UIColor)] = []
+            if stringsMatch && textView.textStorage.length > 0 {
+                textView.textStorage.enumerateAttribute(.backgroundColor, in: NSRange(location: 0, length: textView.textStorage.length), options: []) { value, range, _ in
+                    if let color = value as? UIColor {
+                        backgroundColors.append((range: range, color: color))
+                    }
+                }
+                if !backgroundColors.isEmpty {
+                    print("📝 Preserved \(backgroundColors.count) background color ranges")
+                }
+            }
+            
             // Update text storage directly for better control
             // This ensures attributes are properly applied
             textView.textStorage.setAttributedString(attributedText)
+            
+            // CRITICAL: Restore search highlights after updating attributes
+            if !backgroundColors.isEmpty {
+                for item in backgroundColors {
+                    // Validate range is still valid after update
+                    if item.range.location + item.range.length <= textView.textStorage.length {
+                        textView.textStorage.addAttribute(.backgroundColor, value: item.color, range: item.range)
+                    }
+                }
+                print("📝 Restored \(backgroundColors.count) background color ranges")
+            }
             
             #if DEBUG
             // Check if paragraph style survived the setAttributedString
