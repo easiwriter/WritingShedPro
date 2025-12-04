@@ -52,6 +52,10 @@ struct FileEditView: View {
     @State private var showPrintError = false
     @State private var printErrorMessage = ""
     
+    // Feature 017: Search and Replace
+    @State private var showSearchBar = false
+    @StateObject private var searchManager = InEditorSearchManager()
+    
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     
@@ -271,6 +275,26 @@ struct FileEditView: View {
     @ViewBuilder
     private func navigationBarButtons() -> some View {
         HStack(spacing: 16) {
+            // Search button (only in edit mode)
+            if !isPaginationMode {
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        showSearchBar.toggle()
+                        if showSearchBar, let textView = textViewCoordinator.textView {
+                            // Connect search manager to text view when opening
+                            searchManager.connect(to: textView)
+                        } else if !showSearchBar {
+                            // Disconnect when closing
+                            searchManager.disconnect()
+                        }
+                    }
+                }) {
+                    Image(systemName: showSearchBar ? "magnifyingglass.circle.fill" : "magnifyingglass")
+                }
+                .accessibilityLabel("Find and Replace")
+                .keyboardShortcut("f", modifiers: .command)
+            }
+            
             // Pagination mode toggle (always available - uses global page setup)
             Button(action: {
                 withAnimation(.easeInOut(duration: 0.3)) {
@@ -390,6 +414,14 @@ struct FileEditView: View {
             // Version toolbar (only shown in edit mode)
             if !isPaginationMode {
                 versionToolbar()
+            }
+            
+            // Search bar (only shown in edit mode when active)
+            if !isPaginationMode {
+                InEditorSearchBar(
+                    manager: searchManager,
+                    isVisible: $showSearchBar
+                )
             }
             
             // Main content area - switch between edit and pagination modes
