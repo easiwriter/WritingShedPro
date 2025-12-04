@@ -287,7 +287,7 @@ private struct OptionToggleButton: View {
             isOn.toggle()
         }) {
             Image(systemName: icon)
-                .font(.system(size: 16, weight: .medium))
+                .font(.system(size: 18, weight: .medium))
                 .frame(width: 36, height: 36)
                 .background(isOn ? Color.accentColor.opacity(0.2) : Color.clear)
                 .foregroundColor(isOn ? .accentColor : .secondary)
