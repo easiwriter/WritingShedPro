@@ -1036,6 +1036,9 @@ struct FileEditView: View {
         } catch {
             print("Error saving context: \(error)")
         }
+        
+        // Notify search manager that text changed (includes undo/redo)
+        searchManager.notifyTextChanged()
     }
     
     // MARK: - Image Selection

@@ -64,6 +64,17 @@ class InEditorSearchManager: ObservableObject {
     weak var textView: UITextView?
     weak var textStorage: NSTextStorage?
     
+    // MARK: - Public Methods for Text Change Notification
+    
+    /// Called by FormattedTextEditor coordinator when text changes (including undo/redo)
+    /// This allows search to update even though we don't control the delegate
+    func notifyTextChanged() {
+        // Only re-search if we have an active search
+        if !searchText.isEmpty {
+            performSearch()
+        }
+    }
+    
     // Highlight colors - accessible for color-blind users
     // All matches: Light yellow background
     private let matchHighlightColor = UIColor.systemYellow.withAlphaComponent(0.3)
