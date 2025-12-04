@@ -59,6 +59,7 @@ class InEditorSearchManager: ObservableObject {
     private let searchEngine = TextSearchEngine()
     private var matches: [SearchMatch] = []
     private var cancellables = Set<AnyCancellable>()
+    private var textChangeObserver: NSObjectProtocol?
     
     weak var textView: UITextView?
     weak var textStorage: NSTextStorage?
@@ -259,8 +260,7 @@ class InEditorSearchManager: ObservableObject {
         // Use textView's replace method to ensure proper delegate calls and undo registration
         textView.replace(textRange, withText: replaceText)
         
-        // Re-perform search to update matches
-        performSearch()
+        // Note: performSearch() will be called automatically via textDidChangeNotification
         
         return true
     }
@@ -287,8 +287,7 @@ class InEditorSearchManager: ObservableObject {
             textView.replace(textRange, withText: replaceText)
         }
         
-        // Re-perform search to update matches (should find no more)
-        performSearch()
+        // Note: performSearch() will be called automatically via textDidChangeNotification
         
         return replaceCount
     }
@@ -342,11 +341,31 @@ extension InEditorSearchManager {
     func connect(to textView: UITextView) {
         self.textView = textView
         self.textStorage = textView.textStorage
+        
+        // Observe text changes (including undo/redo)
+        textChangeObserver = NotificationCenter.default.addObserver(
+            forName: UITextView.textDidChangeNotification,
+            object: textView,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self = self else { return }
+            // Re-run search if we have an active search
+            if !self.searchText.isEmpty {
+                self.performSearch()
+            }
+        }
     }
     
     /// Disconnect from text view
     func disconnect() {
         clearHighlights()
+        
+        // Remove text change observer
+        if let observer = textChangeObserver {
+            NotificationCenter.default.removeObserver(observer)
+            textChangeObserver = nil
+        }
+        
         self.textView = nil
         self.textStorage = nil
     }
