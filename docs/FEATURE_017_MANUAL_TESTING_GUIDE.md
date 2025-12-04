@@ -32,7 +32,7 @@ Before starting manual tests:
 2. **Basic Search**
    - Type "the" in search field
    - ✓ Wait 300ms for debounce
-   - x Matches highlighted in yellow
+   - ✓ Matches highlighted in yellow
    - ✓ Current match highlighted in orange
    - ✓ Counter shows "1 of X" (where X is total matches)
 

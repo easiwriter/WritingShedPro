@@ -586,6 +586,21 @@ struct FileEditView: View {
                 }
                 .presentationDetents([.medium, .large])
             }
+            // Feature 017: Search keyboard shortcuts
+            .onKeyPress(.init("g"), modifiers: .command) {
+                if showSearchBar && searchManager.hasMatches {
+                    searchManager.nextMatch()
+                    return .handled
+                }
+                return .ignored
+            }
+            .onKeyPress(.init("g"), modifiers: [.command, .shift]) {
+                if showSearchBar && searchManager.hasMatches {
+                    searchManager.previousMatch()
+                    return .handled
+                }
+                return .ignored
+            }
             .onDisappear {
                 saveChanges()
                 saveUndoState()

@@ -158,8 +158,8 @@ struct InEditorSearchBar: View {
                 
                 // Replace row (conditionally shown)
                 if showReplace {
-                    HStack(spacing: 10) {
-                        // Replace text field
+                    HStack(spacing: 8) {
+                        // Replace text field (aligned with search field)
                         HStack(spacing: 6) {
                             Image(systemName: "arrow.triangle.2.circlepath")
                                 .foregroundColor(.secondary)
@@ -187,7 +187,7 @@ struct InEditorSearchBar: View {
                         .cornerRadius(8)
                         .frame(minWidth: 200, maxWidth: 400)
                         
-                        // Replace buttons
+                        // Replace buttons (aligned after text field)
                         HStack(spacing: 10) {
                             Button("Replace") {
                                 manager.replaceCurrentMatch()
