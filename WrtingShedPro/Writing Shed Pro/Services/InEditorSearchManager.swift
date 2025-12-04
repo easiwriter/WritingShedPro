@@ -63,9 +63,12 @@ class InEditorSearchManager: ObservableObject {
     weak var textView: UITextView?
     weak var textStorage: NSTextStorage?
     
-    // Highlight colors
+    // Highlight colors - accessible for color-blind users
+    // All matches: Light yellow background
     private let matchHighlightColor = UIColor.systemYellow.withAlphaComponent(0.3)
-    private let currentMatchHighlightColor = UIColor.systemOrange.withAlphaComponent(0.5)
+    // Current match: Slightly darker yellow background + border for non-color distinction
+    private let currentMatchHighlightColor = UIColor.systemYellow.withAlphaComponent(0.4)
+    private let currentMatchBorderColor = UIColor.systemOrange.withAlphaComponent(0.8)
     
     // MARK: - Initialization
     
@@ -184,8 +187,17 @@ class InEditorSearchManager: ObservableObject {
         
         // Highlight all matches
         for (index, match) in matches.enumerated() {
-            let color = (index == currentMatchIndex) ? currentMatchHighlightColor : matchHighlightColor
-            textStorage.addAttribute(.backgroundColor, value: color, range: match.range)
+            let isCurrent = (index == currentMatchIndex)
+            let backgroundColor = isCurrent ? currentMatchHighlightColor : matchHighlightColor
+            
+            // Apply background color to all matches
+            textStorage.addAttribute(.backgroundColor, value: backgroundColor, range: match.range)
+            
+            // Add border to current match for accessibility (color-blind users can distinguish)
+            if isCurrent {
+                textStorage.addAttribute(.underlineStyle, value: NSUnderlineStyle.thick.rawValue, range: match.range)
+                textStorage.addAttribute(.underlineColor, value: currentMatchBorderColor, range: match.range)
+            }
         }
         
         // Force textStorage to process the changes
@@ -197,7 +209,10 @@ class InEditorSearchManager: ObservableObject {
         guard let textStorage = textStorage else { return }
         
         let fullRange = NSRange(location: 0, length: textStorage.length)
+        // Remove both background color and underline attributes
         textStorage.removeAttribute(.backgroundColor, range: fullRange)
+        textStorage.removeAttribute(.underlineStyle, range: fullRange)
+        textStorage.removeAttribute(.underlineColor, range: fullRange)
     }
     
     // MARK: - Scrolling

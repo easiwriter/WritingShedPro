@@ -323,17 +323,36 @@ struct FormattedTextEditor: UIViewRepresentable {
             
             let oldSelectedRange = textView.selectedRange
             
-            // CRITICAL: Preserve search highlights (background colors) before updating
-            // The search manager applies background colors that we don't want to lose
-            var backgroundColors: [(range: NSRange, color: UIColor)] = []
+            // CRITICAL: Preserve search highlights before updating
+            // The search manager applies background colors and underlines that we don't want to lose
+            struct SearchHighlight {
+                let range: NSRange
+                let backgroundColor: UIColor?
+                let underlineStyle: Int?
+                let underlineColor: UIColor?
+            }
+            
+            var searchHighlights: [SearchHighlight] = []
             if stringsMatch && textView.textStorage.length > 0 {
-                textView.textStorage.enumerateAttribute(.backgroundColor, in: NSRange(location: 0, length: textView.textStorage.length), options: []) { value, range, _ in
-                    if let color = value as? UIColor {
-                        backgroundColors.append((range: range, color: color))
+                let fullRange = NSRange(location: 0, length: textView.textStorage.length)
+                
+                // Enumerate all background colors (search highlights)
+                textView.textStorage.enumerateAttribute(.backgroundColor, in: fullRange, options: []) { value, range, _ in
+                    if let bgColor = value as? UIColor {
+                        // Get associated underline attributes if they exist
+                        let underlineStyle = textView.textStorage.attribute(.underlineStyle, at: range.location, effectiveRange: nil) as? Int
+                        let underlineColor = textView.textStorage.attribute(.underlineColor, at: range.location, effectiveRange: nil) as? UIColor
+                        
+                        searchHighlights.append(SearchHighlight(
+                            range: range,
+                            backgroundColor: bgColor,
+                            underlineStyle: underlineStyle,
+                            underlineColor: underlineColor
+                        ))
                     }
                 }
-                if !backgroundColors.isEmpty {
-                    print("📝 Preserved \(backgroundColors.count) background color ranges")
+                if !searchHighlights.isEmpty {
+                    print("📝 Preserved \(searchHighlights.count) search highlight ranges")
                 }
             }
             
@@ -342,14 +361,22 @@ struct FormattedTextEditor: UIViewRepresentable {
             textView.textStorage.setAttributedString(attributedText)
             
             // CRITICAL: Restore search highlights after updating attributes
-            if !backgroundColors.isEmpty {
-                for item in backgroundColors {
+            if !searchHighlights.isEmpty {
+                for highlight in searchHighlights {
                     // Validate range is still valid after update
-                    if item.range.location + item.range.length <= textView.textStorage.length {
-                        textView.textStorage.addAttribute(.backgroundColor, value: item.color, range: item.range)
+                    if highlight.range.location + highlight.range.length <= textView.textStorage.length {
+                        if let bgColor = highlight.backgroundColor {
+                            textView.textStorage.addAttribute(.backgroundColor, value: bgColor, range: highlight.range)
+                        }
+                        if let underlineStyle = highlight.underlineStyle {
+                            textView.textStorage.addAttribute(.underlineStyle, value: underlineStyle, range: highlight.range)
+                        }
+                        if let underlineColor = highlight.underlineColor {
+                            textView.textStorage.addAttribute(.underlineColor, value: underlineColor, range: highlight.range)
+                        }
                     }
                 }
-                print("📝 Restored \(backgroundColors.count) background color ranges")
+                print("📝 Restored \(searchHighlights.count) search highlight ranges")
             }
             
             #if DEBUG
