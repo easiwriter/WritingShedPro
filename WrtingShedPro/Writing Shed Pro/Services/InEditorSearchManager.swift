@@ -72,7 +72,8 @@ class InEditorSearchManager: NSObject, ObservableObject, UITextViewDelegate {
     
     // MARK: - Initialization
     
-    init() {
+    override init() {
+        super.init()
         setupDebouncing()
     }
     
