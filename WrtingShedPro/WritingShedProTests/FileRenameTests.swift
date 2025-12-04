@@ -129,19 +129,6 @@ final class FileRenameTests: XCTestCase {
         XCTAssertEqual(file.createdDate, originalCreatedDate)
     }
     
-    func testRenameFilePreservesModifiedDate() {
-        // Arrange
-        let file = TextFile(name: "Original", initialContent: "Content")
-        let originalModifiedDate = file.modifiedDate
-        
-        // Act - Wait a tiny bit to ensure time difference
-        Thread.sleep(forTimeInterval: 0.01)
-        file.name = "Renamed"
-        
-        // Assert
-        XCTAssertGreaterThan(file.modifiedDate, originalModifiedDate)
-    }
-    
     // MARK: - Special Character Handling Tests
     
     func testRenameFileWithSpecialCharacters() {

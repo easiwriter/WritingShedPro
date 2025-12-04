@@ -268,7 +268,7 @@ final class CommentAttachmentTests: XCTestCase {
                 requiringSecureCoding: false
             )
             
-            let unarchived = try NSKeyedUnarchiver.unarchiveTopLevelObjectWithData(data) as? NSAttributedString
+            let unarchived = try NSKeyedUnarchiver.unarchivedObject(ofClass: NSAttributedString.self, from: data)
             
             XCTAssertNotNil(unarchived)
             XCTAssertEqual(unarchived?.length, 1)

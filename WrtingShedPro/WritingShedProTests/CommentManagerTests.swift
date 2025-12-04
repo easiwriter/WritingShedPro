@@ -227,7 +227,7 @@ final class CommentManagerTests: XCTestCase {
     // MARK: - Get Resolved Comments Tests
     
     func testGetResolvedComments() throws {
-        let comment1 = manager.createComment(
+        _ = manager.createComment(
             version: testVersion,
             characterPosition: 0,
             attachmentID: UUID(),
@@ -429,7 +429,7 @@ final class CommentManagerTests: XCTestCase {
         modelContext.insert(otherVersion)
         
         // Create comment in test file
-        let testComment = manager.createComment(
+        _ = manager.createComment(
             version: testVersion,
             characterPosition: 20,
             attachmentID: UUID(),
@@ -439,7 +439,7 @@ final class CommentManagerTests: XCTestCase {
         )
         
         // Create comment in other file
-        let otherComment = manager.createComment(
+        _ = manager.createComment(
             version: otherVersion,
             characterPosition: 20,
             attachmentID: UUID(),
@@ -485,7 +485,7 @@ final class CommentManagerTests: XCTestCase {
     }
     
     func testUpdatePositionsWithZeroDelta() throws {
-        let comment = manager.createComment(
+        _ = manager.createComment(
             version: testVersion,
             characterPosition: 10,
             attachmentID: UUID(),

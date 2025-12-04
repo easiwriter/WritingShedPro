@@ -229,12 +229,14 @@ final class FootnoteAttachmentRenumberingTests: XCTestCase {
             }
         }
         
-        // Verify final numbers
+        // Verify final numbers - first attachment (deleted footnote) should still exist in text but have no corresponding footnote
         let attachment1 = mutableText.attribute(.attachment, at: 3, effectiveRange: nil) as? FootnoteAttachment
         let attachment2 = mutableText.attribute(.attachment, at: 8, effectiveRange: nil) as? FootnoteAttachment
         
-        XCTAssertEqual(attachment1?.number, 1)
-        XCTAssertEqual(attachment2?.number, 2)
+        // First attachment references deleted footnote, so lookup should return nil
+        XCTAssertNil(FootnoteManager.shared.getFootnoteByAttachment(attachmentID: attachment1!.footnoteID, context: modelContext))
+        // Second attachment should now be renumbered to 1
+        XCTAssertEqual(attachment2?.number, 1)
     }
     
     func testLookupByAttachmentIDNotDatabaseID() throws {

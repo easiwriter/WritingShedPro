@@ -134,17 +134,18 @@ final class ProjectRenameDeleteIntegrationTests: XCTestCase {
         let project = Project(name: "To Keep", type: .blank)
         var projects = [project]
         
-        // Act - simulate user canceling delete (userConfirmed = false)
-        let userConfirmed = false
+        // Act - simulate user canceling delete by NOT calling removeAll
+        // In the real app, the delete confirmation dialog would return false,
+        // and this block would not execute
         
-        // Only delete if user confirmed (they didn't, so this won't execute)
-        if userConfirmed {
-            projects.removeAll { $0.id == project.id }
-        }
-        
+        // Verify no deletion occurred (simulate cancel behavior)
         // Assert - project should still exist since delete was cancelled
         XCTAssertEqual(projects.count, 1)
         XCTAssertEqual(projects[0].name, "To Keep")
+        
+        // Verify that IF delete were confirmed, it would work
+        projects.removeAll { $0.id == project.id }
+        XCTAssertEqual(projects.count, 0)
     }
     
     func testDeleteProjectFromSortedList() {

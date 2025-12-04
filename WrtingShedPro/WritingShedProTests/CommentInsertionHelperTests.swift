@@ -281,7 +281,7 @@ final class CommentInsertionHelperTests: XCTestCase {
         let originalText = NSAttributedString(string: "Hello World")
         
         // Insert two comments
-        let (afterFirst, comment1) = CommentInsertionHelper.insertComment(
+        let (afterFirst, _) = CommentInsertionHelper.insertComment(
             in: originalText,
             at: 5,
             commentText: "First",

@@ -67,7 +67,7 @@ final class FootnoteManagerTests: XCTestCase {
     
     func testGetFootnoteByAttachmentID() throws {
         let attachmentID = UUID()
-        let footnote = manager.createFootnote(
+        _ = manager.createFootnote(
             version: testVersion,
             characterPosition: 10,
             attachmentID: attachmentID,

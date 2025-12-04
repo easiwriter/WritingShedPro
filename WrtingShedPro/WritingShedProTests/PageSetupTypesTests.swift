@@ -235,7 +235,7 @@ final class PageSetupTypesTests: XCTestCase {
     
     func testUnitConversionConsistency() throws {
         // Given - 1 inch in different units
-        let oneInchInPoints = 72.0
+        _ = 72.0 // oneInchInPoints
         let pointsScaleFactor = Units.points.scaleFactor
         let inchesScaleFactor = Units.inches.scaleFactor
         

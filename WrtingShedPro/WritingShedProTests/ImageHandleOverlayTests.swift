@@ -16,7 +16,7 @@ final class ImageHandleOverlayTests: XCTestCase {
     func testCenterAlignmentUsesMiddleAnchor() {
         // Given: Center-aligned image
         let imageFrame = CGRect(x: 0, y: 0, width: 100, height: 100)
-        let alignment = ImageAttachment.ImageAlignment.center
+        _ = ImageAttachment.ImageAlignment.center
         
         // When: Calculate anchor point for center alignment
         let expectedAnchor = CGPoint(x: 50, y: 50) // Middle of 100x100 frame
@@ -29,7 +29,7 @@ final class ImageHandleOverlayTests: XCTestCase {
     func testLeftAlignmentUsesLeftAnchor() {
         // Given: Left-aligned image
         let imageFrame = CGRect(x: 0, y: 0, width: 100, height: 100)
-        let alignment = ImageAttachment.ImageAlignment.left
+        _ = ImageAttachment.ImageAlignment.left
         
         // When: Calculate anchor point for left alignment
         let expectedAnchor = CGPoint(x: 0, y: 50) // Left edge, vertical center
@@ -42,7 +42,7 @@ final class ImageHandleOverlayTests: XCTestCase {
     func testRightAlignmentUsesRightAnchor() {
         // Given: Right-aligned image
         let imageFrame = CGRect(x: 0, y: 0, width: 100, height: 100)
-        let alignment = ImageAttachment.ImageAlignment.right
+        _ = ImageAttachment.ImageAlignment.right
         
         // When: Calculate anchor point for right alignment
         let expectedAnchor = CGPoint(x: 100, y: 50) // Right edge, vertical center
@@ -55,7 +55,7 @@ final class ImageHandleOverlayTests: XCTestCase {
     func testInlineAlignmentUsesMiddleAnchor() {
         // Given: Inline-aligned image (behaves like center)
         let imageFrame = CGRect(x: 0, y: 0, width: 100, height: 100)
-        let alignment = ImageAttachment.ImageAlignment.inline
+        _ = ImageAttachment.ImageAlignment.inline
         
         // When: Calculate anchor point for inline alignment
         let expectedAnchor = CGPoint(x: 50, y: 50) // Middle of frame
@@ -102,7 +102,7 @@ final class ImageHandleOverlayTests: XCTestCase {
         // Given: Original image size and current scale
         let originalImageWidth: CGFloat = 200
         let currentScale: CGFloat = 0.5 // Currently displayed at 100px
-        let currentDisplayWidth = originalImageWidth * currentScale // 100px
+        _ = originalImageWidth * currentScale // 100px
         
         // When: User resizes to 150px width
         let newDisplayWidth: CGFloat = 150
@@ -146,7 +146,7 @@ final class ImageHandleOverlayTests: XCTestCase {
     func testTopLeftHandlePosition() {
         // Given: Image frame
         let imageFrame = CGRect(x: 100, y: 100, width: 200, height: 150)
-        let handleSize: CGFloat = 10
+        _ = CGFloat(10) // handleSize
         
         // When: Calculate top-left handle position
         let handleX = imageFrame.minX

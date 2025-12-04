@@ -174,7 +174,7 @@ final class FootnoteInsertionHelperTests: XCTestCase {
         XCTAssertEqual(footnote1.number, 1)
         
         // Insert at position 2 (after "A ") - before the first footnote
-        let (final, footnote2) = FootnoteInsertionHelper.insertFootnote(
+        let (_, footnote2) = FootnoteInsertionHelper.insertFootnote(
             in: afterFirst,
             at: 2,
             footnoteText: "First by position",

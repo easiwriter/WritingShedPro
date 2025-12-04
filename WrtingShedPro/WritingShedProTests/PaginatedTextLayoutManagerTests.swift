@@ -678,6 +678,7 @@ final class PaginatedTextLayoutManagerTests: XCTestCase {
         }
     }
     
+    @MainActor
     func testGetFootnotesForPage_DeletedFootnotesExcluded() throws {
         let text = String(repeating: "Line of text.\n", count: 50)
         let textStorage = NSTextStorage(string: text)
@@ -697,31 +698,32 @@ final class PaginatedTextLayoutManagerTests: XCTestCase {
             return
         }
         
-        // Add active footnote
-        let activeFootnote = FootnoteModel(
+        // Add two footnotes
+        let footnote1 = FootnoteModel(
             version: version,
             characterPosition: page0Range.location + 50,
             attachmentID: UUID(),
-            text: "Active footnote",
+            text: "First footnote",
             number: 1
         )
-        modelContext.insert(activeFootnote)
+        modelContext.insert(footnote1)
         
-        // Add deleted footnote
-        let deletedFootnote = FootnoteModel(
+        let footnote2 = FootnoteModel(
             version: version,
             characterPosition: page0Range.location + 100,
             attachmentID: UUID(),
-            text: "Deleted footnote",
+            text: "Second footnote",
             number: 2
         )
-        modelContext.insert(deletedFootnote)
+        modelContext.insert(footnote2)
         
-        // Should only return active footnote
+        // Delete the second footnote (hard delete removes it from database)
+        FootnoteManager.shared.deleteFootnote(footnote2, context: modelContext)
+        
+        // Should only return the first footnote
         let footnotes = layoutManager.getFootnotesForPage(0, version: version, context: modelContext)
         XCTAssertEqual(footnotes.count, 1)
         XCTAssertEqual(footnotes.first?.number, 1)
-        XCTAssertFalse(footnotes.first?.isDeleted ?? true)
     }
     
     func testCalculateFootnoteHeight_NoFootnotes() throws {

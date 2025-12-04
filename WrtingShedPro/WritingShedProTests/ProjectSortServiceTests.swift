@@ -118,7 +118,7 @@ final class ProjectSortServiceTests: XCTestCase {
     
     func testUpdateUserOrder() {
         // Arrange
-        var projects = [
+        let projects = [
             Project(name: "First", type: .blank, userOrder: 0),
             Project(name: "Second", type: .poetry, userOrder: 1),
             Project(name: "Third", type: .script, userOrder: 2)
