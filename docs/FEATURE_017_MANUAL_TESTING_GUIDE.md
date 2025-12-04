@@ -234,11 +234,14 @@ Before starting manual tests:
 
 | Test Case | Expected Behavior |
 |-----------|-------------------|
-| **Portrait/Landscape** | Search bar adapts layout |
+| **iPad Portrait/Landscape** | Search bar adapts layout ✅ |
+| **iPhone Layout** | Search bar requires horizontal scroll ⚠️ (Known limitation) |
 | **Keyboard Appearance** | Keyboard pushes view up |
 | **Touch Targets** | All buttons are 44pt+ tap targets |
 | **Accessibility** | VoiceOver reads all elements |
 | **Split View** | Works in iPad split view |
+
+**iPhone Note:** The search bar is optimized for iPad and Mac. On iPhone, the bar extends beyond screen width and requires horizontal scrolling to access all controls. All functionality works correctly, including keyboard shortcuts. iPhone layout optimization is planned for Phase 1.1.
 
 ---
 
@@ -360,6 +363,11 @@ Based on implementation, these are potential issues to watch for:
 
 5. **Mac Catalyst Menu**: Edit → Find menu item doesn't exist yet
    - Expected: Phase 1 limitation, use ⌘F directly
+
+6. **iPhone Layout**: Search bar extends beyond screen width
+   - Expected: Phase 1 limitation, requires horizontal scroll
+   - All functionality works via scrolling or keyboard shortcuts
+   - Planned fix: Phase 1.1 (responsive compact layout)
 
 ---
 
