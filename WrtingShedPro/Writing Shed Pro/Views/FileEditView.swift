@@ -1040,6 +1040,13 @@ struct FileEditView: View {
             print("Error saving context: \(error)")
         }
         
+        // Force text view display refresh to ensure visual update
+        // This is needed especially after undo/redo followed by replace operations
+        if let textView = textViewCoordinator.textView {
+            textView.setNeedsDisplay()
+            textView.layoutIfNeeded()
+        }
+        
         // Notify search manager that text changed (includes undo/redo)
         searchManager.notifyTextChanged()
     }
