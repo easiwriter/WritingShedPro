@@ -363,7 +363,8 @@ class InEditorSearchManager {
     /// Replace all matches
     func replaceAllMatches() -> Int {
         guard !matches.isEmpty,
-              let textView = textView else {
+              let textView = textView,
+              let textStorage = textStorage else {
             return 0
         }
         
@@ -373,14 +374,19 @@ class InEditorSearchManager {
         // Sort matches by location in descending order
         let sortedMatches = matches.sorted { $0.range.location > $1.range.location }
         
-        // Replace each match using textView's replace method
+        // CRITICAL: Use beginEditing/endEditing to group all replacements into a single undo operation
+        textStorage.beginEditing()
+        
+        // Replace each match directly in text storage
         for match in sortedMatches {
-            // Convert NSRange to UITextRange
-            guard let textRange = textView.textRange(from: match.range) else {
+            // Validate range is still valid
+            guard match.range.location + match.range.length <= textStorage.length else {
                 continue
             }
-            textView.replace(textRange, withText: replaceText)
+            textStorage.replaceCharacters(in: match.range, with: replaceText)
         }
+        
+        textStorage.endEditing()
         
         // Note: performSearch() will be called automatically via textDidChangeNotification
         
