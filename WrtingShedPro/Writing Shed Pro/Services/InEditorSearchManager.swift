@@ -9,24 +9,31 @@
 import Foundation
 import UIKit
 import Combine
+import Observation
 
 /// Manages search and replace operations within the active text editor
 @MainActor
-class InEditorSearchManager: ObservableObject {
+@Observable
+class InEditorSearchManager {
     
-    // MARK: - Published Properties
+    // MARK: - Observable Properties
     
     // Search text is debounced in setupDebouncing() to avoid performance issues
     // with searches triggering on every keystroke (e.g., "i" finding 1959 matches)
-    @Published var searchText: String = ""
+    var searchText: String = "" {
+        didSet {
+            // Debouncing is handled by Combine publisher
+            debounceSubject.send(searchText)
+        }
+    }
     
-    @Published var replaceText: String = ""
-    @Published var currentMatchIndex: Int = 0
-    @Published var totalMatches: Int = 0
-    @Published var isReplaceMode: Bool = false
+    var replaceText: String = ""
+    var currentMatchIndex: Int = 0
+    var totalMatches: Int = 0
+    var isReplaceMode: Bool = false
     
     // Options trigger immediate search since they're toggled, not typed
-    @Published var isCaseSensitive: Bool = false {
+    var isCaseSensitive: Bool = false {
         didSet {
             if isCaseSensitive != oldValue {
                 performSearch()
@@ -34,7 +41,7 @@ class InEditorSearchManager: ObservableObject {
         }
     }
     
-    @Published var isWholeWord: Bool = false {
+    var isWholeWord: Bool = false {
         didSet {
             if isWholeWord != oldValue {
                 performSearch()
@@ -42,7 +49,7 @@ class InEditorSearchManager: ObservableObject {
         }
     }
     
-    @Published var isRegex: Bool = false {
+    var isRegex: Bool = false {
         didSet {
             if isRegex != oldValue {
                 performSearch()
@@ -50,7 +57,7 @@ class InEditorSearchManager: ObservableObject {
         }
     }
     
-    @Published var regexError: String?
+    var regexError: String?
     
     // MARK: - Private Properties
     
@@ -61,6 +68,9 @@ class InEditorSearchManager: ObservableObject {
     
     // Track which ranges we actually highlighted so we can clear only those
     private var highlightedRanges: [NSRange] = []
+    
+    // Subject for debouncing search text changes
+    private let debounceSubject = PassthroughSubject<String, Never>()
     
     weak var textView: UITextView?
     weak var textStorage: NSTextStorage?
@@ -93,7 +103,7 @@ class InEditorSearchManager: ObservableObject {
     
     private func setupDebouncing() {
         // Debounce search text changes to avoid excessive searches while typing
-        $searchText
+        debounceSubject
             .debounce(for: .milliseconds(300), scheduler: RunLoop.main)
             .sink { [weak self] _ in
                 self?.performSearchIfNeeded()
