@@ -283,6 +283,8 @@ struct FileEditView: View {
                         if showSearchBar, let textView = textViewCoordinator.textView {
                             // Connect search manager to text view when opening
                             searchManager.connect(to: textView)
+                            // Also connect to the custom undo manager so Replace All can clear it
+                            searchManager.customUndoManager = undoManager
                         } else if !showSearchBar {
                             // Disconnect when closing
                             searchManager.disconnect()
@@ -969,6 +971,8 @@ struct FileEditView: View {
                 if let textView = self.textViewCoordinator.textView {
                     print("🔄 Reconnecting search manager to new text view after undo/redo")
                     self.searchManager.connect(to: textView)
+                    // Also reconnect to the custom undo manager
+                    self.searchManager.customUndoManager = self.undoManager
                     // Notify search manager that content changed (undo/redo)
                     self.searchManager.notifyTextChanged()
                 } else {

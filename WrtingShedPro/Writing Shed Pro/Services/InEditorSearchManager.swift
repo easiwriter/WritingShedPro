@@ -78,6 +78,9 @@ class InEditorSearchManager {
     weak var textView: UITextView?
     weak var textStorage: NSTextStorage?
     
+    // Reference to the custom undo manager (needed to clear undo stack after Replace All)
+    weak var customUndoManager: TextFileUndoManager?
+    
     // MARK: - Public Methods for Text Change Notification
     
     /// Called by FormattedTextEditor coordinator when text changes (including undo/redo)
@@ -430,20 +433,25 @@ class InEditorSearchManager {
         print("🔄 replaceAllMatches: After performSearch, totalMatches=\(totalMatches)")
         #endif
         
-        // CRITICAL: Trigger textViewDidChange WHILE isPerformingBatchReplace is still true
-        // This updates the SwiftUI binding but handleAttributedTextChange will skip
-        // creating an undo command because of the flag
-        textView.delegate?.textViewDidChange?(textView)
-        
         #if DEBUG
-        print("🔄 replaceAllMatches: After textViewDidChange")
+        print("🔄 replaceAllMatches: Cleanup - clearing batch replace flag")
         #endif
         
-        // NOW clear the flag and cleanup
+        // Clear the flag FIRST so any subsequent text changes work normally
         isPerformingBatchReplace = false
+        
+        // Re-enable undo registration for future operations (for UITextView's undo manager)
         textView.undoManager?.enableUndoRegistration()
-        // Clear any undo actions that might have accumulated during the operation
+        
+        // CRITICAL: Clear BOTH undo managers (UITextView's AND the custom one)
+        // The custom TextFileUndoManager is what the undo button actually uses
         textView.undoManager?.removeAllActions()
+        customUndoManager?.clear()
+        
+        #if DEBUG
+        print("🔄 replaceAllMatches: Cleared both undo managers")
+        print("🔄 replaceAllMatches: Complete - replaced \(replaceCount) matches")
+        #endif
         
         return replaceCount
     }
