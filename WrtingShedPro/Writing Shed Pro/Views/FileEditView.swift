@@ -81,10 +81,10 @@ struct FileEditView: View {
         
         // Try to restore undo manager or create new one
         if let restoredManager = file.restoreUndoState() {
-            _undoManager = StateObject(wrappedValue: restoredManager)
+            _undoManager = State(initialValue: restoredManager)
         } else {
             let newManager = TextFileUndoManager(file: file)
-            _undoManager = StateObject(wrappedValue: newManager)
+            _undoManager = State(initialValue: newManager)
         }
     }
     
