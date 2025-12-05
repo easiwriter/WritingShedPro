@@ -382,6 +382,11 @@ class InEditorSearchManager {
         // Sort matches by location in descending order
         let sortedMatches = matches.sorted { $0.range.location > $1.range.location }
         
+        // CRITICAL: Disable UITextView's undo manager to prevent undo/redo for Replace All
+        // (Replace All undo/redo is not supported - to be implemented later)
+        let wasUndoEnabled = textView.undoManager?.isUndoRegistrationEnabled ?? false
+        textView.undoManager?.disableUndoRegistration()
+        
         // CRITICAL: Set flag during the actual text replacement to prevent handleAttributedTextChange
         // from creating intermediate undo commands (which cause issues)
         isPerformingBatchReplace = true
@@ -401,6 +406,11 @@ class InEditorSearchManager {
         
         // CRITICAL: Clear flag before notifying delegate
         isPerformingBatchReplace = false
+        
+        // Re-enable UITextView's undo manager
+        if wasUndoEnabled {
+            textView.undoManager?.enableUndoRegistration()
+        }
         
         #if DEBUG
         print("🔄 replaceAllMatches: Completed \(replaceCount) replacements")
