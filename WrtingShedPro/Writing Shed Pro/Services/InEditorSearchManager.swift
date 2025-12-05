@@ -406,8 +406,15 @@ class InEditorSearchManager {
         // Check if undo registration is currently enabled (so we can restore it later)
         let wasUndoEnabled = textView.undoManager?.isUndoRegistrationEnabled ?? false
         
+        #if DEBUG
+        print("🔄 replaceAllMatches: wasUndoEnabled = \(wasUndoEnabled)")
+        #endif
+        
         // Disable undo registration if it's enabled
         if wasUndoEnabled {
+            #if DEBUG
+            print("🔄 replaceAllMatches: Calling disableUndoRegistration()")
+            #endif
             textView.undoManager?.disableUndoRegistration()
         }
         
@@ -444,15 +451,30 @@ class InEditorSearchManager {
         
         #if DEBUG
         print("🔄 replaceAllMatches: Cleanup")
+        print("🔄 replaceAllMatches: About to check wasUndoEnabled = \(wasUndoEnabled)")
         #endif
         
         // Clear UITextView's undo manager BEFORE re-enabling registration
         // removeAllActions() should be called while undo registration is disabled
         textView.undoManager?.removeAllActions()
         
+        #if DEBUG
+        print("🔄 replaceAllMatches: After removeAllActions")
+        #endif
+        
         // Re-enable undo registration ONLY if it was enabled before
         if wasUndoEnabled {
+            #if DEBUG
+            print("🔄 replaceAllMatches: Calling enableUndoRegistration()")
+            #endif
             textView.undoManager?.enableUndoRegistration()
+            #if DEBUG
+            print("🔄 replaceAllMatches: enableUndoRegistration() completed")
+            #endif
+        } else {
+            #if DEBUG
+            print("🔄 replaceAllMatches: NOT calling enableUndoRegistration() because wasUndoEnabled = false")
+            #endif
         }
         
         // Clear the flag
