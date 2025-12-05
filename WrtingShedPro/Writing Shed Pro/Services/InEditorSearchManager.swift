@@ -379,40 +379,36 @@ class InEditorSearchManager {
         // Sort matches by location in descending order
         let sortedMatches = matches.sorted { $0.range.location > $1.range.location }
         
-        // CRITICAL: Disable UITextView's undo registration to prevent duplicate undo operations
-        // We'll let handleAttributedTextChange create the FormatApplyCommand for our custom undo
-        let undoManager = textView.undoManager
-        undoManager?.disableUndoRegistration()
-        
-        // CRITICAL: Use beginEditing/endEditing to batch all replacements for performance
-        textStorage.beginEditing()
-        
-        // Replace each match directly in text storage
+        // CRITICAL: Use textView.replace() in a loop
+        // This will create individual undo commands that UIKit will automatically coalesce
+        // because they happen in the same run loop iteration
         for match in sortedMatches {
             // Validate range is still valid
-            guard match.range.location + match.range.length <= textStorage.length else {
+            guard match.range.location + match.range.length <= textView.text.count else {
                 continue
             }
-            textStorage.replaceCharacters(in: match.range, with: replaceText)
+            
+            // Convert NSRange to UITextRange
+            guard let textRange = textView.textRange(from: match.range) else {
+                continue
+            }
+            
+            // Use textView.replace() which properly handles undo
+            textView.replace(textRange, withText: replaceText)
         }
         
-        textStorage.endEditing()
-        
-        // Re-enable undo registration BEFORE notifications fire
-        undoManager?.enableUndoRegistration()
-        
         #if DEBUG
-        print("🔄 replaceAllMatches: Completed. Text length now: \(textStorage.length)")
-        print("🔄 replaceAllMatches: Undo re-enabled, notifications will fire")
+        print("🔄 replaceAllMatches: Completed \(replaceCount) replacements")
+        print("🔄 replaceAllMatches: Calling performSearch() to update match count and highlights")
         #endif
         
-        // NOTE: At this point:
-        // 1. textStorage.endEditing() has triggered textDidChangeNotification
-        // 2. textChangeObserver will call performSearch() if searchText not empty
-        // 3. textViewDidChange delegate will call handleAttributedTextChange
-        // 4. handleAttributedTextChange will create FormatApplyCommand for undo
-        // 5. handleAttributedTextChange will call notifyTextChanged() → performSearch()
-        // Result: Search updates, match count updates, undo works!
+        // CRITICAL: After all replacements, update the search
+        // This will:
+        // 1. Search for the original term (e.g., "Lorem")
+        // 2. Find 0 matches (all replaced with "XX")
+        // 3. Clear highlights
+        // 4. Update match count to "No matches"
+        performSearch()
         
         return replaceCount
     }
