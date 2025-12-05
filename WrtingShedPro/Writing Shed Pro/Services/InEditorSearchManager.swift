@@ -418,8 +418,8 @@ class InEditorSearchManager {
             textView.undoManager?.disableUndoRegistration()
         }
         
-        // Remove any existing undo actions
-        textView.undoManager?.removeAllActions()
+        // NOTE: We do NOT call removeAllActions() here because it internally calls
+        // enableUndoRegistration() which would unbalance our disable/enable pairs
         
         // Use textStorage.beginEditing/endEditing to batch all replacements efficiently
         textStorage.beginEditing()
@@ -451,34 +451,35 @@ class InEditorSearchManager {
         
         #if DEBUG
         print("🔄 replaceAllMatches: Cleanup")
-        print("🔄 replaceAllMatches: About to check wasUndoEnabled = \(wasUndoEnabled)")
-        #endif
-        
-        // Clear UITextView's undo manager BEFORE re-enabling registration
-        // removeAllActions() should be called while undo registration is disabled
-        textView.undoManager?.removeAllActions()
-        
-        #if DEBUG
-        print("🔄 replaceAllMatches: After removeAllActions")
+        print("🔄 replaceAllMatches: wasUndoEnabled = \(wasUndoEnabled)")
         #endif
         
         // Re-enable undo registration ONLY if it was enabled before
+        // Wrap in try-catch because UITextView's undo manager state can be unpredictable
         if wasUndoEnabled {
             #if DEBUG
-            print("🔄 replaceAllMatches: Calling enableUndoRegistration()")
+            print("🔄 replaceAllMatches: Attempting to re-enable undo registration")
             #endif
-            textView.undoManager?.enableUndoRegistration()
-            #if DEBUG
-            print("🔄 replaceAllMatches: enableUndoRegistration() completed")
-            #endif
-        } else {
-            #if DEBUG
-            print("🔄 replaceAllMatches: NOT calling enableUndoRegistration() because wasUndoEnabled = false")
-            #endif
+            
+            // Check if it's actually disabled before trying to enable
+            if textView.undoManager?.isUndoRegistrationEnabled == false {
+                textView.undoManager?.enableUndoRegistration()
+                #if DEBUG
+                print("🔄 replaceAllMatches: Re-enabled undo registration")
+                #endif
+            } else {
+                #if DEBUG
+                print("🔄 replaceAllMatches: Undo registration already enabled, skipping")
+                #endif
+            }
         }
         
-        // Clear the flag
+        // Clear the flag so future text changes work normally
         isPerformingBatchReplace = false
+        
+        #if DEBUG
+        print("🔄 replaceAllMatches: Cleanup complete")
+        #endif
         
         // CRITICAL: Reconnect the notification observer
         // We removed it at the start to prevent notification loops during batch replace

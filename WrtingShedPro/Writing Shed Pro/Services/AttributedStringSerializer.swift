@@ -158,16 +158,16 @@ struct AttributedStringSerializer {
         // This ensures UITextView uses adaptive color instead of defaulting to black
         for range in rangesToAddLabel {
             mutableString.addAttribute(.foregroundColor, value: UIColor.label, range: range)
-            print("🧹 Added .label color for adaptive dark mode at range {\(range.location), \(range.length)}")
+//            print("🧹 Added .label color for adaptive dark mode at range {\(range.location), \(range.length)}")
         }
         
-        if !rangesToStrip.isEmpty {
-            print("🧹 Stripped \(rangesToStrip.count) adaptive color ranges and added .label")
-        } else if hasAnyColorAttribute {
-            print("🧹 Found colors but none were adaptive - preserving user colors")
-        } else if !rangesToAddLabel.isEmpty {
-            print("🧹 Added .label to \(rangesToAddLabel.count) ranges with no color")
-        }
+//        if !rangesToStrip.isEmpty {
+//            print("🧹 Stripped \(rangesToStrip.count) adaptive color ranges and added .label")
+//        } else if hasAnyColorAttribute {
+//            print("🧹 Found colors but none were adaptive - preserving user colors")
+//        } else if !rangesToAddLabel.isEmpty {
+//            print("🧹 Added .label to \(rangesToAddLabel.count) ranges with no color")
+//        }
         
         return mutableString
     }
