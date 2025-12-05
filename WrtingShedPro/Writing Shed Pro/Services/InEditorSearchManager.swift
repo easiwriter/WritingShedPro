@@ -110,6 +110,7 @@ class InEditorSearchManager: ObservableObject {
     
     /// Perform search in the current text
     func performSearch() {
+        let startTime = CFAbsoluteTimeGetCurrent()
         print("🔍 performSearch called: searchText='\(searchText)'")
         print("  - textView: \(textView != nil ? "✅" : "❌")")
         print("  - textStorage: \(textStorage != nil ? "✅" : "❌")")
@@ -120,7 +121,10 @@ class InEditorSearchManager: ObservableObject {
         }
         
         // Clear previous highlights
+        let clearStart = CFAbsoluteTimeGetCurrent()
         clearHighlights()
+        let clearTime = CFAbsoluteTimeGetCurrent() - clearStart
+        print("  ⏱️ clearHighlights: \(String(format: "%.3f", clearTime))s")
         
         // Validate regex if needed
         if isRegex {
@@ -143,17 +147,31 @@ class InEditorSearchManager: ObservableObject {
         )
         
         // Perform search
+        let searchStart = CFAbsoluteTimeGetCurrent()
         matches = searchEngine.search(in: text, query: query)
         totalMatches = matches.count
+        let searchTime = CFAbsoluteTimeGetCurrent() - searchStart
+        print("  ⏱️ search: \(String(format: "%.3f", searchTime))s")
         
         print("  - Found \(totalMatches) matches")
         
         // Reset to first match
         if !matches.isEmpty {
             currentMatchIndex = 0
+            
+            let highlightStart = CFAbsoluteTimeGetCurrent()
             highlightMatches()
+            let highlightTime = CFAbsoluteTimeGetCurrent() - highlightStart
+            print("  ⏱️ highlightMatches: \(String(format: "%.3f", highlightTime))s")
+            
+            let scrollStart = CFAbsoluteTimeGetCurrent()
             scrollToCurrentMatch()
+            let scrollTime = CFAbsoluteTimeGetCurrent() - scrollStart
+            print("  ⏱️ scrollToCurrentMatch: \(String(format: "%.3f", scrollTime))s")
         }
+        
+        let totalTime = CFAbsoluteTimeGetCurrent() - startTime
+        print("  ⏱️ TOTAL performSearch: \(String(format: "%.3f", totalTime))s")
     }
     
     /// Clear all search state
@@ -200,6 +218,9 @@ class InEditorSearchManager: ObservableObject {
         let maxHighlights = 500
         let shouldLimitHighlights = matches.count > maxHighlights
         
+        // CRITICAL PERFORMANCE: Disable layout notifications during batch updates
+        textStorage.beginEditing()
+        
         // Highlight all matches (or first 500 + current)
         for (index, match) in matches.enumerated() {
             // Always highlight current match, otherwise only first maxHighlights
@@ -220,8 +241,8 @@ class InEditorSearchManager: ObservableObject {
             }
         }
         
-        // Force textStorage to process the changes
-        textStorage.edited(.editedAttributes, range: NSRange(location: 0, length: textStorage.length), changeInLength: 0)
+        // CRITICAL PERFORMANCE: Re-enable layout and process all changes at once
+        textStorage.endEditing()
         
         if shouldLimitHighlights {
             print("⚠️ Highlighted first \(maxHighlights) of \(matches.count) matches (+ current match)")
@@ -232,11 +253,16 @@ class InEditorSearchManager: ObservableObject {
     private func clearHighlights() {
         guard let textStorage = textStorage else { return }
         
+        // CRITICAL PERFORMANCE: Batch the attribute removal
+        textStorage.beginEditing()
+        
         let fullRange = NSRange(location: 0, length: textStorage.length)
         // Remove both background color and underline attributes
         textStorage.removeAttribute(.backgroundColor, range: fullRange)
         textStorage.removeAttribute(.underlineStyle, range: fullRange)
         textStorage.removeAttribute(.underlineColor, range: fullRange)
+        
+        textStorage.endEditing()
     }
     
     // MARK: - Scrolling
