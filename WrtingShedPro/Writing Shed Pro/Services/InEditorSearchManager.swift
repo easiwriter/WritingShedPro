@@ -151,16 +151,22 @@ class InEditorSearchManager: ObservableObject {
         
         // Perform search
         let searchStart = CFAbsoluteTimeGetCurrent()
-        matches = searchEngine.search(in: text, query: query)
-        totalMatches = matches.count
+        let foundMatches = searchEngine.search(in: text, query: query)
         let searchTime = CFAbsoluteTimeGetCurrent() - searchStart
         print("  ⏱️ search: \(String(format: "%.3f", searchTime))s")
         
-        print("  - Found \(totalMatches) matches")
+        print("  - Found \(foundMatches.count) matches")
         
-        // Reset to first match
+        // CRITICAL PERFORMANCE: Batch all UI updates together
+        // Temporarily store results, then update all @Published properties at once
+        let updateStart = CFAbsoluteTimeGetCurrent()
+        
+        matches = foundMatches
+        
+        // Update UI state in one batch to avoid multiple SwiftUI redraws
         if !matches.isEmpty {
             currentMatchIndex = 0
+            totalMatches = matches.count
             
             let highlightStart = CFAbsoluteTimeGetCurrent()
             highlightMatches()
@@ -171,7 +177,13 @@ class InEditorSearchManager: ObservableObject {
             scrollToCurrentMatch()
             let scrollTime = CFAbsoluteTimeGetCurrent() - scrollStart
             print("  ⏱️ scrollToCurrentMatch: \(String(format: "%.3f", scrollTime))s")
+        } else {
+            currentMatchIndex = 0
+            totalMatches = 0
         }
+        
+        let updateTime = CFAbsoluteTimeGetCurrent() - updateStart
+        print("  ⏱️ UI updates: \(String(format: "%.3f", updateTime))s")
         
         let totalTime = CFAbsoluteTimeGetCurrent() - startTime
         print("  ⏱️ TOTAL performSearch: \(String(format: "%.3f", totalTime))s")

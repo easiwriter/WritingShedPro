@@ -259,6 +259,7 @@ struct FormattedTextEditor: UIViewRepresentable {
     }
     
     func updateUIView(_ textView: UITextView, context: Context) {
+        let updateStart = CFAbsoluteTimeGetCurrent()
         print("📝 updateUIView called")
         print("📝 isUpdatingFromSwiftUI: \(context.coordinator.isUpdatingFromSwiftUI)")
         
@@ -524,6 +525,11 @@ struct FormattedTextEditor: UIViewRepresentable {
         // Ensure autocorrect stays disabled
         textView.autocorrectionType = .no
         textView.spellCheckingType = .yes
+        
+        let updateTime = CFAbsoluteTimeGetCurrent() - updateStart
+        if updateTime > 0.01 { // Only print if > 10ms
+            print("📝 updateUIView took: \(String(format: "%.3f", updateTime))s")
+        }
     }
     
     func makeCoordinator() -> Coordinator {
