@@ -400,14 +400,19 @@ class InEditorSearchManager {
             textChangeObserver = nil
         }
         
-        // CRITICAL: Completely disable undo for Replace All
-        // (Replace All undo/redo is not supported - to be implemented later)
-        textView.undoManager?.removeAllActions()
-        textView.undoManager?.disableUndoRegistration()
-        
-        // CRITICAL: Set flag during the actual text replacement to prevent handleAttributedTextChange
-        // from creating intermediate undo commands (which cause issues)
+        // CRITICAL: Set flag FIRST before any other operations
         isPerformingBatchReplace = true
+        
+        // Check if undo registration is currently enabled (so we can restore it later)
+        let wasUndoEnabled = textView.undoManager?.isUndoRegistrationEnabled ?? false
+        
+        // Disable undo registration if it's enabled
+        if wasUndoEnabled {
+            textView.undoManager?.disableUndoRegistration()
+        }
+        
+        // Remove any existing undo actions
+        textView.undoManager?.removeAllActions()
         
         // Use textStorage.beginEditing/endEditing to batch all replacements efficiently
         textStorage.beginEditing()
@@ -441,8 +446,10 @@ class InEditorSearchManager {
         print("🔄 replaceAllMatches: Cleanup")
         #endif
         
-        // Re-enable undo registration for future operations (for UITextView's undo manager)
-        textView.undoManager?.enableUndoRegistration()
+        // Re-enable undo registration ONLY if it was enabled before
+        if wasUndoEnabled {
+            textView.undoManager?.enableUndoRegistration()
+        }
         
         // Clear UITextView's undo manager (for consistency)
         textView.undoManager?.removeAllActions()
