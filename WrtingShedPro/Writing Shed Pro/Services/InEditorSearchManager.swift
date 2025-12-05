@@ -392,12 +392,16 @@ class InEditorSearchManager {
         // Sort matches by location in descending order
         let sortedMatches = matches.sorted { $0.range.location > $1.range.location }
         
+        // CRITICAL: Temporarily remove notification observer to prevent infinite loops
+        // textStorage.endEditing() posts notifications that can trigger more text changes
+        // which can cause freezes and undo command creation
+        if let observer = textChangeObserver {
+            NotificationCenter.default.removeObserver(observer)
+            textChangeObserver = nil
+        }
+        
         // CRITICAL: Completely disable undo for Replace All
         // (Replace All undo/redo is not supported - to be implemented later)
-        // We need to:
-        // 1. Remove any existing undo actions (clears the undo button)
-        // 2. Disable undo registration during the batch operation
-        // 3. Remove any accumulated actions after (in case some leaked through)
         textView.undoManager?.removeAllActions()
         textView.undoManager?.disableUndoRegistration()
         
@@ -443,21 +447,28 @@ class InEditorSearchManager {
         // Clear UITextView's undo manager (for consistency)
         textView.undoManager?.removeAllActions()
         
-        // CRITICAL: Defer clearing the flag until AFTER any pending notifications are processed
-        // The textStorage.endEditing() calls above post UITextView.textDidChangeNotification
-        // asynchronously to the main queue. If we clear the flag immediately, those notifications
-        // will be processed while flag=false, creating undo commands.
-        // Using DispatchQueue.main.async ensures we clear the flag AFTER all pending work.
-        DispatchQueue.main.async { [weak self] in
-            self?.isPerformingBatchReplace = false
-            #if DEBUG
-            print("🔄 replaceAllMatches: isPerformingBatchReplace now false (async)")
-            #endif
+        // Clear the flag
+        isPerformingBatchReplace = false
+        
+        // CRITICAL: Reconnect the notification observer
+        // We removed it at the start to prevent notification loops during batch replace
+        textChangeObserver = NotificationCenter.default.addObserver(
+            forName: UITextView.textDidChangeNotification,
+            object: textView,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self = self else { return }
+            // Re-run search if we have an active search
+            Task { @MainActor in
+                if !self.searchText.isEmpty {
+                    self.performSearch()
+                }
+            }
         }
         
         #if DEBUG
         print("🔄 replaceAllMatches: Complete - replaced \(replaceCount) matches")
-        print("🔄 replaceAllMatches: isPerformingBatchReplace still true (will clear async)")
+        print("🔄 replaceAllMatches: Reconnected notification observer")
         #endif
         
         return replaceCount
