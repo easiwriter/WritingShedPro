@@ -434,23 +434,30 @@ class InEditorSearchManager {
         #endif
         
         #if DEBUG
-        print("🔄 replaceAllMatches: Cleanup - clearing batch replace flag")
+        print("🔄 replaceAllMatches: Cleanup")
         #endif
-        
-        // Clear the flag FIRST so any subsequent text changes work normally
-        isPerformingBatchReplace = false
         
         // Re-enable undo registration for future operations (for UITextView's undo manager)
         textView.undoManager?.enableUndoRegistration()
         
-        // CRITICAL: Clear BOTH undo managers (UITextView's AND the custom one)
-        // The custom TextFileUndoManager is what the undo button actually uses
+        // Clear UITextView's undo manager (for consistency)
         textView.undoManager?.removeAllActions()
-        customUndoManager?.clear()
+        
+        // CRITICAL: Defer clearing the flag until AFTER any pending notifications are processed
+        // The textStorage.endEditing() calls above post UITextView.textDidChangeNotification
+        // asynchronously to the main queue. If we clear the flag immediately, those notifications
+        // will be processed while flag=false, creating undo commands.
+        // Using DispatchQueue.main.async ensures we clear the flag AFTER all pending work.
+        DispatchQueue.main.async { [weak self] in
+            self?.isPerformingBatchReplace = false
+            #if DEBUG
+            print("🔄 replaceAllMatches: isPerformingBatchReplace now false (async)")
+            #endif
+        }
         
         #if DEBUG
-        print("🔄 replaceAllMatches: Cleared both undo managers")
         print("🔄 replaceAllMatches: Complete - replaced \(replaceCount) matches")
+        print("🔄 replaceAllMatches: isPerformingBatchReplace still true (will clear async)")
         #endif
         
         return replaceCount
