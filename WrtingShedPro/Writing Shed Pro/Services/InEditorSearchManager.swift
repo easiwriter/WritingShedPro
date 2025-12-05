@@ -417,17 +417,20 @@ class InEditorSearchManager {
         print("🔄 replaceAllMatches: Text in storage after replace: '\(textStorage.string.prefix(50))'")
         #endif
         
+        // CRITICAL: First update the search to clear matches/highlights based on the new text
+        // Do this BEFORE notifying delegate to avoid race conditions
+        performSearch()
+        
+        #if DEBUG
+        print("🔄 replaceAllMatches: After performSearch, totalMatches=\(totalMatches)")
+        #endif
+        
         // CRITICAL: Now trigger textViewDidChange to update the SwiftUI binding
         textView.delegate?.textViewDidChange?(textView)
         
         #if DEBUG
         print("🔄 replaceAllMatches: After textViewDidChange, text in textView: '\(textView.text.prefix(50))'")
-        print("🔄 replaceAllMatches: Calling performSearch() to update match count and highlights")
         #endif
-        
-        // CRITICAL: Explicitly update the search after replacements
-        // performSearch runs to update match count and clear highlights
-        performSearch()
         
         return replaceCount
     }
