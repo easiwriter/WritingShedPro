@@ -131,7 +131,14 @@ class InEditorSearchManager {
         print("  - textView: \(textView != nil ? "✅" : "❌")")
         print("  - textStorage: \(textStorage != nil ? "✅" : "❌")")
         
-        guard !searchText.isEmpty, let text = textView?.text else {
+        guard !searchText.isEmpty else {
+            clearSearch()
+            return
+        }
+        
+        // Use textStorage.string if available (more reliable during batch operations)
+        // Otherwise fall back to textView.text
+        guard let text = textStorage?.string ?? textView?.text else {
             clearSearch()
             return
         }
