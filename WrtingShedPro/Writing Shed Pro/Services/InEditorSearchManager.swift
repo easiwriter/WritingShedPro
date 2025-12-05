@@ -78,6 +78,9 @@ class InEditorSearchManager {
     weak var textView: UITextView?
     weak var textStorage: NSTextStorage?
     
+    // Callback to register undo command for Replace All
+    var registerUndoCommand: ((NSAttributedString, NSAttributedString) -> Void)?
+    
     // MARK: - Public Methods for Text Change Notification
     
     /// Called by FormattedTextEditor coordinator when text changes (including undo/redo)
@@ -378,16 +381,23 @@ class InEditorSearchManager {
         print("🔄 replaceAllMatches: Text length before: \(textStorage.length)")
         #endif
         
+        // Capture state BEFORE replacement for undo
+        let beforeText = NSAttributedString(attributedString: textStorage)
+        
         // Replace in reverse order to maintain valid ranges
         // Sort matches by location in descending order
         let sortedMatches = matches.sorted { $0.range.location > $1.range.location }
         
-        // CRITICAL: Set flag to prevent duplicate undo command creation in handleAttributedTextChange
-        isPerformingBatchReplace = true
-        defer { isPerformingBatchReplace = false }
+        // CRITICAL: Disable UITextView's undo manager to prevent it from creating undo operations
+        // We will handle undo/redo through TextFileUndoManager manually
+        let wasUndoEnabled = textView.undoManager?.isUndoRegistrationEnabled ?? false
+        textView.undoManager?.disableUndoRegistration()
         
-        // CRITICAL: Use textStorage.beginEditing/endEditing to batch all replacements
-        // into a single undo operation in UITextView's undo manager
+        // CRITICAL: Set flag during the actual text replacement to prevent handleAttributedTextChange
+        // from creating intermediate undo commands
+        isPerformingBatchReplace = true
+        
+        // Use textStorage.beginEditing/endEditing to batch all replacements efficiently
         textStorage.beginEditing()
         
         for match in sortedMatches {
@@ -400,16 +410,30 @@ class InEditorSearchManager {
         
         textStorage.endEditing()
         
+        // Capture state AFTER replacement for redo
+        let afterText = NSAttributedString(attributedString: textStorage)
+        
+        // CRITICAL: Clear flag before notifying delegate
+        isPerformingBatchReplace = false
+        
         #if DEBUG
         print("🔄 replaceAllMatches: Completed \(replaceCount) replacements")
+        print("🔄 replaceAllMatches: Text in storage after replace: '\(textStorage.string.prefix(50))'")
         #endif
         
-        // CRITICAL: Manually trigger textViewDidChange to update the SwiftUI binding
-        // textStorage.beginEditing/endEditing modifies the storage directly but doesn't
-        // automatically trigger the delegate callback, so the @Binding doesn't get updated
+        // Register undo command for Replace All with custom TextFileUndoManager
+        registerUndoCommand?(beforeText, afterText)
+        
+        // CRITICAL: Now trigger textViewDidChange to update the SwiftUI binding
         textView.delegate?.textViewDidChange?(textView)
         
+        // Re-enable UITextView's undo manager
+        if wasUndoEnabled {
+            textView.undoManager?.enableUndoRegistration()
+        }
+        
         #if DEBUG
+        print("🔄 replaceAllMatches: After textViewDidChange, text in textView: '\(textView.text.prefix(50))'")
         print("🔄 replaceAllMatches: Calling performSearch() to update match count and highlights")
         #endif
         

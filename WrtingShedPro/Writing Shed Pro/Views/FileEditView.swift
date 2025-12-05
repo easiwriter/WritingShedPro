@@ -735,7 +735,39 @@ struct FileEditView: View {
     }
     // MARK: - Lifecycle Helpers
     
+    private func setupReplaceAllUndoCallback() {
+        let undoManager = self.undoManager
+        let file = self.file
+        
+        searchManager.registerUndoCommand = { beforeText, afterText in
+            #if DEBUG
+            print("🔄 Registering Replace All undo command")
+            print("🔄 Before length: \(beforeText.length)")
+            print("🔄 After length: \(afterText.length)")
+            #endif
+            
+            let command = FormatApplyCommand(
+                description: "Replace All",
+                range: NSRange(location: 0, length: afterText.length),
+                beforeContent: beforeText,
+                afterContent: afterText,
+                targetFile: file
+            )
+            undoManager.execute(command)
+            
+            // Update previous content for next comparison
+            self.previousContent = afterText.string
+            
+            #if DEBUG
+            print("🔄 Replace All undo command registered successfully")
+            #endif
+        }
+    }
+    
     private func setupOnAppear() {
+        // Setup Replace All undo callback
+        setupReplaceAllUndoCallback()
+        
         // Always jump to latest version when opening a file
         file.selectLatestVersion()
         
@@ -989,13 +1021,9 @@ struct FileEditView: View {
             return
         }
         
-        // CRITICAL: Skip undo command creation during batch replace to prevent duplicate undo operations
-        // textStorage.beginEditing/endEditing creates one undo operation in UITextView's undo manager
-        // We don't want to also create a FormatApplyCommand in our custom undo manager
+        // Skip during batch replace - undo will be handled manually
         guard !searchManager.isPerformingBatchReplace else {
-            #if DEBUG
-            print("🔄 Skipping - performing batch replace (undo handled by NSTextStorage)")
-            #endif
+            print("🔄 Skipping - performing batch replace")
             return
         }
         

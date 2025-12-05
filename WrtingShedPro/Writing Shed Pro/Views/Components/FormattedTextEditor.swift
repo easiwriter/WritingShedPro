@@ -317,6 +317,8 @@ struct FormattedTextEditor: UIViewRepresentable {
                 print("📝 Formatting changed - updating attributes only")
             } else {
                 print("📝 Content different - updating text view")
+                print("📝 Current text in view: '\(textViewString.prefix(50))'")
+                print("📝 New text from binding: '\(newString.prefix(50))'")
             }
             
             // Set flag to prevent feedback from delegate
@@ -602,8 +604,10 @@ struct FormattedTextEditor: UIViewRepresentable {
             if let attributedText = textView.attributedText {
                 // Always update - could be text change or formatting change
                 print("📝 Text or formatting changed - updating binding")
+                print("📝 Binding will be set to: '\(attributedText.string.prefix(50))'")
                 parent.attributedText = attributedText
                 parent.onTextChange?(attributedText)
+                print("📝 Binding updated successfully")
             }
         }
         
