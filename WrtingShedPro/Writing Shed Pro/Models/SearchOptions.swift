@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import Observation
 
 /// User preferences for search and replace operations
 struct SearchOptions: Codable {
@@ -76,10 +77,11 @@ struct SearchOptions: Codable {
 }
 
 /// Persistent storage for SearchOptions using UserDefaults
-class SearchOptionsStore: ObservableObject {
+@Observable
+class SearchOptionsStore {
     private static let userDefaultsKey = "searchOptions"
     
-    @Published var options: SearchOptions {
+    var options: SearchOptions {
         didSet {
             save()
         }

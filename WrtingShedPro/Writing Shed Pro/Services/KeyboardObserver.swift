@@ -1,30 +1,32 @@
 import SwiftUI
 import UIKit
 import Combine
+import Observation
 
 /// Observable service that detects keyboard state and type
 /// Distinguishes between on-screen (software) keyboard and external (hardware) keyboard
-class KeyboardObserver: ObservableObject {
+@Observable
+class KeyboardObserver {
     
-    // MARK: - Published Properties
+    // MARK: - Observable Properties
     
     /// Whether any keyboard is currently visible
-    @Published private(set) var isKeyboardVisible = false
+    private(set) var isKeyboardVisible = false
     
     /// Whether the on-screen software keyboard is visible
-    @Published private(set) var isOnScreenKeyboard = false
+    private(set) var isOnScreenKeyboard = false
     
     /// Whether an external hardware keyboard is being used
-    @Published private(set) var isExternalKeyboard = false
+    private(set) var isExternalKeyboard = false
     
     /// Current keyboard height (0 if not visible)
-    @Published private(set) var keyboardHeight: CGFloat = 0
+    private(set) var keyboardHeight: CGFloat = 0
     
     /// Keyboard animation duration (for matching animations)
-    @Published private(set) var keyboardAnimationDuration: TimeInterval = 0.25
+    private(set) var keyboardAnimationDuration: TimeInterval = 0.25
     
     /// Keyboard animation curve
-    @Published private(set) var keyboardAnimationCurve: UIView.AnimationCurve = .easeInOut
+    private(set) var keyboardAnimationCurve: UIView.AnimationCurve = .easeInOut
     
     // MARK: - Initialization
     

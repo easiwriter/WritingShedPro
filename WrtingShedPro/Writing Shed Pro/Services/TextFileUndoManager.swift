@@ -1,23 +1,25 @@
 import Foundation
 import Combine
+import Observation
 
 /// Manages undo/redo operations for a text file
 /// Implements the Command pattern with support for typing coalescing and persistence
-final class TextFileUndoManager: ObservableObject {
+@Observable
+final class TextFileUndoManager {
     
-    // MARK: - Published Properties
+    // MARK: - Observable Properties
     
     /// Whether undo is available
-    @Published private(set) var canUndo: Bool = false
+    private(set) var canUndo: Bool = false
     
     /// Whether redo is available
-    @Published private(set) var canRedo: Bool = false
+    private(set) var canRedo: Bool = false
     
     /// Description of the action that would be undone
-    @Published private(set) var undoActionName: String?
+    private(set) var undoActionName: String?
     
     /// Description of the action that would be redone
-    @Published private(set) var redoActionName: String?
+    private(set) var redoActionName: String?
     
     // MARK: - Private Properties
     

@@ -6,30 +6,32 @@
 //
 
 import SwiftUI
+import Observation
 
 @MainActor
-final class ContentViewState: ObservableObject {
+@Observable
+final class ContentViewState {
     // UI State
-    @Published var showAddProject = false
-    @Published var showManageStyles = false
-    @Published var isImporting = false
-    @Published var showingJSONImportPicker = false
-    @Published var showImportError = false
-    @Published var importErrorMessage = ""
-    @Published var showDeleteAllConfirmation = false
-    @Published var selectedSortOrder: SortOrder = .byName
-    @Published var editMode: EditMode = .inactive
+    var showAddProject = false
+    var showManageStyles = false
+    var isImporting = false
+    var showingJSONImportPicker = false
+    var showImportError = false
+    var importErrorMessage = ""
+    var showDeleteAllConfirmation = false
+    var selectedSortOrder: SortOrder = .byName
+    var editMode: EditMode = .inactive
     
     // Settings menu sheets
-    @Published var showAbout = false
-    @Published var showPageSetup = false
-    @Published var showContactSupport = false
+    var showAbout = false
+    var showPageSetup = false
+    var showContactSupport = false
     
     // Debug
-    @Published var showSyncDiagnostics = false
+    var showSyncDiagnostics = false
     
     // Appearance preferences
-    @Published var appearancePreferences = AppearancePreferences.shared
+    var appearancePreferences = AppearancePreferences.shared
     
     init() {}
 }
