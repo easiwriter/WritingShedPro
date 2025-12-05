@@ -981,10 +981,21 @@ struct FileEditView: View {
         #if DEBUG
         print("🔄 handleAttributedTextChange called")
         print("🔄 isPerformingUndoRedo: \(isPerformingUndoRedo)")
+        print("🔄 isPerformingBatchReplace: \(searchManager.isPerformingBatchReplace)")
         #endif
         
         guard !isPerformingUndoRedo else {
             print("🔄 Skipping - performing undo/redo")
+            return
+        }
+        
+        // CRITICAL: Skip undo command creation during batch replace to prevent duplicate undo operations
+        // textStorage.beginEditing/endEditing creates one undo operation in UITextView's undo manager
+        // We don't want to also create a FormatApplyCommand in our custom undo manager
+        guard !searchManager.isPerformingBatchReplace else {
+            #if DEBUG
+            print("🔄 Skipping - performing batch replace (undo handled by NSTextStorage)")
+            #endif
             return
         }
         

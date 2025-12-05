@@ -72,6 +72,9 @@ class InEditorSearchManager {
     // Subject for debouncing search text changes
     private let debounceSubject = PassthroughSubject<String, Never>()
     
+    // Flag to prevent duplicate undo commands during batch replace
+    private(set) var isPerformingBatchReplace: Bool = false
+    
     weak var textView: UITextView?
     weak var textStorage: NSTextStorage?
     
@@ -379,8 +382,12 @@ class InEditorSearchManager {
         // Sort matches by location in descending order
         let sortedMatches = matches.sorted { $0.range.location > $1.range.location }
         
+        // CRITICAL: Set flag to prevent duplicate undo command creation in handleAttributedTextChange
+        isPerformingBatchReplace = true
+        defer { isPerformingBatchReplace = false }
+        
         // CRITICAL: Use textStorage.beginEditing/endEditing to batch all replacements
-        // into a single undo operation
+        // into a single undo operation in UITextView's undo manager
         textStorage.beginEditing()
         
         for match in sortedMatches {
