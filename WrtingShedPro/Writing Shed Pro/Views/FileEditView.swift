@@ -981,10 +981,22 @@ struct FileEditView: View {
         #if DEBUG
         print("🔄 handleAttributedTextChange called")
         print("🔄 isPerformingUndoRedo: \(isPerformingUndoRedo)")
+        print("🔄 searchManager.isPerformingBatchReplace: \(searchManager.isPerformingBatchReplace)")
         #endif
         
         guard !isPerformingUndoRedo else {
             print("🔄 Skipping - performing undo/redo")
+            return
+        }
+        
+        guard !searchManager.isPerformingBatchReplace else {
+            print("🔄 Skipping - performing batch replace (undo handled by NSTextStorage)")
+            // Still update the UI and notify search manager
+            let newContent = newAttributedText.string
+            previousContent = newContent
+            file.currentVersion?.attributedContent = newAttributedText
+            file.modifiedDate = Date()
+            searchManager.notifyTextChanged()
             return
         }
         
