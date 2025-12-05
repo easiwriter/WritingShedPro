@@ -513,7 +513,19 @@ extension InEditorSearchManager {
     
     /// Disconnect from text view
     func disconnect() {
-        clearHighlights()
+        #if DEBUG
+        print("🔍 disconnect() called - clearing search state")
+        #endif
+        
+        // Clear search state first
+        matches = []
+        totalMatches = 0
+        currentMatchIndex = 0
+        
+        // Clear highlights if we still have access to textStorage
+        if textStorage != nil {
+            clearHighlights()
+        }
         
         // Remove text change observer
         if let observer = textChangeObserver {
@@ -523,6 +535,10 @@ extension InEditorSearchManager {
         
         self.textView = nil
         self.textStorage = nil
+        
+        #if DEBUG
+        print("🔍 disconnect() completed")
+        #endif
     }
 }
 
