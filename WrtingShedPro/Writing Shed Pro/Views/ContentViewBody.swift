@@ -10,7 +10,7 @@ import UniformTypeIdentifiers
 
 struct ContentViewBody: View {
     let projects: [Project]
-    var state: ContentViewState
+    @Bindable var state: ContentViewState
     
     let onInitialize: () -> Void
     let onHandleImportMenu: () -> Void
