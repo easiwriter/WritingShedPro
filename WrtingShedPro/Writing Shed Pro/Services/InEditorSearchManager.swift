@@ -398,6 +398,14 @@ class InEditorSearchManager {
         // from creating intermediate undo commands (which cause issues)
         isPerformingBatchReplace = true
         
+        // Ensure cleanup happens even if something goes wrong
+        defer {
+            isPerformingBatchReplace = false
+            if wasUndoEnabled {
+                textView.undoManager?.enableUndoRegistration()
+            }
+        }
+        
         // Use textStorage.beginEditing/endEditing to batch all replacements efficiently
         textStorage.beginEditing()
         
@@ -410,14 +418,6 @@ class InEditorSearchManager {
         }
         
         textStorage.endEditing()
-        
-        // CRITICAL: Clear flag before notifying delegate
-        isPerformingBatchReplace = false
-        
-        // Re-enable UITextView's undo manager
-        if wasUndoEnabled {
-            textView.undoManager?.enableUndoRegistration()
-        }
         
         #if DEBUG
         print("🔄 replaceAllMatches: Completed \(replaceCount) replacements")
