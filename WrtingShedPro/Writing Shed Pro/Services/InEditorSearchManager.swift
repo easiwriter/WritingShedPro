@@ -402,14 +402,6 @@ class InEditorSearchManager {
         // from creating intermediate undo commands (which cause issues)
         isPerformingBatchReplace = true
         
-        // Ensure cleanup happens even if something goes wrong
-        defer {
-            isPerformingBatchReplace = false
-            textView.undoManager?.enableUndoRegistration()
-            // Clear any undo actions that might have accumulated during the operation
-            textView.undoManager?.removeAllActions()
-        }
-        
         // Use textStorage.beginEditing/endEditing to batch all replacements efficiently
         textStorage.beginEditing()
         
@@ -432,19 +424,26 @@ class InEditorSearchManager {
         clearHighlights()
         
         // CRITICAL: Update the search to recalculate matches based on the new text
-        // Do this BEFORE notifying delegate to avoid race conditions
         performSearch()
         
         #if DEBUG
         print("🔄 replaceAllMatches: After performSearch, totalMatches=\(totalMatches)")
         #endif
         
-        // CRITICAL: Now trigger textViewDidChange to update the SwiftUI binding
+        // CRITICAL: Trigger textViewDidChange WHILE isPerformingBatchReplace is still true
+        // This updates the SwiftUI binding but handleAttributedTextChange will skip
+        // creating an undo command because of the flag
         textView.delegate?.textViewDidChange?(textView)
         
         #if DEBUG
-        print("🔄 replaceAllMatches: After textViewDidChange, text in textView: '\(textView.text.prefix(50))'")
+        print("🔄 replaceAllMatches: After textViewDidChange")
         #endif
+        
+        // NOW clear the flag and cleanup
+        isPerformingBatchReplace = false
+        textView.undoManager?.enableUndoRegistration()
+        // Clear any undo actions that might have accumulated during the operation
+        textView.undoManager?.removeAllActions()
         
         return replaceCount
     }
