@@ -607,6 +607,8 @@ struct FileEditView: View {
                 .presentationDetents([.medium, .large])
             }
             .onDisappear {
+                // Disconnect search manager to clean up highlights and observers
+                searchManager.disconnect()
                 saveChanges()
                 saveUndoState()
             }
