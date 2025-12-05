@@ -379,35 +379,28 @@ class InEditorSearchManager {
         // Sort matches by location in descending order
         let sortedMatches = matches.sorted { $0.range.location > $1.range.location }
         
-        // CRITICAL: Use textView.replace() in a loop
-        // This will create individual undo commands that UIKit will automatically coalesce
-        // because they happen in the same run loop iteration
+        // CRITICAL: Use textStorage.beginEditing/endEditing to batch all replacements
+        // into a single undo operation
+        textStorage.beginEditing()
+        
         for match in sortedMatches {
             // Validate range is still valid
-            guard match.range.location + match.range.length <= textView.text.count else {
+            guard match.range.location + match.range.length <= textStorage.length else {
                 continue
             }
-            
-            // Convert NSRange to UITextRange
-            guard let textRange = textView.textRange(from: match.range) else {
-                continue
-            }
-            
-            // Use textView.replace() which properly handles undo
-            textView.replace(textRange, withText: replaceText)
+            textStorage.replaceCharacters(in: match.range, with: replaceText)
         }
+        
+        textStorage.endEditing()
         
         #if DEBUG
         print("🔄 replaceAllMatches: Completed \(replaceCount) replacements")
         print("🔄 replaceAllMatches: Calling performSearch() to update match count and highlights")
         #endif
         
-        // CRITICAL: After all replacements, update the search
-        // This will:
-        // 1. Search for the original term (e.g., "Lorem")
-        // 2. Find 0 matches (all replaced with "XX")
-        // 3. Clear highlights
-        // 4. Update match count to "No matches"
+        // CRITICAL: Explicitly update the search after replacements
+        // textStorage.endEditing() triggers textViewDidChange, but we need to ensure
+        // performSearch runs to update match count and clear highlights
         performSearch()
         
         return replaceCount
