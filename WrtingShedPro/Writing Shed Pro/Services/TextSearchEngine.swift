@@ -67,21 +67,17 @@ class TextSearchEngine {
         let fullRange = NSRange(location: 0, length: nsText.length)
         let regexMatches = regex.matches(in: text, range: fullRange)
         
-        // Convert regex matches to SearchMatch objects
+        // CRITICAL PERFORMANCE: Don't calculate context/line numbers during search!
+        // These are O(n) operations per match = O(n²) total for 1959 matches
+        // Only calculate them lazily when needed for display
         var matches: [SearchMatch] = []
         matches.reserveCapacity(regexMatches.count)
         
         for regexMatch in regexMatches {
-            let nsRange = regexMatch.range
-            
-            // Extract context and create match
-            let context = extractContext(for: nsRange, in: text)
-            let lineNumber = calculateLineNumber(for: nsRange.location, in: text)
-            
             let match = SearchMatch(
-                range: nsRange,
-                context: context,
-                lineNumber: lineNumber
+                range: regexMatch.range,
+                context: "",  // Calculate lazily when needed
+                lineNumber: 0  // Calculate lazily when needed
             )
             matches.append(match)
         }
@@ -101,14 +97,12 @@ class TextSearchEngine {
         let range = NSRange(location: 0, length: nsText.length)
         let regexMatches = regex.matches(in: text, range: range)
         
+        // CRITICAL PERFORMANCE: Don't calculate context/line numbers during search!
         return regexMatches.map { match in
-            let context = extractContext(for: match.range, in: text)
-            let lineNumber = calculateLineNumber(for: match.range.location, in: text)
-            
-            return SearchMatch(
+            SearchMatch(
                 range: match.range,
-                context: context,
-                lineNumber: lineNumber
+                context: "",  // Calculate lazily when needed
+                lineNumber: 0  // Calculate lazily when needed
             )
         }
     }
