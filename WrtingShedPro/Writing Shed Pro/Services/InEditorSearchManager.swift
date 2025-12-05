@@ -75,10 +75,6 @@ class InEditorSearchManager {
     weak var textView: UITextView?
     weak var textStorage: NSTextStorage?
     
-    // Flag to indicate we're performing a batch replace operation
-    // This prevents duplicate undo registration
-    var isPerformingBatchReplace: Bool = false
-    
     // MARK: - Public Methods for Text Change Notification
     
     /// Called by FormattedTextEditor coordinator when text changes (including undo/redo)
@@ -376,22 +372,19 @@ class InEditorSearchManager {
         
         #if DEBUG
         print("🔄 replaceAllMatches: Replacing \(replaceCount) instances of '\(searchText)' with '\(replaceText)'")
+        print("🔄 replaceAllMatches: Text length before: \(textStorage.length)")
         #endif
-        
-        // Set flag to prevent duplicate undo registration in handleAttributedTextChange
-        isPerformingBatchReplace = true
-        defer {
-            isPerformingBatchReplace = false
-            #if DEBUG
-            print("🔄 replaceAllMatches: Cleared isPerformingBatchReplace flag")
-            #endif
-        }
         
         // Replace in reverse order to maintain valid ranges
         // Sort matches by location in descending order
         let sortedMatches = matches.sorted { $0.range.location > $1.range.location }
         
-        // CRITICAL: Use beginEditing/endEditing to group all replacements into a single undo operation
+        // CRITICAL: Disable UITextView's undo registration to prevent duplicate undo operations
+        // We'll let handleAttributedTextChange create the FormatApplyCommand for our custom undo
+        let undoManager = textView.undoManager
+        undoManager?.disableUndoRegistration()
+        
+        // CRITICAL: Use beginEditing/endEditing to batch all replacements for performance
         textStorage.beginEditing()
         
         // Replace each match directly in text storage
@@ -405,14 +398,21 @@ class InEditorSearchManager {
         
         textStorage.endEditing()
         
+        // Re-enable undo registration BEFORE notifications fire
+        undoManager?.enableUndoRegistration()
+        
         #if DEBUG
         print("🔄 replaceAllMatches: Completed. Text length now: \(textStorage.length)")
-        print("🔄 replaceAllMatches: Will wait for textDidChangeNotification to trigger search update")
+        print("🔄 replaceAllMatches: Undo re-enabled, notifications will fire")
         #endif
         
-        // Note: performSearch() will be called automatically via textDidChangeNotification
-        // from FormattedTextEditor.Coordinator.textViewDidChange
-        // which calls handleAttributedTextChange → searchManager.notifyTextChanged() → performSearch()
+        // NOTE: At this point:
+        // 1. textStorage.endEditing() has triggered textDidChangeNotification
+        // 2. textChangeObserver will call performSearch() if searchText not empty
+        // 3. textViewDidChange delegate will call handleAttributedTextChange
+        // 4. handleAttributedTextChange will create FormatApplyCommand for undo
+        // 5. handleAttributedTextChange will call notifyTextChanged() → performSearch()
+        // Result: Search updates, match count updates, undo works!
         
         return replaceCount
     }
