@@ -389,11 +389,14 @@ class InEditorSearchManager {
         // Sort matches by location in descending order
         let sortedMatches = matches.sorted { $0.range.location > $1.range.location }
         
-        // CRITICAL: Completely remove undo manager during Replace All
+        // CRITICAL: Completely disable undo for Replace All
         // (Replace All undo/redo is not supported - to be implemented later)
-        // Just disabling registration isn't enough - the undo manager still creates a group
-        let savedUndoManager = textView.undoManager
-        textView.undoManager = nil
+        // We need to:
+        // 1. Remove any existing undo actions (clears the undo button)
+        // 2. Disable undo registration during the batch operation
+        // 3. Remove any accumulated actions after (in case some leaked through)
+        textView.undoManager?.removeAllActions()
+        textView.undoManager?.disableUndoRegistration()
         
         // CRITICAL: Set flag during the actual text replacement to prevent handleAttributedTextChange
         // from creating intermediate undo commands (which cause issues)
@@ -402,8 +405,8 @@ class InEditorSearchManager {
         // Ensure cleanup happens even if something goes wrong
         defer {
             isPerformingBatchReplace = false
-            // Restore undo manager and clear any accumulated undo state
-            textView.undoManager = savedUndoManager
+            textView.undoManager?.enableUndoRegistration()
+            // Clear any undo actions that might have accumulated during the operation
             textView.undoManager?.removeAllActions()
         }
         
