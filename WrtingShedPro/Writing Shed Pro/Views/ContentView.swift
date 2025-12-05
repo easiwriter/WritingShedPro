@@ -4,7 +4,7 @@ import UniformTypeIdentifiers
 
 struct ContentView: View {
     @Query var projects: [Project]
-    @StateObject private var state = ContentViewState()
+    @State private var state = ContentViewState()
     @Environment(\.modelContext) var modelContext
     
     var body: some View {
