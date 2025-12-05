@@ -402,11 +402,18 @@ class InEditorSearchManager {
         
         #if DEBUG
         print("🔄 replaceAllMatches: Completed \(replaceCount) replacements")
+        #endif
+        
+        // CRITICAL: Manually trigger textViewDidChange to update the SwiftUI binding
+        // textStorage.beginEditing/endEditing modifies the storage directly but doesn't
+        // automatically trigger the delegate callback, so the @Binding doesn't get updated
+        textView.delegate?.textViewDidChange?(textView)
+        
+        #if DEBUG
         print("🔄 replaceAllMatches: Calling performSearch() to update match count and highlights")
         #endif
         
         // CRITICAL: Explicitly update the search after replacements
-        // textStorage.endEditing() triggers textViewDidChange, but we need to ensure
         // performSearch runs to update match count and clear highlights
         performSearch()
         
