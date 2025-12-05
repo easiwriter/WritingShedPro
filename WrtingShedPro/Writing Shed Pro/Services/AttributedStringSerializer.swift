@@ -143,10 +143,10 @@ struct AttributedStringSerializer {
             }
         }
         
-        if !hasAnyColorAttribute {
-            print("🧹 WARNING: No foreground color attributes found in string (length: \(mutableString.length))")
-            print("🧹 Will add .label color explicitly for dark mode support")
-        }
+//        if !hasAnyColorAttribute {
+//            print("🧹 WARNING: No foreground color attributes found in string (length: \(mutableString.length))")
+//            print("🧹 Will add .label color explicitly for dark mode support")
+//        }
         
         // Remove adaptive colors first
         for (range, color) in rangesToStrip {
@@ -361,7 +361,7 @@ struct AttributedStringSerializer {
             let commentCount = jsonAttributesArray.filter { $0.isCommentAttachment == true }.count
             let footnoteCount = jsonAttributesArray.filter { $0.isFootnoteAttachment == true }.count
             let imageCount = jsonAttributesArray.filter { $0.isImageAttachment == true }.count
-            print("📖 DECODE: Found \(commentCount) comments, \(footnoteCount) footnotes, and \(imageCount) images in saved data")
+//            print("📖 DECODE: Found \(commentCount) comments, \(footnoteCount) footnotes, and \(imageCount) images in saved data")
             
             jsonAttributesArray.forEach { jsonAttributes in
                 guard let location = jsonAttributes.location,
@@ -517,10 +517,10 @@ struct AttributedStringSerializer {
                     if location < result.length {
                         let char = (result.string as NSString).character(at: location)
                         let isAttachmentChar = (char == 0xFFFC)  // U+FFFC Object Replacement Character
-                        print("💬📖 DECODE comment at \(location): id=\(commentID), resolved=\(isResolved), length=\(length)")
+//                        print("💬📖 DECODE comment at \(location): id=\(commentID), resolved=\(isResolved), length=\(length)")
                         print("       Character at position: \\u{\(String(format: "%04X", char))}, is attachment char: \(isAttachmentChar)")
                     } else {
-                        print("💬📖 DECODE comment at \(location): id=\(commentID) - POSITION OUT OF BOUNDS (text length: \(result.length))")
+//                        print("💬📖 DECODE comment at \(location): id=\(commentID) - POSITION OUT OF BOUNDS (text length: \(result.length))")
                     }
                     
                     attributes[.attachment] = attachment
@@ -539,10 +539,10 @@ struct AttributedStringSerializer {
                     if location < result.length {
                         let char = (result.string as NSString).character(at: location)
                         let isAttachmentChar = (char == 0xFFFC)  // U+FFFC Object Replacement Character
-                        print("📝📖 DECODE footnote at \(location): id=\(footnoteID), number=\(footnoteNumber), length=\(length)")
+//                        print("📝📖 DECODE footnote at \(location): id=\(footnoteID), number=\(footnoteNumber), length=\(length)")
                         print("       Character at position: \\u{\(String(format: "%04X", char))}, is attachment char: \(isAttachmentChar)")
                     } else {
-                        print("📝📖 DECODE footnote at \(location): id=\(footnoteID) - POSITION OUT OF BOUNDS (text length: \(result.length))")
+//                        print("📝📖 DECODE footnote at \(location): id=\(footnoteID) - POSITION OUT OF BOUNDS (text length: \(result.length))")
                     }
                     
                     attributes[.attachment] = attachment

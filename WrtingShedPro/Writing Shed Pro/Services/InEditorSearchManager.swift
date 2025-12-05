@@ -446,13 +446,14 @@ class InEditorSearchManager {
         print("🔄 replaceAllMatches: Cleanup")
         #endif
         
+        // Clear UITextView's undo manager BEFORE re-enabling registration
+        // removeAllActions() should be called while undo registration is disabled
+        textView.undoManager?.removeAllActions()
+        
         // Re-enable undo registration ONLY if it was enabled before
         if wasUndoEnabled {
             textView.undoManager?.enableUndoRegistration()
         }
-        
-        // Clear UITextView's undo manager (for consistency)
-        textView.undoManager?.removeAllActions()
         
         // Clear the flag
         isPerformingBatchReplace = false
