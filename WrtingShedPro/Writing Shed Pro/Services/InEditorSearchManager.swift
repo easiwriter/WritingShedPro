@@ -424,7 +424,10 @@ class InEditorSearchManager {
         print("🔄 replaceAllMatches: Text in storage after replace: '\(textStorage.string.prefix(50))'")
         #endif
         
-        // CRITICAL: First update the search to clear matches/highlights based on the new text
+        // CRITICAL: Clear old highlights immediately after replacements
+        clearHighlights()
+        
+        // CRITICAL: Update the search to recalculate matches based on the new text
         // Do this BEFORE notifying delegate to avoid race conditions
         performSearch()
         
