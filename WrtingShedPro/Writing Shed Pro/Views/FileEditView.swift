@@ -957,8 +957,22 @@ struct FileEditView: View {
         forceRefresh.toggle()
         refreshTrigger = UUID()
         
-        // Notify search manager that content changed (undo/redo)
-        searchManager.notifyTextChanged()
+        // CRITICAL: Reconnect search manager after undo/redo
+        // The text view is recreated due to the refresh, so we need to wait for the new text view
+        // to be available and then reconnect the search manager
+        if showSearchBar {
+            // Use DispatchQueue.main.async to wait for the new text view to be created
+            DispatchQueue.main.async {
+                if let textView = self.textViewCoordinator.textView {
+                    print("🔄 Reconnecting search manager to new text view after undo/redo")
+                    self.searchManager.connect(to: textView)
+                    // Notify search manager that content changed (undo/redo)
+                    self.searchManager.notifyTextChanged()
+                } else {
+                    print("⚠️ No text view available to reconnect search manager")
+                }
+            }
+        }
     }
     
     // MARK: - Attributed Text Handling
