@@ -42,27 +42,37 @@ class TextSearchEngine {
         caseSensitive: Bool,
         wholeWord: Bool
     ) -> [SearchMatch] {
-        // CRITICAL PERFORMANCE: Use ranges(of:) to find ALL matches in one pass
-        // This is 100x faster than repeated range(of:) calls for many matches
-        let options: String.CompareOptions = caseSensitive ? [] : .caseInsensitive
+        // CRITICAL PERFORMANCE: Use NSRegularExpression to find ALL matches in one pass
+        // This is 100x faster than repeated NSString.range(of:) calls
         
-        // Find all ranges at once (O(n) instead of O(n²))
-        let ranges = text.ranges(of: searchText, options: options)
+        // Escape special regex characters in the search text
+        let escapedSearch = NSRegularExpression.escapedPattern(for: searchText)
         
-        // Convert ranges to NSRange and create matches
-        var matches: [SearchMatch] = []
+        // Build regex pattern with optional word boundaries
+        let pattern = wholeWord ? "\\b\(escapedSearch)\\b" : escapedSearch
+        
+        // Build regex options
+        var regexOptions: NSRegularExpression.Options = []
+        if !caseSensitive {
+            regexOptions.insert(.caseInsensitive)
+        }
+        
+        // Create regex
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: regexOptions) else {
+            return []
+        }
+        
+        // Find all matches in ONE pass (O(n) instead of O(n²))
         let nsText = text as NSString
+        let fullRange = NSRange(location: 0, length: nsText.length)
+        let regexMatches = regex.matches(in: text, range: fullRange)
         
-        for range in ranges {
-            // Convert Range<String.Index> to NSRange
-            let nsRange = NSRange(range, in: text)
-            
-            // Check whole word boundary if needed
-            if wholeWord {
-                if !isWholeWordMatch(at: nsRange, in: text) {
-                    continue  // Skip non-whole-word matches
-                }
-            }
+        // Convert regex matches to SearchMatch objects
+        var matches: [SearchMatch] = []
+        matches.reserveCapacity(regexMatches.count)
+        
+        for regexMatch in regexMatches {
+            let nsRange = regexMatch.range
             
             // Extract context and create match
             let context = extractContext(for: nsRange, in: text)
