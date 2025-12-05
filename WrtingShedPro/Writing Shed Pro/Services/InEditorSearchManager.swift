@@ -16,18 +16,16 @@ class InEditorSearchManager: ObservableObject {
     
     // MARK: - Published Properties
     
-    @Published var searchText: String = "" {
-        didSet {
-            if searchText != oldValue {
-                performSearch()
-            }
-        }
-    }
+    // Search text is debounced in setupDebouncing() to avoid performance issues
+    // with searches triggering on every keystroke (e.g., "i" finding 1959 matches)
+    @Published var searchText: String = ""
     
     @Published var replaceText: String = ""
     @Published var currentMatchIndex: Int = 0
     @Published var totalMatches: Int = 0
     @Published var isReplaceMode: Bool = false
+    
+    // Options trigger immediate search since they're toggled, not typed
     @Published var isCaseSensitive: Bool = false {
         didSet {
             if isCaseSensitive != oldValue {
@@ -197,9 +195,19 @@ class InEditorSearchManager: ObservableObject {
         // Clear previous highlights
         clearHighlights()
         
-        // Highlight all matches
+        // Performance optimization: Only highlight first 500 matches + current match
+        // This prevents beach ball when searching for common characters like "i"
+        let maxHighlights = 500
+        let shouldLimitHighlights = matches.count > maxHighlights
+        
+        // Highlight all matches (or first 500 + current)
         for (index, match) in matches.enumerated() {
+            // Always highlight current match, otherwise only first maxHighlights
             let isCurrent = (index == currentMatchIndex)
+            if !isCurrent && shouldLimitHighlights && index >= maxHighlights {
+                continue
+            }
+            
             let backgroundColor = isCurrent ? currentMatchHighlightColor : matchHighlightColor
             
             // Apply background color to all matches
@@ -214,6 +222,10 @@ class InEditorSearchManager: ObservableObject {
         
         // Force textStorage to process the changes
         textStorage.edited(.editedAttributes, range: NSRange(location: 0, length: textStorage.length), changeInLength: 0)
+        
+        if shouldLimitHighlights {
+            print("⚠️ Highlighted first \(maxHighlights) of \(matches.count) matches (+ current match)")
+        }
     }
     
     /// Clear all highlight attributes
