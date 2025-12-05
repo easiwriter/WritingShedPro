@@ -14,7 +14,7 @@ struct InEditorSearchBar: View {
     // MARK: - Properties
     
     /// Search manager that handles search logic
-    var manager: InEditorSearchManager
+    @Bindable var manager: InEditorSearchManager
     
     /// Whether the search bar is visible
     @Binding var isVisible: Bool
