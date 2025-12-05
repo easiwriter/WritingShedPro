@@ -59,6 +59,9 @@ class InEditorSearchManager: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private var textChangeObserver: NSObjectProtocol?
     
+    // Track which ranges we actually highlighted so we can clear only those
+    private var highlightedRanges: [NSRange] = []
+    
     weak var textView: UITextView?
     weak var textStorage: NSTextStorage?
     
@@ -239,6 +242,9 @@ class InEditorSearchManager: ObservableObject {
                 textStorage.addAttribute(.underlineStyle, value: NSUnderlineStyle.thick.rawValue, range: match.range)
                 textStorage.addAttribute(.underlineColor, value: currentMatchBorderColor, range: match.range)
             }
+            
+            // Track this range so we can clear it efficiently later
+            highlightedRanges.append(match.range)
         }
         
         // CRITICAL PERFORMANCE: Re-enable layout and process all changes at once
@@ -253,16 +259,26 @@ class InEditorSearchManager: ObservableObject {
     private func clearHighlights() {
         guard let textStorage = textStorage else { return }
         
-        // CRITICAL PERFORMANCE: Batch the attribute removal
+        // CRITICAL PERFORMANCE: Only clear the ranges we actually highlighted
+        // instead of scanning the entire document
+        guard !highlightedRanges.isEmpty else { return }
+        
         textStorage.beginEditing()
         
-        let fullRange = NSRange(location: 0, length: textStorage.length)
-        // Remove both background color and underline attributes
-        textStorage.removeAttribute(.backgroundColor, range: fullRange)
-        textStorage.removeAttribute(.underlineStyle, range: fullRange)
-        textStorage.removeAttribute(.underlineColor, range: fullRange)
+        // Only remove attributes from ranges we previously highlighted
+        for range in highlightedRanges {
+            // Validate range is still valid (document may have changed)
+            guard range.location + range.length <= textStorage.length else { continue }
+            
+            textStorage.removeAttribute(.backgroundColor, range: range)
+            textStorage.removeAttribute(.underlineStyle, range: range)
+            textStorage.removeAttribute(.underlineColor, range: range)
+        }
         
         textStorage.endEditing()
+        
+        // Clear the tracking array
+        highlightedRanges.removeAll()
     }
     
     // MARK: - Scrolling
