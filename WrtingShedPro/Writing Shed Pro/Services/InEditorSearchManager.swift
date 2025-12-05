@@ -389,10 +389,11 @@ class InEditorSearchManager {
         // Sort matches by location in descending order
         let sortedMatches = matches.sorted { $0.range.location > $1.range.location }
         
-        // CRITICAL: Disable UITextView's undo manager to prevent undo/redo for Replace All
+        // CRITICAL: Completely remove undo manager during Replace All
         // (Replace All undo/redo is not supported - to be implemented later)
-        let wasUndoEnabled = textView.undoManager?.isUndoRegistrationEnabled ?? false
-        textView.undoManager?.disableUndoRegistration()
+        // Just disabling registration isn't enough - the undo manager still creates a group
+        let savedUndoManager = textView.undoManager
+        textView.undoManager = nil
         
         // CRITICAL: Set flag during the actual text replacement to prevent handleAttributedTextChange
         // from creating intermediate undo commands (which cause issues)
@@ -401,9 +402,9 @@ class InEditorSearchManager {
         // Ensure cleanup happens even if something goes wrong
         defer {
             isPerformingBatchReplace = false
-            if wasUndoEnabled {
-                textView.undoManager?.enableUndoRegistration()
-            }
+            // Restore undo manager and clear any accumulated undo state
+            textView.undoManager = savedUndoManager
+            textView.undoManager?.removeAllActions()
         }
         
         // Use textStorage.beginEditing/endEditing to batch all replacements efficiently
