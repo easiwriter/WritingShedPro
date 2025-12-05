@@ -33,7 +33,7 @@ struct FileEditView: View {
     @State private var showDocumentPicker = false // For UIViewControllerRepresentable picker
     @State private var showImageSourcePicker = false // Show Photos vs Files chooser
     @State private var isPaginationMode = false // Toggle between edit and pagination preview modes
-    @StateObject private var undoManager: TextFileUndoManager
+    @State private var undoManager: TextFileUndoManager
     @StateObject private var textViewCoordinator = TextViewCoordinator()
     
     // Feature 014: Comments
@@ -54,7 +54,7 @@ struct FileEditView: View {
     
     // Feature 017: Search and Replace
     @State private var showSearchBar = false
-    @StateObject private var searchManager = InEditorSearchManager()
+    @State private var searchManager = InEditorSearchManager()
     
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss

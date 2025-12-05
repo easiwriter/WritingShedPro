@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct ContentViewToolbar: ToolbarContent {
-    @ObservedObject var state: ContentViewState
+    var state: ContentViewState
     let projects: [Project]
     let onHandleImportMenu: () -> Void
     
