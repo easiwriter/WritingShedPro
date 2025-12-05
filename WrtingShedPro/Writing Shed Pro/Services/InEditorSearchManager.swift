@@ -133,11 +133,8 @@ class InEditorSearchManager {
             return
         }
         
-        // Clear previous highlights
-        let clearStart = CFAbsoluteTimeGetCurrent()
-        clearHighlights()
-        let clearTime = CFAbsoluteTimeGetCurrent() - clearStart
-        print("  ⏱️ clearHighlights: \(String(format: "%.3f", clearTime))s")
+        // Note: clearHighlights() is now integrated into highlightMatches() for performance
+        // This avoids two separate beginEditing/endEditing cycles
         
         // Validate regex if needed
         if isRegex {
@@ -235,18 +232,26 @@ class InEditorSearchManager {
     private func highlightMatches() {
         guard let textStorage = textStorage else { return }
         
-        // Clear previous highlights
-        clearHighlights()
-        
         // Performance optimization: Only highlight first 500 matches + current match
         // This prevents beach ball when searching for common characters like "i"
         let maxHighlights = 500
         let shouldLimitHighlights = matches.count > maxHighlights
         
-        // CRITICAL PERFORMANCE: Disable layout notifications during batch updates
+        // CRITICAL PERFORMANCE: Do EVERYTHING in one beginEditing/endEditing block
         textStorage.beginEditing()
         
-        // Highlight all matches (or first 500 + current)
+        // First, clear old highlights if any exist
+        if !highlightedRanges.isEmpty {
+            for range in highlightedRanges {
+                guard range.location + range.length <= textStorage.length else { continue }
+                textStorage.removeAttribute(.backgroundColor, range: range)
+                textStorage.removeAttribute(.underlineStyle, range: range)
+                textStorage.removeAttribute(.underlineColor, range: range)
+            }
+            highlightedRanges.removeAll()
+        }
+        
+        // Then add new highlights
         for (index, match) in matches.enumerated() {
             // Always highlight current match, otherwise only first maxHighlights
             let isCurrent = (index == currentMatchIndex)
@@ -285,16 +290,19 @@ class InEditorSearchManager {
         // instead of scanning the entire document
         guard !highlightedRanges.isEmpty else { return }
         
+        // PERFORMANCE OPTIMIZATION: Instead of calling removeAttribute for each range,
+        // which is slow even with beginEditing/endEditing, we enumerate and remove
+        // only where attributes exist
         textStorage.beginEditing()
         
-        // Only remove attributes from ranges we previously highlighted
-        for range in highlightedRanges {
-            // Validate range is still valid (document may have changed)
-            guard range.location + range.length <= textStorage.length else { continue }
-            
-            textStorage.removeAttribute(.backgroundColor, range: range)
-            textStorage.removeAttribute(.underlineStyle, range: range)
-            textStorage.removeAttribute(.underlineColor, range: range)
+        // Enumerate backgroundColor attribute (all highlights have this)
+        textStorage.enumerateAttribute(.backgroundColor, in: NSRange(location: 0, length: textStorage.length), options: []) { value, range, stop in
+            if value != nil {
+                // Remove all highlight attributes at once
+                textStorage.removeAttribute(.backgroundColor, range: range)
+                textStorage.removeAttribute(.underlineStyle, range: range)
+                textStorage.removeAttribute(.underlineColor, range: range)
+            }
         }
         
         textStorage.endEditing()
