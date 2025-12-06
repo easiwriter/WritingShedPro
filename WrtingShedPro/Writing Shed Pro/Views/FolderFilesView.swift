@@ -424,14 +424,30 @@ struct FolderFilesView: View {
                 if let firstVersion = file.versions?.first {
                     firstVersion.content = plainText
                     firstVersion.formattedContent = rtfData
+                    firstVersion.modifiedDate = Date()
                 }
                 
+                file.modifiedDate = Date()
+                
+                // Insert and save immediately
                 modelContext.insert(file)
                 
                 do {
                     try modelContext.save()
+                    
+                    #if DEBUG
                     print("✅ Imported '\(filename)' successfully")
+                    print("   File ID: \(file.id)")
+                    print("   Version count: \(file.versions?.count ?? 0)")
+                    #endif
+                    
+                    // CRITICAL: Process pending changes to avoid "store went missing" error
+                    // This ensures SwiftData has fully committed the object before CloudKit sync
+                    modelContext.processPendingChanges()
+                    
                 } catch {
+                    // If save fails, remove the file from context
+                    modelContext.delete(file)
                     importErrorMessage = "Failed to save imported file: \(error.localizedDescription)"
                     showImportError = true
                 }
