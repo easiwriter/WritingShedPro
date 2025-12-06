@@ -417,16 +417,14 @@ struct FolderFilesView: View {
             do {
                 let (plainText, rtfData, filename) = try WordDocumentService.importWordDocument(from: url)
                 
-                // Create new text file
-                let file = TextFile(name: filename, folder: folder)
-                folder.addToTextFiles(file)
+                // Create new text file with initial empty content
+                let file = TextFile(name: filename, initialContent: "", parentFolder: folder)
                 
-                // Create initial version with imported content
-                let version = Version()
-                version.content = plainText
-                version.formattedContent = rtfData
-                version.textFile = file
-                file.addToVersions(version)
+                // Update the first version with imported content
+                if let firstVersion = file.versions?.first {
+                    firstVersion.content = plainText
+                    firstVersion.formattedContent = rtfData
+                }
                 
                 modelContext.insert(file)
                 
