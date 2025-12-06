@@ -42,7 +42,7 @@ struct Write_App: App {
             "WritingShedProConfiguration",
             schema: schema,
             url: storeURL,
-            cloudKitDatabase: .private("iCloud.com.appworks.writingshedpro")
+            cloudKitDatabase: .private("iCloud.com.appworks.writingshedpro", production: true)
         )
 
         do {
