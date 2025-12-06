@@ -424,7 +424,7 @@ struct FolderFilesView: View {
                 if let firstVersion = file.versions?.first {
                     firstVersion.content = plainText
                     firstVersion.formattedContent = rtfData
-                    firstVersion.modifiedDate = Date()
+                    // Version uses createdDate, not modifiedDate
                 }
                 
                 file.modifiedDate = Date()
