@@ -48,6 +48,9 @@ struct FileListView: View {
     /// Called when user initiates delete action (single or multiple files)
     let onDelete: ([TextFile]) -> Void
     
+    /// Called when user initiates export action (optional)
+    let onExport: (([TextFile]) -> Void)?
+    
     /// Called when user initiates submit action (optional - only for folders that support submissions)
     let onSubmit: (([TextFile]) -> Void)?
     
@@ -419,6 +422,23 @@ struct FileListView: View {
                 )
             }
             .accessibilityLabel("fileList.rename.accessibility")
+            
+            Spacer()
+        }
+        
+        // Export button (if onExport callback provided)
+        if let onExport = onExport {
+            Button {
+                onExport(selectedFiles)
+                exitEditMode()
+            } label: {
+                Label(
+                    NSLocalizedString("fileList.export", comment: "Export files"),
+                    systemImage: "square.and.arrow.up"
+                )
+            }
+            .disabled(selectedFiles.isEmpty)
+            .accessibilityLabel("Export selected files")
             
             Spacer()
         }

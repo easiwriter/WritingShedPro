@@ -48,6 +48,15 @@ struct FolderFilesView: View {
     @State private var showRenamePicker = false
     @State private var filesToRename: [TextFile] = []
     
+    // State for Word document import
+    @State private var showImportPicker = false
+    @State private var showImportError = false
+    @State private var importErrorMessage = ""
+    
+    // State for export
+    @State private var showExportMenu = false
+    @State private var filesToExport: [TextFile] = []
+    
     // Sorted files based on current sort order
     private var sortedFiles: [TextFile] {
         let files: [TextFile]
@@ -109,6 +118,10 @@ struct FolderFilesView: View {
                     onDelete: { files in
                         deleteFiles(files)
                     },
+                    onExport: { files in
+                        filesToExport = files
+                        showExportMenu = true
+                    },
                     onSubmit: fileListOnSubmit,
                     onAddToCollection: fileListOnAddToCollection,
                     onReorder: {
@@ -158,6 +171,18 @@ struct FolderFilesView: View {
                             Image(systemName: "arrow.up.arrow.down")
                         }
                         .accessibilityLabel("folderFiles.sort.accessibility")
+                        .disabled(editMode == .active)
+                    }
+                    
+                    // Import Word document button (between Edit and +)
+                    if FolderCapabilityService.canAddFile(to: folder) {
+                        Button {
+                            showImportPicker = true
+                        } label: {
+                            Image(systemName: "square.and.arrow.down")
+                        }
+                        .accessibilityLabel("Import Word document")
+                        .help("Import Word document")
                         .disabled(editMode == .active)
                     }
                     
@@ -259,6 +284,29 @@ struct FolderFilesView: View {
                 }
             }
         }
+        .fileImporter(
+            isPresented: $showImportPicker,
+            allowedContentTypes: [.init(filenameExtension: "docx")!, .rtf],
+            allowsMultipleSelection: false
+        ) { result in
+            handleImport(result: result)
+        }
+        .alert("Import Failed", isPresented: $showImportError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(importErrorMessage)
+        }
+        .confirmationDialog("Export Format", isPresented: $showExportMenu) {
+            Button("Word Document (.docx)") {
+                exportFiles(format: .docx)
+            }
+            Button("Rich Text Format (.rtf)") {
+                exportFiles(format: .rtf)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Choose export format for \(filesToExport.count) file(s)")
+        }
     }
     
     // MARK: - Computed Properties for Callbacks
@@ -359,6 +407,84 @@ struct FolderFilesView: View {
         }
         
         filesToAddToCollection = []
+    }
+    
+    private func handleImport(result: Result<[URL], Error>) {
+        switch result {
+        case .success(let urls):
+            guard let url = urls.first else { return }
+            
+            do {
+                let (plainText, rtfData, filename) = try WordDocumentService.importWordDocument(from: url)
+                
+                // Create new text file
+                let file = TextFile(name: filename, folder: folder)
+                folder.addToTextFiles(file)
+                
+                // Create initial version with imported content
+                let version = Version()
+                version.content = plainText
+                version.formattedContent = rtfData
+                version.textFile = file
+                file.addToVersions(version)
+                
+                modelContext.insert(file)
+                
+                do {
+                    try modelContext.save()
+                    print("✅ Imported '\(filename)' successfully")
+                } catch {
+                    importErrorMessage = "Failed to save imported file: \(error.localizedDescription)"
+                    showImportError = true
+                }
+                
+            } catch {
+                importErrorMessage = error.localizedDescription
+                showImportError = true
+            }
+            
+        case .failure(let error):
+            importErrorMessage = "Failed to access file: \(error.localizedDescription)"
+            showImportError = true
+        }
+    }
+    
+    private enum ExportFormat {
+        case docx
+        case rtf
+    }
+    
+    private func exportFiles(format: ExportFormat) {
+        // Get the root view controller for presenting share sheet
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let rootViewController = windowScene.windows.first?.rootViewController else {
+            return
+        }
+        
+        // Export each file
+        for file in filesToExport {
+            guard let version = file.currentVersion,
+                  let attributedString = version.attributedContent else {
+                continue
+            }
+            
+            switch format {
+            case .docx:
+                WordDocumentService.shareAsWordDocument(
+                    attributedString,
+                    filename: file.name,
+                    from: rootViewController
+                )
+            case .rtf:
+                WordDocumentService.shareAsRTF(
+                    attributedString,
+                    filename: file.name,
+                    from: rootViewController
+                )
+            }
+        }
+        
+        filesToExport = []
     }
     
     private func renameFile(newName: String) {
