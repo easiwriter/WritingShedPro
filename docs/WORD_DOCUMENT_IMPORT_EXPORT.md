@@ -1,16 +1,17 @@
 # Word Document Import/Export
 
-**Feature:** Basic Word document (.docx) import and export  
+**Feature:** RTF (Rich Text Format) import and export for Word compatibility  
 **Date:** 6 December 2025  
 **Status:** Implemented
 
 ## Overview
 
-Writing Shed Pro now supports importing and exporting Microsoft Word documents using native `NSAttributedString` support. This provides basic formatting preservation suitable for manuscripts and simple documents.
+Writing Shed Pro supports importing and exporting RTF (Rich Text Format) files, which are fully compatible with Microsoft Word, Pages, and other word processors. RTF provides excellent formatting preservation for manuscripts and documents.
 
 **Platform Notes:**
-- **iOS/iPadOS:** Full .docx import/export support
-- **macOS (Mac Catalyst):** .docx import not supported, use RTF instead. Export automatically uses RTF format (which Word can open)
+- **All Platforms:** RTF import and export fully supported
+- **Word Compatibility:** RTF files can be opened, edited, and saved in Microsoft Word
+- **.docx Note:** .docx format is not reliably supported on iOS/macOS. Use RTF instead for best results
 
 ## What's Preserved
 

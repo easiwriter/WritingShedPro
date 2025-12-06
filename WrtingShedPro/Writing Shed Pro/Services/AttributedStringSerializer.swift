@@ -126,12 +126,10 @@ struct AttributedStringSerializer {
         
         var rangesToStrip: [(NSRange, UIColor)] = []
         var rangesToAddLabel: [NSRange] = []
-        var hasAnyColorAttribute = false
         
         // Find all color attributes that should be stripped or ranges with no color
         mutableString.enumerateAttribute(.foregroundColor, in: fullRange, options: []) { value, range, _ in
             if let color = value as? UIColor {
-                hasAnyColorAttribute = true
                 print("🧹 Found foreground color at range {\(range.location), \(range.length)}: \(color.toHex() ?? "unknown")")
                 if isAdaptiveSystemColor(color) || isFixedBlackOrWhite(color) {
                     rangesToStrip.append((range, color))
@@ -358,9 +356,9 @@ struct AttributedStringSerializer {
         do {
             let jsonAttributesArray = try PropertyListDecoder().decode([AttributeValues].self, from: data)
             
-            let commentCount = jsonAttributesArray.filter { $0.isCommentAttachment == true }.count
-            let footnoteCount = jsonAttributesArray.filter { $0.isFootnoteAttachment == true }.count
-            let imageCount = jsonAttributesArray.filter { $0.isImageAttachment == true }.count
+            let _ = jsonAttributesArray.filter { $0.isCommentAttachment == true }.count
+            let _ = jsonAttributesArray.filter { $0.isFootnoteAttachment == true }.count
+            let _ = jsonAttributesArray.filter { $0.isImageAttachment == true }.count
 //            print("📖 DECODE: Found \(commentCount) comments, \(footnoteCount) footnotes, and \(imageCount) images in saved data")
             
             jsonAttributesArray.forEach { jsonAttributes in

@@ -23,9 +23,6 @@ struct FolderFilesView: View {
     // State for edit mode (shared with FileListView)
     @State private var editMode: EditMode = .inactive
     
-    // State for file sorting
-    @State private var sortOrder: FileSortOrder = .byName
-    
     // State for move destination picker
     @State private var showMoveDestinationPicker = false
     @State private var filesToMove: [TextFile] = []
@@ -62,7 +59,7 @@ struct FolderFilesView: View {
     @State private var exportData: Data?
     @State private var exportFilename: String = ""
     
-    // Sorted files based on current sort order
+    // Files sorted alphabetically
     private var sortedFiles: [TextFile] {
         let files: [TextFile]
         
@@ -77,7 +74,8 @@ struct FolderFilesView: View {
             files = folder.textFiles ?? []
         }
         
-        return FileSortService.sort(files, by: sortOrder)
+        // Always sort alphabetically by name
+        return FileSortService.sort(files, by: .byName)
     }
     
     // Get all files from Draft, Ready, Set Aside, and Published folders
@@ -125,13 +123,12 @@ struct FolderFilesView: View {
                     },
                     onExport: { files in
                         filesToExport = files
-                        showExportMenu = true
+                        // Skip format dialog since only RTF is supported
+                        exportFiles(format: .rtf)
                     },
                     onSubmit: fileListOnSubmit,
                     onAddToCollection: fileListOnAddToCollection,
-                    onReorder: {
-                        sortOrder = .byUserOrder
-                    },
+                    onReorder: nil,
                     onRename: { files in
                         filesToRename = files
                         showRenamePicker = true
@@ -157,29 +154,7 @@ struct FolderFilesView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack(spacing: 16) {
-                    // Sort menu
-                    if !sortedFiles.isEmpty {
-                        Menu {
-                            ForEach(FileSortService.sortOptions(), id: \.order) { option in
-                                Button(action: {
-                                    sortOrder = option.order
-                                }) {
-                                    HStack {
-                                        Text(option.title)
-                                        if sortOrder == option.order {
-                                            Image(systemName: "checkmark")
-                                        }
-                                    }
-                                }
-                            }
-                        } label: {
-                            Image(systemName: "arrow.up.arrow.down")
-                        }
-                        .accessibilityLabel("folderFiles.sort.accessibility")
-                        .disabled(editMode == .active)
-                    }
-                    
-                    // Import Word document button (between Edit and +)
+                    // Import Word document button
                     if FolderCapabilityService.canAddFile(to: folder) {
                         Button {
                             showImportPicker = true
@@ -291,7 +266,7 @@ struct FolderFilesView: View {
         }
         .fileImporter(
             isPresented: $showImportPicker,
-            allowedContentTypes: [.init(filenameExtension: "docx")!, .rtf],
+            allowedContentTypes: [.rtf],
             allowsMultipleSelection: false
         ) { result in
             handleImport(result: result)
@@ -302,23 +277,26 @@ struct FolderFilesView: View {
             Text(importErrorMessage)
         }
         .confirmationDialog("Export Format", isPresented: $showExportMenu) {
-            Button("Word Document (.docx)") {
-                exportFiles(format: .docx)
-            }
             Button("Rich Text Format (.rtf)") {
                 exportFiles(format: .rtf)
             }
+            
+            Button("About Word Format") {
+                importErrorMessage = "RTF (Rich Text Format) is fully compatible with Microsoft Word and preserves all formatting. It can be opened and edited in Word, Pages, and other word processors."
+                showImportError = true
+            }
+            
             Button("Cancel", role: .cancel) {
                 filesToExport = []
             }
         } message: {
-            Text("Choose export format for \(filesToExport.count) file(s)")
+            Text("Export \(filesToExport.count) file(s) as RTF (Word-compatible)")
         }
         .fileExporter(
             isPresented: $showExportSaveDialog,
             document: ExportDocument(data: exportData ?? Data(), filename: exportFilename),
-            contentType: exportFormat == .rtf ? .rtf : .init(filenameExtension: exportFormat.fileExtension)!,
-            defaultFilename: "\(exportFilename).\(exportFormat.fileExtension)"
+            contentType: .rtf,
+            defaultFilename: "\(exportFilename).rtf"
         ) { result in
             handleExportResult(result: result)
         }
@@ -479,19 +457,16 @@ struct FolderFilesView: View {
     }
     
     private enum ExportFormat {
-        case docx
         case rtf
         
         var fileExtension: String {
-            switch self {
-            case .docx: return "docx"
-            case .rtf: return "rtf"
-            }
+            return "rtf"
         }
     }
     
     private func exportFiles(format: ExportFormat) {
-        self.exportFormat = format
+        // Always use RTF format (only supported format)
+        self.exportFormat = .rtf
         
         // If multiple files, export them one at a time
         guard let firstFile = filesToExport.first,
@@ -503,13 +478,7 @@ struct FolderFilesView: View {
         
         // Prepare export data
         do {
-            switch format {
-            case .docx:
-                exportData = try WordDocumentService.exportToWordDocument(attributedString, filename: firstFile.name)
-            case .rtf:
-                exportData = try WordDocumentService.exportToRTF(attributedString, filename: firstFile.name)
-            }
-            
+            exportData = try WordDocumentService.exportToRTF(attributedString, filename: firstFile.name)
             exportFilename = firstFile.name
             showExportSaveDialog = true
             

@@ -19,12 +19,13 @@ class WordDocumentService {
     /// - Returns: Tuple of (plain text, formatted content as RTF data, original filename)
     /// - Throws: Error if import fails
     static func importWordDocument(from url: URL) throws -> (plainText: String, rtfData: Data?, filename: String) {
-        // Ensure we can access the file
-        guard url.startAccessingSecurityScopedResource() else {
-            throw WordDocumentError.cannotAccessFile
-        }
+        // Try to access security-scoped resource (only needed for sandboxed file access)
+        // Returns false for local/temporary files which don't need scoping
+        let needsScoping = url.startAccessingSecurityScopedResource()
         defer {
-            url.stopAccessingSecurityScopedResource()
+            if needsScoping {
+                url.stopAccessingSecurityScopedResource()
+            }
         }
         
         // Read the .docx or .rtf file as NSAttributedString
@@ -41,18 +42,9 @@ class WordDocumentService {
                     documentAttributes: nil
                 )
             } else {
-                // For .docx files, try platform-specific import
-                #if !targetEnvironment(macCatalyst)
-                // iOS: Use .docx document type
-                attributedString = try NSAttributedString(
-                    data: data,
-                    options: [.documentType: NSAttributedString.DocumentType.officeOpenXML],
-                    documentAttributes: nil
-                )
-                #else
-                // macOS/Catalyst: .docx not supported, suggest RTF
-                throw WordDocumentError.importFailed("Word documents (.docx) are not supported on macOS. Please use RTF format instead.")
-                #endif
+                // For .docx files, .docx is not reliably supported on iOS/macOS
+                // Suggest using RTF instead
+                throw WordDocumentError.importFailed("Word document (.docx) import is not supported. Please export the document as RTF (.rtf) from Microsoft Word and try again. RTF preserves all formatting and is fully compatible with Word.")
             }
         } catch {
             throw WordDocumentError.importFailed(error.localizedDescription)
@@ -90,33 +82,10 @@ class WordDocumentService {
         _ attributedString: NSAttributedString,
         filename: String
     ) throws -> Data {
-        #if !targetEnvironment(macCatalyst)
-        // iOS: Use .docx document type
-        let documentAttributes: [NSAttributedString.DocumentAttributeKey: Any] = [
-            .documentType: NSAttributedString.DocumentType.officeOpenXML
-        ]
-        
-        do {
-            let range = NSRange(location: 0, length: attributedString.length)
-            let docxData = try attributedString.data(
-                from: range,
-                documentAttributes: documentAttributes
-            )
-            
-            #if DEBUG
-            print("📤 WordDocumentService: Exported '\(filename).docx'")
-            print("   File size: \(docxData.count) bytes")
-            #endif
-            
-            return docxData
-        } catch {
-            throw WordDocumentError.exportFailed(error.localizedDescription)
-        }
-        #else
-        // macOS/Catalyst: Fall back to RTF (which Word can open)
-        print("⚠️ WordDocumentService: .docx export not available on macOS, using RTF")
+        // .docx export is not reliably supported on iOS/macOS
+        // Fall back to RTF which is fully compatible with Word
+        print("⚠️ WordDocumentService: .docx export not available, using RTF (Word-compatible)")
         return try exportToRTF(attributedString, filename: filename)
-        #endif
     }
     
     /// Export content as RTF (Rich Text Format)

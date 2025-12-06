@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 
 // MARK: - Folder Sort Service
 
@@ -62,6 +63,57 @@ struct FileSortService {
             SortOption(.byCreationDate, title: NSLocalizedString("folderList.sortByCreated", comment: "Sort by created date")),
             SortOption(.byModifiedDate, title: NSLocalizedString("folderList.sortByModified", comment: "Sort by modified date")),
             SortOption(.byUserOrder, title: NSLocalizedString("contentView.sortByUserOrder", comment: "Sort by user's order"))
+        ]
+    }
+}
+
+// MARK: - Collection Sort Service
+
+enum CollectionSortOrder: String, CaseIterable {
+    case byUserOrder = "userOrder"
+    case byName = "name"
+    case byCreationDate = "creationDate"
+    case byModifiedDate = "modifiedDate"
+    case byFileCount = "fileCount"
+}
+
+struct CollectionSortService {
+    static func sort(_ collections: [Submission], by order: CollectionSortOrder) -> [Submission] {
+        switch order {
+        case .byUserOrder:
+            return collections.sorted { (c0: Submission, c1: Submission) -> Bool in
+                let order1 = c0.userOrder ?? Int.max
+                let order2 = c1.userOrder ?? Int.max
+                return order1 < order2
+            }
+        case .byName:
+            return collections.sorted { (c0: Submission, c1: Submission) -> Bool in
+                (c0.name ?? "").localizedCaseInsensitiveCompare(c1.name ?? "") == .orderedAscending
+            }
+        case .byCreationDate:
+            return collections.sorted { (c0: Submission, c1: Submission) -> Bool in
+                c0.createdDate > c1.createdDate
+            }
+        case .byModifiedDate:
+            return collections.sorted { (c0: Submission, c1: Submission) -> Bool in
+                c0.modifiedDate > c1.modifiedDate
+            }
+        case .byFileCount:
+            return collections.sorted { (c0: Submission, c1: Submission) -> Bool in
+                let count1 = c0.submittedFiles?.count ?? 0
+                let count2 = c1.submittedFiles?.count ?? 0
+                return count1 > count2
+            }
+        }
+    }
+    
+    static func sortOptions() -> [SortOption<CollectionSortOrder>] {
+        [
+            SortOption(.byUserOrder, title: NSLocalizedString("collections.sortByUserOrder", comment: "Sort by user order")),
+            SortOption(.byName, title: NSLocalizedString("collections.sortByName", comment: "Sort by name")),
+            SortOption(.byCreationDate, title: NSLocalizedString("collections.sortByCreated", comment: "Sort by created date")),
+            SortOption(.byModifiedDate, title: NSLocalizedString("collections.sortByModified", comment: "Sort by modified date")),
+            SortOption(.byFileCount, title: NSLocalizedString("collections.sortByFileCount", comment: "Sort by file count"))
         ]
     }
 }

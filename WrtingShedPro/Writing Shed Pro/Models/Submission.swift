@@ -28,6 +28,9 @@ class Submission {
     var createdDate: Date = Date()
     var modifiedDate: Date = Date()
     
+    // User-defined sort order for collections
+    var userOrder: Int?
+    
     init(
         id: UUID = UUID(),
         publication: Publication? = nil,

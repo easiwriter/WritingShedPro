@@ -57,7 +57,7 @@ struct FileListView: View {
     /// Called when user initiates add to collection action (optional - only for Ready folder)
     let onAddToCollection: (([TextFile]) -> Void)?
     
-    /// Called when user drags to reorder files (parent should switch to Custom sort)
+    /// Called when user drags to reorder files (optional - not used, files always alphabetically sorted)
     let onReorder: (() -> Void)?
     
     /// Called when user renames a file
@@ -539,24 +539,6 @@ struct FileListView: View {
         }
     }
     
-    /// Handles drag-to-reorder operation
-    /// Updates userOrder for files when user manually reorders them
-    private func handleMove(from source: IndexSet, to destination: Int) {
-        // Create mutable copy of files array to reorder
-        var reorderedFiles = files
-        reorderedFiles.move(fromOffsets: source, toOffset: destination)
-        
-        // Update userOrder for all files based on new positions
-        for (index, file) in reorderedFiles.enumerated() {
-            file.userOrder = index
-        }
-        
-        // Notify parent to switch to Custom sort so changes are visible
-        onReorder?()
-        
-        // Note: TextFile is a SwiftData @Model (reference type), so changes persist automatically
-        // Parent view's files array will reflect new order on next refresh
-    }
 }
 
 // MARK: - Submissions Button Component

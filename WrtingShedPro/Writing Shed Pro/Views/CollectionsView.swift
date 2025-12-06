@@ -30,6 +30,9 @@ struct CollectionsView: View {
     @State private var newCollectionName: String = ""
     @State private var newCollectionNameError: String?
     
+    // State for sorting
+    @State private var sortOrder: CollectionSortOrder = .byCreationDate
+    
     // State for edit mode (multi-select)
     @State private var editMode: EditMode = .inactive
     @State private var selectedCollectionIDs: Set<UUID> = []
@@ -38,6 +41,10 @@ struct CollectionsView: View {
     // State for delete confirmation
     @State private var showDeleteConfirmation = false
     @State private var collectionsToDelete: [Submission] = []
+    
+    // State for rename
+    @State private var showRenameSheet = false
+    @State private var collectionToRename: Submission?
     
     // Query all Submissions for this project
     @Query private var allSubmissions: [Submission]
@@ -55,9 +62,9 @@ struct CollectionsView: View {
         )
     }
     
-    // Collections are the filtered submissions
+    // Collections are the filtered submissions, sorted by user preference
     private var sortedCollections: [Submission] {
-        return allSubmissions
+        return CollectionSortService.sort(allSubmissions, by: sortOrder)
     }
     
     // Get selected collections based on selectedCollectionIDs
@@ -84,6 +91,7 @@ struct CollectionsView: View {
                         collectionRow(for: collection)
                     }
                     .onDelete(perform: isEditMode ? nil : deleteCollections)
+                    .onMove(perform: isEditMode ? moveCollections : nil)
                 }
                 .listStyle(.plain)
                 .toolbar {
@@ -111,6 +119,28 @@ struct CollectionsView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack(spacing: 16) {
+                    // Sort menu
+                    if !sortedCollections.isEmpty {
+                        Menu {
+                            ForEach(CollectionSortService.sortOptions(), id: \.order) { option in
+                                Button(action: {
+                                    sortOrder = option.order
+                                }) {
+                                    HStack {
+                                        Text(option.title)
+                                        if sortOrder == option.order {
+                                            Image(systemName: "checkmark")
+                                        }
+                                    }
+                                }
+                            }
+                        } label: {
+                            Image(systemName: "arrow.up.arrow.down")
+                        }
+                        .accessibilityLabel("collections.sort.accessibility")
+                        .disabled(editMode == .active)
+                    }
+                    
                     // Add collection button
                     Button {
                         showAddCollectionSheet = true
@@ -167,6 +197,20 @@ struct CollectionsView: View {
                         }
                     )
                 }
+            }
+        }
+        .sheet(isPresented: $showRenameSheet) {
+            if let collection = collectionToRename {
+                RenameCollectionModal(
+                    collection: collection,
+                    collectionsInProject: sortedCollections,
+                    onRename: { _ in
+                        selectedCollectionIDs.removeAll()
+                        withAnimation {
+                            editMode = .inactive
+                        }
+                    }
+                )
             }
         }
         .confirmationDialog(
@@ -261,6 +305,19 @@ struct CollectionsView: View {
         Spacer()
         
         Button {
+            renameSelectedCollection()
+        } label: {
+            Label(
+                "collectionsView.rename",
+                systemImage: "pencil"
+            )
+        }
+        .disabled(selectedCollections.count != 1)
+        .accessibilityLabel("collectionsView.rename.accessibility")
+        
+        Spacer()
+        
+        Button {
             showPublicationPicker = true
         } label: {
             Label(
@@ -282,6 +339,12 @@ struct CollectionsView: View {
         } else {
             selectedCollectionIDs.insert(collection.id)
         }
+    }
+    
+    private func renameSelectedCollection() {
+        guard let collection = selectedCollections.first else { return }
+        collectionToRename = collection
+        showRenameSheet = true
     }
     
     private func deleteSelectedCollections() {
@@ -313,6 +376,46 @@ struct CollectionsView: View {
         } catch {
             // Handle error silently for now
         }
+    }
+    
+    // MARK: - Reordering
+    
+    private func moveCollections(from source: IndexSet, to destination: Int) {
+        // Switch to user order sort when user manually reorders
+        if sortOrder != .byUserOrder {
+            sortOrder = .byUserOrder
+        }
+        
+        guard let sourceIndex = source.first else { return }
+        
+        // If dropping in same position, do nothing
+        if destination == sourceIndex || destination == sourceIndex + 1 {
+            return
+        }
+        
+        let currentCollections = sortedCollections
+        
+        if sourceIndex < destination {
+            // Moving item down the list - shift items up to fill gap
+            for i in sourceIndex + 1..<destination {
+                guard i < currentCollections.count else { continue }
+                let currentOrder = currentCollections[i].userOrder ?? i
+                currentCollections[i].userOrder = currentOrder - 1
+            }
+            currentCollections[sourceIndex].userOrder = destination - 1
+        } else {
+            // Moving item up the list - shift items down to make room
+            let baseOrder = currentCollections[destination].userOrder ?? destination
+            for i in destination..<sourceIndex {
+                guard i < currentCollections.count else { continue }
+                let currentOrder = currentCollections[i].userOrder ?? i
+                currentCollections[i].userOrder = currentOrder + 1
+            }
+            currentCollections[sourceIndex].userOrder = baseOrder
+        }
+        
+        // Save the changes
+        try? modelContext.save()
     }
     
     private func addCollection(name: String) {
