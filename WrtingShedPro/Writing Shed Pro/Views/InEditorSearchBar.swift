@@ -135,9 +135,16 @@ struct InEditorSearchBar: View {
                             }
                         }
                     }) {
-                        Image(systemName: showReplace ? "chevron.down" : "chevron.right")
+                        Image(systemName: "arrow.2.squarepath")
                             .font(.system(size: 16, weight: .medium))
                             .frame(width: 32, height: 32)
+                            .foregroundColor(showReplace ? .white : .primary)
+                            .background(
+                                showReplace ? 
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .fill(Color.accentColor)
+                                    : nil
+                            )
                     }
                     .buttonStyle(.plain)
                     .help("Toggle replace")
