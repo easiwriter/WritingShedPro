@@ -6,7 +6,11 @@
 
 ## Overview
 
-Writing Shed Pro now supports importing and exporting Microsoft Word documents (.docx) using iOS's native `NSAttributedString` document type support. This provides basic formatting preservation suitable for manuscripts and simple documents.
+Writing Shed Pro now supports importing and exporting Microsoft Word documents using native `NSAttributedString` support. This provides basic formatting preservation suitable for manuscripts and simple documents.
+
+**Platform Notes:**
+- **iOS/iPadOS:** Full .docx import/export support
+- **macOS (Mac Catalyst):** .docx import not supported, use RTF instead. Export automatically uses RTF format (which Word can open)
 
 ## What's Preserved
 
@@ -186,7 +190,7 @@ var body: some View {
 
 ## Info.plist Configuration
 
-To allow importing .docx files, add to your Info.plist:
+To allow importing .docx files (iOS only), add to your Info.plist:
 
 ```xml
 <key>CFBundleDocumentTypes</key>
@@ -206,6 +210,8 @@ To allow importing .docx files, add to your Info.plist:
     </dict>
 </array>
 ```
+
+**Note:** On macOS, .docx import is not supported. Users should convert to RTF first.
 
 For RTF:
 
@@ -277,12 +283,13 @@ do {
 
 ## Limitations
 
-1. **Not a full Word implementation** - Complex documents will lose features
-2. **Images not supported** - Images are stripped during import
-3. **Tables are basic** - Complex tables may lose structure
-4. **No comments or track changes** - These are Word-specific features
-5. **Font substitution** - Uncommon fonts may be replaced
-6. **No page layout** - Headers, footers, page numbers not preserved
+1. **Platform-specific:** .docx format only available on iOS/iPadOS. macOS users should use RTF format
+2. **Not a full Word implementation** - Complex documents will lose features
+3. **Images not supported** - Images are stripped during import
+4. **Tables are basic** - Complex tables may lose structure
+5. **No comments or track changes** - These are Word-specific features
+6. **Font substitution** - Uncommon fonts may be replaced
+7. **No page layout** - Headers, footers, page numbers not preserved
 
 ## Future Enhancements
 
