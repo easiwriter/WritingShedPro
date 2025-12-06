@@ -8,6 +8,7 @@
 
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
 
 /// View for displaying and managing files within a folder
 /// Uses the new FileListView component with full file movement support
@@ -55,7 +56,11 @@ struct FolderFilesView: View {
     
     // State for export
     @State private var showExportMenu = false
+    @State private var showExportSaveDialog = false
     @State private var filesToExport: [TextFile] = []
+    @State private var exportFormat: ExportFormat = .rtf
+    @State private var exportData: Data?
+    @State private var exportFilename: String = ""
     
     // Sorted files based on current sort order
     private var sortedFiles: [TextFile] {
@@ -303,9 +308,19 @@ struct FolderFilesView: View {
             Button("Rich Text Format (.rtf)") {
                 exportFiles(format: .rtf)
             }
-            Button("Cancel", role: .cancel) {}
+            Button("Cancel", role: .cancel) {
+                filesToExport = []
+            }
         } message: {
             Text("Choose export format for \(filesToExport.count) file(s)")
+        }
+        .fileExporter(
+            isPresented: $showExportSaveDialog,
+            document: ExportDocument(data: exportData ?? Data(), filename: exportFilename),
+            contentType: exportFormat == .rtf ? .rtf : .init(filenameExtension: exportFormat.fileExtension)!,
+            defaultFilename: "\(exportFilename).\(exportFormat.fileExtension)"
+        ) { result in
+            handleExportResult(result: result)
         }
     }
     
@@ -466,39 +481,61 @@ struct FolderFilesView: View {
     private enum ExportFormat {
         case docx
         case rtf
+        
+        var fileExtension: String {
+            switch self {
+            case .docx: return "docx"
+            case .rtf: return "rtf"
+            }
+        }
     }
     
     private func exportFiles(format: ExportFormat) {
-        // Get the root view controller for presenting share sheet
-        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-              let rootViewController = windowScene.windows.first?.rootViewController else {
+        self.exportFormat = format
+        
+        // If multiple files, export them one at a time
+        guard let firstFile = filesToExport.first,
+              let version = firstFile.currentVersion,
+              let attributedString = version.attributedContent else {
+            filesToExport = []
             return
         }
         
-        // Export each file
-        for file in filesToExport {
-            guard let version = file.currentVersion,
-                  let attributedString = version.attributedContent else {
-                continue
-            }
-            
+        // Prepare export data
+        do {
             switch format {
             case .docx:
-                WordDocumentService.shareAsWordDocument(
-                    attributedString,
-                    filename: file.name,
-                    from: rootViewController
-                )
+                exportData = try WordDocumentService.exportToWordDocument(attributedString, filename: firstFile.name)
             case .rtf:
-                WordDocumentService.shareAsRTF(
-                    attributedString,
-                    filename: file.name,
-                    from: rootViewController
-                )
+                exportData = try WordDocumentService.exportToRTF(attributedString, filename: firstFile.name)
             }
+            
+            exportFilename = firstFile.name
+            showExportSaveDialog = true
+            
+        } catch {
+            importErrorMessage = "Export failed: \(error.localizedDescription)"
+            showImportError = true
+            filesToExport = []
         }
-        
-        filesToExport = []
+    }
+    
+    private func handleExportResult(result: Result<URL, Error>) {
+        switch result {
+        case .success(let url):
+            print("✅ Exported to: \(url.path)")
+            // Remove the first file and continue with remaining files if any
+            if !filesToExport.isEmpty {
+                filesToExport.removeFirst()
+                if !filesToExport.isEmpty {
+                    // Export next file
+                    exportFiles(format: exportFormat)
+                }
+            }
+        case .failure(let error):
+            print("❌ Export failed: \(error.localizedDescription)")
+            filesToExport = []
+        }
     }
     
     private func renameFile(newName: String) {
@@ -515,5 +552,28 @@ struct FolderFilesView: View {
         
         filesToRename = []
         showRenamePicker = false
+    }
+}
+
+// MARK: - Export Document Type
+
+struct ExportDocument: FileDocument {
+    static var readableContentTypes: [UTType] { [.rtf, .data] }
+    
+    var data: Data
+    var filename: String
+    
+    init(data: Data, filename: String) {
+        self.data = data
+        self.filename = filename
+    }
+    
+    init(configuration: ReadConfiguration) throws {
+        data = configuration.file.regularFileContents ?? Data()
+        filename = ""
+    }
+    
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        return FileWrapper(regularFileWithContents: data)
     }
 }
