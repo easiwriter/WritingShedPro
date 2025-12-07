@@ -1110,6 +1110,27 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
         setupCommentInteraction()
     }
     
+    // MARK: - Appearance Handling
+    
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        
+        // When appearance changes (light/dark mode), ensure text color updates
+        // This is critical for System appearance mode to work correctly
+        if previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle {
+            #if DEBUG
+            print("🎨 Trait collection changed - updating text color for appearance mode")
+            print("   Previous: \(previousTraitCollection?.userInterfaceStyle.rawValue ?? -1), New: \(traitCollection.userInterfaceStyle.rawValue)")
+            #endif
+            
+            // Re-set textColor to .label so it resolves to the correct color for new appearance
+            self.textColor = .label
+            
+            // Force the text view to redraw with new colors
+            self.setNeedsDisplay()
+        }
+    }
+    
     private func setupCommentInteraction() {
         // Add tap gesture to handle comment taps directly
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleTap(_:)))
