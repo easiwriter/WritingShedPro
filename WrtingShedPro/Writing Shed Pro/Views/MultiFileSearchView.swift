@@ -311,7 +311,7 @@ struct FileResultRow: View {
             
             // File info
             VStack(alignment: .leading, spacing: 4) {
-                Text(result.file.name ?? "Untitled")
+                Text(result.file.name.isEmpty ? "Untitled" : result.file.name)
                     .font(.body)
                 
                 Text("\(result.matchCount) matches")

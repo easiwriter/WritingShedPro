@@ -112,8 +112,8 @@ class MultiFileSearchService {
             // Use the current version
             guard let version = file.currentVersion else { continue }
             
-            // Get the text content
-            let text = version.plainTextContent
+            // Get the text content (use plain text stored in content property)
+            let text = version.content
             
             // Search for matches
             let matches = searchEngine.search(in: text, query: query)
@@ -147,7 +147,7 @@ class MultiFileSearchService {
             let version = result.version
             
             // Get the current content
-            var text = version.plainTextContent
+            var text = version.content
             
             // Sort matches by range location in reverse order to avoid invalidating offsets
             let sortedMatches = result.matches.sorted { $0.range.location > $1.range.location }
@@ -171,10 +171,11 @@ class MultiFileSearchService {
             
             // Update the version content
             version.content = text
-            version.modifiedDate = Date()
             
-            // Update word count
-            version.updateWordCount()
+            // Update the file's modified date
+            if let file = version.textFile {
+                file.modifiedDate = Date()
+            }
         }
         
         // Clear results after replace
