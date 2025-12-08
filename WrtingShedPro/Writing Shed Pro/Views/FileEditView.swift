@@ -149,7 +149,7 @@ struct FileEditView: View {
                         attributedText: $attributedContent,
                         selectedRange: $selectedRange,
                         textViewCoordinator: textViewCoordinator,
-                        textContainerInset: UIDevice.current.userInterfaceIdiom == .phone ? UIEdgeInsets(top: 4, left: 2, bottom: 4, right: 2) : UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8),
+                        textContainerInset: UIDevice.current.userInterfaceIdiom == .phone ? UIEdgeInsets(top: 4, left: 0, bottom: 4, right: 2) : UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8),
                         onTextChange: { newText in
                             handleAttributedTextChange(newText)
                         },
@@ -178,7 +178,7 @@ struct FileEditView: View {
                         attributedText: $attributedContent,
                         selectedRange: $selectedRange,
                         textViewCoordinator: textViewCoordinator,
-                        textContainerInset: UIDevice.current.userInterfaceIdiom == .phone ? UIEdgeInsets(top: 4, left: 2, bottom: 4, right: 2) : UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8),
+                        textContainerInset: UIDevice.current.userInterfaceIdiom == .phone ? UIEdgeInsets(top: 4, left: 0, bottom: 4, right: 2) : UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8),
                         onTextChange: { newText in
                             handleAttributedTextChange(newText)
                         },
