@@ -1245,7 +1245,7 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
             #selector(UIResponderStandardEditActions.cut(_:)),
             #selector(UIResponderStandardEditActions.copy(_:)),
             #selector(UIResponderStandardEditActions.paste(_:)),
-            #selector(UIResponderStandardEditActions.lookup(_:)),
+            #selector(lookup(_:)),  // lookup is a direct UITextView method, not in UIResponderStandardEditActions
             #selector(UIResponderStandardEditActions.delete(_:))  // Allow delete for image removal
         ]
         
