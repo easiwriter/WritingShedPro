@@ -190,13 +190,19 @@ class EPUBExportService {
             bodyContent = String(html[bodyStart.upperBound..<bodyEnd.lowerBound])
         }
         
+        // Clean up excessive newlines (don't add newlines to lines already ending in newline)
+        // Remove cases where paragraph tags create double newlines
+        bodyContent = bodyContent.replacingOccurrences(of: "</p>\n<p>", with: "</p><p>")
+        bodyContent = bodyContent.replacingOccurrences(of: "<br>\n", with: "<br>")
+        bodyContent = bodyContent.replacingOccurrences(of: "<br/>\n", with: "<br/>")
+        
         let contentHTML = """
         <?xml version="1.0" encoding="UTF-8"?>
         <!DOCTYPE html>
         <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
         <head>
             <meta charset="UTF-8"/>
-            <title>\(escapeXML(title))</title>
+            <title>Document</title>
             <link rel="stylesheet" type="text/css" href="style.css"/>
         </head>
         <body>

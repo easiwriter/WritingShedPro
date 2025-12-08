@@ -92,7 +92,7 @@ class HTMLExportService {
             var headContent = "\n"
             headContent += "    <meta charset=\"UTF-8\">\n"
             headContent += "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n"
-            headContent += "    <title>\(filename)</title>\n"
+            headContent += "    <title>Document</title>\n"
             
             if includeStyles {
                 headContent += """
