@@ -183,20 +183,44 @@ struct MultiFileSearchView: View {
                     .frame(height: 20)
                 
                 // Search options
-                Toggle("Aa", isOn: $searchService.isCaseSensitive)
-                    .toggleStyle(.button)
-                    .font(.caption)
-                    .help("Case sensitive")
+                Button(action: {
+                    searchService.isCaseSensitive.toggle()
+                }) {
+                    Image(systemName: "textformat")
+                        .font(.system(size: 16, weight: .medium))
+                        .frame(width: 32, height: 32)
+                        .background(searchService.isCaseSensitive ? Color.accentColor.opacity(0.2) : Color.clear)
+                        .foregroundColor(searchService.isCaseSensitive ? .accentColor : .secondary)
+                        .cornerRadius(6)
+                }
+                .buttonStyle(.plain)
+                .help("Match case")
                 
-                Toggle("\\b", isOn: $searchService.isWholeWord)
-                    .toggleStyle(.button)
-                    .font(.caption)
-                    .help("Whole word")
+                Button(action: {
+                    searchService.isWholeWord.toggle()
+                }) {
+                    Image(systemName: "w.square")
+                        .font(.system(size: 16, weight: .medium))
+                        .frame(width: 32, height: 32)
+                        .background(searchService.isWholeWord ? Color.accentColor.opacity(0.2) : Color.clear)
+                        .foregroundColor(searchService.isWholeWord ? .accentColor : .secondary)
+                        .cornerRadius(6)
+                }
+                .buttonStyle(.plain)
+                .help("Match whole word")
                 
-                Toggle(".*", isOn: $searchService.isRegex)
-                    .toggleStyle(.button)
-                    .font(.caption)
-                    .help("Regular expression")
+                Button(action: {
+                    searchService.isRegex.toggle()
+                }) {
+                    Image(systemName: "asterisk")
+                        .font(.system(size: 16, weight: .medium))
+                        .frame(width: 32, height: 32)
+                        .background(searchService.isRegex ? Color.accentColor.opacity(0.2) : Color.clear)
+                        .foregroundColor(searchService.isRegex ? .accentColor : .secondary)
+                        .cornerRadius(6)
+                }
+                .buttonStyle(.plain)
+                .help("Use regular expression")
                 
                 Spacer()
                 

@@ -368,7 +368,11 @@ class InEditorSearchManager {
         // Use textView's replace method to ensure proper delegate calls and undo registration
         textView.replace(textRange, withText: replaceText)
         
-        // Note: performSearch() will be called automatically via textDidChangeNotification
+        // Explicitly perform search to update match count and UI
+        // This ensures buttons disable immediately when no matches remain
+        Task { @MainActor in
+            performSearch()
+        }
         
         return true
     }
