@@ -1239,13 +1239,13 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
     
     // Hide the system formatting menu and selection grabbers/handles
     override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
-        // Only allow cut, copy, paste, and lookup actions
+        // Only allow cut, copy, paste, and look up actions
         // This provides a clean, minimal context menu
         let allowedActions: [Selector] = [
             #selector(UIResponderStandardEditActions.cut(_:)),
             #selector(UIResponderStandardEditActions.copy(_:)),
             #selector(UIResponderStandardEditActions.paste(_:)),
-            #selector(lookup(_:)),  // lookup is a direct UITextView method, not in UIResponderStandardEditActions
+            Selector(("_lookup:")),  // Look Up action - internal Apple selector
             #selector(UIResponderStandardEditActions.delete(_:))  // Allow delete for image removal
         ]
         
