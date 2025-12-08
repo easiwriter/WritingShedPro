@@ -118,7 +118,7 @@ struct MultiFileSearchView: View {
     
     private var searchBar: some View {
         VStack(spacing: 12) {
-            // Search field row
+            // Search field row with inline options
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(.secondary)
@@ -140,49 +140,10 @@ struct MultiFileSearchView: View {
                     .buttonStyle(.plain)
                 }
                 
-                Button("Search") {
-                    performSearch()
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(searchService.searchText.isEmpty)
-            }
-            
-            // Replace field row (if replace mode)
-            if searchService.isReplaceMode {
-                HStack(spacing: 8) {
-                    Image(systemName: "arrow.triangle.2.circlepath")
-                        .foregroundStyle(.secondary)
-                    
-                    TextField("Replace with", text: $searchService.replaceText)
-                        .textFieldStyle(.plain)
-                    
-                    if !searchService.replaceText.isEmpty {
-                        Button(action: {
-                            searchService.replaceText = ""
-                        }) {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundStyle(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
-            
-            // Options row
-            HStack(spacing: 16) {
-                // Toggle replace mode
-                Button(action: {
-                    searchService.isReplaceMode.toggle()
-                }) {
-                    Label("Replace", systemImage: searchService.isReplaceMode ? "chevron.down" : "chevron.right")
-                        .font(.caption)
-                }
-                .buttonStyle(.plain)
-                
                 Divider()
                     .frame(height: 20)
                 
-                // Search options
+                // Search options inline
                 Button(action: {
                     searchService.isCaseSensitive.toggle()
                 }) {
@@ -221,6 +182,48 @@ struct MultiFileSearchView: View {
                 }
                 .buttonStyle(.plain)
                 .help("Use regular expression")
+                
+                Divider()
+                    .frame(height: 20)
+                
+                Button("Search") {
+                    performSearch()
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(searchService.searchText.isEmpty)
+            }
+            
+            // Replace field row (if replace mode)
+            if searchService.isReplaceMode {
+                HStack(spacing: 8) {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                        .foregroundStyle(.secondary)
+                    
+                    TextField("Replace with", text: $searchService.replaceText)
+                        .textFieldStyle(.plain)
+                    
+                    if !searchService.replaceText.isEmpty {
+                        Button(action: {
+                            searchService.replaceText = ""
+                        }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            
+            // Bottom row: Replace toggle and results summary
+            HStack(spacing: 16) {
+                // Toggle replace mode
+                Button(action: {
+                    searchService.isReplaceMode.toggle()
+                }) {
+                    Label("Replace", systemImage: searchService.isReplaceMode ? "chevron.down" : "chevron.right")
+                        .font(.caption)
+                }
+                .buttonStyle(.plain)
                 
                 Spacer()
                 
