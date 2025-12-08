@@ -544,25 +544,13 @@ struct FolderFilesView: View {
                 continue
             }
             
-            // Add file title as heading if there are multiple files
-            if sortedFiles.count > 1 {
-                let title = "\(file.name)\n\n"
-                let titleAttributes: [NSAttributedString.Key: Any] = [
-                    .font: UIFont.preferredFont(forTextStyle: .title1),
-                    .foregroundColor: UIColor.label
-                ]
-                let titleString = NSAttributedString(string: title, attributes: titleAttributes)
-                combinedContent.append(titleString)
-            }
-            
-            // Add the file content
+            // Don't add title heading - the content already has it
+            // Just add the file content directly
             combinedContent.append(attributedString)
             
-            // Add spacing between files (except after last file)
-            if index < sortedFiles.count - 1 {
-                let spacer = NSAttributedString(string: "\n\n\n")
-                combinedContent.append(spacer)
-            }
+            // Add page break after each file (including last file)
+            let pageBreak = NSAttributedString(string: "\u{000C}")
+            combinedContent.append(pageBreak)
         }
         
         // Store the combined content for export
@@ -683,7 +671,13 @@ struct FolderFilesView: View {
 // MARK: - Export Document Type
 
 struct ExportDocument: FileDocument {
-    static var readableContentTypes: [UTType] { [.rtf, .html, .data] }
+    static var readableContentTypes: [UTType] { 
+        [.rtf, .html, UTType(filenameExtension: "epub") ?? .data, .data] 
+    }
+    
+    static var writableContentTypes: [UTType] { 
+        [.rtf, .html, UTType(filenameExtension: "epub") ?? .data, .data] 
+    }
     
     var data: Data
     var filename: String

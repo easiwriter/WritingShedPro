@@ -190,11 +190,23 @@ class EPUBExportService {
             bodyContent = String(html[bodyStart.upperBound..<bodyEnd.lowerBound])
         }
         
-        // Clean up excessive newlines (don't add newlines to lines already ending in newline)
-        // Remove cases where paragraph tags create double newlines
-        bodyContent = bodyContent.replacingOccurrences(of: "</p>\n<p>", with: "</p><p>")
-        bodyContent = bodyContent.replacingOccurrences(of: "<br>\n", with: "<br>")
-        bodyContent = bodyContent.replacingOccurrences(of: "<br/>\n", with: "<br/>")
+        // Clean up excessive newlines and whitespace
+        // The iOS HTML converter often adds extra newlines within paragraph content
+        // Remove newlines that appear inside paragraph tags (but not between tags)
+        
+        // First, protect tag boundaries by replacing >\n< with a placeholder
+        bodyContent = bodyContent.replacingOccurrences(of: ">\n<", with: ">TAGBREAK<")
+        
+        // Now remove all remaining newlines (these are within content)
+        bodyContent = bodyContent.replacingOccurrences(of: "\n", with: "")
+        
+        // Restore tag boundaries with proper formatting
+        bodyContent = bodyContent.replacingOccurrences(of: ">TAGBREAK<", with: ">\n<")
+        
+        // Clean up any multiple spaces that may have been created
+        while bodyContent.contains("  ") {
+            bodyContent = bodyContent.replacingOccurrences(of: "  ", with: " ")
+        }
         
         let contentHTML = """
         <?xml version="1.0" encoding="UTF-8"?>
