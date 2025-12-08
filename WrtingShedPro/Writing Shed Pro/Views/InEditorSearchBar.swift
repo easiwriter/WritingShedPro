@@ -77,7 +77,9 @@ struct InEditorSearchBar: View {
                 },
                 onShiftReturn: {
                     manager.previousMatch()
-                }
+                },
+                onCommandG: { manager.nextMatch() },
+                onCommandShiftG: { manager.previousMatch() }
             ))
         }
     }
@@ -365,7 +367,6 @@ struct InEditorSearchBar: View {
                 focusedField = .search
             }
         }
-    }
     
     // MARK: - Actions
     
