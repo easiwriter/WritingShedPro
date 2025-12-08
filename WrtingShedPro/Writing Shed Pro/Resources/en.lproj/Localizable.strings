@@ -965,3 +965,20 @@
 
 /* FontPickerView */
 "fontPicker.title" = "Fonts";
+
+/* Export functionality */
+"export.format.rtf" = "RTF (Word-compatible)";
+"export.format.html" = "HTML (Web page)";
+"export.format.epub" = "EPUB (eBook)";
+"export.dialog.title" = "Export Format";
+"export.dialog.message" = "Choose format to export %d file(s)";
+"export.error.failed" = "Export failed";
+
+/* HTML Export */
+"htmlExport.error.conversionFailed" = "Failed to convert to HTML";
+"htmlExport.error.encodingFailed" = "Failed to encode HTML file";
+
+/* EPUB Export */
+"epubExport.error.conversionFailed" = "Failed to convert to EPUB";
+"epubExport.error.zipFailed" = "Failed to create EPUB package";
+"epubExport.error.structureFailed" = "Failed to create EPUB structure";

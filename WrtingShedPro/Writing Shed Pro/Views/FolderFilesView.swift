@@ -294,27 +294,30 @@ struct FolderFilesView: View {
         } message: {
             Text(importErrorMessage)
         }
-        .confirmationDialog("Export Format", isPresented: $showExportMenu) {
-            Button("Rich Text Format (.rtf)") {
+        .confirmationDialog(NSLocalizedString("export.dialog.title", comment: "Export Format"), isPresented: $showExportMenu) {
+            Button(ExportFormat.rtf.displayName) {
                 exportFiles(format: .rtf)
             }
             
-            Button("About Word Format") {
-                importErrorMessage = "RTF (Rich Text Format) is fully compatible with Microsoft Word and preserves all formatting. It can be opened and edited in Word, Pages, and other word processors."
-                showImportError = true
+            Button(ExportFormat.html.displayName) {
+                exportFiles(format: .html)
             }
             
-            Button("Cancel", role: .cancel) {
+            Button(ExportFormat.epub.displayName) {
+                exportFiles(format: .epub)
+            }
+            
+            Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
                 filesToExport = []
             }
         } message: {
-            Text("Export \(filesToExport.count) file(s) as RTF (Word-compatible)")
+            Text(String(format: NSLocalizedString("export.dialog.message", comment: "Choose export format"), filesToExport.count))
         }
         .fileExporter(
             isPresented: $showExportSaveDialog,
             document: ExportDocument(data: exportData ?? Data(), filename: exportFilename),
-            contentType: .rtf,
-            defaultFilename: "\(exportFilename).rtf"
+            contentType: contentTypeForFormat(exportFormat),
+            defaultFilename: "\(exportFilename).\(exportFormat.fileExtension)"
         ) { result in
             handleExportResult(result: result)
         }
@@ -476,15 +479,29 @@ struct FolderFilesView: View {
     
     private enum ExportFormat {
         case rtf
+        case html
+        case epub
         
         var fileExtension: String {
-            return "rtf"
+            switch self {
+            case .rtf: return "rtf"
+            case .html: return "html"
+            case .epub: return "epub"
+            }
+        }
+        
+        var displayName: String {
+            switch self {
+            case .rtf: return NSLocalizedString("export.format.rtf", comment: "RTF (Word-compatible)")
+            case .html: return NSLocalizedString("export.format.html", comment: "HTML (Web page)")
+            case .epub: return NSLocalizedString("export.format.epub", comment: "EPUB (eBook)")
+            }
         }
     }
     
     private func exportFiles(format: ExportFormat) {
-        // Always use RTF format (only supported format)
-        self.exportFormat = .rtf
+        // Set the export format
+        self.exportFormat = format
         
         // If multiple files, export them one at a time
         guard let firstFile = filesToExport.first,
@@ -494,14 +511,22 @@ struct FolderFilesView: View {
             return
         }
         
-        // Prepare export data
+        // Prepare export data based on format
         do {
-            exportData = try WordDocumentService.exportToRTF(attributedString, filename: firstFile.name)
+            switch format {
+            case .rtf:
+                exportData = try WordDocumentService.exportToRTF(attributedString, filename: firstFile.name)
+            case .html:
+                exportData = try HTMLExportService.exportToHTMLData(attributedString, filename: firstFile.name)
+            case .epub:
+                exportData = try EPUBExportService.exportToEPUB(attributedString, filename: firstFile.name)
+            }
+            
             exportFilename = firstFile.name
             showExportSaveDialog = true
             
         } catch {
-            importErrorMessage = "Export failed: \(error.localizedDescription)"
+            importErrorMessage = NSLocalizedString("export.error.failed", comment: "Export failed") + ": \(error.localizedDescription)"
             showImportError = true
             filesToExport = []
         }
@@ -522,6 +547,18 @@ struct FolderFilesView: View {
         case .failure(let error):
             print("❌ Export failed: \(error.localizedDescription)")
             filesToExport = []
+        }
+    }
+    
+    private func contentTypeForFormat(_ format: ExportFormat) -> UTType {
+        switch format {
+        case .rtf:
+            return .rtf
+        case .html:
+            return .html
+        case .epub:
+            // EPUB uses a custom UTType
+            return UTType(filenameExtension: "epub") ?? .data
         }
     }
     
