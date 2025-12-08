@@ -346,7 +346,11 @@ struct FolderFilesView: View {
         }
         .fileExporter(
             isPresented: $showExportSaveDialog,
-            document: ExportDocument(data: exportData ?? Data(), filename: exportFilename),
+            document: ExportDocument(
+                data: exportData ?? Data(),
+                filename: exportFilename,
+                contentType: contentTypeForFormat(exportFormat)
+            ),
             contentType: contentTypeForFormat(exportFormat),
             defaultFilename: "\(exportFilename).\(exportFormat.fileExtension)"
         ) { result in
@@ -679,19 +683,22 @@ struct FolderFilesView: View {
 // MARK: - Export Document Type
 
 struct ExportDocument: FileDocument {
-    static var readableContentTypes: [UTType] { [.rtf, .data] }
+    static var readableContentTypes: [UTType] { [.rtf, .html, .data] }
     
     var data: Data
     var filename: String
+    var contentType: UTType
     
-    init(data: Data, filename: String) {
+    init(data: Data, filename: String, contentType: UTType = .rtf) {
         self.data = data
         self.filename = filename
+        self.contentType = contentType
     }
     
     init(configuration: ReadConfiguration) throws {
         data = configuration.file.regularFileContents ?? Data()
         filename = ""
+        contentType = .data
     }
     
     func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
