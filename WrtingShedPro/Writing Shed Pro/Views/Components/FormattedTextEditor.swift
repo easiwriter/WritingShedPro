@@ -1272,43 +1272,42 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
     // iOS 16+ Edit Menu Customization
     @available(iOS 16.0, *)
     override func editMenu(for textRange: UITextRange, suggestedActions: [UIMenuElement]) -> UIMenu? {
-        print("🔍 editMenu called with \(suggestedActions.count) actions")
+        // Helper function to recursively extract all UIActions from menus
+        func extractActions(from elements: [UIMenuElement]) -> [UIAction] {
+            var actions: [UIAction] = []
+            for element in elements {
+                if let action = element as? UIAction {
+                    actions.append(action)
+                } else if let menu = element as? UIMenu {
+                    // Recursively get actions from submenu
+                    actions.append(contentsOf: extractActions(from: menu.children))
+                }
+            }
+            return actions
+        }
+        
+        // Extract all actions from the menu hierarchy
+        let allActions = extractActions(from: suggestedActions)
         
         // Filter to only include Look Up, Cut, Copy, Paste
-        var filteredActions: [UIMenuElement] = []
-        
-        for element in suggestedActions {
-            if let action = element as? UIAction {
-                let title = action.title
-                print("  Action: \(title)")
-                // Only keep these exact menu items
-                if title == "Look Up" || title == "Cut" || title == "Copy" || title == "Paste" {
-                    filteredActions.append(action)
-                    print("    ✅ Keeping")
-                }
-            } else if let menu = element as? UIMenu {
-                print("  Menu: \(menu.title)")
-            }
+        let allowedTitles = ["Look Up", "Cut", "Copy", "Paste"]
+        let filteredActions = allActions.filter { action in
+            allowedTitles.contains(action.title)
         }
         
-        print("🔍 Filtered to \(filteredActions.count) actions")
-        
-        // If no actions match, fall back to super (shouldn't happen, but safety)
+        // If no actions match, return nil to use default menu
         guard !filteredActions.isEmpty else {
-            print("⚠️ No actions matched, calling super")
-            return super.editMenu(for: textRange, suggestedActions: suggestedActions)
+            return nil
         }
         
-        // Reorder to put Look Up first
+        // Reorder to put Look Up first, then Cut, Copy, Paste
         let orderedActions = filteredActions.sorted { action1, action2 in
-            guard let a1 = action1 as? UIAction, let a2 = action2 as? UIAction else { return false }
             let order = ["Look Up", "Cut", "Copy", "Paste"]
-            let index1 = order.firstIndex(of: a1.title) ?? 999
-            let index2 = order.firstIndex(of: a2.title) ?? 999
+            let index1 = order.firstIndex(of: action1.title) ?? 999
+            let index2 = order.firstIndex(of: action2.title) ?? 999
             return index1 < index2
         }
         
-        print("🔍 Returning menu with \(orderedActions.count) actions")
         return UIMenu(children: orderedActions)
     }
     
