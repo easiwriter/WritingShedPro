@@ -560,6 +560,7 @@ struct CollectionDetailView: View {
     @State private var showSubmissionPicker = false
     @State private var showPrintError = false
     @State private var printErrorMessage = ""
+    @State private var showSearchView = false
     
     private var submittedFiles: [SubmittedFile] {
         let files = submission.submittedFiles ?? []
@@ -618,27 +619,44 @@ struct CollectionDetailView: View {
             }
             
             ToolbarItem(placement: .navigationBarTrailing) {
-                Menu {
-                    Button(action: { showAddFilesSheet = true }) {
-                        Label("Add Files", systemImage: "plus")
+                HStack(spacing: 16) {
+                    // Search button
+                    if !submittedFiles.isEmpty {
+                        Button {
+                            showSearchView = true
+                        } label: {
+                            Image(systemName: "magnifyingglass")
+                        }
+                        .accessibilityLabel("Search files in collection")
+                        .help("Search and replace across all files in this collection")
                     }
                     
-                    if !submittedFiles.isEmpty {
-                        Divider()
-                        
-                        Button(action: { showSubmissionPicker = true }) {
-                            Label("Submit to Publication", systemImage: "paperplane")
+                    // More menu
+                    Menu {
+                        Button(action: { showAddFilesSheet = true }) {
+                            Label("Add Files", systemImage: "plus")
                         }
                         
-                        Button(action: { printCollection() }) {
-                            Label("Print Collection", systemImage: "printer")
+                        if !submittedFiles.isEmpty {
+                            Divider()
+                            
+                            Button(action: { showSubmissionPicker = true }) {
+                                Label("Submit to Publication", systemImage: "paperplane")
+                            }
+                            
+                            Button(action: { printCollection() }) {
+                                Label("Print Collection", systemImage: "printer")
+                            }
                         }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
                     }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
+                    .accessibilityLabel("collectionsView.actions.accessibility")
                 }
-                .accessibilityLabel("collectionsView.actions.accessibility")
             }
+        }
+        .sheet(isPresented: $showSearchView) {
+            MultiFileSearchView(collection: submission)
         }
         .sheet(isPresented: $showAddFilesSheet) {
             AddFilesToCollectionSheet(

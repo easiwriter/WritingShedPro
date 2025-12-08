@@ -59,6 +59,9 @@ struct FolderFilesView: View {
     @State private var exportData: Data?
     @State private var exportFilename: String = ""
     
+    // State for search
+    @State private var showSearchView = false
+    
     // Files sorted alphabetically
     private var sortedFiles: [TextFile] {
         let files: [TextFile]
@@ -154,6 +157,18 @@ struct FolderFilesView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack(spacing: 16) {
+                    // Search button
+                    if !sortedFiles.isEmpty {
+                        Button {
+                            showSearchView = true
+                        } label: {
+                            Image(systemName: "magnifyingglass")
+                        }
+                        .accessibilityLabel("Search files in folder")
+                        .help("Search and replace across all files")
+                        .disabled(editMode == .active)
+                    }
+                    
                     // Import Word document button
                     if FolderCapabilityService.canAddFile(to: folder) {
                         Button {
@@ -206,6 +221,9 @@ struct FolderFilesView: View {
                     )
                 }
             }
+        }
+        .sheet(isPresented: $showSearchView) {
+            MultiFileSearchView(folder: folder)
         }
         .sheet(isPresented: $showAddFileSheet) {
             AddFileSheet(
