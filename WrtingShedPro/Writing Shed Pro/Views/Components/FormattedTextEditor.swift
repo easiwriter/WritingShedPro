@@ -1272,17 +1272,31 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
     // iOS 16+ Edit Menu Customization
     @available(iOS 16.0, *)
     override func editMenu(for textRange: UITextRange, suggestedActions: [UIMenuElement]) -> UIMenu? {
+        print("🔍 editMenu called with \(suggestedActions.count) actions")
+        
         // Filter to only include Look Up, Cut, Copy, Paste
         var filteredActions: [UIMenuElement] = []
         
         for element in suggestedActions {
             if let action = element as? UIAction {
                 let title = action.title
+                print("  Action: \(title)")
                 // Only keep these exact menu items
                 if title == "Look Up" || title == "Cut" || title == "Copy" || title == "Paste" {
                     filteredActions.append(action)
+                    print("    ✅ Keeping")
                 }
+            } else if let menu = element as? UIMenu {
+                print("  Menu: \(menu.title)")
             }
+        }
+        
+        print("🔍 Filtered to \(filteredActions.count) actions")
+        
+        // If no actions match, fall back to super (shouldn't happen, but safety)
+        guard !filteredActions.isEmpty else {
+            print("⚠️ No actions matched, calling super")
+            return super.editMenu(for: textRange, suggestedActions: suggestedActions)
         }
         
         // Reorder to put Look Up first
@@ -1294,6 +1308,7 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
             return index1 < index2
         }
         
+        print("🔍 Returning menu with \(orderedActions.count) actions")
         return UIMenu(children: orderedActions)
     }
     
