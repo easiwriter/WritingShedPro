@@ -251,6 +251,9 @@ class JSONImportService {
             textFile.modifiedDate = textFileMetadata.modifiedDate ?? Date()
             textFile.parentFolder = folder
             
+            // Clear the auto-created initial version - we'll import the real versions
+            textFile.versions = []
+            
             // Cache for later linking
             textFileMap[textFileData.id] = textFile
             

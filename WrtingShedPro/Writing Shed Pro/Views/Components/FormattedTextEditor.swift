@@ -1102,25 +1102,26 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
         super.init(frame: frame, textContainer: textContainer)
         addSubview(selectionBorderView)
         setupCommentInteraction()
+        setupTraitChangeObservation()
     }
     
     required init?(coder: NSCoder) {
         super.init(coder: coder)
         addSubview(selectionBorderView)
         setupCommentInteraction()
+        setupTraitChangeObservation()
     }
     
     // MARK: - Appearance Handling
     
-    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
-        super.traitCollectionDidChange(previousTraitCollection)
-        
-        // When appearance changes (light/dark mode), ensure text color updates
-        // This is critical for System appearance mode to work correctly
-        if previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle {
+    private func setupTraitChangeObservation() {
+        // Register for trait changes using the new iOS 17+ API
+        registerForTraitChanges([UITraitUserInterfaceStyle.self]) { (self: Self, previousTraitCollection: UITraitCollection) in
+            // When appearance changes (light/dark mode), ensure text color updates
+            // This is critical for System appearance mode to work correctly
             #if DEBUG
             print("🎨 Trait collection changed - updating text color for appearance mode")
-            print("   Previous: \(previousTraitCollection?.userInterfaceStyle.rawValue ?? -1), New: \(traitCollection.userInterfaceStyle.rawValue)")
+            print("   Previous: \(previousTraitCollection.userInterfaceStyle.rawValue), New: \(self.traitCollection.userInterfaceStyle.rawValue)")
             #endif
             
             // Re-set textColor to .label so it resolves to the correct color for new appearance
@@ -1280,6 +1281,7 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
             // Remove format submenu
             builder.remove(menu: .format)
         }
+        
         super.buildMenu(with: builder)
     }
     
