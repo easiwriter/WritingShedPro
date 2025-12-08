@@ -1237,6 +1237,12 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
         return super.selectionRects(for: range)
     }
     
+    // MARK: - Context Menu Customization
+    // ⚠️ CONTEXT MENU ISSUE: Despite multiple attempts, the context menu still shows unwanted items
+    // See docs/CONTEXT_MENU_ISSUE.md for details and potential solutions
+    // Goal: Show only Look Up, Cut, Copy, Paste
+    // Current: Also shows Search, Share, Spelling/Grammar, Substitutions, etc.
+    
     // Hide the system formatting menu and selection grabbers/handles
     override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
         // Disable selection actions when image is selected (except cut/delete for removal)
