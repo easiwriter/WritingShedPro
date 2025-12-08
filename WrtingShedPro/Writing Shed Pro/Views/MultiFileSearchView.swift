@@ -245,7 +245,16 @@ struct MultiFileSearchView: View {
             // File results list
             List {
                 ForEach(searchService.results) { result in
-                    NavigationLink(destination: FileEditView(file: result.file)) {
+                    NavigationLink(destination: 
+                        FileEditViewWithSearch(
+                            file: result.file,
+                            searchText: searchService.searchText,
+                            replaceText: searchService.isReplaceMode ? searchService.replaceText : nil,
+                            isCaseSensitive: searchService.isCaseSensitive,
+                            isWholeWord: searchService.isWholeWord,
+                            isRegex: searchService.isRegex
+                        )
+                    ) {
                         FileResultRow(
                             result: result,
                             isReplaceMode: searchService.isReplaceMode,
@@ -347,6 +356,42 @@ struct FileResultRow: View {
                 onToggleSelection()
             }
         }
+    }
+}
+
+// MARK: - FileEditView Wrapper with Search Context
+
+/// Wrapper for FileEditView that automatically sets up search highlighting
+struct FileEditViewWithSearch: View {
+    let file: TextFile
+    let searchText: String
+    let replaceText: String?
+    let isCaseSensitive: Bool
+    let isWholeWord: Bool
+    let isRegex: Bool
+    
+    @State private var searchContext: SearchContext
+    
+    init(file: TextFile, searchText: String, replaceText: String?, isCaseSensitive: Bool, isWholeWord: Bool, isRegex: Bool) {
+        self.file = file
+        self.searchText = searchText
+        self.replaceText = replaceText
+        self.isCaseSensitive = isCaseSensitive
+        self.isWholeWord = isWholeWord
+        self.isRegex = isRegex
+        
+        _searchContext = State(initialValue: SearchContext(
+            searchText: searchText,
+            replaceText: replaceText,
+            isCaseSensitive: isCaseSensitive,
+            isWholeWord: isWholeWord,
+            isRegex: isRegex
+        ))
+    }
+    
+    var body: some View {
+        FileEditView(file: file)
+            .environment(searchContext)
     }
 }
 

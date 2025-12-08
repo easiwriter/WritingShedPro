@@ -58,6 +58,7 @@ struct FileEditView: View {
     
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(SearchContext.self) private var searchContext: SearchContext?
     
     enum VersionAction: Int {
         case previous
@@ -642,6 +643,28 @@ struct FileEditView: View {
             }
     }
     
+    // MARK: - Search Context Activation
+    
+    private func activateSearchFromContext(_ context: SearchContext) {
+        print("🔍 Setting up search from multi-file context: '\(context.searchText)'")
+        
+        // Set search parameters
+        searchManager.searchText = context.searchText
+        searchManager.replaceText = context.replaceText ?? ""
+        searchManager.isReplaceMode = context.replaceText != nil
+        searchManager.isCaseSensitive = context.isCaseSensitive
+        searchManager.isWholeWord = context.isWholeWord
+        searchManager.isRegex = context.isRegex
+        
+        // Show search bar
+        showSearchBar = true
+        
+        // Reset the context so it won't activate again
+        context.reset()
+        
+        print("🔍 Search activated: \(searchManager.totalMatches) matches found")
+    }
+    
     // MARK: - View Modifiers Helper
     
     private struct DialogsModifier: ViewModifier {
@@ -805,6 +828,14 @@ struct FileEditView: View {
                     textView.typingAttributes = bodyAttrs
                 }
                 print("📝 onAppear: Set typing attributes for empty document from stylesheet")
+            }
+        }
+        
+        // Check if we should activate search from multi-file search context
+        if let context = searchContext, context.shouldActivate {
+            print("🔍 Activating search from multi-file search context")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                activateSearchFromContext(context)
             }
         }
     }
