@@ -149,6 +149,7 @@ struct FileEditView: View {
                         attributedText: $attributedContent,
                         selectedRange: $selectedRange,
                         textViewCoordinator: textViewCoordinator,
+                        textContainerInset: UIDevice.current.userInterfaceIdiom == .phone ? UIEdgeInsets(top: 4, left: 2, bottom: 4, right: 2) : UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8),
                         onTextChange: { newText in
                             handleAttributedTextChange(newText)
                         },
@@ -167,6 +168,7 @@ struct FileEditView: View {
                             handleFootnoteTap(attachment: attachment, position: position)
                         }
                     )
+                    .scaleEffect(UIDevice.current.userInterfaceIdiom == .phone ? 0.80 : 1.0)
                     .id(refreshTrigger)
                     .onAppear {
                         textViewInitialized = true
@@ -176,6 +178,7 @@ struct FileEditView: View {
                         attributedText: $attributedContent,
                         selectedRange: $selectedRange,
                         textViewCoordinator: textViewCoordinator,
+                        textContainerInset: UIDevice.current.userInterfaceIdiom == .phone ? UIEdgeInsets(top: 4, left: 2, bottom: 4, right: 2) : UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8),
                         onTextChange: { newText in
                             handleAttributedTextChange(newText)
                         },
@@ -194,13 +197,14 @@ struct FileEditView: View {
                             handleFootnoteTap(attachment: attachment, position: position)
                         }
                     )
+                    .scaleEffect(UIDevice.current.userInterfaceIdiom == .phone ? 0.80 : 1.0)
                     .id(refreshTrigger)
                     .onAppear {
                         textViewInitialized = true
                     }
                 }
             }
-            .padding(.horizontal, geometry.size.width * 0.05)
+            .padding(.horizontal, UIDevice.current.userInterfaceIdiom == .phone ? 2 : geometry.size.width * 0.05)
         }
     }
     
