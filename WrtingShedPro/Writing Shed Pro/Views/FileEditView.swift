@@ -55,7 +55,8 @@ struct FileEditView: View {
     // Feature 017: Search and Replace
     @State private var showSearchBar = false
     @State private var searchManager = InEditorSearchManager()
-    @State private var isSimplifiedSearchMode = false  // True when opened from multi-file search
+    @State private var isSimplifiedSearchMode = false  // True when opened from multi-file search with replace
+    @State private var isFromMultiFileSearch = false  // True when opened from any multi-file search
     
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -277,8 +278,8 @@ struct FileEditView: View {
     @ViewBuilder
     private func navigationBarButtons() -> some View {
         HStack(spacing: 16) {
-            // Search button (only in edit mode)
-            if !isPaginationMode {
+            // Search button (only in edit mode and not opened from multi-file search)
+            if !isPaginationMode && !isFromMultiFileSearch {
                 Button(action: {
                     withAnimation(.easeInOut(duration: 0.2)) {
                         showSearchBar.toggle()
@@ -670,6 +671,9 @@ struct FileEditView: View {
         // Only show search bar if replace mode is active
         // For search-only mode, matches are highlighted but no UI is shown
         let shouldShowSearchBar = context.replaceText != nil
+        
+        // Track that this was opened from multi-file search
+        isFromMultiFileSearch = context.isFromMultiFileSearch
         
         // Set simplified mode if opened from multi-file search with replace
         isSimplifiedSearchMode = context.isFromMultiFileSearch && shouldShowSearchBar

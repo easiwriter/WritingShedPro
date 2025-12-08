@@ -1279,13 +1279,30 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
     // Hide the system formatting menu on iPad with hardware keyboard (iOS 13+)
     @available(iOS 13.0, *)
     override func buildMenu(with builder: UIMenuBuilder) {
-        // If we want to hide the formatting menu, we need to remove the formatting actions
-        if shouldHideSystemFormattingMenu {
-            // Remove format submenu
-            builder.remove(menu: .format)
-        }
+        // Remove all unwanted menu items to leave only Cut, Copy, Paste, Look Up
+        builder.remove(menu: .format)
+        builder.remove(menu: .standardEdit)  // This includes spelling, grammar, etc.
+        builder.remove(menu: .lookup)
+        builder.remove(menu: .learn)
+        builder.remove(menu: .share)
+        builder.remove(menu: .textStyle)
         
         super.buildMenu(with: builder)
+    }
+    
+    // iOS 16+ uses editMenuInteraction for context menus
+    @available(iOS 16.0, *)
+    func editMenuInteraction(_ interaction: UIEditMenuInteraction, menuFor configuration: UIEditMenuConfiguration, suggestedActions: [UIMenuElement]) -> UIMenu? {
+        // Only keep Cut, Copy, Paste, and Look Up
+        let allowedTitles = ["Cut", "Copy", "Paste", "Look Up"]
+        let filteredActions = suggestedActions.filter { element in
+            if let action = element as? UIAction {
+                return allowedTitles.contains(action.title)
+            }
+            return false
+        }
+        
+        return UIMenu(children: filteredActions)
     }
     
     private func recalculateSelectionBorder() {
