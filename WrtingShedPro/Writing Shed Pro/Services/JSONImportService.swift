@@ -672,6 +672,16 @@ class JSONImportService {
     
     /// Decode NSAttributedString from Data (property list archived)
     private func decodeAttributedString(from data: Data, plainText: String) throws -> NSAttributedString {
+        // Debug: Print data characteristics
+        print("[JSONImport] 🔍 Data size: \(data.count) bytes, plain text length: \(plainText.count) chars")
+        if data.count > 0 {
+            let preview = data.prefix(50)
+            print("[JSONImport] 🔍 Data preview (hex): \(preview.map { String(format: "%02X", $0) }.joined(separator: " "))")
+            if let previewString = String(data: preview, encoding: .utf8) {
+                print("[JSONImport] 🔍 Data preview (UTF8): \(previewString.prefix(50))")
+            }
+        }
+        
         // FIRST: Try RTF format (most common format from old Writing Shed)
         do {
             let options: [NSAttributedString.DocumentReadingOptionKey: Any] = [
@@ -682,13 +692,14 @@ class JSONImportService {
                 print("[JSONImport] ✅ Decoded RTF attributed string (\(attributedString.length) chars)")
                 return attributedString
             }
-        } catch {
-            // Not RTF, try other formats
+        } catch let error {
+            print("[JSONImport] ❌ RTF decode failed: \(error.localizedDescription)")
         }
         
         // SECOND: Try PropertyList format
         do {
             if let plistObject = try PropertyListSerialization.propertyList(from: data, format: nil) as? Data {
+                print("[JSONImport] 🔍 PropertyList contains Data of \(plistObject.count) bytes")
                 // The plist contains archived NSAttributedString data
                 if let attributedString = try? NSKeyedUnarchiver.unarchivedObject(
                     ofClass: NSAttributedString.self,
@@ -696,10 +707,14 @@ class JSONImportService {
                 ) {
                     print("[JSONImport] ✅ Decoded attributed string from PropertyList format (\(attributedString.length) chars)")
                     return attributedString
+                } else {
+                    print("[JSONImport] ❌ PropertyList decode: NSKeyedUnarchiver failed")
                 }
+            } else {
+                print("[JSONImport] 🔍 PropertyList exists but is not Data type")
             }
-        } catch {
-            // Not a PropertyList, try direct NSKeyedUnarchiver
+        } catch let error {
+            print("[JSONImport] ❌ PropertyList decode failed: \(error.localizedDescription)")
         }
         
         // THIRD: Try direct NSKeyedUnarchiver (for newer formats)
@@ -711,8 +726,8 @@ class JSONImportService {
                 print("[JSONImport] ✅ Decoded attributed string directly (\(attributedString.length) chars)")
                 return attributedString
             }
-        } catch {
-            print("[JSONImport] ⚠️ Could not decode attributed string: \(error.localizedDescription)")
+        } catch let error {
+            print("[JSONImport] ❌ NSKeyedUnarchiver decode failed: \(error.localizedDescription)")
         }
         
         // Fallback to plain text
