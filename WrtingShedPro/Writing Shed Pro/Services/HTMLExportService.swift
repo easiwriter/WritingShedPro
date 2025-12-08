@@ -120,10 +120,17 @@ class HTMLExportService {
                             display: block;
                             margin: 1em 0;
                         }
+                        div[style*="page-break-after"] {
+                            page-break-after: always;
+                            break-after: page;
+                        }
                         @media print {
                             body {
                                 max-width: none;
                                 padding: 0;
+                            }
+                            div[style*="page-break-after"] {
+                                page-break-after: always;
                             }
                         }
                         @media (prefers-color-scheme: dark) {
@@ -139,6 +146,9 @@ class HTMLExportService {
             
             cleaned.insert(contentsOf: headContent, at: insertPosition)
         }
+        
+        // Convert form feed (page break) characters to HTML page breaks
+        cleaned = cleaned.replacingOccurrences(of: "\u{000C}", with: "<div style=\"page-break-after: always;\"></div>")
         
         // Clean up extra whitespace and formatting
         cleaned = cleaned.replacingOccurrences(of: "\n\n\n", with: "\n\n")

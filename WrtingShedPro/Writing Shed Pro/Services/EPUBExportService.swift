@@ -190,18 +190,29 @@ class EPUBExportService {
             bodyContent = String(html[bodyStart.upperBound..<bodyEnd.lowerBound])
         }
         
+        // Convert page breaks to EPUB page break divs
+        bodyContent = bodyContent.replacingOccurrences(of: "\u{000C}", with: "<div style=\"page-break-after: always;\"></div>")
+        
         // Clean up excessive newlines and whitespace
-        // The iOS HTML converter often adds extra newlines within paragraph content
-        // Remove newlines that appear inside paragraph tags (but not between tags)
+        // The iOS HTML converter adds <br> tags and newlines
         
-        // First, protect tag boundaries by replacing >\n< with a placeholder
-        bodyContent = bodyContent.replacingOccurrences(of: ">\n<", with: ">TAGBREAK<")
+        // First, normalize all line break variations
+        bodyContent = bodyContent.replacingOccurrences(of: "<br />", with: "<br>")
+        bodyContent = bodyContent.replacingOccurrences(of: "<br/>", with: "<br>")
         
-        // Now remove all remaining newlines (these are within content)
-        bodyContent = bodyContent.replacingOccurrences(of: "\n", with: "")
+        // Remove newlines between closing and opening tags
+        bodyContent = bodyContent.replacingOccurrences(of: "</p>\n<p>", with: "</p><p>")
+        bodyContent = bodyContent.replacingOccurrences(of: "</div>\n<div>", with: "</div><div>")
+        bodyContent = bodyContent.replacingOccurrences(of: "</span>\n<span>", with: "</span><span>")
         
-        // Restore tag boundaries with proper formatting
-        bodyContent = bodyContent.replacingOccurrences(of: ">TAGBREAK<", with: ">\n<")
+        // Remove newlines after opening tags and before closing tags
+        bodyContent = bodyContent.replacingOccurrences(of: "<p>\n", with: "<p>")
+        bodyContent = bodyContent.replacingOccurrences(of: "\n</p>", with: "</p>")
+        bodyContent = bodyContent.replacingOccurrences(of: "<div>\n", with: "<div>")
+        bodyContent = bodyContent.replacingOccurrences(of: "\n</div>", with: "</div>")
+        
+        // Remove newlines after br tags (these create double spacing)
+        bodyContent = bodyContent.replacingOccurrences(of: "<br>\n", with: "<br>")
         
         // Clean up any multiple spaces that may have been created
         while bodyContent.contains("  ") {
@@ -214,7 +225,7 @@ class EPUBExportService {
         <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
         <head>
             <meta charset="UTF-8"/>
-            <title>Document</title>
+            <title></title>
             <link rel="stylesheet" type="text/css" href="style.css"/>
         </head>
         <body>
@@ -276,6 +287,12 @@ class EPUBExportService {
         
         em {
             font-style: italic;
+        }
+        
+        /* Page break support */
+        div[style*="page-break-after"] {
+            page-break-after: always;
+            break-after: page;
         }
         """
         
