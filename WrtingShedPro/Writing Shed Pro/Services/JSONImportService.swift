@@ -672,7 +672,21 @@ class JSONImportService {
     
     /// Decode NSAttributedString from Data (property list archived)
     private func decodeAttributedString(from data: Data, plainText: String) throws -> NSAttributedString {
-        // First, try PropertyList format (used by old Writing Shed)
+        // FIRST: Try RTF format (most common format from old Writing Shed)
+        do {
+            let options: [NSAttributedString.DocumentReadingOptionKey: Any] = [
+                .documentType: NSAttributedString.DocumentType.rtf
+            ]
+            let attributedString = try NSAttributedString(data: data, options: options, documentAttributes: nil)
+            if attributedString.length > 0 {
+                print("[JSONImport] ✅ Decoded RTF attributed string (\(attributedString.length) chars)")
+                return attributedString
+            }
+        } catch {
+            // Not RTF, try other formats
+        }
+        
+        // SECOND: Try PropertyList format
         do {
             if let plistObject = try PropertyListSerialization.propertyList(from: data, format: nil) as? Data {
                 // The plist contains archived NSAttributedString data
@@ -688,7 +702,7 @@ class JSONImportService {
             // Not a PropertyList, try direct NSKeyedUnarchiver
         }
         
-        // Try direct NSKeyedUnarchiver (for newer formats)
+        // THIRD: Try direct NSKeyedUnarchiver (for newer formats)
         do {
             if let attributedString = try NSKeyedUnarchiver.unarchivedObject(
                 ofClass: NSAttributedString.self,
