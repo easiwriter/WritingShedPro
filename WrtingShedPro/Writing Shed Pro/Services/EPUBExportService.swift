@@ -281,12 +281,35 @@ class EPUBExportService {
             margin: 1em auto;
         }
         
-        strong {
+        /* Text formatting */
+        b, strong {
             font-weight: bold;
         }
         
-        em {
+        i, em {
             font-style: italic;
+        }
+        
+        u {
+            text-decoration: underline;
+        }
+        
+        /* Support for inline styles from iOS HTML converter */
+        span[style*="font-weight: bold"],
+        span[style*="font-weight:bold"],
+        span[style*="font-weight: 700"],
+        span[style*="font-weight:700"] {
+            font-weight: bold;
+        }
+        
+        span[style*="font-style: italic"],
+        span[style*="font-style:italic"] {
+            font-style: italic;
+        }
+        
+        span[style*="text-decoration: underline"],
+        span[style*="text-decoration:underline"] {
+            text-decoration: underline;
         }
         
         /* Page break support */

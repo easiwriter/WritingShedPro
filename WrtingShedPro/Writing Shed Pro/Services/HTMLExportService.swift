@@ -27,6 +27,7 @@ class HTMLExportService {
     ) throws -> String {
         
         // Convert NSAttributedString to HTML using native iOS/macOS support
+        // Use HTML document type to preserve text attributes like bold, italic, etc.
         let documentAttributes: [NSAttributedString.DocumentAttributeKey: Any] = [
             .documentType: NSAttributedString.DocumentType.html,
             .characterEncoding: String.Encoding.utf8.rawValue
@@ -38,6 +39,13 @@ class HTMLExportService {
         ) else {
             throw HTMLExportError.conversionFailed("Failed to convert attributed string to HTML")
         }
+        
+        #if DEBUG
+        // Debug: Check what HTML is being generated
+        if let debugHTML = String(data: htmlData, encoding: .utf8) {
+            print("📝 Raw HTML conversion sample: \(debugHTML.prefix(500))")
+        }
+        #endif
         
         guard var htmlString = String(data: htmlData, encoding: .utf8) else {
             throw HTMLExportError.conversionFailed("Failed to decode HTML data")
@@ -113,6 +121,30 @@ class HTMLExportService {
                         }
                         p {
                             margin-bottom: 1em;
+                        }
+                        b, strong {
+                            font-weight: bold;
+                        }
+                        i, em {
+                            font-style: italic;
+                        }
+                        u {
+                            text-decoration: underline;
+                        }
+                        /* Support for inline styles from iOS HTML converter */
+                        span[style*="font-weight: bold"],
+                        span[style*="font-weight:bold"],
+                        span[style*="font-weight: 700"],
+                        span[style*="font-weight:700"] {
+                            font-weight: bold;
+                        }
+                        span[style*="font-style: italic"],
+                        span[style*="font-style:italic"] {
+                            font-style: italic;
+                        }
+                        span[style*="text-decoration: underline"],
+                        span[style*="text-decoration:underline"] {
+                            text-decoration: underline;
                         }
                         img {
                             max-width: 100%;
