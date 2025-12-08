@@ -982,3 +982,18 @@
 "epubExport.error.conversionFailed" = "Failed to convert to EPUB";
 "epubExport.error.zipFailed" = "Failed to create EPUB package";
 "epubExport.error.structureFailed" = "Failed to create EPUB structure";
+/* Export button */
+"folderFiles.export.accessibility" = "Export files";
+"folderFiles.export.help" = "Export selected files in RTF, HTML, or EPUB format";
+
+/* Folder export */
+"folderFiles.exportFolder.accessibility" = "Export complete folder";
+"folderFiles.exportFolder.help" = "Export all files combined as one document";
+"export.folder.dialog.title" = "Export Complete Folder";
+"export.folder.dialog.message" = "Export all %d file(s) combined as one document";
+
+/* Select/Deselect All */
+"fileList.selectAll" = "Select All";
+"fileList.deselectAll" = "Deselect All";
+"fileList.selectAll.accessibility" = "Select all files";
+"fileList.deselectAll.accessibility" = "Deselect all files";

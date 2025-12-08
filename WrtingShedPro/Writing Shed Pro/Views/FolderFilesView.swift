@@ -53,11 +53,13 @@ struct FolderFilesView: View {
     
     // State for export
     @State private var showExportMenu = false
+    @State private var showExportFolderMenu = false
     @State private var showExportSaveDialog = false
     @State private var filesToExport: [TextFile] = []
     @State private var exportFormat: ExportFormat = .rtf
     @State private var exportData: Data?
     @State private var exportFilename: String = ""
+    @State private var exportCombinedContent: NSAttributedString?
     
     // State for search
     @State private var showSearchView = false
@@ -126,8 +128,7 @@ struct FolderFilesView: View {
                     },
                     onExport: { files in
                         filesToExport = files
-                        // Skip format dialog since only RTF is supported
-                        exportFiles(format: .rtf)
+                        showExportMenu = true
                     },
                     onSubmit: fileListOnSubmit,
                     onAddToCollection: fileListOnAddToCollection,
@@ -179,6 +180,17 @@ struct FolderFilesView: View {
                         .accessibilityLabel("Import Word document")
                         .help("Import Word document")
                         .disabled(editMode == .active)
+                    }
+                    
+                    // Export folder button (when NOT in edit mode - combines all files)
+                    if !sortedFiles.isEmpty && editMode == .inactive {
+                        Button {
+                            exportCompleteFolder()
+                        } label: {
+                            Image(systemName: "square.and.arrow.up")
+                        }
+                        .accessibilityLabel(NSLocalizedString("folderFiles.exportFolder.accessibility", comment: "Export complete folder"))
+                        .help(NSLocalizedString("folderFiles.exportFolder.help", comment: "Export all files combined as one document"))
                     }
                     
                     // Add file button (left of Edit)
@@ -312,6 +324,25 @@ struct FolderFilesView: View {
             }
         } message: {
             Text(String(format: NSLocalizedString("export.dialog.message", comment: "Choose export format"), filesToExport.count))
+        }
+        .confirmationDialog(NSLocalizedString("export.folder.dialog.title", comment: "Export Folder"), isPresented: $showExportFolderMenu) {
+            Button(ExportFormat.rtf.displayName) {
+                exportCombinedFolder(format: .rtf)
+            }
+            
+            Button(ExportFormat.html.displayName) {
+                exportCombinedFolder(format: .html)
+            }
+            
+            Button(ExportFormat.epub.displayName) {
+                exportCombinedFolder(format: .epub)
+            }
+            
+            Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
+                exportCombinedContent = nil
+            }
+        } message: {
+            Text(String(format: NSLocalizedString("export.folder.dialog.message", comment: "Export all files combined"), sortedFiles.count))
         }
         .fileExporter(
             isPresented: $showExportSaveDialog,
@@ -496,6 +527,72 @@ struct FolderFilesView: View {
             case .html: return NSLocalizedString("export.format.html", comment: "HTML (Web page)")
             case .epub: return NSLocalizedString("export.format.epub", comment: "EPUB (eBook)")
             }
+        }
+    }
+    
+    private func exportCompleteFolder() {
+        // Combine all files into a single attributed string
+        let combinedContent = NSMutableAttributedString()
+        
+        for (index, file) in sortedFiles.enumerated() {
+            guard let version = file.currentVersion,
+                  let attributedString = version.attributedContent else {
+                continue
+            }
+            
+            // Add file title as heading if there are multiple files
+            if sortedFiles.count > 1 {
+                let title = "\(file.name)\n\n"
+                let titleAttributes: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.preferredFont(forTextStyle: .title1),
+                    .foregroundColor: UIColor.label
+                ]
+                let titleString = NSAttributedString(string: title, attributes: titleAttributes)
+                combinedContent.append(titleString)
+            }
+            
+            // Add the file content
+            combinedContent.append(attributedString)
+            
+            // Add spacing between files (except after last file)
+            if index < sortedFiles.count - 1 {
+                let spacer = NSAttributedString(string: "\n\n\n")
+                combinedContent.append(spacer)
+            }
+        }
+        
+        // Store the combined content for export
+        exportCombinedContent = combinedContent
+        exportFilename = folder.name ?? "Folder"
+        
+        // Show format selection dialog
+        showExportFolderMenu = true
+    }
+    
+    private func exportCombinedFolder(format: ExportFormat) {
+        // Set the export format
+        self.exportFormat = format
+        
+        guard let combinedContent = exportCombinedContent else {
+            return
+        }
+        
+        // Prepare export data based on format
+        do {
+            switch format {
+            case .rtf:
+                exportData = try WordDocumentService.exportToRTF(combinedContent, filename: exportFilename)
+            case .html:
+                exportData = try HTMLExportService.exportToHTMLData(combinedContent, filename: exportFilename)
+            case .epub:
+                exportData = try EPUBExportService.exportToEPUB(combinedContent, filename: exportFilename)
+            }
+            
+            showExportSaveDialog = true
+            
+        } catch {
+            importErrorMessage = NSLocalizedString("export.error.failed", comment: "Export failed") + ": \(error.localizedDescription)"
+            showImportError = true
         }
     }
     
