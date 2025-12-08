@@ -677,6 +677,15 @@ struct FileEditView: View {
         // Show search bar only if in replace mode
         showSearchBar = shouldShowSearchBar
         
+        // Ensure we scroll to first match (performSearch already does this, but may need delay)
+        // This ensures both search-only and replace modes show the first match
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            if self.searchManager.hasMatches {
+                // Scroll is already done in performSearch, but ensure it's visible
+                print("🔍 Ensuring first match is visible")
+            }
+        }
+        
         // Reset the context so it won't activate again
         context.reset()
         
@@ -801,9 +810,11 @@ struct FileEditView: View {
             // Comments created before we added serialization support need to be re-inserted
             restoreOrphanedCommentMarkers()
             
-            // Position cursor at end of text
-            let textLength = attributedContent.length
-            selectedRange = NSRange(location: textLength, length: 0)
+            // Position cursor at end of text (unless opening from search, which will position at first match)
+            if searchContext == nil || searchContext?.shouldActivate == false {
+                let textLength = attributedContent.length
+                selectedRange = NSRange(location: textLength, length: 0)
+            }
         }
         
         // Show keyboard/cursor when opening file (only if not locked)

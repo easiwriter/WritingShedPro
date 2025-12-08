@@ -1239,28 +1239,31 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
     
     // Hide the system formatting menu and selection grabbers/handles
     override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
-        // Hide the system formatting toolbar options (Bold, Italic, Underline, etc.)
-        if shouldHideSystemFormattingMenu {
-            if action == #selector(toggleBoldface(_:)) ||
-               action == #selector(toggleItalics(_:)) ||
-               action == #selector(toggleUnderline(_:)) ||
-               action == #selector(UIResponderStandardEditActions.toggleBoldface(_:)) ||
-               action == #selector(UIResponderStandardEditActions.toggleItalics(_:)) ||
-               action == #selector(UIResponderStandardEditActions.toggleUnderline(_:)) {
-                return false
-            }
-        }
+        // Only allow cut, copy, paste, and lookup actions
+        // This provides a clean, minimal context menu
+        let allowedActions: [Selector] = [
+            #selector(UIResponderStandardEditActions.cut(_:)),
+            #selector(UIResponderStandardEditActions.copy(_:)),
+            #selector(UIResponderStandardEditActions.paste(_:)),
+            #selector(UIResponderStandardEditActions.lookup(_:)),
+            #selector(UIResponderStandardEditActions.delete(_:))  // Allow delete for image removal
+        ]
         
-        // Disable selection actions when image is selected
+        // Disable selection actions when image is selected (except cut/delete for removal)
         if isImageSelected {
-            // Still allow delete/cut to remove the image
             if action == #selector(UIResponderStandardEditActions.delete(_:)) ||
                action == #selector(UIResponderStandardEditActions.cut(_:)) {
                 return true
             }
             return false
         }
-        return super.canPerformAction(action, withSender: sender)
+        
+        // Check if action is in allowed list
+        if allowedActions.contains(action) {
+            return super.canPerformAction(action, withSender: sender)
+        }
+        
+        return false
     }
     
     // Update selection border position when layout changes (e.g., rotation)
