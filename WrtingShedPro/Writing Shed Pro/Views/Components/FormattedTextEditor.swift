@@ -1269,6 +1269,34 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
         return false
     }
     
+    // iOS 16+ Edit Menu Customization
+    @available(iOS 16.0, *)
+    override func editMenu(for textRange: UITextRange, suggestedActions: [UIMenuElement]) -> UIMenu? {
+        // Filter to only include Look Up, Cut, Copy, Paste
+        var filteredActions: [UIMenuElement] = []
+        
+        for element in suggestedActions {
+            if let action = element as? UIAction {
+                let title = action.title
+                // Only keep these exact menu items
+                if title == "Look Up" || title == "Cut" || title == "Copy" || title == "Paste" {
+                    filteredActions.append(action)
+                }
+            }
+        }
+        
+        // Reorder to put Look Up first
+        let orderedActions = filteredActions.sorted { action1, action2 in
+            guard let a1 = action1 as? UIAction, let a2 = action2 as? UIAction else { return false }
+            let order = ["Look Up", "Cut", "Copy", "Paste"]
+            let index1 = order.firstIndex(of: a1.title) ?? 999
+            let index2 = order.firstIndex(of: a2.title) ?? 999
+            return index1 < index2
+        }
+        
+        return UIMenu(children: orderedActions)
+    }
+    
     // Update selection border position when layout changes (e.g., rotation)
     override func layoutSubviews() {
         super.layoutSubviews()
