@@ -672,17 +672,20 @@ class JSONImportService {
     
     /// Decode NSAttributedString from Data (property list archived)
     private func decodeAttributedString(from data: Data, plainText: String) throws -> NSAttributedString {
-        // Debug: Print data characteristics
-        print("[JSONImport] 🔍 Data size: \(data.count) bytes, plain text length: \(plainText.count) chars")
-        if data.count > 0 {
-            let preview = data.prefix(50)
-            print("[JSONImport] 🔍 Data preview (hex): \(preview.map { String(format: "%02X", $0) }.joined(separator: " "))")
-            if let previewString = String(data: preview, encoding: .utf8) {
-                print("[JSONImport] 🔍 Data preview (UTF8): \(previewString.prefix(50))")
+        // FIRST: Try custom property list format (used by old Writing Shed)
+        do {
+            if let plist = try PropertyListSerialization.propertyList(from: data, format: nil) as? [[String: Any]] {
+                print("[JSONImport] 🔍 Found custom plist format with \(plist.count) formatting range(s)")
+                return decodeCustomFormat(plist: plist, plainText: plainText)
+            } else if let plist = try PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any] {
+                print("[JSONImport] 🔍 Found custom plist format with single range")
+                return decodeCustomFormat(plist: [plist], plainText: plainText)
             }
+        } catch {
+            // Not custom format
         }
         
-        // FIRST: Try RTF format (most common format from old Writing Shed)
+        // SECOND: Try RTF format
         do {
             let options: [NSAttributedString.DocumentReadingOptionKey: Any] = [
                 .documentType: NSAttributedString.DocumentType.rtf
@@ -692,47 +695,85 @@ class JSONImportService {
                 print("[JSONImport] ✅ Decoded RTF attributed string (\(attributedString.length) chars)")
                 return attributedString
             }
-        } catch let error {
-            print("[JSONImport] ❌ RTF decode failed: \(error.localizedDescription)")
+        } catch {
+            // Not RTF
         }
         
-        // SECOND: Try PropertyList format
-        do {
-            if let plistObject = try PropertyListSerialization.propertyList(from: data, format: nil) as? Data {
-                print("[JSONImport] 🔍 PropertyList contains Data of \(plistObject.count) bytes")
-                // The plist contains archived NSAttributedString data
-                if let attributedString = try? NSKeyedUnarchiver.unarchivedObject(
-                    ofClass: NSAttributedString.self,
-                    from: plistObject
-                ) {
-                    print("[JSONImport] ✅ Decoded attributed string from PropertyList format (\(attributedString.length) chars)")
-                    return attributedString
-                } else {
-                    print("[JSONImport] ❌ PropertyList decode: NSKeyedUnarchiver failed")
-                }
-            } else {
-                print("[JSONImport] 🔍 PropertyList exists but is not Data type")
-            }
-        } catch let error {
-            print("[JSONImport] ❌ PropertyList decode failed: \(error.localizedDescription)")
-        }
-        
-        // THIRD: Try direct NSKeyedUnarchiver (for newer formats)
+        // THIRD: Try NSKeyedArchiver format
         do {
             if let attributedString = try NSKeyedUnarchiver.unarchivedObject(
                 ofClass: NSAttributedString.self,
                 from: data
             ) {
-                print("[JSONImport] ✅ Decoded attributed string directly (\(attributedString.length) chars)")
+                print("[JSONImport] ✅ Decoded attributed string from NSKeyedArchiver (\(attributedString.length) chars)")
                 return attributedString
             }
-        } catch let error {
-            print("[JSONImport] ❌ NSKeyedUnarchiver decode failed: \(error.localizedDescription)")
+        } catch {
+            // Not NSKeyedArchiver
         }
         
         // Fallback to plain text
         print("[JSONImport] ⚠️ Falling back to plain text (\(plainText.count) chars)")
         return NSAttributedString(string: plainText)
+    }
+    
+    /// Decode custom property list format used by old Writing Shed
+    /// Format: Array of dictionaries with keys: location, length, fontName, fontSize, bold, italic, underline, strikethrough
+    private func decodeCustomFormat(plist: [[String: Any]], plainText: String) -> NSAttributedString {
+        let attributedString = NSMutableAttributedString(string: plainText)
+        
+        // Apply each formatting range
+        for rangeDict in plist {
+            guard let location = rangeDict["location"] as? Int,
+                  let length = rangeDict["length"] as? Int,
+                  location >= 0,
+                  location + length <= plainText.count else {
+                print("[JSONImport] ⚠️ Invalid range in custom format")
+                continue
+            }
+            
+            let range = NSRange(location: location, length: length)
+            
+            // Get font properties
+            let fontName = rangeDict["fontName"] as? String ?? "TimesNewRomanPSMT"
+            let fontSize = rangeDict["fontSize"] as? CGFloat ?? 18.0
+            let bold = (rangeDict["bold"] as? Int ?? 0) != 0 || (rangeDict["bold"] as? Bool ?? false)
+            let italic = (rangeDict["italic"] as? Int ?? 0) != 0 || (rangeDict["italic"] as? Bool ?? false)
+            
+            // Create font with traits
+            var font: UIFont
+            if bold && italic {
+                font = UIFont(name: fontName.replacingOccurrences(of: "PSMT", with: "PS-BoldItalicMT"), size: fontSize)
+                    ?? UIFont.boldSystemFont(ofSize: fontSize)
+            } else if bold {
+                font = UIFont(name: fontName.replacingOccurrences(of: "PSMT", with: "PS-BoldMT"), size: fontSize)
+                    ?? UIFont.boldSystemFont(ofSize: fontSize)
+            } else if italic {
+                font = UIFont(name: fontName.replacingOccurrences(of: "PSMT", with: "PS-ItalicMT"), size: fontSize)
+                    ?? UIFont.italicSystemFont(ofSize: fontSize)
+            } else {
+                font = UIFont(name: fontName, size: fontSize) ?? UIFont.systemFont(ofSize: fontSize)
+            }
+            
+            attributedString.addAttribute(.font, value: font, range: range)
+            
+            // Apply underline
+            if let underline = rangeDict["underline"] as? Int, underline != 0 {
+                attributedString.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue, range: range)
+            } else if let underline = rangeDict["underline"] as? Bool, underline {
+                attributedString.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue, range: range)
+            }
+            
+            // Apply strikethrough
+            if let strikethrough = rangeDict["strikethrough"] as? Int, strikethrough != 0 {
+                attributedString.addAttribute(.strikethroughStyle, value: NSUnderlineStyle.single.rawValue, range: range)
+            } else if let strikethrough = rangeDict["strikethrough"] as? Bool, strikethrough {
+                attributedString.addAttribute(.strikethroughStyle, value: NSUnderlineStyle.single.rawValue, range: range)
+            }
+        }
+        
+        print("[JSONImport] ✅ Decoded custom format attributed string (\(attributedString.length) chars, \(plist.count) range(s))")
+        return attributedString
     }
     
     /// Decode text file metadata from JSON string (dictionary format)
