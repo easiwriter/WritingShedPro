@@ -22,22 +22,24 @@ struct MultiFileSearchView: View {
     
     // Navigation to file
     @State private var selectedFile: TextFile?
-    @State private var navigateToFile = false
     
     let title: String
     let folder: Folder?
     let collection: Submission?
+    let onFileSelected: ((TextFile) -> Void)?
     
-    init(folder: Folder) {
+    init(folder: Folder, onFileSelected: ((TextFile) -> Void)? = nil) {
         self.title = "Search in \(folder.name ?? "Folder")"
         self.folder = folder
         self.collection = nil
+        self.onFileSelected = onFileSelected
     }
     
-    init(collection: Submission) {
+    init(collection: Submission, onFileSelected: ((TextFile) -> Void)? = nil) {
         self.title = "Search in \(collection.name ?? "Collection")"
         self.folder = nil
         self.collection = collection
+        self.onFileSelected = onFileSelected
     }
     
     var body: some View {
@@ -243,17 +245,18 @@ struct MultiFileSearchView: View {
             // File results list
             List {
                 ForEach(searchService.results) { result in
-                    FileResultRow(
-                        result: result,
-                        isReplaceMode: searchService.isReplaceMode,
-                        onToggleSelection: {
-                            searchService.toggleSelection(for: result.id)
-                        },
-                        onNavigate: {
-                            selectedFile = result.file
-                            dismiss()
-                        }
-                    )
+                    NavigationLink(destination: FileEditView(file: result.file)) {
+                        FileResultRow(
+                            result: result,
+                            isReplaceMode: searchService.isReplaceMode,
+                            onToggleSelection: {
+                                searchService.toggleSelection(for: result.id)
+                            },
+                            onNavigate: {
+                                // Navigation is handled by NavigationLink
+                            }
+                        )
+                    }
                 }
             }
             .listStyle(.plain)
@@ -334,21 +337,14 @@ struct FileResultRow: View {
             }
             
             Spacer()
-            
-            // Navigate button
-            Button(action: onNavigate) {
-                Image(systemName: "chevron.right")
-                    .foregroundStyle(.secondary)
-            }
-            .buttonStyle(.plain)
         }
         .padding(.vertical, 8)
         .contentShape(Rectangle())
         .onTapGesture {
+            // In replace mode, tapping toggles selection
+            // Otherwise, navigation is handled by NavigationLink
             if isReplaceMode {
                 onToggleSelection()
-            } else {
-                onNavigate()
             }
         }
     }
