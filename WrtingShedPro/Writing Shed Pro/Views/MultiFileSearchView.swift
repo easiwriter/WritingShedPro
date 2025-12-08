@@ -245,8 +245,13 @@ struct MultiFileSearchView: View {
             // File results list
             List {
                 ForEach(searchService.results) { result in
-                    NavigationLink(destination: 
-                        FileEditViewWithSearch(
+                    FileResultRow(
+                        result: result,
+                        isReplaceMode: searchService.isReplaceMode,
+                        onToggleSelection: {
+                            searchService.toggleSelection(for: result.id)
+                        },
+                        destination: FileEditViewWithSearch(
                             file: result.file,
                             searchText: searchService.searchText,
                             replaceText: searchService.isReplaceMode ? searchService.replaceText : nil,
@@ -254,18 +259,7 @@ struct MultiFileSearchView: View {
                             isWholeWord: searchService.isWholeWord,
                             isRegex: searchService.isRegex
                         )
-                    ) {
-                        FileResultRow(
-                            result: result,
-                            isReplaceMode: searchService.isReplaceMode,
-                            onToggleSelection: {
-                                searchService.toggleSelection(for: result.id)
-                            },
-                            onNavigate: {
-                                // Navigation is handled by NavigationLink
-                            }
-                        )
-                    }
+                    )
                 }
             }
             .listStyle(.plain)
@@ -300,61 +294,62 @@ struct MultiFileSearchView: View {
 
 // MARK: - File Result Row
 
-struct FileResultRow: View {
+struct FileResultRow<Destination: View>: View {
     let result: MultiFileSearchResult
     let isReplaceMode: Bool
     let onToggleSelection: () -> Void
-    let onNavigate: () -> Void
+    let destination: Destination
     
     var body: some View {
-        HStack(spacing: 12) {
-            // Selection checkbox (replace mode only)
-            if isReplaceMode {
-                Button(action: onToggleSelection) {
-                    Image(systemName: result.isSelected ? "checkmark.square.fill" : "square")
-                        .foregroundStyle(result.isSelected ? .blue : .secondary)
+        NavigationLink(destination: destination) {
+            HStack(spacing: 12) {
+                // Selection checkbox (replace mode only)
+                if isReplaceMode {
+                    Button(action: {
+                        onToggleSelection()
+                    }) {
+                        Image(systemName: result.isSelected ? "checkmark.square.fill" : "square")
+                            .foregroundStyle(result.isSelected ? .blue : .secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .onTapGesture {
+                        // Prevent navigation when tapping checkbox
+                        onToggleSelection()
+                    }
                 }
-                .buttonStyle(.plain)
-            }
-            
-            // File icon
-            Image(systemName: "doc.text")
-                .foregroundStyle(.secondary)
-            
-            // File info
-            VStack(alignment: .leading, spacing: 4) {
-                Text(result.file.name.isEmpty ? "Untitled" : result.file.name)
-                    .font(.body)
                 
-                Text("\(result.matchCount) matches")
-                    .font(.caption)
+                // File icon
+                Image(systemName: "doc.text")
                     .foregroundStyle(.secondary)
                 
-                // Show first few matches as preview
-                ForEach(result.matches.prefix(3)) { match in
-                    Text(match.context)
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                        .lineLimit(1)
+                // File info
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(result.file.name.isEmpty ? "Untitled" : result.file.name)
+                        .font(.body)
+                    
+                    Text("\(result.matchCount) matches")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    
+                    // Show first few matches as preview
+                    ForEach(result.matches.prefix(3)) { match in
+                        Text(match.context)
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                            .lineLimit(1)
+                    }
+                    
+                    if result.matches.count > 3 {
+                        Text("+ \(result.matches.count - 3) more...")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
                 }
                 
-                if result.matches.count > 3 {
-                    Text("+ \(result.matches.count - 3) more...")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                }
+                Spacer()
             }
-            
-            Spacer()
-        }
-        .padding(.vertical, 8)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            // In replace mode, tapping toggles selection
-            // Otherwise, navigation is handled by NavigationLink
-            if isReplaceMode {
-                onToggleSelection()
-            }
+            .padding(.vertical, 8)
+            .contentShape(Rectangle())
         }
     }
 }

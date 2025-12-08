@@ -648,6 +648,15 @@ struct FileEditView: View {
     private func activateSearchFromContext(_ context: SearchContext) {
         print("🔍 Setting up search from multi-file context: '\(context.searchText)'")
         
+        // Connect search manager to text view first
+        guard let textView = textViewCoordinator.textView else {
+            print("⚠️ Text view not ready, cannot activate search")
+            return
+        }
+        
+        searchManager.connect(to: textView)
+        searchManager.customUndoManager = undoManager
+        
         // Set search parameters
         searchManager.searchText = context.searchText
         searchManager.replaceText = context.replaceText ?? ""
