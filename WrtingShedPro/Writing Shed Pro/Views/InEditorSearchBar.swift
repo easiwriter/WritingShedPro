@@ -19,6 +19,9 @@ struct InEditorSearchBar: View {
     /// Whether the search bar is visible
     @Binding var isVisible: Bool
     
+    /// Whether to show simplified mode (only replace buttons, from multi-file search)
+    var isSimplifiedMode: Bool = false
+    
     /// Focus state for text fields
     @FocusState private var focusedField: SearchField?
     
@@ -30,8 +33,148 @@ struct InEditorSearchBar: View {
     var body: some View {
         if isVisible {
             VStack(spacing: 0) {
-                // Main search row
-                HStack(spacing: 8) {
+                // Simplified mode: Only show replace buttons
+                if isSimplifiedMode {
+                    simplifiedReplaceBar()
+                } else {
+                    // Full search UI
+                    fullSearchBar()
+                }
+                
+                // Regex error message
+                if let error = manager.regexError {
+                    HStack {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(.orange)
+                            .font(.system(size: 15))
+                        
+                        Text(error)
+                            .font(.system(size: 14))
+                            .foregroundColor(.secondary)
+                        
+                        Spacer()
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 12)
+                }
+            }
+            .background(Color(uiColor: .systemBackground))
+            .overlay(
+                Rectangle()
+                    .frame(height: 1)
+                    .foregroundColor(Color(uiColor: .separator)),
+                alignment: .bottom
+            )
+            .background(KeyboardShortcutHandler(
+                onEscape: { dismissSearchBar() },
+                onReturn: {
+                    if focusedField == .replace {
+                        let _ = manager.replaceCurrentMatch()
+                        manager.nextMatch()
+                    } else {
+                        manager.nextMatch()
+                    }
+                },
+                onShiftReturn: {
+                    manager.previousMatch()
+                }
+            ))
+        }
+    }
+    
+    // MARK: - Simplified Replace Bar
+    
+    @ViewBuilder
+    private func simplifiedReplaceBar() -> some View {
+        HStack(spacing: 12) {
+            // Info text
+            HStack(spacing: 8) {
+                Image(systemName: "arrow.triangle.2.circlepath")
+                    .foregroundColor(.secondary)
+                    .font(.system(size: 18))
+                
+                if manager.hasMatches {
+                    Text("\(manager.matchCountText) found")
+                        .font(.system(size: 15))
+                        .foregroundColor(.secondary)
+                } else {
+                    Text("No matches found")
+                        .font(.system(size: 15))
+                        .foregroundColor(.secondary)
+                }
+            }
+            
+            Spacer()
+            
+            // Replace buttons
+            Button("Replace") {
+                let _ = manager.replaceCurrentMatch()
+            }
+            .buttonStyle(.borderless)
+            .font(.system(size: 15))
+            .disabled(!manager.canReplace)
+            
+            Button("Replace All") {
+                let count = manager.replaceAllMatches()
+                print("Replaced \(count) matches")
+            }
+            .buttonStyle(.borderless)
+            .font(.system(size: 15))
+            .disabled(!manager.canReplace)
+            
+            Divider()
+                .frame(height: 20)
+            
+            // Navigation buttons
+            HStack(spacing: 6) {
+                Button(action: {
+                    manager.previousMatch()
+                }) {
+                    Image(systemName: "chevron.up")
+                        .font(.system(size: 16, weight: .medium))
+                        .frame(width: 32, height: 32)
+                }
+                .buttonStyle(.plain)
+                .disabled(!manager.hasMatches)
+                .help("Previous match (⌘⇧G)")
+                
+                Button(action: {
+                    manager.nextMatch()
+                }) {
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 16, weight: .medium))
+                        .frame(width: 32, height: 32)
+                }
+                .buttonStyle(.plain)
+                .disabled(!manager.hasMatches)
+                .help("Next match (⌘G)")
+            }
+            
+            Divider()
+                .frame(height: 20)
+            
+            // Close button
+            Button(action: {
+                dismissSearchBar()
+            }) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 16, weight: .medium))
+                    .frame(width: 32, height: 32)
+            }
+            .buttonStyle(.plain)
+            .help("Close (⎋)")
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+    }
+    
+    // MARK: - Full Search Bar
+    
+    @ViewBuilder
+    private func fullSearchBar() -> some View {
+        VStack(spacing: 0) {
+            // Main search row
+            HStack(spacing: 8) {
                     // Search text field
                     HStack(spacing: 6) {
                         Image(systemName: "magnifyingglass")
@@ -217,47 +360,10 @@ struct InEditorSearchBar: View {
                     .padding(.bottom, 12)
                     .transition(.move(edge: .top).combined(with: .opacity))
                 }
-                
-                // Regex error message
-                if let error = manager.regexError {
-                    HStack {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundColor(.orange)
-                            .font(.system(size: 15))
-                        
-                        Text(error)
-                            .font(.system(size: 14))
-                            .foregroundColor(.secondary)
-                        
-                        Spacer()
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 12)
-                }
             }
-            .background(Color(uiColor: .systemBackground))
-            .overlay(
-                Rectangle()
-                    .frame(height: 1)
-                    .foregroundColor(Color(uiColor: .separator)),
-                alignment: .bottom
-            )
             .onAppear {
                 focusedField = .search
             }
-            .background(KeyboardShortcutHandler(
-                onEscape: { dismissSearchBar() },
-                onReturn: {
-                    if showReplace && !manager.replaceText.isEmpty {
-                        _ = manager.replaceCurrentMatch()
-                    } else {
-                        manager.nextMatch()
-                    }
-                },
-                onShiftReturn: { manager.previousMatch() },
-                onCommandG: { manager.nextMatch() },
-                onCommandShiftG: { manager.previousMatch() }
-            ))
         }
     }
     

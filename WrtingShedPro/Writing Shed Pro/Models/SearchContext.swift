@@ -10,6 +10,7 @@ class SearchContext {
     var isWholeWord: Bool = false
     var isRegex: Bool = false
     var shouldActivate: Bool = false
+    var isFromMultiFileSearch: Bool = false  // If true, show simplified replace-only UI
     
     init() {}
     
@@ -20,6 +21,7 @@ class SearchContext {
         self.isWholeWord = isWholeWord
         self.isRegex = isRegex
         self.shouldActivate = true
+        self.isFromMultiFileSearch = true
     }
     
     func reset() {
@@ -29,5 +31,6 @@ class SearchContext {
         isWholeWord = false
         isRegex = false
         shouldActivate = false
+        isFromMultiFileSearch = false
     }
 }

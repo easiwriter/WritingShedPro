@@ -55,6 +55,7 @@ struct FileEditView: View {
     // Feature 017: Search and Replace
     @State private var showSearchBar = false
     @State private var searchManager = InEditorSearchManager()
+    @State private var isSimplifiedSearchMode = false  // True when opened from multi-file search
     
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -423,7 +424,8 @@ struct FileEditView: View {
             if !isPaginationMode {
                 InEditorSearchBar(
                     manager: searchManager,
-                    isVisible: $showSearchBar
+                    isVisible: $showSearchBar,
+                    isSimplifiedMode: isSimplifiedSearchMode
                 )
             }
             
@@ -665,13 +667,16 @@ struct FileEditView: View {
         searchManager.isWholeWord = context.isWholeWord
         searchManager.isRegex = context.isRegex
         
+        // Set simplified mode if opened from multi-file search with replace
+        isSimplifiedSearchMode = context.isFromMultiFileSearch && context.replaceText != nil
+        
         // Show search bar
         showSearchBar = true
         
         // Reset the context so it won't activate again
         context.reset()
         
-        print("🔍 Search activated: \(searchManager.totalMatches) matches found")
+        print("🔍 Search activated: \(searchManager.totalMatches) matches found, simplified mode: \(isSimplifiedSearchMode)")
     }
     
     // MARK: - View Modifiers Helper
