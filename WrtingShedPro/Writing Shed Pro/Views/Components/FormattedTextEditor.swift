@@ -1239,6 +1239,15 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
     
     // Hide the system formatting menu and selection grabbers/handles
     override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
+        // Disable selection actions when image is selected (except cut/delete for removal)
+        if isImageSelected {
+            if action == #selector(UIResponderStandardEditActions.delete(_:)) ||
+               action == #selector(UIResponderStandardEditActions.cut(_:)) {
+                return true
+            }
+            return false
+        }
+        
         // Only allow cut, copy, paste, and look up actions
         // This provides a clean, minimal context menu
         let allowedActions: [Selector] = [
@@ -1249,20 +1258,14 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
             #selector(UIResponderStandardEditActions.delete(_:))  // Allow delete for image removal
         ]
         
-        // Disable selection actions when image is selected (except cut/delete for removal)
-        if isImageSelected {
-            if action == #selector(UIResponderStandardEditActions.delete(_:)) ||
-               action == #selector(UIResponderStandardEditActions.cut(_:)) {
-                return true
-            }
-            return false
-        }
-        
         // Check if action is in allowed list
-        if allowedActions.contains(action) {
-            return super.canPerformAction(action, withSender: sender)
+        for allowedAction in allowedActions {
+            if action == allowedAction {
+                return super.canPerformAction(action, withSender: sender)
+            }
         }
         
+        // Explicitly deny all other actions
         return false
     }
     
@@ -1279,30 +1282,13 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
     // Hide the system formatting menu on iPad with hardware keyboard (iOS 13+)
     @available(iOS 13.0, *)
     override func buildMenu(with builder: UIMenuBuilder) {
-        // Remove all unwanted menu items to leave only Cut, Copy, Paste, Look Up
-        builder.remove(menu: .format)
-        builder.remove(menu: .standardEdit)  // This includes spelling, grammar, etc.
-        builder.remove(menu: .lookup)
-        builder.remove(menu: .learn)
-        builder.remove(menu: .share)
-        builder.remove(menu: .textStyle)
-        
-        super.buildMenu(with: builder)
-    }
-    
-    // iOS 16+ uses editMenuInteraction for context menus
-    @available(iOS 16.0, *)
-    func editMenuInteraction(_ interaction: UIEditMenuInteraction, menuFor configuration: UIEditMenuConfiguration, suggestedActions: [UIMenuElement]) -> UIMenu? {
-        // Only keep Cut, Copy, Paste, and Look Up
-        let allowedTitles = ["Cut", "Copy", "Paste", "Look Up"]
-        let filteredActions = suggestedActions.filter { element in
-            if let action = element as? UIAction {
-                return allowedTitles.contains(action.title)
-            }
-            return false
+        // If we want to hide the formatting menu, we need to remove the formatting actions
+        if shouldHideSystemFormattingMenu {
+            // Remove format submenu
+            builder.remove(menu: .format)
         }
         
-        return UIMenu(children: filteredActions)
+        super.buildMenu(with: builder)
     }
     
     private func recalculateSelectionBorder() {
