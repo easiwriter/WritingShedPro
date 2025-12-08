@@ -149,7 +149,7 @@ struct FileEditView: View {
                         attributedText: $attributedContent,
                         selectedRange: $selectedRange,
                         textViewCoordinator: textViewCoordinator,
-                        textContainerInset: UIDevice.current.userInterfaceIdiom == .phone ? UIEdgeInsets(top: 4, left: 0, bottom: 4, right: 4) : UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8),
+                        textContainerInset: UIDevice.current.userInterfaceIdiom == .phone ? UIEdgeInsets(top: 4, left: 4, bottom: 4, right: 4) : UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8),
                         onTextChange: { newText in
                             handleAttributedTextChange(newText)
                         },
@@ -178,7 +178,7 @@ struct FileEditView: View {
                         attributedText: $attributedContent,
                         selectedRange: $selectedRange,
                         textViewCoordinator: textViewCoordinator,
-                        textContainerInset: UIDevice.current.userInterfaceIdiom == .phone ? UIEdgeInsets(top: 4, left: 0, bottom: 4, right: 4) : UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8),
+                        textContainerInset: UIDevice.current.userInterfaceIdiom == .phone ? UIEdgeInsets(top: 4, left: 4, bottom: 4, right: 4) : UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8),
                         onTextChange: { newText in
                             handleAttributedTextChange(newText)
                         },
@@ -818,10 +818,9 @@ struct FileEditView: View {
             // Comments created before we added serialization support need to be re-inserted
             restoreOrphanedCommentMarkers()
             
-            // Position cursor at end of text (unless opening from search, which will position at first match)
+            // Position cursor at beginning of text (unless opening from search, which will position at first match)
             if searchContext == nil || searchContext?.shouldActivate == false {
-                let textLength = attributedContent.length
-                selectedRange = NSRange(location: textLength, length: 0)
+                selectedRange = NSRange(location: 0, length: 0)
             }
         }
         

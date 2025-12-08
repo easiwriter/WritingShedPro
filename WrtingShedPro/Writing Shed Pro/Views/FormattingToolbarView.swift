@@ -63,12 +63,22 @@ struct FormattingToolbarView: UIViewRepresentable {
         )
         leftArrowButton.accessibilityLabel = NSLocalizedString("toolbar.moveCursorLeft", comment: "Move cursor left")
         
+        // Add long press gesture for jump to start
+        let leftLongPress = UILongPressGestureRecognizer(target: context.coordinator, action: #selector(context.coordinator.jumpToStart))
+        leftLongPress.minimumPressDuration = 0.5
+        leftArrowButton.addGestureRecognizer(leftLongPress)
+        
         let rightArrowButton = createStandardButton(
             systemName: "chevron.right",
             action: #selector(context.coordinator.moveCursorRight),
             coordinator: context.coordinator
         )
         rightArrowButton.accessibilityLabel = NSLocalizedString("toolbar.moveCursorRight", comment: "Move cursor right")
+        
+        // Add long press gesture for jump to end
+        let rightLongPress = UILongPressGestureRecognizer(target: context.coordinator, action: #selector(context.coordinator.jumpToEnd))
+        rightLongPress.minimumPressDuration = 0.5
+        rightArrowButton.addGestureRecognizer(rightLongPress)
         
         // Create keyboard dismiss button
         let keyboardDismissButton = createStandardButton(
@@ -385,6 +395,31 @@ struct FormattingToolbarView: UIViewRepresentable {
                 // Scroll to make cursor visible
                 textView.scrollRangeToVisible(NSRange(location: newPosition, length: 0))
             }
+        }
+        
+        @objc func jumpToStart(_ gesture: UILongPressGestureRecognizer) {
+            guard gesture.state == .began, let textView = textView else { return }
+            
+            // Jump to start of document
+            textView.selectedRange = NSRange(location: 0, length: 0)
+            textView.scrollRangeToVisible(NSRange(location: 0, length: 0))
+            
+            // Provide haptic feedback
+            let generator = UIImpactFeedbackGenerator(style: .medium)
+            generator.impactOccurred()
+        }
+        
+        @objc func jumpToEnd(_ gesture: UILongPressGestureRecognizer) {
+            guard gesture.state == .began, let textView = textView else { return }
+            
+            // Jump to end of document
+            let textLength = textView.text.count
+            textView.selectedRange = NSRange(location: textLength, length: 0)
+            textView.scrollRangeToVisible(NSRange(location: textLength, length: 0))
+            
+            // Provide haptic feedback
+            let generator = UIImpactFeedbackGenerator(style: .medium)
+            generator.impactOccurred()
         }
         
         @objc func dismissKeyboard() {
