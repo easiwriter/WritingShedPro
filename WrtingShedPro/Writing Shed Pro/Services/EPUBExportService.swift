@@ -269,8 +269,6 @@ class EPUBExportService {
     
     /// Create a ZIP archive from a directory
     private static func zipDirectory(_ directory: URL) throws -> Data {
-        let zipURL = directory.appendingPathExtension("zip")
-        
         // Use FileManager to create zip (requires Foundation on iOS 16+)
         let coordinator = NSFileCoordinator()
         var error: NSError?

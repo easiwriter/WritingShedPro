@@ -167,19 +167,19 @@ struct FileListView: View {
                 // Select All / Deselect All button in edit mode
                 if isEditMode {
                     Button {
-                        if selectedFiles.count == files.count {
+                        if selectedFileIDs.count == files.count {
                             // Deselect all
-                            selectedFiles.removeAll()
+                            selectedFileIDs.removeAll()
                         } else {
                             // Select all
-                            selectedFiles = Set(files.map { $0.id })
+                            selectedFileIDs = Set(files.map { $0.id })
                         }
                     } label: {
-                        Text(selectedFiles.count == files.count ? 
+                        Text(selectedFileIDs.count == files.count ? 
                             NSLocalizedString("fileList.deselectAll", comment: "Deselect All") :
                             NSLocalizedString("fileList.selectAll", comment: "Select All"))
                     }
-                    .accessibilityLabel(selectedFiles.count == files.count ?
+                    .accessibilityLabel(selectedFileIDs.count == files.count ?
                         "fileList.deselectAll.accessibility" :
                         "fileList.selectAll.accessibility")
                 }
