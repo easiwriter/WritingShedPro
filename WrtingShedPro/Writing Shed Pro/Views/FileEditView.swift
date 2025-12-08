@@ -667,16 +667,20 @@ struct FileEditView: View {
         searchManager.isWholeWord = context.isWholeWord
         searchManager.isRegex = context.isRegex
         
-        // Set simplified mode if opened from multi-file search with replace
-        isSimplifiedSearchMode = context.isFromMultiFileSearch && context.replaceText != nil
+        // Only show search bar if replace mode is active
+        // For search-only mode, matches are highlighted but no UI is shown
+        let shouldShowSearchBar = context.replaceText != nil
         
-        // Show search bar
-        showSearchBar = true
+        // Set simplified mode if opened from multi-file search with replace
+        isSimplifiedSearchMode = context.isFromMultiFileSearch && shouldShowSearchBar
+        
+        // Show search bar only if in replace mode
+        showSearchBar = shouldShowSearchBar
         
         // Reset the context so it won't activate again
         context.reset()
         
-        print("🔍 Search activated: \(searchManager.totalMatches) matches found, simplified mode: \(isSimplifiedSearchMode)")
+        print("🔍 Search activated: \(searchManager.totalMatches) matches found, search bar visible: \(showSearchBar), simplified mode: \(isSimplifiedSearchMode)")
     }
     
     // MARK: - View Modifiers Helper
