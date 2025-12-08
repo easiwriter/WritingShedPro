@@ -587,18 +587,26 @@ struct AttributedStringSerializer {
                 documentAttributes: nil
             )
             
-            // DEBUG: Log traits in RTF before scaling
-            if scaleFonts {
-                var boldCount = 0
-                var italicCount = 0
-                rtfString.enumerateAttribute(.font, in: NSRange(location: 0, length: rtfString.length)) { value, _, _ in
-                    if let font = value as? UIFont {
-                        if font.fontDescriptor.symbolicTraits.contains(.traitBold) { boldCount += 1 }
-                        if font.fontDescriptor.symbolicTraits.contains(.traitItalic) { italicCount += 1 }
-                    }
+            // DEBUG: Log traits and attributes in RTF before scaling
+            #if DEBUG
+            var boldCount = 0
+            var italicCount = 0
+            var underlineCount = 0
+            var strikeCount = 0
+            rtfString.enumerateAttribute(.font, in: NSRange(location: 0, length: rtfString.length)) { value, _, _ in
+                if let font = value as? UIFont {
+                    if font.fontDescriptor.symbolicTraits.contains(.traitBold) { boldCount += 1 }
+                    if font.fontDescriptor.symbolicTraits.contains(.traitItalic) { italicCount += 1 }
                 }
-                print("📝 fromRTF: Decoded RTF has \(boldCount) bold ranges, \(italicCount) italic ranges")
             }
+            rtfString.enumerateAttribute(.underlineStyle, in: NSRange(location: 0, length: rtfString.length)) { value, _, _ in
+                if let style = value as? Int, style != 0 { underlineCount += 1 }
+            }
+            rtfString.enumerateAttribute(.strikethroughStyle, in: NSRange(location: 0, length: rtfString.length)) { value, _, _ in
+                if let style = value as? Int, style != 0 { strikeCount += 1 }
+            }
+            print("📝 fromRTF: Decoded RTF has \(boldCount) bold, \(italicCount) italic, \(underlineCount) underline, \(strikeCount) strikethrough ranges")
+            #endif
             
             // CRITICAL: Restore multiple spaces that were preserved as non-breaking spaces
             // During RTF encoding, we replaced consecutive spaces with U+00A0 to preserve them
@@ -728,15 +736,23 @@ struct AttributedStringSerializer {
             }
         }
         
-        // Count traits AFTER scaling
+        // Count traits and attributes AFTER scaling
+        var underlineRangesAfter = 0
+        var strikeRangesAfter = 0
         mutableString.enumerateAttribute(.font, in: range, options: []) { value, _, _ in
             if let font = value as? UIFont {
                 if font.fontDescriptor.symbolicTraits.contains(.traitBold) { boldRangesAfter += 1 }
                 if font.fontDescriptor.symbolicTraits.contains(.traitItalic) { italicRangesAfter += 1 }
             }
         }
+        mutableString.enumerateAttribute(.underlineStyle, in: range, options: []) { value, _, _ in
+            if let style = value as? Int, style != 0 { underlineRangesAfter += 1 }
+        }
+        mutableString.enumerateAttribute(.strikethroughStyle, in: range, options: []) { value, _, _ in
+            if let style = value as? Int, style != 0 { strikeRangesAfter += 1 }
+        }
         
-        print("📝 scaleFonts: BEFORE: \(boldRangesBefore) bold, \(italicRangesBefore) italic | AFTER: \(boldRangesAfter) bold, \(italicRangesAfter) italic")
+        print("📝 scaleFonts: BEFORE: \(boldRangesBefore) bold, \(italicRangesBefore) italic | AFTER: \(boldRangesAfter) bold, \(italicRangesAfter) italic, \(underlineRangesAfter) underline, \(strikeRangesAfter) strikethrough")
         
         if boldRangesBefore != boldRangesAfter || italicRangesBefore != italicRangesAfter {
             print("⚠️ WARNING: Trait counts changed during scaling!")
