@@ -502,9 +502,12 @@ struct FileEditView: View {
             if isPaginationMode {
                 paginationSection()
             } else {
-                textEditorSection()
-                    .ignoresSafeArea(.keyboard)
-                formattingToolbar()
+                ZStack(alignment: .bottom) {
+                    textEditorSection()
+                    
+                    formattingToolbar()
+                        .ignoresSafeArea(.keyboard)
+                }
             }
             
             // Hidden keyboard shortcut handlers for search navigation
