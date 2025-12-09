@@ -505,6 +505,7 @@ struct FileEditView: View {
                 paginationSection()
             } else {
                 textEditorSection()
+                    .ignoresSafeArea(.keyboard)
                 formattingToolbar()
             }
             
