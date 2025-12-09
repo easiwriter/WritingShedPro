@@ -502,14 +502,9 @@ struct FileEditView: View {
             if isPaginationMode {
                 paginationSection()
             } else {
-                GeometryReader { geometry in
-                    ZStack(alignment: .bottom) {
-                        textEditorSection()
-                        
-                        formattingToolbar()
-                            .offset(y: geometry.safeAreaInsets.bottom)
-                    }
-                }
+                textEditorSection()
+                // TODO: Toolbar positioning - currently removed to test keyboard layout
+                // formattingToolbar()
             }
             
             // Hidden keyboard shortcut handlers for search navigation
