@@ -170,7 +170,6 @@ struct FileEditView: View {
                                 handleFootnoteTap(attachment: attachment, position: position)
                             }
                         )
-                        .scaleEffect(0.80, anchor: .topLeading)
                         .id(refreshTrigger)
                         .onAppear {
                             textViewInitialized = true
@@ -199,7 +198,6 @@ struct FileEditView: View {
                                 handleFootnoteTap(attachment: attachment, position: position)
                             }
                         )
-                        .scaleEffect(0.80, anchor: .topLeading)
                         .id(refreshTrigger)
                         .onAppear {
                             textViewInitialized = true
@@ -2607,16 +2605,31 @@ struct FileEditView: View {
             // Version has saved content - use it
             // CRITICAL: Strip adaptive colors (black/white/gray) to support dark mode properly
             // This is especially important for legacy imports which may have fixed black text
-            newAttributedContent = AttributedStringSerializer.stripAdaptiveColors(from: versionContent)
+            var processedContent = AttributedStringSerializer.stripAdaptiveColors(from: versionContent)
+            
+            // Scale fonts for iPhone to match visual appearance
+            if UIDevice.current.userInterfaceIdiom == .phone {
+                processedContent = AttributedStringSerializer.scaleFonts(processedContent, scaleFactor: 0.80)
+                print("📝 loadCurrentVersion: Scaled fonts to 80% for iPhone")
+            }
+            
+            newAttributedContent = processedContent
             print("📝 loadCurrentVersion: Loaded existing content, length: \(versionContent.length)")
         } else {
             // New/empty version - initialize with Body style from project stylesheet
             if let project = file.project {
-                let bodyAttrs = TextFormatter.getTypingAttributes(
+                var bodyAttrs = TextFormatter.getTypingAttributes(
                     forStyleNamed: UIFont.TextStyle.body.rawValue,
                     project: project,
                     context: modelContext
                 )
+                
+                // Scale font for iPhone
+                if UIDevice.current.userInterfaceIdiom == .phone, let font = bodyAttrs[.font] as? UIFont {
+                    let scaledFont = font.withSize(font.pointSize * 0.80)
+                    bodyAttrs[.font] = scaledFont
+                    print("📝 loadCurrentVersion: Scaled Body font to 80% for iPhone (\(font.pointSize)pt -> \(scaledFont.pointSize)pt)")
+                }
                 
                 // Debug: Log what we're initializing with
                 print("📝 loadCurrentVersion: Initializing with Body style from stylesheet '\(project.styleSheet?.name ?? "none")'")
