@@ -502,9 +502,11 @@ struct FileEditView: View {
             if isPaginationMode {
                 paginationSection()
             } else {
-                textEditorSection()
-                // TODO: Toolbar positioning - currently removed to test keyboard layout
-                // formattingToolbar()
+                ZStack(alignment: .bottom) {
+                    textEditorSection()
+                    
+                    formattingToolbar()
+                }
             }
             
             // Hidden keyboard shortcut handlers for search navigation
