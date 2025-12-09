@@ -567,6 +567,7 @@ struct FileEditView: View {
     
     var body: some View {
         mainContent
+            .ignoresSafeArea(.keyboard, edges: .bottom)
             .navigationTitle(file.name)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
