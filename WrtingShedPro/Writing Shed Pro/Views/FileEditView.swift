@@ -142,72 +142,135 @@ struct FileEditView: View {
     }
     
     private func textEditorSection() -> some View {
-        GeometryReader { geometry in
-            ZStack(alignment: .topLeading) {
-                if forceRefresh {
-                    FormattedTextEditor(
-                        attributedText: $attributedContent,
-                        selectedRange: $selectedRange,
-                        textViewCoordinator: textViewCoordinator,
-                        textContainerInset: UIDevice.current.userInterfaceIdiom == .phone ? UIEdgeInsets(top: 4, left: 4, bottom: 4, right: 4) : UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8),
-                        onTextChange: { newText in
-                            handleAttributedTextChange(newText)
-                        },
-                        onImageTapped: { attachment, frame, position in
-                            handleImageTap(attachment: attachment, frame: frame, position: position)
-                        },
-                        onClearImageSelection: {
-                            selectedImage = nil
-                            selectedImageFrame = .zero
-                            selectedImagePosition = -1
-                        },
-                        onCommentTapped: { attachment, position in
-                            handleCommentTap(attachment: attachment, position: position)
-                        },
-                        onFootnoteTapped: { attachment, position in
-                            handleFootnoteTap(attachment: attachment, position: position)
+        Group {
+            if UIDevice.current.userInterfaceIdiom == .phone {
+                // iPhone: No GeometryReader needed, use direct layout
+                ZStack(alignment: .topLeading) {
+                    if forceRefresh {
+                        FormattedTextEditor(
+                            attributedText: $attributedContent,
+                            selectedRange: $selectedRange,
+                            textViewCoordinator: textViewCoordinator,
+                            textContainerInset: UIEdgeInsets(top: 4, left: 4, bottom: 4, right: 4),
+                            onTextChange: { newText in
+                                handleAttributedTextChange(newText)
+                            },
+                            onImageTapped: { attachment, frame, position in
+                                handleImageTap(attachment: attachment, frame: frame, position: position)
+                            },
+                            onClearImageSelection: {
+                                selectedImage = nil
+                                selectedImageFrame = .zero
+                                selectedImagePosition = -1
+                            },
+                            onCommentTapped: { attachment, position in
+                                handleCommentTap(attachment: attachment, position: position)
+                            },
+                            onFootnoteTapped: { attachment, position in
+                                handleFootnoteTap(attachment: attachment, position: position)
+                            }
+                        )
+                        .scaleEffect(0.80, anchor: .topLeading)
+                        .id(refreshTrigger)
+                        .onAppear {
+                            textViewInitialized = true
                         }
-                    )
-                    .scaleEffect(UIDevice.current.userInterfaceIdiom == .phone ? 0.80 : 1.0, anchor: .topLeading)
-                    .frame(maxHeight: .infinity, alignment: .top)
-                    .id(refreshTrigger)
-                    .onAppear {
-                        textViewInitialized = true
-                    }
-                } else {
-                    FormattedTextEditor(
-                        attributedText: $attributedContent,
-                        selectedRange: $selectedRange,
-                        textViewCoordinator: textViewCoordinator,
-                        textContainerInset: UIDevice.current.userInterfaceIdiom == .phone ? UIEdgeInsets(top: 4, left: 4, bottom: 4, right: 4) : UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8),
-                        onTextChange: { newText in
-                            handleAttributedTextChange(newText)
-                        },
-                        onImageTapped: { attachment, frame, position in
-                            handleImageTap(attachment: attachment, frame: frame, position: position)
-                        },
-                        onClearImageSelection: {
-                            selectedImage = nil
-                            selectedImageFrame = .zero
-                            selectedImagePosition = -1
-                        },
-                        onCommentTapped: { attachment, position in
-                            handleCommentTap(attachment: attachment, position: position)
-                        },
-                        onFootnoteTapped: { attachment, position in
-                            handleFootnoteTap(attachment: attachment, position: position)
+                    } else {
+                        FormattedTextEditor(
+                            attributedText: $attributedContent,
+                            selectedRange: $selectedRange,
+                            textViewCoordinator: textViewCoordinator,
+                            textContainerInset: UIEdgeInsets(top: 4, left: 4, bottom: 4, right: 4),
+                            onTextChange: { newText in
+                                handleAttributedTextChange(newText)
+                            },
+                            onImageTapped: { attachment, frame, position in
+                                handleImageTap(attachment: attachment, frame: frame, position: position)
+                            },
+                            onClearImageSelection: {
+                                selectedImage = nil
+                                selectedImageFrame = .zero
+                                selectedImagePosition = -1
+                            },
+                            onCommentTapped: { attachment, position in
+                                handleCommentTap(attachment: attachment, position: position)
+                            },
+                            onFootnoteTapped: { attachment, position in
+                                handleFootnoteTap(attachment: attachment, position: position)
+                            }
+                        )
+                        .scaleEffect(0.80, anchor: .topLeading)
+                        .id(refreshTrigger)
+                        .onAppear {
+                            textViewInitialized = true
                         }
-                    )
-                    .scaleEffect(UIDevice.current.userInterfaceIdiom == .phone ? 0.80 : 1.0, anchor: .topLeading)
-                    .frame(maxHeight: .infinity, alignment: .top)
-                    .id(refreshTrigger)
-                    .onAppear {
-                        textViewInitialized = true
                     }
                 }
+            } else {
+                // iPad: Use GeometryReader for percentage-based padding
+                GeometryReader { geometry in
+                    ZStack(alignment: .topLeading) {
+                        if forceRefresh {
+                            FormattedTextEditor(
+                                attributedText: $attributedContent,
+                                selectedRange: $selectedRange,
+                                textViewCoordinator: textViewCoordinator,
+                                textContainerInset: UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8),
+                                onTextChange: { newText in
+                                    handleAttributedTextChange(newText)
+                                },
+                                onImageTapped: { attachment, frame, position in
+                                    handleImageTap(attachment: attachment, frame: frame, position: position)
+                                },
+                                onClearImageSelection: {
+                                    selectedImage = nil
+                                    selectedImageFrame = .zero
+                                    selectedImagePosition = -1
+                                },
+                                onCommentTapped: { attachment, position in
+                                    handleCommentTap(attachment: attachment, position: position)
+                                },
+                                onFootnoteTapped: { attachment, position in
+                                    handleFootnoteTap(attachment: attachment, position: position)
+                                }
+                            )
+                            .id(refreshTrigger)
+                            .onAppear {
+                                textViewInitialized = true
+                            }
+                        } else {
+                            FormattedTextEditor(
+                                attributedText: $attributedContent,
+                                selectedRange: $selectedRange,
+                                textViewCoordinator: textViewCoordinator,
+                                textContainerInset: UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8),
+                                onTextChange: { newText in
+                                    handleAttributedTextChange(newText)
+                                },
+                                onImageTapped: { attachment, frame, position in
+                                    handleImageTap(attachment: attachment, frame: frame, position: position)
+                                },
+                                onClearImageSelection: {
+                                    selectedImage = nil
+                                    selectedImageFrame = .zero
+                                    selectedImagePosition = -1
+                                },
+                                onCommentTapped: { attachment, position in
+                                    handleCommentTap(attachment: attachment, position: position)
+                                },
+                                onFootnoteTapped: { attachment, position in
+                                    handleFootnoteTap(attachment: attachment, position: position)
+                                }
+                            )
+                            .id(refreshTrigger)
+                            .onAppear {
+                                textViewInitialized = true
+                            }
+                        }
+                    }
+                    .padding(.horizontal, geometry.size.width * 0.05)
+                }
             }
-            .padding(.horizontal, UIDevice.current.userInterfaceIdiom == .phone ? 0 : geometry.size.width * 0.05)
-            .frame(maxHeight: .infinity, alignment: .top)
         }
     }
     
