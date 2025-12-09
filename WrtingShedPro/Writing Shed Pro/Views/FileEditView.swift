@@ -503,6 +503,13 @@ struct FileEditView: View {
                 paginationSection()
             } else {
                 textEditorSection()
+                // TODO: KEYBOARD GAP - There's a gap between the toolbar and keyboard
+                // This is SwiftUI's default keyboard avoidance behavior
+                // Potential solutions to explore:
+                // 1. Use UITextView.inputAccessoryView to attach toolbar to keyboard (like Pages does)
+                // 2. Use UIKit view controller and attach toolbar as inputAccessoryView
+                // 3. Custom keyboard tracking with GeometryReader and keyboard notifications
+                // Apple's apps (Pages, Notes, Mail) likely use UIKit's inputAccessoryView
                 formattingToolbar()
             }
             
