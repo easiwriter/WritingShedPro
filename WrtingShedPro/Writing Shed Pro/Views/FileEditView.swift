@@ -277,7 +277,7 @@ struct FileEditView: View {
         // Show toolbar once text view has been initialized
         // Don't make it conditional on textView being non-nil because that can
         // cause it to flicker during view updates
-        if textViewInitialized, let textView = textViewCoordinator.textView {
+        if let textView = textViewCoordinator.textView {
             FormattingToolbarView(textView: textView) { action in
                 switch action {
                 case .paragraphStyle:
