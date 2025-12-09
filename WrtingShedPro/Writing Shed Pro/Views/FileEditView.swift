@@ -502,12 +502,8 @@ struct FileEditView: View {
             if isPaginationMode {
                 paginationSection()
             } else {
-                ZStack(alignment: .bottom) {
-                    textEditorSection()
-                        .padding(.bottom, 44) // Space for toolbar
-                    
-                    formattingToolbar()
-                }
+                textEditorSection()
+                formattingToolbar()
             }
             
             // Hidden keyboard shortcut handlers for search navigation
