@@ -504,6 +504,7 @@ struct FileEditView: View {
             } else {
                 ZStack(alignment: .bottom) {
                     textEditorSection()
+                        .padding(.bottom, 44) // Space for toolbar
                     
                     formattingToolbar()
                 }
