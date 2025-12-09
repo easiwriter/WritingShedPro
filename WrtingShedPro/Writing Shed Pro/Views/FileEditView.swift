@@ -2615,8 +2615,8 @@ struct FileEditView: View {
             
             // Scale fonts for iPhone to match visual appearance
             if UIDevice.current.userInterfaceIdiom == .phone {
-                processedContent = AttributedStringSerializer.scaleFonts(processedContent, scaleFactor: 0.80)
-                print("📝 loadCurrentVersion: Scaled fonts to 80% for iPhone")
+                processedContent = AttributedStringSerializer.scaleFonts(processedContent, scaleFactor: 0.55)
+                print("📝 loadCurrentVersion: Scaled fonts to 55% for iPhone")
             }
             
             newAttributedContent = processedContent
@@ -2632,9 +2632,9 @@ struct FileEditView: View {
                 
                 // Scale font for iPhone
                 if UIDevice.current.userInterfaceIdiom == .phone, let font = bodyAttrs[.font] as? UIFont {
-                    let scaledFont = font.withSize(font.pointSize * 0.80)
+                    let scaledFont = font.withSize(font.pointSize * 0.55)
                     bodyAttrs[.font] = scaledFont
-                    print("📝 loadCurrentVersion: Scaled Body font to 80% for iPhone (\(font.pointSize)pt -> \(scaledFont.pointSize)pt)")
+                    print("📝 loadCurrentVersion: Scaled Body font to 55% for iPhone (\(font.pointSize)pt -> \(scaledFont.pointSize)pt)")
                 }
                 
                 // Debug: Log what we're initializing with
