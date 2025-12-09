@@ -506,8 +506,8 @@ struct FileEditView: View {
                     textEditorSection()
                     
                     formattingToolbar()
-                        .ignoresSafeArea(.keyboard)
                 }
+                .ignoresSafeArea(.keyboard, edges: .bottom)
             }
             
             // Hidden keyboard shortcut handlers for search navigation
