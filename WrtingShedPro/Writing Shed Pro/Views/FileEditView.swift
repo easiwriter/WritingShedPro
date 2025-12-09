@@ -169,6 +169,7 @@ struct FileEditView: View {
                         }
                     )
                     .scaleEffect(UIDevice.current.userInterfaceIdiom == .phone ? 0.80 : 1.0, anchor: .topLeading)
+                    .frame(maxHeight: .infinity, alignment: .top)
                     .id(refreshTrigger)
                     .onAppear {
                         textViewInitialized = true
@@ -198,6 +199,7 @@ struct FileEditView: View {
                         }
                     )
                     .scaleEffect(UIDevice.current.userInterfaceIdiom == .phone ? 0.80 : 1.0, anchor: .topLeading)
+                    .frame(maxHeight: .infinity, alignment: .top)
                     .id(refreshTrigger)
                     .onAppear {
                         textViewInitialized = true
@@ -205,6 +207,7 @@ struct FileEditView: View {
                 }
             }
             .padding(.horizontal, UIDevice.current.userInterfaceIdiom == .phone ? 0 : geometry.size.width * 0.05)
+            .frame(maxHeight: .infinity, alignment: .top)
         }
     }
     
