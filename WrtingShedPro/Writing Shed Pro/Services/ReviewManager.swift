@@ -49,25 +49,18 @@ final class ReviewManager: ObservableObject {
     
     /// Request review from user (manual request from Settings menu)
     /// This bypasses timing checks and always shows the prompt
-    /// Call this from a view with access to the environment
-    func requestReviewManually(in environment: EnvironmentValues) {
+    func requestReviewManually() {
         #if DEBUG
         print("📱 Review: Manual review requested from Settings")
         #endif
         
         // Record the request
         recordReviewRequest()
-        
-        // Request review using modern API
-        if let requestReview = environment.requestReview {
-            requestReview()
-        }
     }
     
     /// Request review automatically based on app usage patterns
     /// This respects timing rules and won't show if conditions aren't met
-    /// Call this from a view with access to the environment
-    func requestReviewIfAppropriate(in environment: EnvironmentValues) {
+    func requestReviewIfAppropriate() {
         guard shouldRequestReview() else {
             #if DEBUG
             print("📱 Review: Conditions not met for automatic review request")
@@ -81,11 +74,6 @@ final class ReviewManager: ObservableObject {
         
         // Record the request
         recordReviewRequest()
-        
-        // Request review using modern API
-        if let requestReview = environment.requestReview {
-            requestReview()
-        }
     }
     
     /// Record a significant event (creating file, completing import, etc.)

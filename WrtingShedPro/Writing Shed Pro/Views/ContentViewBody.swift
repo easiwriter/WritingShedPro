@@ -44,7 +44,7 @@ struct ContentViewBody: View {
                 // Request review if appropriate (respects timing rules)
                 if ReviewManager.shared.shouldRequestReview() {
                     ReviewManager.shared.recordReviewRequest()
-                    requestReview?()
+                    requestReview()
                 }
             }
             .onChange(of: projects.isEmpty) { _, isEmpty in
