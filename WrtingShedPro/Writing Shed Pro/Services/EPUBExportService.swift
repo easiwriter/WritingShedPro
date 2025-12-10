@@ -52,6 +52,205 @@ class EPUBExportService {
         return epub
     }
     
+    /// Structure to hold extracted image information
+    private struct ExtractedImage {
+        let imageData: Data
+        let range: NSRange
+        let scale: Double
+        let alignment: String
+        let hasCaption: Bool
+        let captionText: String?
+    }
+    
+    /// Export multiple attributed strings with page breaks between them
+    /// - Parameters:
+    ///   - attributedStrings: Array of formatted content to export
+    ///   - filename: Name for the document (used as title)
+    ///   - author: Author name (optional)
+    ///   - language: Language code (default: "en")
+    /// - Returns: EPUB data as Data
+    /// - Throws: Error if export fails
+    static func exportMultipleToEPUB(
+        _ attributedStrings: [NSAttributedString],
+        filename: String,
+        author: String? = nil,
+        language: String = "en"
+    ) throws -> Data {
+        
+        // Extract all images from all attributed strings
+        var allImages: [(Data, String, Double, String?, Bool)] = []  // (imageData, alignment, scale, caption, hasCaption)
+        var imageCounter = 0
+        
+        // Convert each attributed string to HTML body content with namespacing
+        var htmlBodies: [String] = []
+        var allStyles = ""  // Accumulate all unique styles
+        
+        for (index, attributedString) in attributedStrings.enumerated() {
+            // Extract images before conversion
+            attributedString.enumerateAttribute(.attachment, in: NSRange(location: 0, length: attributedString.length)) { value, range, _ in
+                if let attachment = value as? ImageAttachment,
+                   let imageData = attachment.imageData {
+                    allImages.append((
+                        imageData,
+                        attachment.alignment.rawValue,
+                        attachment.scale,
+                        attachment.captionText,
+                        attachment.hasCaption
+                    ))
+                }
+            }
+            
+            // Convert to HTML
+            let documentAttributes: [NSAttributedString.DocumentAttributeKey: Any] = [
+                .documentType: NSAttributedString.DocumentType.html,
+                .characterEncoding: String.Encoding.utf8.rawValue
+            ]
+            
+            guard let htmlData = try? attributedString.data(
+                from: NSRange(location: 0, length: attributedString.length),
+                documentAttributes: documentAttributes
+            ),
+            let htmlString = String(data: htmlData, encoding: .utf8) else {
+                throw EPUBExportError.conversionFailed("Failed to convert attributed string to HTML")
+            }
+            
+            // Extract iOS-generated styles and namespace them to avoid conflicts between files
+            let filePrefix = "f\(index)_"
+            if let styleStart = htmlString.range(of: "<style type=\"text/css\">"),
+               let styleEnd = htmlString.range(of: "</style>") {
+                var styleContent = String(htmlString[styleStart.upperBound..<styleEnd.lowerBound])
+                
+                // Namespace the CSS class names to prevent conflicts (e.g., .p1 -> .f0_p1)
+                let classPattern = "\\.([ps]\\d+)"
+                if let regex = try? NSRegularExpression(pattern: classPattern, options: []) {
+                    let range = NSRange(styleContent.startIndex..., in: styleContent)
+                    styleContent = regex.stringByReplacingMatches(
+                        in: styleContent,
+                        options: [],
+                        range: range,
+                        withTemplate: ".\(filePrefix)$1"
+                    )
+                }
+                
+                allStyles += styleContent + "\n"
+            }
+            
+            // Extract just the body content (between <body> tags)
+            var bodyContent: String
+            if let bodyStart = htmlString.range(of: "<body>"),
+               let bodyEnd = htmlString.range(of: "</body>") {
+                bodyContent = String(htmlString[bodyStart.upperBound..<bodyEnd.lowerBound])
+            } else {
+                bodyContent = htmlString
+            }
+            
+            // Namespace the class names in the body to match the CSS
+            let classPattern = "class=\"([ps]\\d+)\""
+            if let regex = try? NSRegularExpression(pattern: classPattern, options: []) {
+                let range = NSRange(bodyContent.startIndex..., in: bodyContent)
+                bodyContent = regex.stringByReplacingMatches(
+                    in: bodyContent,
+                    options: [],
+                    range: range,
+                    withTemplate: "class=\"\(filePrefix)$1\""
+                )
+            }
+            
+            // Clean up the body content (same as HTML export)
+            bodyContent = bodyContent.replacingOccurrences(of: "<br />", with: "<br>")
+            bodyContent = bodyContent.replacingOccurrences(of: "<br/>", with: "<br>")
+            bodyContent = bodyContent.replacingOccurrences(of: "</p>\n<p>", with: "</p><p>")
+            bodyContent = bodyContent.replacingOccurrences(of: "</div>\n<div>", with: "</div><div>")
+            bodyContent = bodyContent.replacingOccurrences(of: "<p>\n", with: "<p>")
+            bodyContent = bodyContent.replacingOccurrences(of: "\n</p>", with: "</p>")
+            bodyContent = bodyContent.replacingOccurrences(of: "<div>\n", with: "<div>")
+            bodyContent = bodyContent.replacingOccurrences(of: "\n</div>", with: "</div>")
+            bodyContent = bodyContent.replacingOccurrences(of: "<br>\n", with: "<br>")
+            
+            while bodyContent.contains("  ") {
+                bodyContent = bodyContent.replacingOccurrences(of: "  ", with: " ")
+            }
+            
+            htmlBodies.append(bodyContent)
+        }
+        
+        // Replace attachment placeholders with image tags
+        var combinedBodyWithImages = htmlBodies.joined(separator: "\n<div style=\"page-break-after: always;\"></div>\n")
+        var currentImageIndex = 0
+        
+        // Replace each image placeholder (either unicode character or iOS-generated img tag)
+        while currentImageIndex < allImages.count {
+            let (_, alignment, scale, caption, hasCaption) = allImages[currentImageIndex]
+            
+            // Create image reference (images will be saved in OEBPS/images/)
+            let imageSrc = "images/image\(currentImageIndex).png"
+            let widthPercent = Int(scale * 100)
+            
+            var imageHTML = "<img src=\"\(imageSrc)\" class=\"img-\(alignment)\" style=\"width: \(widthPercent)%; max-width: 100%; height: auto;\" alt=\"Image \(currentImageIndex)\" />"
+            
+            // Add caption if present
+            if hasCaption, let captionText = caption, !captionText.isEmpty {
+                imageHTML += "\n<p class=\"image-caption\">\(captionText)</p>"
+            }
+            
+            // iOS HTML converter creates either:
+            // 1. Unicode attachment character (U+FFFC)
+            // 2. <img src="Attachment.tiff"> or similar placeholder
+            
+            // First try unicode attachment character
+            let attachmentChar = "\u{FFFC}"
+            if let range = combinedBodyWithImages.range(of: attachmentChar) {
+                combinedBodyWithImages.replaceSubrange(range, with: imageHTML)
+                currentImageIndex += 1
+            } else {
+                // Look for iOS-generated img tag placeholder
+                // Match patterns like: <img src="file:///Attachment.tiff"...> or src="Attachment-1.tiff"
+                let pattern = "<img[^>]*src=\"[^\"]*[Aa]ttachment[^\"]*\"[^>]*>"
+                if let regex = try? NSRegularExpression(pattern: pattern, options: []) {
+                    let nsRange = NSRange(combinedBodyWithImages.startIndex..., in: combinedBodyWithImages)
+                    if let match = regex.firstMatch(in: combinedBodyWithImages, options: [], range: nsRange),
+                       let range = Range(match.range, in: combinedBodyWithImages) {
+                        combinedBodyWithImages.replaceSubrange(range, with: imageHTML)
+                        currentImageIndex += 1
+                    } else {
+                        // No more placeholders found, stop
+                        break
+                    }
+                } else {
+                    // Regex failed, stop
+                    break
+                }
+            }
+        }
+        
+        // Create complete HTML content (body only - styles will be passed separately)
+        let htmlContent = """
+        <html>
+        <body>
+        \(combinedBodyWithImages)
+        </body>
+        </html>
+        """
+        
+        // Create EPUB structure with custom styles and images
+        let epub = try createEPUBPackage(
+            htmlContent: htmlContent,
+            title: filename,
+            author: author,
+            language: language,
+            customCSS: allStyles,  // Pass iOS-generated styles
+            images: allImages.map { $0.0 }  // Extract just the image data
+        )
+        
+        #if DEBUG
+        print("📤 EPUBExportService: Exported '\(filename).epub' with \(attributedStrings.count) files")
+        print("   EPUB size: \(epub.count) bytes")
+        print("   Page breaks inserted: \(attributedStrings.count - 1)")
+        #endif
+        
+        return epub
+    }
+    
     // MARK: - EPUB Package Creation
     
     /// Create an EPUB package (ZIP file with specific structure)
@@ -59,7 +258,9 @@ class EPUBExportService {
         htmlContent: String,
         title: String,
         author: String?,
-        language: String
+        language: String,
+        customCSS: String? = nil,
+        images: [Data] = []
     ) throws -> Data {
         
         // Create a temporary directory for EPUB structure
@@ -75,10 +276,15 @@ class EPUBExportService {
         // Create EPUB structure
         try createMimetypeFile(in: tempDir)
         try createContainerXML(in: tempDir)
-        try createContentOPF(in: tempDir, title: title, author: author, language: language)
+        try createContentOPF(in: tempDir, title: title, author: author, language: language, imageCount: images.count)
         try createTableOfContentsNCX(in: tempDir, title: title)
         try createContentHTML(in: tempDir, html: htmlContent, title: title)
-        try createStyleCSS(in: tempDir)
+        try createStyleCSS(in: tempDir, customCSS: customCSS)
+        
+        // Save images if any
+        if !images.isEmpty {
+            try createImagesDirectory(in: tempDir, images: images)
+        }
         
         // Create ZIP archive
         let epubData = try zipDirectory(tempDir)
@@ -112,13 +318,19 @@ class EPUBExportService {
     }
     
     /// Create OEBPS/content.opf (package document)
-    private static func createContentOPF(in directory: URL, title: String, author: String?, language: String) throws {
+    private static func createContentOPF(in directory: URL, title: String, author: String?, language: String, imageCount: Int = 0) throws {
         let oebpsDir = directory.appendingPathComponent("OEBPS")
         try FileManager.default.createDirectory(at: oebpsDir, withIntermediateDirectories: true)
         
         let uuid = UUID().uuidString
         let date = ISO8601DateFormatter().string(from: Date())
         let authorMetadata = author.map { "<dc:creator>\($0)</dc:creator>" } ?? ""
+        
+        // Generate image manifest items
+        var imageItems = ""
+        for i in 0..<imageCount {
+            imageItems += "\n                <item id=\"image\(i)\" href=\"images/image\(i).png\" media-type=\"image/png\"/>"
+        }
         
         let contentOPF = """
         <?xml version="1.0" encoding="UTF-8"?>
@@ -134,7 +346,7 @@ class EPUBExportService {
             <manifest>
                 <item id="toc" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
                 <item id="content" href="content.html" media-type="application/xhtml+xml"/>
-                <item id="style" href="style.css" media-type="text/css"/>
+                <item id="style" href="style.css" media-type="text/css"/>\(imageItems)
             </manifest>
             <spine toc="toc">
                 <itemref idref="content"/>
@@ -200,10 +412,9 @@ class EPUBExportService {
         bodyContent = bodyContent.replacingOccurrences(of: "<br />", with: "<br>")
         bodyContent = bodyContent.replacingOccurrences(of: "<br/>", with: "<br>")
         
-        // Remove newlines between closing and opening tags
+        // Remove newlines between closing and opening tags (but NOT spans - they mark style boundaries)
         bodyContent = bodyContent.replacingOccurrences(of: "</p>\n<p>", with: "</p><p>")
         bodyContent = bodyContent.replacingOccurrences(of: "</div>\n<div>", with: "</div><div>")
-        bodyContent = bodyContent.replacingOccurrences(of: "</span>\n<span>", with: "</span><span>")
         
         // Remove newlines after opening tags and before closing tags
         bodyContent = bodyContent.replacingOccurrences(of: "<p>\n", with: "<p>")
@@ -239,10 +450,21 @@ class EPUBExportService {
     }
     
     /// Create OEBPS/style.css
-    private static func createStyleCSS(in directory: URL) throws {
+    private static func createStyleCSS(in directory: URL, customCSS: String? = nil) throws {
         let oebpsDir = directory.appendingPathComponent("OEBPS")
         
-        let styleCSS = """
+        var styleCSS = ""
+        
+        // Add custom CSS first (iOS-generated styles with namespacing)
+        if let customCSS = customCSS, !customCSS.isEmpty {
+            styleCSS += "/* iOS-generated styles (namespaced) */\n"
+            styleCSS += customCSS
+            styleCSS += "\n\n"
+        }
+        
+        // Add our custom CSS
+        styleCSS += """
+        /* Base document styles */
         body {
             font-family: Georgia, serif;
             font-size: 1em;
@@ -279,6 +501,37 @@ class EPUBExportService {
             height: auto;
             display: block;
             margin: 1em auto;
+        }
+        
+        .img-left {
+            float: left;
+            margin-right: 1em;
+            margin-bottom: 1em;
+        }
+        
+        .img-center {
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        .img-right {
+            float: right;
+            margin-left: 1em;
+            margin-bottom: 1em;
+        }
+        
+        .img-inline {
+            display: inline-block;
+            vertical-align: middle;
+        }
+        
+        .image-caption {
+            text-align: center;
+            font-size: 0.9em;
+            font-style: italic;
+            margin-top: 0.5em;
+            color: #666;
         }
         
         /* Text formatting */
@@ -321,6 +574,18 @@ class EPUBExportService {
         
         let styleURL = oebpsDir.appendingPathComponent("style.css")
         try styleCSS.write(to: styleURL, atomically: true, encoding: .utf8)
+    }
+    
+    /// Create OEBPS/images/ directory and save images
+    private static func createImagesDirectory(in directory: URL, images: [Data]) throws {
+        let oebpsDir = directory.appendingPathComponent("OEBPS")
+        let imagesDir = oebpsDir.appendingPathComponent("images")
+        try FileManager.default.createDirectory(at: imagesDir, withIntermediateDirectories: true)
+        
+        for (index, imageData) in images.enumerated() {
+            let imageURL = imagesDir.appendingPathComponent("image\(index).png")
+            try imageData.write(to: imageURL)
+        }
     }
     
     // MARK: - ZIP Utilities

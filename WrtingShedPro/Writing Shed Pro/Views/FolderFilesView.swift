@@ -60,6 +60,7 @@ struct FolderFilesView: View {
     @State private var exportData: Data?
     @State private var exportFilename: String = ""
     @State private var exportCombinedContent: NSAttributedString?
+    @State private var exportAttributedStrings: [NSAttributedString] = []  // For HTML multi-file export
     
     // State for search
     @State private var showSearchView = false
@@ -535,7 +536,10 @@ struct FolderFilesView: View {
     }
     
     private func exportCompleteFolder() {
-        // Combine all files into a single attributed string
+        // Collect all file contents as separate attributed strings (for HTML)
+        var attributedStrings: [NSAttributedString] = []
+        
+        // Also create combined content for RTF/EPUB
         let combinedContent = NSMutableAttributedString()
         
         for (_, file) in sortedFiles.enumerated() {
@@ -544,18 +548,23 @@ struct FolderFilesView: View {
                 continue
             }
             
+            // Store individual attributed string for HTML export
+            attributedStrings.append(attributedString)
+            
             // Don't add title heading - the content already has it
             // Just add the file content directly
             combinedContent.append(attributedString)
             
-            // Add page break after each file (including last file)
+            // Add page break after each file (including last file) for RTF/EPUB
             let pageBreak = NSAttributedString(string: "\u{000C}")
             combinedContent.append(pageBreak)
         }
         
-        // Store the combined content for export
+        // Store both formats for export
+        exportAttributedStrings = attributedStrings
         exportCombinedContent = combinedContent
-        exportFilename = folder.name ?? "Folder"
+        // Use the project name for the exported file, not the folder name
+        exportFilename = folder.project?.name ?? folder.name ?? "Project"
         
         // Show format selection dialog
         showExportFolderMenu = true
@@ -575,9 +584,11 @@ struct FolderFilesView: View {
             case .rtf:
                 exportData = try WordDocumentService.exportToRTF(combinedContent, filename: exportFilename)
             case .html:
-                exportData = try HTMLExportService.exportToHTMLData(combinedContent, filename: exportFilename)
+                // Use the array version for HTML to preserve page breaks and prevent CSS conflicts
+                exportData = try HTMLExportService.exportMultipleToHTMLData(exportAttributedStrings, filename: exportFilename)
             case .epub:
-                exportData = try EPUBExportService.exportToEPUB(combinedContent, filename: exportFilename)
+                // Use the array version for EPUB to preserve page breaks and prevent CSS conflicts
+                exportData = try EPUBExportService.exportMultipleToEPUB(exportAttributedStrings, filename: exportFilename)
             }
             
             showExportSaveDialog = true
