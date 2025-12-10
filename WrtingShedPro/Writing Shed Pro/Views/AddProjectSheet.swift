@@ -107,6 +107,9 @@ struct AddProjectSheet: View {
             try modelContext.save()
             print("✅ [AddProjectSheet] Project saved to local database")
             
+            // Record significant event for review prompts
+            ReviewManager.shared.recordSignificantEvent()
+            
             // Force CloudKit sync by attempting a fetch
             DispatchQueue.global(qos: .background).asyncAfter(deadline: .now() + 0.5) {
                 do {

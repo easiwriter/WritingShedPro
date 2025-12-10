@@ -84,6 +84,9 @@ struct AddFileSheet: View {
         // This prevents duplicate name issues when quickly creating multiple files
         do {
             try modelContext.save()
+            
+            // Record significant event for review prompts
+            ReviewManager.shared.recordSignificantEvent()
         } catch {
             print("Error saving new file: \(error)")
             errorMessage = "Failed to save file: \(error.localizedDescription)"

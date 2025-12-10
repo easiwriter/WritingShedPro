@@ -288,4 +288,35 @@ final class ImageSerializationTests: XCTestCase {
         // Then
         XCTAssertEqual(decoded.string, "", "Empty document should be preserved")
     }
+    
+    func testFileIDSerialization() {
+        // Given
+        let text = "Image:\u{FFFC}"
+        let attributedString = NSMutableAttributedString(string: text)
+        let testFileID = UUID()
+        
+        // Create image attachment with fileID
+        let testImage = createTestImage(width: 200, height: 150)
+        guard let imageData = testImage.pngData(),
+              let attachment = ImageAttachment.from(imageData: imageData) else {
+            XCTFail("Failed to create image attachment")
+            return
+        }
+        
+        attachment.fileID = testFileID
+        
+        // Insert attachment
+        let attachmentString = NSAttributedString(attachment: attachment)
+        attributedString.replaceCharacters(in: NSRange(location: 6, length: 1), with: attachmentString)
+        
+        // When
+        let encoded = AttributedStringSerializer.encode(attributedString)
+        let decoded = AttributedStringSerializer.decode(encoded, text: text)
+        
+        // Then
+        let attrs = decoded.attributes(at: 6, effectiveRange: nil)
+        let restoredAttachment = attrs[.attachment] as? ImageAttachment
+        
+        XCTAssertEqual(restoredAttachment?.fileID, testFileID, "File ID should be preserved through serialization")
+    }
 }

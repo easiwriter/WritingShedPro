@@ -33,6 +33,7 @@ struct AttributeValues: Codable {
     var hasCaption: Bool?
     var captionText: String?
     var captionStyle: String?
+    var imageFileID: String?  // File ID for stylesheet access
     
     // Comment attachment properties
     var isCommentAttachment: Bool?
@@ -302,6 +303,11 @@ struct AttributedStringSerializer {
                             attributes.captionText = imageAttachment.captionText
                             attributes.captionStyle = imageAttachment.captionStyle
                             
+                            // Encode fileID if present
+                            if let fileID = imageAttachment.fileID {
+                                attributes.imageFileID = fileID.uuidString
+                            }
+                            
                             // Logging commented out to reduce console spam during undo/version saves
                             // print("💾 ENCODE image at \(range.location): id=\(imageAttachment.imageID), scale=\(imageAttachment.scale), alignment=\(imageAttachment.alignment.rawValue)")
                         } else if let commentAttachment = value as? CommentAttachment {
@@ -495,6 +501,12 @@ struct AttributedStringSerializer {
                     attachment.hasCaption = jsonAttributes.hasCaption ?? false
                     attachment.captionText = jsonAttributes.captionText
                     attachment.captionStyle = jsonAttributes.captionStyle
+                    
+                    // Restore fileID
+                    if let fileIDString = jsonAttributes.imageFileID,
+                       let fileID = UUID(uuidString: fileIDString) {
+                        attachment.fileID = fileID
+                    }
                     
                     // Update bounds
                     attachment.bounds = CGRect(origin: .zero, size: attachment.displaySize)

@@ -93,13 +93,14 @@ final class SearchDataModelTests: XCTestCase {
     }
     
     func testSearchMatchMatchedText() {
+        let text = "Find test here"
         let match = SearchMatch(
             range: NSRange(location: 5, length: 4),
             context: "Find test here",
             lineNumber: 1
         )
         
-        XCTAssertEqual(match.matchedText, "test")
+        XCTAssertEqual(match.extractMatchedText(from: text), "test")
     }
     
     func testSearchMatchHashable() {

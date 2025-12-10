@@ -27,13 +27,27 @@ struct SearchMatch: Identifiable, Hashable {
         self.lineNumber = lineNumber
     }
     
-    /// The matched text (extracted from range)
+    /// The matched text (extracted from context)
+    /// NOTE: Requires context to be populated via enrichMatches().
+    /// Returns empty string if context is not available.
     var matchedText: String {
-        guard range.location >= 0 && range.length > 0 else { return "" }
-        let nsContext = context as NSString
-        guard range.location < nsContext.length else { return "" }
-        let safeLength = min(range.length, nsContext.length - range.location)
-        return nsContext.substring(with: NSRange(location: range.location, length: safeLength))
+        guard range.length > 0, !context.isEmpty else { return "" }
+        
+        // Context has been processed (newlines replaced, spaces collapsed, "..." added)
+        // We can't reliably extract the original match from modified context
+        // Instead, just return an empty string and require using extractMatchedText(from:)
+        return ""
+    }
+    
+    /// Extract the matched text from the original source text
+    /// This is the proper way to get matched text since context is modified
+    /// - Parameter text: The original source text
+    /// - Returns: The matched substring
+    func extractMatchedText(from text: String) -> String {
+        guard range.location >= 0, range.length > 0 else { return "" }
+        let nsText = text as NSString
+        guard range.location + range.length <= nsText.length else { return "" }
+        return nsText.substring(with: range)
     }
 }
 

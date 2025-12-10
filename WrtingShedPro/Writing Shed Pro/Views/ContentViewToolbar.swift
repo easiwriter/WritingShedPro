@@ -12,6 +12,8 @@ struct ContentViewToolbar: ToolbarContent {
     let projects: [Project]
     let onHandleImportMenu: () -> Void
     
+    @Environment(\.requestReview) var requestReview
+    
     var body: some ToolbarContent {
         // Settings menu (leading)
         ToolbarItem(placement: .navigationBarLeading) {
@@ -60,6 +62,13 @@ struct ContentViewToolbar: ToolbarContent {
                 
                 Button(action: { state.showContactSupport = true }) {
                     Label("Contact Support", systemImage: "envelope")
+                }
+                
+                Button(action: { 
+                    ReviewManager.shared.recordReviewRequest()
+                    requestReview?()
+                }) {
+                    Label("Rate This App", systemImage: "star.fill")
                 }
             } label: {
                 Image(systemName: "gearshape")

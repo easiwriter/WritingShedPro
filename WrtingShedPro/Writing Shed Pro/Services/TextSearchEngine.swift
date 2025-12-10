@@ -253,4 +253,22 @@ class TextSearchEngine {
         let range = NSRange(location: 0, length: text.utf16.count)
         return regex.stringByReplacingMatches(in: text, range: range, withTemplate: template)
     }
+    
+    // MARK: - Match Enrichment
+    
+    /// Enrich matches with context and line numbers (for display/testing)
+    /// - Parameters:
+    ///   - matches: The matches to enrich
+    ///   - text: The original text
+    /// - Returns: New matches with populated context and line numbers
+    func enrichMatches(_ matches: [SearchMatch], in text: String) -> [SearchMatch] {
+        return matches.map { match in
+            SearchMatch(
+                id: match.id,
+                range: match.range,
+                context: extractContext(for: match.range, in: text),
+                lineNumber: calculateLineNumber(for: match.range.location, in: text)
+            )
+        }
+    }
 }

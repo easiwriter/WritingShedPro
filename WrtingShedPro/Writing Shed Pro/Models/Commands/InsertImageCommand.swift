@@ -89,6 +89,7 @@ final class InsertImageCommand: UndoableCommand {
         // Set properties
         attachment.scale = scale
         attachment.alignment = alignment
+        attachment.fileID = file.id // Set file ID for stylesheet access
         if hasCaption {
             attachment.setCaption(text: captionText, style: captionStyle)
         }

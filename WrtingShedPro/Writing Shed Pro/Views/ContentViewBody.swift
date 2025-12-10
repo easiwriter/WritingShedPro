@@ -17,6 +17,8 @@ struct ContentViewBody: View {
     let onHandleJSONImport: (Result<[URL], Error>) -> Void
     let onDeleteAllProjects: () -> Void
     
+    @Environment(\.requestReview) var requestReview
+    
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
@@ -35,6 +37,15 @@ struct ContentViewBody: View {
             #endif
             .onAppear {
                 onInitialize()
+                
+                // Track app launch for review prompts
+                ReviewManager.shared.recordAppLaunch()
+                
+                // Request review if appropriate (respects timing rules)
+                if ReviewManager.shared.shouldRequestReview() {
+                    ReviewManager.shared.recordReviewRequest()
+                    requestReview?()
+                }
             }
             .onChange(of: projects.isEmpty) { _, isEmpty in
                 if isEmpty && state.editMode == .active {

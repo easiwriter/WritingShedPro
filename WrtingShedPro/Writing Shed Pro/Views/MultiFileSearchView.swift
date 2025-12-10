@@ -349,33 +349,18 @@ struct FileResultRow<Destination: View>: View {
                 Image(systemName: "doc.text")
                     .foregroundStyle(.secondary)
                 
-                // File info
-                VStack(alignment: .leading, spacing: 4) {
+                // File name and match count (no space between)
+                HStack(spacing: 0) {
                     Text(result.file.name.isEmpty ? "Untitled" : result.file.name)
                         .font(.body)
                     
-                    Text("\(result.matchCount) matches")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    
-                    // Show first few matches as preview
-                    ForEach(result.matches.prefix(3)) { match in
-                        Text(match.context)
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                            .lineLimit(1)
-                    }
-                    
-                    if result.matches.count > 3 {
-                        Text("+ \(result.matches.count - 3) more...")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                    }
+                    Text(" (\(result.matchCount))")
+                        .font(.body)
                 }
                 
                 Spacer()
             }
-            .padding(.vertical, 8)
+            .padding(.vertical, 4)
             .contentShape(Rectangle())
         }
     }

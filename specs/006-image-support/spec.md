@@ -3,13 +3,16 @@
 ## Overview
 Add support for inline images within text documents, allowing users to insert images alongside their text content. Images will use styles defined in the project's stylesheet, with image properties (scale, alignment, captions) controlled through tapping on images.
 
+Images can have captions. These are controlled by the existing image properties where the user can turn captions on and off. If the user turns captions on (show Caption) then they can insert the caption. The selected caption style controls its format. Note that the style's text alignment should be interpreted as being relative to the image bounds.
+
 ## Feature Priority
-**HIGH** - Requested by user as next feature after text formatting
+**HIGH** - Requesxt and choose the caption styled by user as next feature after text formatting
 
 ## Change Log
 - **2025-11-03**: Updated to use Insert menu for images and other content types
 - **2025-11-03**: Changed to use stylesheet-based image styles instead of inline style editor
 - **2025-11-03**: Image properties edited by tapping on images
+- **2025-12-09**: support for captions added
 
 ## User Stories
 

@@ -538,7 +538,7 @@ struct FolderFilesView: View {
         // Combine all files into a single attributed string
         let combinedContent = NSMutableAttributedString()
         
-        for (index, file) in sortedFiles.enumerated() {
+        for (_, file) in sortedFiles.enumerated() {
             guard let version = file.currentVersion,
                   let attributedString = version.attributedContent else {
                 continue

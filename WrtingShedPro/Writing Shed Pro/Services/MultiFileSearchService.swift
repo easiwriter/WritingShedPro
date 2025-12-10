@@ -129,6 +129,13 @@ class MultiFileSearchService {
             }
         }
         
+        // Sort results alphabetically by file name (case-insensitive)
+        results.sort { lhs, rhs in
+            let lhsName = lhs.file.name.isEmpty ? "Untitled" : lhs.file.name
+            let rhsName = rhs.file.name.isEmpty ? "Untitled" : rhs.file.name
+            return lhsName.localizedCaseInsensitiveCompare(rhsName) == .orderedAscending
+        }
+        
         isSearching = false
     }
     

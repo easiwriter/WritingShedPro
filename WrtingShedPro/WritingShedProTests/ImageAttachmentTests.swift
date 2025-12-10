@@ -24,6 +24,19 @@ final class ImageAttachmentTests: XCTestCase {
         XCTAssertFalse(attachment.hasCaption, "Caption should be disabled by default")
         XCTAssertNil(attachment.captionText, "Caption text should be nil by default")
         XCTAssertNil(attachment.captionStyle, "Caption style should be nil by default")
+        XCTAssertNil(attachment.fileID, "File ID should be nil by default")
+    }
+    
+    func testFileIDProperty() {
+        // Given
+        let attachment = ImageAttachment()
+        let testFileID = UUID()
+        
+        // When
+        attachment.fileID = testFileID
+        
+        // Then
+        XCTAssertEqual(attachment.fileID, testFileID, "File ID should be set correctly")
     }
     
     // MARK: - Scale Tests
@@ -172,6 +185,57 @@ final class ImageAttachmentTests: XCTestCase {
         
         // Then
         XCTAssertFalse(attachment.hasCaption, "Caption should be disabled")
+    }
+    
+    func testUpdateCaption() {
+        // Given
+        let attachment = ImageAttachment()
+        
+        // When
+        attachment.updateCaption(hasCaption: true, text: "Test caption", style: "caption2")
+        
+        // Then
+        XCTAssertTrue(attachment.hasCaption, "hasCaption should be true")
+        XCTAssertEqual(attachment.captionText, "Test caption")
+        XCTAssertEqual(attachment.captionStyle, "caption2")
+    }
+    
+    func testUpdateCaptionDisabled() {
+        // Given
+        let attachment = ImageAttachment()
+        attachment.updateCaption(hasCaption: true, text: "Initial", style: "caption1")
+        
+        // When - disable caption but keep text
+        attachment.updateCaption(hasCaption: false, text: "Initial", style: "caption1")
+        
+        // Then
+        XCTAssertFalse(attachment.hasCaption, "hasCaption should be false")
+        XCTAssertEqual(attachment.captionText, "Initial", "Caption text should be preserved")
+        XCTAssertEqual(attachment.captionStyle, "caption1", "Caption style should be preserved")
+    }
+    
+    func testCaptionNotificationIsSent() {
+        // Given
+        let attachment = ImageAttachment()
+        let expectation = XCTestExpectation(description: "Notification should be posted")
+        
+        let observer = NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("ImageAttachmentPropertiesChanged"),
+            object: nil,
+            queue: .main
+        ) { notification in
+            if let imageID = notification.userInfo?["imageID"] as? UUID,
+               imageID == attachment.imageID {
+                expectation.fulfill()
+            }
+        }
+        
+        // When
+        attachment.updateCaption(hasCaption: true, text: "Test", style: "caption1")
+        
+        // Then
+        wait(for: [expectation], timeout: 1.0)
+        NotificationCenter.default.removeObserver(observer)
     }
     
     // MARK: - Display Size Tests

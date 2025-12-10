@@ -87,9 +87,7 @@ final class ImageUpdateCommand: UndoableCommand {
         // Update attachment properties to new state
         attachment?.scale = newScale
         attachment?.alignment = newAlignment
-        attachment?.hasCaption = newHasCaption
-        attachment?.captionText = newCaptionText
-        attachment?.captionStyle = newCaptionStyle
+        attachment?.updateCaption(hasCaption: newHasCaption, text: newCaptionText, style: newCaptionStyle)
         
         #if DEBUG
         print("✅ ImageUpdateCommand.execute() - Applied image update: \(description)")
@@ -115,9 +113,7 @@ final class ImageUpdateCommand: UndoableCommand {
         // Restore old attachment properties
         attachment?.scale = oldScale
         attachment?.alignment = oldAlignment
-        attachment?.hasCaption = oldHasCaption
-        attachment?.captionText = oldCaptionText
-        attachment?.captionStyle = oldCaptionStyle
+        attachment?.updateCaption(hasCaption: oldHasCaption, text: oldCaptionText, style: oldCaptionStyle)
         
         #if DEBUG
         print("↩️ ImageUpdateCommand.undo() - Reverted image update: \(description)")

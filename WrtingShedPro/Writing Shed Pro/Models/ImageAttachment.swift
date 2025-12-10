@@ -63,6 +63,9 @@ class ImageAttachment: NSTextAttachment, Identifiable {
     /// Image style name (from stylesheet) - references an ImageStyle
     var imageStyleName: String = "default"
     
+    /// File ID for accessing the correct stylesheet (for caption rendering)
+    var fileID: UUID?
+    
     /// Maximum width for images (prevents oversized images)
     static let maxWidth: CGFloat = 2048
     
@@ -132,6 +135,12 @@ class ImageAttachment: NSTextAttachment, Identifiable {
             self.imageStyleName = "default"
         }
         
+        // Decode optional fileID
+        if let fileIDString = coder.decodeObject(of: NSString.self, forKey: "fileID") as? String,
+           let uuid = UUID(uuidString: fileIDString) {
+            self.fileID = uuid
+        }
+        
         if let imageDataDecoded = coder.decodeObject(of: NSData.self, forKey: "imageData") as? Data {
             self.imageData = imageDataDecoded
             self.image = UIImage(data: imageDataDecoded)
@@ -159,6 +168,9 @@ class ImageAttachment: NSTextAttachment, Identifiable {
         }
         if let imageData = imageData {
             coder.encode(imageData, forKey: "imageData")
+        }
+        if let fileID = fileID {
+            coder.encode(fileID.uuidString, forKey: "fileID")
         }
     }
     
@@ -201,11 +213,30 @@ class ImageAttachment: NSTextAttachment, Identifiable {
         captionText = text
         captionStyle = style
         hasCaption = text != nil && !text!.isEmpty
+        notifyPropertiesChanged()
     }
     
     /// Enable or disable caption
     func setCaptionEnabled(_ enabled: Bool) {
         hasCaption = enabled
+        notifyPropertiesChanged()
+    }
+    
+    /// Update caption properties
+    func updateCaption(hasCaption: Bool, text: String?, style: String?) {
+        self.hasCaption = hasCaption
+        self.captionText = text
+        self.captionStyle = style
+        notifyPropertiesChanged()
+    }
+    
+    /// Notify observers that properties have changed
+    private func notifyPropertiesChanged() {
+        NotificationCenter.default.post(
+            name: NSNotification.Name("ImageAttachmentPropertiesChanged"),
+            object: nil,
+            userInfo: ["imageID": imageID]
+        )
     }
     
     /// Update bounds based on current image and scale
@@ -287,6 +318,21 @@ class ImageAttachment: NSTextAttachment, Identifiable {
         
         return attachment
     }
+    
+    // MARK: - View Provider (iOS 15+)
+    
+    #if !os(macOS)
+    /// Register custom view provider for rendering image with caption
+    @available(iOS 15.0, *)
+    override func viewProvider(for parentView: UIView?, location: NSTextLocation, textContainer: NSTextContainer?) -> NSTextAttachmentViewProvider? {
+        return ImageAttachmentViewProvider(
+            textAttachment: self,
+            parentView: parentView,
+            textLayoutManager: textContainer?.textLayoutManager,
+            location: location
+        )
+    }
+    #endif
 }
 
 // MARK: - Extension for UIImage/NSImage compatibility

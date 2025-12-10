@@ -688,6 +688,9 @@ struct FileEditView: View {
                 .presentationDetents([.medium, .large])
             }
             .onDisappear {
+                // Unregister stylesheet from provider
+                StyleSheetProvider.shared.unregister(fileID: file.id)
+                
                 // Disconnect search manager to clean up highlights and observers
                 searchManager.disconnect()
                 saveChanges()
@@ -870,6 +873,11 @@ struct FileEditView: View {
     
     private func setupOnAppear() {
         
+        // Register stylesheet with provider for image caption rendering
+        if let styleSheet = file.project?.styleSheet {
+            StyleSheetProvider.shared.register(styleSheet: styleSheet, for: file.id)
+        }
+        
         // Always jump to latest version when opening a file
         file.selectLatestVersion()
         
@@ -882,7 +890,15 @@ struct FileEditView: View {
         if attributedContent.length == 0, let savedContent = file.currentVersion?.attributedContent {
             print("📂 onAppear: Initial load of content, length: \(savedContent.length)")
             // Strip adaptive colors (black/white/gray) to support dark mode properly
-            attributedContent = AttributedStringSerializer.stripAdaptiveColors(from: savedContent)
+            var processedContent = AttributedStringSerializer.stripAdaptiveColors(from: savedContent)
+            
+            // Scale fonts for iPhone to match visual appearance
+            if UIDevice.current.userInterfaceIdiom == .phone {
+                processedContent = AttributedStringSerializer.scaleFonts(processedContent, scaleFactor: 0.55)
+                print("📂 onAppear: Scaled fonts to 55% for iPhone (display only)")
+            }
+            
+            attributedContent = processedContent
             previousContent = attributedContent.string
             
             // CRITICAL: Restore orphaned comment markers from database
@@ -2616,7 +2632,7 @@ struct FileEditView: View {
             // Scale fonts for iPhone to match visual appearance
             if UIDevice.current.userInterfaceIdiom == .phone {
                 processedContent = AttributedStringSerializer.scaleFonts(processedContent, scaleFactor: 0.55)
-                print("📝 loadCurrentVersion: Scaled fonts to 55% for iPhone")
+                print("📝 loadCurrentVersion: Scaled fonts to 55% for iPhone (display only)")
             }
             
             newAttributedContent = processedContent
@@ -2634,7 +2650,7 @@ struct FileEditView: View {
                 if UIDevice.current.userInterfaceIdiom == .phone, let font = bodyAttrs[.font] as? UIFont {
                     let scaledFont = font.withSize(font.pointSize * 0.55)
                     bodyAttrs[.font] = scaledFont
-                    print("📝 loadCurrentVersion: Scaled Body font to 55% for iPhone (\(font.pointSize)pt -> \(scaledFont.pointSize)pt)")
+                    print("📝 loadCurrentVersion: Scaled Body font to 55% for iPhone (display only) (\(font.pointSize)pt -> \(scaledFont.pointSize)pt)")
                 }
                 
                 // Debug: Log what we're initializing with
@@ -2683,7 +2699,16 @@ struct FileEditView: View {
         // Save the current attributed content to the model
         // IMPORTANT: Get the current content from the textView to include all attachments (comments, images)
         if let textView = textViewCoordinator.textView {
-            let currentContent = textView.attributedText ?? NSAttributedString()
+            var currentContent = textView.attributedText ?? NSAttributedString()
+            
+            // CRITICAL: Reverse the iPhone font scaling before saving
+            // We scale fonts down for display (0.55x), so we need to scale up (1/0.55 = 1.818...) before saving
+            // This ensures the database stores the original font sizes
+            if UIDevice.current.userInterfaceIdiom == .phone {
+                currentContent = AttributedStringSerializer.scaleFonts(currentContent, scaleFactor: 1.0 / 0.55)
+                print("💾 Reversed iPhone font scaling (1/0.55 = \(1.0/0.55)x) before saving to database")
+            }
+            
             file.currentVersion?.attributedContent = currentContent
             
             // Count attachments for debugging
@@ -2701,7 +2726,15 @@ struct FileEditView: View {
             }
             print("💾 Saving attributed content with \(commentCount) comments, \(imageCount) images, and \(footnoteCount) footnotes")
         } else {
-            file.currentVersion?.attributedContent = attributedContent
+            var contentToSave = attributedContent
+            
+            // CRITICAL: Reverse the iPhone font scaling before saving
+            if UIDevice.current.userInterfaceIdiom == .phone {
+                contentToSave = AttributedStringSerializer.scaleFonts(contentToSave, scaleFactor: 1.0 / 0.55)
+                print("💾 Reversed iPhone font scaling (1/0.55 = \(1.0/0.55)x) before saving to database")
+            }
+            
+            file.currentVersion?.attributedContent = contentToSave
         }
         
         file.modifiedDate = Date()
@@ -2755,9 +2788,7 @@ struct FileEditView: View {
         
         attachment.scale = scale
         attachment.alignment = alignment
-        attachment.hasCaption = hasCaption
-        attachment.captionText = captionText
-        attachment.captionStyle = captionStyle
+        attachment.updateCaption(hasCaption: hasCaption, text: captionText, style: captionStyle)
         
         // Update the paragraph alignment to match image alignment
         let mutableContent = NSMutableAttributedString(attributedString: attributedContent)

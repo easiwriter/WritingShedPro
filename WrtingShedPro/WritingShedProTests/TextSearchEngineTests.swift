@@ -161,10 +161,11 @@ final class TextSearchEngineTests: XCTestCase {
         let query = SearchQuery(searchText: "fox")
         
         let matches = engine.search(in: text, query: query)
+        let enriched = engine.enrichMatches(matches, in: text)
         
-        XCTAssertEqual(matches.count, 1)
-        XCTAssertFalse(matches[0].context.isEmpty)
-        XCTAssertTrue(matches[0].context.contains("fox"))
+        XCTAssertEqual(enriched.count, 1)
+        XCTAssertFalse(enriched[0].context.isEmpty)
+        XCTAssertTrue(enriched[0].context.contains("fox"))
     }
     
     func testContextExtractionAtStartOfText() {
@@ -205,9 +206,10 @@ final class TextSearchEngineTests: XCTestCase {
         let query = SearchQuery(searchText: "First")
         
         let matches = engine.search(in: text, query: query)
+        let enriched = engine.enrichMatches(matches, in: text)
         
-        XCTAssertEqual(matches.count, 1)
-        XCTAssertEqual(matches[0].lineNumber, 1)
+        XCTAssertEqual(enriched.count, 1)
+        XCTAssertEqual(enriched[0].lineNumber, 1)
     }
     
     func testLineNumberSecondLine() {
@@ -215,9 +217,10 @@ final class TextSearchEngineTests: XCTestCase {
         let query = SearchQuery(searchText: "Second")
         
         let matches = engine.search(in: text, query: query)
+        let enriched = engine.enrichMatches(matches, in: text)
         
-        XCTAssertEqual(matches.count, 1)
-        XCTAssertEqual(matches[0].lineNumber, 2)
+        XCTAssertEqual(enriched.count, 1)
+        XCTAssertEqual(enriched[0].lineNumber, 2)
     }
     
     func testLineNumberMultipleLines() {
@@ -225,9 +228,10 @@ final class TextSearchEngineTests: XCTestCase {
         let query = SearchQuery(searchText: "test")
         
         let matches = engine.search(in: text, query: query)
+        let enriched = engine.enrichMatches(matches, in: text)
         
-        XCTAssertEqual(matches.count, 1)
-        XCTAssertEqual(matches[0].lineNumber, 3)
+        XCTAssertEqual(enriched.count, 1)
+        XCTAssertEqual(enriched[0].lineNumber, 3)
     }
     
     // MARK: - Special Characters Tests
@@ -383,6 +387,6 @@ final class TextSearchEngineTests: XCTestCase {
         let matches = engine.search(in: text, query: query)
         
         XCTAssertEqual(matches.count, 1)
-        XCTAssertEqual(matches[0].matchedText, "test")
+        XCTAssertEqual(matches[0].extractMatchedText(from: text), "test")
     }
 }
