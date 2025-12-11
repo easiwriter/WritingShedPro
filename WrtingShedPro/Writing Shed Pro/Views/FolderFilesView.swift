@@ -61,6 +61,8 @@ struct FolderFilesView: View {
     @State private var exportFilename: String = ""
     @State private var exportCombinedContent: NSAttributedString?
     @State private var exportAttributedStrings: [NSAttributedString] = []  // For HTML multi-file export
+    @State private var exportContainsImages = false  // Track if export contains images
+    @State private var showRTFImageWarning = false  // Show warning for RTF with images
     
     // State for search
     @State private var showSearchView = false
@@ -357,6 +359,27 @@ struct FolderFilesView: View {
         ) { result in
             handleExportResult(result: result)
         }
+        .alert("RTF Image Warning", isPresented: $showRTFImageWarning) {
+            Button("Use HTML Instead", role: .cancel) {
+                exportCombinedFolder(format: .html)
+            }
+            Button("Use EPUB Instead", role: .cancel) {
+                exportCombinedFolder(format: .epub)
+            }
+            Button("Export RTF Anyway") {
+                // Continue with RTF export despite images
+                guard let combinedContent = exportCombinedContent else { return }
+                do {
+                    exportData = try WordDocumentService.exportToRTF(combinedContent, filename: exportFilename)
+                    showExportSaveDialog = true
+                } catch {
+                    importErrorMessage = NSLocalizedString("export.error.failed", comment: "Export failed") + ": \(error.localizedDescription)"
+                    showImportError = true
+                }
+            }
+        } message: {
+            Text("This document contains images. RTF format does not support embedded images. Images will not appear in the exported file.\n\nConsider using HTML or EPUB format instead for documents with images.")
+        }
     }
     
     // MARK: - Computed Properties for Callbacks
@@ -542,11 +565,35 @@ struct FolderFilesView: View {
         // Also create combined content for RTF/EPUB
         let combinedContent = NSMutableAttributedString()
         
-        for (_, file) in sortedFiles.enumerated() {
+        // Track if any file contains images
+        var hasImages = false
+        
+        for (index, file) in sortedFiles.enumerated() {
             guard let version = file.currentVersion,
                   let attributedString = version.attributedContent else {
                 continue
             }
+            
+            #if DEBUG
+            // Check if this attributed string contains images
+            var imageCount = 0
+            attributedString.enumerateAttribute(.attachment, in: NSRange(location: 0, length: attributedString.length)) { value, _, _ in
+                if value is ImageAttachment {
+                    imageCount += 1
+                }
+            }
+            print("📄 FolderFilesView: File \(index + 1) '\(file.name)' has \(imageCount) images in attributedContent")
+            if imageCount > 0 {
+                hasImages = true
+            }
+            #else
+            // Check for images in release builds too
+            attributedString.enumerateAttribute(.attachment, in: NSRange(location: 0, length: attributedString.length)) { value, _, _ in
+                if value is ImageAttachment {
+                    hasImages = true
+                }
+            }
+            #endif
             
             // Store individual attributed string for HTML export
             attributedStrings.append(attributedString)
@@ -563,6 +610,7 @@ struct FolderFilesView: View {
         // Store both formats for export
         exportAttributedStrings = attributedStrings
         exportCombinedContent = combinedContent
+        exportContainsImages = hasImages
         // Use the project name for the exported file, not the folder name
         exportFilename = folder.project?.name ?? folder.name ?? "Project"
         
@@ -571,6 +619,13 @@ struct FolderFilesView: View {
     }
     
     private func exportCombinedFolder(format: ExportFormat) {
+        // Check if RTF format with images - show warning
+        if format == .rtf && exportContainsImages {
+            self.exportFormat = format
+            showRTFImageWarning = true
+            return
+        }
+        
         // Set the export format
         self.exportFormat = format
         

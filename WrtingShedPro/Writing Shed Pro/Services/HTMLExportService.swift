@@ -173,8 +173,11 @@ class HTMLExportService {
         var allStyles = ""  // Accumulate all unique styles
         
         for (index, attributedString) in attributedStrings.enumerated() {
+            // Prepare content for export with explicit colors
+            let exportReady = AttributedStringSerializer.prepareForExport(from: attributedString)
+            
             // Extract images before HTML conversion
-            let extractedImages = extractImages(from: attributedString)
+            let extractedImages = extractImages(from: exportReady)
             
             // Convert to HTML
             let documentAttributes: [NSAttributedString.DocumentAttributeKey: Any] = [
@@ -182,8 +185,8 @@ class HTMLExportService {
                 .characterEncoding: String.Encoding.utf8.rawValue
             ]
             
-            guard let htmlData = try? attributedString.data(
-                from: NSRange(location: 0, length: attributedString.length),
+            guard let htmlData = try? exportReady.data(
+                from: NSRange(location: 0, length: exportReady.length),
                 documentAttributes: documentAttributes
             ),
             let htmlString = String(data: htmlData, encoding: .utf8) else {

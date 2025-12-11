@@ -86,12 +86,15 @@ class EPUBExportService {
         var allStyles = ""  // Accumulate all unique styles
         
         for (index, attributedString) in attributedStrings.enumerated() {
+            // Prepare content for export with explicit colors
+            let exportReady = AttributedStringSerializer.prepareForExport(from: attributedString)
+            
             // Extract images before conversion
             #if DEBUG
-            print("🔍 EPUBExportService: Scanning file \(index + 1) for images (length: \(attributedString.length))")
+            print("🔍 EPUBExportService: Scanning file \(index + 1) for images (length: \(exportReady.length))")
             #endif
             
-            attributedString.enumerateAttribute(.attachment, in: NSRange(location: 0, length: attributedString.length)) { value, range, _ in
+            exportReady.enumerateAttribute(.attachment, in: NSRange(location: 0, length: exportReady.length)) { value, range, _ in
                 #if DEBUG
                 print("🔍 Found attachment at range \(range): \(type(of: value))")
                 #endif
@@ -129,8 +132,8 @@ class EPUBExportService {
                 .characterEncoding: String.Encoding.utf8.rawValue
             ]
             
-            guard let htmlData = try? attributedString.data(
-                from: NSRange(location: 0, length: attributedString.length),
+            guard let htmlData = try? exportReady.data(
+                from: NSRange(location: 0, length: exportReady.length),
                 documentAttributes: documentAttributes
             ),
             let htmlString = String(data: htmlData, encoding: .utf8) else {

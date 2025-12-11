@@ -99,7 +99,10 @@ class WordDocumentService {
         _ attributedString: NSAttributedString,
         filename: String
     ) throws -> Data {
-        guard let rtfData = AttributedStringSerializer.toRTF(attributedString) else {
+        // Prepare content for export with explicit colors
+        let exportReady = AttributedStringSerializer.prepareForExport(from: attributedString)
+        
+        guard let rtfData = AttributedStringSerializer.toRTF(exportReady) else {
             throw WordDocumentError.exportFailed("RTF conversion failed")
         }
         

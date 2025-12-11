@@ -171,6 +171,38 @@ struct AttributedStringSerializer {
         return mutableString
     }
     
+    /// Prepare attributed string for export by setting explicit colors for document formats
+    /// - Parameter attributedString: The string to prepare for export
+    /// - Returns: Attributed string with explicit black text color (for light background documents)
+    static func prepareForExport(from attributedString: NSAttributedString) -> NSAttributedString {
+        let mutableString = NSMutableAttributedString(attributedString: attributedString)
+        let fullRange = NSRange(location: 0, length: mutableString.length)
+        
+        // Replace all adaptive/system colors with explicit black for document export
+        // Documents are typically viewed on white/light backgrounds
+        mutableString.enumerateAttribute(.foregroundColor, in: fullRange, options: []) { value, range, _ in
+            if let color = value as? UIColor {
+                // Get RGB components to check what color this is
+                var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
+                color.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+                
+                // If it's an adaptive color (.label, system colors), white, or very light gray, replace with black
+                let isWhiteOrLight = red > 0.9 && green > 0.9 && blue > 0.9
+                
+                if isAdaptiveSystemColor(color) || isWhiteOrLight {
+                    mutableString.removeAttribute(.foregroundColor, range: range)
+                    mutableString.addAttribute(.foregroundColor, value: UIColor.black, range: range)
+                }
+                // For black text or other colors (like user-chosen colors), keep them as-is
+            } else {
+                // No color set - add explicit black
+                mutableString.addAttribute(.foregroundColor, value: UIColor.black, range: range)
+            }
+        }
+        
+        return mutableString
+    }
+    
     // MARK: - Attribute-based Encoding/Decoding
     
     /// Encode NSAttributedString to Data by extracting font traits
