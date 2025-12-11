@@ -267,11 +267,21 @@ class JSONImportService {
     // MARK: - Versions Import
     
     private func importVersions(from versionDatas: [VersionData], into textFile: TextFile) throws {
+        print("[JSONImport]   Processing \(versionDatas.count) versions for sorting")
+        
+        // First, create all versions with their dates parsed
+        var versionsWithDates: [(version: Version, date: Date, data: VersionData)] = []
+        
         for (index, versionData) in versionDatas.enumerated() {
             let version = Version()
-            version.versionNumber = index + 1
-            version.createdDate = Date() // Would need to decode from versionData.version
             version.textFile = textFile
+            
+            // Parse creation date from version string
+            // The version field contains a date string like "2024-12-10 14:30:00 +0000"
+            print("[JSONImport]     Version \(index + 1) raw date string: '\(versionData.version)'")
+            let createdDate = parseDateFromVersionString(versionData.version)
+            print("[JSONImport]     Parsed to: \(createdDate)")
+            version.createdDate = createdDate
             
             // Decode notes
             if let notesString = try? decodeAttributedString(from: versionData.notes, plainText: versionData.notesText) {
@@ -298,11 +308,91 @@ class JSONImportService {
                 }
             }
             
-            // Cache for later linking
-            versionMap[versionData.id] = version
-            
-            modelContext.insert(version)
+            versionsWithDates.append((version: version, date: createdDate, data: versionData))
         }
+        
+        // Sort versions by date (oldest first) and assign version numbers
+        let sortedVersions = versionsWithDates.sorted { $0.date < $1.date }
+        
+        print("[JSONImport]   Sorted order:")
+        for (index, item) in sortedVersions.enumerated() {
+            item.version.versionNumber = index + 1
+            print("[JSONImport]     Version \(index + 1): date=\(item.date), raw='\(item.data.version)'")
+            
+            // Cache for later linking
+            versionMap[item.data.id] = item.version
+            
+            modelContext.insert(item.version)
+        }
+        
+        print("[JSONImport]   ✅ Created \(sortedVersions.count) versions in chronological order")
+    }
+    
+    /// Parse date from version string (Core Data timestamp format)
+    private func parseDateFromVersionString(_ versionString: String) -> Date {
+        // The version string is actually a JSON object containing date information
+        // Example: {"date": 783237732.3579321, "dateLastUpdated": 785361073.1350951, ...}
+        
+        if let jsonData = versionString.data(using: .utf8),
+           let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
+           let dateValue = json["date"] as? Double {
+            // Core Data stores dates as TimeInterval since reference date (Jan 1, 2001)
+            let date = Date(timeIntervalSinceReferenceDate: dateValue)
+            print("[JSONImport]       Parsed JSON date: \(dateValue) -> \(date)")
+            return date
+        }
+        
+        // Fallback: try to parse as a numeric timestamp
+        if let timestamp = Double(versionString) {
+            // Core Data stores dates as TimeInterval since reference date (Jan 1, 2001)
+            let date = Date(timeIntervalSinceReferenceDate: timestamp)
+            // Check if this is a reasonable date (between 2000 and 2030)
+            if date.timeIntervalSince1970 > 946684800 && date.timeIntervalSince1970 < 1893456000 {
+                return date
+            }
+            
+            // If reference date doesn't work, try Unix timestamp (since 1970)
+            let unixDate = Date(timeIntervalSince1970: timestamp)
+            if unixDate.timeIntervalSince1970 > 946684800 && unixDate.timeIntervalSince1970 < 1893456000 {
+                return unixDate
+            }
+        }
+        
+        // Try multiple date string formats
+        let formatters = [
+            // ISO 8601 with timezone
+            { () -> DateFormatter in
+                let formatter = DateFormatter()
+                formatter.dateFormat = "yyyy-MM-dd HH:mm:ss Z"
+                formatter.locale = Locale(identifier: "en_US_POSIX")
+                return formatter
+            }(),
+            // ISO 8601 without timezone
+            { () -> DateFormatter in
+                let formatter = DateFormatter()
+                formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+                formatter.locale = Locale(identifier: "en_US_POSIX")
+                formatter.timeZone = TimeZone(secondsFromGMT: 0)
+                return formatter
+            }(),
+            // Timestamp as string
+            { () -> DateFormatter in
+                let formatter = DateFormatter()
+                formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
+                formatter.locale = Locale(identifier: "en_US_POSIX")
+                return formatter
+            }()
+        ]
+        
+        for formatter in formatters {
+            if let date = formatter.date(from: versionString) {
+                print("[JSONImport]       Successfully parsed with format: \(formatter.dateFormat ?? "unknown")")
+                return date
+            }
+        }
+        
+        print("[JSONImport]   ⚠️ Could not parse version date: '\(versionString)', using current date")
+        return Date()
     }
     
     // MARK: - Publications Import

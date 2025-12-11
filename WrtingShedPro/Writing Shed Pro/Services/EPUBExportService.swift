@@ -87,16 +87,39 @@ class EPUBExportService {
         
         for (index, attributedString) in attributedStrings.enumerated() {
             // Extract images before conversion
+            #if DEBUG
+            print("🔍 EPUBExportService: Scanning file \(index + 1) for images (length: \(attributedString.length))")
+            #endif
+            
             attributedString.enumerateAttribute(.attachment, in: NSRange(location: 0, length: attributedString.length)) { value, range, _ in
-                if let attachment = value as? ImageAttachment,
-                   let imageData = attachment.imageData {
-                    allImages.append((
-                        imageData,
-                        attachment.alignment.rawValue,
-                        attachment.scale,
-                        attachment.captionText,
-                        attachment.hasCaption
-                    ))
+                #if DEBUG
+                print("🔍 Found attachment at range \(range): \(type(of: value))")
+                #endif
+                
+                if let attachment = value as? ImageAttachment {
+                    #if DEBUG
+                    print("✅ ImageAttachment found!")
+                    print("   - Has imageData: \(attachment.imageData != nil)")
+                    print("   - Scale: \(attachment.scale)")
+                    print("   - Alignment: \(attachment.alignment.rawValue)")
+                    #endif
+                    
+                    if let imageData = attachment.imageData {
+                        allImages.append((
+                            imageData,
+                            attachment.alignment.rawValue,
+                            attachment.scale,
+                            attachment.captionText,
+                            attachment.hasCaption
+                        ))
+                        #if DEBUG
+                        print("✅ Image extracted for EPUB (size: \(imageData.count) bytes)")
+                        #endif
+                    } else {
+                        #if DEBUG
+                        print("❌ ImageAttachment has no imageData")
+                        #endif
+                    }
                 }
             }
             
@@ -178,6 +201,19 @@ class EPUBExportService {
         var combinedBodyWithImages = htmlBodies.joined(separator: "\n<div style=\"page-break-after: always;\"></div>\n")
         var currentImageIndex = 0
         
+        #if DEBUG
+        print("📝 EPUBExportService: Replacing \(allImages.count) images in combined body")
+        print("📝 Body contains unicode attachment chars: \(combinedBodyWithImages.contains("\u{FFFC}"))")
+        print("📝 Body contains 'Attachment' text: \(combinedBodyWithImages.contains("Attachment"))")
+        if combinedBodyWithImages.contains("Attachment") {
+            if let range = combinedBodyWithImages.range(of: "Attachment") {
+                let start = combinedBodyWithImages.index(range.lowerBound, offsetBy: -20, limitedBy: combinedBodyWithImages.startIndex) ?? combinedBodyWithImages.startIndex
+                let end = combinedBodyWithImages.index(range.upperBound, offsetBy: 20, limitedBy: combinedBodyWithImages.endIndex) ?? combinedBodyWithImages.endIndex
+                print("📝 Sample: ...\(combinedBodyWithImages[start..<end])...")
+            }
+        }
+        #endif
+        
         // Replace each image placeholder (either unicode character or iOS-generated img tag)
         while currentImageIndex < allImages.count {
             let (_, alignment, scale, caption, hasCaption) = allImages[currentImageIndex]
@@ -193,6 +229,12 @@ class EPUBExportService {
                 imageHTML += "\n<p class=\"image-caption\">\(captionText)</p>"
             }
             
+            #if DEBUG
+            print("🔄 Replacing EPUB image \(currentImageIndex + 1) with src='\(imageSrc)'")
+            #endif
+            
+            var replaced = false
+            
             // iOS HTML converter creates either:
             // 1. Unicode attachment character (U+FFFC)
             // 2. <img src="Attachment.tiff"> or similar placeholder
@@ -202,6 +244,10 @@ class EPUBExportService {
             if let range = combinedBodyWithImages.range(of: attachmentChar) {
                 combinedBodyWithImages.replaceSubrange(range, with: imageHTML)
                 currentImageIndex += 1
+                replaced = true
+                #if DEBUG
+                print("✅ Replaced unicode attachment character")
+                #endif
             } else {
                 // Look for iOS-generated img tag placeholder
                 // Match patterns like: <img src="file:///Attachment.tiff"...> or src="Attachment-1.tiff"
@@ -210,18 +256,38 @@ class EPUBExportService {
                     let nsRange = NSRange(combinedBodyWithImages.startIndex..., in: combinedBodyWithImages)
                     if let match = regex.firstMatch(in: combinedBodyWithImages, options: [], range: nsRange),
                        let range = Range(match.range, in: combinedBodyWithImages) {
+                        #if DEBUG
+                        print("✅ Found and replacing iOS img tag: \(combinedBodyWithImages[range])")
+                        #endif
                         combinedBodyWithImages.replaceSubrange(range, with: imageHTML)
                         currentImageIndex += 1
+                        replaced = true
                     } else {
                         // No more placeholders found, stop
+                        #if DEBUG
+                        print("❌ No more placeholders found, stopping at image \(currentImageIndex + 1)")
+                        #endif
                         break
                     }
                 } else {
                     // Regex failed, stop
+                    #if DEBUG
+                    print("❌ Regex failed for image \(currentImageIndex + 1)")
+                    #endif
                     break
                 }
             }
+            
+            #if DEBUG
+            if !replaced {
+                print("❌ Could not find placeholder to replace for EPUB image \(currentImageIndex + 1)")
+            }
+            #endif
         }
+        
+        #if DEBUG
+        print("📊 EPUB: Replaced \(currentImageIndex) of \(allImages.count) images")
+        #endif
         
         // Create complete HTML content (body only - styles will be passed separately)
         let htmlContent = """
