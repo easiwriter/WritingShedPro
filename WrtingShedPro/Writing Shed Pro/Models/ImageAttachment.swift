@@ -39,6 +39,9 @@ class ImageAttachment: NSTextAttachment, Identifiable {
     /// Original image data (for persistence)
     var imageData: Data?
     
+    /// Original filename when the image was imported (optional)
+    var originalFilename: String?
+    
     /// Scale percentage (0.1 to 2.0 = 10% to 200%)
     var scale: CGFloat = 1.0 {
         didSet {
@@ -69,6 +72,27 @@ class ImageAttachment: NSTextAttachment, Identifiable {
     /// Maximum width for images (prevents oversized images)
     static let maxWidth: CGFloat = 2048
     
+    // MARK: - Helper Methods
+    
+    /// Load UIImage from data with proper scale for the device
+    /// This ensures images display at the correct size (in points) on retina displays
+    private static func loadImage(from data: Data) -> UIImage? {
+        guard let image = UIImage(data: data) else { return nil }
+        
+        // If the image already has proper scale metadata, use it
+        if image.scale > 1.0 {
+            return image
+        }
+        
+        // Otherwise, create a new UIImage with device scale
+        // This ensures the image.size (in points) is correct for retina displays
+        if let cgImage = image.cgImage {
+            return UIImage(cgImage: cgImage, scale: UIScreen.main.scale, orientation: image.imageOrientation)
+        }
+        
+        return image
+    }
+    
     // MARK: - Alignment Enum
     
     enum ImageAlignment: String, Codable {
@@ -89,6 +113,13 @@ class ImageAttachment: NSTextAttachment, Identifiable {
         let originalSize = image.size
         let width = originalSize.width * scale
         let height = originalSize.height * scale
+        
+        #if DEBUG
+        // Only log if scale is unusual (< 0.5 or > 1.5)
+        if scale < 0.5 || scale > 1.5 {
+            print("🖼️ displaySize calc: originalSize=\(originalSize), scale=\(scale), result=\(CGSize(width: width, height: height))")
+        }
+        #endif
         
         return CGSize(width: width, height: height)
     }
@@ -127,6 +158,7 @@ class ImageAttachment: NSTextAttachment, Identifiable {
         // Decode optional properties
         self.captionText = coder.decodeObject(of: NSString.self, forKey: "captionText") as? String
         self.captionStyle = coder.decodeObject(of: NSString.self, forKey: "captionStyle") as? String
+        self.originalFilename = coder.decodeObject(of: NSString.self, forKey: "originalFilename") as? String
         
         // Decode imageStyleName - not optional, but provide default if missing
         if let styleName = coder.decodeObject(of: NSString.self, forKey: "imageStyleName") as? String {
@@ -143,7 +175,7 @@ class ImageAttachment: NSTextAttachment, Identifiable {
         
         if let imageDataDecoded = coder.decodeObject(of: NSData.self, forKey: "imageData") as? Data {
             self.imageData = imageDataDecoded
-            self.image = UIImage(data: imageDataDecoded)
+            self.image = ImageAttachment.loadImage(from: imageDataDecoded)
         }
         
         updateBounds()
@@ -165,6 +197,9 @@ class ImageAttachment: NSTextAttachment, Identifiable {
         }
         if let captionStyle = captionStyle {
             coder.encode(captionStyle, forKey: "captionStyle")
+        }
+        if let originalFilename = originalFilename {
+            coder.encode(originalFilename, forKey: "originalFilename")
         }
         if let imageData = imageData {
             coder.encode(imageData, forKey: "imageData")
@@ -284,10 +319,19 @@ class ImageAttachment: NSTextAttachment, Identifiable {
             scaledImage = NSImage(data: bitmapImage.representation(using: .jpeg, properties: [:]) ?? Data()) ?? image as! UIImage
             #else
             // iOS implementation
+            // Use 1.0 for scale to create smaller bitmap, then we'll restore proper scale in the UIImage
             UIGraphicsBeginImageContextWithOptions(newSize, false, 1.0)
             image.draw(in: CGRect(origin: .zero, size: newSize))
-            scaledImage = UIGraphicsGetImageFromCurrentImageContext() ?? image
+            let renderedImage = UIGraphicsGetImageFromCurrentImageContext() ?? image
             UIGraphicsEndImageContext()
+            
+            // Create UIImage with proper scale factor for the device
+            // This preserves the point-based size while keeping file size reasonable
+            if let cgImage = renderedImage.cgImage {
+                scaledImage = UIImage(cgImage: cgImage, scale: UIScreen.main.scale, orientation: renderedImage.imageOrientation)
+            } else {
+                scaledImage = renderedImage
+            }
             #endif
         } else {
             scaledImage = image
@@ -305,7 +349,7 @@ class ImageAttachment: NSTextAttachment, Identifiable {
     
     /// Create ImageAttachment from image data
     static func from(imageData: Data, scale: CGFloat = 1.0, alignment: ImageAlignment = .left) -> ImageAttachment? {
-        guard let image = UIImage(data: imageData) else {
+        guard let image = loadImage(from: imageData) else {
             return nil
         }
         

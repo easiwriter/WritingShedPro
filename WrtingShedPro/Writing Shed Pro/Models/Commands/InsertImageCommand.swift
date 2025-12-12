@@ -28,6 +28,9 @@ final class InsertImageCommand: UndoableCommand {
     /// Caption style name (if hasCaption is true)
     let captionStyle: String
     
+    /// Original filename (if available)
+    let originalFilename: String?
+    
     /// Reference to the target file (weak to prevent retain cycles)
     weak var targetFile: TextFile?
     
@@ -44,6 +47,7 @@ final class InsertImageCommand: UndoableCommand {
         hasCaption: Bool,
         captionText: String,
         captionStyle: String,
+        originalFilename: String? = nil,
         targetFile: TextFile?
     ) {
         self.id = id
@@ -56,6 +60,7 @@ final class InsertImageCommand: UndoableCommand {
         self.hasCaption = hasCaption
         self.captionText = captionText
         self.captionStyle = captionStyle
+        self.originalFilename = originalFilename
         self.targetFile = targetFile
     }
     
@@ -90,6 +95,8 @@ final class InsertImageCommand: UndoableCommand {
         attachment.scale = scale
         attachment.alignment = alignment
         attachment.fileID = file.id // Set file ID for stylesheet access
+        attachment.originalFilename = originalFilename // Set the original filename
+        print("🖼️💾 Set originalFilename on attachment: \(originalFilename ?? "nil")")
         if hasCaption {
             attachment.setCaption(text: captionText, style: captionStyle)
         }
@@ -129,6 +136,17 @@ final class InsertImageCommand: UndoableCommand {
             
             var insertPosition = position
             
+            // Get the attributes from the surrounding text to preserve font, color, etc.
+            var surroundingAttributes: [NSAttributedString.Key: Any] = [:]
+            if insertPosition > 0 && insertPosition < mutableContent.length {
+                // Get attributes from character before insertion point
+                surroundingAttributes = mutableContent.attributes(at: insertPosition - 1, effectiveRange: nil)
+            } else if mutableContent.length > 0 {
+                // Get attributes from first/last character
+                let refPosition = insertPosition == 0 ? 0 : mutableContent.length - 1
+                surroundingAttributes = mutableContent.attributes(at: refPosition, effectiveRange: nil)
+            }
+            
             // Create a text paragraph style to prevent image line height from bleeding
             let textParagraphStyle = NSMutableParagraphStyle()
             textParagraphStyle.alignment = .left
@@ -136,7 +154,7 @@ final class InsertImageCommand: UndoableCommand {
             
             // Insert newline before if needed
             if needsNewlineBefore {
-                let newline = NSMutableAttributedString(string: "\n")
+                let newline = NSMutableAttributedString(string: "\n", attributes: surroundingAttributes)
                 newline.addAttribute(.paragraphStyle, value: textParagraphStyle, range: NSRange(location: 0, length: 1))
                 mutableContent.insert(newline, at: insertPosition)
                 insertPosition += 1
@@ -148,7 +166,7 @@ final class InsertImageCommand: UndoableCommand {
             
             // Insert newline after if needed
             if needsNewlineAfter {
-                let newline = NSMutableAttributedString(string: "\n")
+                let newline = NSMutableAttributedString(string: "\n", attributes: surroundingAttributes)
                 newline.addAttribute(.paragraphStyle, value: textParagraphStyle, range: NSRange(location: 0, length: 1))
                 mutableContent.insert(newline, at: insertPosition)
             }
@@ -173,6 +191,18 @@ final class InsertImageCommand: UndoableCommand {
         // Update the version's content
         currentVersion.attributedContent = mutableContent
         print("🖼️💾 Set currentVersion.attributedContent")
+        
+        // DEBUG: Check if font size is preserved
+        if mutableContent.length > 0 {
+            let attrs = mutableContent.attributes(at: 0, effectiveRange: nil)
+            if let font = attrs[.font] as? UIFont {
+                print("🖼️💾 Font at position 0: \(font.fontName) \(font.pointSize)pt")
+            }
+            if let textStyle = attrs[.textStyle] {
+                print("🖼️💾 TextStyle at position 0: \(textStyle)")
+            }
+        }
+        
         file.modifiedDate = Date()
     }
     
@@ -200,7 +230,7 @@ final class InsertImageCommand: UndoableCommand {
     
     enum CodingKeys: String, CodingKey {
         case id, timestamp, description, position, imageData, scale, alignment
-        case hasCaption, captionText, captionStyle
+        case hasCaption, captionText, captionStyle, originalFilename
     }
     
     func encode(to encoder: Encoder) throws {
@@ -215,6 +245,7 @@ final class InsertImageCommand: UndoableCommand {
         try container.encode(hasCaption, forKey: .hasCaption)
         try container.encode(captionText, forKey: .captionText)
         try container.encode(captionStyle, forKey: .captionStyle)
+        try container.encodeIfPresent(originalFilename, forKey: .originalFilename)
     }
     
     required init(from decoder: Decoder) throws {
@@ -230,6 +261,7 @@ final class InsertImageCommand: UndoableCommand {
         hasCaption = try container.decode(Bool.self, forKey: .hasCaption)
         captionText = try container.decode(String.self, forKey: .captionText)
         captionStyle = try container.decode(String.self, forKey: .captionStyle)
+        originalFilename = try container.decodeIfPresent(String.self, forKey: .originalFilename)
         // Note: targetFile will be set when command is deserialized
     }
 }

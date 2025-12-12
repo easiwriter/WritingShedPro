@@ -61,8 +61,8 @@ struct FolderFilesView: View {
     @State private var exportFilename: String = ""
     @State private var exportCombinedContent: NSAttributedString?
     @State private var exportAttributedStrings: [NSAttributedString] = []  // For HTML multi-file export
-    @State private var exportContainsImages = false  // Track if export contains images
-    @State private var showRTFImageWarning = false  // Show warning for RTF with images
+    @State private var showImageWarning = false  // Show warning for RTF with images
+    @State private var imageWarningMessage = ""
     
     // State for search
     @State private var showSearchView = false
@@ -359,26 +359,20 @@ struct FolderFilesView: View {
         ) { result in
             handleExportResult(result: result)
         }
-        .alert("RTF Image Warning", isPresented: $showRTFImageWarning) {
-            Button("Use HTML Instead", role: .cancel) {
-                exportCombinedFolder(format: .html)
-            }
-            Button("Use EPUB Instead", role: .cancel) {
-                exportCombinedFolder(format: .epub)
-            }
-            Button("Export RTF Anyway") {
-                // Continue with RTF export despite images
-                guard let combinedContent = exportCombinedContent else { return }
-                do {
-                    exportData = try WordDocumentService.exportToRTF(combinedContent, filename: exportFilename)
-                    showExportSaveDialog = true
-                } catch {
-                    importErrorMessage = NSLocalizedString("export.error.failed", comment: "Export failed") + ": \(error.localizedDescription)"
-                    showImportError = true
+        .alert("Images Not Supported", isPresented: $showImageWarning) {
+            Button("Continue Export", role: nil) {
+                // Continue with export after user acknowledges the warning
+                if let content = exportCombinedContent {
+                    performCombinedExport(format: exportFormat, content: content)
+                } else if let firstFile = filesToExport.first,
+                          let version = firstFile.currentVersion,
+                          let attributedString = version.attributedContent {
+                    performSingleFileExport(format: exportFormat, content: attributedString, filename: firstFile.name)
                 }
             }
+            Button("Cancel", role: .cancel) { }
         } message: {
-            Text("This document contains images. RTF format does not support embedded images. Images will not appear in the exported file.\n\nConsider using HTML or EPUB format instead for documents with images.")
+            Text(imageWarningMessage)
         }
     }
     
@@ -565,9 +559,6 @@ struct FolderFilesView: View {
         // Also create combined content for RTF/EPUB
         let combinedContent = NSMutableAttributedString()
         
-        // Track if any file contains images
-        var hasImages = false
-        
         for (index, file) in sortedFiles.enumerated() {
             guard let version = file.currentVersion,
                   let attributedString = version.attributedContent else {
@@ -583,16 +574,6 @@ struct FolderFilesView: View {
                 }
             }
             print("📄 FolderFilesView: File \(index + 1) '\(file.name)' has \(imageCount) images in attributedContent")
-            if imageCount > 0 {
-                hasImages = true
-            }
-            #else
-            // Check for images in release builds too
-            attributedString.enumerateAttribute(.attachment, in: NSRange(location: 0, length: attributedString.length)) { value, _, _ in
-                if value is ImageAttachment {
-                    hasImages = true
-                }
-            }
             #endif
             
             // Store individual attributed string for HTML export
@@ -610,7 +591,6 @@ struct FolderFilesView: View {
         // Store both formats for export
         exportAttributedStrings = attributedStrings
         exportCombinedContent = combinedContent
-        exportContainsImages = hasImages
         // Use the project name for the exported file, not the folder name
         exportFilename = folder.project?.name ?? folder.name ?? "Project"
         
@@ -619,38 +599,68 @@ struct FolderFilesView: View {
     }
     
     private func exportCombinedFolder(format: ExportFormat) {
-        // Check if RTF format with images - show warning
-        if format == .rtf && exportContainsImages {
-            self.exportFormat = format
-            showRTFImageWarning = true
-            return
-        }
+        // ALWAYS print, not just in DEBUG
+        print("📁 exportCombinedFolder() called with format: \(format)")
+        print("📁 exportAttributedStrings count: \(exportAttributedStrings.count)")
+        print("📁 exportCombinedContent length: \(exportCombinedContent?.length ?? 0)")
         
         // Set the export format
         self.exportFormat = format
         
         guard let combinedContent = exportCombinedContent else {
+            print("❌ exportCombinedContent is nil!")
             return
         }
         
-        // Prepare export data based on format
-        do {
-            switch format {
-            case .rtf:
-                exportData = try WordDocumentService.exportToRTF(combinedContent, filename: exportFilename)
-            case .html:
-                // Use the array version for HTML to preserve page breaks and prevent CSS conflicts
-                exportData = try HTMLExportService.exportMultipleToHTMLData(exportAttributedStrings, filename: exportFilename)
-            case .epub:
-                // Use the array version for EPUB to preserve page breaks and prevent CSS conflicts
-                exportData = try EPUBExportService.exportMultipleToEPUB(exportAttributedStrings, filename: exportFilename)
+        // Check for images in RTF export
+        if format == .rtf && RTFImageEncoder.containsImages(combinedContent) {
+            imageWarningMessage = "RTF format does not support embedded images. Images will be replaced with '[Image omitted]' placeholders. For documents with images, please use HTML or EPUB export instead."
+            showImageWarning = true
+            // Don't proceed with export yet - wait for user to dismiss alert
+            return
+        }
+        
+        // Perform the actual export
+        performCombinedExport(format: format, content: combinedContent)
+    }
+    
+    private func performCombinedExport(format: ExportFormat, content: NSAttributedString) {
+        // Run export in background to keep UI responsive
+        Task {
+            do {
+                print("📁 About to call export service for format: \(format)")
+                
+                let data: Data
+                
+                switch format {
+                case .rtf:
+                    data = try await Task.detached {
+                        try WordDocumentService.exportToRTF(content, filename: exportFilename)
+                    }.value
+                case .html:
+                    // Use the array version for HTML to preserve page breaks and prevent CSS conflicts
+                    print("📁 Calling HTMLExportService.exportMultipleToHTMLData with \(exportAttributedStrings.count) strings")
+                    data = try await Task.detached {
+                        try HTMLExportService.exportMultipleToHTMLData(exportAttributedStrings, filename: exportFilename)
+                    }.value
+                case .epub:
+                    // Use the array version for EPUB to preserve page breaks and prevent CSS conflicts
+                    data = try await Task.detached {
+                        try EPUBExportService.exportMultipleToEPUB(exportAttributedStrings, filename: exportFilename)
+                    }.value
+                }
+                
+                await MainActor.run {
+                    exportData = data
+                    showExportSaveDialog = true
+                }
+                
+            } catch {
+                await MainActor.run {
+                    importErrorMessage = NSLocalizedString("export.error.failed", comment: "Export failed") + ": \(error.localizedDescription)"
+                    showImportError = true
+                }
             }
-            
-            showExportSaveDialog = true
-            
-        } catch {
-            importErrorMessage = NSLocalizedString("export.error.failed", comment: "Export failed") + ": \(error.localizedDescription)"
-            showImportError = true
         }
     }
     
@@ -666,18 +676,31 @@ struct FolderFilesView: View {
             return
         }
         
+        // Check for images in RTF export
+        if format == .rtf && RTFImageEncoder.containsImages(attributedString) {
+            imageWarningMessage = "RTF format does not support embedded images. Images will be replaced with '[Image omitted]' placeholders. For documents with images, please use HTML or EPUB export instead."
+            showImageWarning = true
+            // Don't proceed with export yet - wait for user to dismiss alert
+            return
+        }
+        
+        // Perform the actual export
+        performSingleFileExport(format: format, content: attributedString, filename: firstFile.name)
+    }
+    
+    private func performSingleFileExport(format: ExportFormat, content: NSAttributedString, filename: String) {
         // Prepare export data based on format
         do {
             switch format {
             case .rtf:
-                exportData = try WordDocumentService.exportToRTF(attributedString, filename: firstFile.name)
+                exportData = try WordDocumentService.exportToRTF(content, filename: filename)
             case .html:
-                exportData = try HTMLExportService.exportToHTMLData(attributedString, filename: firstFile.name)
+                exportData = try HTMLExportService.exportToHTMLData(content, filename: filename)
             case .epub:
-                exportData = try EPUBExportService.exportToEPUB(attributedString, filename: firstFile.name)
+                exportData = try EPUBExportService.exportToEPUB(content, filename: filename)
             }
             
-            exportFilename = firstFile.name
+            exportFilename = filename
             showExportSaveDialog = true
             
         } catch {

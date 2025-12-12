@@ -34,6 +34,7 @@ struct AttributeValues: Codable {
     var captionText: String?
     var captionStyle: String?
     var imageFileID: String?  // File ID for stylesheet access
+    var originalFilename: String?  // Original filename when imported
     
     // Comment attachment properties
     var isCommentAttachment: Bool?
@@ -203,6 +204,34 @@ struct AttributedStringSerializer {
         return mutableString
     }
     
+    /// Prepare attributed string for HTML export by removing adaptive/white colors
+    /// This allows CSS dark mode to work by not setting explicit black colors
+    static func prepareForHTMLExport(from attributedString: NSAttributedString) -> NSAttributedString {
+        let mutableString = NSMutableAttributedString(attributedString: attributedString)
+        let fullRange = NSRange(location: 0, length: mutableString.length)
+        
+        // Remove adaptive/system colors and white colors, but don't replace with black
+        // This allows CSS to control the default text color (including dark mode)
+        mutableString.enumerateAttribute(.foregroundColor, in: fullRange, options: []) { value, range, _ in
+            if let color = value as? UIColor {
+                // Get RGB components to check what color this is
+                var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
+                color.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+                
+                // If it's an adaptive color (.label, system colors), white, or very light gray, remove the color
+                let isWhiteOrLight = red > 0.9 && green > 0.9 && blue > 0.9
+                
+                if isAdaptiveSystemColor(color) || isWhiteOrLight {
+                    mutableString.removeAttribute(.foregroundColor, range: range)
+                }
+                // For other colors (like user-chosen colors), keep them as-is
+            }
+            // If no color set, leave it unset - CSS will handle it
+        }
+        
+        return mutableString
+    }
+    
     // MARK: - Attribute-based Encoding/Decoding
     
     /// Encode NSAttributedString to Data by extracting font traits
@@ -334,6 +363,7 @@ struct AttributedStringSerializer {
                             attributes.hasCaption = imageAttachment.hasCaption
                             attributes.captionText = imageAttachment.captionText
                             attributes.captionStyle = imageAttachment.captionStyle
+                            attributes.originalFilename = imageAttachment.originalFilename
                             
                             // Encode fileID if present
                             if let fileID = imageAttachment.fileID {
@@ -412,6 +442,12 @@ struct AttributedStringSerializer {
                 if let fontName = jsonAttributes.fontName,
                    let fontSize = jsonAttributes.fontSize {
                     
+                    #if DEBUG
+                    if location == 0 {
+                        print("📖 DECODE font at position 0: name=\(fontName), size=\(fontSize)")
+                    }
+                    #endif
+                    
                     var font: UIFont
                     let isBold = jsonAttributes.bold ?? false
                     let isItalic = jsonAttributes.italic ?? false
@@ -428,6 +464,12 @@ struct AttributedStringSerializer {
                         // Use the font name directly with traits
                         font = UIFont.fontWithNameAndTraits(fontName, size: fontSize, bold: isBold, italic: isItalic)
                     }
+                    
+                    #if DEBUG
+                    if location == 0 {
+                        print("📖 DECODE created font: \(font.fontName) \(font.pointSize)pt")
+                    }
+                    #endif
                     
                     attributes[.font] = font
                 }
@@ -534,6 +576,9 @@ struct AttributedStringSerializer {
                     attachment.captionText = jsonAttributes.captionText
                     attachment.captionStyle = jsonAttributes.captionStyle
                     
+                    // Restore original filename
+                    attachment.originalFilename = jsonAttributes.originalFilename
+                    
                     // Restore fileID
                     if let fileIDString = jsonAttributes.imageFileID,
                        let fileID = UUID(uuidString: fileIDString) {
@@ -609,6 +654,22 @@ struct AttributedStringSerializer {
     static func toRTF(_ attributedString: NSAttributedString) -> Data? {
         let range = NSRange(location: 0, length: attributedString.length)
         
+        // Check if the attributed string contains images
+        var hasImages = false
+        attributedString.enumerateAttribute(.attachment, in: range, options: []) { value, _, stop in
+            if value is ImageAttachment {
+                hasImages = true
+                stop.pointee = true
+            }
+        }
+        
+        // If there are images, use our custom RTF encoder
+        if hasImages {
+            print("📷 Using custom RTF encoder for image support")
+            return RTFImageEncoder.encodeToRTF(attributedString)
+        }
+        
+        // Otherwise, use Apple's standard RTF converter (more reliable for text-only)
         do {
             return try attributedString.data(
                 from: range,
@@ -726,32 +787,35 @@ struct AttributedStringSerializer {
         return fromRTF(data, scaleFonts: true)
     }
     
-    /// Scale all fonts in an attributed string by a factor
-    /// Used for legacy imports where Mac font sizes need iOS adjustment
+    /// Normalize imported text to use Body style while preserving traits
+    /// Used for legacy imports - discards original fonts and sizes, keeps only traits
     /// 
-    /// DESIGN: The scaling is purely for readability, not semantic meaning:
-    /// - All text is marked as .body style regardless of final font size
-    /// - Bold/italic/underline traits are preserved in the UIFont
-    /// - The .textStyle attribute ensures text is treated as Body, not matched by size
+    /// DESIGN: Strip all font family and size information:
+    /// - Apply Body style font (from system default)
+    /// - Preserve bold/italic/underline/strikethrough traits
+    /// - Mark all text as .body style for consistent formatting
     /// 
     /// - Parameters:
-    ///   - attributedString: The attributed string to scale
-    ///   - scaleFactor: Multiplicative scale factor (e.g., 1.8 for 80% increase)
-    /// - Returns: New attributed string with scaled fonts and .textStyle = .body attributes
+    ///   - attributedString: The attributed string to normalize
+    ///   - scaleFactor: Ignored - kept for API compatibility
+    /// - Returns: New attributed string with Body font and preserved traits
     static func scaleFonts(_ attributedString: NSAttributedString, scaleFactor: CGFloat) -> NSAttributedString {
-        guard scaleFactor != 1.0 && attributedString.length > 0 else {
+        guard attributedString.length > 0 else {
             return attributedString
         }
         
         let mutableString = NSMutableAttributedString(attributedString: attributedString)
         let range = NSRange(location: 0, length: mutableString.length)
         
+        // Get the default Body font from system
+        let baseBodyFont = UIFont.preferredFont(forTextStyle: .body)
+        
         var boldRangesBefore = 0
         var italicRangesBefore = 0
         var boldRangesAfter = 0
         var italicRangesAfter = 0
         
-        // Count traits BEFORE scaling
+        // Count traits BEFORE normalization
         mutableString.enumerateAttribute(.font, in: range, options: []) { value, _, _ in
             if let font = value as? UIFont {
                 if font.fontDescriptor.symbolicTraits.contains(.traitBold) { boldRangesBefore += 1 }
@@ -759,28 +823,30 @@ struct AttributedStringSerializer {
             }
         }
         
+        // Replace all fonts with Body style, preserving only traits
         mutableString.enumerateAttribute(.font, in: range, options: []) { value, range, _ in
             if let font = value as? UIFont {
-                let newSize = font.pointSize * scaleFactor
+                // Extract traits from the original font
+                let isBold = font.fontDescriptor.symbolicTraits.contains(.traitBold)
+                let isItalic = font.fontDescriptor.symbolicTraits.contains(.traitItalic)
                 
-                // CRITICAL: Preserve symbolic traits (bold, italic) when scaling
-                // UIFont.withSize() loses traits, so we must use the font descriptor
-                let descriptor = font.fontDescriptor
-                let scaledDescriptor = descriptor.withSize(newSize)
-                let scaledFont = UIFont(descriptor: scaledDescriptor, size: newSize)
+                // Create Body font with the same traits
+                // Use the system Body font family, not the original font family
+                let bodyFont = UIFont.fontWithNameAndTraits(
+                    baseBodyFont.familyName,
+                    size: baseBodyFont.pointSize,
+                    bold: isBold,
+                    italic: isItalic
+                )
                 
-                mutableString.addAttribute(.font, value: scaledFont, range: range)
+                mutableString.addAttribute(.font, value: bodyFont, range: range)
                 
-                // IMPORTANT: Set .textStyle = .body for all legacy imported text
-                // The 1.8x scaling is purely for readability (Mac 12pt → iOS 21.6pt)
-                // This should NOT affect semantic meaning - all body text should remain Body style
-                // The .textStyle attribute takes priority over font-size-based style matching
-                // Bold/italic/underline traits are preserved in the scaled font descriptor
+                // Mark all text as Body style
                 mutableString.addAttribute(.textStyle, value: UIFont.TextStyle.body.attributeValue, range: range)
             }
         }
         
-        // Count traits and attributes AFTER scaling
+        // Count traits AFTER normalization
         var underlineRangesAfter = 0
         var strikeRangesAfter = 0
         mutableString.enumerateAttribute(.font, in: range, options: []) { value, _, _ in
@@ -796,10 +862,10 @@ struct AttributedStringSerializer {
             if let style = value as? Int, style != 0 { strikeRangesAfter += 1 }
         }
         
-        print("📝 scaleFonts: BEFORE: \(boldRangesBefore) bold, \(italicRangesBefore) italic | AFTER: \(boldRangesAfter) bold, \(italicRangesAfter) italic, \(underlineRangesAfter) underline, \(strikeRangesAfter) strikethrough")
+        print("📝 scaleFonts (normalize): BEFORE: \(boldRangesBefore) bold, \(italicRangesBefore) italic | AFTER: \(boldRangesAfter) bold, \(italicRangesAfter) italic, \(underlineRangesAfter) underline, \(strikeRangesAfter) strikethrough")
         
         if boldRangesBefore != boldRangesAfter || italicRangesBefore != italicRangesAfter {
-            print("⚠️ WARNING: Trait counts changed during scaling!")
+            print("⚠️ WARNING: Trait counts changed during normalization!")
         }
         
         return mutableString

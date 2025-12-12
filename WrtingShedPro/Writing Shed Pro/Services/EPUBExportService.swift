@@ -56,10 +56,11 @@ class EPUBExportService {
     private struct ExtractedImage {
         let imageData: Data
         let range: NSRange
-        let scale: Double
+        let displayWidthPts: Int  // Display width in CSS points
         let alignment: String
         let hasCaption: Bool
         let captionText: String?
+        let imageSize: CGSize  // Natural image size in points
     }
     
     /// Export multiple attributed strings with page breaks between them
@@ -78,8 +79,7 @@ class EPUBExportService {
     ) throws -> Data {
         
         // Extract all images from all attributed strings
-        var allImages: [(Data, String, Double, String?, Bool)] = []  // (imageData, alignment, scale, caption, hasCaption)
-        var imageCounter = 0
+        var allImages: [ExtractedImage] = []
         
         // Convert each attributed string to HTML body content with namespacing
         var htmlBodies: [String] = []
@@ -107,20 +107,31 @@ class EPUBExportService {
                     print("   - Alignment: \(attachment.alignment.rawValue)")
                     #endif
                     
-                    if let imageData = attachment.imageData {
-                        allImages.append((
-                            imageData,
-                            attachment.alignment.rawValue,
-                            attachment.scale,
-                            attachment.captionText,
-                            attachment.hasCaption
-                        ))
+                    if let imageData = attachment.imageData,
+                       let image = attachment.image {
+                        
+                        // Calculate display width in CSS pixels (points) - same as HTML export
+                        // image.size is already in points (accounting for @2x/@3x scale)
+                        // scale represents what portion to display (e.g., 0.198 = fit to 406pt width)
+                        let displayWidthPts = Int(image.size.width * attachment.scale)
+                        
+                        let extractedImage = ExtractedImage(
+                            imageData: imageData,
+                            range: range,
+                            displayWidthPts: displayWidthPts,
+                            alignment: attachment.alignment.rawValue,
+                            hasCaption: attachment.hasCaption,
+                            captionText: attachment.captionText,
+                            imageSize: image.size
+                        )
+                        allImages.append(extractedImage)
+                        
                         #if DEBUG
-                        print("✅ Image extracted for EPUB (size: \(imageData.count) bytes)")
+                        print("✅ Image extracted for EPUB (size: \(imageData.count) bytes, displayWidth: \(displayWidthPts)px)")
                         #endif
                     } else {
                         #if DEBUG
-                        print("❌ ImageAttachment has no imageData")
+                        print("❌ ImageAttachment has no imageData or image")
                         #endif
                     }
                 }
@@ -219,21 +230,27 @@ class EPUBExportService {
         
         // Replace each image placeholder (either unicode character or iOS-generated img tag)
         while currentImageIndex < allImages.count {
-            let (_, alignment, scale, caption, hasCaption) = allImages[currentImageIndex]
+            let image = allImages[currentImageIndex]
             
             // Create image reference (images will be saved in OEBPS/images/)
             let imageSrc = "images/image\(currentImageIndex).png"
-            let widthPercent = Int(scale * 100)
             
-            var imageHTML = "<img src=\"\(imageSrc)\" class=\"img-\(alignment)\" style=\"width: \(widthPercent)%; max-width: 100%; height: auto;\" alt=\"Image \(currentImageIndex)\" />"
+            // For EPUB, calculate width as percentage of typical content width
+            // EPUB readers typically display content at ~300-400px width depending on device
+            // Using 300px as baseline to match HTML display size
+            let typicalEPUBContentWidth: CGFloat = 300.0
+            let widthPercent = min(100, Int((CGFloat(image.displayWidthPts) / typicalEPUBContentWidth) * 100))
+            
+            let alignClass = "img-\(image.alignment)"
+            var imageHTML = "<img src=\"\(imageSrc)\" class=\"\(alignClass)\" style=\"width: \(widthPercent)%; max-width: 100%; height: auto;\" alt=\"Image \(currentImageIndex)\" />"
             
             // Add caption if present
-            if hasCaption, let captionText = caption, !captionText.isEmpty {
+            if image.hasCaption, let captionText = image.captionText, !captionText.isEmpty {
                 imageHTML += "\n<p class=\"image-caption\">\(captionText)</p>"
             }
             
             #if DEBUG
-            print("🔄 Replacing EPUB image \(currentImageIndex + 1) with src='\(imageSrc)'")
+            print("🔄 Replacing EPUB image \(currentImageIndex + 1) with src='\(imageSrc)' (width: \(widthPercent)% = \(image.displayWidthPts)px / \(typicalEPUBContentWidth)px)")
             #endif
             
             var replaced = false
@@ -292,6 +309,10 @@ class EPUBExportService {
         print("📊 EPUB: Replaced \(currentImageIndex) of \(allImages.count) images")
         #endif
         
+        // Clean up HTML for EPUB/XHTML compatibility
+        // EPUB requires well-formed XHTML, so fix common issues from iOS HTML converter
+        combinedBodyWithImages = cleanHTMLForEPUB(combinedBodyWithImages)
+        
         // Create complete HTML content (body only - styles will be passed separately)
         let htmlContent = """
         <html>
@@ -308,7 +329,7 @@ class EPUBExportService {
             author: author,
             language: language,
             customCSS: allStyles,  // Pass iOS-generated styles
-            images: allImages.map { $0.0 }  // Extract just the image data
+            images: allImages.map { $0.imageData }  // Extract just the image data
         )
         
         #if DEBUG
@@ -318,6 +339,49 @@ class EPUBExportService {
         #endif
         
         return epub
+    }
+    
+    // MARK: - HTML Cleanup
+    
+    /// Clean HTML to ensure EPUB/XHTML compatibility
+    /// - Parameter html: Raw HTML from iOS converter
+    /// - Returns: Cleaned HTML suitable for EPUB
+    private static func cleanHTMLForEPUB(_ html: String) -> String {
+        var cleaned = html
+        
+        // Fix self-closing tags - EPUB requires XHTML format
+        // Replace <br> with <br/> (self-closing)
+        cleaned = cleaned.replacingOccurrences(of: "<br>", with: "<br/>")
+        cleaned = cleaned.replacingOccurrences(of: "<BR>", with: "<br/>")
+        
+        // Fix <img> tags to be self-closing if not already
+        // Match <img...> that doesn't end with /> and replace with self-closing version
+        if let regex = try? NSRegularExpression(pattern: "<img([^>]+)>", options: []) {
+            let nsRange = NSRange(cleaned.startIndex..., in: cleaned)
+            cleaned = regex.stringByReplacingMatches(
+                in: cleaned,
+                options: [],
+                range: nsRange,
+                withTemplate: "<img$1 />"
+            )
+        }
+        
+        // Remove any empty <span></span> tags that might cause issues
+        cleaned = cleaned.replacingOccurrences(of: "<span></span>", with: "")
+        
+        // Ensure proper paragraph structure - no <br/> directly inside <p> at end
+        // Replace <p>...<br/></p> with just <p>...</p>
+        if let regex = try? NSRegularExpression(pattern: "<p([^>]*)>([^<]*)<br\\s*/?>\\s*</p>", options: []) {
+            let nsRange = NSRange(cleaned.startIndex..., in: cleaned)
+            cleaned = regex.stringByReplacingMatches(
+                in: cleaned,
+                options: [],
+                range: nsRange,
+                withTemplate: "<p$1>$2</p>"
+            )
+        }
+        
+        return cleaned
     }
     
     // MARK: - EPUB Package Creation
@@ -569,12 +633,17 @@ class EPUBExportService {
             max-width: 100%;
             height: auto;
             display: block;
-            margin: 1em auto;
+            margin: 1em 0;
+            page-break-before: auto;
+            page-break-after: auto;
+            page-break-inside: auto;
         }
         
         .img-left {
-            float: left;
-            margin-right: 1em;
+            display: block;
+            margin-right: auto;
+            margin-left: 0;
+            margin-top: 1em;
             margin-bottom: 1em;
         }
         
@@ -585,8 +654,10 @@ class EPUBExportService {
         }
         
         .img-right {
-            float: right;
-            margin-left: 1em;
+            display: block;
+            margin-left: auto;
+            margin-right: 0;
+            margin-top: 1em;
             margin-bottom: 1em;
         }
         

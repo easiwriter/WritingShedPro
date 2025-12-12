@@ -2429,6 +2429,10 @@ struct FileEditView: View {
     private func handleImageSelection(url: URL) {
         print("🖼️ Image selected: \(url.lastPathComponent)")
         
+        // Store the filename for later use
+        let filename = url.lastPathComponent
+        print("🖼️ Captured filename: \(filename)")
+        
         // Check if this is a temp file (from PHPicker) or needs security scoping (from file picker)
         let isTempFile = url.path.starts(with: FileManager.default.temporaryDirectory.path)
         
@@ -2486,6 +2490,13 @@ struct FileEditView: View {
                         // Get available width (text view width minus container insets)
                         let availableWidth = textView.frame.width - textView.textContainerInset.left - textView.textContainerInset.right - (textView.textContainer.lineFragmentPadding * 2)
                         
+                        print("🖼️ Image size check:")
+                        print("   - uiImage.size: \(uiImage.size)")
+                        print("   - uiImage.scale: \(uiImage.scale)")
+                        print("   - imageWidth (points): \(imageWidth)")
+                        print("   - availableWidth: \(availableWidth)")
+                        print("   - textView.frame.width: \(textView.frame.width)")
+                        
                         // Only scale down if image is wider than available space
                         if imageWidth > availableWidth {
                             let fitToWidthScale = availableWidth / imageWidth
@@ -2498,13 +2509,15 @@ struct FileEditView: View {
                     }
                     
                     print("🖼️ Inserting image with settings from stylesheet")
+                    print("🖼️ Original filename: \(filename)")
                     self.insertImage(
                         imageData: compressedData,
                         scale: scale,
                         alignment: alignment,
                         hasCaption: hasCaption,
                         captionText: "",
-                        captionStyle: captionStyle
+                        captionStyle: captionStyle,
+                        originalFilename: filename
                     )
                 }
             } else {
@@ -2526,7 +2539,8 @@ struct FileEditView: View {
         alignment: ImageAttachment.ImageAlignment,
         hasCaption: Bool,
         captionText: String,
-        captionStyle: String
+        captionStyle: String,
+        originalFilename: String? = nil
     ) {
         guard let imageData = imageData else { return }
         
@@ -2542,6 +2556,7 @@ struct FileEditView: View {
             hasCaption: hasCaption,
             captionText: captionText,
             captionStyle: captionStyle,
+            originalFilename: originalFilename,
             targetFile: file
         )
         

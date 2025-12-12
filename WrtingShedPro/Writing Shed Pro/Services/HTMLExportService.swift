@@ -16,6 +16,7 @@ struct ExtractedImage {
     let alignment: String
     let hasCaption: Bool
     let captionText: String?
+    let imageSize: CGSize  // Size in points
 }
 
 /// Service for exporting content to HTML format
@@ -30,14 +31,22 @@ class HTMLExportService {
         var images: [ExtractedImage] = []
         let range = NSRange(location: 0, length: attributedString.length)
         
-        #if DEBUG
+        // ALWAYS print
         print("🔍 HTMLExportService: Scanning for images in attributed string (length: \(attributedString.length))")
-        #endif
+        
+        // Check for any attachments at all
+        var attachmentCount = 0
+        attributedString.enumerateAttribute(.attachment, in: range, options: []) { value, _, _ in
+            if value != nil {
+                attachmentCount += 1
+            }
+        }
+        print("🔍 Total attachments found: \(attachmentCount)")
         
         attributedString.enumerateAttribute(.attachment, in: range, options: []) { value, range, _ in
-            #if DEBUG
-            print("🔍 Found attachment at range \(range): \(type(of: value))")
-            #endif
+            if value != nil {
+                print("🔍 Found attachment at range \(range): \(type(of: value!))")
+            }
             
             if let attachment = value as? ImageAttachment {
                 #if DEBUG
@@ -56,6 +65,9 @@ class HTMLExportService {
                     imageData = image.pngData()
                 }
                 
+                // Get image size (attachment.displaySize already accounts for scale)
+                let imageSize = attachment.image?.size ?? CGSize(width: 100, height: 100)
+                
                 if let imageData = imageData {
                     let extractedImage = ExtractedImage(
                         imageData: imageData,
@@ -63,7 +75,8 @@ class HTMLExportService {
                         scale: attachment.scale,
                         alignment: attachment.alignment.rawValue,
                         hasCaption: attachment.hasCaption,
-                        captionText: attachment.captionText
+                        captionText: attachment.captionText,
+                        imageSize: imageSize
                     )
                     images.append(extractedImage)
                     #if DEBUG
@@ -168,16 +181,28 @@ class HTMLExportService {
         filename: String,
         includeStyles: Bool = true
     ) throws -> Data {
+        // ALWAYS print, not just in DEBUG
+        print("🌐 HTMLExportService.exportMultipleToHTMLData() called")
+        print("   - Number of attributed strings: \(attributedStrings.count)")
+        for (index, attrString) in attributedStrings.enumerated() {
+            print("   - String \(index + 1): length=\(attrString.length)")
+        }
+        
         // Convert each attributed string to HTML body content
         var htmlBodies: [String] = []
         var allStyles = ""  // Accumulate all unique styles
         
         for (index, attributedString) in attributedStrings.enumerated() {
-            // Prepare content for export with explicit colors
-            let exportReady = AttributedStringSerializer.prepareForExport(from: attributedString)
+            print("🔍 Processing attributed string \(index + 1) of \(attributedStrings.count)")
+            print("   - Length: \(attributedString.length)")
+            print("   - String preview: \(attributedString.string.prefix(100))...")
+            
+            // Prepare content for HTML export (removes adaptive/white colors, allows CSS dark mode)
+            let exportReady = AttributedStringSerializer.prepareForHTMLExport(from: attributedString)
             
             // Extract images before HTML conversion
             let extractedImages = extractImages(from: exportReady)
+            print("📸 File \(index + 1): Found \(extractedImages.count) images")
             
             // Convert to HTML
             let documentAttributes: [NSAttributedString.DocumentAttributeKey: Any] = [
@@ -196,6 +221,22 @@ class HTMLExportService {
             #if DEBUG
             // Debug: Check what HTML is being generated for each file
             print("📝 Raw HTML conversion sample (file \(index + 1)): \(htmlString.prefix(500))")
+            
+            // Debug: Show where images appear in the raw HTML
+            if htmlString.contains("Attachment") {
+                let lines = htmlString.components(separatedBy: "\n")
+                for (lineIdx, line) in lines.enumerated() {
+                    if line.contains("Attachment") || line.contains("</style>") {
+                        print("📝 Line \(lineIdx): \(line)")
+                        if lineIdx < lines.count - 1 {
+                            print("📝 Line \(lineIdx + 1): \(lines[lineIdx + 1])")
+                        }
+                        if lineIdx < lines.count - 2 {
+                            print("📝 Line \(lineIdx + 2): \(lines[lineIdx + 2])")
+                        }
+                    }
+                }
+            }
             #endif
             
             // Extract iOS-generated styles and namespace them to avoid conflicts between files
@@ -294,10 +335,14 @@ class HTMLExportService {
                 let base64String = image.imageData.base64EncodedString()
                 let dataURI = "data:image/png;base64,\(base64String)"
                 
-                // Create img tag with proper styling
+                // Calculate the display width in CSS pixels (points) based on image's natural size and scale
+                // image.imageSize is already in points (accounting for @3x scale)
+                // scale represents what portion of the image to display (e.g., 0.198 = fit to 406pt width)
+                let displayWidthPts = Int(image.imageSize.width * image.scale)
+                
+                // Create img tag with proper styling using explicit pixel width
                 let alignClass = "img-\(image.alignment)"
-                let widthPercent = Int(image.scale * 100)
-                var imgTag = "<img src=\"\(dataURI)\" class=\"\(alignClass)\" style=\"width: \(widthPercent)%; max-width: 100%; height: auto;\" alt=\"Image\" />"
+                var imgTag = "<img src=\"\(dataURI)\" class=\"\(alignClass)\" style=\"width: \(displayWidthPts)px; max-width: 100%; height: auto;\" alt=\"Image\" />"
                 
                 // Add caption if present
                 if image.hasCaption, let caption = image.captionText, !caption.isEmpty {
@@ -348,11 +393,19 @@ class HTMLExportService {
                 #endif
             }
             
-            htmlBodies.append(bodyContent)
+            // Wrap each file's content in a page container
+            // Apply page-break-after to the container so content breaks after each file
+            let wrappedContent = "<div class=\"file-page\">\(bodyContent)</div>"
+            htmlBodies.append(wrappedContent)
+            
+            print("📦 File \(index + 1) wrapped in file-page div (length: \(bodyContent.count) chars)")
         }
         
-        // Join with page break divs
-        let combinedBody = htmlBodies.joined(separator: "\n<div class=\"page-break\"></div>\n")
+        // Join all files (page breaks will be applied via CSS to .file-page elements)
+        let combinedBody = htmlBodies.joined(separator: "\n")
+        
+        print("📊 HTMLExportService: Created \(htmlBodies.count) file-page divs")
+        print("   - Total HTML body length: \(combinedBody.count) characters")
         
         // Create complete HTML document
         var html = """
@@ -385,6 +438,15 @@ class HTMLExportService {
                         color: #333;
                         background-color: #fff;
                     }
+                    
+                    /* Dark mode support */
+                    @media (prefers-color-scheme: dark) {
+                        body {
+                            color: #e0e0e0;
+                            background-color: #1a1a1a;
+                        }
+                    }
+                    
                     h1, h2, h3, h4, h5, h6 {
                         margin-top: 1.5em;
                         margin-bottom: 0.5em;
@@ -422,10 +484,15 @@ class HTMLExportService {
                         height: auto;
                         display: block;
                         margin: 1em 0;
+                        page-break-before: auto;
+                        page-break-after: auto;
+                        page-break-inside: auto;
                     }
                     .img-left {
-                        float: left;
-                        margin-right: 1em;
+                        display: block;
+                        margin-right: auto; /* Left align by removing right auto margin */
+                        margin-left: 0;
+                        margin-top: 1em;
                         margin-bottom: 1em;
                     }
                     .img-center {
@@ -434,8 +501,10 @@ class HTMLExportService {
                         margin-right: auto;
                     }
                     .img-right {
-                        float: right;
-                        margin-left: 1em;
+                        display: block;
+                        margin-left: auto; /* Right align */
+                        margin-right: 0;
+                        margin-top: 1em;
                         margin-bottom: 1em;
                     }
                     .img-inline {
@@ -448,35 +517,76 @@ class HTMLExportService {
                         font-style: italic;
                         margin-top: 0.5em;
                         color: #666;
+                        page-break-inside: avoid;
                     }
-                    .page-break {
+                    
+                    /* File page container - each file's content */
+                    .file-page {
                         page-break-after: always;
                         break-after: page;
-                        margin: 3em 0;
-                        padding: 2em 0;
+                        -webkit-column-break-after: always;
+                        page-break-inside: auto;
+                        break-inside: auto;
+                        clear: both; /* Clear any floats from previous pages */
+                        display: flow-root; /* Create block formatting context to contain floats */
+                    }
+                    
+                    /* Visual separator line between files (on screen only) */
+                    .file-page:not(:last-child) {
+                        padding-bottom: 2em;
                         border-bottom: 2px dashed #ccc;
-                        text-align: center;
-                        color: #999;
-                        font-size: 0.9em;
+                        margin-bottom: 3em;
                     }
-                    .page-break::after {
-                        content: "• • •";
-                        display: block;
-                        margin-top: 1em;
+                    
+                    /* Ensure floated images are cleared before page break */
+                    .file-page:not(:last-child)::after {
+                        content: "";
+                        display: table;
+                        clear: both;
                     }
+                    
+                    /* Remove page break and margin from last page */
+                    .file-page:last-child {
+                        page-break-after: auto;
+                        break-after: auto;
+                        margin-bottom: 0;
+                        padding-bottom: 0;
+                    }
+                    }
+                    
                     @media print {
                         body {
                             max-width: none;
                             padding: 0;
-                        }
-                        .page-break {
-                            page-break-after: always;
-                            border: none;
                             margin: 0;
-                            padding: 0;
                         }
-                        .page-break::after {
-                            display: none;
+                        
+                        /* Hide visual separators in print */
+                        .file-page {
+                            page-break-after: always !important;
+                            break-after: page !important;
+                            border: none !important;
+                            margin: 0 !important;
+                            padding: 0 !important;
+                        }
+                        
+                        .file-page::after {
+                            display: none !important;
+                        }
+                        
+                        .file-page:last-child {
+                            page-break-after: auto !important;
+                        }
+                        
+                        img {
+                            page-break-inside: avoid !important;
+                            page-break-before: auto;
+                            page-break-after: auto;
+                            break-inside: avoid !important;
+                        }
+                        p {
+                            orphans: 3;
+                            widows: 3;
                         }
                     }
                     @media (prefers-color-scheme: dark) {

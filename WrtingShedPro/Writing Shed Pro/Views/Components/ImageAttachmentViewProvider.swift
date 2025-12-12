@@ -93,6 +93,14 @@ class ImageAttachmentViewProvider: NSTextAttachmentViewProvider {
             let imageSize = attachment.displaySize
             imageView.translatesAutoresizingMaskIntoConstraints = false
             
+            #if DEBUG
+            print("📷 Image dimensions:")
+            print("   - image.size: \(image.size) (points)")
+            print("   - image.scale: \(image.scale)")
+            print("   - attachment.scale: \(attachment.scale)")
+            print("   - displaySize: \(imageSize)")
+            #endif
+            
             NSLayoutConstraint.activate([
                 imageView.widthAnchor.constraint(equalToConstant: imageSize.width),
                 imageView.heightAnchor.constraint(equalToConstant: imageSize.height)
