@@ -286,11 +286,20 @@ final class VersionNotesTests: XCTestCase {
     // MARK: - Query Tests
     
     func testVersionNotes_QueryVersionsWithNotes() throws {
-        // Create versions with and without notes
-        version.notes = "Version 1 notes"
+        // Create versions with and without notes (don't use the setUp version to keep count clear)
+        // Clear the setUp version first
+        version.notes = nil
+        
+        let version1 = Version()
+        version1.versionNumber = 10
+        version1.content = "Content 1"
+        version1.textFile = textFile
+        version1.createdDate = Date()
+        version1.notes = "Version 1 notes"
+        modelContext.insert(version1)
         
         let version2 = Version()
-        version2.versionNumber = 2
+        version2.versionNumber = 11
         version2.content = "Content 2"
         version2.textFile = textFile
         version2.createdDate = Date()
@@ -298,7 +307,7 @@ final class VersionNotesTests: XCTestCase {
         modelContext.insert(version2)
         
         let version3 = Version()
-        version3.versionNumber = 3
+        version3.versionNumber = 12
         version3.content = "Content 3"
         version3.textFile = textFile
         version3.createdDate = Date()
@@ -311,15 +320,15 @@ final class VersionNotesTests: XCTestCase {
         let descriptor = FetchDescriptor<Version>()
         let allVersions = try modelContext.fetch(descriptor)
         
-        XCTAssertEqual(allVersions.count, 3)
+        XCTAssertEqual(allVersions.count, 4, "Should have 4 versions (1 from setUp + 3 created)")
         
-        // Count versions with notes
+        // Count versions with notes (version1 and version3)
         let versionsWithNotes = allVersions.filter { $0.notes != nil && !$0.notes!.isEmpty }
-        XCTAssertEqual(versionsWithNotes.count, 2)
+        XCTAssertEqual(versionsWithNotes.count, 2, "Should have 2 versions with notes")
         
-        // Count versions without notes
+        // Count versions without notes (setUp version and version2)
         let versionsWithoutNotes = allVersions.filter { $0.notes == nil || $0.notes!.isEmpty }
-        XCTAssertEqual(versionsWithoutNotes.count, 1)
+        XCTAssertEqual(versionsWithoutNotes.count, 2, "Should have 2 versions without notes")
     }
     
     // MARK: - Import Tests

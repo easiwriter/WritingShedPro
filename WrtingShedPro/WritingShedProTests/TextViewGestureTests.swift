@@ -174,7 +174,7 @@ final class TextViewGestureTests: XCTestCase {
         
         XCTAssertNotNil(panGesture)
         XCTAssertEqual(panGesture.minimumNumberOfTouches, 1)
-        XCTAssertEqual(panGesture.maximumNumberOfTouches, Int.max)
+        XCTAssertEqual(panGesture.maximumNumberOfTouches, UInt.max)
     }
     
     func testPanGesture_TwoFingerRequirement() {

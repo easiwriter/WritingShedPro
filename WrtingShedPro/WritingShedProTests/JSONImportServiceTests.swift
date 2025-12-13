@@ -189,9 +189,12 @@ final class JSONImportServiceTests: XCTestCase {
     private func cleanProjectNameHelper(_ name: String) -> String {
         var cleaned = name
         
-        // Remove <>timestamp prefix
-        if let components = cleaned.split(separator: "<>", maxSplits: 1).first {
-            cleaned = String(components)
+        // Remove <>timestamp prefix (take the part AFTER <>)
+        if cleaned.contains("<>") {
+            let components = cleaned.split(separator: "<>", maxSplits: 1)
+            if components.count > 1 {
+                cleaned = String(components[1])
+            }
         }
         
         // Remove timestamp in brackets at end
@@ -258,7 +261,7 @@ final class JSONImportServiceTests: XCTestCase {
             "novel": .novel,
             "poetry": .poetry,
             "script": .script,
-            "shortStory": .shortStory,
+            "shortstory": .shortStory,
             "short story": .shortStory,
             "blank": .blank
         ]
@@ -345,7 +348,6 @@ final class JSONImportServiceTests: XCTestCase {
         
         // Verify date is reasonable (not default Date())
         let now = Date()
-        let yearAgo = now.addingTimeInterval(-365 * 24 * 60 * 60)
         
         // Date should be between 2000 and now
         XCTAssertTrue(parsed.timeIntervalSince1970 > 946684800, "Date should be after 2000")
