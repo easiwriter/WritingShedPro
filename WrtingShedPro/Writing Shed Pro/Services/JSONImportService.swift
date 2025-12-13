@@ -486,14 +486,14 @@ class JSONImportService {
             // collectionComponent contains the actual collection metadata
             var collectionName = "Untitled Collection"
             var submittedDate = Date()
-            var groupName: String?
+//            var groupName: String?
             
             // Decode the collectionComponent JSON to get the collection name, date, and groupName
             if let collectionDict = try? JSONSerialization.jsonObject(
                 with: componentData.collectionComponent.data(using: .utf8)!
             ) as? [String: Any] {
                 collectionName = collectionDict["name"] as? String ?? collectionName
-                groupName = collectionDict["groupName"] as? String
+//                groupName = collectionDict["groupName"] as? String
                 
                 // Get date - try multiple possible keys
                 if let timestamp = collectionDict["dateCreated"] as? TimeInterval {

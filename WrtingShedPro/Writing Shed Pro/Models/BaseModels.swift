@@ -309,6 +309,9 @@ final class TextFile {
     var currentVersionIndex: Int = 0
     var userOrder: Int?
     
+    // Feature: File Notes
+    var notes: String?
+    
     // Undo/Redo support (for TextFileUndoManager)
     var undoStackData: Data?
     var redoStackData: Data?

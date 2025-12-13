@@ -21,6 +21,7 @@ struct FileEditView: View {
     @State private var showImageEditor = false
     @State private var showLockedVersionWarning = false
     @State private var attemptedEdit = false
+    @State private var showNotesEditor = false
     @State private var imageToEdit: ImageAttachment?
     @State private var lastImageInsertTime: Date?
     @State private var selectedImage: ImageAttachment?
@@ -300,6 +301,8 @@ struct FileEditView: View {
                         }
                         imageToEdit = image
                     }
+                case .notes:
+                    showNotesEditor = true
                 }
             }
             .frame(height: 44)
@@ -686,6 +689,9 @@ struct FileEditView: View {
                     .navigationTitle(NSLocalizedString("fileEdit.footnoteSheet.title", comment: ""))
                 }
                 .presentationDetents([.medium, .large])
+            }
+            .sheet(isPresented: $showNotesEditor) {
+                NotesEditorSheet(textFile: file)
             }
             .onDisappear {
                 // Unregister stylesheet from provider

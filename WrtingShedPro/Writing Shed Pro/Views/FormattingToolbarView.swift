@@ -13,6 +13,7 @@ struct FormattingToolbarView: UIViewRepresentable {
         case underline
         case strikethrough
         case imageStyle
+        case notes
     }
     
     func makeUIView(context: Context) -> UIToolbar {
@@ -55,6 +56,14 @@ struct FormattingToolbarView: UIViewRepresentable {
             coordinator: context.coordinator
         )
         
+        // Create notes button
+        let notesButton = createStandardButton(
+            systemName: "list.clipboard",
+            action: #selector(context.coordinator.showNotes),
+            coordinator: context.coordinator
+        )
+        notesButton.accessibilityLabel = NSLocalizedString("toolbar.notes", comment: "Notes")
+        
         // Create cursor movement buttons
         let leftArrowButton = createStandardButton(
             systemName: "chevron.left",
@@ -94,6 +103,7 @@ struct FormattingToolbarView: UIViewRepresentable {
         context.coordinator.underlineButton = underlineButton
         context.coordinator.strikethroughButton = strikethroughButton
         context.coordinator.imageStyleButton = imageStyleButton
+        context.coordinator.notesButton = notesButton
         context.coordinator.leftArrowButton = leftArrowButton
         context.coordinator.rightArrowButton = rightArrowButton
         context.coordinator.keyboardToggleButton = keyboardDismissButton
@@ -105,6 +115,7 @@ struct FormattingToolbarView: UIViewRepresentable {
         let underlineBarItem = UIBarButtonItem(customView: underlineButton)
         let strikethroughBarItem = UIBarButtonItem(customView: strikethroughButton)
         let imageStyleBarItem = UIBarButtonItem(customView: imageStyleButton)
+        let notesBarItem = UIBarButtonItem(customView: notesButton)
         let leftArrowBarItem = UIBarButtonItem(customView: leftArrowButton)
         let rightArrowBarItem = UIBarButtonItem(customView: rightArrowButton)
         let keyboardDismissBarItem = UIBarButtonItem(customView: keyboardDismissButton)
@@ -116,6 +127,7 @@ struct FormattingToolbarView: UIViewRepresentable {
         context.coordinator.underlineBarItem = underlineBarItem
         context.coordinator.strikethroughBarItem = strikethroughBarItem
         context.coordinator.imageStyleBarItem = imageStyleBarItem
+        context.coordinator.notesBarItem = notesBarItem
         context.coordinator.leftArrowBarItem = leftArrowBarItem
         context.coordinator.rightArrowBarItem = rightArrowBarItem
         context.coordinator.keyboardToggleBarItem = keyboardDismissBarItem
@@ -148,6 +160,8 @@ struct FormattingToolbarView: UIViewRepresentable {
                 createDivider(),
                 createSpace(20),
                 imageStyleBarItem,
+                createSpace(20),
+                notesBarItem,
                 createSpace(20),
                 createDivider(),
                 createSpace(20),
@@ -303,6 +317,7 @@ struct FormattingToolbarView: UIViewRepresentable {
         weak var underlineButton: UIButton?
         weak var strikethroughButton: UIButton?
         weak var imageStyleButton: UIButton?
+        weak var notesButton: UIButton?
         weak var leftArrowButton: UIButton?
         weak var rightArrowButton: UIButton?
         weak var keyboardToggleButton: UIButton?
@@ -314,6 +329,7 @@ struct FormattingToolbarView: UIViewRepresentable {
         weak var underlineBarItem: UIBarButtonItem?
         weak var strikethroughBarItem: UIBarButtonItem?
         weak var imageStyleBarItem: UIBarButtonItem?
+        weak var notesBarItem: UIBarButtonItem?
         weak var leftArrowBarItem: UIBarButtonItem?
         weak var rightArrowBarItem: UIBarButtonItem?
         weak var keyboardToggleBarItem: UIBarButtonItem?
@@ -367,6 +383,10 @@ struct FormattingToolbarView: UIViewRepresentable {
         @objc func showImageStyle() {
             print("🖼️ showImageStyle() called")
             onFormatAction(.imageStyle)
+        }
+        
+        @objc func showNotes() {
+            onFormatAction(.notes)
         }
         
         @objc func moveCursorLeft() {

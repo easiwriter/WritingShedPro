@@ -37,20 +37,16 @@ struct SubmissionsView: View {
         )
     }
     
-    // Submissions sorted by user preference
+    // Submissions sorted by name (case-insensitive)
     // Additional filtering to ensure ONLY submissions for THIS project appear
     private var sortedSubmissions: [Submission] {
         let submissionsForProject = allSubmissions.filter { 
             !$0.isCollection && $0.project?.id == project.id
         }
         
-        switch sortOrder {
-        case .bySubmittedDate:
-            return submissionsForProject.sorted { ($0.submittedDate) > ($1.submittedDate) }
-        case .byName:
-            return submissionsForProject.sorted { ($0.name ?? "") < ($1.name ?? "") }
-        case .byPublication:
-            return submissionsForProject.sorted { ($0.publication?.name ?? "") < ($1.publication?.name ?? "") }
+        // Sort by case-insensitive name
+        return submissionsForProject.sorted { 
+            ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending
         }
     }
     

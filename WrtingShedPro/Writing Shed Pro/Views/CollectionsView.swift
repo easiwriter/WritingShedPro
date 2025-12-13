@@ -63,13 +63,16 @@ struct CollectionsView: View {
         )
     }
     
-    // Collections are the filtered submissions, sorted by user preference
+    // Collections are the filtered submissions, sorted by name (case-insensitive)
     // Additional filtering to ensure ONLY submissions for THIS project appear
     private var sortedCollections: [Submission] {
         let collectionsForProject = allSubmissions.filter { 
             $0.isCollection && $0.project?.id == project.id
         }
-        return CollectionSortService.sort(collectionsForProject, by: sortOrder)
+        // Sort by case-insensitive name
+        return collectionsForProject.sorted { 
+            ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending
+        }
     }
     
     // Get selected collections based on selectedCollectionIDs
