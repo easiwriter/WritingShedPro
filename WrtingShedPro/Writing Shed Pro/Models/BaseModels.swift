@@ -100,6 +100,7 @@ final class Version {
     var createdDate: Date = Date()
     var versionNumber: Int = 1
     var comment: String?
+    var notes: String?
     
     // MARK: - Text Formatting (Phase 005)
     /// Formatted content stored as RTF data
@@ -308,9 +309,6 @@ final class TextFile {
     var modifiedDate: Date = Date()
     var currentVersionIndex: Int = 0
     var userOrder: Int?
-    
-    // Feature: File Notes
-    var notes: String?
     
     // Undo/Redo support (for TextFileUndoManager)
     var undoStackData: Data?

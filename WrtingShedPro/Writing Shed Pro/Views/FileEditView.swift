@@ -691,7 +691,9 @@ struct FileEditView: View {
                 .presentationDetents([.medium, .large])
             }
             .sheet(isPresented: $showNotesEditor) {
-                NotesEditorSheet(textFile: file)
+                if let currentVersion = file.currentVersion {
+                    NotesEditorSheet(version: currentVersion)
+                }
             }
             .onDisappear {
                 // Unregister stylesheet from provider

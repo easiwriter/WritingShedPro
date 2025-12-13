@@ -2,22 +2,22 @@
 //  NotesEditorSheet.swift
 //  Writing Shed Pro
 //
-//  Feature: File Notes
-//  Sheet for adding and editing notes on a text file
+//  Feature: Version Notes
+//  Sheet for adding and editing notes on a text file version
 //
 
 import SwiftUI
 
 struct NotesEditorSheet: View {
-    @Bindable var textFile: TextFile
+    @Bindable var version: Version
     @Environment(\.dismiss) var dismiss
     
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 TextEditor(text: Binding(
-                    get: { textFile.notes ?? "" },
-                    set: { textFile.notes = $0.isEmpty ? nil : $0 }
+                    get: { version.notes ?? "" },
+                    set: { version.notes = $0.isEmpty ? nil : $0 }
                 ))
                 .font(.body)
                 .padding()

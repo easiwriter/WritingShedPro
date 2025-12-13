@@ -285,9 +285,9 @@ class JSONImportService {
             print("[JSONImport]     Parsed to: \(createdDate)")
             version.createdDate = createdDate
             
-            // Decode notes
+            // Decode notes (from WS_Version_Entity notes field)
             if let notesString = try? decodeAttributedString(from: versionData.notes, plainText: versionData.notesText) {
-                version.comment = notesString.string
+                version.notes = notesString.string
             }
             
             // Decode content
