@@ -151,10 +151,17 @@ struct FormattedTextEditor: UIViewRepresentable {
         tapGesture.delegate = context.coordinator
         textView.addGestureRecognizer(tapGesture)
         
-        // Add pinch gesture recognizer for zoom
+        // Add pinch gesture recognizer for zoom (iOS only)
         let pinchGesture = UIPinchGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handlePinch(_:)))
         pinchGesture.delegate = context.coordinator
         textView.addGestureRecognizer(pinchGesture)
+        
+        // Add pan gesture recognizer for drag scrolling (requires 2 fingers to avoid interfering with text selection)
+        let panGesture = UIPanGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handlePan(_:)))
+        panGesture.minimumNumberOfTouches = 2
+        panGesture.maximumNumberOfTouches = 2
+        panGesture.delegate = context.coordinator
+        textView.addGestureRecognizer(panGesture)
         
         // Apply saved zoom factor by transforming the view
         let savedZoom = UserDefaults.standard.double(forKey: "textViewZoomFactor")
@@ -1075,6 +1082,31 @@ struct FormattedTextEditor: UIViewRepresentable {
                 #if DEBUG
                 print("🔍 Zoom factor saved: \(currentZoomScale)")
                 #endif
+                
+            default:
+                break
+            }
+        }
+        
+        @objc func handlePan(_ gesture: UIPanGestureRecognizer) {
+            guard let textView = gesture.view as? UITextView else { return }
+            
+            let translation = gesture.translation(in: textView)
+            
+            switch gesture.state {
+            case .changed:
+                // Scroll the text view by the translation amount
+                var contentOffset = textView.contentOffset
+                contentOffset.y -= translation.y
+                
+                // Clamp to valid scroll bounds
+                let maxOffsetY = max(0, textView.contentSize.height - textView.bounds.height + textView.contentInset.top + textView.contentInset.bottom)
+                contentOffset.y = max(0, min(maxOffsetY, contentOffset.y))
+                
+                textView.contentOffset = contentOffset
+                
+                // Reset translation for next update
+                gesture.setTranslation(.zero, in: textView)
                 
             default:
                 break
