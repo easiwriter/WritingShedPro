@@ -151,6 +151,18 @@ struct FormattedTextEditor: UIViewRepresentable {
         tapGesture.delegate = context.coordinator
         textView.addGestureRecognizer(tapGesture)
         
+        // Add pinch gesture recognizer for zoom
+        let pinchGesture = UIPinchGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handlePinch(_:)))
+        pinchGesture.delegate = context.coordinator
+        textView.addGestureRecognizer(pinchGesture)
+        
+        // Apply saved zoom factor by transforming the view
+        let savedZoom = UserDefaults.standard.double(forKey: "textViewZoomFactor")
+        if savedZoom > 0 && savedZoom != 1.0 {
+            context.coordinator.currentZoomScale = CGFloat(savedZoom)
+            textView.transform = CGAffineTransform(scaleX: context.coordinator.currentZoomScale, y: context.coordinator.currentZoomScale)
+        }
+        
         // Configure for rich text
         // On iPad with hardware keyboard, disable system editing attributes to prevent the formatting menu
         #if os(iOS)
@@ -563,6 +575,7 @@ struct FormattedTextEditor: UIViewRepresentable {
         var isUpdatingFromSwiftUI = false
         weak var textView: UITextView?
         var previousSelection: NSRange = NSRange(location: 0, length: 0)
+        var currentZoomScale: CGFloat = 1.0
         
         init(_ parent: FormattedTextEditor) {
             self.parent = parent
@@ -1030,6 +1043,42 @@ struct FormattedTextEditor: UIViewRepresentable {
             print("🖼️ Cursor hidden, range set to \(imageRange)")
             print("🖼️ ========== END ==========")
             #endif
+        }
+        
+        @objc func handlePinch(_ gesture: UIPinchGestureRecognizer) {
+            guard let textView = gesture.view as? UITextView else { return }
+            
+            switch gesture.state {
+            case .began:
+                // Store initial scale
+                break
+                
+            case .changed:
+                // Update zoom scale during pinch
+                let newScale = currentZoomScale * gesture.scale
+                // Clamp zoom between 0.5x and 3.0x
+                let clampedScale = max(0.5, min(3.0, newScale))
+                
+                // Apply transform to scale the view
+                textView.transform = CGAffineTransform(scaleX: clampedScale, y: clampedScale)
+                
+            case .ended, .cancelled:
+                // Update current scale and save to UserDefaults
+                let newScale = currentZoomScale * gesture.scale
+                currentZoomScale = max(0.5, min(3.0, newScale))
+                
+                // Apply final transform
+                textView.transform = CGAffineTransform(scaleX: currentZoomScale, y: currentZoomScale)
+                
+                // Save zoom factor to UserDefaults
+                UserDefaults.standard.set(Double(currentZoomScale), forKey: "textViewZoomFactor")
+                #if DEBUG
+                print("🔍 Zoom factor saved: \(currentZoomScale)")
+                #endif
+                
+            default:
+                break
+            }
         }
         
         /// Sync typing attributes to match the paragraph style at the cursor position
