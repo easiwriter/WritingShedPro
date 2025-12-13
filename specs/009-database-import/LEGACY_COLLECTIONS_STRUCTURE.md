@@ -13,7 +13,7 @@ This section explains the functions of WS_Collection_Entity, WS_CollectionCompon
 
 The source of truth is the WS_Project_Entity which has a to-many relationship with WS_CollectionComponent_Entity.
 - The WS_CollectionComponent_Entity is class parent to WS_Collection_Entity and WS_Collection_Entity
-- The WS_Collection_Entity has a groupName = Collections to indicate that all these entities are dispayed in the legacy app in the Collections folder. They should be stored in the Collections folder in WritingShedPro. It has 3 relationships. 
+- The WS_Submission_Entity has a groupName = Collections to indicate that all these entities are dispayed in the legacy app in the Collections folder. They should be stored in the Collections folder in WritingShedPro. It has 3 relationships. 
     - texts, has a many-many relationship with WS_Text_Entity meaning a collection can have many text files each of which could belong to many collections. 
     - collectionSubmissions, is a to-many relationship to WS_CollectionSubmission_Entity. 
     - textCollection, is a to-one relationship to a WS_TextCollection_Entity

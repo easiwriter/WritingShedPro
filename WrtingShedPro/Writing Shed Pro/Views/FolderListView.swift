@@ -36,7 +36,7 @@ struct FolderListView: View {
             
         case .poetry, .shortStory:
             return [
-                "All", "Draft", "Ready", "Collections", "Set Aside", "Published",
+                "All", "Draft", "Ready", "Collections", "Submissions", "Set Aside", "Published",
                 "Research",
                 "Magazines", "Competitions", "Commissions", "Other",
                 "Trash"
@@ -99,6 +99,11 @@ struct FolderListView: View {
                         } else if folderName == "Collections" {
                             // Special handling for Collections folder - show Collections (Submissions)
                             NavigationLink(destination: CollectionsView(project: project)) {
+                                FolderRowView(folder: folder)
+                            }
+                        } else if folderName == "Submissions" {
+                            // Special handling for Submissions folder - show publication submissions
+                            NavigationLink(destination: SubmissionsView(project: project)) {
                                 FolderRowView(folder: folder)
                             }
                         } else {
@@ -228,6 +233,12 @@ struct FolderRowView: View {
         return name == "Collections"
     }
     
+    // Check if this is the Submissions folder
+    private var isSubmissionsFolder: Bool {
+        let name = folder.name ?? ""
+        return name == "Submissions"
+    }
+    
     // Check if this is the All folder (virtual folder)
     private var isAllFolder: Bool {
         let name = folder.name ?? ""
@@ -245,7 +256,16 @@ struct FolderRowView: View {
         guard isCollectionsFolder, let project = folder.project else { return 0 }
         
         return allSubmissions.filter { submission in
-            submission.publication == nil && submission.project?.id == project.id
+            submission.isCollection && submission.project?.id == project.id
+        }.count
+    }
+    
+    // Get submission count for Submissions folder
+    private var submissionCount: Int {
+        guard isSubmissionsFolder, let project = folder.project else { return 0 }
+        
+        return allSubmissions.filter { submission in
+            !submission.isCollection && submission.project?.id == project.id
         }.count
     }
     
@@ -283,6 +303,8 @@ struct FolderRowView: View {
             count = publicationCount
         } else if isCollectionsFolder {
             count = collectionCount
+        } else if isSubmissionsFolder {
+            count = submissionCount
         } else if isAllFolder {
             // All folder shows computed count from multiple folders
             count = fileCount  // Will be computed in .task
@@ -362,6 +384,8 @@ struct FolderRowView: View {
             return "checkmark.circle"
         case "Collections":
             return "tray.2"
+        case "Submissions":
+            return "paperplane"
         case "Set Aside":
             return "archivebox"
         case "Published":

@@ -52,19 +52,24 @@ struct CollectionsView: View {
     init(project: Project) {
         self.project = project
         
-        // Configure query to fetch only Submissions for this project where publication is nil (Collections)
-        let projectID = project.id
+        // Configure query to fetch only Collections (isCollection = true)
+        // Note: Using isCollection flag because SwiftData predicates cannot handle optional relationships
+        // We filter by project in the sortedCollections computed property
         _allSubmissions = Query(
             filter: #Predicate<Submission> { submission in
-                submission.publication == nil && submission.project?.id == projectID
+                submission.isCollection == true
             },
-            sort: [SortDescriptor(\Submission.createdDate, order: .reverse)]
+            sort: [SortDescriptor(\Submission.name, order: .forward)]
         )
     }
     
     // Collections are the filtered submissions, sorted by user preference
+    // Additional filtering to ensure ONLY submissions for THIS project appear
     private var sortedCollections: [Submission] {
-        return CollectionSortService.sort(allSubmissions, by: sortOrder)
+        let collectionsForProject = allSubmissions.filter { 
+            $0.isCollection && $0.project?.id == project.id
+        }
+        return CollectionSortService.sort(collectionsForProject, by: sortOrder)
     }
     
     // Get selected collections based on selectedCollectionIDs
@@ -437,6 +442,7 @@ struct CollectionsView: View {
             project: project
         )
         newSubmission.name = trimmedName
+        newSubmission.isCollection = true  // Mark as collection
         
         do {
             modelContext.insert(newSubmission)
@@ -464,6 +470,7 @@ struct CollectionsView: View {
                         submittedDate: Date(),
                         notes: nil
                     )
+                    submission.isCollection = false  // This is a submission to publication, not a collection
                     modelContext.insert(submission)
                     
                     // Create submitted file record for the text file
@@ -773,6 +780,7 @@ struct CollectionDetailView: View {
         )
         pubSubmission.name = submission.name  // Preserve collection name in submission
         pubSubmission.collectionDescription = submission.collectionDescription
+        pubSubmission.isCollection = false  // This is a submission to publication, not a collection
         
         // Copy SubmittedFiles from Collection with preserved versions
         let copiedFiles = (submission.submittedFiles ?? []).map { original in

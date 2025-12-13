@@ -630,23 +630,27 @@ struct FolderFilesView: View {
             do {
                 print("📁 About to call export service for format: \(format)")
                 
+                // Capture array locally to avoid main actor isolation issues
+                let attributedStrings = exportAttributedStrings
+                let filename = exportFilename
+                
                 let data: Data
                 
                 switch format {
                 case .rtf:
                     data = try await Task.detached {
-                        try WordDocumentService.exportToRTF(content, filename: exportFilename)
+                        try WordDocumentService.exportToRTF(content, filename: filename)
                     }.value
                 case .html:
                     // Use the array version for HTML to preserve page breaks and prevent CSS conflicts
-                    print("📁 Calling HTMLExportService.exportMultipleToHTMLData with \(exportAttributedStrings.count) strings")
+                    print("📁 Calling HTMLExportService.exportMultipleToHTMLData with \(attributedStrings.count) strings")
                     data = try await Task.detached {
-                        try HTMLExportService.exportMultipleToHTMLData(exportAttributedStrings, filename: exportFilename)
+                        try HTMLExportService.exportMultipleToHTMLData(attributedStrings, filename: filename)
                     }.value
                 case .epub:
                     // Use the array version for EPUB to preserve page breaks and prevent CSS conflicts
                     data = try await Task.detached {
-                        try EPUBExportService.exportMultipleToEPUB(exportAttributedStrings, filename: exportFilename)
+                        try EPUBExportService.exportMultipleToEPUB(attributedStrings, filename: filename)
                     }.value
                 }
                 

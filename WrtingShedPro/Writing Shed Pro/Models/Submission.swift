@@ -19,6 +19,10 @@ class Submission {
     var name: String?  // For collections (when publication is nil)
     var collectionDescription: String?  // For collections
     
+    // Flag to distinguish collections from submissions (needed for SwiftData predicates)
+    // SwiftData predicates cannot reliably check optional relationships like publication == nil
+    var isCollection: Bool = false
+    
     @Relationship(deleteRule: .cascade, inverse: \SubmittedFile.submission)
     var submittedFiles: [SubmittedFile]? = []
     

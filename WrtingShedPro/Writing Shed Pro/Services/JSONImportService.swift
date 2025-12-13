@@ -103,8 +103,10 @@ class JSONImportService {
         // Import collections (text collections)
         try importCollections(from: writingShedData, into: project)
         
-        // Link collection submissions
-        try linkCollectionSubmissions(from: writingShedData, into: project)
+        // NOTE: We do NOT import collectionSubmissionsDatas as separate Submission records
+        // In the legacy app, WS_CollectionSubmission_Entity is just metadata linking a collection to a publication
+        // The collection itself (WS_Collection_Entity) is what appears in the Submissions folder
+        // try importCollectionSubmissions(from: writingShedData, into: project)
         
         // Save
         try modelContext.save()
@@ -431,21 +433,13 @@ class JSONImportService {
             print("[JSONImport]   Publication name: \(publication.name), type: \(String(describing: publication.type))")
             print("[JSONImport]   Caching publication with component ID: \(componentData.id)")
             
-            // Cache for later linking - use multiple IDs
+            // Cache for later linking - use component ID and textCollectionData ID
             publicationMap[componentData.id] = publication
             
             // Also cache by textCollectionData ID if present
             if let textCollectionId = componentData.textCollectionData?.id {
                 publicationMap[textCollectionId] = publication
                 print("[JSONImport]   Also caching with textCollection ID: \(textCollectionId)")
-            }
-            
-            // Also cache by collectionSubmissionsDatas IDs (the join table entity IDs)
-            if let submissionDatas = componentData.collectionSubmissionsDatas {
-                for submissionData in submissionDatas {
-                    publicationMap[submissionData.id] = publication
-                    print("[JSONImport]   Also caching with collectionSubmission ID: \(submissionData.id)")
-                }
             }
             
             modelContext.insert(publication)
@@ -472,6 +466,12 @@ class JSONImportService {
     
     private func importCollections(from data: WritingShedData, into project: Project) throws {
         print("[JSONImport] Starting collections/submissions import")
+        print("[JSONImport] Total collectionComponentDatas: \(data.collectionComponentDatas.count)")
+        
+        // First, count how many are collections vs submissions
+        let collections = data.collectionComponentDatas.filter { $0.type == "WS_Collection_Entity" }
+        let submissions = data.collectionComponentDatas.filter { $0.type == "WS_Submission_Entity" }
+        print("[JSONImport] Found \(collections.count) WS_Collection_Entity and \(submissions.count) WS_Submission_Entity")
         
         var collectionCount = 0
         for componentData in data.collectionComponentDatas {
@@ -486,12 +486,14 @@ class JSONImportService {
             // collectionComponent contains the actual collection metadata
             var collectionName = "Untitled Collection"
             var submittedDate = Date()
+            var groupName: String?
             
-            // Decode the collectionComponent JSON to get the collection name and date
+            // Decode the collectionComponent JSON to get the collection name, date, and groupName
             if let collectionDict = try? JSONSerialization.jsonObject(
                 with: componentData.collectionComponent.data(using: .utf8)!
             ) as? [String: Any] {
                 collectionName = collectionDict["name"] as? String ?? collectionName
+                groupName = collectionDict["groupName"] as? String
                 
                 // Get date - try multiple possible keys
                 if let timestamp = collectionDict["dateCreated"] as? TimeInterval {
@@ -502,11 +504,34 @@ class JSONImportService {
             }
             
             // Create Submission (collection in new model)
-            // Note: publication will be linked later if this is a submission to a magazine/competition
+            // Collections have publication = nil (NOT submitted to a publication)
             let submission = Submission()
             submission.name = collectionName  // Set the collection name!
             submission.submittedDate = submittedDate
             submission.project = project
+            submission.publication = nil  // Explicitly set to nil for collections
+            
+            // In legacy app, folder placement is determined by collectionSubmissions relationship:
+            //   Collections folder: WS_Collection_Entity with no collectionSubmissionIds (not yet submitted)
+            //   Submissions folder: WS_Collection_Entity with collectionSubmissionIds (has been submitted)
+            // Check if this collection has collectionSubmissionIds - need to decode the plist to check if empty
+            var hasSubmissionIds = false
+            if let collectionSubmissionIdsData = componentData.collectionSubmissionIds {
+                do {
+                    let submissionIds = try PropertyListDecoder().decode([String].self, from: collectionSubmissionIdsData)
+                    hasSubmissionIds = !submissionIds.isEmpty
+                } catch {
+                    print("[JSONImport]   ⚠️ Could not decode collectionSubmissionIds: \(error)")
+                }
+            }
+            
+            submission.isCollection = !hasSubmissionIds
+            
+            if hasSubmissionIds {
+                print("[JSONImport]   ✅ Has collectionSubmissionIds - will appear in Submissions folder")
+            } else {
+                print("[JSONImport]   ✅ No collectionSubmissionIds - will appear in Collections folder")
+            }
             
             // Decode notes
             if let notesString = try? decodeAttributedString(from: componentData.notes, plainText: componentData.notesText) {
@@ -616,69 +641,132 @@ class JSONImportService {
     
     // MARK: - Link Collection Submissions
     
-    private func linkCollectionSubmissions(from data: WritingShedData, into project: Project) throws {
-        print("[JSONImport] Starting submission-to-publication linking")
-        var linkedCount = 0
+    // MARK: - Collection Submissions Import
+    
+    private func importCollectionSubmissions(from data: WritingShedData, into project: Project) throws {
+        print("[JSONImport] Starting collection submissions import")
+        print("[JSONImport] This processes WS_CollectionSubmission_Entity - collections that were submitted to publications")
+        print("[JSONImport] Submissions with publication set will appear in Submissions folder")
         
+        var submissionCount = 0
+        var collectionSubmissionMap: [String: CollectionSubmissionData] = [:]
+        
+        // First, gather all CollectionSubmissionData from all components
         for componentData in data.collectionComponentDatas {
-            // Only process WS_Collection_Entity (collections with textCollectionData)
-            // WS_Submission_Entity are publications and don't need submission linking
-            guard componentData.type == "WS_Collection_Entity" else { continue }
-            
-            // Check if this collection has textCollectionData (means it contains files)
-            guard let textCollectionId = componentData.textCollectionData?.id else {
-                print("[JSONImport]   ⚠️ Collection \(componentData.id) has no textCollectionData, skipping")
-                continue
-            }
-            
-            // Get the submission (collection) using the textCollectionData ID
-            guard let submission = submissionMap[textCollectionId] else {
-                print("[JSONImport]   ⚠️ Could not find submission for textCollection ID: \(textCollectionId)")
-                continue
-            }
-            
-            // Check if there are collectionSubmissionIds linking to publications
-            if let submissionIds = componentData.collectionSubmissionIds,
-               submissionIds.count > 0,
-               let links = try? PropertyListDecoder().decode([String].self, from: submissionIds),
-               !links.isEmpty {
-                
-                print("[JSONImport]   Collection '\(componentData.id)' has \(links.count) submission link(s)")
-                
-                // Link to publication(s)
-                // Note: In the old system, collections could be linked to multiple publications
-                // but in the new system, a submission belongs to one publication
-                // We'll take the first one
-                for fullLinkId in links {
-                    // Strip the project prefix from the linkId
-                    // Format: "ProjectName (timestamp)ActualComponentID"
-                    let linkId: String
-                    if let lastParenIndex = fullLinkId.lastIndex(of: ")") {
-                        linkId = String(fullLinkId[fullLinkId.index(after: lastParenIndex)...])
-                        print("[JSONImport]     Stripped '\(fullLinkId)' to '\(linkId)'")
-                    } else {
-                        linkId = fullLinkId
-                        print("[JSONImport]     No prefix to strip: '\(linkId)'")
-                    }
-                    
-                    print("[JSONImport]     Looking for publication ID: \(linkId)")
-                    print("[JSONImport]     Available publication IDs: \(publicationMap.keys.joined(separator: ", "))")
-                    
-                    if let publication = publicationMap[linkId] {
-                        submission.publication = publication
-                        linkedCount += 1
-                        print("[JSONImport]   ✅ Linked collection to publication: \(publication.name) (ID: \(linkId))")
-                        break // Only one publication per submission in new model
-                    } else {
-                        print("[JSONImport]     ⚠️ Could not find publication for ID: \(linkId)")
-                    }
+            if let submissionDatas = componentData.collectionSubmissionsDatas {
+                for submissionData in submissionDatas {
+                    collectionSubmissionMap[submissionData.id] = submissionData
+                    print("[JSONImport]   Found CollectionSubmission ID: \(submissionData.id)")
                 }
-            } else {
-                print("[JSONImport]   Collection '\(componentData.id)' has no publication links (standalone collection)")
             }
         }
         
-        print("[JSONImport] ✅ Linked \(linkedCount) submissions to publications")
+        print("[JSONImport] Found \(collectionSubmissionMap.count) collection submission entities")
+        
+        // Now process each CollectionSubmission to create a new Submission
+        for (_, submissionData) in collectionSubmissionMap {
+            submissionCount += 1
+            print("[JSONImport] Processing CollectionSubmission \(submissionCount): ID \(submissionData.id)")
+            
+            // Decode the collectionSubmission JSON to get metadata
+            guard let metadata = try? decodeCollectionSubmissionMetadata(submissionData.collectionSubmission) else {
+                errorHandler.addWarning("Failed to decode collection submission metadata for ID: \(submissionData.id)")
+                print("[JSONImport]   ⚠️ Failed to decode metadata")
+                continue
+            }
+            
+            // Find the publication (WS_Submission_Entity)
+            guard let publication = publicationMap[submissionData.submissionId] else {
+                errorHandler.addWarning("Could not find publication for submission ID: \(submissionData.submissionId)")
+                print("[JSONImport]   ⚠️ Could not find publication for ID: \(submissionData.submissionId)")
+                continue
+            }
+            
+            // Find the source collection
+            let sourceCollectionId = submissionData.collectionId
+            guard let sourceCollection = submissionMap[sourceCollectionId] else {
+                errorHandler.addWarning("Could not find source collection for ID: \(sourceCollectionId)")
+                print("[JSONImport]   ⚠️ Could not find source collection for ID: \(sourceCollectionId)")
+                continue
+            }
+            
+            let collectionName = sourceCollection.name ?? "Unknown Collection"
+            let publicationName = publication.name
+            
+            print("[JSONImport]   Source collection: \(collectionName)")
+            print("[JSONImport]   Target publication: \(publicationName)")
+            
+            // Create a NEW Submission for this publication submission
+            let newSubmission = Submission()
+            newSubmission.name = "\(collectionName) → \(publicationName)"
+            newSubmission.project = project
+            newSubmission.publication = publication  // Having publication set places it in Submissions folder
+            newSubmission.isCollection = false  // This is a submission, not a collection
+            newSubmission.submittedDate = metadata.submittedDate
+            newSubmission.notes = metadata.notes ?? ""
+            newSubmission.createdDate = Date()
+            newSubmission.modifiedDate = Date()
+            
+            // Copy files from source collection to new submission
+            var filesLinked = 0
+            if let sourceFiles = sourceCollection.submittedFiles {
+                for submittedFile in sourceFiles {
+                    let newFile = SubmittedFile()
+                    newFile.submission = newSubmission
+                    newSubmission.submittedFiles?.append(newFile)
+                    
+                    // Link to the same text file and version
+                    newFile.textFile = submittedFile.textFile
+                    newFile.version = submittedFile.version
+                    
+                    // Try to get acceptance status from metadata
+                    if let textFileId = submittedFile.textFile?.id.uuidString,
+                       let acceptedStatus = metadata.acceptedFiles?[textFileId] {
+                        newFile.status = acceptedStatus ? .accepted : .pending
+                    } else {
+                        newFile.status = .pending
+                    }
+                    
+                    modelContext.insert(newFile)
+                    filesLinked += 1
+                }
+            }
+            
+            print("[JSONImport]   ✅ Created submission with \(filesLinked) files")
+            modelContext.insert(newSubmission)
+        }
+        
+        print("[JSONImport] ✅ Imported \(submissionCount) collection submissions")
+    }
+    
+    private func decodeCollectionSubmissionMetadata(_ json: String) throws -> CollectionSubmissionMetadata {
+        guard let jsonData = json.data(using: .utf8),
+              let dict = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
+            throw ImportError.decodingFailed
+        }
+        
+        var metadata = CollectionSubmissionMetadata()
+        
+        // Get submitted date
+        if let timestamp = dict["submittedOn"] as? TimeInterval {
+            metadata.submittedDate = Date(timeIntervalSinceReferenceDate: timestamp)
+        } else if let timestamp = dict["dateSubmitted"] as? TimeInterval {
+            metadata.submittedDate = Date(timeIntervalSinceReferenceDate: timestamp)
+        }
+        
+        // Get notes
+        metadata.notes = dict["notes"] as? String
+        
+        // TODO: Extract accepted file information from WS_CollectedVersion_Entity if available
+        // This would require additional data in the export
+        
+        return metadata
+    }
+    
+    struct CollectionSubmissionMetadata {
+        var submittedDate: Date = Date()
+        var notes: String?
+        var acceptedFiles: [String: Bool]? // fileID -> isAccepted
     }
     
     // MARK: - Helper Methods
@@ -697,6 +785,7 @@ class JSONImportService {
                 "Draft",
                 "Ready",
                 "Collections",
+                "Submissions",
                 "Set Aside",
                 "Published",
                 "Research",
