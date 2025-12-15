@@ -1069,6 +1069,9 @@ struct FormattedTextEditor: UIViewRepresentable {
                 // Apply transform to scale the view
                 textView.transform = CGAffineTransform(scaleX: clampedScale, y: clampedScale)
                 
+                // Notify toolbar of zoom change
+                NotificationCenter.default.post(name: NSNotification.Name("TextViewZoomDidChange"), object: nil, userInfo: ["scale": clampedScale])
+                
             case .ended, .cancelled:
                 // Update current scale and save to UserDefaults
                 let newScale = currentZoomScale * gesture.scale
@@ -1082,6 +1085,9 @@ struct FormattedTextEditor: UIViewRepresentable {
                 #if DEBUG
                 print("🔍 Zoom factor saved: \(currentZoomScale)")
                 #endif
+                
+                // Notify toolbar of zoom change
+                NotificationCenter.default.post(name: NSNotification.Name("TextViewZoomDidChange"), object: nil, userInfo: ["scale": currentZoomScale])
                 
             default:
                 break

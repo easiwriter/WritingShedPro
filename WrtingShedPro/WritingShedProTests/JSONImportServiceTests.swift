@@ -197,6 +197,13 @@ final class JSONImportServiceTests: XCTestCase {
             }
         }
         
+        // Remove date/timestamp prefix without parentheses: "03/06/2016, 09:09" before text
+        let prefixPattern = "^[\\d/]+,\\s*[\\d:]+(?=[A-Za-z])"
+        if let regex = try? NSRegularExpression(pattern: prefixPattern) {
+            let range = NSRange(cleaned.startIndex..., in: cleaned)
+            cleaned = regex.stringByReplacingMatches(in: cleaned, range: range, withTemplate: "")
+        }
+        
         // Remove timestamp in brackets at end
         let pattern = "\\s*\\([\\d:,\\s/]+\\)\\s*$"
         if let regex = try? NSRegularExpression(pattern: pattern) {

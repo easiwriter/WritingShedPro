@@ -221,6 +221,31 @@ struct FormattingToolbarView: UIViewRepresentable {
         context.coordinator.textView = textView
         context.coordinator.updateButtonStates()
         
+        // Counter-scale toolbar to maintain proper size when textView is zoomed
+        let textViewScale = textView.transform.a // Get X scale factor from transform
+        if textViewScale != 0 && textViewScale != 1.0 {
+            // Apply inverse scale to toolbar to cancel out textView's zoom
+            toolbar.transform = CGAffineTransform(scaleX: 1.0 / textViewScale, y: 1.0 / textViewScale)
+        } else {
+            toolbar.transform = .identity
+        }
+        
+        // Listen for zoom changes to update toolbar scale
+        if context.coordinator.zoomObserver == nil {
+            context.coordinator.zoomObserver = NotificationCenter.default.addObserver(
+                forName: NSNotification.Name("TextViewZoomDidChange"),
+                object: nil,
+                queue: .main
+            ) { [weak toolbar] notification in
+                if let scale = notification.userInfo?["scale"] as? CGFloat,
+                   scale != 0 && scale != 1.0 {
+                    toolbar?.transform = CGAffineTransform(scaleX: 1.0 / scale, y: 1.0 / scale)
+                } else {
+                    toolbar?.transform = .identity
+                }
+            }
+        }
+        
         // Listen for text changes to update button states
         if context.coordinator.textChangeObserver == nil {
             context.coordinator.textChangeObserver = NotificationCenter.default.addObserver(
@@ -311,6 +336,7 @@ struct FormattingToolbarView: UIViewRepresentable {
         var selectionObserver: NSObjectProtocol?
         var keyboardWillShowObserver: NSObjectProtocol?
         var keyboardWillHideObserver: NSObjectProtocol?
+        var zoomObserver: NSObjectProtocol?
         
         weak var boldButton: UIButton?
         weak var italicButton: UIButton?

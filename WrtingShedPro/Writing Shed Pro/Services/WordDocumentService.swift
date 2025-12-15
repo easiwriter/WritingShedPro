@@ -41,10 +41,11 @@ class WordDocumentService {
                     options: [.documentType: NSAttributedString.DocumentType.rtf],
                     documentAttributes: nil
                 )
+            } else if url.pathExtension.lowercased() == "docx" {
+                // DOCX import using our custom parser
+                attributedString = try DOCXImportService.importDOCX(from: data)
             } else {
-                // For .docx files, .docx is not reliably supported on iOS/macOS
-                // Suggest using RTF instead
-                throw WordDocumentError.importFailed("Word document (.docx) import is not supported. Please export the document as RTF (.rtf) from Microsoft Word and try again. RTF preserves all formatting and is fully compatible with Word.")
+                throw WordDocumentError.importFailed("Unsupported file format. Please use RTF or DOCX files.")
             }
         } catch {
             throw WordDocumentError.importFailed(error.localizedDescription)

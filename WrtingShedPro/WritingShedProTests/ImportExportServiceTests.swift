@@ -151,23 +151,36 @@ final class ImportExportServiceTests: XCTestCase {
     }
     
     func testImportDOCX_RejectsWithError() throws {
-        // Create a fake .docx file
+        // Create a fake .docx file (invalid format)
         testFileURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("test.docx")
         let fakeData = "Not a real docx".data(using: .utf8)!
         try fakeData.write(to: testFileURL)
         
-        // Attempt to import should throw with helpful message about RTF
-        do {
-            _ = try WordDocumentService.importWordDocument(from: testFileURL)
-            XCTFail("Expected error to be thrown")
-        } catch let error as WordDocumentError {
-            if case .importFailed(let message) = error {
-                XCTAssertTrue(message.contains("not supported"), "Error should mention .docx not supported")
-                XCTAssertTrue(message.contains("RTF"), "Error should suggest RTF alternative")
-            } else {
-                XCTFail("Expected importFailed error")
-            }
+        // Attempt to import invalid DOCX should throw error
+        XCTAssertThrowsError(try WordDocumentService.importWordDocument(from: testFileURL)) { error in
+            // Should get a parsing error since it's not valid DOCX
+            XCTAssertNotNil(error)
+        }
+    }
+    
+    func testImportValidDOCX_Success() throws {
+        // Create a valid DOCX file
+        let helper = DOCXExportHelper()
+        let attrString = NSAttributedString(string: "Test content")
+        let docXML = helper.createDocumentXML(withAttributedString: attrString)
+        let docxData = try helper.createDOCXPackage(documentXML: docXML)
+        
+        testFileURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("valid_test.docx")
+        try docxData.write(to: testFileURL)
+        
+        // Import should succeed
+        let result = try WordDocumentService.importWordDocument(from: testFileURL)
+        
+        XCTAssertTrue(result.plainText.contains("Test content"))
+        XCTAssertNotNil(result.rtfData)
+        XCTAssertEqual(result.filename, "valid_test")
         }
     }
     

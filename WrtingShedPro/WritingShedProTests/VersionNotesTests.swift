@@ -50,6 +50,8 @@ final class VersionNotesTests: XCTestCase {
         textFile.name = "Test File"
         textFile.createdDate = Date()
         textFile.modifiedDate = Date()
+        // TextFile() creates a first version automatically, clear it for clean tests
+        textFile.versions = []
         modelContext.insert(textFile)
         
         version = Version()

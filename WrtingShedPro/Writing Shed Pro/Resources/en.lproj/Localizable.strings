@@ -970,6 +970,7 @@
 "export.format.rtf" = "RTF (Word-compatible)";
 "export.format.html" = "HTML (Web page)";
 "export.format.epub" = "EPUB (eBook)";
+"export.format.docx" = "DOCX (Word format)";
 "export.dialog.title" = "Export Format";
 "export.dialog.message" = "Choose format to export %d file(s)";
 "export.error.failed" = "Export failed";

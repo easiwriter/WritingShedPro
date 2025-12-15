@@ -299,7 +299,7 @@ struct FolderFilesView: View {
         }
         .fileImporter(
             isPresented: $showImportPicker,
-            allowedContentTypes: [.rtf],
+            allowedContentTypes: [.rtf, UTType("org.openxmlformats.wordprocessingml.document") ?? .data],
             allowsMultipleSelection: false
         ) { result in
             handleImport(result: result)
@@ -322,6 +322,10 @@ struct FolderFilesView: View {
                 exportFiles(format: .epub)
             }
             
+            Button(ExportFormat.docx.displayName) {
+                exportFiles(format: .docx)
+            }
+            
             Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
                 filesToExport = []
             }
@@ -341,6 +345,10 @@ struct FolderFilesView: View {
                 exportCombinedFolder(format: .epub)
             }
             
+            Button(ExportFormat.docx.displayName) {
+                exportCombinedFolder(format: .docx)
+            }
+            
             Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
                 exportCombinedContent = nil
             }
@@ -355,7 +363,7 @@ struct FolderFilesView: View {
                 contentType: contentTypeForFormat(exportFormat)
             ),
             contentType: contentTypeForFormat(exportFormat),
-            defaultFilename: "\(exportFilename).\(exportFormat.fileExtension)"
+            defaultFilename: exportFilename
         ) { result in
             handleExportResult(result: result)
         }
@@ -534,12 +542,14 @@ struct FolderFilesView: View {
         case rtf
         case html
         case epub
+        case docx
         
         var fileExtension: String {
             switch self {
             case .rtf: return "rtf"
             case .html: return "html"
             case .epub: return "epub"
+            case .docx: return "docx"
             }
         }
         
@@ -548,6 +558,7 @@ struct FolderFilesView: View {
             case .rtf: return NSLocalizedString("export.format.rtf", comment: "RTF (Word-compatible)")
             case .html: return NSLocalizedString("export.format.html", comment: "HTML (Web page)")
             case .epub: return NSLocalizedString("export.format.epub", comment: "EPUB (eBook)")
+            case .docx: return NSLocalizedString("export.format.docx", comment: "DOCX (Word format)")
             }
         }
     }
@@ -652,6 +663,15 @@ struct FolderFilesView: View {
                     data = try await Task.detached {
                         try EPUBExportService.exportMultipleToEPUB(attributedStrings, filename: filename)
                     }.value
+                case .docx:
+                    // Export to DOCX using DOCXExportService - use array version for page breaks
+                    data = try await Task.detached { [weak modelContext] in
+                        guard let modelContext = modelContext else {
+                            throw DOCXExportError.noContent
+                        }
+                        let exportService = DOCXExportService(modelContext: modelContext)
+                        return try exportService.exportMultipleToDOCX(attributedStrings, filename: filename)
+                    }.value
                 }
                 
                 await MainActor.run {
@@ -702,6 +722,10 @@ struct FolderFilesView: View {
                 exportData = try HTMLExportService.exportToHTMLData(content, filename: filename)
             case .epub:
                 exportData = try EPUBExportService.exportToEPUB(content, filename: filename)
+            case .docx:
+                // Export to DOCX using DOCXExportService
+                let exportService = DOCXExportService(modelContext: modelContext)
+                exportData = try exportService.exportToDOCX(content, filename: filename)
             }
             
             exportFilename = filename
@@ -741,6 +765,9 @@ struct FolderFilesView: View {
         case .epub:
             // EPUB uses a custom UTType
             return UTType(filenameExtension: "epub") ?? .data
+        case .docx:
+            // DOCX uses the official UTType identifier
+            return UTType("org.openxmlformats.wordprocessingml.document") ?? .data
         }
     }
     
@@ -765,11 +792,11 @@ struct FolderFilesView: View {
 
 struct ExportDocument: FileDocument {
     static var readableContentTypes: [UTType] { 
-        [.rtf, .html, UTType(filenameExtension: "epub") ?? .data, .data] 
+        [.rtf, .html, UTType(filenameExtension: "epub") ?? .data, UTType("org.openxmlformats.wordprocessingml.document") ?? .data, .data] 
     }
     
     static var writableContentTypes: [UTType] { 
-        [.rtf, .html, UTType(filenameExtension: "epub") ?? .data, .data] 
+        [.rtf, .html, UTType(filenameExtension: "epub") ?? .data, UTType("org.openxmlformats.wordprocessingml.document") ?? .data, .data] 
     }
     
     var data: Data

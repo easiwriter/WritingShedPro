@@ -151,8 +151,20 @@ class JSONImportService {
         var cleaned = name
         
         // First, remove any timestamp patterns like "<>03/06/2016, 09:09Poetry"
-        if let components = cleaned.split(separator: "<>", maxSplits: 1).first {
-            cleaned = String(components)
+        // Take the part AFTER <> if it exists
+        if cleaned.contains("<>") {
+            let components = cleaned.split(separator: "<>", maxSplits: 1)
+            if components.count > 1 {
+                cleaned = String(components[1])
+            }
+        }
+        
+        // Remove date/timestamp prefix without parentheses: "03/06/2016, 09:09" before text
+        // Pattern: date and time at the start (no parentheses)
+        let prefixPattern = "^[\\d/]+,\\s*[\\d:]+(?=[A-Za-z])"
+        if let regex = try? NSRegularExpression(pattern: prefixPattern) {
+            let range = NSRange(cleaned.startIndex..., in: cleaned)
+            cleaned = regex.stringByReplacingMatches(in: cleaned, range: range, withTemplate: "")
         }
         
         // Remove date in brackets at end: "(15:11:2025, 08:47)" or "(dd/mm/yyyy, hh:mm)"
