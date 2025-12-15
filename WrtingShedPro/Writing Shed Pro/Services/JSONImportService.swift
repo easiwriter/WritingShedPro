@@ -103,10 +103,10 @@ class JSONImportService {
         // Import collections (text collections)
         try importCollections(from: writingShedData, into: project)
         
-        // NOTE: We do NOT import collectionSubmissionsDatas as separate Submission records
-        // In the legacy app, WS_CollectionSubmission_Entity is just metadata linking a collection to a publication
-        // The collection itself (WS_Collection_Entity) is what appears in the Submissions folder
-        // try importCollectionSubmissions(from: writingShedData, into: project)
+        // Import collection submissions - these link collections to publications
+        // In legacy app, WS_CollectionSubmission_Entity represents a collection that was submitted to a publication
+        // This creates Submission objects (isCollection=false) with publication set, placing them in Submissions folder
+        try importCollectionSubmissions(from: writingShedData, into: project)
         
         // Save
         try modelContext.save()

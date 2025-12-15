@@ -187,9 +187,50 @@ struct PublicationsListView: View {
     
     private func confirmDelete() {
         for publication in publicationsToDelete {
+            // Fetch all submissions for this publication directly from the context
+            // This is more reliable than using the relationship
+            let publicationID = publication.id
+            let descriptor = FetchDescriptor<Submission>(
+                predicate: #Predicate<Submission> { submission in
+                    submission.publication?.id == publicationID && submission.isCollection == false
+                }
+            )
+            
+            do {
+                let submissions = try modelContext.fetch(descriptor)
+                
+                // Delete all submissions and their submitted files
+                for submission in submissions {
+                    // Delete all submitted files in this submission
+                    if let submittedFiles = submission.submittedFiles {
+                        for submittedFile in submittedFiles {
+                            modelContext.delete(submittedFile)
+                        }
+                    }
+                    
+                    // Delete the submission
+                    modelContext.delete(submission)
+                }
+                
+                print("✅ Deleted \(submissions.count) submissions for publication '\(publication.name)'")
+            } catch {
+                print("❌ Error fetching submissions for publication: \(error)")
+            }
+            
+            // Delete the publication
             modelContext.delete(publication)
         }
+        
+        // Save context to persist all deletions
+        do {
+            try modelContext.save()
+            print("✅ Successfully deleted \(publicationsToDelete.count) publication(s)")
+        } catch {
+            print("❌ Error saving after publication deletion: \(error)")
+        }
+        
         publicationsToDelete = []
+        selectedPublicationIDs.removeAll()
         exitEditMode()
     }
     

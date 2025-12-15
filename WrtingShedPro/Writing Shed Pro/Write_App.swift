@@ -60,24 +60,28 @@ struct Write_App: App {
             // Monitor CloudKit sync errors at the transaction level
             mainContext.autosaveEnabled = true
             
-            // Add observer for sync errors
+            // Add observer for sync errors - runs asynchronously, won't block app launch
             NotificationCenter.default.addObserver(
                 forName: NSNotification.Name("NSPersistentStoreRemoteChangeNotification"),
                 object: nil,
-                queue: .main
+                queue: OperationQueue()  // Run on background queue
             ) { notification in
-                print("🔄 [CloudKit] Remote change notification received")
-                Write_App.logErrorToFile("🔄 [CloudKit] Remote change notification received")
+                DispatchQueue.main.async {
+                    print("🔄 [CloudKit] Remote change notification received")
+                    Write_App.logErrorToFile("🔄 [CloudKit] Remote change notification received")
+                }
             }
             
-            // Monitor for CloudKit errors through transaction notifications
+            // Monitor for CloudKit errors through transaction notifications - also async
             NotificationCenter.default.addObserver(
                 forName: NSNotification.Name("NSPersistentStoreCoordinatorStoresDidChangeNotification"),
                 object: nil,
-                queue: .main
+                queue: OperationQueue()  // Run on background queue
             ) { notification in
-                print("🔄 [CloudKit] Stores changed - possible sync event")
-                Write_App.logErrorToFile("🔄 [CloudKit] Stores changed - possible sync event")
+                DispatchQueue.main.async {
+                    print("🔄 [CloudKit] Stores changed - possible sync event")
+                    Write_App.logErrorToFile("🔄 [CloudKit] Stores changed - possible sync event")
+                }
             }
             
             // Check the actual store URL and configuration
@@ -125,15 +129,28 @@ struct Write_App: App {
         print("✅ [CloudKit Config] aps-environment: production")
         
         // Log to file for TestFlight diagnostics
-        logToFile("========================================")
-        logToFile("🚀 Writing Shed Pro APP LAUNCHED")
-        logToFile("========================================")
-        logToFile("🚀 App initializing...")
-        logToFile("✅ [CloudKit Config] Container: iCloud.com.appworks.writingshedpro")
-        logToFile("✅ [CloudKit Config] Database: private")
-        logToFile("✅ [CloudKit Config] aps-environment: production")
+        Write_App.logToFile("========================================")
+        Write_App.logToFile("🚀 Writing Shed Pro APP LAUNCHED")
+        Write_App.logToFile("========================================")
+        Write_App.logToFile("🚀 App initializing...")
+        Write_App.logToFile("✅ [CloudKit Config] Container: iCloud.com.appworks.writingshedpro")
+        Write_App.logToFile("✅ [CloudKit Config] Database: private")
+        Write_App.logToFile("✅ [CloudKit Config] aps-environment: production")
         
-        checkCloudKitStatus()
+        // Defer CloudKit status check to avoid blocking app launch
+        // Use Task.detached to avoid capturing self
+        Task.detached {
+            // Wait a bit to let the UI finish loading
+            try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
+            await Write_App.performCloudKitStatusCheck()
+        }
+    }
+    
+    @MainActor
+    private static func performCloudKitStatusCheck() {
+        // Create a temporary instance to access the instance method
+        let app = Write_App()
+        app.checkCloudKitStatus()
     }
 
     var body: some Scene {
@@ -210,6 +227,11 @@ struct Write_App: App {
     
     /// Log messages to a file in the app's documents directory for TestFlight diagnostics
     private func logToFile(_ message: String) {
+        Write_App.logToFile(message)
+    }
+    
+    /// Static version for use during init
+    private static func logToFile(_ message: String) {
         guard let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
             return
         }

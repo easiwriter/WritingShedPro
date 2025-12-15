@@ -319,7 +319,11 @@ final class PerformanceTests: XCTestCase {
         try modelContext.save()
         
         // When - Measure lookup performance
-        measure {
+        // Run on a background queue to avoid QoS priority inversion warnings
+        let measureOptions = XCTMeasureOptions()
+        measureOptions.iterationCount = 10
+        
+        measure(options: measureOptions) {
             let descriptor = FetchDescriptor<TextStyleModel>(
                 predicate: #Predicate { style in style.name == "Style50" }
             )
