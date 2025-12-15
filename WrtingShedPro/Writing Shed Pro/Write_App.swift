@@ -136,26 +136,16 @@ struct Write_App: App {
         Write_App.logToFile("✅ [CloudKit Config] Container: iCloud.com.appworks.writingshedpro")
         Write_App.logToFile("✅ [CloudKit Config] Database: private")
         Write_App.logToFile("✅ [CloudKit Config] aps-environment: production")
-        
-        // Defer CloudKit status check to avoid blocking app launch
-        // Use Task.detached to avoid capturing self
-        Task.detached {
-            // Wait a bit to let the UI finish loading
-            try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
-            await Write_App.performCloudKitStatusCheck()
-        }
-    }
-    
-    @MainActor
-    private static func performCloudKitStatusCheck() {
-        // Create a temporary instance to access the instance method
-        let app = Write_App()
-        app.checkCloudKitStatus()
     }
 
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .task {
+                    // Defer CloudKit status check to avoid blocking app launch
+                    try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
+                    checkCloudKitStatus()
+                }
         }
         .modelContainer(sharedModelContainer)
     }
@@ -167,7 +157,7 @@ struct Write_App: App {
             switch status {
             case .available:
                 statusMsg = "✅ iCloud account available"
-                self.checkContainerStatus()
+                checkContainerStatus()
             case .noAccount:
                 statusMsg = "❌ No iCloud account signed in"
             case .restricted:
@@ -180,12 +170,12 @@ struct Write_App: App {
                 statusMsg = "❓ Unknown iCloud status"
             }
             print(statusMsg)
-            self.logToFile(statusMsg)
+            Write_App.logToFile(statusMsg)
             
             if let error = error {
                 let errorMsg = "❌ Error checking account: \(error.localizedDescription)"
                 print(errorMsg)
-                self.logToFile(errorMsg)
+                Write_App.logToFile(errorMsg)
             }
         }
     }
@@ -196,41 +186,36 @@ struct Write_App: App {
         container.accountStatus { status, error in
             if status == .available {
                 print("✅ CloudKit container accessible")
-                self.logToFile("✅ CloudKit container accessible")
+                Write_App.logToFile("✅ CloudKit container accessible")
                 
                 // Try to access the private database
                 container.privateCloudDatabase.fetchAllRecordZones { zones, error in
                     if let zones = zones {
                         let zoneMsg = "✅ Private database accessible, zones: \(zones.count)"
                         print(zoneMsg)
-                        self.logToFile(zoneMsg)
+                        Write_App.logToFile(zoneMsg)
                     }
                     if let error = error {
                         let errorMsg = "❌ Error fetching zones: \(error.localizedDescription)"
                         print(errorMsg)
-                        self.logToFile(errorMsg)
+                        Write_App.logToFile(errorMsg)
                     }
                 }
             } else {
                 let statusMsg = "❌ CloudKit container not accessible: \(status)"
                 print(statusMsg)
-                self.logToFile(statusMsg)
+                Write_App.logToFile(statusMsg)
             }
             if let error = error {
                 let errorMsg = "❌ Container error: \(error.localizedDescription)"
                 print(errorMsg)
-                self.logToFile(errorMsg)
+                Write_App.logToFile(errorMsg)
             }
         }
     }
     
     
     /// Log messages to a file in the app's documents directory for TestFlight diagnostics
-    private func logToFile(_ message: String) {
-        Write_App.logToFile(message)
-    }
-    
-    /// Static version for use during init
     private static func logToFile(_ message: String) {
         guard let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
             return

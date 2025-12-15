@@ -158,30 +158,10 @@ struct FileListView: View {
         }
         .listStyle(.plain)
         .toolbar {
-            // Top trailing toolbar for expand/collapse all buttons (when using sections)
+            // Top toolbar for expand/collapse all button (only when using sections and not in edit mode)
             ToolbarItemGroup(placement: .topBarTrailing) {
                 if useSections && !isEditMode {
                     expandCollapseButtons
-                }
-                
-                // Select All / Deselect All button in edit mode
-                if isEditMode {
-                    Button {
-                        if selectedFileIDs.count == files.count {
-                            // Deselect all
-                            selectedFileIDs.removeAll()
-                        } else {
-                            // Select all
-                            selectedFileIDs = Set(files.map { $0.id })
-                        }
-                    } label: {
-                        Text(selectedFileIDs.count == files.count ? 
-                            NSLocalizedString("fileList.deselectAll", comment: "Deselect All") :
-                            NSLocalizedString("fileList.selectAll", comment: "Select All"))
-                    }
-                    .accessibilityLabel(selectedFileIDs.count == files.count ?
-                        "fileList.deselectAll.accessibility" :
-                        "fileList.selectAll.accessibility")
                 }
             }
             

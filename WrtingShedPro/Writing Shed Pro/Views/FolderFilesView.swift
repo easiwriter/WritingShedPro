@@ -159,63 +159,50 @@ struct FolderFilesView: View {
         }
         .environment(\.editMode, $editMode)
         .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                HStack(spacing: 16) {
-                    // Search button
-                    if !sortedFiles.isEmpty {
-                        Button {
-                            showSearchView = true
-                        } label: {
-                            Image(systemName: "magnifyingglass")
-                        }
-                        .accessibilityLabel("Search files in folder")
-                        .help("Search and replace across all files")
-                        .disabled(editMode == .active)
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                // Search button
+                if !sortedFiles.isEmpty {
+                    Button {
+                        showSearchView = true
+                    } label: {
+                        Image(systemName: "magnifyingglass")
                     }
-                    
-                    // Import Word document button
-                    if FolderCapabilityService.canAddFile(to: folder) {
-                        Button {
-                            showImportPicker = true
-                        } label: {
-                            Image(systemName: "square.and.arrow.down")
-                        }
-                        .accessibilityLabel("Import Word document")
-                        .help("Import Word document")
-                        .disabled(editMode == .active)
+                    .accessibilityLabel("Search files in folder")
+                    .help("Search and replace across all files")
+                    .disabled(editMode == .active)
+                }
+                
+                // Import Word document button
+                if FolderCapabilityService.canAddFile(to: folder) {
+                    Button {
+                        showImportPicker = true
+                    } label: {
+                        Image(systemName: "square.and.arrow.down")
                     }
-                    
-                    // Export folder button (when NOT in edit mode - combines all files)
-                    if !sortedFiles.isEmpty && editMode == .inactive {
-                        Button {
-                            exportCompleteFolder()
-                        } label: {
-                            Image(systemName: "square.and.arrow.up")
-                        }
-                        .accessibilityLabel(NSLocalizedString("folderFiles.exportFolder.accessibility", comment: "Export complete folder"))
-                        .help(NSLocalizedString("folderFiles.exportFolder.help", comment: "Export all files combined as one document"))
+                    .accessibilityLabel("Import Word document")
+                    .help("Import Word document")
+                    .disabled(editMode == .active)
+                }
+                
+                // Add file button
+                if FolderCapabilityService.canAddFile(to: folder) {
+                    Button {
+                        showAddFileSheet = true
+                    } label: {
+                        Image(systemName: "plus")
                     }
-                    
-                    // Add file button (left of Edit)
-                    if FolderCapabilityService.canAddFile(to: folder) {
-                        Button {
-                            showAddFileSheet = true
-                        } label: {
-                            Image(systemName: "plus")
+                    .accessibilityLabel("folderFiles.addFile.accessibility")
+                    .disabled(editMode == .active)
+                }
+                
+                // Manual Edit/Done button on far right (replaces SwiftUI's EditButton which isn't working)
+                if !sortedFiles.isEmpty {
+                    Button {
+                        withAnimation {
+                            editMode = editMode == .inactive ? .active : .inactive
                         }
-                        .accessibilityLabel("folderFiles.addFile.accessibility")
-                        .disabled(editMode == .active)
-                    }
-                    
-                    // Manual Edit/Done button on far right (replaces SwiftUI's EditButton which isn't working)
-                    if !sortedFiles.isEmpty {
-                        Button {
-                            withAnimation {
-                                editMode = editMode == .inactive ? .active : .inactive
-                            }
-                        } label: {
-                            Text(editMode == .inactive ? "button.edit" : "button.done")
-                        }
+                    } label: {
+                        Text(editMode == .inactive ? "button.edit" : "button.done")
                     }
                 }
             }
