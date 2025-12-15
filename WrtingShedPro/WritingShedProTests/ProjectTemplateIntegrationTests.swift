@@ -33,12 +33,12 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
         
         // Then: Verify folders are created (hierarchical structure)
         let projectFolders = newProject.folders ?? []
-        XCTAssertEqual(projectFolders.count, 12, "Should create 12 folders for poetry project (hierarchical structure)")
+        XCTAssertEqual(projectFolders.count, 13, "Should create 13 folders for poetry project (hierarchical structure)")
         
         // Verify expected folder names exist
         let folderNames = Set(projectFolders.compactMap { $0.name })
         let expectedFolders: Set<String> = [
-            "All", "Draft", "Ready", "Collections", "Set Aside", "Published",
+            "All", "Draft", "Ready", "Collections", "Submissions", "Set Aside", "Published",
             "Research", "Magazines", "Competitions", "Commissions", 
             "Other", "Trash"
         ]
@@ -76,7 +76,7 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
         let projectFolders = project.folders ?? []
         
         // Then: Can access all folders in hierarchical structure
-        XCTAssertEqual(projectFolders.count, 12, "Should find 12 folders for poetry project")
+        XCTAssertEqual(projectFolders.count, 13, "Should find 13 folders for poetry project")
         
         let folderNames = Set(projectFolders.compactMap { $0.name })
         XCTAssert(folderNames.contains("Draft"), "Should contain Draft folder")
@@ -102,7 +102,7 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
         let proseFolders = proseProject.folders ?? []
         
         // Then: Each has its own folder structure
-        XCTAssertEqual(poetryFolders.count, 12, "Poetry project should have 12 folders")
+        XCTAssertEqual(poetryFolders.count, 13, "Poetry project should have 13 folders")
         XCTAssertEqual(proseFolders.count, 2, "Blank project should have 2 folders")
         
         // Verify type-specific folders
@@ -145,11 +145,11 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
         let folders = project.folders ?? []
         
         // Then: Verify flat structure matches spec (all folders at root level)
-        XCTAssertEqual(folders.count, 12, "Should have 12 folders total for poetry project")
+        XCTAssertEqual(folders.count, 13, "Should have 13 folders total for poetry project")
         
         let folderNames = Set(folders.compactMap { $0.name })
         let expectedNames = Set([
-            "All", "Draft", "Ready", "Collections", "Set Aside", "Published",
+            "All", "Draft", "Ready", "Collections", "Submissions", "Set Aside", "Published",
             "Research", 
             "Magazines", "Competitions", "Commissions", "Other", 
             "Trash"

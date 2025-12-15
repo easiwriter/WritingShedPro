@@ -275,11 +275,9 @@ struct FileEditView: View {
     
     @ViewBuilder
     private func formattingToolbar() -> some View {
-        // Show toolbar once text view has been initialized
-        // Don't make it conditional on textView being non-nil because that can
-        // cause it to flicker during view updates
-        if let textView = textViewCoordinator.textView {
-            FormattingToolbarView(textView: textView) { action in
+        // Pure SwiftUI toolbar that respects iOS 26.2+ button styling
+        SwiftUIFormattingToolbar(
+            onFormatAction: { action in
                 switch action {
                 case .paragraphStyle:
                     showStylePicker = true
@@ -294,39 +292,22 @@ struct FileEditView: View {
                 case .imageStyle:
                     // Show image style editor for selected image
                     if let image = selectedImage {
-                        print("🖼️ imageStyle: selectedImage.imageData = \(image.imageData?.count ?? 0) bytes")
-                        print("🖼️ imageStyle: selectedImage.image = \(image.image != nil)")
-                        if let imgData = image.imageData {
-                            print("🖼️ imageStyle: Can create UIImage from imageData: \(UIImage(data: imgData) != nil)")
-                        }
                         imageToEdit = image
                     }
                 case .notes:
                     showNotesEditor = true
+                case .toggleKeyboard:
+                    if let textView = textViewCoordinator.textView {
+                        if textView.isFirstResponder {
+                            textView.resignFirstResponder()
+                        } else {
+                            textView.becomeFirstResponder()
+                        }
+                    }
                 }
-            }
-            .frame(height: 44)
-            #if targetEnvironment(macCatalyst)
-            .padding(.vertical, 2)
-            #endif
-            .background(
-                Color(UIColor.secondarySystemBackground)
-                    .ignoresSafeArea(edges: .horizontal)
-            )
-            .overlay(
-                VStack(spacing: 0) {
-                    Divider()
-                        .ignoresSafeArea(edges: .horizontal)
-                    Spacer()
-                    Divider()
-                        .ignoresSafeArea(edges: .horizontal)
-                }
-            )
-        } else {
-            Color(UIColor.secondarySystemBackground)
-                .frame(height: 44)
-                .ignoresSafeArea(edges: .horizontal)
-        }
+            },
+            hasSelectedImage: selectedImage != nil
+        )
     }
     
     @ViewBuilder
@@ -1258,8 +1239,10 @@ struct FileEditView: View {
         
         // Select the image character so backspace/delete will remove it
         if let textView = textViewCoordinator.textView {
-            textView.selectedRange = NSRange(location: position, length: 1)
-            textView.tintColor = .clear // Hide cursor when image is selected
+            DispatchQueue.main.async {
+                textView.selectedRange = NSRange(location: position, length: 1)
+                textView.tintColor = .clear // Hide cursor when image is selected
+            }
             print("🖼️ Cursor hidden, range set to {\(position), 1}")
         } else {
             print("⚠️ No textView available!")

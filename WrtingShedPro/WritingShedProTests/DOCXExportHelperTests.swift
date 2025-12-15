@@ -13,10 +13,12 @@ final class DOCXExportHelperTests: XCTestCase {
     }
     
     func testCreateDocumentXML_ReturnsValidXML() {
-        let xml = helper.createDocumentXML()
+        let testString = NSAttributedString(string: "Test content")
+        let xml = helper.createDocumentXML(withAttributedString: testString)
         XCTAssertTrue(xml.contains("<?xml version=\"1.0\""))
         XCTAssertTrue(xml.contains("<w:document"))
         XCTAssertTrue(xml.contains("<w:body>"))
+        XCTAssertTrue(xml.contains("Test content"))
     }
     
     func testEscapeXML_Ampersand() {
@@ -29,10 +31,11 @@ final class DOCXExportHelperTests: XCTestCase {
         XCTAssertEqual(escaped, "x &lt; y")
     }
     
-    func testAddContent_SingleParagraph() {
-        let baseXML = helper.createDocumentXML()
-        let xml = helper.addContent(to: baseXML, content: "Hello, World!")
+    func testCreateDocumentXML_MultipleParagraphs() {
+        let testString = NSAttributedString(string: "Hello\nWorld")
+        let xml = helper.createDocumentXML(withAttributedString: testString)
         XCTAssertTrue(xml.contains("<w:p>"))
-        XCTAssertTrue(xml.contains("Hello, World!"))
+        XCTAssertTrue(xml.contains("Hello"))
+        XCTAssertTrue(xml.contains("World"))
     }
 }

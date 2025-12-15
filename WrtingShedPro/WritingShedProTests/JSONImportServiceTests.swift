@@ -191,14 +191,14 @@ final class JSONImportServiceTests: XCTestCase {
         
         // Remove <>timestamp prefix (take the part AFTER <>)
         if cleaned.contains("<>") {
-            let components = cleaned.split(separator: "<>", maxSplits: 1)
+            let components = cleaned.components(separatedBy: "<>")
             if components.count > 1 {
-                cleaned = String(components[1])
+                cleaned = components[1]
             }
         }
         
         // Remove date/timestamp prefix without parentheses: "03/06/2016, 09:09" before text
-        let prefixPattern = "^[\\d/]+,\\s*[\\d:]+(?=[A-Za-z])"
+        let prefixPattern = "^[\\d/]+,\\s*[\\d:]+"
         if let regex = try? NSRegularExpression(pattern: prefixPattern) {
             let range = NSRange(cleaned.startIndex..., in: cleaned)
             cleaned = regex.stringByReplacingMatches(in: cleaned, range: range, withTemplate: "")

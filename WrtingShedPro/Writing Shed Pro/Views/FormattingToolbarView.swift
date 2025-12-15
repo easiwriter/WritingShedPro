@@ -17,8 +17,11 @@ struct FormattingToolbarView: UIViewRepresentable {
     }
     
     func makeUIView(context: Context) -> UIToolbar {
-        let toolbar = UIToolbar()
+        let toolbar = FixedHeightToolbar()
         toolbar.sizeToFit()
+        
+        // Store toolbar reference
+        context.coordinator.toolbar = toolbar
         
         // Create paragraph style button (non-highlighting)
         let paragraphButton = createStandardButton(
@@ -221,31 +224,6 @@ struct FormattingToolbarView: UIViewRepresentable {
         context.coordinator.textView = textView
         context.coordinator.updateButtonStates()
         
-        // Counter-scale toolbar to maintain proper size when textView is zoomed
-        let textViewScale = textView.transform.a // Get X scale factor from transform
-        if textViewScale != 0 && textViewScale != 1.0 {
-            // Apply inverse scale to toolbar to cancel out textView's zoom
-            toolbar.transform = CGAffineTransform(scaleX: 1.0 / textViewScale, y: 1.0 / textViewScale)
-        } else {
-            toolbar.transform = .identity
-        }
-        
-        // Listen for zoom changes to update toolbar scale
-        if context.coordinator.zoomObserver == nil {
-            context.coordinator.zoomObserver = NotificationCenter.default.addObserver(
-                forName: NSNotification.Name("TextViewZoomDidChange"),
-                object: nil,
-                queue: .main
-            ) { [weak toolbar] notification in
-                if let scale = notification.userInfo?["scale"] as? CGFloat,
-                   scale != 0 && scale != 1.0 {
-                    toolbar?.transform = CGAffineTransform(scaleX: 1.0 / scale, y: 1.0 / scale)
-                } else {
-                    toolbar?.transform = .identity
-                }
-            }
-        }
-        
         // Listen for text changes to update button states
         if context.coordinator.textChangeObserver == nil {
             context.coordinator.textChangeObserver = NotificationCenter.default.addObserver(
@@ -313,7 +291,7 @@ struct FormattingToolbarView: UIViewRepresentable {
     // Standard button without highlighting (paragraph, insert)
     private func createStandardButton(systemName: String, action: Selector, coordinator: Coordinator) -> UIButton {
         let button = UIButton(type: .system)
-        button.setImage(UIImage(systemName: systemName, withConfiguration: UIImage.SymbolConfiguration(scale: .large)), for: .normal)
+        button.setImage(UIImage(systemName: systemName, withConfiguration: UIImage.SymbolConfiguration(scale: .medium)), for: .normal)
         button.frame = CGRect(x: 0, y: 0, width: 44, height: 44)
         button.addTarget(coordinator, action: action, for: .touchUpInside)
         return button
@@ -322,7 +300,7 @@ struct FormattingToolbarView: UIViewRepresentable {
     // Custom button with background highlighting (bold, italic, underline, strikethrough)
     private func createCustomButton(systemName: String, action: Selector, coordinator: Coordinator) -> UIButton {
         let button = UIButton(type: .system)
-        button.setImage(UIImage(systemName: systemName, withConfiguration: UIImage.SymbolConfiguration(scale: .large)), for: .normal)
+        button.setImage(UIImage(systemName: systemName, withConfiguration: UIImage.SymbolConfiguration(scale: .medium)), for: .normal)
         button.frame = CGRect(x: 0, y: 0, width: 32, height: 28)  // Smaller highlight area
         button.layer.cornerRadius = 6  // Reduced corner radius
         button.addTarget(coordinator, action: action, for: .touchUpInside)
@@ -336,7 +314,6 @@ struct FormattingToolbarView: UIViewRepresentable {
         var selectionObserver: NSObjectProtocol?
         var keyboardWillShowObserver: NSObjectProtocol?
         var keyboardWillHideObserver: NSObjectProtocol?
-        var zoomObserver: NSObjectProtocol?
         
         weak var boldButton: UIButton?
         weak var italicButton: UIButton?
@@ -528,7 +505,7 @@ struct FormattingToolbarView: UIViewRepresentable {
                 NSLocalizedString("toolbar.showKeyboard", comment: "Show keyboard")
             
             button.setImage(
-                UIImage(systemName: symbolName, withConfiguration: UIImage.SymbolConfiguration(scale: .large)),
+                UIImage(systemName: symbolName, withConfiguration: UIImage.SymbolConfiguration(scale: .medium)),
                 for: .normal
             )
             button.accessibilityLabel = accessibilityLabel
@@ -604,6 +581,17 @@ struct FormattingToolbarView: UIViewRepresentable {
             guard let font = attributes[.font] as? UIFont else { return false }
             return font.fontDescriptor.symbolicTraits.contains(.traitItalic)
         }
+    }
+}
+
+/// Custom UIToolbar subclass that enforces standard height for iOS 26+ inputAccessoryView
+class FixedHeightToolbar: UIToolbar {
+    override var intrinsicContentSize: CGSize {
+        return CGSize(width: UIView.noIntrinsicMetric, height: 44)
+    }
+    
+    override func sizeThatFits(_ size: CGSize) -> CGSize {
+        return CGSize(width: size.width, height: 44)
     }
 }
 

@@ -181,7 +181,6 @@ final class ImportExportServiceTests: XCTestCase {
         XCTAssertTrue(result.plainText.contains("Test content"))
         XCTAssertNotNil(result.rtfData)
         XCTAssertEqual(result.filename, "valid_test")
-        }
     }
     
     // MARK: - Round-trip Tests

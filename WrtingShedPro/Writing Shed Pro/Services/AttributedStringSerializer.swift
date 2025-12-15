@@ -830,11 +830,11 @@ struct AttributedStringSerializer {
                 let isBold = font.fontDescriptor.symbolicTraits.contains(.traitBold)
                 let isItalic = font.fontDescriptor.symbolicTraits.contains(.traitItalic)
                 
-                // Create Body font with the same traits
-                // Use the system Body font family, not the original font family
+                // Create Body font with the same traits, using ORIGINAL font size then scale it
+                let scaledSize = font.pointSize * scaleFactor
                 let bodyFont = UIFont.fontWithNameAndTraits(
                     baseBodyFont.familyName,
-                    size: baseBodyFont.pointSize,
+                    size: scaledSize,
                     bold: isBold,
                     italic: isItalic
                 )
