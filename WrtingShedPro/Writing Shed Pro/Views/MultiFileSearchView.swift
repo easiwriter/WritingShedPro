@@ -26,12 +26,14 @@ struct MultiFileSearchView: View {
     let title: String
     let folder: Folder?
     let collection: Submission?
+    let files: [TextFile]?  // Explicit file list for virtual folders
     let onFileSelected: ((TextFile) -> Void)?
     
-    init(folder: Folder, onFileSelected: ((TextFile) -> Void)? = nil) {
+    init(folder: Folder, files: [TextFile]? = nil, onFileSelected: ((TextFile) -> Void)? = nil) {
         self.title = "Search in \(folder.name ?? "Folder")"
         self.folder = folder
         self.collection = nil
+        self.files = files
         self.onFileSelected = onFileSelected
     }
     
@@ -39,6 +41,7 @@ struct MultiFileSearchView: View {
         self.title = "Search in \(collection.name ?? "Collection")"
         self.folder = nil
         self.collection = collection
+        self.files = nil
         self.onFileSelected = onFileSelected
     }
     
@@ -296,7 +299,13 @@ struct MultiFileSearchView: View {
     // MARK: - Actions
     
     private func performSearch() {
-        if let folder = folder {
+        // Hide keyboard before showing results
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        
+        if let files = files {
+            // Use explicit file list for virtual folders
+            searchService.searchInFiles(files)
+        } else if let folder = folder {
             searchService.searchInFolder(folder)
         } else if let collection = collection {
             searchService.searchInCollection(collection)
@@ -345,22 +354,19 @@ struct FileResultRow<Destination: View>: View {
                     }
                 }
                 
-                // File icon
-                Image(systemName: "doc.text")
-                    .foregroundStyle(.secondary)
-                
-                // File name and match count (no space between)
-                HStack(spacing: 0) {
+                // File info (2 lines)
+                VStack(alignment: .leading, spacing: 2) {
                     Text(result.file.name.isEmpty ? "Untitled" : result.file.name)
                         .font(.body)
                     
-                    Text(" (\(result.matchCount))")
-                        .font(.body)
+                    Text("\(result.matchCount) matches")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
                 
                 Spacer()
             }
-            .padding(.vertical, 4)
+            .padding(.vertical, 8)
             .contentShape(Rectangle())
         }
     }

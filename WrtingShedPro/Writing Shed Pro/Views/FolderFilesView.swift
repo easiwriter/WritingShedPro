@@ -97,10 +97,17 @@ struct FolderFilesView: View {
         
         let targetFolderNames = ["Draft", "Ready", "Set Aside", "Published"]
         var allFiles: [TextFile] = []
+        var seenFileIDs = Set<UUID>()
         
         for folder in projectFolders {
             if targetFolderNames.contains(folder.name ?? "") {
-                allFiles.append(contentsOf: folder.textFiles ?? [])
+                for file in folder.textFiles ?? [] {
+                    // Only add if we haven't seen this file ID before (deduplicate)
+                    if !seenFileIDs.contains(file.id) {
+                        allFiles.append(file)
+                        seenFileIDs.insert(file.id)
+                    }
+                }
             }
         }
         
@@ -225,7 +232,7 @@ struct FolderFilesView: View {
             }
         }
         .sheet(isPresented: $showSearchView) {
-            MultiFileSearchView(folder: folder)
+            MultiFileSearchView(folder: folder, files: sortedFiles)
         }
         .sheet(isPresented: $showAddFileSheet) {
             AddFileSheet(
@@ -636,8 +643,9 @@ struct FolderFilesView: View {
                 
                 switch format {
                 case .rtf:
+                    // Use the array version for RTF to respect page break preferences
                     data = try await Task.detached {
-                        try WordDocumentService.exportToRTF(content, filename: filename)
+                        try WordDocumentService.exportMultipleToRTF(attributedStrings, filename: filename)
                     }.value
                 case .html:
                     // Use the array version for HTML to preserve page breaks and prevent CSS conflicts

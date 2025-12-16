@@ -8,6 +8,7 @@ struct ProjectEditableList: View {
     @Binding var selectedSortOrder: SortOrder
     @Binding var isEditMode: Bool
     @State private var selectedProjectForInfo: Project?
+    @State private var selectedProjectForPageSetup: Project?
     @State private var showDeleteConfirmation = false
     @State private var projectsToDelete: IndexSet?
     @State private var deleteInfo: (count: Int, firstName: String)?
@@ -25,6 +26,9 @@ struct ProjectEditableList: View {
                         project: project,
                         onInfoTapped: {
                             selectedProjectForInfo = project
+                        },
+                        onPageSetupTapped: {
+                            selectedProjectForPageSetup = project
                         }
                     )
                 }
@@ -58,6 +62,9 @@ struct ProjectEditableList: View {
             )
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
+        }
+        .sheet(item: $selectedProjectForPageSetup) { project in
+            PageSetupForm(project: project)
         }
         .confirmationDialog(
             Text("projectEditableList.deleteTitle"),

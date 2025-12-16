@@ -75,7 +75,7 @@ class MultiFileSearchService {
     }
     
     /// Search across a list of files
-    private func searchInFiles(_ files: [TextFile]) {
+    func searchInFiles(_ files: [TextFile]) {
         guard !searchText.isEmpty else {
             results = []
             return
@@ -107,8 +107,18 @@ class MultiFileSearchService {
             }
         }
         
-        // Search each file
+        // Deduplicate files by ID to avoid searching the same file multiple times
+        var uniqueFiles: [TextFile] = []
+        var seenFileIDs = Set<UUID>()
         for file in files {
+            if !seenFileIDs.contains(file.id) {
+                uniqueFiles.append(file)
+                seenFileIDs.insert(file.id)
+            }
+        }
+        
+        // Search each file
+        for file in uniqueFiles {
             // Use the current version
             guard let version = file.currentVersion else { continue }
             

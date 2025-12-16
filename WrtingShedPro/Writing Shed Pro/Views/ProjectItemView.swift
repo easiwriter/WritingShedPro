@@ -4,6 +4,7 @@ import SwiftData
 struct ProjectItemView: View {
     let project: Project
     let onInfoTapped: () -> Void
+    let onPageSetupTapped: () -> Void
     
     @Environment(\.modelContext) var modelContext
     
@@ -30,11 +31,13 @@ struct ProjectItemView: View {
                     Label(NSLocalizedString("projectItem.projectDetails", comment: "Show project details"), systemImage: "info.circle")
                 }
                 
+                Button(action: onPageSetupTapped) {
+                    Label("Page Setup", systemImage: "doc.richtext")
+                }
+                
                 Button(action: {}) {
                     Label(NSLocalizedString("projectItem.exportProject", comment: "Export project"), systemImage: "arrow.up.doc")
                 }
-                
-                // Note: Page Setup removed - now global in Settings menu
             } label: {
                 Image(systemName: "ellipsis.circle")
                     .imageScale(.large)

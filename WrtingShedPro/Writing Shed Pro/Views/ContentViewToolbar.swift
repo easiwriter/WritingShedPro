@@ -26,10 +26,6 @@ struct ContentViewToolbar: ToolbarContent {
                     Label("Stylesheet Editor", systemImage: "paintbrush")
                 }
                 
-                Button(action: { state.showPageSetup = true }) {
-                    Label("Page Setup", systemImage: "doc.richtext")
-                }
-                
                 Button(action: { onHandleImportMenu() }) {
                     Label("Import", systemImage: "arrow.down.doc")
                 }

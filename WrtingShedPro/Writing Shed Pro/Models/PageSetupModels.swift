@@ -35,7 +35,8 @@ final class PageSetup {
     var scaleFactor: Double = 96.0  // Default to inches
     
     // Relationships
-    // Note: Project relationship removed - page setup is now global (UserDefaults)
+    @Relationship(inverse: \Project.pageSetup)
+    var project: Project?
     
     @Relationship(deleteRule: .cascade, inverse: \PrinterPaper.pageSetup)
     var printerPapers: [PrinterPaper]?
@@ -103,6 +104,26 @@ final class PageSetup {
         set {
             paperName = newValue.rawValue
         }
+    }
+    
+    // MARK: - Factory Method
+    
+    /// Create a new PageSetup with region-appropriate defaults
+    static func createWithDefaults() -> PageSetup {
+        return PageSetup(
+            paperName: PaperSizes.defaultForRegion.rawValue,
+            orientation: .portrait,
+            headers: false,
+            footers: false,
+            facingPages: false,
+            marginTop: PageSetupDefaults.marginTop,
+            marginBottom: PageSetupDefaults.marginBottom,
+            marginLeft: PageSetupDefaults.marginLeft,
+            marginRight: PageSetupDefaults.marginRight,
+            headerDepth: PageSetupDefaults.headerDepth,
+            footerDepth: PageSetupDefaults.footerDepth,
+            scaleFactor: PageSetupDefaults.scaleFactorInches
+        )
     }
 }
 

@@ -24,7 +24,7 @@ final class ContentViewState {
     
     // Settings menu sheets
     var showAbout = false
-    var showPageSetup = false
+    var projectForPageSetup: Project? // Tracks which project's page setup to show
     var showContactSupport = false
     
     // Debug

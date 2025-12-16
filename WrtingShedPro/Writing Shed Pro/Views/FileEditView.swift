@@ -532,14 +532,20 @@ struct FileEditView: View {
         .sheet(item: $imageToEdit) { imageAttachment in
             let imageData = imageAttachment.imageData ?? imageAttachment.image?.pngData()
             
+            // Get available caption styles from stylesheet
+            let styleSheet = StyleSheetProvider.shared.styleSheet(for: file.id)
+            let captionStyles = styleSheet?.textStyles?
+                .filter { $0.name.contains("Caption") }
+                .map { $0.name } ?? ["UICTFontTextStyleCaption1", "UICTFontTextStyleCaption2"]
+            
             ImageStyleEditorView(
                 imageData: imageData,
                 scale: imageAttachment.scale,
                 alignment: imageAttachment.alignment,
                 hasCaption: imageAttachment.hasCaption,
                 captionText: imageAttachment.captionText ?? "",
-                captionStyle: imageAttachment.captionStyle ?? "caption1",
-                availableCaptionStyles: ["caption1", "caption2", "footnote"],
+                captionStyle: imageAttachment.captionStyle ?? "UICTFontTextStyleCaption1",
+                availableCaptionStyles: captionStyles,
                 onApply: { imageData, scale, alignment, hasCaption, captionText, captionStyle in
                     updateImage(
                         attachment: imageAttachment,
@@ -870,11 +876,6 @@ struct FileEditView: View {
         // Always jump to latest version when opening a file
         file.selectLatestVersion()
         
-        // Check if version is locked before allowing editing
-        if file.currentVersion?.isLocked == true {
-            showLockedVersionWarning = true
-        }
-        
         // Load content from database on first appearance
         if attributedContent.length == 0, let savedContent = file.currentVersion?.attributedContent {
             print("📂 onAppear: Initial load of content, length: \(savedContent.length)")
@@ -900,8 +901,8 @@ struct FileEditView: View {
             }
         }
         
-        // Show keyboard/cursor when opening file (only if not locked)
-        if file.currentVersion?.isLocked != true {
+        // Show keyboard/cursor when opening file (only if not locked and not coming from search)
+        if file.currentVersion?.isLocked != true && searchContext == nil {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                 self.textViewCoordinator.textView?.becomeFirstResponder()
             }
@@ -2459,7 +2460,7 @@ struct FileEditView: View {
                     var scale: CGFloat = 1.0
                     var alignment: ImageAttachment.ImageAlignment = .center
                     var hasCaption = false
-                    var captionStyle = "caption1"
+                    var captionStyle = "UICTFontTextStyleCaption1"
                     
                     if let project = self.file.project,
                        let stylesheet = project.styleSheet,
@@ -2794,7 +2795,9 @@ struct FileEditView: View {
         
         attachment.scale = scale
         attachment.alignment = alignment
+        print("🖼️ FileEditView.updateImage() - About to update caption")
         attachment.updateCaption(hasCaption: hasCaption, text: captionText, style: captionStyle)
+        print("   After update: hasCaption=\(attachment.hasCaption), text=\(attachment.captionText ?? "nil")")
         
         // Update the paragraph alignment to match image alignment
         let mutableContent = NSMutableAttributedString(attributedString: attributedContent)
@@ -2845,6 +2848,8 @@ struct FileEditView: View {
         undoManager.execute(command)
         
         // Trigger view refresh to show updated image
+        // Note: We rely on the notification system in ImageAttachmentViewProvider to update the view
+        // Accessing layoutManager would force TextKit 1 mode, breaking NSTextAttachmentViewProvider
         refreshTrigger = UUID()
         
         // Keep the image selected and update the selection border to match new size

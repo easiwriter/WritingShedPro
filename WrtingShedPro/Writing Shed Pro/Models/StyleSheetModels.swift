@@ -351,7 +351,7 @@ final class ImageStyle {
     var defaultScale: CGFloat = 1.0  // 0.1 to 2.0
     var defaultAlignmentRaw: String = "center"  // ImageAlignment raw value
     var hasCaptionByDefault: Bool = false
-    var defaultCaptionStyle: String = "caption1"  // References a TextStyle name
+    var defaultCaptionStyle: String = "UICTFontTextStyleCaption1"  // References a TextStyle name
     
     // MARK: - Metadata
     var createdDate: Date = Date()
@@ -377,7 +377,7 @@ final class ImageStyle {
         defaultScale: CGFloat = 1.0,
         defaultAlignment: ImageAttachment.ImageAlignment = .center,
         hasCaptionByDefault: Bool = false,
-        defaultCaptionStyle: String = "caption1",
+        defaultCaptionStyle: String = "UICTFontTextStyleCaption1",
         isSystemStyle: Bool = false
     ) {
         self.name = name

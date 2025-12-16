@@ -2,16 +2,18 @@
 //  PageSetupForm.swift
 //  Writing Shed Pro
 //
-//  Global page setup configuration form
-//  Page setup is stored in UserDefaults and applies to all projects
+//  Per-project page setup configuration form
+//  Page setup is stored in SwiftData and specific to each project
 //
 
 import SwiftUI
+import SwiftData
 
 struct PageSetupForm: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
     
-    private let prefs = PageSetupPreferences.shared
+    let project: Project
     
     @State private var paperName: String
     @State private var orientation: Int16
@@ -43,7 +45,9 @@ struct PageSetupForm: View {
     @State private var originalScaleFactor: Double = 0
     @State private var originalPageBreakBetweenFiles: Bool = false
     
-    init() {
+    init(project: Project) {
+        self.project = project
+        
         // Initialize with empty values - will load in onAppear
         _paperName = State(initialValue: "")
         _orientation = State(initialValue: Orientation.portrait.rawValue)
@@ -62,21 +66,29 @@ struct PageSetupForm: View {
     }
     
     private func loadValues() {
-        // Load current values from preferences
-        print("[PageSetupForm] Loading values from preferences...")
-        paperName = prefs.paperName
-        orientation = prefs.orientation.rawValue
-        headers = prefs.headers
-        footers = prefs.footers
-        facingPages = prefs.facingPages
-        leftMargin = prefs.marginLeft
-        rightMargin = prefs.marginRight
-        topMargin = prefs.marginTop
-        bottomMargin = prefs.marginBottom
-        headerDepth = prefs.headerDepth
-        footerDepth = prefs.footerDepth
-        scaleFactor = prefs.scaleFactor
-        pageBreakBetweenFiles = prefs.pageBreakBetweenFiles
+        // Ensure project has a page setup
+        if project.pageSetup == nil {
+            project.pageSetup = PageSetup.createWithDefaults()
+            try? modelContext.save()
+        }
+        
+        guard let pageSetup = project.pageSetup else { return }
+        
+        // Load current values from project's page setup
+        print("[PageSetupForm] Loading values for project '\(project.name ?? "Untitled")'...")
+        paperName = pageSetup.paperName ?? PaperSizes.defaultForRegion.rawValue
+        orientation = pageSetup.orientation
+        headers = pageSetup.headers == 1
+        footers = pageSetup.footers == 1
+        facingPages = pageSetup.facingPages == 1
+        leftMargin = pageSetup.marginLeft
+        rightMargin = pageSetup.marginRight
+        topMargin = pageSetup.marginTop
+        bottomMargin = pageSetup.marginBottom
+        headerDepth = pageSetup.headerDepth
+        footerDepth = pageSetup.footerDepth
+        scaleFactor = pageSetup.scaleFactor
+        pageBreakBetweenFiles = PageSetupPreferences.shared.pageBreakBetweenFiles // Still global
         
         print("[PageSetupForm] Loaded paperName: '\(paperName)'")
         print("[PageSetupForm] Loaded orientation: \(orientation)")
@@ -230,84 +242,81 @@ struct PageSetupForm: View {
     }
     
     private func savePageSetup() {
-        // CRITICAL: Only save values that have actually changed from the original values
-        // Compare against the values captured when the form opened, not current prefs
-        // This prevents overwriting iCloud changes from other devices
+        // Save values to project's PageSetup model
+        guard let pageSetup = project.pageSetup else { return }
         
         print("[PageSetupForm] ==================== SAVE CALLED ====================")
+        print("[PageSetupForm] Saving for project: '\(project.name ?? "Untitled")'")
         print("[PageSetupForm] Current paperName: '\(paperName)'")
         print("[PageSetupForm] Original paperName: '\(originalPaperName)'")
-        print("[PageSetupForm] Are they equal? \(paperName == originalPaperName)")
         
         if paperName != originalPaperName {
             print("[PageSetupForm] ✅ Paper name changed: '\(originalPaperName)' → '\(paperName)'")
-            prefs.setPaperName(paperName)
-            print("[PageSetupForm] ✅ Saved to prefs, verifying...")
-            print("[PageSetupForm] ✅ Prefs now has: '\(prefs.paperName)'")
-        } else {
-            print("[PageSetupForm] ❌ Paper name NOT changed, skipping save")
+            pageSetup.paperName = paperName
         }
         
         if orientation != originalOrientation {
             print("[PageSetupForm] Orientation changed")
-            prefs.setOrientation(Orientation(rawValue: orientation) ?? .portrait)
+            pageSetup.orientation = orientation
         }
         
         if headers != originalHeaders {
             print("[PageSetupForm] Headers changed")
-            prefs.setHeaders(headers)
+            pageSetup.headers = headers ? 1 : 0
         }
         
         if footers != originalFooters {
             print("[PageSetupForm] Footers changed")
-            prefs.setFooters(footers)
+            pageSetup.footers = footers ? 1 : 0
         }
         
         if facingPages != originalFacingPages {
             print("[PageSetupForm] Facing pages changed")
-            prefs.setFacingPages(facingPages)
+            pageSetup.facingPages = facingPages ? 1 : 0
         }
         
         if abs(topMargin - originalTopMargin) > 0.001 {
             print("[PageSetupForm] Top margin changed")
-            prefs.setMarginTop(topMargin)
+            pageSetup.marginTop = topMargin
         }
         
         if abs(leftMargin - originalLeftMargin) > 0.001 {
             print("[PageSetupForm] Left margin changed")
-            prefs.setMarginLeft(leftMargin)
+            pageSetup.marginLeft = leftMargin
         }
         
         if abs(bottomMargin - originalBottomMargin) > 0.001 {
             print("[PageSetupForm] Bottom margin changed")
-            prefs.setMarginBottom(bottomMargin)
+            pageSetup.marginBottom = bottomMargin
         }
         
         if abs(rightMargin - originalRightMargin) > 0.001 {
             print("[PageSetupForm] Right margin changed")
-            prefs.setMarginRight(rightMargin)
+            pageSetup.marginRight = rightMargin
         }
         
         if abs(headerDepth - originalHeaderDepth) > 0.001 {
             print("[PageSetupForm] Header depth changed")
-            prefs.setHeaderDepth(headerDepth)
+            pageSetup.headerDepth = headerDepth
         }
         
         if abs(footerDepth - originalFooterDepth) > 0.001 {
             print("[PageSetupForm] Footer depth changed")
-            prefs.setFooterDepth(footerDepth)
+            pageSetup.footerDepth = footerDepth
         }
         
         if abs(units.scaleFactor - originalScaleFactor) > 0.001 {
             print("[PageSetupForm] Scale factor changed")
-            prefs.setScaleFactor(units.scaleFactor)
+            pageSetup.scaleFactor = units.scaleFactor
         }
         
         if pageBreakBetweenFiles != originalPageBreakBetweenFiles {
-            print("[PageSetupForm] Page break between files changed")
-            prefs.setPageBreakBetweenFiles(pageBreakBetweenFiles)
+            print("[PageSetupForm] Page break between files changed (global setting)")
+            PageSetupPreferences.shared.setPageBreakBetweenFiles(pageBreakBetweenFiles)
         }
         
+        print("[PageSetupForm] Saving to SwiftData...")
+        try? modelContext.save()
         print("[PageSetupForm] Save complete")
         
         // Note: Page setup changes will take effect on next document view refresh

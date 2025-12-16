@@ -279,12 +279,12 @@ class ImageAttachmentViewProvider: NSTextAttachmentViewProvider {
         guard let imageID = notification.userInfo?["imageID"] as? UUID,
               let attachment = imageAttachment,
               attachment.imageID == imageID else {
+            print("📥 ImageAttachmentViewProvider: Ignoring notification (not for this attachment)")
             return
         }
         
-        #if DEBUG
-        print("📷 ImageAttachmentViewProvider: Received ImageAttachmentPropertiesChanged for our image")
-        #endif
+        print("📥 ImageAttachmentViewProvider: Received notification for imageID: \(imageID)")
+        print("   hasCaption: \(attachment.hasCaption), captionText: \(attachment.captionText ?? "nil")")
         
         // Refresh the view to reflect new properties
         refreshView()
@@ -293,18 +293,23 @@ class ImageAttachmentViewProvider: NSTextAttachmentViewProvider {
     private func refreshView() {
         guard let attachment = imageAttachment else { return }
         
+        print("🔄 ImageAttachmentViewProvider.refreshView() - Recreating view")
+        
         // Recreate the view with updated properties
         let newView = createContainerView(for: attachment)
         
         // Replace the old view
         if let oldView = view {
+            print("   Removing old view")
             oldView.removeFromSuperview()
         }
         
         self.view = newView
+        print("   New view set, size: \(newView.bounds.size)")
         
         // Notify text view that layout needs update
         if let textView = view?.superview as? UITextView {
+            print("   Notifying text view to layout")
             textView.setNeedsLayout()
             textView.layoutIfNeeded()
         }

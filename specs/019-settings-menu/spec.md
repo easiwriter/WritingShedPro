@@ -14,25 +14,27 @@ Replace the stylesheet editor button with a comprehensive Settings menu (gear ic
 **Menu Items:**
 1. About Writing Shed Pro
 2. Stylesheet Editor
-3. Page Setup
+3. ~~Page Setup~~ (Moved back to per-project - see note below)
 4. Import
 5. Contact Support
 
 ### 2. Page Setup Refactoring
 
-**Current State:**
-- Available per-project in ProjectItemView ellipsis menu
-- Each project can have different page setup
+**UPDATE (December 2025):** Page Setup has been restored to per-project configuration.
 
-**New State:**
-- Remove from ProjectItemView ellipsis menu
-- Move to Settings menu as global setting
-- **Question to resolve:** Should this be:
-  - A. Global default that new projects inherit?
-  - B. Global setting applied to all projects?
-  - C. Global UI that lets user select which project to configure?
+**Rationale:** Headers, footers, and other page setup options are better suited as project-specific attributes. Different writing projects (manuscripts, screenplays, technical docs) have different formatting requirements.
 
-**Recommendation:** Option A - Global default for new projects, existing projects keep their settings.
+**Current Implementation:**
+- Available in ProjectItemView ellipsis menu (below "Project Details")
+- Each project has its own PageSetup instance (SwiftData model)
+- PageSetup created on-demand when first accessed
+- Region-appropriate defaults (US Letter vs A4, standard margins)
+- `pageBreakBetweenFiles` remains global (affects multi-file exports)
+
+**Previous Implementation (Deprecated):**
+- ~~Global setting in Settings menu~~
+- ~~Stored in UserDefaults via PageSetupPreferences~~
+- ~~Applied to all projects~~
 
 ### 3. Smart Import System
 

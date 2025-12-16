@@ -115,6 +115,54 @@ class WordDocumentService {
         return rtfData
     }
     
+    /// Export multiple attributed strings as RTF with optional page breaks
+    /// - Parameters:
+    ///   - attributedStrings: Array of formatted content to export
+    ///   - filename: Name for the exported file (without extension)
+    /// - Returns: Data for the .rtf file
+    /// - Throws: Error if export fails
+    static func exportMultipleToRTF(
+        _ attributedStrings: [NSAttributedString],
+        filename: String
+    ) throws -> Data {
+        // Check if page breaks should be added between files
+        let usePageBreaks = PageSetupPreferences.shared.pageBreakBetweenFiles
+        
+        // Combine all attributed strings
+        let combined = NSMutableAttributedString()
+        
+        for (index, attributedString) in attributedStrings.enumerated() {
+            // Prepare content for export
+            let exportReady = AttributedStringSerializer.prepareForExport(from: attributedString)
+            combined.append(exportReady)
+            
+            // Add page break between documents (except after the last one)
+            if index < attributedStrings.count - 1 {
+                if usePageBreaks {
+                    // Add RTF page break command: \page
+                    // We need to insert this at the RTF level, so we'll add a form feed character
+                    // which RTF will convert to \page
+                    combined.append(NSAttributedString(string: "\u{000C}")) // Form feed character
+                } else {
+                    // Add double newline as separator
+                    combined.append(NSAttributedString(string: "\n\n"))
+                }
+            }
+        }
+        
+        guard let rtfData = AttributedStringSerializer.toRTF(combined) else {
+            throw WordDocumentError.exportFailed("RTF conversion failed")
+        }
+        
+        #if DEBUG
+        print("📤 WordDocumentService: Exported \(attributedStrings.count) documents to '\(filename).rtf'")
+        print("   File size: \(rtfData.count) bytes")
+        print("   Page breaks: \(usePageBreaks ? "enabled" : "disabled")")
+        #endif
+        
+        return rtfData
+    }
+    
     // MARK: - Share Sheet Helpers
     
     /// Present share sheet to export as Word document

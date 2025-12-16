@@ -259,6 +259,7 @@ class ImageAttachment: NSTextAttachment, Identifiable {
     
     /// Update caption properties
     func updateCaption(hasCaption: Bool, text: String?, style: String?) {
+        print("🔵 ImageAttachment.updateCaption() - imageID: \(imageID), hasCaption: \(hasCaption), text: \(text ?? "nil"), style: \(style ?? "nil")")
         self.hasCaption = hasCaption
         self.captionText = text
         self.captionStyle = style
@@ -267,6 +268,7 @@ class ImageAttachment: NSTextAttachment, Identifiable {
     
     /// Notify observers that properties have changed
     private func notifyPropertiesChanged() {
+        print("📤 ImageAttachment.notifyPropertiesChanged() - Posting notification for imageID: \(imageID)")
         NotificationCenter.default.post(
             name: NSNotification.Name("ImageAttachmentPropertiesChanged"),
             object: nil,
@@ -346,6 +348,79 @@ class ImageAttachment: NSTextAttachment, Identifiable {
         // Fall back to PNG (better for graphics/screenshots)
         return scaledImage.pngData()
     }
+    
+    // MARK: - Image Rendering (TextKit 1 Compatibility)
+    
+    /// Override image(forBounds:) to provide composite image with caption for TextKit 1
+    /// This is needed because TextKit 1 mode doesn't use viewProvider
+    override func image(forBounds imageBounds: CGRect, textContainer: NSTextContainer?, characterIndex charIndex: Int) -> UIImage? {
+        guard let baseImage = image ?? (imageData.flatMap { ImageAttachment.loadImage(from: $0) }) else {
+            return nil
+        }
+        
+        // If no caption, return the original image
+        guard hasCaption, let captionText = captionText, !captionText.isEmpty else {
+            return baseImage
+        }
+        
+        // Create a composite image with caption below
+        return createCompositeImage(baseImage: baseImage, captionText: captionText, bounds: imageBounds)
+    }
+    
+    /// Create composite image with caption
+    private func createCompositeImage(baseImage: UIImage, captionText: String, bounds: CGRect) -> UIImage? {
+        // Get caption style attributes from stylesheet
+        var attributes: [NSAttributedString.Key: Any]
+        
+        if let fileID = fileID,
+           let styleSheet = StyleSheetProvider.shared.styleSheet(for: fileID),
+           let captionStyleName = captionStyle,
+           let style = styleSheet.style(named: captionStyleName) {
+            // Use actual caption style from stylesheet
+            attributes = style.generateAttributes()
+        } else {
+            // Fallback styling if style not found
+            let captionFont = UIFont.systemFont(ofSize: 14)
+            let paragraphStyle = NSMutableParagraphStyle()
+            paragraphStyle.alignment = .center
+            
+            attributes = [
+                .font: captionFont,
+                .foregroundColor: UIColor.secondaryLabel,
+                .paragraphStyle: paragraphStyle
+            ]
+        }
+        
+        // Calculate caption height based on actual text rendering
+        let maxSize = CGSize(width: bounds.width, height: .greatestFiniteMagnitude)
+        let boundingRect = captionText.boundingRect(
+            with: maxSize,
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: attributes,
+            context: nil
+        )
+        let captionHeight = ceil(boundingRect.height) + 4 // Add small padding
+        
+        let totalHeight = bounds.height + captionHeight
+        let size = CGSize(width: bounds.width, height: totalHeight)
+        
+        // Create graphics context
+        UIGraphicsBeginImageContextWithOptions(size, false, 0)
+        defer { UIGraphicsEndImageContext() }
+        
+        guard UIGraphicsGetCurrentContext() != nil else { return nil }
+        
+        // Draw the image
+        baseImage.draw(in: CGRect(x: 0, y: 0, width: bounds.width, height: bounds.height))
+        
+        // Draw the caption below
+        let captionRect = CGRect(x: 0, y: bounds.height + 4, width: bounds.width, height: captionHeight)
+        captionText.draw(in: captionRect, withAttributes: attributes)
+        
+        return UIGraphicsGetImageFromCurrentImageContext()
+    }
+    
+    // MARK: - Image Loading
     
     /// Create ImageAttachment from image data
     static func from(imageData: Data, scale: CGFloat = 1.0, alignment: ImageAlignment = .left) -> ImageAttachment? {

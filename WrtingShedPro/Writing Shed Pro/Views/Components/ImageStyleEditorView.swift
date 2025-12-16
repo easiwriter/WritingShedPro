@@ -29,8 +29,8 @@ struct ImageStyleEditorView: View {
         alignment: ImageAttachment.ImageAlignment = .center,
         hasCaption: Bool = false,
         captionText: String = "",
-        captionStyle: String = "body",
-        availableCaptionStyles: [String] = ["body", "caption1", "caption2", "footnote"],
+        captionStyle: String = "UICTFontTextStyleBody",
+        availableCaptionStyles: [String] = ["UICTFontTextStyleBody", "UICTFontTextStyleCaption1", "UICTFontTextStyleCaption2"],
         onApply: @escaping (Data?, CGFloat, ImageAttachment.ImageAlignment, Bool, String, String) -> Void
     ) {
         print("🎨 ImageStyleEditorView.init called with imageData: \(imageData?.count ?? 0) bytes")
@@ -45,51 +45,38 @@ struct ImageStyleEditorView: View {
         self.onApply = onApply
     }
     
+    /// Convert technical style name to display name
+    /// UICTFontTextStyleCaption1 -> Caption 1
+    /// UICTFontTextStyleFootnote -> Footnote
+    private func displayName(for styleName: String) -> String {
+        let withoutPrefix = styleName.replacingOccurrences(of: "UICTFontTextStyle", with: "")
+        // Add space before numbers: Caption1 -> Caption 1
+        let withSpaces = withoutPrefix.replacingOccurrences(of: #"(\d+)"#, with: " $1", options: .regularExpression)
+        return withSpaces
+    }
+    
     var body: some View {
         let _ = print("🎨 ImageStyleEditorView.body rendering, imageData: \(imageData?.count ?? 0) bytes")
         
         NavigationStack {
             Form {
-                // Image Preview Section
-                if let imageData = imageData,
-                   let uiImage = UIImage(data: imageData) {
-                    Section("imageStyleEditor.preview") {
-                        HStack {
-                            Spacer()
-                            Image(uiImage: uiImage)
-                                .resizable()
-                                .scaledToFit()
-                                .frame(maxHeight: 200)
-                            Spacer()
-                        }
-                    }
-                } else {
-                    Section("imageStyleEditor.preview") {
-                        Text("imageStyleEditor.noImageData")
-                            .foregroundColor(.secondary)
-                    }
-                }
-                
                 // Scale Section
                 Section {
-                    HStack {
-                        Text("imageStyleEditor.scale")
-                            .frame(width: 80, alignment: .leading)
-                        
+                    HStack(spacing: 6) {
                         Spacer()
                         
                         Button(action: {
                             decrementScale()
                         }) {
                             Image(systemName: "minus.circle")
-                                .font(.title2)
+                                .font(.title3)
                         }
                         .disabled(scale <= 0.1)
                         .buttonStyle(.plain)
                         
                         TextField("100", text: $scaleText)
-                            .font(.headline)
-                            .frame(width: 60)
+                            .font(.body)
+                            .frame(width: 50)
                             .multilineTextAlignment(.trailing)
                             .textFieldStyle(.roundedBorder)
                             .focused($isScaleFieldFocused)
@@ -97,26 +84,27 @@ struct ImageStyleEditorView: View {
                                 commitScaleFromText()
                             }
                             .onChange(of: isScaleFieldFocused) { oldValue, newValue in
-                                // When field loses focus, commit the value
                                 if !newValue {
                                     commitScaleFromText()
                                 }
                             }
                         
                         Text("%")
-                            .font(.headline)
+                            .font(.body)
                         
                         Button(action: {
                             incrementScale()
                         }) {
                             Image(systemName: "plus.circle")
-                                .font(.title2)
+                                .font(.title3)
                         }
                         .disabled(scale >= 2.0)
                         .buttonStyle(.plain)
+                        
+                        Spacer()
                     }
                 } header: {
-                    Text("imageStyleEditor.size")
+                    Text("imageStyleEditor.scale")
                 }
                 
                 // Alignment Section
@@ -152,19 +140,25 @@ struct ImageStyleEditorView: View {
                 // Caption Section
                 Section {
                     Toggle("imageStyleEditor.showCaption", isOn: $hasCaption)
+                        .padding(.vertical, -4)
                     
                     if hasCaption {
-                        TextField("imageStyleEditor.captionText.placeholder", text: $captionText)
+                        HStack {
+                            Text("Caption")
+                                .frame(width: 60, alignment: .leading)
+                            TextField("imageStyleEditor.captionText.placeholder", text: $captionText)
+                                .textFieldStyle(.roundedBorder)
+                        }
+                        .padding(.vertical, -4)
                         
                         Picker("imageStyleEditor.captionStyle", selection: $captionStyle) {
                             ForEach(availableCaptionStyles, id: \.self) { style in
-                                Text(style.capitalized)
+                                Text(displayName(for: style))
                                     .tag(style)
                             }
                         }
+                        .padding(.vertical, -4)
                     }
-                } header: {
-                    Text("imageStyleEditor.caption")
                 }
             }
             .navigationTitle(NSLocalizedString("imageStyleEditor.title", comment: ""))
@@ -185,6 +179,7 @@ struct ImageStyleEditorView: View {
                 }
             }
         }
+        .frame(minWidth: 500, minHeight: 450)
         .alert(NSLocalizedString("imageStyleEditor.invalidScale.title", comment: ""), isPresented: $showInvalidScaleAlert) {
             Button(NSLocalizedString("button.ok", comment: ""), role: .cancel) {
                 // Reset to current scale
