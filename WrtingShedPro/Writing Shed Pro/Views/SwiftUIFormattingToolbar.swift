@@ -16,6 +16,8 @@ struct SwiftUIFormattingToolbar: View {
         case imageStyle
         case notes
         case toggleKeyboard
+        case numberedList
+        case bulletedList
     }
     
     var body: some View {
@@ -33,6 +35,13 @@ struct SwiftUIFormattingToolbar: View {
             
             // Notes
             toolbarButton(systemName: "list.clipboard", action: .notes)
+            
+            Divider()
+                .frame(height: 24)
+            
+            // Lists
+            toolbarButton(systemName: "list.number", action: .numberedList)
+            toolbarButton(systemName: "list.bullet", action: .bulletedList)
             
             Divider()
                 .frame(height: 24)

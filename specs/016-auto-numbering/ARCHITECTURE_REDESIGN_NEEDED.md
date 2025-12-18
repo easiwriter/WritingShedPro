@@ -1,8 +1,120 @@
-# Feature 016: Auto-Numbering Architecture Redesign Required
+# Feature 016: Auto-Numbering Architecture - Dynamic Rendering Implementation
 
-## Current Status: FUNDAMENTALLY FLAWED
+## Status: ✅ IMPLEMENTED
 
-The current implementation stores paragraph numbers as literal text in the document with a `.paragraphNumber` attribute. This approach is architecturally unsound and causes persistent synchronization bugs.
+The auto-numbering feature has been redesigned with a proper architecture where numbers are rendered dynamically at display time, never stored in the document.
+
+## Implementation Summary
+
+### Core Architecture
+
+**Numbers are VIRTUAL** - they exist only at render time, like line numbers in a code editor.
+
+1. **Document Storage**: Contains only user text with style metadata (`.textStyle` attribute)
+2. **Dynamic Rendering**: Custom `NumberingLayoutManager` draws numbers in the left margin
+3. **No State Synchronization**: Numbers can't get out of sync because they're calculated from current document state
+
+### Key Components
+
+#### NumberingLayoutManager
+Custom `NSLayoutManager` subclass that:
+- Overrides `drawBackground(forGlyphRange:at:)` to draw paragraph numbers
+- Analyzes paragraphs in visible range
+- Counts paragraphs for each numbered style
+- Formats and renders numbers in the left margin (60pt space)
+- Uses existing `NumberFormat` enum from Phase 005
+
+#### FormattedTextEditor Updates
+- Creates text view with `NumberingLayoutManager` instead of default
+- Passes `Project` reference to layout manager for style access
+- Adds 60pt left inset to text container for number space
+
+#### FileEditView Updates
+- Passes `project` parameter to all `FormattedTextEditor` instances
+- No other changes needed - numbers work automatically
+
+### How It Works
+
+1. **Paragraph Analysis**: Layout manager enumerates visible paragraphs
+2. **Style Detection**: Checks `.textStyle` attribute to get paragraph style
+3. **Number Format**: Uses `style.numberFormat` (from existing NumberFormat enum)
+4. **Counter Management**: Maintains counters per style (reset for each render)
+5. **Rendering**: Draws formatted numbers in left margin with right alignment
+
+### Advantages
+
+✅ **No synchronization bugs** - Numbers always match current document state
+✅ **Clean separation** - Editing never touches numbers (they don't exist in storage)
+✅ **Simple implementation** - Leverages existing `NumberFormat` enum
+✅ **Performance** - Only renders visible paragraphs
+✅ **Copy/Paste** - Numbers automatically excluded (not in document)
+
+### User Experience
+
+- Numbers appear automatically for paragraphs with `numberFormat` != `.none`
+- Numbers update instantly as you type/edit/delete
+- Backspace/delete work normally - no special handling needed
+- Numbers are dimmed (50% opacity) to distinguish from user content
+- No cursor navigation issues (numbers aren't in the text)
+
+### Current Limitations
+
+1. **Simple counter only** - Each style counts from 1, no hierarchical numbering yet
+2. **No reset behavior** - Counters don't reset based on context (feature for later)
+3. **No custom start numbers** - Always starts at 1 (could add to style model)
+4. **Basic formatting** - Uses existing NumberFormat enum formats only
+
+### Future Enhancements
+
+These can be added incrementally without architectural changes:
+
+- **Starting numbers**: Add `startingNumber` property to TextStyleModel
+- **Hierarchical numbering**: Track parent/child style relationships
+- **Reset behavior**: Reset counters at chapter/section boundaries  
+- **Custom adornments**: Extend NumberFormat or add formatting options
+- **Multi-level lists**: Support nested counters (1.1, 1.1.1, etc.)
+
+## Migration Notes
+
+**No migration needed!** The system uses existing `numberFormat` property in `TextStyleModel`. Any paragraph with `numberFormat` != `.none` will automatically show numbers.
+
+To enable numbering for a style:
+```swift
+style.numberFormat = .decimal  // Shows: 1. 2. 3...
+// or .uppercaseRoman, .lowercaseLetter, .bulletSymbols, etc.
+```
+
+## Implementation Files
+
+- `/WrtingShedPro/Writing Shed Pro/Views/Components/NumberingLayoutManager.swift` - New
+- `/WrtingShedPro/Writing Shed Pro/Views/Components/FormattedTextEditor.swift` - Modified
+- `/WrtingShedPro/Writing Shed Pro/Views/FileEditView.swift` - Modified
+
+## Testing
+
+To test:
+1. Open any document
+2. Set a paragraph style's `numberFormat` to `.decimal`
+3. Type multiple paragraphs in that style
+4. Numbers appear automatically in the left margin
+5. Delete paragraphs - numbers renumber instantly
+6. Copy text - numbers not included
+
+## Comparison to Previous Attempt
+
+| Aspect | Previous (Broken) | Current (Fixed) |
+|--------|------------------|----------------|
+| Storage | Numbers in document as text | No storage, rendered dynamically |
+| Sync | Constant sync bugs | No sync needed |
+| Editing | Special backspace handling | Normal editing works |
+| Copy/Paste | Numbers included | Numbers excluded |
+| Performance | Text manipulation overhead | Render-only, fast |
+| Complexity | High (state management) | Low (pure rendering) |
+
+---
+
+*Document updated: December 18, 2025*
+*Implementation complete - working dynamic numbering*
 
 ## Critical Problems
 

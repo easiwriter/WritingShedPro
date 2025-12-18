@@ -152,6 +152,7 @@ struct FileEditView: View {
                             attributedText: $attributedContent,
                             selectedRange: $selectedRange,
                             textViewCoordinator: textViewCoordinator,
+                            project: file.project,
                             textContainerInset: UIEdgeInsets(top: 4, left: 4, bottom: 4, right: 4),
                             onTextChange: { newText in
                                 handleAttributedTextChange(newText)
@@ -180,6 +181,7 @@ struct FileEditView: View {
                             attributedText: $attributedContent,
                             selectedRange: $selectedRange,
                             textViewCoordinator: textViewCoordinator,
+                            project: file.project,
                             textContainerInset: UIEdgeInsets(top: 4, left: 4, bottom: 4, right: 4),
                             onTextChange: { newText in
                                 handleAttributedTextChange(newText)
@@ -214,6 +216,7 @@ struct FileEditView: View {
                                 attributedText: $attributedContent,
                                 selectedRange: $selectedRange,
                                 textViewCoordinator: textViewCoordinator,
+                                project: file.project,
                                 textContainerInset: UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8),
                                 onTextChange: { newText in
                                     handleAttributedTextChange(newText)
@@ -242,6 +245,7 @@ struct FileEditView: View {
                                 attributedText: $attributedContent,
                                 selectedRange: $selectedRange,
                                 textViewCoordinator: textViewCoordinator,
+                                project: file.project,
                                 textContainerInset: UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8),
                                 onTextChange: { newText in
                                     handleAttributedTextChange(newText)
@@ -304,6 +308,10 @@ struct FileEditView: View {
                             textView.becomeFirstResponder()
                         }
                     }
+                case .numberedList:
+                    applyNumberFormat(.decimal)
+                case .bulletedList:
+                    applyNumberFormat(.bulletSymbols)
                 }
             },
             hasSelectedImage: selectedImage != nil
@@ -514,6 +522,19 @@ struct FileEditView: View {
                     }
                 }
                 .keyboardShortcut("g", modifiers: [.command, .shift])
+                .hidden()
+                
+                // List shortcuts: Cmd+Shift+7 for numbered, Cmd+Shift+8 for bulleted
+                Button("") {
+                    applyNumberFormat(.decimal)
+                }
+                .keyboardShortcut("7", modifiers: [.command, .shift])
+                .hidden()
+                
+                Button("") {
+                    applyNumberFormat(.bulletSymbols)
+                }
+                .keyboardShortcut("8", modifiers: [.command, .shift])
                 .hidden()
             }
         }
@@ -1905,6 +1926,48 @@ struct FileEditView: View {
         
         // DON'T trigger refresh - it dismisses the keyboard
         // The toolbar will check typing attributes directly when selection changes
+    }
+    
+    /// Apply number format to current paragraph or selection
+    private func applyNumberFormat(_ format: NumberFormat) {
+        guard let project = file.project else { return }
+        
+        // Get the range of the current paragraph
+        let paragraphRange = (attributedContent.string as NSString).paragraphRange(for: selectedRange)
+        
+        // Get current style at paragraph start
+        guard paragraphRange.location < attributedContent.length else { return }
+        let attrs = attributedContent.attributes(at: paragraphRange.location, effectiveRange: nil)
+        guard let styleName = attrs[.textStyle] as? String,
+              let style = project.styleSheet?.style(named: styleName) else {
+            return
+        }
+        
+        // Store before state for undo
+        let beforeContent = attributedContent
+        
+        // Toggle format: if already set to this format, turn off, otherwise set it
+        let newFormat: NumberFormat = (style.numberFormat == format) ? .none : format
+        
+        // Update the style's number format
+        style.numberFormat = newFormat
+        
+        // Force a redraw by invalidating the layout
+        if let textView = textViewCoordinator.textView {
+            textView.setNeedsDisplay()
+            textView.layoutManager.invalidateDisplay(forCharacterRange: NSRange(location: 0, length: attributedContent.length))
+        }
+        
+        // Create undo command
+        let command = FormatApplyCommand(
+            description: newFormat == .none ? "Remove Numbering" : "Apply Numbering",
+            range: selectedRange,
+            beforeContent: beforeContent,
+            afterContent: attributedContent,
+            targetFile: file
+        )
+        
+        undoManager.execute(command)
     }
     
     /// Update the current paragraph style state by checking the attributed content

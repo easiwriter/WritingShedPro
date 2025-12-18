@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import SwiftData
 
 /// A SwiftUI wrapper around UITextView that supports rich text formatting with NSAttributedString
 struct FormattedTextEditor: UIViewRepresentable {
@@ -33,6 +34,9 @@ struct FormattedTextEditor: UIViewRepresentable {
     /// Coordinator for managing textView reference
     var textViewCoordinator: TextViewCoordinator?
     
+    /// Project reference for dynamic numbering (Feature 016)
+    var project: Project?
+    
     // MARK: - Configuration
     
     /// Font to use for new text (when no formatting is applied)
@@ -59,6 +63,7 @@ struct FormattedTextEditor: UIViewRepresentable {
         attributedText: Binding<NSAttributedString>,
         selectedRange: Binding<NSRange> = .constant(NSRange(location: 0, length: 0)),
         textViewCoordinator: TextViewCoordinator? = nil,
+        project: Project? = nil,
         font: UIFont = .preferredFont(forTextStyle: .body),
         textColor: UIColor = .label,
         backgroundColor: UIColor = .systemBackground,
@@ -75,6 +80,7 @@ struct FormattedTextEditor: UIViewRepresentable {
         self._attributedText = attributedText
         self._selectedRange = selectedRange
         self.textViewCoordinator = textViewCoordinator
+        self.project = project
         self.font = font
         self.textColor = textColor
         self.backgroundColor = backgroundColor
@@ -92,7 +98,19 @@ struct FormattedTextEditor: UIViewRepresentable {
     // MARK: - UIViewRepresentable
     
     func makeUIView(context: Context) -> UITextView {
-        let textView = CustomTextView() // Use custom subclass to support inputAccessoryView
+        // Create text storage, layout manager, and text container
+        let textStorage = NSTextStorage()
+        let layoutManager = NumberingLayoutManager() // Use custom layout manager for dynamic paragraph numbering
+        let textContainer = NSTextContainer()
+        
+        // Pass project reference to layout manager for style information
+        layoutManager.project = project
+        
+        textStorage.addLayoutManager(layoutManager)
+        layoutManager.addTextContainer(textContainer)
+        
+        // Create text view with our custom layout manager
+        let textView = CustomTextView(frame: .zero, textContainer: textContainer)
         
         // Store reference to textView in coordinator (if provided)
         context.coordinator.textView = textView
@@ -120,7 +138,12 @@ struct FormattedTextEditor: UIViewRepresentable {
         // This ensures text without explicit color adapts to appearance mode
         textView.textColor = .label
         textView.backgroundColor = backgroundColor
-        textView.textContainerInset = textContainerInset
+        
+        // Add extra left inset for paragraph numbers (Feature 016)
+        var adjustedInset = textContainerInset
+        adjustedInset.left += 60 // Make room for numbers in the margin
+        textView.textContainerInset = adjustedInset
+        
         textView.isEditable = isEditable
         textView.isSelectable = true
         textView.isScrollEnabled = true

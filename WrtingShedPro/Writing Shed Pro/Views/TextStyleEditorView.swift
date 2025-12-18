@@ -57,9 +57,7 @@ struct TextStyleEditorView: View {
                 fontSettingsSection
                 textColourSection
                 paragraphSettingsSection
-                if style.styleCategory == .list {
-                    listFormatSection
-                }
+                numberingSection
             }
             .disabled(style.styleSheet?.isSystemStyleSheet == true)
         }
@@ -427,11 +425,8 @@ struct TextStyleEditorView: View {
         }
     }
     
-    private var listFormatSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("textStyleEditor.listFormat")
-                .font(.headline)
-            
+    private var numberingSection: some View {
+        Section {
             Picker("textStyleEditor.numberFormat", selection: Binding(
                 get: { style.numberFormat },
                 set: { style.numberFormat = $0; hasUnsavedChanges = true }
@@ -441,6 +436,8 @@ struct TextStyleEditorView: View {
                 }
             }
             .accessibilityLabel("textStyleEditor.numberFormat.accessibility")
+        } header: {
+            Text("textStyleEditor.numbering")
         }
     }
     
