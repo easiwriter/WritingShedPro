@@ -451,44 +451,57 @@ struct TextStyleEditorView: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                     
-                    // Visual grid of number format options
-                    LazyVGrid(columns: [
-                        GridItem(.flexible()),
-                        GridItem(.flexible()),
-                        GridItem(.flexible())
-                    ], spacing: 12) {
-                        ForEach(NumberFormat.allCases.filter { $0 != .none }, id: \.self) { format in
-                            Button {
-                                style.numberFormat = format
-                                hasUnsavedChanges = true
-                            } label: {
-                                VStack(spacing: 4) {
-                                    Text(formatPreview(format))
-                                        .font(.title3)
-                                        .frame(height: 30)
-                                    Text(format.displayName)
-                                        .font(.caption2)
-                                        .foregroundStyle(.secondary)
-                                }
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 8)
-                                .background(
-                                    style.numberFormat == format ?
-                                        Color.accentColor.opacity(0.15) :
-                                        Color.secondary.opacity(0.1)
-                                )
-                                .cornerRadius(8)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .stroke(
+                    // Manual grid layout using VStack/HStack to avoid nested collection views
+                    let formats = NumberFormat.allCases.filter { $0 != .none }
+                    let rows = stride(from: 0, to: formats.count, by: 3).map { i in
+                        Array(formats[i..<min(i + 3, formats.count)])
+                    }
+                    
+                    VStack(spacing: 12) {
+                        ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                            HStack(spacing: 12) {
+                                ForEach(row, id: \.self) { format in
+                                    Button {
+                                        style.numberFormat = format
+                                        hasUnsavedChanges = true
+                                    } label: {
+                                        VStack(spacing: 4) {
+                                            Text(formatPreview(format))
+                                                .font(.title3)
+                                                .frame(height: 30)
+                                            Text(format.displayName)
+                                                .font(.caption2)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 8)
+                                        .background(
                                             style.numberFormat == format ?
-                                                Color.accentColor :
-                                                Color.clear,
-                                            lineWidth: 2
+                                                Color.accentColor.opacity(0.15) :
+                                                Color.secondary.opacity(0.1)
                                         )
-                                )
+                                        .cornerRadius(8)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 8)
+                                                .stroke(
+                                                    style.numberFormat == format ?
+                                                        Color.accentColor :
+                                                        Color.clear,
+                                                    lineWidth: 2
+                                                )
+                                        )
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                                
+                                // Add spacers for incomplete rows
+                                if row.count < 3 {
+                                    ForEach(0..<(3 - row.count), id: \.self) { _ in
+                                        Color.clear
+                                            .frame(maxWidth: .infinity)
+                                    }
+                                }
                             }
-                            .buttonStyle(.plain)
                         }
                     }
                 }
