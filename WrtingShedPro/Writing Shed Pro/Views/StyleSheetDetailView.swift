@@ -255,14 +255,29 @@ private struct StyleListRow: View {
                 Text(alignmentName(for: style.alignment))
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                
+                // Numbering format
+                if style.numberFormat != .none {
+                    Text(style.numberFormat.displayName)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
             
-            // Preview
-            Text(NSLocalizedString("styleSheetDetail.previewText", comment: "Preview text for style"))
-                .font(Font(style.generateFont()))
-                .foregroundColor(style.textColor != nil ? Color(uiColor: style.textColor!) : .primary)
-                .lineLimit(1)
-                .padding(.top, 4)
+            // Preview with numbering if enabled (but not for footnotes)
+            HStack(alignment: .top, spacing: 8) {
+                if style.numberFormat != .none && style.styleCategory != .footnote {
+                    Text(style.numberFormat.symbol(for: 1, adornment: style.numberAdornment))
+                        .font(Font(style.generateFont()))
+                        .foregroundColor(Color(uiColor: (style.textColor ?? UIColor.label).withAlphaComponent(0.6)))
+                }
+                
+                Text(NSLocalizedString("styleSheetDetail.previewText", comment: "Preview text for style"))
+                    .font(Font(style.generateFont()))
+                    .foregroundColor(style.textColor != nil ? Color(uiColor: style.textColor!) : .primary)
+                    .lineLimit(1)
+            }
+            .padding(.top, 4)
         }
         .padding(.vertical, 4)
     }

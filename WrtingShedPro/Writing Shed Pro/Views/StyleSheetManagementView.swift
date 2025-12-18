@@ -78,6 +78,14 @@ struct StyleSheetManagementView: View {
                         Label("Reset DB", systemImage: "arrow.clockwise")
                     }
                 }
+                
+                ToolbarItem(placement: .topBarLeading) {
+                    Button(action: {
+                        fixAllCategories()
+                    }) {
+                        Label("Fix Categories", systemImage: "wrench.and.screwdriver")
+                    }
+                }
                 #endif
                 
                 ToolbarItem(placement: .primaryAction) {
@@ -220,6 +228,21 @@ struct StyleSheetManagementView: View {
             print("✅ Reset complete")
         } catch {
             print("❌ Error resetting database: \(error)")
+        }
+    }
+    
+    private func fixAllCategories() {
+        print("🔧 Manually fixing all stylesheet categories...")
+        let descriptor = FetchDescriptor<StyleSheet>()
+        if let sheets = try? modelContext.fetch(descriptor) {
+            for sheet in sheets {
+                print("🔧 Fixing categories for stylesheet: \(sheet.name)")
+                StyleSheetService.fixStyleCategories(in: sheet, context: modelContext)
+            }
+            loadStyleSheets()
+            print("✅ Category fix complete - check console for details")
+        } else {
+            print("❌ No stylesheets found")
         }
     }
     #endif

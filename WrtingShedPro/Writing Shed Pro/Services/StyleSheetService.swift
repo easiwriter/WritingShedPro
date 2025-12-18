@@ -46,6 +46,10 @@ struct StyleSheetService {
             // Platform scaling (Mac Catalyst) now applied at render time in generateFont()
             let fontSize = customFontSize ?? font.pointSize
             
+            // Footnote styles always have numbering with decimal format and plain adornment
+            let numberFormat: NumberFormat = (category == .footnote) ? .decimal : .none
+            let numberAdornment: NumberingAdornment = (category == .footnote) ? .plain : .period
+            
             let style = TextStyleModel(
                 name: textStyle.rawValue,
                 displayName: displayName,
@@ -54,9 +58,13 @@ struct StyleSheetService {
                 isBold: isBold,
                 isItalic: isItalic,
                 alignment: .left,  // Explicitly set left alignment for system styles
+                numberFormat: numberFormat,
                 styleCategory: category,
                 isSystemStyle: true
             )
+            
+            // Set adornment after initialization
+            style.numberAdornment = numberAdornment
             
             styles.append(style)
         }
@@ -64,9 +72,7 @@ struct StyleSheetService {
         // Add specialized list styles
         let listStyles: [(String, String, NumberFormat, Int)] = [
             ("list-numbered", "Numbered List", .decimal, 11),
-            ("list-bullet", "Bullet List", .bulletSymbols, 12),
-            ("list-lowercase-letter", "Letter List (a, b, c)", .lowercaseLetter, 13),
-            ("list-uppercase-letter", "Letter List (A, B, C)", .uppercaseLetter, 14)
+            ("list-bullet", "Bullet List", .bulletSymbols, 12)
         ]
         
         for (name, displayName, numberFormat, order) in listStyles {
@@ -98,15 +104,97 @@ struct StyleSheetService {
         return sheet
     }
     
+    // MARK: - Style Category Migration
+    
+    /// Fix categories for existing system styles that were created before categories were properly set
+    static func fixStyleCategories(in stylesheet: StyleSheet, context: ModelContext) {
+        guard let styles = stylesheet.textStyles else {
+            print("⚠️ No styles found in stylesheet")
+            return
+        }
+        
+        print("🔧 Checking \(styles.count) styles for category fixes...")
+        
+        // Map of style names to their correct categories
+        let categoryMap: [String: StyleCategory] = [
+            "UICTFontTextStyleTitle0": .heading,        // Large Title
+            "UICTFontTextStyleTitle1": .heading,        // Title 1
+            "UICTFontTextStyleTitle2": .heading,        // Title 2
+            "UICTFontTextStyleTitle3": .heading,        // Title 3
+            "UICTFontTextStyleHeadline": .heading,      // Headline
+            "UICTFontTextStyleBody": .text,             // Body
+            "UICTFontTextStyleCallout": .text,          // Body 1
+            "UICTFontTextStyleSubheadline": .text,      // Body 2
+            "UICTFontTextStyleFootnote": .footnote,     // Footnote
+            "UICTFontTextStyleCaption1": .text,         // Caption 1
+            "UICTFontTextStyleCaption2": .text,         // Caption 2
+            "list-numbered": .list,                      // Numbered List
+            "list-bullet": .list                         // Bullet List
+        ]
+        
+        // Obsolete styles to remove
+        let obsoleteStyleNames = ["list-lowercase-letter", "list-uppercase-letter"]
+        
+        var fixedCount = 0
+        var deletedCount = 0
+        
+        for style in styles {
+            // Check if this is an obsolete style that should be deleted
+            if obsoleteStyleNames.contains(style.name) {
+                print("🗑️ Removing obsolete style: \(style.displayName)")
+                context.delete(style)
+                deletedCount += 1
+                continue
+            }
+            
+            // Fix category if needed
+            if let correctCategory = categoryMap[style.name] {
+                if style.styleCategory != correctCategory {
+                    print("📝 Fixing category for \(style.displayName): \(style.styleCategory.rawValue) -> \(correctCategory.rawValue)")
+                    style.styleCategory = correctCategory
+                    fixedCount += 1
+                    
+                    // Also fix numbering for footnotes
+                    if correctCategory == .footnote {
+                        style.numberFormat = .decimal
+                        style.numberAdornment = .plain
+                        print("   Also set footnote numbering to decimal/plain")
+                    }
+                }
+            }
+        }
+        
+        if fixedCount > 0 || deletedCount > 0 {
+            print("✅ Fixed \(fixedCount) style categories, deleted \(deletedCount) obsolete styles - saving...")
+            do {
+                try context.save()
+                print("✅ Changes saved successfully")
+            } catch {
+                print("❌ Error saving changes: \(error)")
+            }
+        } else {
+            print("✅ All style categories are correct, no obsolete styles found")
+        }
+    }
+    
     // MARK: - StyleSheet Initialization
     
     /// Initialize stylesheets in the model context if none exist
     static func initializeStyleSheetsIfNeeded(context: ModelContext) {
+        print("🔧 initializeStyleSheetsIfNeeded called")
+        
         // Check if we already have a system stylesheet
         let systemDescriptor = FetchDescriptor<StyleSheet>(
             predicate: #Predicate { $0.isSystemStyleSheet == true }
         )
         let existingSystemSheets = (try? context.fetch(systemDescriptor)) ?? []
+        
+        print("🔧 Found \(existingSystemSheets.count) system stylesheets")
+        
+        // Fix categories in existing stylesheets
+        for sheet in existingSystemSheets {
+            fixStyleCategories(in: sheet, context: context)
+        }
         
         // Remove duplicates if they exist
         if existingSystemSheets.count > 1 {

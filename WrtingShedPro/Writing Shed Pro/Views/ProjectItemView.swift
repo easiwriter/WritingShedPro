@@ -7,6 +7,7 @@ struct ProjectItemView: View {
     let onPageSetupTapped: () -> Void
     
     @Environment(\.modelContext) var modelContext
+    @Query(sort: \StyleSheet.name) private var allStyleSheets: [StyleSheet]
     
     var body: some View {
         HStack {
@@ -33,6 +34,36 @@ struct ProjectItemView: View {
                 
                 Button(action: onPageSetupTapped) {
                     Label("Page Setup", systemImage: "doc.richtext")
+                }
+                
+                Menu {
+                    ForEach(allStyleSheets, id: \.id) { sheet in
+                        Button {
+                            project.styleSheet = sheet
+                            NotificationCenter.default.post(
+                                name: NSNotification.Name("ProjectStyleSheetChanged"),
+                                object: nil,
+                                userInfo: [
+                                    "projectId": project.id.uuidString,
+                                    "styleSheetId": sheet.id.uuidString
+                                ]
+                            )
+                        } label: {
+                            HStack {
+                                Text(sheet.name)
+                                if sheet.isSystemStyleSheet {
+                                    Image(systemName: "star.fill")
+                                        .font(.caption)
+                                }
+                                Spacer()
+                                if project.styleSheet?.id == sheet.id {
+                                    Image(systemName: "checkmark")
+                                }
+                            }
+                        }
+                    }
+                } label: {
+                    Label("Select Stylesheet", systemImage: "textformat")
                 }
                 
                 Button(action: {}) {

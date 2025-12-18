@@ -960,8 +960,10 @@ struct FileEditView: View {
                 )
                 textViewCoordinator.modifyTypingAttributes { textView in
                     textView.typingAttributes = bodyAttrs
+                    // Force redraw to trigger custom draw() method for empty document numbering
+                    textView.setNeedsDisplay()
                 }
-                print("📝 onAppear: Set typing attributes for empty document from stylesheet")
+                print("📝 onAppear: Set typing attributes for empty document and forced redraw")
             }
         }
         
@@ -1935,22 +1937,29 @@ struct FileEditView: View {
         // Get the range of the current paragraph
         let paragraphRange = (attributedContent.string as NSString).paragraphRange(for: selectedRange)
         
-        // Get current style at paragraph start
-        guard paragraphRange.location < attributedContent.length else { return }
-        let attrs = attributedContent.attributes(at: paragraphRange.location, effectiveRange: nil)
-        guard let styleName = attrs[.textStyle] as? String,
-              let style = project.styleSheet?.style(named: styleName) else {
+        // Determine which list style to apply based on format
+        let listStyleName: String
+        if format == .bulletSymbols {
+            listStyleName = "list-bullet"
+        } else {
+            listStyleName = "list-numbered"
+        }
+        
+        // Apply the list style to the paragraph
+        guard let listStyle = project.styleSheet?.style(named: listStyleName) else {
             return
         }
         
         // Store before state for undo
         let beforeContent = attributedContent
         
-        // Toggle format: if already set to this format, turn off, otherwise set it
-        let newFormat: NumberFormat = (style.numberFormat == format) ? .none : format
+        // Apply the list style attributes to the paragraph
+        let mutableContent = NSMutableAttributedString(attributedString: attributedContent)
+        let styleAttributes = listStyle.generateAttributes()
+        mutableContent.addAttributes(styleAttributes, range: paragraphRange)
         
-        // Update the style's number format
-        style.numberFormat = newFormat
+        // Update content
+        attributedContent = mutableContent
         
         // Force a redraw by invalidating the layout
         if let textView = textViewCoordinator.textView {
@@ -1960,7 +1969,7 @@ struct FileEditView: View {
         
         // Create undo command
         let command = FormatApplyCommand(
-            description: newFormat == .none ? "Remove Numbering" : "Apply Numbering",
+            description: format == .bulletSymbols ? "Apply Bullet List" : "Apply Numbered List",
             range: selectedRange,
             beforeContent: beforeContent,
             afterContent: attributedContent,
@@ -2192,6 +2201,12 @@ struct FileEditView: View {
             
             restoreKeyboardFocus()
             print("✅ Restored keyboard focus")
+            
+            // Force layout manager to redraw for numbering updates
+            textViewCoordinator.modifyTypingAttributes { textView in
+                textView.layoutManager.invalidateDisplay(forCharacterRange: NSRange(location: 0, length: textView.textStorage.length))
+            }
+            print("✅ Invalidated layout manager display for numbering update")
         } else {
             print("📝 No styles found to reapply - hasChanges is false")
         }

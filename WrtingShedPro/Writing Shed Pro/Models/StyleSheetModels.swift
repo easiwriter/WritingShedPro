@@ -108,6 +108,7 @@ final class TextStyleModel {
     
     // MARK: - Numbering/Bullets
     var numberFormatRaw: String = "none"  // NumberFormat.rawValue
+    var numberAdornmentRaw: String = "period"  // NumberingAdornment.rawValue
     
     // MARK: - Style Classification
     var styleCategoryRaw: String = "text"  // "text", "list", "footnote", "heading"
@@ -130,6 +131,11 @@ final class TextStyleModel {
     var numberFormat: NumberFormat {
         get { NumberFormat(rawValue: numberFormatRaw) ?? .none }
         set { numberFormatRaw = newValue.rawValue }
+    }
+    
+    var numberAdornment: NumberingAdornment {
+        get { NumberingAdornment(rawValue: numberAdornmentRaw) ?? .period }
+        set { numberAdornmentRaw = newValue.rawValue }
     }
     
     var styleCategory: StyleCategory {

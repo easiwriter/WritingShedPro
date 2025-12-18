@@ -611,7 +611,43 @@
 "textStyleEditor.listFormat" = "List Format";
 "textStyleEditor.numberFormat" = "Number Format";
 "textStyleEditor.numberFormat.accessibility" = "Select list number format";
+"textStyleEditor.numberStyle" = "Number Style";
+"textStyleEditor.bulletStyle" = "Bullet Style";
+"textStyleEditor.footnoteStyle" = "Footnote Style";
+"textStyleEditor.formatType" = "Format Type";
+"textStyleEditor.formatType.numbers" = "Numbers";
+"textStyleEditor.formatType.bullets" = "Bullets";
+"textStyleEditor.formatType.number" = "Numbers";
+"textStyleEditor.formatType.bullet" = "Bullets";
+"textStyleEditor.formatType.footnote" = "Footnotes";
+"textStyleEditor.enableNumbering" = "Enable Numbering";
+"textStyleEditor.numbering" = "Numbering";
+"textStyleEditor.numberingNotAvailable" = "Numbering is only available for list and footnote styles";
+"textStyleEditor.footnoteNumberingInfo" = "Footnotes are automatically numbered 1, 2, 3...";
+"textStyleEditor.bulletListInfo" = "Bullet lists use standard bullet formatting";
+"textStyleEditor.footnoteFormat" = "Footnote Format";
+"textStyleEditor.bulletCharacter" = "Bullet Character";
+"textStyleEditor.adornment" = "Adornment";
 "textStyleEditor.preview" = "Preview";
+
+/* NumberFormat Display Names */
+"numberFormat.none" = "None";
+"numberFormat.decimal" = "1, 2, 3...";
+"numberFormat.lowercaseRoman" = "i, ii, iii...";
+"numberFormat.uppercaseRoman" = "I, II, III...";
+"numberFormat.lowercaseLetter" = "a, b, c...";
+"numberFormat.uppercaseLetter" = "A, B, C...";
+"numberFormat.footnoteSymbols" = "*, †, ‡...";
+"numberFormat.bulletSymbols" = "•, ◦, ▪...";
+
+/* NumberingAdornment Display Names */
+"numberAdornment.plain" = "1";
+"numberAdornment.period" = "1.";
+"numberAdornment.parentheses" = "(1)";
+"numberAdornment.rightParen" = "1)";
+"numberAdornment.dashBefore" = "-1";
+"numberAdornment.dashAfter" = "1-";
+"numberAdornment.dashBoth" = "-1-";
 "textStyleEditor.preview.text" = "The quick brown fox jumps over the lazy dog";
 "textStyleEditor.preview.accessibility" = "Style preview text";
 "textStyleEditor.delete.title" = "Delete Style";

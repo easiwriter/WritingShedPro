@@ -568,7 +568,12 @@ struct FormattedTextEditor: UIViewRepresentable {
         // NOTE: Don't set textView.textColor - it overrides attributed string colors!
         // Colors should come from the attributed string's .foregroundColor attribute
         textView.backgroundColor = backgroundColor
-        textView.textContainerInset = textContainerInset
+        
+        // Add extra left inset for paragraph numbers (Feature 016)
+        var adjustedInset = textContainerInset
+        adjustedInset.left += 60
+        textView.textContainerInset = adjustedInset
+        
         textView.isEditable = isEditable
         
         // Ensure autocorrect stays disabled
@@ -622,6 +627,45 @@ struct FormattedTextEditor: UIViewRepresentable {
         
         // MARK: - UITextViewDelegate
         
+        // Intercept text changes to handle Enter key and ensure correct styling
+        func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
+            print("🔑 shouldChangeTextIn called: text='\(text)', range=\(range)")
+            
+            // Check if user pressed Enter (newline character)
+            if text == "\n" {
+                print("⏎⏎⏎ ENTER KEY DETECTED at position \(range.location)")
+                
+                // Get the attributes at the current position to continue with same style
+                if range.location > 0, let attrText = textView.attributedText {
+                    let attrs = attrText.attributes(at: range.location > 0 ? range.location - 1 : 0, effectiveRange: nil)
+                    
+                    if let styleName = attrs[.textStyle] as? String {
+                        print("⏎ Current paragraph style: \(styleName)")
+                    } else {
+                        print("⏎ NO textStyle attribute found!")
+                    }
+                    
+                    // After the newline is inserted, set typing attributes to continue with same style
+                    DispatchQueue.main.async { [weak textView] in
+                        guard let textView = textView else { return }
+                        
+                        // Reuse the same attributes for the next paragraph
+                        textView.typingAttributes = attrs
+                        print("⏎ Set typingAttributes after Enter")
+                        
+                        // Force layout manager to redraw numbers
+                        textView.setNeedsDisplay()
+                        if let layoutManager = textView.layoutManager as? NumberingLayoutManager {
+                            layoutManager.invalidateDisplay(forCharacterRange: NSRange(location: 0, length: textView.textStorage.length))
+                            print("⏎ Invalidated layout manager display")
+                        }
+                    }
+                }
+            }
+            
+            return true
+        }
+        
         func textViewDidChange(_ textView: UITextView) {
             guard !isUpdatingFromSwiftUI else { return }
             
@@ -646,6 +690,34 @@ struct FormattedTextEditor: UIViewRepresentable {
                 print("      foregroundColor: NONE")
             }
             #endif
+            
+            // Ensure text has proper .textStyle attribute
+            // UITextView sometimes strips this when typing, so reapply it
+            let textStorage = textView.textStorage
+            if textStorage.length > 0 {
+                var needsStyleFix = false
+                textStorage.enumerateAttribute(.textStyle, in: NSRange(location: 0, length: textStorage.length)) { value, range, stop in
+                    if value == nil {
+                        needsStyleFix = true
+                        stop.pointee = true
+                    }
+                }
+                
+                if needsStyleFix {
+                    print("⚠️ Text missing .textStyle attribute - applying Body style")
+                    // Apply Body style to any text missing .textStyle
+                    textStorage.enumerateAttribute(.textStyle, in: NSRange(location: 0, length: textStorage.length)) { value, range, stop in
+                        if value == nil {
+                            textStorage.addAttribute(.textStyle, value: UIFont.TextStyle.body.rawValue, range: range)
+                        }
+                    }
+                    // Force layout manager redraw
+                    textView.setNeedsDisplay()
+                    if let layoutManager = textView.layoutManager as? NumberingLayoutManager {
+                        layoutManager.invalidateDisplay(forCharacterRange: NSRange(location: 0, length: textStorage.length))
+                    }
+                }
+            }
             
             // Update the binding so SwiftUI state stays in sync
             // Update if either content OR formatting changed
@@ -1440,6 +1512,68 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
         // If we have a visible selection border and an image is selected, recalculate its position
         if isImageSelected && !selectionBorderView.isHidden {
             recalculateSelectionBorder()
+        }
+    }
+    
+    // Custom drawing for empty document numbering (Feature 016)
+    override func draw(_ rect: CGRect) {
+        super.draw(rect)
+        
+        #if DEBUG
+        print("🎨 CustomTextView.draw() called, textStorage.length: \(textStorage.length)")
+        #endif
+        
+        // For empty documents, manually draw the first number since layout manager won't be called
+        if textStorage.length == 0,
+           let numberingLayoutManager = layoutManager as? NumberingLayoutManager,
+           let project = numberingLayoutManager.project,
+           let styleSheet = project.styleSheet,
+           let bodyStyle = styleSheet.style(named: "UICTFontTextStyleBody"),
+           bodyStyle.numberFormat != .none {
+            
+            #if DEBUG
+            print("🎨 Drawing '1' for empty document with numbering enabled")
+            print("   textContainerInset: \(textContainerInset)")
+            #endif
+            
+            // Format the number using the style's format and adornment
+            let formattedNumber = bodyStyle.numberFormat.symbol(for: 0, adornment: bodyStyle.numberAdornment)
+            
+            // Get font and color from style (matching NumberingLayoutManager approach)
+            let font = bodyStyle.generateFont(applyPlatformScaling: true)
+            let color = bodyStyle.textColor ?? UIColor.label
+            
+            // Draw the number in the left margin, matching NumberingLayoutManager's approach
+            // NumberingLayoutManager draws from (origin.x - 60) with width 55
+            // In this view, text starts at textContainerInset.left, so draw number before that
+            let numberAttributes: [NSAttributedString.Key: Any] = [
+                .font: font,
+                .foregroundColor: color.withAlphaComponent(0.5) // Dimmed like in layout manager
+            ]
+            
+            let numberString = formattedNumber as NSString
+            let numberSize = numberString.size(withAttributes: numberAttributes)
+            
+            // Match NumberingLayoutManager: draw from (textContainerOrigin.x - 60) with width 55
+            let numberX = textContainerInset.left - 60
+            let numberRect = CGRect(
+                x: numberX,
+                y: textContainerInset.top,
+                width: 55, // Same width as NumberingLayoutManager uses
+                height: numberSize.height
+            )
+            
+            // Right-align the number (matching NumberingLayoutManager approach)
+            let paragraphStyle = NSMutableParagraphStyle()
+            paragraphStyle.alignment = .right
+            var drawAttributes = numberAttributes
+            drawAttributes[.paragraphStyle] = paragraphStyle
+            
+            numberString.draw(in: numberRect, withAttributes: drawAttributes)
+            
+            #if DEBUG
+            print("   Drew number '\(formattedNumber)' in rect: \(numberRect)")
+            #endif
         }
     }
     

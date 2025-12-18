@@ -1,6 +1,56 @@
 import Foundation
 import UIKit
 
+/// Represents how numbers are adorned (brackets, periods, etc.)
+enum NumberingAdornment: String, Codable, CaseIterable {
+    case plain            // 1
+    case period           // 1.
+    case parentheses      // (1)
+    case rightParen       // 1)
+    case dashBefore       // -1
+    case dashAfter        // 1-
+    case dashBoth         // -1-
+    
+    var displayName: String {
+        switch self {
+        case .plain:
+            return NSLocalizedString("numberAdornment.plain", comment: "1")
+        case .period:
+            return NSLocalizedString("numberAdornment.period", comment: "1.")
+        case .parentheses:
+            return NSLocalizedString("numberAdornment.parentheses", comment: "(1)")
+        case .rightParen:
+            return NSLocalizedString("numberAdornment.rightParen", comment: "1)")
+        case .dashBefore:
+            return NSLocalizedString("numberAdornment.dashBefore", comment: "-1")
+        case .dashAfter:
+            return NSLocalizedString("numberAdornment.dashAfter", comment: "1-")
+        case .dashBoth:
+            return NSLocalizedString("numberAdornment.dashBoth", comment: "-1-")
+        }
+    }
+    
+    /// Apply adornment to a number string
+    func apply(to number: String) -> String {
+        switch self {
+        case .plain:
+            return number
+        case .period:
+            return "\(number)."
+        case .parentheses:
+            return "(\(number))"
+        case .rightParen:
+            return "\(number))"
+        case .dashBefore:
+            return "-\(number)"
+        case .dashAfter:
+            return "\(number)-"
+        case .dashBoth:
+            return "-\(number)-"
+        }
+    }
+}
+
 /// Represents the numbering/bullet format for a paragraph
 /// Phase 005: Format is stored as an attribute but not automatically applied
 /// Phase 006+: Will be used for automatic list numbering
@@ -41,22 +91,24 @@ enum NumberFormat: String, Codable, CaseIterable {
     // MARK: - Symbol Generation
     
     /// The actual character/string to display for a given index
-    /// - Parameter index: Zero-based index (0, 1, 2...)
+    /// - Parameters:
+    ///   - index: Zero-based index (0, 1, 2...)
+    ///   - adornment: Optional adornment style (default: .period for backward compatibility)
     /// - Returns: Formatted string for display
-    func symbol(for index: Int) -> String {
+    func symbol(for index: Int, adornment: NumberingAdornment = .period) -> String {
         switch self {
         case .none:
             return ""
         case .decimal:
-            return "\(index + 1)."
+            return adornment.apply(to: "\(index + 1)")
         case .lowercaseRoman:
-            return romanNumeral(index + 1, uppercase: false) + "."
+            return adornment.apply(to: romanNumeral(index + 1, uppercase: false))
         case .uppercaseRoman:
-            return romanNumeral(index + 1, uppercase: true) + "."
+            return adornment.apply(to: romanNumeral(index + 1, uppercase: true))
         case .lowercaseLetter:
-            return letter(index, uppercase: false) + "."
+            return adornment.apply(to: letter(index, uppercase: false))
         case .uppercaseLetter:
-            return letter(index, uppercase: true) + "."
+            return adornment.apply(to: letter(index, uppercase: true))
         case .footnoteSymbols:
             let symbols = ["*", "†", "‡", "§", "¶"]
             return symbols[index % symbols.count]

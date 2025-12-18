@@ -32,6 +32,13 @@ struct TextStyleEditorView: View {
         self.isNewStyle = isNewStyle
         self.onSave = onSave
         _editedDisplayName = State(initialValue: style.displayName)
+        
+        #if DEBUG
+        print("📝 TextStyleEditorView - Style: \(style.displayName)")
+        print("   Name: \(style.name)")
+        print("   Category: \(style.styleCategory.rawValue)")
+        print("   Category raw: \(style.styleCategoryRaw)")
+        #endif
     }
     
     var body: some View {
@@ -53,7 +60,6 @@ struct TextStyleEditorView: View {
             
             Group {
                 styleNameSection
-                previewSection
                 fontSettingsSection
                 textColourSection
                 paragraphSettingsSection
@@ -426,132 +432,108 @@ struct TextStyleEditorView: View {
     }
     
     private var numberingSection: some View {
-        Section {
-            // Enable/disable numbering toggle
-            Toggle(isOn: Binding(
-                get: { style.numberFormat != .none },
-                set: { enabled in
-                    if enabled {
-                        // Enable with decimal format by default
-                        style.numberFormat = .decimal
-                    } else {
-                        // Disable numbering
-                        style.numberFormat = .none
-                    }
-                    hasUnsavedChanges = true
-                }
-            )) {
-                Label("textStyleEditor.enableNumbering", systemImage: "list.number")
-            }
-            
-            // Show format options only when numbering is enabled
-            if style.numberFormat != .none {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("textStyleEditor.numberFormat")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    
-                    // Manual grid layout using VStack/HStack to avoid nested collection views
-                    let formats = NumberFormat.allCases.filter { $0 != .none }
-                    let rows = stride(from: 0, to: formats.count, by: 3).map { i in
-                        Array(formats[i..<min(i + 3, formats.count)])
-                    }
-                    
-                    VStack(spacing: 12) {
-                        ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
-                            HStack(spacing: 12) {
-                                ForEach(row, id: \.self) { format in
-                                    Button {
-                                        style.numberFormat = format
-                                        hasUnsavedChanges = true
-                                    } label: {
-                                        VStack(spacing: 4) {
-                                            Text(formatPreview(format))
-                                                .font(.title3)
-                                                .frame(height: 30)
-                                            Text(format.displayName)
-                                                .font(.caption2)
-                                                .foregroundStyle(.secondary)
-                                        }
-                                        .frame(maxWidth: .infinity)
-                                        .padding(.vertical, 8)
-                                        .background(
-                                            style.numberFormat == format ?
-                                                Color.accentColor.opacity(0.15) :
-                                                Color.secondary.opacity(0.1)
-                                        )
-                                        .cornerRadius(8)
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 8)
-                                                .stroke(
-                                                    style.numberFormat == format ?
-                                                        Color.accentColor :
-                                                        Color.clear,
-                                                    lineWidth: 2
-                                                )
-                                        )
+        Group {
+            // Don't show numbering section for footnote styles - they always use decimal
+            if style.styleCategory != .footnote {
+                Section {
+                    // List styles always have numbering - no toggle needed
+                    if style.styleCategory == .list {
+                        VStack(alignment: .leading, spacing: 12) {
+                            // Bullet list: just show info
+                            if style.name == "list-bullet" {
+                                Text("textStyleEditor.bulletListInfo")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .padding(.vertical, 4)
+                            }
+                            // Numbered list: show format and adornment pickers
+                            else if style.name == "list-numbered" {
+                                Picker("textStyleEditor.numberStyle", selection: Binding(
+                                    get: { style.numberFormat },
+                                    set: { style.numberFormat = $0; hasUnsavedChanges = true }
+                                )) {
+                                    ForEach(numberFormats, id: \.self) { format in
+                                        Text(format.displayName).tag(format)
                                     }
-                                    .buttonStyle(.plain)
                                 }
+                                .pickerStyle(.menu)
                                 
-                                // Add spacers for incomplete rows
-                                if row.count < 3 {
-                                    ForEach(0..<(3 - row.count), id: \.self) { _ in
-                                        Color.clear
-                                            .frame(maxWidth: .infinity)
+                                Picker("textStyleEditor.adornment", selection: Binding(
+                                    get: { style.numberAdornment },
+                                    set: { style.numberAdornment = $0; hasUnsavedChanges = true }
+                                )) {
+                                    ForEach(NumberingAdornment.allCases, id: \.self) { adornment in
+                                        Text(adornment.displayName).tag(adornment)
                                     }
                                 }
+                                .pickerStyle(.menu)
                             }
                         }
+                        .padding(.vertical, 4)
                     }
+                    // Non-list styles: show toggle and controls
+                    else {
+                        // Enable/disable numbering toggle
+                        Toggle(isOn: Binding(
+                    get: { style.numberFormat != .none },
+                    set: { enabled in
+                        if enabled {
+                            if style.name == "list-bullet" {
+                                style.numberFormat = .bulletSymbols
+                            } else {
+                                style.numberFormat = .decimal
+                                style.numberAdornment = .period
+                            }
+                        } else {
+                            // Disable numbering
+                            style.numberFormat = .none
+                        }
+                        hasUnsavedChanges = true
+                    }
+                )) {
+                    Label("textStyleEditor.enableNumbering", systemImage: "list.number")
                 }
-                .padding(.vertical, 4)
-            }
-        } header: {
-            Text("textStyleEditor.numbering")
-        }
-    }
-    
-    private var previewSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("textStyleEditor.preview")
-                .font(.headline)
                 
-                Text("textStyleEditor.preview.text")
-                    .font(Font(style.generateFont()))
-                    .underline(style.isUnderlined)
-                    .strikethrough(style.isStrikethrough)
-                    .foregroundColor(style.textColor != nil ? Color(uiColor: style.textColor!) : .primary)
-                    .padding()
-                    .frame(maxWidth: .infinity)
-                    .background(Color.secondary.opacity(0.1))
-                    .cornerRadius(8)
-                    .accessibilityLabel("textStyleEditor.preview.accessibility")
+                // Show format options only when numbering is enabled
+                if style.numberFormat != .none {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Picker("textStyleEditor.numberStyle", selection: Binding(
+                            get: { style.numberFormat },
+                            set: { style.numberFormat = $0; hasUnsavedChanges = true }
+                        )) {
+                            ForEach(numberFormats, id: \.self) { format in
+                                Text(format.displayName).tag(format)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        
+                        Picker("textStyleEditor.adornment", selection: Binding(
+                            get: { style.numberAdornment },
+                            set: { style.numberAdornment = $0; hasUnsavedChanges = true }
+                        )) {
+                            ForEach(NumberingAdornment.allCases, id: \.self) { adornment in
+                                Text(adornment.displayName).tag(adornment)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                    }
+                    .padding(.vertical, 4)
+                }
+                    }
+            } header: {
+                Text("textStyleEditor.numbering")
+            }
+            }
         }
     }
     
-    // MARK: - Helper Methods
+    // Helper computed properties
+    private var numberFormats: [NumberFormat] {
+        [.decimal, .lowercaseLetter, .uppercaseLetter, .lowercaseRoman, .uppercaseRoman]
+    }
     
-    /// Generate preview text for a number format showing examples
-    private func formatPreview(_ format: NumberFormat) -> String {
-        switch format {
-        case .none:
-            return ""
-        case .decimal:
-            return "1. 2. 3."
-        case .lowercaseRoman:
-            return "i. ii. iii."
-        case .uppercaseRoman:
-            return "I. II. III."
-        case .lowercaseLetter:
-            return "a. b. c."
-        case .uppercaseLetter:
-            return "A. B. C."
-        case .footnoteSymbols:
-            return "* † ‡"
-        case .bulletSymbols:
-            return "• ◦ ▪"
-        }
+    private var bulletCharacters: [String] {
+        ["•", "◦", "▪", "▫", "▸", "○", "■", "□", "▹", "▻"]
     }
     
     // MARK: - Font Variant Helpers
