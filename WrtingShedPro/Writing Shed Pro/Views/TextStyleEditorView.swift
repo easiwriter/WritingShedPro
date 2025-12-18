@@ -427,15 +427,73 @@ struct TextStyleEditorView: View {
     
     private var numberingSection: some View {
         Section {
-            Picker("textStyleEditor.numberFormat", selection: Binding(
-                get: { style.numberFormat },
-                set: { style.numberFormat = $0; hasUnsavedChanges = true }
-            )) {
-                ForEach(NumberFormat.allCases, id: \.self) { format in
-                    Text(format.displayName).tag(format)
+            // Enable/disable numbering toggle
+            Toggle(isOn: Binding(
+                get: { style.numberFormat != .none },
+                set: { enabled in
+                    if enabled {
+                        // Enable with decimal format by default
+                        style.numberFormat = .decimal
+                    } else {
+                        // Disable numbering
+                        style.numberFormat = .none
+                    }
+                    hasUnsavedChanges = true
                 }
+            )) {
+                Label("textStyleEditor.enableNumbering", systemImage: "list.number")
             }
-            .accessibilityLabel("textStyleEditor.numberFormat.accessibility")
+            
+            // Show format options only when numbering is enabled
+            if style.numberFormat != .none {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("textStyleEditor.numberFormat")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    
+                    // Visual grid of number format options
+                    LazyVGrid(columns: [
+                        GridItem(.flexible()),
+                        GridItem(.flexible()),
+                        GridItem(.flexible())
+                    ], spacing: 12) {
+                        ForEach(NumberFormat.allCases.filter { $0 != .none }, id: \.self) { format in
+                            Button {
+                                style.numberFormat = format
+                                hasUnsavedChanges = true
+                            } label: {
+                                VStack(spacing: 4) {
+                                    Text(formatPreview(format))
+                                        .font(.title3)
+                                        .frame(height: 30)
+                                    Text(format.displayName)
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 8)
+                                .background(
+                                    style.numberFormat == format ?
+                                        Color.accentColor.opacity(0.15) :
+                                        Color.secondary.opacity(0.1)
+                                )
+                                .cornerRadius(8)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(
+                                            style.numberFormat == format ?
+                                                Color.accentColor :
+                                                Color.clear,
+                                            lineWidth: 2
+                                        )
+                                )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+                .padding(.vertical, 4)
+            }
         } header: {
             Text("textStyleEditor.numbering")
         }
@@ -456,6 +514,30 @@ struct TextStyleEditorView: View {
                     .background(Color.secondary.opacity(0.1))
                     .cornerRadius(8)
                     .accessibilityLabel("textStyleEditor.preview.accessibility")
+        }
+    }
+    
+    // MARK: - Helper Methods
+    
+    /// Generate preview text for a number format showing examples
+    private func formatPreview(_ format: NumberFormat) -> String {
+        switch format {
+        case .none:
+            return ""
+        case .decimal:
+            return "1. 2. 3."
+        case .lowercaseRoman:
+            return "i. ii. iii."
+        case .uppercaseRoman:
+            return "I. II. III."
+        case .lowercaseLetter:
+            return "a. b. c."
+        case .uppercaseLetter:
+            return "A. B. C."
+        case .footnoteSymbols:
+            return "* † ‡"
+        case .bulletSymbols:
+            return "• ◦ ▪"
         }
     }
     

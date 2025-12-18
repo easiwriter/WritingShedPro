@@ -21,7 +21,7 @@ class NumberingLayoutManager: NSLayoutManager {
         super.drawBackground(forGlyphRange: glyphsToShow, at: origin)
         
         guard let textStorage = textStorage,
-              let textContainer = textContainers.first,
+//              let textContainer = textContainers.first,
               let project = project,
               let styleSheet = project.styleSheet else {
             return
