@@ -12,10 +12,57 @@ struct ContentView: View {
             projects: projects,
             state: state,
             onInitialize: initializeUserOrderIfNeeded,
+            onInitializeStyleSheets: initializeStyleSheets,
             onHandleImportMenu: handleImportMenu,
             onHandleJSONImport: handleJSONImport,
-            onDeleteAllProjects: deleteAllProjects
+            onDeleteAllProjects: deleteAllProjects,
+            onPrefetchProjectData: prefetchProjectData
         )
+    }
+    
+    /// Prefetch project relationships async to warm up Swift type system
+    /// This prevents UI freeze when tapping first project after app launch
+    private func prefetchProjectData() {
+        guard !projects.isEmpty else { return }
+        
+        // Only do expensive prefetch in Debug builds where it matters
+        #if DEBUG
+        print("[ContentView] Starting async prefetch of project relationships...")
+        
+        Task(priority: .utility) {
+            // Access relationships to force SwiftData to materialize them
+            // Runs async on main thread (SwiftData objects must stay on their thread)
+            for project in projects {
+                // Touch each relationship to warm up the object graph
+                _ = project.folders?.count ?? 0
+                _ = project.publications?.count ?? 0
+                _ = project.submissions?.count ?? 0
+                _ = project.submittedFiles?.count ?? 0
+                _ = project.trashedItems?.count ?? 0
+                _ = project.styleSheet?.name
+                _ = project.pageSetup?.paperSize
+                
+                // Access nested relationships in folders
+                if let folders = project.folders {
+                    for folder in folders {
+                        _ = folder.textFiles?.count ?? 0
+                        _ = folder.folders?.count ?? 0
+                    }
+                }
+            }
+            
+            print("[ContentView] ✅ Prefetch complete")
+        }
+        #endif
+    }
+    
+    /// Initialize default stylesheets async on main thread (moved from Write_App to avoid blocking launch)
+    private func initializeStyleSheets() {
+        Task(priority: .utility) {
+            // Run async on main thread (ModelContext must stay on its creation thread)
+            StyleSheetService.initializeStyleSheetsIfNeeded(context: modelContext)
+            print("✅ [ContentView] Stylesheets initialized")
+        }
     }
     
     /// Handle Import menu action - show file picker directly

@@ -11,7 +11,7 @@ import StoreKit
 import SwiftUI
 
 /// Manages App Store review prompts with intelligent timing to avoid annoying users
-@MainActor
+/// Thread-safe: Can be called from any thread
 final class ReviewManager: ObservableObject {
     
     static let shared = ReviewManager()

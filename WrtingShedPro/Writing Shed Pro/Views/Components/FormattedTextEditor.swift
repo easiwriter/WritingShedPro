@@ -141,7 +141,9 @@ struct FormattedTextEditor: UIViewRepresentable {
         
         // Add extra left inset for paragraph numbers (Feature 016)
         var adjustedInset = textContainerInset
-        adjustedInset.left += 60 // Make room for numbers in the margin
+        // No extra margin on iPhone - text at left edge like original Writing Shed
+        let numberMargin: CGFloat = UIDevice.current.userInterfaceIdiom == .phone ? 0 : 60
+        adjustedInset.left += numberMargin
         textView.textContainerInset = adjustedInset
         
         textView.isEditable = isEditable

@@ -12,6 +12,7 @@ struct ProjectEditableList: View {
     @State private var showDeleteConfirmation = false
     @State private var projectsToDelete: IndexSet?
     @State private var deleteInfo: (count: Int, firstName: String)?
+    @State private var selectedProjectForNavigation: Project?
     
     // Sort and display state
     private var sortedProjects: [Project] {
@@ -21,7 +22,10 @@ struct ProjectEditableList: View {
     var body: some View {
         List {
             ForEach(sortedProjects) { project in
-                NavigationLink(destination: ProjectDetailView(project: project)) {
+                Button {
+                    // Use delayed navigation to avoid blocking UI
+                    selectedProjectForNavigation = project
+                } label: {
                     ProjectItemView(
                         project: project,
                         onInfoTapped: {
@@ -32,7 +36,7 @@ struct ProjectEditableList: View {
                         }
                     )
                 }
-                .isDetailLink(false)
+                .buttonStyle(.plain)
                 .accessibilityHint("Double tap to open project folders")
                 .listRowSeparator(.hidden)
                 .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
@@ -42,6 +46,9 @@ struct ProjectEditableList: View {
         }
         .listStyle(.plain)
         .environment(\.editMode, .constant(isEditMode ? .active : .inactive))
+        .navigationDestination(item: $selectedProjectForNavigation) { project in
+            ProjectDetailView(project: project)
+        }
         .onChange(of: projects.isEmpty) { _, isEmpty in
             if isEmpty && isEditMode {
                 withAnimation {

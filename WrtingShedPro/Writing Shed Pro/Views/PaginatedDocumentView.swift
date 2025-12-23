@@ -22,6 +22,7 @@ struct PaginatedDocumentView: View {
     @State private var layoutManager: PaginatedTextLayoutManager?
     @State private var currentPage: Int = 0
     @State private var zoomScale: CGFloat = 1.0
+    @State private var lastZoomScale: CGFloat = 1.0
     @State private var isCalculatingLayout: Bool = false
     @State private var showPrintError = false
     @State private var printErrorMessage = ""
@@ -39,34 +40,23 @@ struct PaginatedDocumentView: View {
             
             // Main content layer
             if let layoutManager = layoutManager, layoutManager.isLayoutValid {
-                GeometryReader { geometry in
-                    ZStack {
-                        // Virtual page scroll view using global page setup
-                        let pageSetup = pageSetupPrefs.createPageSetup()
-                        VirtualPageScrollView(
-                            layoutManager: layoutManager,
-                            pageSetup: pageSetup,
-                            zoomScale: 1.0, // Always render at 100%
-                            version: textFile.currentVersion,
-                            modelContext: modelContext,
-                            project: project,
-                            currentPage: $currentPage
-                        )
-                        .frame(
-                            width: geometry.size.width / zoomScale,
-                            height: geometry.size.height / zoomScale
-                        )
-                        .scaleEffect(zoomScale, anchor: .center)
-                        .frame(
-                            width: geometry.size.width,
-                            height: geometry.size.height
-                        )
-                        .clipped()
-                        .accessibilityLabel("paginatedDocument.pages.accessibility")
-                        .accessibilityHint("paginatedDocument.pages.hint")
-                        .accessibilityAddTraits(.allowsDirectInteraction)
+                // Virtual page scroll view using global page setup
+                let pageSetup = pageSetupPrefs.createPageSetup()
+                VirtualPageScrollView(
+                    layoutManager: layoutManager,
+                    pageSetup: pageSetup,
+                    zoomScale: zoomScale,
+                    version: textFile.currentVersion,
+                    modelContext: modelContext,
+                    project: project,
+                    currentPage: $currentPage,
+                    onZoomChange: { newZoom in
+                        zoomScale = newZoom
                     }
-                }
+                )
+                .accessibilityLabel("paginatedDocument.pages.accessibility")
+                .accessibilityHint("paginatedDocument.pages.hint")
+                .accessibilityAddTraits(.allowsDirectInteraction)
             } else if isCalculatingLayout {
                 ProgressView("Calculating pages...")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)

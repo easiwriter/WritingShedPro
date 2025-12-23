@@ -145,65 +145,76 @@ struct FileEditView: View {
     private func textEditorSection() -> some View {
         Group {
             if UIDevice.current.userInterfaceIdiom == .phone {
-                // iPhone: No GeometryReader needed, use direct layout
-                ZStack(alignment: .topLeading) {
-                    if forceRefresh {
-                        FormattedTextEditor(
-                            attributedText: $attributedContent,
-                            selectedRange: $selectedRange,
-                            textViewCoordinator: textViewCoordinator,
-                            project: file.project,
-                            textContainerInset: UIEdgeInsets(top: 4, left: 4, bottom: 4, right: 4),
-                            onTextChange: { newText in
-                                handleAttributedTextChange(newText)
-                            },
-                            onImageTapped: { attachment, frame, position in
-                                handleImageTap(attachment: attachment, frame: frame, position: position)
-                            },
-                            onClearImageSelection: {
-                                selectedImage = nil
-                                selectedImageFrame = .zero
-                                selectedImagePosition = -1
-                            },
-                            onCommentTapped: { attachment, position in
-                                handleCommentTap(attachment: attachment, position: position)
-                            },
-                            onFootnoteTapped: { attachment, position in
-                                handleFootnoteTap(attachment: attachment, position: position)
+                // iPhone: Scale view transform to show more content in less space
+                GeometryReader { geometry in
+                    let scale: CGFloat = 0.6
+                    let inverseScale = 1.0 / scale
+                    
+                    ScrollView {
+                        if forceRefresh {
+                            FormattedTextEditor(
+                                attributedText: $attributedContent,
+                                selectedRange: $selectedRange,
+                                textViewCoordinator: textViewCoordinator,
+                                project: file.project,
+                                textContainerInset: UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8),
+                                onTextChange: { newText in
+                                    handleAttributedTextChange(newText)
+                                },
+                                onImageTapped: { attachment, frame, position in
+                                    handleImageTap(attachment: attachment, frame: frame, position: position)
+                                },
+                                onClearImageSelection: {
+                                    selectedImage = nil
+                                    selectedImageFrame = .zero
+                                    selectedImagePosition = -1
+                                },
+                                onCommentTapped: { attachment, position in
+                                    handleCommentTap(attachment: attachment, position: position)
+                                },
+                                onFootnoteTapped: { attachment, position in
+                                    handleFootnoteTap(attachment: attachment, position: position)
+                                }
+                            )
+                            .frame(width: geometry.size.width * inverseScale, height: geometry.size.height * inverseScale)
+                            .scaleEffect(scale, anchor: .topLeading)
+                            .frame(width: geometry.size.width, height: geometry.size.height, alignment: .topLeading)
+                            .id(refreshTrigger)
+                            .onAppear {
+                                textViewInitialized = true
                             }
-                        )
-                        .id(refreshTrigger)
-                        .onAppear {
-                            textViewInitialized = true
-                        }
-                    } else {
-                        FormattedTextEditor(
-                            attributedText: $attributedContent,
-                            selectedRange: $selectedRange,
-                            textViewCoordinator: textViewCoordinator,
-                            project: file.project,
-                            textContainerInset: UIEdgeInsets(top: 4, left: 4, bottom: 4, right: 4),
-                            onTextChange: { newText in
-                                handleAttributedTextChange(newText)
-                            },
-                            onImageTapped: { attachment, frame, position in
-                                handleImageTap(attachment: attachment, frame: frame, position: position)
-                            },
-                            onClearImageSelection: {
-                                selectedImage = nil
-                                selectedImageFrame = .zero
-                                selectedImagePosition = -1
-                            },
-                            onCommentTapped: { attachment, position in
-                                handleCommentTap(attachment: attachment, position: position)
-                            },
-                            onFootnoteTapped: { attachment, position in
-                                handleFootnoteTap(attachment: attachment, position: position)
+                        } else {
+                            FormattedTextEditor(
+                                attributedText: $attributedContent,
+                                selectedRange: $selectedRange,
+                                textViewCoordinator: textViewCoordinator,
+                                project: file.project,
+                                textContainerInset: UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8),
+                                onTextChange: { newText in
+                                    handleAttributedTextChange(newText)
+                                },
+                                onImageTapped: { attachment, frame, position in
+                                    handleImageTap(attachment: attachment, frame: frame, position: position)
+                                },
+                                onClearImageSelection: {
+                                    selectedImage = nil
+                                    selectedImageFrame = .zero
+                                    selectedImagePosition = -1
+                                },
+                                onCommentTapped: { attachment, position in
+                                    handleCommentTap(attachment: attachment, position: position)
+                                },
+                                onFootnoteTapped: { attachment, position in
+                                    handleFootnoteTap(attachment: attachment, position: position)
+                                }
+                            )
+                            .frame(width: geometry.size.width * inverseScale, height: geometry.size.height * inverseScale)
+                            .scaleEffect(scale, anchor: .topLeading)
+                            .frame(width: geometry.size.width, height: geometry.size.height, alignment: .topLeading)
+                            .id(refreshTrigger)
+                            .onAppear {
+                                textViewInitialized = true
                             }
-                        )
-                        .id(refreshTrigger)
-                        .onAppear {
-                            textViewInitialized = true
                         }
                     }
                 }
@@ -897,17 +908,13 @@ struct FileEditView: View {
         // Always jump to latest version when opening a file
         file.selectLatestVersion()
         
-        // Load content from database on first appearance
-        if attributedContent.length == 0, let savedContent = file.currentVersion?.attributedContent {
-            print("📂 onAppear: Initial load of content, length: \(savedContent.length)")
+        // Load content from database - ALWAYS normalize for iPhone
+        if let savedContent = file.currentVersion?.attributedContent {
+            print("📂 onAppear: Loading content, length: \(savedContent.length)")
             // Strip adaptive colors (black/white/gray) to support dark mode properly
-            var processedContent = AttributedStringSerializer.stripAdaptiveColors(from: savedContent)
+            let processedContent = AttributedStringSerializer.stripAdaptiveColors(from: savedContent)
             
-            // Scale fonts for iPhone to match visual appearance
-            if UIDevice.current.userInterfaceIdiom == .phone {
-                processedContent = AttributedStringSerializer.scaleFonts(processedContent, scaleFactor: 0.55)
-                print("📂 onAppear: Scaled fonts to 55% for iPhone (display only)")
-            }
+            // No iPhone-specific font changes - use view scale transform instead
             
             attributedContent = processedContent
             previousContent = attributedContent.string
@@ -2712,31 +2719,22 @@ struct FileEditView: View {
             // Version has saved content - use it
             // CRITICAL: Strip adaptive colors (black/white/gray) to support dark mode properly
             // This is especially important for legacy imports which may have fixed black text
-            var processedContent = AttributedStringSerializer.stripAdaptiveColors(from: versionContent)
+            let processedContent = AttributedStringSerializer.stripAdaptiveColors(from: versionContent)
             
-            // Scale fonts for iPhone to match visual appearance
-            if UIDevice.current.userInterfaceIdiom == .phone {
-                processedContent = AttributedStringSerializer.scaleFonts(processedContent, scaleFactor: 0.55)
-                print("📝 loadCurrentVersion: Scaled fonts to 55% for iPhone (display only)")
-            }
+            // No iPhone-specific font changes - use view scale transform instead
             
             newAttributedContent = processedContent
             print("📝 loadCurrentVersion: Loaded existing content, length: \(versionContent.length)")
         } else {
             // New/empty version - initialize with Body style from project stylesheet
             if let project = file.project {
-                var bodyAttrs = TextFormatter.getTypingAttributes(
+                let bodyAttrs = TextFormatter.getTypingAttributes(
                     forStyleNamed: UIFont.TextStyle.body.rawValue,
                     project: project,
                     context: modelContext
                 )
                 
-                // Scale font for iPhone
-                if UIDevice.current.userInterfaceIdiom == .phone, let font = bodyAttrs[.font] as? UIFont {
-                    let scaledFont = font.withSize(font.pointSize * 0.55)
-                    bodyAttrs[.font] = scaledFont
-                    print("📝 loadCurrentVersion: Scaled Body font to 55% for iPhone (display only) (\(font.pointSize)pt -> \(scaledFont.pointSize)pt)")
-                }
+                // No iPhone-specific font changes - use stylesheet fonts with view scale
                 
                 // Debug: Log what we're initializing with
                 print("📝 loadCurrentVersion: Initializing with Body style from stylesheet '\(project.styleSheet?.name ?? "none")'")
@@ -2784,16 +2782,10 @@ struct FileEditView: View {
         // Save the current attributed content to the model
         // IMPORTANT: Get the current content from the textView to include all attachments (comments, images)
         if let textView = textViewCoordinator.textView {
-            var currentContent = textView.attributedText ?? NSAttributedString()
+            let currentContent = textView.attributedText ?? NSAttributedString()
             
-            // CRITICAL: Reverse the iPhone font scaling before saving
-            // We scale fonts down for display (0.55x), so we need to scale up (1/0.55 = 1.818...) before saving
-            // This ensures the database stores the original font sizes
-            if UIDevice.current.userInterfaceIdiom == .phone {
-                currentContent = AttributedStringSerializer.scaleFonts(currentContent, scaleFactor: 1.0 / 0.55)
-                print("💾 Reversed iPhone font scaling (1/0.55 = \(1.0/0.55)x) before saving to database")
-            }
-            
+            // On iPhone, content is already normalized to 12pt for display
+            // Save it as-is - no scaling needed since we normalize on load, not on save
             file.currentVersion?.attributedContent = currentContent
             
             // Count attachments for debugging

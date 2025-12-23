@@ -61,8 +61,12 @@ struct ContentViewToolbar: ToolbarContent {
                 }
                 
                 Button(action: { 
-                    ReviewManager.shared.requestReviewManually()
-                    requestReview()
+                    Task {
+                        ReviewManager.shared.requestReviewManually()
+                        await MainActor.run {
+                            requestReview()
+                        }
+                    }
                 }) {
                     Label("Rate This App", systemImage: "star.fill")
                 }

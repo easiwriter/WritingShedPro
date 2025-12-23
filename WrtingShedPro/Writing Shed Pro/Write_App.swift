@@ -88,9 +88,7 @@ struct Write_App: App {
             print("✅ [Write_App] Database configuration:")
             print("   Store URL: \(storeURL)")
             
-            // Initialize default stylesheets on first launch
-            StyleSheetService.initializeStyleSheetsIfNeeded(context: mainContext)
-            print("✅ [Write_App] Stylesheets initialized")
+            // NOTE: StyleSheet initialization moved to ContentView.onAppear to avoid blocking app launch
             
             return container
         } catch let error as NSError {

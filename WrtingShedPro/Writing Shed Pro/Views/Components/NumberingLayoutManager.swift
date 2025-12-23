@@ -20,6 +20,8 @@ class NumberingLayoutManager: NSLayoutManager {
     override func drawBackground(forGlyphRange glyphsToShow: NSRange, at origin: CGPoint) {
         super.drawBackground(forGlyphRange: glyphsToShow, at: origin)
         
+        // Disable debug logging - too verbose
+        /*
         #if DEBUG
         print("🎨 NumberingLayoutManager.drawBackground called")
         print("   glyphsToShow: \(glyphsToShow)")
@@ -28,14 +30,13 @@ class NumberingLayoutManager: NSLayoutManager {
         print("   project: \(project != nil ? "✓" : "✗")")
         print("   styleSheet: \(project?.styleSheet != nil ? "✓" : "✗")")
         #endif
+        */
         
         guard let textStorage = textStorage,
 //              let textContainer = textContainers.first,
               let project = project,
               let styleSheet = project.styleSheet else {
-            #if DEBUG
-            print("   ❌ Guard failed - returning early")
-            #endif
+            // Silent return - project may not have stylesheet yet
             return
         }
         

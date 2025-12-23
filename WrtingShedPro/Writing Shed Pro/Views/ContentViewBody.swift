@@ -13,9 +13,11 @@ struct ContentViewBody: View {
     @Bindable var state: ContentViewState
     
     let onInitialize: () -> Void
+    let onInitializeStyleSheets: () -> Void
     let onHandleImportMenu: () -> Void
     let onHandleJSONImport: (Result<[URL], Error>) -> Void
     let onDeleteAllProjects: () -> Void
+    let onPrefetchProjectData: () -> Void
     
     @Environment(\.requestReview) var requestReview
     
@@ -38,13 +40,23 @@ struct ContentViewBody: View {
             .onAppear {
                 onInitialize()
                 
-                // Track app launch for review prompts
-                ReviewManager.shared.recordAppLaunch()
+                // Initialize stylesheets in background (moved from Write_App)
+                onInitializeStyleSheets()
                 
-                // Request review if appropriate (respects timing rules)
-                if ReviewManager.shared.shouldRequestReview() {
-                    ReviewManager.shared.recordReviewRequest()
-                    requestReview()
+                // Prefetch project data in background to prevent UI freeze
+                onPrefetchProjectData()
+                
+                // Track app launch and check review in background to avoid blocking UI
+                Task.detached(priority: .utility) {
+                    ReviewManager.shared.recordAppLaunch()
+                    
+                    // Request review if appropriate (respects timing rules)
+                    if ReviewManager.shared.shouldRequestReview() {
+                        ReviewManager.shared.recordReviewRequest()
+                        await MainActor.run {
+                            requestReview()
+                        }
+                    }
                 }
             }
             .onChange(of: projects.isEmpty) { _, isEmpty in

@@ -23,6 +23,7 @@ struct VirtualPageScrollView: UIViewRepresentable {
     let project: Project?
     @Binding var currentPage: Int
     var onPageChange: ((Int) -> Void)?
+    var onZoomChange: ((CGFloat) -> Void)?
     
     // MARK: - UIViewRepresentable
     
@@ -37,6 +38,9 @@ struct VirtualPageScrollView: UIViewRepresentable {
         scrollView.pageChangeHandler = { page in
             currentPage = page
             onPageChange?(page)
+        }
+        scrollView.zoomChangeHandler = { zoom in
+            onZoomChange?(zoom)
         }
         scrollView.updateZoomScale(zoomScale)
         return scrollView
@@ -104,6 +108,12 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
     /// Base content size (at 100% zoom)
     private var baseContentSize: CGSize = .zero
     
+    /// Container view for zooming (required by UIScrollView zoom)
+    private var zoomContainerView: UIView!
+    
+    /// Zoom change callback
+    var zoomChangeHandler: ((CGFloat) -> Void)?
+    
     // MARK: - Initialization
     
     init(layoutManager: PaginatedTextLayoutManager, pageSetup: PageSetup, version: Version?, modelContext: ModelContext, project: Project?) {
@@ -123,6 +133,21 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         self.bounces = true
         self.alwaysBounceHorizontal = false
         self.alwaysBounceVertical = true
+        
+        // Disable automatic content inset adjustments
+        if #available(iOS 11.0, *) {
+            self.contentInsetAdjustmentBehavior = .never
+        }
+        
+        // Enable pinch-to-zoom
+        self.minimumZoomScale = 0.5
+        self.maximumZoomScale = 2.0
+        self.bouncesZoom = true
+        
+        // Create zoom container view
+        zoomContainerView = UIView()
+        zoomContainerView.backgroundColor = .clear
+        addSubview(zoomContainerView)
         
         setupScrollView()
     }
@@ -144,21 +169,47 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         // Store base content size
         baseContentSize = result.contentSize
         
-        // Set content size (will be properly sized in layoutSubviews)
+        // Set zoom container size to match content - always at origin .zero
+        zoomContainerView.frame = CGRect(origin: .zero, size: baseContentSize)
+        
+        // Set content size
         contentSize = baseContentSize
+        
+        // Ensure no content inset initially
+        contentInset = .zero
         
         // Render initial pages
         updateVisiblePages()
+        
+        #if DEBUG
+        print("📍 Initial scroll view state:")
+        print("   contentSize: \(contentSize)")
+        print("   contentOffset: \(contentOffset)")
+        print("   contentInset: \(contentInset)")
+        print("   zoomContainerView.frame: \(zoomContainerView.frame)")
+        print("   bounds: \(bounds)")
+        #endif
     }
     
     override func layoutSubviews() {
         super.layoutSubviews()
         
-        // Apply content insets for horizontal centering
-        applyCenteringInsets()
+        #if DEBUG
+        print("📐 layoutSubviews called")
+        print("   bounds: \(bounds)")
+        print("   contentSize: \(contentSize)")
+        print("   contentOffset: \(contentOffset)")
+        print("   contentInset: \(contentInset)")
+        print("   zoomContainerView.frame: \(zoomContainerView.frame)")
+        #endif
         
-        // When bounds change (e.g., rotation, initial layout), reposition all pages
-        repositionAllPages()
+        // Force scroll position to top-left if content is wider than viewport
+        if zoomContainerView.frame.width >= bounds.width && contentOffset.x != 0 {
+            #if DEBUG
+            print("⚠️ Correcting contentOffset.x from \(contentOffset.x) to 0")
+            #endif
+            contentOffset.x = 0
+        }
         
         // Update visible pages based on new bounds
         updateVisiblePages()
@@ -196,15 +247,50 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
     
     func updateZoomScale(_ scale: CGFloat) {
         currentZoomScale = scale
-        // Note: With SwiftUI scaleEffect approach, UIKit layer always stays at 100%
-        // No need to update content size or insets based on zoom
-        applyCenteringInsets()
+        if zoomScale != scale {
+            setZoomScale(scale, animated: false)
+        }
     }
     
-    private func applyCenteringInsets() {
-        // With scaleEffect approach, pages are centered via frame positioning
-        // No additional insets needed
-        contentInset = .zero
+    // MARK: - UIScrollViewDelegate (Zoom)
+    
+    func viewForZooming(in scrollView: UIScrollView) -> UIView? {
+        return zoomContainerView
+    }
+    
+    func scrollViewDidZoom(_ scrollView: UIScrollView) {
+        currentZoomScale = scrollView.zoomScale
+        zoomChangeHandler?(scrollView.zoomScale)
+        
+        // Center content using insets instead of frame positioning
+        let boundsSize = bounds.size
+        let contentSize = zoomContainerView.frame.size
+        
+        var horizontalInset: CGFloat = 0
+        var verticalInset: CGFloat = 0
+        
+        if contentSize.width < boundsSize.width {
+            horizontalInset = (boundsSize.width - contentSize.width) / 2
+        }
+        
+        if contentSize.height < boundsSize.height {
+            verticalInset = (boundsSize.height - contentSize.height) / 2
+        }
+        
+        scrollView.contentInset = UIEdgeInsets(
+            top: verticalInset,
+            left: horizontalInset,
+            bottom: verticalInset,
+            right: horizontalInset
+        )
+        
+        #if DEBUG
+        print("🔍 Zoom changed to \(String(format: "%.0f%%", scrollView.zoomScale * 100))")
+        print("   contentSize: \(contentSize)")
+        print("   boundsSize: \(boundsSize)")
+        print("   contentInset: \(scrollView.contentInset)")
+        print("   contentOffset: \(scrollView.contentOffset)")
+        #endif
     }
     
     // MARK: - Virtual Scrolling
@@ -346,8 +432,8 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         // Configure text view with page content
         configureTextView(textView, for: pageInfo)
         
-        // Add to scroll view
-        addSubview(textView)
+        // Add to zoom container view instead of directly to scroll view
+        zoomContainerView.addSubview(textView)
         
         // Position footnote view if it exists
         if let footnoteController = footnoteController {
@@ -370,7 +456,7 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
             
             footnoteController.view.frame = footnoteFrame
             footnoteController.view.backgroundColor = .clear // Transparent background
-            addSubview(footnoteController.view)
+            zoomContainerView.addSubview(footnoteController.view)
         }
         
         // Store page info
@@ -586,12 +672,10 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
             pageSpacing: layoutManager.pageSpacing
         )
         
-        // Everything is at 100% scale now (SwiftUI handles visual zoom)
-        // Center horizontally in the available width
-        let centerX = bounds.width / 2
-        
+        // Position pages at x=0 (left edge)
+        // UIScrollView zoom handles centering via contentInset when content is smaller than viewport
         return CGRect(
-            x: centerX - pageLayout.pageRect.width / 2,
+            x: 0,
             y: yPosition,
             width: pageLayout.pageRect.width,
             height: pageLayout.pageRect.height

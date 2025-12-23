@@ -7,6 +7,8 @@ struct FolderListView: View {
     
     @Environment(\.modelContext) var modelContext
     @State private var showAddFolderSheet = false
+    @State private var isLoadingFolders = true
+    @State private var loadedFolders: [Folder] = []
     
     init(project: Project, selectedFolder: Folder? = nil) {
         self.project = project
@@ -15,11 +17,11 @@ struct FolderListView: View {
     
     // Get all project folders in the correct order (not alphabetically!)
     var projectFolders: [Folder] {
-        let folders = project.folders ?? []
+        guard !isLoadingFolders else { return [] }
         let order = folderOrderForProjectType(project.type)
         
         // Sort folders by predefined order
-        return folders.sorted { folder1, folder2 in
+        return loadedFolders.sorted { folder1, folder2 in
             let name1 = folder1.name ?? ""
             let name2 = folder2.name ?? ""
             let index1 = order.firstIndex(of: name1) ?? Int.max
@@ -79,6 +81,25 @@ struct FolderListView: View {
     }
     
     var body: some View {
+        Group {
+            if isLoadingFolders {
+                // Show loading indicator while fetching folders
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                folderListContent
+            }
+        }
+        .navigationTitle(selectedFolder?.name ?? project.name ?? NSLocalizedString("folderList.title", comment: "Folders title"))
+        .navigationBarTitleDisplayMode(selectedFolder == nil ? .large : .inline)
+        .task {
+            // Load folders asynchronously to avoid blocking navigation
+            await loadFolders()
+        }
+    }
+    
+    @ViewBuilder
+    private var folderListContent: some View {
         List {
             if selectedFolder == nil {
                 // Show all project folders in a simple list
@@ -162,8 +183,6 @@ struct FolderListView: View {
                 }
             }
         }
-        .navigationTitle(selectedFolder?.name ?? project.name ?? NSLocalizedString("folderList.title", comment: "Folders title"))
-        .navigationBarTitleDisplayMode(selectedFolder == nil ? .large : .inline)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 // Show add button for folders only
@@ -187,6 +206,13 @@ struct FolderListView: View {
                 existingFolders: selectedFolder != nil ? currentSubfolders : projectFolders
             )
         }
+    }
+    
+    // Load folders asynchronously to avoid blocking UI
+    private func loadFolders() async {
+        // Access the folders relationship asynchronously
+        loadedFolders = project.folders ?? []
+        isLoadingFolders = false
     }
     
     // Helper function to map folder names to publication types
