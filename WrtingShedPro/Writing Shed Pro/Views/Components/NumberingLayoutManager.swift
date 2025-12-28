@@ -4,6 +4,7 @@
 //
 //  Feature 016: Custom NSLayoutManager that renders paragraph numbers dynamically
 //  Numbers are NEVER stored in the document - they're drawn at render time
+//  Supports hierarchical numbering (e.g., 1.1, 1.2) for follow-on styles
 //
 
 import UIKit
@@ -16,35 +17,44 @@ class NumberingLayoutManager: NSLayoutManager {
     /// Reference to project for accessing style sheet (set by FormattedTextEditor)
     weak var project: Project?
     
+    /// Build a map of child style → parent style from parentStyleName relationships
+    /// If Title2.parentStyleName == "Title1", then Title2's numbers are prefixed with Title1's
+    private func buildParentStyleMap(from styleSheet: StyleSheet) -> [String: String] {
+        var parentMap: [String: String] = [:]
+        
+        guard let styles = styleSheet.textStyles else { return parentMap }
+        
+        for style in styles {
+            if let parentName = style.parentStyleName, !parentName.isEmpty {
+                // This style is a child of the parent style for numbering
+                parentMap[style.name] = parentName
+            }
+        }
+        
+        return parentMap
+    }
+    
     /// Calculate and draw paragraph numbers for numbered styles
     override func drawBackground(forGlyphRange glyphsToShow: NSRange, at origin: CGPoint) {
         super.drawBackground(forGlyphRange: glyphsToShow, at: origin)
         
-        // Disable debug logging - too verbose
-        /*
-        #if DEBUG
-        print("🎨 NumberingLayoutManager.drawBackground called")
-        print("   glyphsToShow: \(glyphsToShow)")
-        print("   origin: \(origin)")
-        print("   textStorage.length: \(textStorage?.length ?? -1)")
-        print("   project: \(project != nil ? "✓" : "✗")")
-        print("   styleSheet: \(project?.styleSheet != nil ? "✓" : "✗")")
-        #endif
-        */
-        
         guard let textStorage = textStorage,
-//              let textContainer = textContainers.first,
               let project = project,
               let styleSheet = project.styleSheet else {
-            // Silent return - project may not have stylesheet yet
             return
         }
         
         // Get the visible character range
         let charRange = characterRange(forGlyphRange: glyphsToShow, actualGlyphRange: nil)
         
+        // Build parent-child style map for hierarchical numbering
+        let parentStyleMap = buildParentStyleMap(from: styleSheet)
+        
         // Track paragraph counters for each style
         var styleCounters: [String: Int] = [:]
+        
+        // Track the last number used for each style (for parent number prefixes)
+        var lastNumberForStyle: [String: Int] = [:]
         
         // For empty files with numbering enabled, show the first number
         if textStorage.length == 0 {
@@ -96,9 +106,27 @@ class NumberingLayoutManager: NSLayoutManager {
                 return
             }
             
+            // Check if this style has a parent (for hierarchical numbering)
+            let parentStyleName = parentStyleMap[styleName]
+            
+            // If this is a child style and the parent number changed, reset child counter
+            if let parentName = parentStyleName {
+                let currentParentNumber = lastNumberForStyle[parentName] ?? 0
+                let trackedParentNumber = lastNumberForStyle["\(styleName)_parentNum"] ?? 0
+                
+                if currentParentNumber != trackedParentNumber {
+                    // Parent number changed - reset this child's counter
+                    styleCounters[styleName] = 0
+                    lastNumberForStyle["\(styleName)_parentNum"] = currentParentNumber
+                }
+            }
+            
             // Increment counter for this style (always count, even if not visible)
             let counter = (styleCounters[styleName] ?? 0) + 1
             styleCounters[styleName] = counter
+            
+            // Track this style's last number for any children
+            lastNumberForStyle[styleName] = counter
             
             // Only DRAW if this paragraph is within the visible range
             // Check if paragraph overlaps with visible charRange
@@ -117,8 +145,21 @@ class NumberingLayoutManager: NSLayoutManager {
             print("      ✅ Style '\(styleName)' has numbering: \(style.numberFormat)")
             #endif
             
-            // Format the number using the existing NumberFormat with adornment
-            let formattedNumber = style.numberFormat.symbol(for: counter - 1, adornment: style.numberAdornment)
+            // Build the formatted number, with parent prefix for hierarchical numbering
+            let formattedNumber: String
+            if let parentName = parentStyleName,
+               let parentStyle = styleSheet.style(named: parentName),
+               parentStyle.numberFormat != .none,
+               let parentNumber = lastNumberForStyle[parentName] {
+                // Hierarchical: format as "parentNumber.childNumber" (e.g., "1.1", "1.2")
+                let parentSymbol = parentStyle.numberFormat.symbol(for: parentNumber - 1, adornment: .plain)
+                let childSymbol = style.numberFormat.symbol(for: counter - 1, adornment: .plain)
+                // Apply adornment to the final combined number
+                formattedNumber = style.numberAdornment.apply(to: "\(parentSymbol).\(childSymbol)")
+            } else {
+                // No parent or parent has no numbering - use standard format
+                formattedNumber = style.numberFormat.symbol(for: counter - 1, adornment: style.numberAdornment)
+            }
             
             #if DEBUG
             print("      🎯 Drawing number '\(formattedNumber)' for paragraph \(counter)")
@@ -166,12 +207,37 @@ class NumberingLayoutManager: NSLayoutManager {
                    let style = styleSheet.style(named: styleName),
                    style.numberFormat != .none {
                     
+                    // Check if this style has a parent (for hierarchical numbering)
+                    let parentStyleName = parentStyleMap[styleName]
+                    
+                    // If this is a child style and the parent number changed, reset child counter
+                    if let parentName = parentStyleName {
+                        let currentParentNumber = lastNumberForStyle[parentName] ?? 0
+                        let trackedParentNumber = lastNumberForStyle["\(styleName)_parentNum"] ?? 0
+                        
+                        if currentParentNumber != trackedParentNumber {
+                            styleCounters[styleName] = 0
+                            lastNumberForStyle["\(styleName)_parentNum"] = currentParentNumber
+                        }
+                    }
+                    
                     // Increment counter for this style
                     let counter = (styleCounters[styleName] ?? 0) + 1
                     styleCounters[styleName] = counter
+                    lastNumberForStyle[styleName] = counter
                     
-                    // Format the number
-                    let formattedNumber = style.numberFormat.symbol(for: counter - 1, adornment: style.numberAdornment)
+                    // Build the formatted number, with parent prefix for hierarchical numbering
+                    let formattedNumber: String
+                    if let parentName = parentStyleName,
+                       let parentStyle = styleSheet.style(named: parentName),
+                       parentStyle.numberFormat != .none,
+                       let parentNumber = lastNumberForStyle[parentName] {
+                        let parentSymbol = parentStyle.numberFormat.symbol(for: parentNumber - 1, adornment: .plain)
+                        let childSymbol = style.numberFormat.symbol(for: counter - 1, adornment: .plain)
+                        formattedNumber = style.numberAdornment.apply(to: "\(parentSymbol).\(childSymbol)")
+                    } else {
+                        formattedNumber = style.numberFormat.symbol(for: counter - 1, adornment: style.numberAdornment)
+                    }
                     
                     #if DEBUG
                     print("      ✅ Style '\(styleName)' has numbering")

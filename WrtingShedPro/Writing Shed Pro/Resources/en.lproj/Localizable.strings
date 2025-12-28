@@ -628,6 +628,8 @@
 "textStyleEditor.footnoteFormat" = "Footnote Format";
 "textStyleEditor.bulletCharacter" = "Bullet Character";
 "textStyleEditor.adornment" = "Adornment";
+"textStyleEditor.parentStyle" = "Parent Style";
+"textStyleEditor.parentStyle.none" = "None (Top Level)";
 "textStyleEditor.preview" = "Preview";
 "textStyleEditor.followOnStyle" = "Next Paragraph Style";
 "textStyleEditor.followOnStyle.header" = "Follow-On Style";

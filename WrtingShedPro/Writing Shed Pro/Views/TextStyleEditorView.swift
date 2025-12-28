@@ -517,6 +517,28 @@ struct TextStyleEditorView: View {
                             }
                         }
                         .pickerStyle(.menu)
+                        
+                        // Parent style for hierarchical numbering (e.g., 1.a, 1.b)
+                        let availableParentStyles = style.styleSheet?.textStyles?
+                            .filter { $0.id != style.id && $0.numberFormat != .none }
+                            .sorted(by: { $0.displayOrder < $1.displayOrder }) ?? []
+                        
+                        Picker("textStyleEditor.parentStyle", selection: Binding(
+                            get: { style.parentStyleName ?? "" },
+                            set: { newValue in
+                                style.parentStyleName = newValue.isEmpty ? nil : newValue
+                                hasUnsavedChanges = true
+                            }
+                        )) {
+                            Text("textStyleEditor.parentStyle.none")
+                                .tag("")
+                            
+                            ForEach(availableParentStyles, id: \.id) { parentStyle in
+                                Text(parentStyle.displayName)
+                                    .tag(parentStyle.name)
+                            }
+                        }
+                        .pickerStyle(.menu)
                     }
                     .padding(.vertical, 4)
                 }

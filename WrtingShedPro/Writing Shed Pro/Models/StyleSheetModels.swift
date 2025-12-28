@@ -115,6 +115,11 @@ final class TextStyleModel {
     /// If nil or empty, the same style continues on the new paragraph
     var followOnStyleName: String?
     
+    // MARK: - Hierarchical Numbering
+    /// The name of the parent style for hierarchical numbering (e.g., Title2 nested under Title1)
+    /// If set, this style's numbers will be prefixed with the parent's number (e.g., "1.a", "1.b")
+    var parentStyleName: String?
+    
     // MARK: - Style Classification
     var styleCategoryRaw: String = "text"  // "text", "list", "footnote", "heading"
     var isSystemStyle: Bool = false  // true for built-in UIFont.TextStyle equivalents
