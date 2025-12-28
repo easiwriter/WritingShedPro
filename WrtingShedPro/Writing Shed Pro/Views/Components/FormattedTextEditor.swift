@@ -637,29 +637,131 @@ struct FormattedTextEditor: UIViewRepresentable {
             if text == "\n" {
                 print("⏎⏎⏎ ENTER KEY DETECTED at position \(range.location)")
                 
-                // Get the attributes at the current position to continue with same style
+                // Get the attributes at the current position
                 if range.location > 0, let attrText = textView.attributedText {
-                    let attrs = attrText.attributes(at: range.location > 0 ? range.location - 1 : 0, effectiveRange: nil)
+                    var attrs = attrText.attributes(at: range.location > 0 ? range.location - 1 : 0, effectiveRange: nil)
+                    var useFollowOnStyle = false
                     
                     if let styleName = attrs[.textStyle] as? String {
                         print("⏎ Current paragraph style: \(styleName)")
+                        
+                        // Check if current style has a follow-on style defined
+                        if let project = parent.project,
+                           let styleSheet = project.styleSheet,
+                           let currentStyle = styleSheet.textStyles?.first(where: { $0.name == styleName }),
+                           let followOnStyleName = currentStyle.followOnStyleName,
+                           !followOnStyleName.isEmpty,
+                           let followOnStyle = styleSheet.textStyles?.first(where: { $0.name == followOnStyleName }) {
+                            
+                            print("⏎ Switching to follow-on style: \(followOnStyleName)")
+                            
+                            // Generate new attributes from the follow-on style
+                            attrs = followOnStyle.generateAttributes()
+                            useFollowOnStyle = true
+                        } else {
+                            print("⏎ No follow-on style, continuing with same style")
+                        }
                     } else {
                         print("⏎ NO textStyle attribute found!")
                     }
                     
-                    // After the newline is inserted, set typing attributes to continue with same style
-                    DispatchQueue.main.async { [weak textView] in
-                        guard let textView = textView else { return }
+                    // If we have a follow-on style, manually insert the newline with correct attributes
+                    if useFollowOnStyle {
+                        // Insert newline with CURRENT style (end of current paragraph)
+                        let currentAttrs = attrText.attributes(at: range.location > 0 ? range.location - 1 : 0, effectiveRange: nil)
                         
-                        // Reuse the same attributes for the next paragraph
+                        // Create attributed string: newline (with current style) + zero-width space (with follow-on style)
+                        // The zero-width space anchors the new paragraph's style
+                        let mutableString = NSMutableAttributedString()
+                        mutableString.append(NSAttributedString(string: "\n", attributes: currentAttrs))
+                        mutableString.append(NSAttributedString(string: "\u{200B}", attributes: attrs)) // Zero-width space with follow-on style
+                        
+                        // Insert at the specified range
+                        textView.textStorage.replaceCharacters(in: range, with: mutableString)
+                        
+                        // Move cursor to after the zero-width space (so user types after it)
+                        let newCursorPosition = range.location + 2
+                        textView.selectedRange = NSRange(location: newCursorPosition, length: 0)
+                        
+                        // Set typingAttributes to follow-on style for continued typing
                         textView.typingAttributes = attrs
-                        print("⏎ Set typingAttributes after Enter")
+                        print("⏎ Inserted newline + zero-width space with follow-on style: \(attrs[.textStyle] ?? "unknown")")
                         
                         // Force layout manager to redraw numbers
                         textView.setNeedsDisplay()
                         if let layoutManager = textView.layoutManager as? NumberingLayoutManager {
                             layoutManager.invalidateDisplay(forCharacterRange: NSRange(location: 0, length: textView.textStorage.length))
                             print("⏎ Invalidated layout manager display")
+                        }
+                        
+                        // Notify delegate of text change manually since we handled it
+                        self.textViewDidChange(textView)
+                        
+                        // Return false - we handled the insertion ourselves
+                        return false
+                    }
+                    
+                    // No follow-on style - continue with same style after newline
+                    DispatchQueue.main.async { [weak textView] in
+                        guard let textView = textView else { return }
+                        
+                        // Apply the same attributes for the next paragraph
+                        textView.typingAttributes = attrs
+                        print("⏎ Set typingAttributes after Enter (same style)")
+                        
+                        // Force layout manager to redraw numbers
+                        textView.setNeedsDisplay()
+                        if let layoutManager = textView.layoutManager as? NumberingLayoutManager {
+                            layoutManager.invalidateDisplay(forCharacterRange: NSRange(location: 0, length: textView.textStorage.length))
+                            print("⏎ Invalidated layout manager display")
+                        }
+                    }
+                }
+            }
+            
+            // Handle backspace at start of empty paragraph (only zero-width space after newline)
+            // When user backspaces, delete both the zero-width space AND the newline in one action
+            if text.isEmpty && range.length == 1 {
+                if let attrText = textView.attributedText, range.location < attrText.length {
+                    let string = attrText.string
+                    let deleteIndex = string.index(string.startIndex, offsetBy: range.location)
+                    let charToDelete = string[deleteIndex]
+                    
+                    // Check if we're deleting a zero-width space
+                    if charToDelete == "\u{200B}" {
+                        // Check if there's a newline before it
+                        if range.location > 0 {
+                            let prevIndex = string.index(before: deleteIndex)
+                            let prevChar = string[prevIndex]
+                            
+                            if prevChar == "\n" {
+                                // Check if this is the only content on the line (just zero-width space)
+                                // Find the next newline or end of string
+                                let afterZWS = string.index(after: deleteIndex)
+                                let isEndOfLine = afterZWS >= string.endIndex || string[afterZWS] == "\n"
+                                
+                                if isEndOfLine {
+                                    print("⌫ Backspace on empty paragraph - deleting zero-width space + newline")
+                                    
+                                    // Delete both the newline and zero-width space
+                                    let extendedRange = NSRange(location: range.location - 1, length: 2)
+                                    textView.textStorage.replaceCharacters(in: extendedRange, with: "")
+                                    
+                                    // Move cursor to end of previous line
+                                    textView.selectedRange = NSRange(location: range.location - 1, length: 0)
+                                    
+                                    // Notify delegate of text change
+                                    self.textViewDidChange(textView)
+                                    
+                                    // Force layout redraw
+                                    textView.setNeedsDisplay()
+                                    if let layoutManager = textView.layoutManager as? NumberingLayoutManager {
+                                        layoutManager.invalidateDisplay(forCharacterRange: NSRange(location: 0, length: textView.textStorage.length))
+                                    }
+                                    
+                                    return false // We handled the deletion
+                                }
+                            }
                         }
                     }
                 }
@@ -706,11 +808,31 @@ struct FormattedTextEditor: UIViewRepresentable {
                 }
                 
                 if needsStyleFix {
-                    print("⚠️ Text missing .textStyle attribute - applying Body style")
-                    // Apply Body style to any text missing .textStyle
+                    // For each unstyled range, look at the adjacent character to determine the correct style
+                    // This properly handles follow-on styles by inheriting from the zero-width space we inserted
                     textStorage.enumerateAttribute(.textStyle, in: NSRange(location: 0, length: textStorage.length)) { value, range, stop in
                         if value == nil {
-                            textStorage.addAttribute(.textStyle, value: UIFont.TextStyle.body.rawValue, range: range)
+                            // Find the style from adjacent text
+                            var styleToApply: String = UIFont.TextStyle.body.rawValue
+                            
+                            // First, try to get style from the character BEFORE this range (most common case - typing)
+                            if range.location > 0 {
+                                if let prevStyle = textStorage.attribute(.textStyle, at: range.location - 1, effectiveRange: nil) as? String {
+                                    styleToApply = prevStyle
+                                    print("⚠️ Text missing .textStyle at range \(range) - inheriting from previous char: \(prevStyle)")
+                                }
+                            }
+                            // If no previous char, try the character AFTER this range
+                            else if range.location + range.length < textStorage.length {
+                                if let nextStyle = textStorage.attribute(.textStyle, at: range.location + range.length, effectiveRange: nil) as? String {
+                                    styleToApply = nextStyle
+                                    print("⚠️ Text missing .textStyle at range \(range) - inheriting from next char: \(nextStyle)")
+                                }
+                            } else {
+                                print("⚠️ Text missing .textStyle at range \(range) - no adjacent text, applying Body style")
+                            }
+                            
+                            textStorage.addAttribute(.textStyle, value: styleToApply, range: range)
                         }
                     }
                     // Force layout manager redraw

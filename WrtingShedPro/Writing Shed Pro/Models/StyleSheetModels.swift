@@ -110,6 +110,11 @@ final class TextStyleModel {
     var numberFormatRaw: String = "none"  // NumberFormat.rawValue
     var numberAdornmentRaw: String = "period"  // NumberingAdornment.rawValue
     
+    // MARK: - Follow-On Style
+    /// The name of the style to switch to after pressing Enter (e.g., "body" after "title1")
+    /// If nil or empty, the same style continues on the new paragraph
+    var followOnStyleName: String?
+    
     // MARK: - Style Classification
     var styleCategoryRaw: String = "text"  // "text", "list", "footnote", "heading"
     var isSystemStyle: Bool = false  // true for built-in UIFont.TextStyle equivalents

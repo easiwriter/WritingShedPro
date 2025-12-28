@@ -66,14 +66,16 @@ class NumberingLayoutManager: NSLayoutManager {
             return
         }
         
-        // Enumerate paragraphs in visible range
+        // Enumerate ALL paragraphs from the beginning to get correct counts
+        // but only DRAW numbers for paragraphs in the visible charRange
         let text = textStorage.string as NSString
+        let fullRange = NSRange(location: 0, length: textStorage.length)
         
         #if DEBUG
         print("   🔍 Enumerating paragraphs in range \(charRange)")
         #endif
         
-        text.enumerateSubstrings(in: charRange, options: .byParagraphs) { [weak self] _, paragraphRange, _, _ in
+        text.enumerateSubstrings(in: fullRange, options: .byParagraphs) { [weak self] _, paragraphRange, _, _ in
             guard let self = self,
                   paragraphRange.location < textStorage.length else {
                 #if DEBUG
@@ -82,41 +84,38 @@ class NumberingLayoutManager: NSLayoutManager {
                 return
             }
             
-            #if DEBUG
-            print("   📝 Found paragraph at range \(paragraphRange)")
-            #endif
-            
             // Get style at paragraph start (or end of text for empty last paragraph)
             let attrLocation = min(paragraphRange.location, textStorage.length - 1)
             guard attrLocation >= 0 else { return }
             
             let attrs = textStorage.attributes(at: attrLocation, effectiveRange: nil)
             
-            #if DEBUG
-            print("   🔍 Attributes at position \(attrLocation):")
-            if let styleName = attrs[.textStyle] as? String {
-                print("      textStyle: \(styleName)")
-            } else {
-                print("      textStyle: NONE")
-            }
-            #endif
-            
             guard let styleName = attrs[.textStyle] as? String,
                   let style = styleSheet.style(named: styleName),
                   style.numberFormat != .none else {
-                #if DEBUG
-                print("      ❌ No style or no numbering for this paragraph")
-                #endif
+                return
+            }
+            
+            // Increment counter for this style (always count, even if not visible)
+            let counter = (styleCounters[styleName] ?? 0) + 1
+            styleCounters[styleName] = counter
+            
+            // Only DRAW if this paragraph is within the visible range
+            // Check if paragraph overlaps with visible charRange
+            let paragraphEnd = paragraphRange.location + paragraphRange.length
+            let charRangeEnd = charRange.location + charRange.length
+            let isVisible = (paragraphRange.location < charRangeEnd) && (paragraphEnd > charRange.location)
+            
+            guard isVisible else {
                 return
             }
             
             #if DEBUG
+            print("   📝 Found paragraph at range \(paragraphRange)")
+            print("   🔍 Attributes at position \(attrLocation):")
+            print("      textStyle: \(styleName)")
             print("      ✅ Style '\(styleName)' has numbering: \(style.numberFormat)")
             #endif
-            
-            // Increment counter for this style
-            let counter = (styleCounters[styleName] ?? 0) + 1
-            styleCounters[styleName] = counter
             
             // Format the number using the existing NumberFormat with adornment
             let formattedNumber = style.numberFormat.symbol(for: counter - 1, adornment: style.numberAdornment)

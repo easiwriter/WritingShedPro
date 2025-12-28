@@ -629,6 +629,10 @@
 "textStyleEditor.bulletCharacter" = "Bullet Character";
 "textStyleEditor.adornment" = "Adornment";
 "textStyleEditor.preview" = "Preview";
+"textStyleEditor.followOnStyle" = "Next Paragraph Style";
+"textStyleEditor.followOnStyle.header" = "Follow-On Style";
+"textStyleEditor.followOnStyle.footer" = "The style to apply when you press Enter. For example, after a heading you might want to switch to Body style.";
+"textStyleEditor.followOnStyle.same" = "Same Style";
 
 /* NumberFormat Display Names */
 "numberFormat.none" = "None";

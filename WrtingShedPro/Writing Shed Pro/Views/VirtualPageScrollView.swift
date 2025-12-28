@@ -550,7 +550,19 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
     // MARK: - Page View Creation
     
     private func createNewTextView() -> UITextView {
-        let textView = UITextView(frame: .zero)
+        // Create text storage, layout manager, and text container for paragraph numbering
+        let textStorage = NSTextStorage()
+        let numberingLayoutManager = NumberingLayoutManager()
+        let textContainer = NSTextContainer()
+        
+        // Pass project reference to layout manager for paragraph numbering
+        numberingLayoutManager.project = project
+        
+        textStorage.addLayoutManager(numberingLayoutManager)
+        numberingLayoutManager.addTextContainer(textContainer)
+        
+        // Create text view with custom layout manager
+        let textView = UITextView(frame: .zero, textContainer: textContainer)
         textView.isScrollEnabled = false
         textView.isEditable = false
         textView.isSelectable = true

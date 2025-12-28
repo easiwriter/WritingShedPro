@@ -64,6 +64,7 @@ struct TextStyleEditorView: View {
                 textColourSection
                 paragraphSettingsSection
                 numberingSection
+                followOnStyleSection
             }
             .disabled(style.styleSheet?.isSystemStyleSheet == true)
         }
@@ -524,6 +525,41 @@ struct TextStyleEditorView: View {
                 Text("textStyleEditor.numbering")
             }
             }
+        }
+    }
+    
+    private var followOnStyleSection: some View {
+        Section {
+            // Get available styles from the same stylesheet (excluding current style)
+            let availableStyles = style.styleSheet?.textStyles?.filter { $0.id != style.id }.sorted(by: { $0.displayOrder < $1.displayOrder }) ?? []
+            
+            Picker("textStyleEditor.followOnStyle", selection: Binding(
+                get: { style.followOnStyleName ?? "" },
+                set: { newValue in
+                    style.followOnStyleName = newValue.isEmpty ? nil : newValue
+                    hasUnsavedChanges = true
+                }
+            )) {
+                // Option to continue with the same style
+                Text("textStyleEditor.followOnStyle.same")
+                    .tag("")
+                
+                // Divider representation
+                Divider()
+                
+                // All other available styles
+                ForEach(availableStyles, id: \.id) { otherStyle in
+                    Text(otherStyle.displayName)
+                        .tag(otherStyle.name)
+                }
+            }
+            .pickerStyle(.menu)
+        } header: {
+            Text("textStyleEditor.followOnStyle.header")
+        } footer: {
+            Text("textStyleEditor.followOnStyle.footer")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
     
