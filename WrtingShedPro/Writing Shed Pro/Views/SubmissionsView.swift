@@ -80,6 +80,15 @@ struct SubmissionsView: View {
         }
         .navigationTitle("Submissions")
         .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true)
+        .onPopToRoot {
+            dismiss()
+        }
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                PopToRootBackButton()
+            }
+        }
     }
     
     // MARK: - Submission Row

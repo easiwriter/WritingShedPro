@@ -123,8 +123,15 @@ struct CollectionsView: View {
         }
         .navigationTitle("collectionsView.title")
         .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true)
+        .onPopToRoot {
+            dismiss()
+        }
         .environment(\.editMode, $editMode)
         .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                PopToRootBackButton()
+            }
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack(spacing: 16) {
                     // Sort menu
@@ -564,6 +571,7 @@ struct AddCollectionSheet: View {
 struct CollectionDetailView: View {
     @Bindable var submission: Submission
     @Environment(\.modelContext) var modelContext
+    @Environment(\.dismiss) private var dismiss
     
     @State private var showAddFilesSheet = false
     @State private var editingVersionItem: EditVersionItem?
@@ -619,7 +627,14 @@ struct CollectionDetailView: View {
         }
         .navigationTitle("collectionsView.detail.title")
         .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true)
+        .onPopToRoot {
+            dismiss()
+        }
         .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                PopToRootBackButton()
+            }
             ToolbarItem(placement: .principal) {
                 VStack(spacing: 2) {
                     Text(submission.name ?? NSLocalizedString("collectionsView.untitled", comment: "Untitled Collection"))

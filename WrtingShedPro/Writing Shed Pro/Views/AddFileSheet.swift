@@ -17,6 +17,11 @@ struct AddFileSheet: View {
                 Section {
                     TextField(NSLocalizedString("addFile.fileName", comment: "File name field"), text: $fileName)
                         .accessibilityLabel(NSLocalizedString("addFile.fileNameAccessibility", comment: "File name accessibility"))
+                        .onSubmit {
+                            if !fileName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                addFile()
+                            }
+                        }
                 }
             }
             .navigationTitle(NSLocalizedString("addFile.title", comment: "Add file title"))

@@ -14,6 +14,10 @@ struct ProjectDetailView: View {
     var body: some View {
         // Main content: FolderListView
         FolderListView(project: project)
+        .onPopToRoot {
+            // When a child view triggers pop-to-root, dismiss this view too
+            dismiss()
+        }
         .sheet(isPresented: $showProjectInfo) {
             ProjectInfoSheet(
                 project: project,

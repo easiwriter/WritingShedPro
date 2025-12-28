@@ -159,13 +159,20 @@ struct FolderFilesView: View {
         }
         .navigationTitle(folder.name ?? "Files")
         .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true)
         .navigationDestination(isPresented: $navigateToFile) {
             if let file = selectedFile {
                 FileEditView(file: file)
             }
         }
         .environment(\.editMode, $editMode)
+        .onPopToRoot {
+            dismiss()
+        }
         .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                PopToRootBackButton()
+            }
             ToolbarItemGroup(placement: .topBarTrailing) {
                 // Search button
                 if !sortedFiles.isEmpty {

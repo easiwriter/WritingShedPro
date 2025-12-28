@@ -48,4 +48,26 @@ When creating SwiftData @Model classes with CloudKit integration:
 - 014-comments: SwiftData/CloudKit requirements documented
 
 <!-- MANUAL ADDITIONS START -->
+
+## Navigation: Long-Press Back to Root
+When creating **nested navigation views** (any view pushed via NavigationLink that is 2+ levels deep from the project list):
+1. Add `@Environment(\.dismiss) private var dismiss` if not already present
+2. Add `.navigationBarBackButtonHidden(true)` to hide the default back button
+3. Add `.onPopToRoot { dismiss() }` to respond to the pop-to-root notification
+4. Add `PopToRootBackButton()` in the toolbar with `placement: .topBarLeading`
+
+Example:
+```swift
+.navigationBarBackButtonHidden(true)
+.onPopToRoot {
+    dismiss()
+}
+.toolbar {
+    ToolbarItem(placement: .topBarLeading) {
+        PopToRootBackButton()
+    }
+}
+```
+
+Views that already implement this: FolderFilesView, FolderListView (subfolders), FileEditView, TrashView, CollectionsView, CollectionDetailView, SubmissionsView, SubmissionDetailView, PublicationsListView
 <!-- MANUAL ADDITIONS END -->

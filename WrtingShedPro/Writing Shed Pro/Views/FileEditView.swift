@@ -597,7 +597,14 @@ struct FileEditView: View {
         mainContent
             .navigationTitle(file.name)
             .navigationBarTitleDisplayMode(.inline)
+            .navigationBarBackButtonHidden(true)
+            .onPopToRoot {
+                dismiss()
+            }
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    PopToRootBackButton()
+                }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     navigationBarButtons()
                 }

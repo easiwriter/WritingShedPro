@@ -19,6 +19,11 @@ struct AddProjectSheet: View {
                 Section(NSLocalizedString("addProject.projectInfo", comment: "Section header for project information")) {
                     TextField(NSLocalizedString("addProject.projectName", comment: "Field label for project name"), text: $projectName)
                         .accessibilityLabel(NSLocalizedString("addProject.projectNameAccessibility", comment: "Accessibility label for project name field"))
+                        .onSubmit {
+                            if !projectName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                addProject()
+                            }
+                        }
                     Picker(NSLocalizedString("addProject.type", comment: "Field label for project type"), selection: $selectedType) {
                         ForEach(ProjectType.allCases, id: \.self) { type in
                             Text(NSLocalizedString("projectType.\(type.rawValue)", comment: "Project type")).tag(type)

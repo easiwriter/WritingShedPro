@@ -18,6 +18,11 @@ struct AddFolderSheet: View {
                 Section {
                     TextField(NSLocalizedString("addFolder.folderName", comment: "Folder name field"), text: $folderName)
                         .accessibilityLabel(NSLocalizedString("addFolder.folderNameAccessibility", comment: "Folder name accessibility"))
+                        .onSubmit {
+                            if !folderName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                addFolder()
+                            }
+                        }
                 }
             }
             .navigationTitle(NSLocalizedString("addFolder.title", comment: "Add folder title"))

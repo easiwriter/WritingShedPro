@@ -6,6 +6,7 @@ struct FolderListView: View {
     let selectedFolder: Folder?
     
     @Environment(\.modelContext) var modelContext
+    @Environment(\.dismiss) private var dismiss
     @State private var showAddFolderSheet = false
     @State private var isLoadingFolders = true
     @State private var loadedFolders: [Folder] = []
@@ -92,6 +93,19 @@ struct FolderListView: View {
         }
         .navigationTitle(selectedFolder?.name ?? project.name ?? NSLocalizedString("folderList.title", comment: "Folders title"))
         .navigationBarTitleDisplayMode(selectedFolder == nil ? .large : .inline)
+        .navigationBarBackButtonHidden(selectedFolder != nil)
+        .onPopToRoot {
+            // Dismiss this view when pop-to-root is triggered
+            dismiss()
+        }
+        .toolbar {
+            // Only show custom back button when viewing a subfolder
+            if selectedFolder != nil {
+                ToolbarItem(placement: .topBarLeading) {
+                    PopToRootBackButton()
+                }
+            }
+        }
         .task {
             // Load folders asynchronously to avoid blocking navigation
             await loadFolders()

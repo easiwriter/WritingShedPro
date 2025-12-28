@@ -82,7 +82,14 @@ struct SubmissionDetailView: View {
         }
         .navigationTitle(Text(NSLocalizedString("submissions.detail.title", comment: "Submission details")))
         .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true)
+        .onPopToRoot {
+            dismiss()
+        }
         .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                PopToRootBackButton()
+            }
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button(action: { printSubmission() }) {
                     Image(systemName: "printer")

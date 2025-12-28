@@ -1038,3 +1038,7 @@
 "fileList.deselectAll" = "Deselect All";
 "fileList.selectAll.accessibility" = "Select all files";
 "fileList.deselectAll.accessibility" = "Deselect all files";
+
+/* Navigation */
+"navigation.back" = "Back";
+"navigation.backLongPressHint" = "Long press to return to project list";
