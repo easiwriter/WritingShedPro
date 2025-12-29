@@ -22,7 +22,7 @@ struct ContentViewBody: View {
     @Environment(\.requestReview) var requestReview
     
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $state.navigationPath) {
             VStack(spacing: 0) {
                 ProjectEditableList(
                     projects: projects,
@@ -113,6 +113,10 @@ struct ContentViewBody: View {
                 Text("contentView.deleteAll.confirmMessage \(projects.count)")
             }
             #endif
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .popToRootNavigation)) { _ in
+            // Clear navigation path to pop all views to root
+            state.navigationPath = NavigationPath()
         }
     }
 }

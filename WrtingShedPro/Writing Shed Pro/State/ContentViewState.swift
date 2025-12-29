@@ -11,6 +11,9 @@ import Observation
 @MainActor
 @Observable
 final class ContentViewState {
+    // Navigation
+    var navigationPath = NavigationPath()
+    
     // UI State
     var showAddProject = false
     var showManageStyles = false

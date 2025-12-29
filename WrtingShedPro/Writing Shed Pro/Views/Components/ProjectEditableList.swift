@@ -12,7 +12,6 @@ struct ProjectEditableList: View {
     @State private var showDeleteConfirmation = false
     @State private var projectsToDelete: IndexSet?
     @State private var deleteInfo: (count: Int, firstName: String)?
-    @State private var selectedProjectForNavigation: Project?
     
     // Sort and display state
     private var sortedProjects: [Project] {
@@ -22,10 +21,7 @@ struct ProjectEditableList: View {
     var body: some View {
         List {
             ForEach(sortedProjects) { project in
-                Button {
-                    // Use delayed navigation to avoid blocking UI
-                    selectedProjectForNavigation = project
-                } label: {
+                NavigationLink(value: project) {
                     ProjectItemView(
                         project: project,
                         onInfoTapped: {
@@ -46,7 +42,7 @@ struct ProjectEditableList: View {
         }
         .listStyle(.plain)
         .environment(\.editMode, .constant(isEditMode ? .active : .inactive))
-        .navigationDestination(item: $selectedProjectForNavigation) { project in
+        .navigationDestination(for: Project.self) { project in
             ProjectDetailView(project: project)
         }
         .onChange(of: projects.isEmpty) { _, isEmpty in
