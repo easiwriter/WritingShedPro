@@ -231,6 +231,9 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
             contentOffset.x = 0
         }
         
+        // Center content after bounds are established
+        centerContentIfNeeded()
+        
         // Update visible pages based on new bounds
         updateVisiblePages()
     }
