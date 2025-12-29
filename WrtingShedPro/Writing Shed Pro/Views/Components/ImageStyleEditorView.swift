@@ -7,6 +7,7 @@ struct ImageStyleEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @FocusState private var isScaleFieldFocused: Bool
     @State private var showInvalidScaleAlert = false
+    @State private var styleToEdit: TextStyleModel?
     
     // Image data and properties
     let imageData: Data?
@@ -20,6 +21,9 @@ struct ImageStyleEditorView: View {
     // Available caption styles from stylesheet
     let availableCaptionStyles: [String]
     
+    // Optional stylesheet for editing styles
+    let styleSheet: StyleSheet?
+    
     // Callback when user applies changes
     let onApply: (Data?, CGFloat, ImageAttachment.ImageAlignment, Bool, String, String) -> Void
     
@@ -31,9 +35,12 @@ struct ImageStyleEditorView: View {
         captionText: String = "",
         captionStyle: String = "UICTFontTextStyleBody",
         availableCaptionStyles: [String] = ["UICTFontTextStyleBody", "UICTFontTextStyleCaption1", "UICTFontTextStyleCaption2"],
+        styleSheet: StyleSheet? = nil,
         onApply: @escaping (Data?, CGFloat, ImageAttachment.ImageAlignment, Bool, String, String) -> Void
     ) {
+        #if DEBUG
         print("🎨 ImageStyleEditorView.init called with imageData: \(imageData?.count ?? 0) bytes")
+        #endif
         self.imageData = imageData
         self._scale = State(initialValue: scale)
         self._scaleText = State(initialValue: "\(Int(scale * 100))")
@@ -42,6 +49,7 @@ struct ImageStyleEditorView: View {
         self._captionText = State(initialValue: captionText)
         self._captionStyle = State(initialValue: captionStyle)
         self.availableCaptionStyles = availableCaptionStyles
+        self.styleSheet = styleSheet
         self.onApply = onApply
     }
     
@@ -151,10 +159,25 @@ struct ImageStyleEditorView: View {
                         }
                         .padding(.vertical, -4)
                         
-                        Picker("imageStyleEditor.captionStyle", selection: $captionStyle) {
-                            ForEach(availableCaptionStyles, id: \.self) { style in
-                                Text(displayName(for: style))
-                                    .tag(style)
+                        HStack {
+                            Picker("imageStyleEditor.captionStyle", selection: $captionStyle) {
+                                ForEach(availableCaptionStyles, id: \.self) { style in
+                                    Text(displayName(for: style))
+                                        .tag(style)
+                                }
+                            }
+                            
+                            // Edit Style button - opens the style editor for the selected caption style
+                            if styleSheet != nil {
+                                Button {
+                                    if let style = styleSheet?.style(named: captionStyle) {
+                                        styleToEdit = style
+                                    }
+                                } label: {
+                                    Image(systemName: "pencil.circle")
+                                        .font(.title2)
+                                }
+                                .buttonStyle(.plain)
                             }
                         }
                         .padding(.vertical, -4)
@@ -163,6 +186,11 @@ struct ImageStyleEditorView: View {
             }
             .navigationTitle(NSLocalizedString("imageStyleEditor.title", comment: ""))
             .navigationBarTitleDisplayMode(.inline)
+            .sheet(item: $styleToEdit) { style in
+                NavigationStack {
+                    TextStyleEditorView(style: style, hideDeleteButton: true)
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button(NSLocalizedString("button.cancel", comment: "")) {

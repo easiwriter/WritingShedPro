@@ -13,6 +13,8 @@ struct FileEditView: View {
     @State private var attributedContent: NSAttributedString
     @State private var selectedRange: NSRange = NSRange(location: 0, length: 0)
     @State private var previousContent: String = ""
+    @State private var previousAttributedContent: NSAttributedString?  // Track for undo without expensive DB fetch
+    @State private var saveDebounceTimer: Timer?  // Debounce saves to reduce I/O
     @State private var presentDeleteAlert = false
     @State private var isPerformingUndoRedo = false
     @State private var refreshTrigger = UUID()
@@ -402,7 +404,7 @@ struct FileEditView: View {
                         Button(action: {
                             showNewCommentDialog = true
                         }) {
-                            Label("Add Comment", systemImage: "square.and.pencil")
+                            Label("Add Comment", systemImage: "pencil.circle")
                         }
                         
                         if let currentVersion = file.currentVersion, currentVersion.comments?.isEmpty == false {
@@ -423,7 +425,7 @@ struct FileEditView: View {
                         Button(action: {
                             showNewFootnoteDialog = true
                         }) {
-                            Label("Add Footnote", systemImage: "square.and.pencil")
+                            Label("Add Footnote", systemImage: "pencil.circle")
                         }
                         
                         if let currentVersion = file.currentVersion, currentVersion.footnotes?.isEmpty == false {
@@ -578,6 +580,7 @@ struct FileEditView: View {
                 captionText: imageAttachment.captionText ?? "",
                 captionStyle: imageAttachment.captionStyle ?? "UICTFontTextStyleCaption1",
                 availableCaptionStyles: captionStyles,
+                styleSheet: styleSheet,
                 onApply: { imageData, scale, alignment, hasCaption, captionText, captionStyle in
                     updateImage(
                         attachment: imageAttachment,
@@ -703,7 +706,9 @@ struct FileEditView: View {
                         },
                         onDelete: {
                             // Footnote was deleted, remove it from the text
+                            #if DEBUG
                             print("🗑️ FootnoteDetailView onDelete callback triggered for footnote: \(footnote.id)")
+                            #endif
                             removeFootnoteFromText(footnote)
                             selectedFootnoteForDetail = nil
                         },
@@ -727,6 +732,11 @@ struct FileEditView: View {
                 
                 // Disconnect search manager to clean up highlights and observers
                 searchManager.disconnect()
+                
+                // Cancel debounce timer and save immediately
+                saveDebounceTimer?.invalidate()
+                saveDebounceTimer = nil
+                
                 saveChanges()
                 saveUndoState()
             }
@@ -761,11 +771,15 @@ struct FileEditView: View {
     // MARK: - Search Context Activation
     
     private func activateSearchFromContext(_ context: SearchContext) {
+        #if DEBUG
         print("🔍 Setting up search from multi-file context: '\(context.searchText)'")
+        #endif
         
         // Connect search manager to text view first
         guard let textView = textViewCoordinator.textView else {
+            #if DEBUG
             print("⚠️ Text view not ready, cannot activate search")
+            #endif
             return
         }
         
@@ -798,14 +812,18 @@ struct FileEditView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             if self.searchManager.hasMatches {
                 // Scroll is already done in performSearch, but ensure it's visible
+                #if DEBUG
                 print("🔍 Ensuring first match is visible")
+                #endif
             }
         }
         
         // Reset the context so it won't activate again
         context.reset()
         
+        #if DEBUG
         print("🔍 Search activated: \(searchManager.totalMatches) matches found, search bar visible: \(showSearchBar), simplified mode: \(isSimplifiedSearchMode)")
+        #endif
     }
     
     // MARK: - View Modifiers Helper
@@ -917,7 +935,9 @@ struct FileEditView: View {
         
         // Load content from database - ALWAYS normalize for iPhone
         if let savedContent = file.currentVersion?.attributedContent {
+            #if DEBUG
             print("📂 onAppear: Loading content, length: \(savedContent.length)")
+            #endif
             // Strip adaptive colors (black/white/gray) to support dark mode properly
             let processedContent = AttributedStringSerializer.stripAdaptiveColors(from: savedContent)
             
@@ -925,6 +945,7 @@ struct FileEditView: View {
             
             attributedContent = processedContent
             previousContent = attributedContent.string
+            previousAttributedContent = processedContent  // Cache for undo without expensive DB fetch
             
             // CRITICAL: Restore orphaned comment markers from database
             // Comments created before we added serialization support need to be re-inserted
@@ -956,10 +977,14 @@ struct FileEditView: View {
                                   file.currentVersion?.formattedContent?.count ?? 0 > 0
                 
                 if !isLegacyRTF {
+                    #if DEBUG
                     print("📝 onAppear: Reapplying styles to pick up any changes")
+                    #endif
                     reapplyAllStyles()
                 } else {
+                    #if DEBUG
                     print("📝 onAppear: Skipping style reapply for legacy RTF document (preserves direct formatting)")
+                    #endif
                 }
                 
                 let attrs = attributedContent.attributes(at: 0, effectiveRange: nil)
@@ -977,13 +1002,17 @@ struct FileEditView: View {
                     // Force redraw to trigger custom draw() method for empty document numbering
                     textView.setNeedsDisplay()
                 }
+                #if DEBUG
                 print("📝 onAppear: Set typing attributes for empty document and forced redraw")
+                #endif
             }
         }
         
         // Check if we should activate search from multi-file search context
         if let context = searchContext, context.shouldActivate {
+            #if DEBUG
             print("🔍 Activating search from multi-file search context")
+            #endif
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 activateSearchFromContext(context)
             }
@@ -991,104 +1020,176 @@ struct FileEditView: View {
     }
     
     private func handleImagePasted() {
+        #if DEBUG
         print("🖼️ Received ImageWasPasted notification - updating lastImageInsertTime")
+        #endif
         lastImageInsertTime = Date()
     }
     
     private func handleStyleSheetChanged(_ notification: Notification) {
+        #if DEBUG
         print("📋 ========== ProjectStyleSheetChanged NOTIFICATION ===========")
+        #endif
+        #if DEBUG
         print("📋 Notification userInfo: \(notification.userInfo ?? [:])")
+        #endif
         
         guard let notifiedProjectID = notification.userInfo?["projectID"] as? UUID else {
+            #if DEBUG
             print("⚠️ No projectID in notification")
+            #endif
+            #if DEBUG
             print("📋 ========== END ==========")
+            #endif
             return
         }
         
         guard let ourProjectID = file.project?.id else {
+            #if DEBUG
             print("⚠️ Our file has no project")
+            #endif
+            #if DEBUG
             print("📋 ========== END ==========")
+            #endif
             return
         }
         
+        #if DEBUG
         print("📋 Notified project ID: \(notifiedProjectID.uuidString)")
+        #endif
+        #if DEBUG
         print("📋 Our project ID: \(ourProjectID.uuidString)")
+        #endif
+        #if DEBUG
         print("📋 Match: \(notifiedProjectID == ourProjectID)")
+        #endif
         
         guard notifiedProjectID == ourProjectID else {
+            #if DEBUG
             print("📋 Not for us - ignoring")
+            #endif
+            #if DEBUG
             print("📋 ========== END ==========")
+            #endif
             return
         }
         
+        #if DEBUG
         print("📋 Received ProjectStyleSheetChanged notification for our project")
+        #endif
         
         if attributedContent.length > 0 {
+            #if DEBUG
             print("📋 Reapplying all styles due to stylesheet change")
+            #endif
             reapplyAllStyles()
         } else {
+            #if DEBUG
             print("📋 Document is empty, skipping reapply")
+            #endif
         }
+        #if DEBUG
         print("📋 ========== END ==========")
+        #endif
     }
     
     private func handleStyleSheetModified(_ notification: Notification) {
+        #if DEBUG
         print("📝 ========== StyleSheetModified NOTIFICATION ===========")
+        #endif
+        #if DEBUG
         print("📝 Notification userInfo: \(notification.userInfo ?? [:])")
+        #endif
         
         guard let notifiedStyleSheetID = notification.userInfo?["stylesheetID"] as? UUID else {
+            #if DEBUG
             print("⚠️ No stylesheetID in notification")
+            #endif
+            #if DEBUG
             print("📝 ========== END ==========")
+            #endif
             return
         }
         
         guard let ourStyleSheetID = file.project?.styleSheet?.id else {
+            #if DEBUG
             print("⚠️ Our file has no project or stylesheet")
+            #endif
+            #if DEBUG
             print("📝 ========== END ==========")
+            #endif
             return
         }
         
+        #if DEBUG
         print("📝 Notified stylesheet ID: \(notifiedStyleSheetID.uuidString)")
+        #endif
+        #if DEBUG
         print("📝 Our stylesheet ID: \(ourStyleSheetID.uuidString)")
+        #endif
+        #if DEBUG
         print("📝 Match: \(notifiedStyleSheetID == ourStyleSheetID)")
+        #endif
         
         guard notifiedStyleSheetID == ourStyleSheetID else {
+            #if DEBUG
             print("📝 Not for us - ignoring")
+            #endif
+            #if DEBUG
             print("📝 ========== END ==========")
+            #endif
             return
         }
         
+        #if DEBUG
         print("📝 Received StyleSheetModified notification for our stylesheet")
+        #endif
         
         if attributedContent.length > 0 {
+            #if DEBUG
             print("📝 Reapplying all styles due to style modification")
+            #endif
             reapplyAllStyles()
         } else {
+            #if DEBUG
             print("📝 Document is empty, skipping reapply")
+            #endif
         }
+        #if DEBUG
         print("📝 ========== END ==========")
+        #endif
     }
     
     private func handleFootnoteNumbersChanged(_ notification: Notification) {
+        #if DEBUG
         print("🔢 Received footnoteNumbersDidChange notification")
+        #endif
         
         guard let versionIDString = notification.userInfo?["versionID"] as? String,
               let notifiedVersionID = UUID(uuidString: versionIDString) else {
+            #if DEBUG
             print("⚠️ No versionID in notification")
+            #endif
             return
         }
         
         guard let currentVersion = file.currentVersion else {
+            #if DEBUG
             print("⚠️ No current version")
+            #endif
             return
         }
         
         guard notifiedVersionID == currentVersion.id else {
+            #if DEBUG
             print("🔢 Not for our version - ignoring")
+            #endif
             return
         }
         
+        #if DEBUG
         print("🔢 Updating footnote attachment numbers for our version")
+        #endif
         updateFootnoteAttachmentNumbers()
     }
     
@@ -1107,37 +1208,54 @@ struct FileEditView: View {
             // attachment.footnoteID corresponds to FootnoteModel.attachmentID
             if let footnote = FootnoteManager.shared.getFootnoteByAttachment(attachmentID: attachment.footnoteID, context: modelContext) {
                 if attachment.number != footnote.number {
+                    #if DEBUG
                     print("🔢 Updating attachment \(attachment.footnoteID) from \(attachment.number) to \(footnote.number)")
+                    #endif
                     attachment.number = footnote.number
                     needsUpdate = true
                 }
             } else {
+                #if DEBUG
                 print("⚠️ Footnote not found in database for attachmentID: \(attachment.footnoteID)")
+                #endif
             }
         }
         
         if needsUpdate {
             // Update the attributed content
             attributedContent = mutableContent
+            #if DEBUG
             print("✅ Footnote attachment numbers updated")
+            #endif
         }
     }
     
     /// Handle undo/redo content restoration notification from FormatApplyCommand
     private func handleUndoRedoContentRestored(_ notification: Notification) {
         guard let restoredContent = notification.userInfo?["content"] as? NSAttributedString else {
+            #if DEBUG
             print("⚠️ handleUndoRedoContentRestored - no content in notification")
+            #endif
             return
         }
         
+        #if DEBUG
         print("🔄 handleUndoRedoContentRestored - updating UI with restored content")
+        #endif
         
         // Update the UI with restored content
         attributedContent = restoredContent
         previousContent = restoredContent.string
         
-        // Position cursor at end
-        selectedRange = NSRange(location: restoredContent.length, length: 0)
+        // Only position cursor at end if selection wasn't already set to an image position
+        // This preserves image selection when Apply is clicked in image properties dialog
+        if selectedRange.length != 1 {
+            selectedRange = NSRange(location: restoredContent.length, length: 0)
+        } else {
+            #if DEBUG
+            print("🔄 Preserving image selection at position \(selectedRange.location)")
+            #endif
+        }
         
         // Force refresh
         forceRefresh.toggle()
@@ -1150,14 +1268,18 @@ struct FileEditView: View {
             // Use DispatchQueue.main.async to wait for the new text view to be created
             DispatchQueue.main.async {
                 if let textView = self.textViewCoordinator.textView {
+                    #if DEBUG
                     print("🔄 Reconnecting search manager to new text view after undo/redo")
+                    #endif
                     self.searchManager.connect(to: textView)
                     // Also reconnect to the custom undo manager
                     self.searchManager.customUndoManager = self.undoManager
                     // Notify search manager that content changed (undo/redo)
                     self.searchManager.notifyTextChanged()
                 } else {
+                    #if DEBUG
                     print("⚠️ No text view available to reconnect search manager")
+                    #endif
                 }
             }
         }
@@ -1168,18 +1290,26 @@ struct FileEditView: View {
     private func handleAttributedTextChange(_ newAttributedText: NSAttributedString) {
         #if DEBUG
         print("🔄 handleAttributedTextChange called")
+        #if DEBUG
         print("🔄 isPerformingUndoRedo: \(isPerformingUndoRedo)")
+        #endif
+        #if DEBUG
         print("🔄 isPerformingBatchReplace: \(searchManager.isPerformingBatchReplace)")
+        #endif
         #endif
         
         guard !isPerformingUndoRedo else {
+            #if DEBUG
             print("🔄 Skipping - performing undo/redo")
+            #endif
             return
         }
         
         // Skip during batch replace - undo will be handled manually
         guard !searchManager.isPerformingBatchReplace else {
+            #if DEBUG
             print("🔄 Skipping - performing batch replace")
+            #endif
             return
         }
         
@@ -1198,12 +1328,16 @@ struct FileEditView: View {
         
         #if DEBUG
         print("🔄 Previous: '\(previousContent)'")
+        #if DEBUG
         print("🔄 New: '\(newContent)'")
+        #endif
         #endif
         
         // Only register change if content actually changed
         guard newContent != previousContent else {
+            #if DEBUG
             print("🔄 Content unchanged - skipping")
+            #endif
             return
         }
         
@@ -1217,11 +1351,14 @@ struct FileEditView: View {
             textView.tintColor = .label
         }
         
+        #if DEBUG
         print("🔄 Content changed - registering with undo manager")
+        #endif
         
         // Create and execute undo command
-        // IMPORTANT: Use FormatApplyCommand to preserve formatting, not TextDiffService (which only stores plain text)
-        let previousAttributedContent = file.currentVersion?.attributedContent ?? NSAttributedString(
+        // PERFORMANCE FIX: Use cached previousAttributedContent instead of fetching from DB
+        // Fetching from file.currentVersion?.attributedContent triggers expensive RTF/JSON decoding
+        let beforeContent = previousAttributedContent ?? NSAttributedString(
             string: previousContent,
             attributes: [.font: UIFont.preferredFont(forTextStyle: .body)]
         )
@@ -1229,7 +1366,7 @@ struct FileEditView: View {
         let command = FormatApplyCommand(
             description: "Typing",
             range: NSRange(location: 0, length: newAttributedText.length),
-            beforeContent: previousAttributedContent,
+            beforeContent: beforeContent,
             afterContent: newAttributedText,
             targetFile: file
         )
@@ -1237,16 +1374,22 @@ struct FileEditView: View {
         
         // Update previous content for next comparison
         previousContent = newContent
+        previousAttributedContent = newAttributedText  // Cache for next change
         
-        // Save to model (attributedContent setter automatically syncs plain text)
-        file.currentVersion?.attributedContent = newAttributedText
+        // Note: FormatApplyCommand.execute() already sets file.currentVersion?.attributedContent
+        // So we don't need to set it again here - avoiding duplicate expensive encoding
         file.modifiedDate = Date()
         
-        // Save context
-        do {
-            try modelContext.save()
-        } catch {
-            print("Error saving context: \(error)")
+        // PERFORMANCE FIX: Debounce saves to reduce I/O - save after 0.5 second pause in typing
+        saveDebounceTimer?.invalidate()
+        saveDebounceTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { [weak modelContext] _ in
+            do {
+                try modelContext?.save()
+            } catch {
+                #if DEBUG
+                print("Error saving context: \(error)")
+                #endif
+            }
         }
         
         // Force text view display refresh to ensure visual update
@@ -1263,17 +1406,32 @@ struct FileEditView: View {
     // MARK: - Image Selection
     
     private func handleImageTap(attachment: ImageAttachment, frame: CGRect, position: Int) {
+        #if DEBUG
         print("🖼️ ========== IMAGE TAP HANDLER ==========")
+        #endif
+        #if DEBUG
         print("🖼️ Image selected at position \(position)")
+        #endif
+        #if DEBUG
         print("🖼️ Frame: \(frame)")
+        #endif
+        #if DEBUG
         print("🖼️ Attachment: \(attachment)")
+        #endif
         
-        selectedImage = attachment
-        selectedImageFrame = frame
-        selectedImagePosition = position
-        
-        print("🖼️ State updated - selectedImage: \(selectedImage != nil)")
-        print("🖼️ State updated - selectedImageFrame: \(selectedImageFrame)")
+        // Defer state updates to avoid "Modifying state during view update" warning
+        DispatchQueue.main.async {
+            selectedImage = attachment
+            selectedImageFrame = frame
+            selectedImagePosition = position
+            
+            #if DEBUG
+            print("🖼️ State updated - selectedImage: \(selectedImage != nil)")
+            #endif
+            #if DEBUG
+            print("🖼️ State updated - selectedImageFrame: \(selectedImageFrame)")
+            #endif
+        }
         
         // Select the image character so backspace/delete will remove it
         if let textView = textViewCoordinator.textView {
@@ -1281,18 +1439,28 @@ struct FileEditView: View {
                 textView.selectedRange = NSRange(location: position, length: 1)
                 textView.tintColor = .clear // Hide cursor when image is selected
             }
+            #if DEBUG
             print("🖼️ Cursor hidden, range set to {\(position), 1}")
+            #endif
         } else {
+            #if DEBUG
             print("⚠️ No textView available!")
+            #endif
         }
+        #if DEBUG
         print("🖼️ ========== END ==========")
+        #endif
     }
     
     // MARK: - Comment Handling
     
     private func handleCommentTap(attachment: CommentAttachment, position: Int) {
+        #if DEBUG
         print("💬 Comment tapped at position \(position)")
+        #endif
+        #if DEBUG
         print("💬 Comment ID: \(attachment.commentID)")
+        #endif
         
         // Fetch the specific comment from the database
         let commentID = attachment.commentID
@@ -1305,19 +1473,29 @@ struct FileEditView: View {
         do {
             let comments = try modelContext.fetch(fetchDescriptor)
             if let comment = comments.first {
+                #if DEBUG
                 print("💬 Found comment in database, showing detail view")
+                #endif
                 selectedCommentForDetail = comment
             } else {
+                #if DEBUG
                 print("⚠️ Comment not found in database for ID: \(commentID)")
+                #endif
             }
         } catch {
+            #if DEBUG
             print("❌ Error fetching comment: \(error)")
+            #endif
         }
     }
     
     private func handleFootnoteTap(attachment: FootnoteAttachment, position: Int) {
+        #if DEBUG
         print("🔢 Footnote tapped at position \(position)")
+        #endif
+        #if DEBUG
         print("🔢 Attachment footnoteID: \(attachment.footnoteID)")
+        #endif
         
         // Fetch the specific footnote from the database
         let attachmentID = attachment.footnoteID
@@ -1330,16 +1508,28 @@ struct FileEditView: View {
         do {
             let footnotes = try modelContext.fetch(fetchDescriptor)
             if let footnote = footnotes.first {
+                #if DEBUG
                 print("🔢 Found footnote in database:")
+                #endif
+                #if DEBUG
                 print("   - Database ID: \(footnote.id)")
+                #endif
+                #if DEBUG
                 print("   - AttachmentID: \(footnote.attachmentID)")
+                #endif
+                #if DEBUG
                 print("   - Number: \(footnote.number)")
+                #endif
                 selectedFootnoteForDetail = footnote
             } else {
+                #if DEBUG
                 print("⚠️ Footnote not found in database for attachmentID: \(attachmentID)")
+                #endif
             }
         } catch {
+            #if DEBUG
             print("❌ Error fetching footnote: \(error)")
+            #endif
         }
     }
     
@@ -1370,7 +1560,9 @@ struct FileEditView: View {
     private func insertNewComment() {
         guard !newCommentText.isEmpty else { return }
         guard let currentVersion = file.currentVersion else {
+            #if DEBUG
             print("❌ Cannot insert comment: no current version")
+            #endif
             return
         }
         
@@ -1385,7 +1577,9 @@ struct FileEditView: View {
             )
             
             if let comment = comment {
+                #if DEBUG
                 print("💬 Comment inserted: \(comment.text)")
+                #endif
                 // Update the attributed content binding
                 attributedContent = textView.attributedText ?? NSAttributedString()
                 saveChanges()
@@ -1400,7 +1594,9 @@ struct FileEditView: View {
     private func insertNewFootnote() {
         guard !newFootnoteText.isEmpty else { return }
         guard let currentVersion = file.currentVersion else {
+            #if DEBUG
             print("❌ Cannot insert footnote: no current version")
+            #endif
             return
         }
         
@@ -1414,7 +1610,9 @@ struct FileEditView: View {
             )
             
             if let footnote = footnote {
+                #if DEBUG
                 print("🔢 Footnote inserted: \(footnote.text)")
+                #endif
                 
                 // CRITICAL: Update all footnote numbers in the text to match database
                 let updatedContent = FootnoteInsertionHelper.updateAllFootnoteNumbers(
@@ -1440,11 +1638,15 @@ struct FileEditView: View {
     /// Remove a footnote attachment from the text when it's moved to trash
     private func removeFootnoteFromText(_ footnote: FootnoteModel) {
         guard let textView = textViewCoordinator.textView else {
+            #if DEBUG
             print("❌ Cannot remove footnote: no text view")
+            #endif
             return
         }
         
+        #if DEBUG
         print("🗑️ Removing footnote \(footnote.id) from text (attachmentID: \(footnote.attachmentID))")
+        #endif
         
         // Set flag FIRST before any text modifications
         isPerformingUndoRedo = true
@@ -1464,33 +1666,45 @@ struct FileEditView: View {
             do {
                 try modelContext.save()
             } catch {
+                #if DEBUG
                 print("❌ Error saving context: \(error)")
+                #endif
             }
             
             // Update attributedContent LAST, after flag is set
             // This ensures the observer sees isPerformingUndoRedo = true
             attributedContent = updatedText
             
+            #if DEBUG
             print("✅ Footnote removed from position \(removedRange.location)")
+            #endif
         } else {
+            #if DEBUG
             print("⚠️ Footnote attachment not found in text")
+            #endif
         }
         
         // Reset flag AFTER attributedContent update completes
         // Use asyncAfter with minimal delay to ensure binding update has fired
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
             self.isPerformingUndoRedo = false
+            #if DEBUG
             print("🗑️ Reset isPerformingUndoRedo flag")
+            #endif
         }
     }
     
     
     
     private func insertPageBreak() {
+        #if DEBUG
         print("📄 Inserting page break at cursor")
+        #endif
         
         guard let textView = textViewCoordinator.textView else {
+            #if DEBUG
             print("❌ Cannot insert page break: no text view")
+            #endif
             return
         }
         
@@ -1515,13 +1729,17 @@ struct FileEditView: View {
         // Save changes
         saveChanges()
         
+        #if DEBUG
         print("✅ Page break inserted at position \(currentRange.location)")
+        #endif
     }
     
     private func updateComment(_ comment: CommentModel, newText: String) {
         comment.updateText(newText)
         try? modelContext.save()
+        #if DEBUG
         print("💬 Comment updated: \(newText)")
+        #endif
     }
     
     private func deleteComment(_ comment: CommentModel) {
@@ -1536,7 +1754,9 @@ struct FileEditView: View {
         
         // Save
         saveChanges()
+        #if DEBUG
         print("💬 Comment deleted")
+        #endif
     }
     
     private func removeCommentMarker(_ comment: CommentModel) {
@@ -1548,11 +1768,15 @@ struct FileEditView: View {
         
         // Save
         saveChanges()
+        #if DEBUG
         print("💬 Comment marker removed: \(comment.attachmentID)")
+        #endif
     }
     
     private func toggleCommentResolved(_ comment: CommentModel) {
+        #if DEBUG
         print("💬 toggleCommentResolved called - current state: \(comment.isResolved)")
+        #endif
         
         if comment.isResolved {
             comment.reopen()
@@ -1560,8 +1784,12 @@ struct FileEditView: View {
             comment.resolve()
         }
         
+        #if DEBUG
         print("💬 After toggle - new state: \(comment.isResolved)")
+        #endif
+        #if DEBUG
         print("💬 Comment attachmentID: \(comment.attachmentID)")
+        #endif
         
         // Update visual indicator in text
         let updatedContent = CommentInsertionHelper.updateCommentResolvedState(
@@ -1570,12 +1798,18 @@ struct FileEditView: View {
             isResolved: comment.isResolved
         )
         
+        #if DEBUG
         print("💬 Updated content length: \(updatedContent.length)")
+        #endif
+        #if DEBUG
         print("💬 Original content length: \(attributedContent.length)")
+        #endif
         
         // Force update the text view to show the new marker color
         if let textView = textViewCoordinator.textView {
+            #if DEBUG
             print("💬 Updating textView with new resolved state")
+            #endif
             
             // CRITICAL: Update the text storage directly to force re-render of attachments
             textView.textStorage.setAttributedString(updatedContent)
@@ -1593,9 +1827,13 @@ struct FileEditView: View {
             textView.setNeedsLayout()
             textView.layoutIfNeeded()
             
+            #if DEBUG
             print("💬 TextView updated and forced to redraw")
+            #endif
         } else {
+            #if DEBUG
             print("⚠️ textView is nil!")
+            #endif
         }
         
         // Update SwiftUI state
@@ -1603,13 +1841,19 @@ struct FileEditView: View {
         
         try? modelContext.save()
         saveChanges()
+        #if DEBUG
         print("💬 Comment resolved state saved: \(comment.isResolved)")
+        #endif
     }
     
     /// Update the visual marker for a comment after its resolved state changes externally (e.g., from CommentsListView)
     private func refreshCommentMarker(_ comment: CommentModel) {
+        #if DEBUG
         print("💬🔄 refreshCommentMarker called for comment: \(comment.attachmentID)")
+        #endif
+        #if DEBUG
         print("💬🔄 Current resolved state: \(comment.isResolved)")
+        #endif
         
         // Update visual indicator in text
         let updatedContent = CommentInsertionHelper.updateCommentResolvedState(
@@ -1620,7 +1864,9 @@ struct FileEditView: View {
         
         // Force update the text view to show the new marker color
         if let textView = textViewCoordinator.textView {
+            #if DEBUG
             print("💬🔄 Updating textView with new resolved state")
+            #endif
             
             // CRITICAL: Update the text storage directly to force re-render of attachments
             textView.textStorage.setAttributedString(updatedContent)
@@ -1638,35 +1884,47 @@ struct FileEditView: View {
             textView.setNeedsLayout()
             textView.layoutIfNeeded()
             
+            #if DEBUG
             print("💬🔄 TextView updated and forced to redraw")
+            #endif
         }
         
         // Update SwiftUI state
         attributedContent = updatedContent
         
         saveChanges()
+        #if DEBUG
         print("💬🔄 Comment marker refreshed: resolved=\(comment.isResolved)")
+        #endif
     }
     
     /// Restore comment markers from the database for comments that were created before serialization support
     /// This handles "orphaned" comments that exist in the database but don't have markers in the attributed text
     private func restoreOrphanedCommentMarkers() {
+        #if DEBUG
         print("💬🔧 Checking for orphaned comment markers...")
+        #endif
         
         // Get all comments for this version from the relationship
         guard let currentVersion = file.currentVersion else {
+            #if DEBUG
             print("💬🔧 No current version available")
+            #endif
             return
         }
         
         let allComments = currentVersion.comments ?? []
         
         guard !allComments.isEmpty else {
+            #if DEBUG
             print("💬🔧 No comments found in version")
+            #endif
             return
         }
         
+        #if DEBUG
         print("💬🔧 Found \(allComments.count) comments in version")
+        #endif
         
         // Check which comments are missing from the attributed text
         let mutableText = NSMutableAttributedString(attributedString: attributedContent)
@@ -1679,17 +1937,23 @@ struct FileEditView: View {
             }
         }
         
+        #if DEBUG
         print("💬🔧 Found \(existingCommentIDs.count) existing comment markers in text")
+        #endif
         
         // Find orphaned comments
         let orphanedComments = allComments.filter { !existingCommentIDs.contains($0.attachmentID) }
         
         guard !orphanedComments.isEmpty else {
+            #if DEBUG
             print("💬🔧 No orphaned comments found - all good!")
+            #endif
             return
         }
         
+        #if DEBUG
         print("💬🔧 Found \(orphanedComments.count) orphaned comments - restoring markers...")
+        #endif
         
         // Insert markers for orphaned comments (in reverse order to maintain positions)
         for comment in orphanedComments.reversed() {
@@ -1698,12 +1962,16 @@ struct FileEditView: View {
             let attachmentString = NSAttributedString(attachment: attachment)
             
             mutableText.insert(attachmentString, at: position)
+            #if DEBUG
             print("💬🔧 Restored marker for comment '\(comment.text)' at position \(position)")
+            #endif
         }
         
         // Update the attributed content
         attributedContent = mutableText
+        #if DEBUG
         print("💬🔧 ✅ Restored \(orphanedComments.count) orphaned comment markers")
+        #endif
         
         // Save the restored markers
         saveChanges()
@@ -1712,7 +1980,9 @@ struct FileEditView: View {
     // MARK: - Undo/Redo
     
     private func performUndo() {
+        #if DEBUG
         print("🔄 performUndo called - canUndo: \(undoManager.canUndo)")
+        #endif
         guard undoManager.canUndo else { return }
         
         isPerformingUndoRedo = true
@@ -1722,17 +1992,23 @@ struct FileEditView: View {
         // that we listen for in handleUndoRedoContentRestored()
         undoManager.undo()
         
+        #if DEBUG
         print("🔄 Undo command executed")
+        #endif
         
         // Reset flag after UI has updated
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             self.isPerformingUndoRedo = false
+            #if DEBUG
             print("🔄 Reset isPerformingUndoRedo flag")
+            #endif
         }
     }
     
     private func performRedo() {
+        #if DEBUG
         print("� performRedo called - canRedo: \(undoManager.canRedo)")
+        #endif
         guard undoManager.canRedo else { return }
         
         isPerformingUndoRedo = true
@@ -1745,7 +2021,9 @@ struct FileEditView: View {
             attributes: [.font: UIFont.preferredFont(forTextStyle: .body)]
         )
         
+        #if DEBUG
         print("🔄 After redo - new content: '\(newAttributedContent.string)' (length: \(newAttributedContent.string.count))")
+        #endif
         
         // Update all state
         attributedContent = newAttributedContent
@@ -1753,7 +2031,9 @@ struct FileEditView: View {
         
         // FIX: Position cursor at end of new content
         selectedRange = NSRange(location: newAttributedContent.string.count, length: 0)
+        #if DEBUG
         print("🔄 Set selectedRange to end: \(selectedRange)")
+        #endif
         
         // Force refresh
         forceRefresh.toggle()
@@ -1762,7 +2042,9 @@ struct FileEditView: View {
         // Reset flag after UI has updated
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             self.isPerformingUndoRedo = false
+            #if DEBUG
             print("🔄 Reset isPerformingUndoRedo flag")
+            #endif
         }
     }
     
@@ -1770,7 +2052,9 @@ struct FileEditView: View {
     
     /// Handle print action
     private func printFile() {
+        #if DEBUG
         print("🖨️ Print button tapped")
+        #endif
         
         // Save any pending changes before printing
         saveChanges()
@@ -1779,7 +2063,9 @@ struct FileEditView: View {
         guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
               let window = windowScene.windows.first,
               let viewController = window.rootViewController else {
+            #if DEBUG
             print("❌ Could not find view controller for print dialog")
+            #endif
             printErrorMessage = "Unable to present print dialog"
             showPrintError = true
             return
@@ -1787,7 +2073,9 @@ struct FileEditView: View {
         
         // Call print service (need project for stylesheet)
         guard let project = file.project else {
+            #if DEBUG
             print("❌ Could not find project for file")
+            #endif
             printErrorMessage = "Unable to find project"
             showPrintError = true
             return
@@ -1800,13 +2088,19 @@ struct FileEditView: View {
             from: viewController
         ) { success, error in
             if let error = error {
+                #if DEBUG
                 print("❌ Print failed: \(error.localizedDescription)")
+                #endif
                 printErrorMessage = error.localizedDescription
                 showPrintError = true
             } else if success {
+                #if DEBUG
                 print("✅ Print completed successfully")
+                #endif
             } else {
+                #if DEBUG
                 print("⚠️ Print was cancelled")
+                #endif
             }
         }
     }
@@ -1825,23 +2119,31 @@ struct FileEditView: View {
     private func applyFormatting(_ formatType: FormatType) {
         #if DEBUG
         print("🎨 applyFormatting(\(formatType)) called")
+        #if DEBUG
         print("🎨 selectedRange: {\(selectedRange.location), \(selectedRange.length)}")
+        #endif
         #endif
         
         // Ensure we have a valid selection
         guard selectedRange.location != NSNotFound else {
+            #if DEBUG
             print("⚠️ selectedRange.location is NSNotFound")
+            #endif
             return
         }
         
         // If no text is selected (cursor only), modify typing attributes
         if selectedRange.length == 0 {
+            #if DEBUG
             print("🎨 Modifying typing attributes for \(formatType)")
+            #endif
             modifyTypingAttributes(formatType)
             return
         }
         
+        #if DEBUG
         print("🎨 Applying \(formatType) to range {\(selectedRange.location), \(selectedRange.length)}")
+        #endif
         
         // Store before state for undo
         let beforeContent = attributedContent
@@ -1864,12 +2166,16 @@ struct FileEditView: View {
             actionDescription = "Strikethrough"
         }
         
+        #if DEBUG
         print("🎨 Format applied successfully")
+        #endif
         
         // Update local state immediately for instant UI feedback
         attributedContent = newAttributedContent
         
+        #if DEBUG
         print("🎨 Updated local state with formatted content")
+        #endif
         
         // Create formatting command for undo/redo
         let command = FormatApplyCommand(
@@ -1883,7 +2189,9 @@ struct FileEditView: View {
         // Execute command through undo manager
         undoManager.execute(command)
         
+        #if DEBUG
         print("🎨 Formatting command added to undo stack")
+        #endif
     }
     
     /// Modify typing attributes at cursor position
@@ -1936,8 +2244,12 @@ struct FileEditView: View {
             // Apply the modified typing attributes
             textView.typingAttributes = typingAttributes
             
+            #if DEBUG
             print("🎨 Modified typing attributes for \(formatType)")
+            #endif
+            #if DEBUG
             print("🎨 New typing attributes: \(typingAttributes)")
+            #endif
         }
         
         // DON'T trigger refresh - it dismisses the keyboard
@@ -2023,24 +2335,42 @@ struct FileEditView: View {
     /// - Existing images retain their custom scale/alignment settings
     /// - Similar to how manually bolded text keeps its formatting even if Body style changes
     private func reapplyAllStyles() {
+        #if DEBUG
         print("🔄 ========== REAPPLY ALL STYLES START ==========")
+        #endif
+        #if DEBUG
         print("🔄 Document length: \(attributedContent.length)")
+        #endif
         
         // Need a project to resolve styles
         guard let project = file.project else {
+            #if DEBUG
             print("⚠️ No project - cannot reapply styles")
+            #endif
+            #if DEBUG
             print("🔄 ========== REAPPLY ALL STYLES END (NO PROJECT) ==========")
+            #endif
             return
         }
         
+        #if DEBUG
         print("🔄 Project: \(project.name ?? "unnamed")")
+        #endif
+        #if DEBUG
         print("🔄 Stylesheet: \(project.styleSheet?.name ?? "none")")
+        #endif
+        #if DEBUG
         print("🔄 Stylesheet ID: \(project.styleSheet?.id.uuidString ?? "none")")
+        #endif
         
         // If document is empty, nothing to reapply
         guard attributedContent.length > 0 else {
+            #if DEBUG
             print("📝 Document is empty - nothing to reapply")
+            #endif
+            #if DEBUG
             print("🔄 ========== REAPPLY ALL STYLES END (EMPTY) ==========")
+            #endif
             return
         }
         
@@ -2055,12 +2385,16 @@ struct FileEditView: View {
             options: []
         ) { value, range, _ in
             guard let styleName = value as? String else { 
+                #if DEBUG
                 print("⚠️ Found TextStyle attribute but value is not a string: \(String(describing: value))")
+                #endif
                 return 
             }
             
             stylesFound += 1
+            #if DEBUG
             print("🔄 [\(stylesFound)] Found style '\(styleName)' at range {\(range.location), \(range.length)}")
+            #endif
             
             // Re-fetch the style from database to get latest changes
             guard let updatedStyle = StyleSheetService.resolveStyle(
@@ -2068,33 +2402,49 @@ struct FileEditView: View {
                 for: project,
                 context: modelContext
             ) else {
+                #if DEBUG
                 print("⚠️ Could not resolve style '\(styleName)' for project '\(project.name ?? "unnamed")'")
+                #endif
                 return
             }
             
+            #if DEBUG
             print("✅ Resolved style '\(styleName)': fontSize=\(updatedStyle.fontSize), bold=\(updatedStyle.isBold), italic=\(updatedStyle.isItalic)")
+            #endif
             
             // Get updated attributes from the style
             let newAttributes = updatedStyle.generateAttributes()
             guard let newFont = newAttributes[NSAttributedString.Key.font] as? UIFont else {
+                #if DEBUG
                 print("⚠️ Style '\(styleName)' has no font in generated attributes")
+                #endif
                 return
             }
             
+            #if DEBUG
             print("📝 New font: \(newFont.fontName) \(newFont.pointSize)pt, bold=\(updatedStyle.isBold), italic=\(updatedStyle.isItalic)")
+            #endif
             if let color = newAttributes[.foregroundColor] as? UIColor {
+                #if DEBUG
                 print("📝 New color: \(color)")
+                #endif
             } else {
+                #if DEBUG
                 print("📝 New color: NONE (will use system default)")
+                #endif
             }
             
             // Log what color is CURRENTLY in the text before we change it
             if range.location < mutableText.length {
                 let oldAttrs = mutableText.attributes(at: range.location, effectiveRange: nil)
                 if let oldColor = oldAttrs[.foregroundColor] as? UIColor {
+                    #if DEBUG
                     print("   🔍 OLD color in document: \(oldColor.toHex() ?? "unknown")")
+                    #endif
                 } else {
+                    #if DEBUG
                     print("   🔍 OLD color in document: NONE")
+                    #endif
                 }
             }
             
@@ -2109,15 +2459,21 @@ struct FileEditView: View {
                     attachmentPosition = pos
                     // Preserve the attachment's paragraph style
                     preservedParagraphStyle = existingAttrs[.paragraphStyle] as? NSParagraphStyle
+                    #if DEBUG
                     print("   🖼️ Found attachment at position \(pos) within range {\(range.location), \(range.length)}")
+                    #endif
                     break
                 }
             }
             
             // Apply attributes based on whether we have an attachment
+            #if DEBUG
             print("✅ Applying new attributes to range {\(range.location), \(range.length)}")
+            #endif
             if let attachmentPos = attachmentPosition {
+                #if DEBUG
                 print("   🖼️ Range contains attachment at position \(attachmentPos) - using selective application")
+                #endif
                 
                 // Apply text attributes (without paragraph style) to the entire range
                 var attributesToAdd = newAttributes
@@ -2132,7 +2488,9 @@ struct FileEditView: View {
                 if attachmentPos > range.location {
                     let beforeRange = NSRange(location: range.location, length: attachmentPos - range.location)
                     mutableText.addAttribute(.paragraphStyle, value: defaultParagraphStyle, range: beforeRange)
+                    #if DEBUG
                     print("   📝 Applied left alignment to text before image: range {\(beforeRange.location), \(beforeRange.length)}")
+                    #endif
                 }
                 
                 // Apply to text AFTER the image
@@ -2142,14 +2500,18 @@ struct FileEditView: View {
                     if afterLength > 0 {
                         let afterRange = NSRange(location: afterStart, length: afterLength)
                         mutableText.addAttribute(.paragraphStyle, value: defaultParagraphStyle, range: afterRange)
+                        #if DEBUG
                         print("   📝 Applied left alignment to text after image: range {\(afterRange.location), \(afterRange.length)}")
+                        #endif
                     }
                 }
                 
                 // Preserve the image's original paragraph style
                 if let paragraphStyle = preservedParagraphStyle {
                     mutableText.addAttribute(.paragraphStyle, value: paragraphStyle, range: NSRange(location: attachmentPos, length: 1))
+                    #if DEBUG
                     print("   🖼️ Preserved image paragraph alignment at position \(attachmentPos)")
+                    #endif
                 }
             } else {
                 // No attachment - apply all attributes including paragraph style normally
@@ -2160,24 +2522,36 @@ struct FileEditView: View {
             if range.location < mutableText.length {
                 let finalAttrs = mutableText.attributes(at: range.location, effectiveRange: nil)
                 if let finalColor = finalAttrs[.foregroundColor] as? UIColor {
+                    #if DEBUG
                     print("   🔍 FINAL color after setAttributes: \(finalColor.toHex() ?? "unknown")")
+                    #endif
                 } else {
+                    #if DEBUG
                     print("   🔍 FINAL color after setAttributes: NONE ✅ (will adapt!)")
+                    #endif
                 }
             }
             hasChanges = true
         }
         
+        #if DEBUG
         print("🔄 Total styles found and processed: \(stylesFound)")
+        #endif
+        #if DEBUG
         print("🔄 Has changes: \(hasChanges)")
+        #endif
         
         // Update document if any changes were made
         if hasChanges {
             let beforeContent = attributedContent
             attributedContent = mutableText
             
+            #if DEBUG
             print("✅ Updated attributedContent with new styles")
+            #endif
+            #if DEBUG
             print("✅ Reapplied all styles successfully")
+            #endif
             
             // Create undo command
             let command = FormatApplyCommand(
@@ -2189,7 +2563,9 @@ struct FileEditView: View {
             )
             
             undoManager.execute(command)
+            #if DEBUG
             print("✅ Added undo command")
+            #endif
             
             // Update typing attributes for current position
             if selectedRange.location != NSNotFound,
@@ -2209,53 +2585,104 @@ struct FileEditView: View {
                     textViewCoordinator.modifyTypingAttributes { textView in
                         textView.typingAttributes = typingAttrs
                     }
+                    #if DEBUG
                     print("✅ Updated typing attributes")
+                    #endif
                 }
             }
             
             restoreKeyboardFocus()
+            #if DEBUG
             print("✅ Restored keyboard focus")
+            #endif
             
-            // Force layout manager to redraw for numbering updates
+            // CRITICAL: Directly update the text view's text storage to ensure visual refresh
+            // The SwiftUI binding update may not trigger updateUIView if timing is off
             textViewCoordinator.modifyTypingAttributes { textView in
+                // Save selection
+                let savedSelection = textView.selectedRange
+                
+                // Update text storage directly
+                textView.textStorage.setAttributedString(mutableText)
+                
+                // Force layout recalculation
+                textView.layoutManager.invalidateLayout(forCharacterRange: NSRange(location: 0, length: textView.textStorage.length), actualCharacterRange: nil)
                 textView.layoutManager.invalidateDisplay(forCharacterRange: NSRange(location: 0, length: textView.textStorage.length))
+                textView.layoutManager.ensureLayout(for: textView.textContainer)
+                
+                // Restore selection
+                if savedSelection.location <= textView.textStorage.length {
+                    textView.selectedRange = savedSelection
+                }
+                
+                textView.setNeedsDisplay()
             }
-            print("✅ Invalidated layout manager display for numbering update")
+            #if DEBUG
+            print("✅ Directly updated text storage and invalidated layout")
+            #endif
+            
+            // Force SwiftUI view refresh to ensure text view updates
+            refreshTrigger = UUID()
+            #if DEBUG
+            print("✅ Triggered view refresh")
+            #endif
         } else {
+            #if DEBUG
             print("📝 No styles found to reapply - hasChanges is false")
+            #endif
         }
         
+        #if DEBUG
         print("🔄 ========== REAPPLY ALL STYLES END ==========")
+        #endif
     }
     
     /// Apply a paragraph style to the current selection
     private func applyParagraphStyle(_ style: UIFont.TextStyle) {
         #if DEBUG
         print("📝 ========== APPLY PARAGRAPH STYLE START ==========")
+        #if DEBUG
         print("📝 Style: \(style.rawValue)")
+        #endif
+        #if DEBUG
         print("📝 selectedRange: {\(selectedRange.location), \(selectedRange.length)}")
+        #endif
+        #if DEBUG
         print("📝 Document length: \(attributedContent.length)")
+        #endif
         
         // Log current attributes at selection
         if attributedContent.length > 0 && selectedRange.location < attributedContent.length {
             let attrs = attributedContent.attributes(at: selectedRange.location, effectiveRange: nil)
+            #if DEBUG
             print("📝 Current attributes at selection:")
+            #endif
             if let color = attrs[.foregroundColor] as? UIColor {
+                #if DEBUG
                 print("   Color: \(color.toHex() ?? "unknown")")
+                #endif
             }
             if let paragraphStyle = attrs[.paragraphStyle] as? NSParagraphStyle {
+                #if DEBUG
                 print("   Alignment: \(paragraphStyle.alignment.rawValue)")
+                #endif
             }
             if let textStyle = attrs[.textStyle] as? String {
+                #if DEBUG
                 print("   TextStyle attribute: \(textStyle)")
+                #endif
             }
         }
         #endif
         
         // Ensure we have a valid location
         guard selectedRange.location != NSNotFound else {
+            #if DEBUG
             print("⚠️ selectedRange.location is NSNotFound")
+            #endif
+            #if DEBUG
             print("📝 ========== END ==========")
+            #endif
             return
         }
         
@@ -2264,7 +2691,9 @@ struct FileEditView: View {
         if let project = file.project {
             // Special handling for empty text (model-based)
             if attributedContent.length == 0 {
+                #if DEBUG
                 print("📝 Text is empty - creating attributed string with style: \(style)")
+                #endif
                 
                 let typingAttrs = TextFormatter.getTypingAttributes(
                     forStyleNamed: style.rawValue,
@@ -2280,7 +2709,9 @@ struct FileEditView: View {
                     textView.typingAttributes = typingAttrs
                 }
                 
+                #if DEBUG
                 print("📝 Empty text styled with model - picker should update")
+                #endif
                 return
             }
             
@@ -2296,21 +2727,31 @@ struct FileEditView: View {
                 context: modelContext
             )
             
+            #if DEBUG
             print("📝 Paragraph style applied successfully (model-based)")
+            #endif
             
             // Log what we got back
             #if DEBUG
             if newAttributedContent.length > 0 && selectedRange.location < newAttributedContent.length {
                 let attrs = newAttributedContent.attributes(at: selectedRange.location, effectiveRange: nil)
+                #if DEBUG
                 print("📝 New attributes at selection after applying style:")
+                #endif
                 if let color = attrs[.foregroundColor] as? UIColor {
+                    #if DEBUG
                     print("   Color: \(color.toHex() ?? "unknown")")
+                    #endif
                 }
                 if let paragraphStyle = attrs[.paragraphStyle] as? NSParagraphStyle {
+                    #if DEBUG
                     print("   Alignment: \(paragraphStyle.alignment.rawValue)")
+                    #endif
                 }
                 if let textStyle = attrs[.textStyle] as? String {
+                    #if DEBUG
                     print("   TextStyle attribute: \(textStyle)")
+                    #endif
                 }
             }
             #endif
@@ -2329,7 +2770,9 @@ struct FileEditView: View {
                 textView.typingAttributes = typingAttrs
             }
             
+            #if DEBUG
             print("📝 Updated local state with styled content (model-based)")
+            #endif
             
             // Create formatting command for undo/redo
             let command = FormatApplyCommand(
@@ -2341,8 +2784,12 @@ struct FileEditView: View {
             )
             
             undoManager.execute(command)
+            #if DEBUG
             print("📝 Paragraph style command added to undo stack")
+            #endif
+            #if DEBUG
             print("📝 ========== APPLY PARAGRAPH STYLE END ==========")
+            #endif
             restoreKeyboardFocus()
             return
         }
@@ -2350,7 +2797,9 @@ struct FileEditView: View {
         // Fallback to direct UIFont.TextStyle (for files not in a project)
         // Special handling for empty text
         if attributedContent.length == 0 {
+            #if DEBUG
             print("📝 Text is empty - creating attributed string with style: \(style)")
+            #endif
             
             // Create an empty attributed string with the style attributes
             // This allows the style picker to detect the current style
@@ -2368,7 +2817,9 @@ struct FileEditView: View {
                 textView.typingAttributes = typingAttrs
             }
             
+            #if DEBUG
             print("📝 Empty text styled - picker should update")
+            #endif
             return
         }
         
@@ -2378,7 +2829,9 @@ struct FileEditView: View {
         // Apply the style using TextFormatter
         newAttributedContent = TextFormatter.applyStyle(style, to: attributedContent, range: selectedRange)
         
+        #if DEBUG
         print("📝 Paragraph style applied successfully")
+        #endif
         
         // Update local state immediately for instant UI feedback
         attributedContent = newAttributedContent
@@ -2392,7 +2845,9 @@ struct FileEditView: View {
             textView.typingAttributes = TextFormatter.getTypingAttributes(for: style)
         }
         
+        #if DEBUG
         print("📝 Updated local state with styled content")
+        #endif
         
         // Create formatting command for undo/redo
         let command = FormatApplyCommand(
@@ -2406,7 +2861,9 @@ struct FileEditView: View {
         // Execute command through undo manager
         undoManager.execute(command)
         
+        #if DEBUG
         print("📝 Paragraph style command added to undo stack")
+        #endif
         
         // Restore keyboard focus after applying style
         restoreKeyboardFocus()
@@ -2415,7 +2872,9 @@ struct FileEditView: View {
     // MARK: - Image Insertion
     
     private func showImagePicker() {
+        #if DEBUG
         print("🖼️ showImagePicker() called")
+        #endif
         // Note: On Mac Catalyst, Photos library is not accessible (PHPicker doesn't work)
         // So we show the source picker on iOS (Photos + Files), but go directly to Files on Mac
         #if targetEnvironment(macCatalyst)
@@ -2428,11 +2887,15 @@ struct FileEditView: View {
     }
     
     private func showPhotosPickerFromCoordinator() {
+        #if DEBUG
         print("📸 showPhotosPickerFromCoordinator() called")
+        #endif
         
         // Set up the callback for when an image is picked
         textViewCoordinator.onImagePicked = { url in
+            #if DEBUG
             print("📸 Coordinator callback received with URL: \(url.lastPathComponent)")
+            #endif
             self.handleImageSelection(url: url)
         }
         
@@ -2455,15 +2918,21 @@ struct FileEditView: View {
             while let presented = topController.presentedViewController {
                 topController = presented
             }
+            #if DEBUG
             print("📸 Presenting PHPicker")
+            #endif
             topController.present(picker, animated: true)
         } else {
+            #if DEBUG
             print("❌ Could not find root view controller to present PHPicker")
+            #endif
         }
     }
     
     private func showIOSImagePicker() {
+        #if DEBUG
         print("🖼️ Using iOS UIDocumentPickerViewController")
+        #endif
         
         // Create a document picker for images
         let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.image])
@@ -2485,11 +2954,15 @@ struct FileEditView: View {
         }
         #endif
         
+        #if DEBUG
         print("🖼️ Document picker created, setting callback...")
+        #endif
         
         // Store reference for when document is picked
         textViewCoordinator.onImagePicked = { url in
+            #if DEBUG
             print("🖼️ onImagePicked callback triggered")
+            #endif
             self.handleImageSelection(url: url)
             // Clear references after selection
             self.textViewCoordinator.documentPicker = nil
@@ -2503,19 +2976,27 @@ struct FileEditView: View {
             while let presented = topController.presentedViewController {
                 topController = presented
             }
+            #if DEBUG
             print("🖼️ Presenting document picker...")
+            #endif
             topController.present(picker, animated: true)
         } else {
+            #if DEBUG
             print("❌ Failed to find root view controller")
+            #endif
         }
     }
     
     private func handleImageSelection(url: URL) {
+        #if DEBUG
         print("🖼️ Image selected: \(url.lastPathComponent)")
+        #endif
         
         // Store the filename for later use
         let filename = url.lastPathComponent
+        #if DEBUG
         print("🖼️ Captured filename: \(filename)")
+        #endif
         
         // Check if this is a temp file (from PHPicker) or needs security scoping (from file picker)
         let isTempFile = url.path.starts(with: FileManager.default.temporaryDirectory.path)
@@ -2525,7 +3006,9 @@ struct FileEditView: View {
         
         if needsSecurityScope {
             guard url.startAccessingSecurityScopedResource() else {
+                #if DEBUG
                 print("❌ Failed to access security-scoped resource")
+                #endif
                 return
             }
         }
@@ -2538,11 +3021,15 @@ struct FileEditView: View {
         
         do {
             let imageData = try Data(contentsOf: url)
+            #if DEBUG
             print("🖼️ Image data loaded: \(imageData.count) bytes")
+            #endif
             
             // Compress the image
             if let compressedData = compressImageData(imageData) {
+                #if DEBUG
                 print("🖼️ Image compressed: \(compressedData.count) bytes")
+                #endif
                 
                 // Insert image immediately with default settings from stylesheet
                 DispatchQueue.main.async {
@@ -2562,9 +3049,13 @@ struct FileEditView: View {
                         alignment = defaultStyle.defaultAlignment
                         hasCaption = defaultStyle.hasCaptionByDefault
                         captionStyle = defaultStyle.defaultCaptionStyle
+                        #if DEBUG
                         print("🖼️ Using image style '\(defaultStyle.displayName)': scale=\(scale), alignment=\(alignment.rawValue)")
+                        #endif
                     } else {
+                        #if DEBUG
                         print("🖼️ Using hardcoded defaults: scale=1.0, alignment=center")
+                        #endif
                     }
                     
                     // Calculate scale to fit image to window width
@@ -2574,26 +3065,46 @@ struct FileEditView: View {
                         // Get available width (text view width minus container insets)
                         let availableWidth = textView.frame.width - textView.textContainerInset.left - textView.textContainerInset.right - (textView.textContainer.lineFragmentPadding * 2)
                         
+                        #if DEBUG
                         print("🖼️ Image size check:")
+                        #endif
+                        #if DEBUG
                         print("   - uiImage.size: \(uiImage.size)")
+                        #endif
+                        #if DEBUG
                         print("   - uiImage.scale: \(uiImage.scale)")
+                        #endif
+                        #if DEBUG
                         print("   - imageWidth (points): \(imageWidth)")
+                        #endif
+                        #if DEBUG
                         print("   - availableWidth: \(availableWidth)")
+                        #endif
+                        #if DEBUG
                         print("   - textView.frame.width: \(textView.frame.width)")
+                        #endif
                         
                         // Only scale down if image is wider than available space
                         if imageWidth > availableWidth {
                             let fitToWidthScale = availableWidth / imageWidth
                             // Clamp to valid range (0.1 to 2.0)
                             scale = max(0.1, min(2.0, fitToWidthScale))
+                            #if DEBUG
                             print("🖼️ Image scaled to fit window: \(imageWidth)px → \(availableWidth)px, scale=\(scale)")
+                            #endif
                         } else {
+                            #if DEBUG
                             print("🖼️ Image fits naturally, using scale=\(scale)")
+                            #endif
                         }
                     }
                     
+                    #if DEBUG
                     print("🖼️ Inserting image with settings from stylesheet")
+                    #endif
+                    #if DEBUG
                     print("🖼️ Original filename: \(filename)")
+                    #endif
                     self.insertImage(
                         imageData: compressedData,
                         scale: scale,
@@ -2605,10 +3116,14 @@ struct FileEditView: View {
                     )
                 }
             } else {
+                #if DEBUG
                 print("❌ Failed to compress image")
+                #endif
             }
         } catch {
+            #if DEBUG
             print("❌ Error loading image: \(error)")
+            #endif
         }
     }
     
@@ -2651,17 +3166,27 @@ struct FileEditView: View {
         
         // Update local state to reflect the change
         let newContent = file.currentVersion?.attributedContent ?? NSAttributedString()
+        #if DEBUG
         print("🖼️ Before update - attributedContent length: \(attributedContent.length)")
+        #endif
+        #if DEBUG
         print("🖼️ After command - newContent length: \(newContent.length)")
+        #endif
         
         // Check if there's an attachment at the insertion point
         if newContent.length > insertionPoint {
             let attrs = newContent.attributes(at: insertionPoint, effectiveRange: nil)
             if let attachment = attrs[.attachment] as? NSTextAttachment {
+                #if DEBUG
                 print("🖼️ Found attachment at position \(insertionPoint): \(type(of: attachment))")
+                #endif
             } else {
+                #if DEBUG
                 print("⚠️ NO attachment found at position \(insertionPoint)")
+                #endif
+                #if DEBUG
                 print("⚠️ Character at \(insertionPoint): '\(newContent.string[newContent.string.index(newContent.string.startIndex, offsetBy: insertionPoint)])'")
+                #endif
             }
         }
         
@@ -2670,7 +3195,9 @@ struct FileEditView: View {
         // Move cursor after the inserted image
         selectedRange = NSRange(location: insertionPoint + 1, length: 0)
         
+        #if DEBUG
         print("🖼️ Image inserted at position \(insertionPoint) with scale \(scale)")
+        #endif
         
         // Force refresh to ensure UI updates
         forceRefresh.toggle()
@@ -2713,7 +3240,9 @@ struct FileEditView: View {
                 string: "",
                 attributes: [.font: UIFont.preferredFont(forTextStyle: .body)]
             )
+            #if DEBUG
             print("⚠️ loadCurrentVersion: No current version found")
+            #endif
             attributedContent = newAttributedContent
             previousContent = ""
             selectedRange = NSRange(location: 0, length: 0)
@@ -2731,7 +3260,9 @@ struct FileEditView: View {
             // No iPhone-specific font changes - use view scale transform instead
             
             newAttributedContent = processedContent
+            #if DEBUG
             print("📝 loadCurrentVersion: Loaded existing content, length: \(versionContent.length)")
+            #endif
         } else {
             // New/empty version - initialize with Body style from project stylesheet
             if let project = file.project {
@@ -2744,28 +3275,40 @@ struct FileEditView: View {
                 // No iPhone-specific font changes - use stylesheet fonts with view scale
                 
                 // Debug: Log what we're initializing with
+                #if DEBUG
                 print("📝 loadCurrentVersion: Initializing with Body style from stylesheet '\(project.styleSheet?.name ?? "none")'")
+                #endif
                 for (key, value) in bodyAttrs {
                     if key == .font {
                         let font = value as? UIFont
+                        #if DEBUG
                         print("  - font: \(font?.fontName ?? "nil") \(font?.pointSize ?? 0)pt")
+                        #endif
                     } else if key == .foregroundColor {
                         let color = value as? UIColor
+                        #if DEBUG
                         print("  - foregroundColor: \(color?.toHex() ?? "nil")")
+                        #endif
                     } else if key == .textStyle {
+                        #if DEBUG
                         print("  - textStyle: \(value)")
+                        #endif
                     }
                 }
                 
                 newAttributedContent = NSAttributedString(string: "", attributes: bodyAttrs)
+                #if DEBUG
                 print("📝 loadCurrentVersion: Created empty attributed string with Body style")
+                #endif
             } else {
                 // Fallback if no project (shouldn't happen)
                 newAttributedContent = NSAttributedString(
                     string: "",
                     attributes: [.font: UIFont.preferredFont(forTextStyle: .body)]
                 )
+                #if DEBUG
                 print("⚠️ loadCurrentVersion: No project found, using system body font")
+                #endif
             }
         }
         
@@ -2808,14 +3351,18 @@ struct FileEditView: View {
                     footnoteCount += 1
                 }
             }
+            #if DEBUG
             print("💾 Saving attributed content with \(commentCount) comments, \(imageCount) images, and \(footnoteCount) footnotes")
+            #endif
         } else {
             var contentToSave = attributedContent
             
             // CRITICAL: Reverse the iPhone font scaling before saving
             if UIDevice.current.userInterfaceIdiom == .phone {
                 contentToSave = AttributedStringSerializer.scaleFonts(contentToSave, scaleFactor: 1.0 / 0.55)
+                #if DEBUG
                 print("💾 Reversed iPhone font scaling (1/0.55 = \(1.0/0.55)x) before saving to database")
+                #endif
             }
             
             file.currentVersion?.attributedContent = contentToSave
@@ -2825,9 +3372,13 @@ struct FileEditView: View {
         
         do {
             try modelContext.save()
+            #if DEBUG
             print("💾 Saved attributed content on file close")
+            #endif
         } catch {
+            #if DEBUG
             print("Error saving context: \(error)")
+            #endif
         }
     }
     
@@ -2852,11 +3403,15 @@ struct FileEditView: View {
         captionText: String,
         captionStyle: String
     ) {
+        #if DEBUG
         print("🖼️ Updating image: scale=\(scale), alignment=\(alignment.rawValue)")
+        #endif
         
         // Find the attachment in the content
         guard let position = findAttachmentPosition(attachment) else {
+            #if DEBUG
             print("❌ Could not find attachment in content")
+            #endif
             return
         }
         
@@ -2872,9 +3427,13 @@ struct FileEditView: View {
         
         attachment.scale = scale
         attachment.alignment = alignment
+        #if DEBUG
         print("🖼️ FileEditView.updateImage() - About to update caption")
+        #endif
         attachment.updateCaption(hasCaption: hasCaption, text: captionText, style: captionStyle)
+        #if DEBUG
         print("   After update: hasCaption=\(attachment.hasCaption), text=\(attachment.captionText ?? "nil")")
+        #endif
         
         // Update the paragraph alignment to match image alignment
         let mutableContent = NSMutableAttributedString(attributedString: attributedContent)
@@ -2899,9 +3458,13 @@ struct FileEditView: View {
         
         do {
             try modelContext.save()
+            #if DEBUG
             print("✅ Image updated and saved")
+            #endif
         } catch {
+            #if DEBUG
             print("❌ Error saving image update: \(error)")
+            #endif
         }
         
         // Create undo/redo command to restore image properties
@@ -2924,14 +3487,19 @@ struct FileEditView: View {
         )
         undoManager.execute(command)
         
+        // Keep the image selected and update the selection to the image position
+        selectedImage = attachment
+        
+        // Set the selected range to the image position so when the view refreshes,
+        // the selection is preserved
+        if let imagePosition = findAttachmentPosition(attachment) {
+            selectedRange = NSRange(location: imagePosition, length: 1)
+        }
+        
         // Trigger view refresh to show updated image
         // Note: We rely on the notification system in ImageAttachmentViewProvider to update the view
         // Accessing layoutManager would force TextKit 1 mode, breaking NSTextAttachmentViewProvider
         refreshTrigger = UUID()
-        
-        // Keep the image selected and update the selection border to match new size
-        // The selection border will be recalculated when the text view updates
-        selectedImage = attachment
         
         // Close the editor
         imageToEdit = nil

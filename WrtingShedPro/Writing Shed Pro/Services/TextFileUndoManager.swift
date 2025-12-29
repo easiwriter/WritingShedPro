@@ -64,8 +64,12 @@ final class TextFileUndoManager {
     /// Execute a command and add it to the undo stack
     /// - Parameter command: The command to execute
     func execute(_ command: UndoableCommand) {
+        #if DEBUG
         print("🔄 TextFileUndoManager.execute() - command: \(command.description)")
+        #endif
+        #if DEBUG
         print("🔄 Before execute - undo stack: \(undoStack.count), redo stack: \(redoStack.count)")
+        #endif
         
         // Flush any typing buffer if this isn't another insert command
         if typingBuffer != nil && !(command is TextInsertCommand) {
@@ -86,7 +90,9 @@ final class TextFileUndoManager {
         
         // Clear redo stack when new action performed
         if !redoStack.isEmpty {
+            #if DEBUG
             print("⚠️ CLEARING REDO STACK - had \(redoStack.count) items")
+            #endif
         }
         redoStack.removeAll()
         
@@ -99,7 +105,9 @@ final class TextFileUndoManager {
         }
         
         updateState()
+        #if DEBUG
         print("🔄 After execute - undo stack: \(undoStack.count), redo stack: \(redoStack.count)")
+        #endif
     }
     
     /// Undo the last command
@@ -117,18 +125,26 @@ final class TextFileUndoManager {
     
     /// Redo the last undone command
     func redo() {
+        #if DEBUG
         print("🔄 TextFileUndoManager.redo() - redo stack size: \(redoStack.count)")
+        #endif
         guard let command = redoStack.popLast() else {
+            #if DEBUG
             print("❌ Redo failed - redo stack is empty")
+            #endif
             return
         }
         
+        #if DEBUG
         print("🔄 Executing redo command: \(command.description)")
+        #endif
         command.execute()
         undoStack.append(command)
         
         updateState()
+        #if DEBUG
         print("✅ Redo complete - undo stack: \(undoStack.count), redo stack: \(redoStack.count)")
+        #endif
     }
     
     /// Clear all undo/redo history

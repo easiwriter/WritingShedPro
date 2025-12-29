@@ -384,7 +384,9 @@ struct FormattingToolbarView: UIViewRepresentable {
         }
         
         @objc func showImageStyle() {
+            #if DEBUG
             print("🖼️ showImageStyle() called")
+            #endif
             onFormatAction(.imageStyle)
         }
         

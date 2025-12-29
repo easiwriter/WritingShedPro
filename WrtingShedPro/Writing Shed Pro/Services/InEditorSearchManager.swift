@@ -130,9 +130,15 @@ class InEditorSearchManager {
     /// Perform search in the current text
     func performSearch() {
         let startTime = CFAbsoluteTimeGetCurrent()
+        #if DEBUG
         print("🔍 performSearch called: searchText='\(searchText)'")
+        #endif
+        #if DEBUG
         print("  - textView: \(textView != nil ? "✅" : "❌")")
+        #endif
+        #if DEBUG
         print("  - textStorage: \(textStorage != nil ? "✅" : "❌")")
+        #endif
         
         guard !searchText.isEmpty else {
             clearSearch()
@@ -173,9 +179,13 @@ class InEditorSearchManager {
         let searchStart = CFAbsoluteTimeGetCurrent()
         let foundMatches = searchEngine.search(in: text, query: query)
         let searchTime = CFAbsoluteTimeGetCurrent() - searchStart
+        #if DEBUG
         print("  ⏱️ search: \(String(format: "%.3f", searchTime))s")
+        #endif
         
+        #if DEBUG
         print("  - Found \(foundMatches.count) matches")
+        #endif
         
         // CRITICAL PERFORMANCE: Batch all UI updates together
         // Temporarily store results, then update all @Published properties at once
@@ -191,22 +201,30 @@ class InEditorSearchManager {
             let highlightStart = CFAbsoluteTimeGetCurrent()
             highlightMatches()
             let highlightTime = CFAbsoluteTimeGetCurrent() - highlightStart
+            #if DEBUG
             print("  ⏱️ highlightMatches: \(String(format: "%.3f", highlightTime))s")
+            #endif
             
             let scrollStart = CFAbsoluteTimeGetCurrent()
             scrollToCurrentMatch()
             let scrollTime = CFAbsoluteTimeGetCurrent() - scrollStart
+            #if DEBUG
             print("  ⏱️ scrollToCurrentMatch: \(String(format: "%.3f", scrollTime))s")
+            #endif
         } else {
             currentMatchIndex = 0
             totalMatches = 0
         }
         
         let updateTime = CFAbsoluteTimeGetCurrent() - updateStart
+        #if DEBUG
         print("  ⏱️ UI updates: \(String(format: "%.3f", updateTime))s")
+        #endif
         
         let totalTime = CFAbsoluteTimeGetCurrent() - startTime
+        #if DEBUG
         print("  ⏱️ TOTAL performSearch: \(String(format: "%.3f", totalTime))s")
+        #endif
     }
     
     /// Clear all search state
@@ -291,7 +309,9 @@ class InEditorSearchManager {
         textStorage.endEditing()
         
         if shouldLimitHighlights {
+            #if DEBUG
             print("⚠️ Highlighted first \(maxHighlights) of \(matches.count) matches (+ current match)")
+            #endif
         }
     }
     
@@ -389,7 +409,9 @@ class InEditorSearchManager {
         
         #if DEBUG
         print("🔄 replaceAllMatches: Replacing \(replaceCount) instances of '\(searchText)' with '\(replaceText)'")
+        #if DEBUG
         print("🔄 replaceAllMatches: Text length before: \(textStorage.length)")
+        #endif
         #endif
         
         // Replace in reverse order to maintain valid ranges
@@ -440,7 +462,9 @@ class InEditorSearchManager {
         
         #if DEBUG
         print("🔄 replaceAllMatches: Completed \(replaceCount) replacements")
+        #if DEBUG
         print("🔄 replaceAllMatches: Text in storage after replace: '\(textStorage.string.prefix(50))'")
+        #endif
         #endif
         
         // CRITICAL: Clear old highlights immediately after replacements
@@ -455,7 +479,9 @@ class InEditorSearchManager {
         
         #if DEBUG
         print("🔄 replaceAllMatches: Cleanup")
+        #if DEBUG
         print("🔄 replaceAllMatches: wasUndoEnabled = \(wasUndoEnabled)")
+        #endif
         #endif
         
         // Re-enable undo registration ONLY if it was enabled before
@@ -503,7 +529,9 @@ class InEditorSearchManager {
         
         #if DEBUG
         print("🔄 replaceAllMatches: Complete - replaced \(replaceCount) matches")
+        #if DEBUG
         print("🔄 replaceAllMatches: Reconnected notification observer")
+        #endif
         #endif
         
         return replaceCount

@@ -17,11 +17,15 @@ class SubmissionMigrationService {
     /// - If publication == nil, it's a collection → isCollection = true
     /// - If publication != nil, it's a submission → isCollection = false
     static func migrateIsCollectionFlags(modelContext: ModelContext) {
+        #if DEBUG
         print("[Migration] Starting isCollection flag migration...")
+        #endif
         
         let descriptor = FetchDescriptor<Submission>()
         guard let allSubmissions = try? modelContext.fetch(descriptor) else {
+            #if DEBUG
             print("[Migration] Failed to fetch submissions")
+            #endif
             return
         }
         
@@ -44,14 +48,24 @@ class SubmissionMigrationService {
         if collectionsFixed > 0 || submissionsFixed > 0 {
             do {
                 try modelContext.save()
+                #if DEBUG
                 print("[Migration] ✅ Migration complete:")
+                #endif
+                #if DEBUG
                 print("[Migration]    Collections fixed: \(collectionsFixed)")
+                #endif
+                #if DEBUG
                 print("[Migration]    Submissions fixed: \(submissionsFixed)")
+                #endif
             } catch {
+                #if DEBUG
                 print("[Migration] ❌ Failed to save: \(error)")
+                #endif
             }
         } else {
+            #if DEBUG
             print("[Migration] ✅ No migrations needed - all flags already correct")
+            #endif
         }
     }
     

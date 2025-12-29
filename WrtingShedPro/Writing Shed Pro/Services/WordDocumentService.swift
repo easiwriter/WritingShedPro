@@ -62,9 +62,15 @@ class WordDocumentService {
         
         #if DEBUG
         print("📄 WordDocumentService: Imported '\(filename)'")
+        #if DEBUG
         print("   Text length: \(plainText.count) characters")
+        #endif
+        #if DEBUG
         print("   RTF size: \(rtfData?.count ?? 0) bytes")
+        #endif
+        #if DEBUG
         print("   Has formatting: \(rtfData != nil)")
+        #endif
         #endif
         
         return (plainText, rtfData, filename)
@@ -85,7 +91,9 @@ class WordDocumentService {
     ) throws -> Data {
         // .docx export is not reliably supported on iOS/macOS
         // Fall back to RTF which is fully compatible with Word
+        #if DEBUG
         print("⚠️ WordDocumentService: .docx export not available, using RTF (Word-compatible)")
+        #endif
         return try exportToRTF(attributedString, filename: filename)
     }
     
@@ -109,7 +117,9 @@ class WordDocumentService {
         
         #if DEBUG
         print("📤 WordDocumentService: Exported '\(filename).rtf'")
+        #if DEBUG
         print("   File size: \(rtfData.count) bytes")
+        #endif
         #endif
         
         return rtfData
@@ -156,8 +166,12 @@ class WordDocumentService {
         
         #if DEBUG
         print("📤 WordDocumentService: Exported \(attributedStrings.count) documents to '\(filename).rtf'")
+        #if DEBUG
         print("   File size: \(rtfData.count) bytes")
+        #endif
+        #if DEBUG
         print("   Page breaks: \(usePageBreaks ? "enabled" : "disabled")")
+        #endif
         #endif
         
         return rtfData
@@ -202,7 +216,9 @@ class WordDocumentService {
             viewController.present(activityVC, animated: true)
             
         } catch {
+            #if DEBUG
             print("❌ Failed to share Word document: \(error.localizedDescription)")
+            #endif
         }
     }
     
@@ -243,7 +259,9 @@ class WordDocumentService {
             viewController.present(activityVC, animated: true)
             
         } catch {
+            #if DEBUG
             print("❌ Failed to share RTF: \(error.localizedDescription)")
+            #endif
         }
     }
     

@@ -46,7 +46,9 @@ class EPUBExportService {
         
         #if DEBUG
         print("📤 EPUBExportService: Exported '\(filename).epub'")
+        #if DEBUG
         print("   EPUB size: \(epub.count) bytes")
+        #endif
         #endif
         
         return epub
@@ -102,9 +104,15 @@ class EPUBExportService {
                 if let attachment = value as? ImageAttachment {
                     #if DEBUG
                     print("✅ ImageAttachment found!")
+                    #if DEBUG
                     print("   - Has imageData: \(attachment.imageData != nil)")
+                    #endif
+                    #if DEBUG
                     print("   - Scale: \(attachment.scale)")
+                    #endif
+                    #if DEBUG
                     print("   - Alignment: \(attachment.alignment.rawValue)")
+                    #endif
                     #endif
                     
                     if let imageData = attachment.imageData,
@@ -217,13 +225,19 @@ class EPUBExportService {
         
         #if DEBUG
         print("📝 EPUBExportService: Replacing \(allImages.count) images in combined body")
+        #if DEBUG
         print("📝 Body contains unicode attachment chars: \(combinedBodyWithImages.contains("\u{FFFC}"))")
+        #endif
+        #if DEBUG
         print("📝 Body contains 'Attachment' text: \(combinedBodyWithImages.contains("Attachment"))")
+        #endif
         if combinedBodyWithImages.contains("Attachment") {
             if let range = combinedBodyWithImages.range(of: "Attachment") {
                 let start = combinedBodyWithImages.index(range.lowerBound, offsetBy: -20, limitedBy: combinedBodyWithImages.startIndex) ?? combinedBodyWithImages.startIndex
                 let end = combinedBodyWithImages.index(range.upperBound, offsetBy: 20, limitedBy: combinedBodyWithImages.endIndex) ?? combinedBodyWithImages.endIndex
+                #if DEBUG
                 print("📝 Sample: ...\(combinedBodyWithImages[start..<end])...")
+                #endif
             }
         }
         #endif
@@ -300,7 +314,9 @@ class EPUBExportService {
             
             #if DEBUG
             if !replaced {
+                #if DEBUG
                 print("❌ Could not find placeholder to replace for EPUB image \(currentImageIndex + 1)")
+                #endif
             }
             #endif
         }
@@ -334,8 +350,12 @@ class EPUBExportService {
         
         #if DEBUG
         print("📤 EPUBExportService: Exported '\(filename).epub' with \(attributedStrings.count) files")
+        #if DEBUG
         print("   EPUB size: \(epub.count) bytes")
+        #endif
+        #if DEBUG
         print("   Page breaks inserted: \(attributedStrings.count - 1)")
+        #endif
         #endif
         
         return epub

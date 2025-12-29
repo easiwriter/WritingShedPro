@@ -71,28 +71,40 @@ struct PaginatedDocumentView: View {
             }
         }
         .onAppear {
+            #if DEBUG
             print("📱 PaginatedDocumentView appeared")
+            #endif
+            #if DEBUG
             print("   - currentVersionIndex: \(textFile.currentVersionIndex)")
+            #endif
             // Always recalculate on appear in case version changed while in edit mode
             if layoutManager != nil {
+                #if DEBUG
                 print("   - Recalculating layout on appear")
+                #endif
                 recalculateLayout()
             } else {
                 setupLayoutManager()
             }
         }
         .onChange(of: textFile.currentVersionIndex) { oldValue, newValue in
+            #if DEBUG
             print("🔀 Version index changed: \(oldValue) → \(newValue)")
+            #endif
             // Version changed - recalculate layout with new content
             recalculateLayout()
         }
         .onChange(of: textFile.currentVersion?.content) { oldValue, newValue in
+            #if DEBUG
             print("📝 Version content changed: \(oldValue?.count ?? 0) → \(newValue?.count ?? 0)")
+            #endif
             recalculateLayout()
         }
         // Note: Page setup is now global (UserDefaults), changes require app restart
         .onChange(of: project.styleSheet?.modifiedDate) { _, _ in
+            #if DEBUG
             print("🎨 Stylesheet modified")
+            #endif
             // Stylesheet changed - need to re-render pages with new styles
             // This affects footnote rendering in pagination view
             recalculateLayout()
@@ -217,19 +229,29 @@ struct PaginatedDocumentView: View {
     // MARK: - Layout Management
     
     private func setupLayoutManager() {
+        #if DEBUG
         print("🔧 setupLayoutManager called")
+        #endif
+        #if DEBUG
         print("   - currentVersionIndex: \(textFile.currentVersionIndex)")
+        #endif
+        #if DEBUG
         print("   - currentVersion: \(textFile.currentVersion?.id.uuidString.prefix(8) ?? "nil")")
+        #endif
         
         guard let content = textFile.currentVersion?.content else {
+            #if DEBUG
             print("   ❌ No currentVersion content")
+            #endif
             return
         }
         
         // Use global page setup from UserDefaults
         let pageSetup = pageSetupPrefs.createPageSetup()
         
+        #if DEBUG
         print("   - content length: \(content.count)")
+        #endif
         
         isCalculatingLayout = true
         
@@ -252,31 +274,47 @@ struct PaginatedDocumentView: View {
         
         DispatchQueue.global(qos: .userInitiated).async {
             let _ = manager.calculateLayout(version: version, context: context)
+            #if DEBUG
             print("   ✅ Layout calculated: \(manager.pageCount) pages")
+            #endif
             
             DispatchQueue.main.async {
                 self.layoutManager = manager
                 self.isCalculatingLayout = false
+                #if DEBUG
                 print("   ✅ Layout manager assigned")
+                #endif
             }
         }
     }
     
     private func recalculateLayout() {
+        #if DEBUG
         print("🔄 recalculateLayout called")
+        #endif
+        #if DEBUG
         print("   - currentVersionIndex: \(textFile.currentVersionIndex)")
+        #endif
+        #if DEBUG
         print("   - currentVersion: \(textFile.currentVersion?.id.uuidString.prefix(8) ?? "nil")")
+        #endif
+        #if DEBUG
         print("   - content length: \(textFile.currentVersion?.content.count ?? 0)")
+        #endif
         
         // Use global page setup from UserDefaults
         let pageSetup = pageSetupPrefs.createPageSetup()
         
         if let existingManager = layoutManager {
+            #if DEBUG
             print("   ♻️ Updating existing manager")
+            #endif
             
             // Update text content from current version (preserve formatting)
             if let content = textFile.currentVersion?.content {
+                #if DEBUG
                 print("   📝 Updating textStorage with new content")
+                #endif
                 let attributedContent = textFile.currentVersion?.attributedContent ?? NSAttributedString(string: content)
                 let printSizeContent = removePlatformScaling(from: attributedContent)
                 existingManager.textStorage.replaceCharacters(
@@ -294,15 +332,21 @@ struct PaginatedDocumentView: View {
             isCalculatingLayout = true
             DispatchQueue.global(qos: .userInitiated).async {
                 let _ = existingManager.calculateLayout(version: version, context: context)
+                #if DEBUG
                 print("   ✅ Recalculated: \(existingManager.pageCount) pages")
+                #endif
                 
                 DispatchQueue.main.async {
                     self.isCalculatingLayout = false
+                    #if DEBUG
                     print("   ✅ Recalculation complete")
+                    #endif
                 }
             }
         } else {
+            #if DEBUG
             print("   🆕 Creating new layout manager")
+            #endif
             setupLayoutManager()
         }
     }
@@ -344,10 +388,18 @@ struct PaginatedDocumentView: View {
             mutableString.addAttribute(.font, value: newFont, range: range)
         }
         
+        #if DEBUG
         print("📐 [Pagination] Scaling fonts:")
+        #endif
+        #if DEBUG
         print("   - Scale factor: \(scaleFactor)")
+        #endif
+        #if DEBUG
         print("   - Original font sizes: \(fontSizesFound.sorted())")
+        #endif
+        #if DEBUG
         print("   - Scaled font sizes: \(scaledFontSizes.sorted())")
+        #endif
         
         return mutableString
     }
@@ -375,13 +427,17 @@ struct PaginatedDocumentView: View {
     // MARK: - Printing
     
     private func printDocument() {
+        #if DEBUG
         print("🖨️ Print button tapped from pagination view")
+        #endif
         
         // Get the view controller to present from
         guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
               let window = windowScene.windows.first,
               let viewController = window.rootViewController else {
+            #if DEBUG
             print("❌ Could not find view controller for print dialog")
+            #endif
             printErrorMessage = "Unable to present print dialog"
             showPrintError = true
             return
@@ -395,13 +451,19 @@ struct PaginatedDocumentView: View {
             from: viewController
         ) { success, error in
             if let error = error {
+                #if DEBUG
                 print("❌ Print failed: \(error.localizedDescription)")
+                #endif
                 printErrorMessage = error.localizedDescription
                 showPrintError = true
             } else if success {
+                #if DEBUG
                 print("✅ Print completed successfully")
+                #endif
             } else {
+                #if DEBUG
                 print("⚠️ Print was cancelled")
+                #endif
             }
         }
     }

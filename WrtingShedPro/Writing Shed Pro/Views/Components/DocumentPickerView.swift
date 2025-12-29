@@ -53,20 +53,26 @@ struct DocumentPickerView: UIViewControllerRepresentable {
         }
         
         func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+            #if DEBUG
             print("📄 ✅ Picker selected \(urls.count) files (modern)")
+            #endif
             guard let url = urls.first else { return }
             parent.isPresented = false
             parent.onPick(url)
         }
         
         func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentAt url: URL) {
+            #if DEBUG
             print("📄 ✅ Picker selected file (legacy)")
+            #endif
             parent.isPresented = false
             parent.onPick(url)
         }
         
         func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+            #if DEBUG
             print("📄 ❌ Picker was cancelled")
+            #endif
             parent.isPresented = false
         }
     }

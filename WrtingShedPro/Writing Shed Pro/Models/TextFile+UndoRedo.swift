@@ -10,8 +10,26 @@ extension TextFile {
             // Flush typing buffer before saving
             undoManager.flushTypingBuffer()
             
-            // Convert undo stack to serialized commands
-            let undoCommands = try undoManager.undoStack.map { command -> SerializedCommand in
+            // PERFORMANCE FIX: Filter out "Typing" commands before saving
+            // FormatApplyCommand for typing stores the ENTIRE document twice per keystroke,
+            // which can create massive undo stacks (100 commands × 2 full documents).
+            // Deserializing this on load causes beachball/hang.
+            // Only persist meaningful formatting commands, not per-keystroke snapshots.
+            let commandsToSave = undoManager.undoStack.filter { command in
+                // Skip FormatApplyCommand with "Typing" description
+                if let formatCmd = command as? FormatApplyCommand,
+                   formatCmd.description == "Typing" {
+                    return false
+                }
+                // Skip TextInsertCommand (these are lightweight but typing-related)
+                if command is TextInsertCommand {
+                    return false
+                }
+                return true
+            }
+            
+            // Convert filtered commands to serialized format
+            let undoCommands = try commandsToSave.map { command -> SerializedCommand in
                 try SerializedCommand.from(command)
             }
             
@@ -38,6 +56,18 @@ extension TextFile {
     func restoreUndoState() -> TextFileUndoManager? {
         guard let undoData = undoStackData else {
             // print("ℹ️ No undo state to restore")
+            return nil
+        }
+        
+        // PERFORMANCE FIX: If undo data is too large (likely old format with full document snapshots),
+        // skip loading it to prevent beachball/hang. Clear the problematic data.
+        // 1MB is a reasonable limit - normal undo commands should be much smaller
+        let maxUndoDataSize = 1024 * 1024 // 1MB
+        if undoData.count > maxUndoDataSize {
+            #if DEBUG
+            print("⚠️ Undo data too large (\(undoData.count) bytes) - clearing to prevent hang")
+            #endif
+            clearUndoHistory()
             return nil
         }
         

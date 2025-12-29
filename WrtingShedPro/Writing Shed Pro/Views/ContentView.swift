@@ -61,13 +61,17 @@ struct ContentView: View {
         Task(priority: .utility) {
             // Run async on main thread (ModelContext must stay on its creation thread)
             StyleSheetService.initializeStyleSheetsIfNeeded(context: modelContext)
+            #if DEBUG
             print("✅ [ContentView] Stylesheets initialized")
+            #endif
         }
     }
     
     /// Handle Import menu action - show file picker directly
     private func handleImportMenu() {
+        #if DEBUG
         print("[ContentView] Import menu clicked - showing file picker")
+        #endif
         state.showingJSONImportPicker = true
     }
     
@@ -78,7 +82,9 @@ struct ContentView: View {
         case .success(let urls):
             guard let fileURL = urls.first else { return }
             
+            #if DEBUG
             print("[ContentView] Starting JSON import from: \(fileURL)")
+            #endif
             
             Task {
                 // CRITICAL: Start accessing security-scoped resource inside the Task
@@ -87,14 +93,18 @@ struct ContentView: View {
                         state.importErrorMessage = NSLocalizedString("contentView.importError.accessDenied", comment: "Unable to access the selected file")
                         state.showImportError = true
                     }
+                    #if DEBUG
                     print("[ContentView] Failed to access security-scoped resource")
+                    #endif
                     return
                 }
                 
                 // Ensure we stop accessing when done
                 defer {
                     fileURL.stopAccessingSecurityScopedResource()
+                    #if DEBUG
                     print("[ContentView] Stopped accessing security-scoped resource")
+                    #endif
                 }
                 
                 do {
@@ -110,11 +120,15 @@ struct ContentView: View {
                     // Perform import
                     let project = try jsonImporter.importFromJSON(fileURL: fileURL)
                     
+                    #if DEBUG
                     print("[ContentView] JSON import succeeded: \(project.name ?? "Untitled")")
+                    #endif
                     
                     // Show warnings if any
                     if !errorHandler.warnings.isEmpty {
+                        #if DEBUG
                         print("[ContentView] Import completed with \(errorHandler.warnings.count) warnings:")
+                        #endif
                         errorHandler.warnings.forEach { print("  - \($0)") }
                     }
                     
@@ -128,14 +142,18 @@ struct ContentView: View {
                         state.importErrorMessage = String(format: NSLocalizedString("contentView.importError.failed", comment: "Failed to import project"), error.localizedDescription)
                         state.showImportError = true
                     }
+                    #if DEBUG
                     print("[ContentView] JSON import failed: \(error)")
+                    #endif
                 }
             }
             
         case .failure(let error):
             state.importErrorMessage = String(format: NSLocalizedString("contentView.importError.selectFailed", comment: "Failed to select file"), error.localizedDescription)
             state.showImportError = true
+            #if DEBUG
             print("[ContentView] File selection failed: \(error)")
+            #endif
         }
     }
     
@@ -160,9 +178,13 @@ struct ContentView: View {
         }
         do {
             try modelContext.save()
+            #if DEBUG
             print("[ContentView] DEBUG: Successfully deleted all projects")
+            #endif
         } catch {
+            #if DEBUG
             print("[ContentView] DEBUG: Failed to delete projects: \(error)")
+            #endif
         }
         #endif
     }

@@ -46,8 +46,12 @@ class RTFImageEncoder {
         
         """
         
+        #if DEBUG
         print("📝 RTF: Starting to encode \(attributedString.length) characters")
+        #endif
+        #if DEBUG
         print("📝 RTF: String content: \(attributedString.string.prefix(100))...")
+        #endif
         
         // Process the attributed string character by character
         let length = attributedString.length
@@ -61,9 +65,15 @@ class RTFImageEncoder {
             // Check if this is an attachment (image)
             if let attachment = attributes[.attachment] as? ImageAttachment {
                 // Images are not supported in RTF export - skip them
+                #if DEBUG
                 print("📷 RTF: Skipping image at position \(i) (RTF image export not supported)")
+                #endif
+                #if DEBUG
                 print("📷 RTF: attachment.originalFilename = \(attachment.originalFilename ?? "nil")")
+                #endif
+                #if DEBUG
                 print("📷 RTF: attachment.captionText = \(attachment.captionText ?? "nil")")
+                #endif
                 
                 // Close any open formatting before skipping the image
                 if currentAttributes != nil {
@@ -75,13 +85,19 @@ class RTFImageEncoder {
                 let imageName: String
                 if let filename = attachment.originalFilename, !filename.isEmpty {
                     imageName = filename
+                    #if DEBUG
                     print("📷 RTF: Using filename: \(imageName)")
+                    #endif
                 } else if let caption = attachment.captionText, !caption.isEmpty {
                     imageName = caption
+                    #if DEBUG
                     print("📷 RTF: Using caption: \(imageName)")
+                    #endif
                 } else {
                     imageName = "Image-\(attachment.imageID.uuidString.prefix(8))"
+                    #if DEBUG
                     print("📷 RTF: Using imageID: \(imageName)")
+                    #endif
                 }
                 
                 // Add a placeholder indicator with the image identifier
@@ -129,7 +145,9 @@ class RTFImageEncoder {
             let scaleFactor = min(maxDimension / size.width, maxDimension / size.height)
             let newSize = CGSize(width: size.width * scaleFactor, height: size.height * scaleFactor)
             
+            #if DEBUG
             print("📷 Downscaling image from \(size) to \(newSize) for RTF")
+            #endif
             
             UIGraphicsBeginImageContextWithOptions(newSize, false, 1.0)
             image.draw(in: CGRect(origin: .zero, size: newSize))
@@ -139,11 +157,15 @@ class RTFImageEncoder {
         
         // Use PNG for better quality at smaller sizes
         guard let imageData = imageToEncode.pngData() else {
+            #if DEBUG
             print("❌ Failed to get PNG data from image")
+            #endif
             return ""
         }
         
+        #if DEBUG
         print("📷 Creating NSTextAttachment with PNG data (\(imageData.count) bytes)")
+        #endif
         
         let attachment = NSTextAttachment()
         
@@ -157,30 +179,42 @@ class RTFImageEncoder {
         // Create attributed string with just this attachment
         let attrString = NSAttributedString(attachment: attachment)
         
+        #if DEBUG
         print("📷 Converting attachment to RTF...")
+        #endif
         
         // Convert to RTF data using Apple's converter
         guard let rtfData = try? attrString.data(
             from: NSRange(location: 0, length: attrString.length),
             documentAttributes: [.documentType: NSAttributedString.DocumentType.rtf]
         ), let rtfString = String(data: rtfData, encoding: .utf8) else {
+            #if DEBUG
             print("❌ Failed to generate RTF for image")
+            #endif
             return ""
         }
         
+        #if DEBUG
         print("📷 RTF generated, length: \(rtfString.count) chars")
+        #endif
         
         // Extract just the picture part from the RTF (between \pict and the closing brace)
         // Apple's RTF will have: {\pict...data...}
         if let pictStart = rtfString.range(of: "{\\pict"),
            let closingBrace = rtfString.range(of: "}", range: pictStart.upperBound..<rtfString.endIndex) {
             let pictureCode = String(rtfString[pictStart.lowerBound..<closingBrace.upperBound])
+            #if DEBUG
             print("📷 Extracted Apple RTF picture code (length: \(pictureCode.count) chars)")
+            #endif
             return pictureCode
         }
         
+        #if DEBUG
         print("⚠️ Could not extract picture code from Apple RTF")
+        #endif
+        #if DEBUG
         print("📷 RTF sample: \(rtfString.prefix(500))")
+        #endif
         return ""
     }
     */

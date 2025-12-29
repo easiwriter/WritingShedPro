@@ -63,18 +63,14 @@ struct AttributedStringSerializer {
         
         // Get the hex value of the resolved color
         guard let hex = color.toHex() else {
-            print("🔍 isAdaptiveSystemColor: Failed to convert color to hex")
             return false
         }
         let upperHex = hex.uppercased()
-        
-        print("🔍 isAdaptiveSystemColor: Checking color with hex=\(upperHex)")
         
         // If it's pure black or white, treat it as adaptive
         // This catches both .label in light mode (black) and dark mode (white)
         if upperHex == "#000000" || upperHex == "#000000FF" ||
            upperHex == "#FFFFFF" || upperHex == "#FFFFFFFF" {
-            print("   ✅ IS adaptive (black or white)")
             return true
         }
         
@@ -90,13 +86,11 @@ struct AttributedStringSerializer {
                 
                 // If R, G, B are all equal (gray), likely a system label color
                 if r == g && g == b {
-                    print("   ✅ IS adaptive (gray R=G=B)")
                     return true
                 }
             }
         }
         
-        print("   ❌ NOT adaptive (user color)")
         return false
     }
     
@@ -106,15 +100,12 @@ struct AttributedStringSerializer {
     /// - Returns: true if this is pure black or white
     static func isFixedBlackOrWhite(_ color: UIColor) -> Bool {
         guard let hex = color.toHex() else {
-            print("🔍 isFixedBlackOrWhite: Failed to convert color to hex")
             return false
         }
         // Check for pure black or white (with or without alpha)
         let upperHex = hex.uppercased()
-        let result = upperHex == "#000000" || upperHex == "#000000FF" ||
-                     upperHex == "#FFFFFF" || upperHex == "#FFFFFFFF"
-        print("🔍 isFixedBlackOrWhite: hex=\(upperHex) result=\(result)")
-        return result
+        return upperHex == "#000000" || upperHex == "#000000FF" ||
+               upperHex == "#FFFFFF" || upperHex == "#FFFFFFFF"
     }
     
     /// Strip adaptive colors from an attributed string
@@ -126,15 +117,14 @@ struct AttributedStringSerializer {
         let mutableString = NSMutableAttributedString(attributedString: attributedString)
         let fullRange = NSRange(location: 0, length: mutableString.length)
         
-        var rangesToStrip: [(NSRange, UIColor)] = []
+        var rangesToStrip: [NSRange] = []
         var rangesToAddLabel: [NSRange] = []
         
         // Find all color attributes that should be stripped or ranges with no color
         mutableString.enumerateAttribute(.foregroundColor, in: fullRange, options: []) { value, range, _ in
             if let color = value as? UIColor {
-                print("🧹 Found foreground color at range {\(range.location), \(range.length)}: \(color.toHex() ?? "unknown")")
                 if isAdaptiveSystemColor(color) || isFixedBlackOrWhite(color) {
-                    rangesToStrip.append((range, color))
+                    rangesToStrip.append(range)
                     rangesToAddLabel.append(range)
                 }
             } else {
@@ -143,31 +133,16 @@ struct AttributedStringSerializer {
             }
         }
         
-//        if !hasAnyColorAttribute {
-//            print("🧹 WARNING: No foreground color attributes found in string (length: \(mutableString.length))")
-//            print("🧹 Will add .label color explicitly for dark mode support")
-//        }
-        
         // Remove adaptive colors first
-        for (range, color) in rangesToStrip {
+        for range in rangesToStrip {
             mutableString.removeAttribute(.foregroundColor, range: range)
-            print("🧹 Stripped adaptive color \(color.toHex() ?? "unknown") from range {\(range.location), \(range.length)}")
         }
         
         // Add .label color to ranges that have no color or had adaptive colors removed
         // This ensures UITextView uses adaptive color instead of defaulting to black
         for range in rangesToAddLabel {
             mutableString.addAttribute(.foregroundColor, value: UIColor.label, range: range)
-//            print("🧹 Added .label color for adaptive dark mode at range {\(range.location), \(range.length)}")
         }
-        
-//        if !rangesToStrip.isEmpty {
-//            print("🧹 Stripped \(rangesToStrip.count) adaptive color ranges and added .label")
-//        } else if hasAnyColorAttribute {
-//            print("🧹 Found colors but none were adaptive - preserving user colors")
-//        } else if !rangesToAddLabel.isEmpty {
-//            print("🧹 Added .label to \(rangesToAddLabel.count) ranges with no color")
-//        }
         
         return mutableString
     }
@@ -238,18 +213,6 @@ struct AttributedStringSerializer {
     /// - Parameter attributedString: The attributed string to encode
     /// - Returns: Encoded data
     static func encode(_ attributedString: NSAttributedString) -> Data {
-        // Debug: Count attachments in the string we're encoding
-        var commentCount = 0
-        var imageCount = 0
-        attributedString.enumerateAttribute(.attachment, in: NSRange(location: 0, length: attributedString.length)) { value, range, _ in
-            if value is CommentAttachment {
-                commentCount += 1
-            } else if value is ImageAttachment {
-                imageCount += 1
-            }
-        }
-        print("💾📝 ENCODE START: String has \(commentCount) comments and \(imageCount) images")
-        
         var allAttributes = [AttributeValues]()
         let range = NSRange(location: 0, length: attributedString.length)
         
@@ -369,22 +332,16 @@ struct AttributedStringSerializer {
                             if let fileID = imageAttachment.fileID {
                                 attributes.imageFileID = fileID.uuidString
                             }
-                            
-                            // Logging commented out to reduce console spam during undo/version saves
-                            // print("💾 ENCODE image at \(range.location): id=\(imageAttachment.imageID), scale=\(imageAttachment.scale), alignment=\(imageAttachment.alignment.rawValue)")
                         } else if let commentAttachment = value as? CommentAttachment {
                             attributes.isCommentAttachment = true
                             attributes.commentID = commentAttachment.commentID.uuidString
                             attributes.commentIsResolved = commentAttachment.isResolved
-                            print("💬💾 ENCODE comment at \(range.location): id=\(commentAttachment.commentID), resolved=\(commentAttachment.isResolved)")
                         } else if let footnoteAttachment = value as? FootnoteAttachment {
                             attributes.isFootnoteAttachment = true
                             attributes.footnoteID = footnoteAttachment.footnoteID.uuidString
                             attributes.footnoteNumber = footnoteAttachment.number
-                            print("📝💾 ENCODE footnote at \(range.location): id=\(footnoteAttachment.footnoteID), number=\(footnoteAttachment.number)")
-                        } else {
-                            print("💾 ⚠️ ENCODE: Attachment is neither Image, Comment, nor Footnote - type: \(type(of: value))")
                         }
+                        // Note: Unknown attachment types are silently ignored
                         
                     default:
                         break
@@ -397,7 +354,9 @@ struct AttributedStringSerializer {
         do {
             return try PropertyListEncoder().encode(allAttributes)
         } catch {
+            #if DEBUG
             print("❌ Error encoding attributed string: \(error)")
+            #endif
             return Data()
         }
     }
@@ -442,12 +401,6 @@ struct AttributedStringSerializer {
                 if let fontName = jsonAttributes.fontName,
                    let fontSize = jsonAttributes.fontSize {
                     
-                    #if DEBUG
-                    if location == 0 {
-                        print("📖 DECODE font at position 0: name=\(fontName), size=\(fontSize)")
-                    }
-                    #endif
-                    
                     var font: UIFont
                     let isBold = jsonAttributes.bold ?? false
                     let isItalic = jsonAttributes.italic ?? false
@@ -464,12 +417,6 @@ struct AttributedStringSerializer {
                         // Use the font name directly with traits
                         font = UIFont.fontWithNameAndTraits(fontName, size: fontSize, bold: isBold, italic: isItalic)
                     }
-                    
-                    #if DEBUG
-                    if location == 0 {
-                        print("📖 DECODE created font: \(font.fontName) \(font.pointSize)pt")
-                    }
-                    #endif
                     
                     attributes[.font] = font
                 }
@@ -599,17 +546,6 @@ struct AttributedStringSerializer {
                     // Create CommentAttachment
                     let isResolved = jsonAttributes.commentIsResolved ?? false
                     let attachment = CommentAttachment(commentID: commentID, isResolved: isResolved)
-                    
-                    // Debug: Check if the character at this position is the attachment character
-                    if location < result.length {
-                        let char = (result.string as NSString).character(at: location)
-                        let isAttachmentChar = (char == 0xFFFC)  // U+FFFC Object Replacement Character
-//                        print("💬📖 DECODE comment at \(location): id=\(commentID), resolved=\(isResolved), length=\(length)")
-                        print("       Character at position: \\u{\(String(format: "%04X", char))}, is attachment char: \(isAttachmentChar)")
-                    } else {
-//                        print("💬📖 DECODE comment at \(location): id=\(commentID) - POSITION OUT OF BOUNDS (text length: \(result.length))")
-                    }
-                    
                     attributes[.attachment] = attachment
                 }
                 
@@ -621,24 +557,15 @@ struct AttributedStringSerializer {
                     
                     // Create FootnoteAttachment
                     let attachment = FootnoteAttachment(footnoteID: footnoteID, number: footnoteNumber)
-                    
-                    // Debug: Check if the character at this position is the attachment character
-                    if location < result.length {
-                        let char = (result.string as NSString).character(at: location)
-                        let isAttachmentChar = (char == 0xFFFC)  // U+FFFC Object Replacement Character
-//                        print("📝📖 DECODE footnote at \(location): id=\(footnoteID), number=\(footnoteNumber), length=\(length)")
-                        print("       Character at position: \\u{\(String(format: "%04X", char))}, is attachment char: \(isAttachmentChar)")
-                    } else {
-//                        print("📝📖 DECODE footnote at \(location): id=\(footnoteID) - POSITION OUT OF BOUNDS (text length: \(result.length))")
-                    }
-                    
                     attributes[.attachment] = attachment
                 }
                 
                 result.addAttributes(attributes, range: NSRange(location: location, length: length))
             }
         } catch {
+            #if DEBUG
             print("❌ Error decoding attributed string: \(error)")
+            #endif
         }
         
         // CRITICAL: Strip adaptive colors after decoding
@@ -665,7 +592,9 @@ struct AttributedStringSerializer {
         
         // If there are images, use our custom RTF encoder
         if hasImages {
+            #if DEBUG
             print("📷 Using custom RTF encoder for image support")
+            #endif
             return RTFImageEncoder.encodeToRTF(attributedString)
         }
         
@@ -676,7 +605,9 @@ struct AttributedStringSerializer {
                 documentAttributes: [.documentType: NSAttributedString.DocumentType.rtf]
             )
         } catch {
+            #if DEBUG
             print("❌ AttributedStringSerializer.toRTF error: \(error.localizedDescription)")
+            #endif
             return nil
         }
     }
@@ -710,7 +641,9 @@ struct AttributedStringSerializer {
             rtfString.enumerateAttribute(.strikethroughStyle, in: NSRange(location: 0, length: rtfString.length)) { value, _, _ in
                 if let style = value as? Int, style != 0 { strikeCount += 1 }
             }
+            #if DEBUG
             print("📝 fromRTF: Decoded RTF has \(boldCount) bold, \(italicCount) italic, \(underlineCount) underline, \(strikeCount) strikethrough ranges")
+            #endif
             #endif
             
             // CRITICAL: Restore multiple spaces that were preserved as non-breaking spaces
@@ -735,7 +668,9 @@ struct AttributedStringSerializer {
             // user-selected colors (red, blue, etc.) so text adapts to appearance mode
             return stripAdaptiveColors(from: processedString)
         } catch {
+            #if DEBUG
             print("❌ AttributedStringSerializer.fromRTF error: \(error.localizedDescription)")
+            #endif
             return nil
         }
     }
@@ -862,10 +797,14 @@ struct AttributedStringSerializer {
             if let style = value as? Int, style != 0 { strikeRangesAfter += 1 }
         }
         
+        #if DEBUG
         print("📝 scaleFonts (normalize): BEFORE: \(boldRangesBefore) bold, \(italicRangesBefore) italic | AFTER: \(boldRangesAfter) bold, \(italicRangesAfter) italic, \(underlineRangesAfter) underline, \(strikeRangesAfter) strikethrough")
+        #endif
         
         if boldRangesBefore != boldRangesAfter || italicRangesBefore != italicRangesAfter {
+            #if DEBUG
             print("⚠️ WARNING: Trait counts changed during normalization!")
+            #endif
         }
         
         return mutableString

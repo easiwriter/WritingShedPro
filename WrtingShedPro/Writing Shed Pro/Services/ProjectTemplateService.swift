@@ -38,10 +38,16 @@ struct ProjectTemplateService {
         // Explicitly save the context to ensure all relationships are persisted
         do {
             try modelContext.save()
+            #if DEBUG
             print("✅ Successfully created folder structure for project: \(project.name ?? "Unknown")")
+            #endif
+            #if DEBUG
             print("📁 Total folders created: \(foldersToAdd.count)")
+            #endif
         } catch {
+            #if DEBUG
             print("❌ Error saving folder structure: \(error)")
+            #endif
         }
     }
     

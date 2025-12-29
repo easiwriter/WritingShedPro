@@ -19,12 +19,16 @@ class PrintFormatter {
     /// - Returns: Print-ready attributed string with proper scaling
     static func formatFile(_ file: TextFile) -> NSAttributedString? {
         guard let version = file.currentVersion else {
+            #if DEBUG
             print("❌ [PrintFormatter] No current version for file: \(file.name)")
+            #endif
             return nil
         }
         
         guard let attributedContent = version.attributedContent else {
+            #if DEBUG
             print("❌ [PrintFormatter] No attributed content for file: \(file.name)")
+            #endif
             return nil
         }
         
@@ -34,9 +38,15 @@ class PrintFormatter {
         // Remove platform scaling to get print-accurate sizes
         let printContent = removePlatformScaling(from: contentWithoutVisualMarkers)
         
+        #if DEBUG
         print("✅ [PrintFormatter] Formatted file '\(file.name)' for printing")
+        #endif
+        #if DEBUG
         print("   - Original length: \(attributedContent.length)")
+        #endif
+        #if DEBUG
         print("   - Print length: \(printContent.length)")
+        #endif
         
         return printContent
     }
@@ -49,7 +59,9 @@ class PrintFormatter {
     /// - Returns: Combined attributed string ready for printing
     static func formatMultipleFiles(_ files: [TextFile]) -> NSAttributedString? {
         guard !files.isEmpty else {
+            #if DEBUG
             print("❌ [PrintFormatter] Empty file array")
+            #endif
             return nil
         }
         
@@ -58,7 +70,9 @@ class PrintFormatter {
         
         for (index, file) in files.enumerated() {
             guard let fileContent = formatFile(file) else {
+                #if DEBUG
                 print("⚠️ [PrintFormatter] Skipping file '\(file.name)' - no content")
+                #endif
                 continue
             }
             
@@ -83,7 +97,9 @@ class PrintFormatter {
                     )
                     
                     combined.append(pageBreakString)
+                    #if DEBUG
                     print("   - Added page break after '\(file.name)'")
+                    #endif
                 } else {
                     // Use paragraph break for visual separation
                     let separator = NSAttributedString(string: "\n\n")
@@ -92,9 +108,15 @@ class PrintFormatter {
             }
         }
         
+        #if DEBUG
         print("✅ [PrintFormatter] Combined \(files.count) files for printing")
+        #endif
+        #if DEBUG
         print("   - Total length: \(combined.length) characters")
+        #endif
+        #if DEBUG
         print("   - Page breaks: \(usePageBreaks ? "enabled" : "disabled")")
+        #endif
         
         return combined
     }
@@ -138,9 +160,15 @@ class PrintFormatter {
             mutableString.addAttribute(.font, value: newFont, range: range)
         }
         
+        #if DEBUG
         print("   - Applied scaling factor: \(scaleFactor) (Mac=÷1.3, iOS=×1.0)")
+        #endif
+        #if DEBUG
         print("   - Original font sizes: \(fontSizesFound.sorted())")
+        #endif
+        #if DEBUG
         print("   - Scaled font sizes: \(scaledFontSizes.sorted())")
+        #endif
         
         return mutableString
     }

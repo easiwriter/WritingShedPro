@@ -40,7 +40,9 @@ class AppearancePreferences {
     
     private func savePreference() {
         UserDefaults.standard.set(appearanceMode.rawValue, forKey: "AppearanceMode")
+        #if DEBUG
         print("💡 Saved appearance mode: \(appearanceMode.rawValue)")
+        #endif
     }
     
     // MARK: - Computed Properties

@@ -409,7 +409,9 @@ struct FolderFilesView: View {
         do {
             try service.deleteFiles(files)
         } catch {
+            #if DEBUG
             print("Error deleting files: \(error)")
+            #endif
             // TODO: Show error alert
         }
     }
@@ -422,7 +424,9 @@ struct FolderFilesView: View {
             showMoveDestinationPicker = false
             filesToMove = []
         } catch {
+            #if DEBUG
             print("Error moving files: \(error)")
+            #endif
             // TODO: Show error alert
         }
     }
@@ -478,7 +482,9 @@ struct FolderFilesView: View {
         do {
             try modelContext.save()
         } catch {
+            #if DEBUG
             print("Error adding files to collection: \(error)")
+            #endif
             // TODO: Show error alert
         }
         
@@ -513,8 +519,12 @@ struct FolderFilesView: View {
                     
                     #if DEBUG
                     print("✅ Imported '\(filename)' successfully")
+                    #if DEBUG
                     print("   File ID: \(file.id)")
+                    #endif
+                    #if DEBUG
                     print("   Version count: \(file.versions?.count ?? 0)")
+                    #endif
                     #endif
                     
                     // CRITICAL: Process pending changes to avoid "store went missing" error
@@ -585,7 +595,9 @@ struct FolderFilesView: View {
                     imageCount += 1
                 }
             }
+            #if DEBUG
             print("📄 FolderFilesView: File \(index + 1) '\(file.name)' has \(imageCount) images in attributedContent")
+            #endif
             #endif
             
             // Store individual attributed string for HTML export
@@ -612,15 +624,23 @@ struct FolderFilesView: View {
     
     private func exportCombinedFolder(format: ExportFormat) {
         // ALWAYS print, not just in DEBUG
+        #if DEBUG
         print("📁 exportCombinedFolder() called with format: \(format)")
+        #endif
+        #if DEBUG
         print("📁 exportAttributedStrings count: \(exportAttributedStrings.count)")
+        #endif
+        #if DEBUG
         print("📁 exportCombinedContent length: \(exportCombinedContent?.length ?? 0)")
+        #endif
         
         // Set the export format
         self.exportFormat = format
         
         guard let combinedContent = exportCombinedContent else {
+            #if DEBUG
             print("❌ exportCombinedContent is nil!")
+            #endif
             return
         }
         
@@ -640,7 +660,9 @@ struct FolderFilesView: View {
         // Run export in background to keep UI responsive
         Task {
             do {
+                #if DEBUG
                 print("📁 About to call export service for format: \(format)")
+                #endif
                 
                 // Capture array locally to avoid main actor isolation issues
                 let attributedStrings = exportAttributedStrings
@@ -656,7 +678,9 @@ struct FolderFilesView: View {
                     }.value
                 case .html:
                     // Use the array version for HTML to preserve page breaks and prevent CSS conflicts
+                    #if DEBUG
                     print("📁 Calling HTMLExportService.exportMultipleToHTMLData with \(attributedStrings.count) strings")
+                    #endif
                     data = try await Task.detached {
                         try HTMLExportService.exportMultipleToHTMLData(attributedStrings, filename: filename)
                     }.value
@@ -743,7 +767,9 @@ struct FolderFilesView: View {
     private func handleExportResult(result: Result<URL, Error>) {
         switch result {
         case .success(let url):
+            #if DEBUG
             print("✅ Exported to: \(url.path)")
+            #endif
             // Remove the first file and continue with remaining files if any
             if !filesToExport.isEmpty {
                 filesToExport.removeFirst()
@@ -753,7 +779,9 @@ struct FolderFilesView: View {
                 }
             }
         case .failure(let error):
+            #if DEBUG
             print("❌ Export failed: \(error.localizedDescription)")
+            #endif
             filesToExport = []
         }
     }
@@ -781,7 +809,9 @@ struct FolderFilesView: View {
         do {
             try modelContext.save()
         } catch {
+            #if DEBUG
             print("Error renaming file: \(error)")
+            #endif
             // TODO: Show error alert
         }
         

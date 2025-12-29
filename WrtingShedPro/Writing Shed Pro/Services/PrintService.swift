@@ -28,10 +28,14 @@ class PrintService {
         from viewController: UIViewController,
         completion: @escaping (Bool, Error?) -> Void
     ) {
+        #if DEBUG
         print("🖨️ [PrintService] Printing file: \(file.name)")
+        #endif
         
         guard let content = file.currentVersion?.content else {
+            #if DEBUG
             print("❌ [PrintService] No content in file")
+            #endif
             completion(false, PrintError.noContent)
             return
         }
@@ -70,21 +74,27 @@ class PrintService {
         from viewController: UIViewController,
         completion: @escaping (Bool, Error?) -> Void
     ) {
+        #if DEBUG
         print("🖨️ [PrintService] Printing collection: \(collection.name ?? "Untitled")")
+        #endif
         
         // Get files from collection (through submittedFiles)
         let files = collection.submittedFiles?.compactMap { $0.textFile } ?? []
         let sortedFiles = files.sorted { $0.name < $1.name }
         
         guard !sortedFiles.isEmpty else {
+            #if DEBUG
             print("❌ [PrintService] Collection is empty")
+            #endif
             completion(false, PrintError.noContent)
             return
         }
         
         // Format multiple files
         guard let content = PrintFormatter.formatMultipleFiles(sortedFiles) else {
+            #if DEBUG
             print("❌ [PrintService] Failed to format collection for printing")
+            #endif
             completion(false, PrintError.noContent)
             return
         }
@@ -97,7 +107,9 @@ class PrintService {
         
         if usePageBreaks {
             // Use custom renderer for proper page break support
+            #if DEBUG
             print("   - Using custom renderer for page breaks")
+            #endif
             presentCustomRendererPrintDialog(
                 content: content,
                 pageSetup: pageSetup,
@@ -108,7 +120,9 @@ class PrintService {
             )
         } else {
             // Use simple formatter for continuous flow
+            #if DEBUG
             print("   - Using simple formatter for continuous flow")
+            #endif
             presentSimplePrintDialog(
                 content: content,
                 pageSetup: pageSetup,
@@ -133,21 +147,27 @@ class PrintService {
         from viewController: UIViewController,
         completion: @escaping (Bool, Error?) -> Void
     ) {
+        #if DEBUG
         print("🖨️ [PrintService] Printing submission: \(submission.publication?.name ?? submission.name ?? "Untitled")")
+        #endif
         
         // Get files from submission (through submittedFiles)
         let files = submission.submittedFiles?.compactMap { $0.textFile } ?? []
         let sortedFiles = files.sorted { $0.name < $1.name }
         
         guard !sortedFiles.isEmpty else {
+            #if DEBUG
             print("❌ [PrintService] Submission is empty")
+            #endif
             completion(false, PrintError.noContent)
             return
         }
         
         // Format multiple files
         guard let content = PrintFormatter.formatMultipleFiles(sortedFiles) else {
+            #if DEBUG
             print("❌ [PrintService] Failed to format submission for printing")
+            #endif
             completion(false, PrintError.noContent)
             return
         }
@@ -160,7 +180,9 @@ class PrintService {
         
         if usePageBreaks {
             // Use custom renderer for proper page break support
+            #if DEBUG
             print("   - Using custom renderer for page breaks")
+            #endif
             presentCustomRendererPrintDialog(
                 content: content,
                 pageSetup: pageSetup,
@@ -171,7 +193,9 @@ class PrintService {
             )
         } else {
             // Use simple formatter for continuous flow
+            #if DEBUG
             print("   - Using simple formatter for continuous flow")
+            #endif
             presentSimplePrintDialog(
                 content: content,
                 pageSetup: pageSetup,
@@ -230,9 +254,15 @@ class PrintService {
         let version = file.currentVersion
         let _ = layoutManager.calculateLayout(version: version, context: context)
         
+        #if DEBUG
         print("🖨️ Print Dialog Setup:")
+        #endif
+        #if DEBUG
         print("   - Using CustomPDFPageRenderer with footnote support")
+        #endif
+        #if DEBUG
         print("   - Calculated pages: \(layoutManager.pageCount)")
+        #endif
         
         // Create custom renderer
         let renderer = CustomPDFPageRenderer(
@@ -250,23 +280,37 @@ class PrintService {
         printController.showsNumberOfCopies = true
         printController.showsPaperSelectionForLoadedPapers = true
         
+        #if DEBUG
         print("   - Job name: \(title)")
+        #endif
+        #if DEBUG
         print("   - Orientation: \(isLandscape ? "landscape" : "portrait")")
+        #endif
+        #if DEBUG
         print("   - Paper size: \(pageSetup.paperSize.dimensions.width) x \(pageSetup.paperSize.dimensions.height)")
+        #endif
+        #if DEBUG
         print("   - Margins: T:\(pageSetup.marginTop) L:\(pageSetup.marginLeft) B:\(pageSetup.marginBottom) R:\(pageSetup.marginRight)")
+        #endif
         
         // Present print dialog
         #if targetEnvironment(macCatalyst)
         // On Mac, present in a window
         printController.present(animated: true) { (controller, completed, error) in
             if let error = error {
+                #if DEBUG
                 print("❌ [PrintService] Print error: \(error.localizedDescription)")
+                #endif
                 completion(false, error)
             } else if completed {
+                #if DEBUG
                 print("✅ [PrintService] Print job completed")
+                #endif
                 completion(true, nil)
             } else {
+                #if DEBUG
                 print("⚠️ [PrintService] Print job cancelled")
+                #endif
                 completion(false, nil)
             }
         }
@@ -274,13 +318,19 @@ class PrintService {
         // On iOS/iPad, present from view controller with popover support
         printController.present(from: viewController.view.bounds, in: viewController.view, animated: true) { (controller, completed, error) in
             if let error = error {
+                #if DEBUG
                 print("❌ [PrintService] Print error: \(error.localizedDescription)")
+                #endif
                 completion(false, error)
             } else if completed {
+                #if DEBUG
                 print("✅ [PrintService] Print job completed")
+                #endif
                 completion(true, nil)
             } else {
+                #if DEBUG
                 print("⚠️ [PrintService] Print job cancelled")
+                #endif
                 completion(false, nil)
             }
         }
@@ -326,21 +376,33 @@ class PrintService {
         printController.showsNumberOfCopies = true
         printController.showsPaperSelectionForLoadedPapers = true
         
+        #if DEBUG
         print("🖨️ Simple Print Dialog (Multi-file):")
+        #endif
+        #if DEBUG
         print("   - Job name: \(title)")
+        #endif
+        #if DEBUG
         print("   - Note: Using simple formatter (no footnote support for combined files)")
+        #endif
         
         // Present print dialog
         #if targetEnvironment(macCatalyst)
         printController.present(animated: true) { (controller, completed, error) in
             if let error = error {
+                #if DEBUG
                 print("❌ [PrintService] Print error: \(error.localizedDescription)")
+                #endif
                 completion(false, error)
             } else if completed {
+                #if DEBUG
                 print("✅ [PrintService] Print job completed")
+                #endif
                 completion(true, nil)
             } else {
+                #if DEBUG
                 print("⚠️ [PrintService] Print job cancelled")
+                #endif
                 completion(false, nil)
             }
         }
@@ -348,13 +410,19 @@ class PrintService {
         // On iOS/iPad, present from view controller with popover support
         printController.present(from: viewController.view.bounds, in: viewController.view, animated: true) { (controller, completed, error) in
             if let error = error {
+                #if DEBUG
                 print("❌ [PrintService] Print error: \(error.localizedDescription)")
+                #endif
                 completion(false, error)
             } else if completed {
+                #if DEBUG
                 print("✅ [PrintService] Print job completed")
+                #endif
                 completion(true, nil)
             } else {
+                #if DEBUG
                 print("⚠️ [PrintService] Print job cancelled")
+                #endif
                 completion(false, nil)
             }
         }
@@ -378,7 +446,9 @@ class PrintService {
         completion: @escaping (Bool, Error?) -> Void
     ) {
         guard let project = project else {
+            #if DEBUG
             print("❌ [PrintService] No project available for custom renderer")
+            #endif
             // Fall back to simple formatter
             presentSimplePrintDialog(
                 content: content,
@@ -414,10 +484,18 @@ class PrintService {
         // Calculate layout (no version/context for multi-file - footnotes not supported)
         let _ = layoutManager.calculateLayout()
         
+        #if DEBUG
         print("🖨️ Custom Renderer Print Dialog (Multi-file with page breaks):")
+        #endif
+        #if DEBUG
         print("   - Using CustomPDFPageRenderer for proper page break support")
+        #endif
+        #if DEBUG
         print("   - Calculated pages: \(layoutManager.pageCount)")
+        #endif
+        #if DEBUG
         print("   - Job name: \(title)")
+        #endif
         
         // Create custom renderer
         let renderer = CustomPDFPageRenderer(
@@ -439,13 +517,19 @@ class PrintService {
         #if targetEnvironment(macCatalyst)
         printController.present(animated: true) { (controller, completed, error) in
             if let error = error {
+                #if DEBUG
                 print("❌ [PrintService] Print error: \(error.localizedDescription)")
+                #endif
                 completion(false, error)
             } else if completed {
+                #if DEBUG
                 print("✅ [PrintService] Print job completed")
+                #endif
                 completion(true, nil)
             } else {
+                #if DEBUG
                 print("⚠️ [PrintService] Print job cancelled")
+                #endif
                 completion(false, nil)
             }
         }
@@ -453,13 +537,19 @@ class PrintService {
         // On iOS/iPad, present from view controller with popover support
         printController.present(from: viewController.view.bounds, in: viewController.view, animated: true) { (controller, completed, error) in
             if let error = error {
+                #if DEBUG
                 print("❌ [PrintService] Print error: \(error.localizedDescription)")
+                #endif
                 completion(false, error)
             } else if completed {
+                #if DEBUG
                 print("✅ [PrintService] Print job completed")
+                #endif
                 completion(true, nil)
             } else {
+                #if DEBUG
                 print("⚠️ [PrintService] Print job cancelled")
+                #endif
                 completion(false, nil)
             }
         }
@@ -476,10 +566,14 @@ class PrintService {
     ///   - context: Model context (for footnotes)
     /// - Returns: PDF data or nil if generation fails
     static func generatePDF(from file: TextFile, pageSetup: PageSetup? = nil, project: Project, context: ModelContext) -> Data? {
+        #if DEBUG
         print("📄 [PrintService] Generating PDF for file: \(file.name)")
+        #endif
         
         guard let content = file.currentVersion?.content else {
+            #if DEBUG
             print("❌ [PrintService] No content in file")
+            #endif
             return nil
         }
         
@@ -508,10 +602,14 @@ class PrintService {
     ///   - context: Model context (for footnotes)
     /// - Returns: PDF data or nil if generation fails
     static func generatePDF(from files: [TextFile], title: String, pageSetup: PageSetup? = nil, project: Project, context: ModelContext) -> Data? {
+        #if DEBUG
         print("📄 [PrintService] Generating PDF for \(files.count) files: \(title)")
+        #endif
         
         guard let content = PrintFormatter.formatMultipleFiles(files) else {
+            #if DEBUG
             print("❌ [PrintService] Failed to format files for PDF")
+            #endif
             return nil
         }
         
@@ -540,10 +638,14 @@ class PrintService {
         
         do {
             try data.write(to: pdfURL)
+            #if DEBUG
             print("✅ [PrintService] PDF saved to: \(pdfURL.path)")
+            #endif
             return pdfURL
         } catch {
+            #if DEBUG
             print("❌ [PrintService] Failed to save PDF: \(error.localizedDescription)")
+            #endif
             return nil
         }
     }
@@ -555,7 +657,9 @@ class PrintService {
     ///   - viewController: The view controller to present the share sheet from
     static func sharePDF(_ data: Data, filename: String, from viewController: UIViewController) {
         guard let url = savePDF(data, filename: filename) else {
+            #if DEBUG
             print("❌ [PrintService] Failed to save PDF for sharing")
+            #endif
             return
         }
         
@@ -572,7 +676,9 @@ class PrintService {
         }
         
         viewController.present(activityViewController, animated: true)
+        #if DEBUG
         print("📤 [PrintService] Sharing PDF: \(filename)")
+        #endif
     }
     
     // MARK: - Private PDF Creation
@@ -594,10 +700,18 @@ class PrintService {
         project: Project,
         context: ModelContext
     ) -> Data? {
+        #if DEBUG
         print("🖨️ PDF Generation Setup:")
+        #endif
+        #if DEBUG
         print("   - Paper: \(pageSetup.paperSize.dimensions.width) x \(pageSetup.paperSize.dimensions.height)")
+        #endif
+        #if DEBUG
         print("   - Margins: T:\(pageSetup.marginTop) L:\(pageSetup.marginLeft) B:\(pageSetup.marginBottom) R:\(pageSetup.marginRight)")
+        #endif
+        #if DEBUG
         print("   - Has version for footnotes: \(version != nil)")
+        #endif
         
         // Create text storage from content
         let textStorage = NSTextStorage(attributedString: content)
@@ -610,10 +724,14 @@ class PrintService {
         
         // Calculate layout (with footnote support if version provided)
         let _ = layoutManager.calculateLayout(version: version, context: context)
+        #if DEBUG
         print("   - Calculated: \(layoutManager.pageCount) pages")
+        #endif
         
         guard layoutManager.pageCount > 0 else {
+            #if DEBUG
             print("❌ [PrintService] No pages to render")
+            #endif
             return nil
         }
         
@@ -646,7 +764,9 @@ class PrintService {
         
         UIGraphicsEndPDFContext()
         
+        #if DEBUG
         print("✅ [PrintService] PDF created: \(renderer.numberOfPages) pages")
+        #endif
         return pdfData as Data
     }
     

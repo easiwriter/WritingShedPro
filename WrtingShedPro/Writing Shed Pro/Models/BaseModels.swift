@@ -161,7 +161,9 @@ final class Version {
             
             // No formatted content - return plain text
             guard let data = formattedContent, !data.isEmpty else {
+                #if DEBUG
                 print("[Version] ⚠️ No formattedContent, returning plain text")
+                #endif
                 // Fall back to plain text with body font and textStyle attribute if no formatted content
                 let plainText = NSAttributedString(
                     string: content,
@@ -188,8 +190,12 @@ final class Version {
                         if font.fontDescriptor.symbolicTraits.contains(.traitItalic) { italicCount += 1 }
                     }
                 }
+                #if DEBUG
                 print("[Version] Successfully decoded legacy RTF data (\(data.count) bytes)")
+                #if DEBUG
                 print("[Version] 🎯 RETURNING attributed content with \(boldCount) bold ranges, \(italicCount) italic ranges")
+                #endif
+                #endif
                 // Cache the result
                 _cachedAttributedContent = rtfDecoded
                 _cachedFormattedContentHash = data
@@ -198,7 +204,9 @@ final class Version {
             
             // Fall back to JSON format (for current app format)
             // If decoding fails, it will return plain text with default formatting
+            #if DEBUG
             print("[Version] 📦 Trying JSON decode (not legacy RTF)")
+            #endif
             let decoded = AttributedStringSerializer.decode(data, text: content)
             
             // DEBUG: Check traits in JSON decoded result
@@ -208,11 +216,15 @@ final class Version {
                     if font.fontDescriptor.symbolicTraits.contains(.traitBold) { boldCount += 1 }
                 }
             }
+            #if DEBUG
             print("[Version] 📦 JSON decoded has \(boldCount) bold ranges")
+            #endif
             
             // If decode returned empty or very short content, but we have plain text content, fall back
             if decoded.length < content.count / 2 && !content.isEmpty {
+                #if DEBUG
                 print("[Version] Decode produced short result (\(decoded.length) vs \(content.count)), falling back to plain text")
+                #endif
                 let plainText = NSAttributedString(
                     string: content,
                     attributes: [
@@ -228,7 +240,9 @@ final class Version {
             // Cache the result
             _cachedAttributedContent = decoded
             _cachedFormattedContentHash = data
+            #if DEBUG
             print("[Version] 🎯 RETURNING JSON decoded content with \(boldCount) bold ranges")
+            #endif
             
             return decoded
         }
@@ -246,7 +260,9 @@ final class Version {
                 // Debug: Count attachment characters
                 let attachmentCharCount = attributed.string.filter { $0 == "\u{FFFC}" }.count
                 if attachmentCharCount > 0 {
+                    #if DEBUG
                     print("💾 Saving plain text with \(attachmentCharCount) attachment characters (U+FFFC)")
+                    #endif
                 }
                 #endif
                 
@@ -365,7 +381,9 @@ final class TextFile {
         // Ensure currentVersionIndex is valid
         guard currentVersionIndex >= 0 && currentVersionIndex < sortedVersions.count else {
             // Index out of bounds - reset to last version (highest version number)
+            #if DEBUG
             print("⚠️ currentVersionIndex (\(currentVersionIndex)) out of bounds for \(sortedVersions.count) versions, resetting to last")
+            #endif
             currentVersionIndex = sortedVersions.count - 1
             return sortedVersions.last
         }

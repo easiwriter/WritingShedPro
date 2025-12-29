@@ -202,9 +202,13 @@ struct ImageStyleSheetEditorView: View {
         
         do {
             try modelContext.save()
+            #if DEBUG
             print("✅ Saved image style: \(imageStyle.displayName)")
+            #endif
         } catch {
+            #if DEBUG
             print("❌ Error saving image style: \(error)")
+            #endif
         }
     }
 }

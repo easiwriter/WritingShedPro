@@ -324,7 +324,7 @@ struct CollectionsView: View {
         } label: {
             Label(
                 "collectionsView.rename",
-                systemImage: "pencil"
+                systemImage: "pencil.circle"
             )
         }
         .disabled(selectedCollections.count != 1)
@@ -506,7 +506,9 @@ struct CollectionsView: View {
                 editMode = .inactive
             }
         } catch {
+            #if DEBUG
             print("Error submitting collections to publication: \(error)")
+            #endif
             // TODO: Show error alert
         }
     }
@@ -603,7 +605,7 @@ struct CollectionDetailView: View {
                                 Button {
                                     editingVersionItem = EditVersionItem(submittedFile: submittedFile, textFile: file)
                                 } label: {
-                                    Image(systemName: "square.and.pencil.circle")
+                                    Image(systemName: "pencil.circle.circle")
                                         .foregroundStyle(.blue)
                                         .font(.body)
                                 }
@@ -745,13 +747,17 @@ struct CollectionDetailView: View {
     
     /// Handle print collection action
     private func printCollection() {
+        #if DEBUG
         print("🖨️ Print Collection button tapped")
+        #endif
         
         // Get the view controller to present from
         guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
               let window = windowScene.windows.first,
               let viewController = window.rootViewController else {
+            #if DEBUG
             print("❌ Could not find view controller for print dialog")
+            #endif
             printErrorMessage = "Unable to present print dialog"
             showPrintError = true
             return
@@ -763,13 +769,19 @@ struct CollectionDetailView: View {
             from: viewController
         ) { success, error in
             if let error = error {
+                #if DEBUG
                 print("❌ Print failed: \(error.localizedDescription)")
+                #endif
                 printErrorMessage = error.localizedDescription
                 showPrintError = true
             } else if success {
+                #if DEBUG
                 print("✅ Print completed successfully")
+                #endif
             } else {
+                #if DEBUG
                 print("⚠️ Print was cancelled")
+                #endif
             }
         }
     }

@@ -118,7 +118,9 @@ struct InEditorSearchBar: View {
             
             Button("Replace All") {
                 let count = manager.replaceAllMatches()
+                #if DEBUG
                 print("Replaced \(count) matches")
+                #endif
             }
             .buttonStyle(.borderless)
             .font(.system(size: 15))
@@ -349,7 +351,9 @@ struct InEditorSearchBar: View {
                         
                         Button("Replace All") {
                             let count = manager.replaceAllMatches()
+                            #if DEBUG
                             print("Replaced \(count) matches")
+                            #endif
                         }
                         .buttonStyle(.borderless)
                         .font(.system(size: 15))

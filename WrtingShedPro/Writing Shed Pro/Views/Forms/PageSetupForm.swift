@@ -75,7 +75,9 @@ struct PageSetupForm: View {
         guard let pageSetup = project.pageSetup else { return }
         
         // Load current values from project's page setup
+        #if DEBUG
         print("[PageSetupForm] Loading values for project '\(project.name ?? "Untitled")'...")
+        #endif
         paperName = pageSetup.paperName ?? PaperSizes.defaultForRegion.rawValue
         orientation = pageSetup.orientation
         headers = pageSetup.headers == 1
@@ -90,8 +92,12 @@ struct PageSetupForm: View {
         scaleFactor = pageSetup.scaleFactor
         pageBreakBetweenFiles = PageSetupPreferences.shared.pageBreakBetweenFiles // Still global
         
+        #if DEBUG
         print("[PageSetupForm] Loaded paperName: '\(paperName)'")
+        #endif
+        #if DEBUG
         print("[PageSetupForm] Loaded orientation: \(orientation)")
+        #endif
         
         // Remember original values to detect changes
         originalPaperName = paperName
@@ -108,7 +114,9 @@ struct PageSetupForm: View {
         originalScaleFactor = scaleFactor
         originalPageBreakBetweenFiles = pageBreakBetweenFiles
         
+        #if DEBUG
         print("[PageSetupForm] Captured original paperName: '\(originalPaperName)'")
+        #endif
     }
     
     var body: some View {
@@ -216,12 +224,16 @@ struct PageSetupForm: View {
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {
                 // ALWAYS reload values on appear to get latest from iCloud/prefs
+                #if DEBUG
                 print("[PageSetupForm] View appeared, loading values...")
+                #endif
                 loadValues()
             }
             .onReceive(NotificationCenter.default.publisher(for: .pageSetupDidChange)) { _ in
                 // Reload values when iCloud sync updates from another device
+                #if DEBUG
                 print("[PageSetupForm] Detected iCloud sync update, reloading values")
+                #endif
                 loadValues()
             }
             .toolbar {
@@ -245,79 +257,117 @@ struct PageSetupForm: View {
         // Save values to project's PageSetup model
         guard let pageSetup = project.pageSetup else { return }
         
+        #if DEBUG
         print("[PageSetupForm] ==================== SAVE CALLED ====================")
+        #endif
+        #if DEBUG
         print("[PageSetupForm] Saving for project: '\(project.name ?? "Untitled")'")
+        #endif
+        #if DEBUG
         print("[PageSetupForm] Current paperName: '\(paperName)'")
+        #endif
+        #if DEBUG
         print("[PageSetupForm] Original paperName: '\(originalPaperName)'")
+        #endif
         
         if paperName != originalPaperName {
+            #if DEBUG
             print("[PageSetupForm] ✅ Paper name changed: '\(originalPaperName)' → '\(paperName)'")
+            #endif
             pageSetup.paperName = paperName
         }
         
         if orientation != originalOrientation {
+            #if DEBUG
             print("[PageSetupForm] Orientation changed")
+            #endif
             pageSetup.orientation = orientation
         }
         
         if headers != originalHeaders {
+            #if DEBUG
             print("[PageSetupForm] Headers changed")
+            #endif
             pageSetup.headers = headers ? 1 : 0
         }
         
         if footers != originalFooters {
+            #if DEBUG
             print("[PageSetupForm] Footers changed")
+            #endif
             pageSetup.footers = footers ? 1 : 0
         }
         
         if facingPages != originalFacingPages {
+            #if DEBUG
             print("[PageSetupForm] Facing pages changed")
+            #endif
             pageSetup.facingPages = facingPages ? 1 : 0
         }
         
         if abs(topMargin - originalTopMargin) > 0.001 {
+            #if DEBUG
             print("[PageSetupForm] Top margin changed")
+            #endif
             pageSetup.marginTop = topMargin
         }
         
         if abs(leftMargin - originalLeftMargin) > 0.001 {
+            #if DEBUG
             print("[PageSetupForm] Left margin changed")
+            #endif
             pageSetup.marginLeft = leftMargin
         }
         
         if abs(bottomMargin - originalBottomMargin) > 0.001 {
+            #if DEBUG
             print("[PageSetupForm] Bottom margin changed")
+            #endif
             pageSetup.marginBottom = bottomMargin
         }
         
         if abs(rightMargin - originalRightMargin) > 0.001 {
+            #if DEBUG
             print("[PageSetupForm] Right margin changed")
+            #endif
             pageSetup.marginRight = rightMargin
         }
         
         if abs(headerDepth - originalHeaderDepth) > 0.001 {
+            #if DEBUG
             print("[PageSetupForm] Header depth changed")
+            #endif
             pageSetup.headerDepth = headerDepth
         }
         
         if abs(footerDepth - originalFooterDepth) > 0.001 {
+            #if DEBUG
             print("[PageSetupForm] Footer depth changed")
+            #endif
             pageSetup.footerDepth = footerDepth
         }
         
         if abs(units.scaleFactor - originalScaleFactor) > 0.001 {
+            #if DEBUG
             print("[PageSetupForm] Scale factor changed")
+            #endif
             pageSetup.scaleFactor = units.scaleFactor
         }
         
         if pageBreakBetweenFiles != originalPageBreakBetweenFiles {
+            #if DEBUG
             print("[PageSetupForm] Page break between files changed (global setting)")
+            #endif
             PageSetupPreferences.shared.setPageBreakBetweenFiles(pageBreakBetweenFiles)
         }
         
+        #if DEBUG
         print("[PageSetupForm] Saving to SwiftData...")
+        #endif
         try? modelContext.save()
+        #if DEBUG
         print("[PageSetupForm] Save complete")
+        #endif
         
         // Note: Page setup changes will take effect on next document view refresh
         // Consider adding a notification to refresh open paginated views if needed

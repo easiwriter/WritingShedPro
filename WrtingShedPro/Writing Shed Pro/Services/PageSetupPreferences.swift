@@ -147,10 +147,16 @@ class PageSetupPreferences {
     // MARK: - Public API - Setters
     
     func setPaperName(_ value: String) {
+        #if DEBUG
         print("[PageSetupPreferences] Setting paperName to: '\(value)'")
+        #endif
+        #if DEBUG
         print("[PageSetupPreferences] Before set, store has: '\(store.string(forKey: Keys.paperName) ?? "nil")'")
+        #endif
         store.set(value, forKey: Keys.paperName)
+        #if DEBUG
         print("[PageSetupPreferences] After set, store has: '\(store.string(forKey: Keys.paperName) ?? "nil")'")
+        #endif
     }
     
     func setOrientation(_ value: Orientation) {

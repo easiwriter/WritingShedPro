@@ -61,17 +61,31 @@ class ImageAttachmentViewProvider: NSTextAttachmentViewProvider {
         super.loadView()
         
         guard let imageAttachment = imageAttachment else {
+            #if DEBUG
             print("⚠️ ImageAttachmentViewProvider: No image attachment")
+            #endif
             return
         }
+        
+        #if DEBUG
+        print("📷 ImageAttachmentViewProvider.loadView() called")
+        #if DEBUG
+        print("   hasCaption: \(imageAttachment.hasCaption)")
+        #endif
+        #if DEBUG
+        print("   captionText: '\(imageAttachment.captionText ?? "nil")'")
+        #endif
+        #if DEBUG
+        print("   captionStyle: \(imageAttachment.captionStyle ?? "nil")")
+        #endif
+        #if DEBUG
+        print("   captionNumber: \(imageAttachment.captionNumber)")
+        #endif
+        #endif
         
         // Create the container view that will hold both image and caption
         let containerView = createContainerView(for: imageAttachment)
         self.view = containerView
-        
-        #if DEBUG
-        print("📷 ImageAttachmentViewProvider.loadView() - hasCaption: \(imageAttachment.hasCaption), captionText: \(imageAttachment.captionText ?? "nil")")
-        #endif
     }
     
     // MARK: - View Creation Helpers
@@ -83,11 +97,15 @@ class ImageAttachmentViewProvider: NSTextAttachmentViewProvider {
         container.spacing = 4 // Small gap between image and caption
         container.distribution = .fill
         
+        // Allow touch events to pass through to the text view for image selection
+        container.isUserInteractionEnabled = false
+        
         // Add image view
         if let image = attachment.image {
             let imageView = UIImageView(image: image)
             imageView.contentMode = .scaleAspectFit
             imageView.clipsToBounds = true
+            imageView.isUserInteractionEnabled = false
             
             // Set image size based on attachment's displaySize
             let imageSize = attachment.displaySize
@@ -95,10 +113,18 @@ class ImageAttachmentViewProvider: NSTextAttachmentViewProvider {
             
             #if DEBUG
             print("📷 Image dimensions:")
+            #if DEBUG
             print("   - image.size: \(image.size) (points)")
+            #endif
+            #if DEBUG
             print("   - image.scale: \(image.scale)")
+            #endif
+            #if DEBUG
             print("   - attachment.scale: \(attachment.scale)")
+            #endif
+            #if DEBUG
             print("   - displaySize: \(imageSize)")
+            #endif
             #endif
             
             NSLayoutConstraint.activate([
@@ -141,12 +167,34 @@ class ImageAttachmentViewProvider: NSTextAttachmentViewProvider {
         captionLabel.lineBreakMode = .byWordWrapping
         
         // Get caption text
-        let captionText = attachment.captionText ?? ""
+        var captionText = attachment.captionText ?? ""
+        
+        #if DEBUG
+        print("📝 createCaptionView: captionText='\(captionText)', captionStyle=\(attachment.captionStyle ?? "nil"), captionNumber=\(attachment.captionNumber)")
+        #endif
         
         // Apply caption style from stylesheet
         if let styleSheet = findStyleSheet(),
            let captionStyleName = attachment.captionStyle,
            let captionStyle = styleSheet.style(named: captionStyleName) {
+            
+            #if DEBUG
+            print("📝 Found caption style '\(captionStyleName)' - numberFormat=\(captionStyle.numberFormat), captionNumber=\(attachment.captionNumber)")
+            #endif
+            
+            // Check if the caption style has numbering enabled
+            if captionStyle.numberFormat != .none && attachment.captionNumber > 0 {
+                // Build the formatted number with parent prefix if applicable
+                let formattedNumber = buildFormattedCaptionNumber(
+                    for: attachment,
+                    style: captionStyle,
+                    styleSheet: styleSheet
+                )
+                captionText = "\(formattedNumber) \(captionText)"
+                #if DEBUG
+                print("📝 Added number prefix: '\(formattedNumber)' -> '\(captionText)'")
+                #endif
+            }
             
             let attributes = captionStyle.generateAttributes()
             captionLabel.attributedText = NSAttributedString(string: captionText, attributes: attributes)
@@ -155,7 +203,7 @@ class ImageAttachmentViewProvider: NSTextAttachmentViewProvider {
             captionLabel.textAlignment = captionStyle.alignment
             
             #if DEBUG
-            print("📝 Applied caption style '\(captionStyleName)' - alignment: \(captionStyle.alignment.rawValue)")
+            print("📝 Applied caption style '\(captionStyleName)' - alignment: \(captionStyle.alignment.rawValue), number: \(attachment.captionNumber)")
             #endif
         } else {
             // Fallback to simple styling if no style found
@@ -227,6 +275,26 @@ class ImageAttachmentViewProvider: NSTextAttachmentViewProvider {
         return ceil(boundingRect.height)
     }
     
+    // MARK: - Caption Numbering
+    
+    /// Build the formatted caption number string with optional parent prefix
+    private func buildFormattedCaptionNumber(for attachment: ImageAttachment, style: TextStyleModel, styleSheet: StyleSheet) -> String {
+        let captionNumber = attachment.captionNumber
+        
+        // Check if this style has a parent for hierarchical numbering
+        if let parentStyleName = style.parentStyleName,
+           let parentStyle = styleSheet.style(named: parentStyleName),
+           parentStyle.numberFormat != .none {
+            // For hierarchical numbering, we'd need to track parent numbers
+            // For now, just use the simple format until we have parent tracking
+            // TODO: Implement hierarchical caption numbering
+            return style.numberFormat.symbol(for: captionNumber - 1, adornment: style.numberAdornment)
+        }
+        
+        // Standard format
+        return style.numberFormat.symbol(for: captionNumber - 1, adornment: style.numberAdornment)
+    }
+    
     // MARK: - StyleSheet Access
     
     /// Find the stylesheet from the current context
@@ -279,12 +347,18 @@ class ImageAttachmentViewProvider: NSTextAttachmentViewProvider {
         guard let imageID = notification.userInfo?["imageID"] as? UUID,
               let attachment = imageAttachment,
               attachment.imageID == imageID else {
+            #if DEBUG
             print("📥 ImageAttachmentViewProvider: Ignoring notification (not for this attachment)")
+            #endif
             return
         }
         
+        #if DEBUG
         print("📥 ImageAttachmentViewProvider: Received notification for imageID: \(imageID)")
+        #endif
+        #if DEBUG
         print("   hasCaption: \(attachment.hasCaption), captionText: \(attachment.captionText ?? "nil")")
+        #endif
         
         // Refresh the view to reflect new properties
         refreshView()
@@ -293,23 +367,31 @@ class ImageAttachmentViewProvider: NSTextAttachmentViewProvider {
     private func refreshView() {
         guard let attachment = imageAttachment else { return }
         
+        #if DEBUG
         print("🔄 ImageAttachmentViewProvider.refreshView() - Recreating view")
+        #endif
         
         // Recreate the view with updated properties
         let newView = createContainerView(for: attachment)
         
         // Replace the old view
         if let oldView = view {
+            #if DEBUG
             print("   Removing old view")
+            #endif
             oldView.removeFromSuperview()
         }
         
         self.view = newView
+        #if DEBUG
         print("   New view set, size: \(newView.bounds.size)")
+        #endif
         
         // Notify text view that layout needs update
         if let textView = view?.superview as? UITextView {
+            #if DEBUG
             print("   Notifying text view to layout")
+            #endif
             textView.setNeedsLayout()
             textView.layoutIfNeeded()
         }

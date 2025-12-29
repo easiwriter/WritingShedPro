@@ -23,13 +23,17 @@ class ImportErrorHandler {
     /// Add a warning message
     func addWarning(_ message: String) {
         warnings.append(message)
+        #if DEBUG
         print("⚠️ Warning: \(message)")
+        #endif
     }
     
     /// Add an error message
     func addError(_ message: String) {
         errors.append(message)
+        #if DEBUG
         print("❌ Error: \(message)")
+        #endif
     }
     
     /// Check if any fatal errors occurred

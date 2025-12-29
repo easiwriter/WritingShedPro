@@ -73,7 +73,9 @@ final class FootnoteManager: ObservableObject {
                 userInfo: ["versionID": version.id.uuidString]
             )
         } catch {
+            #if DEBUG
             print("❌ Failed to save footnote: \(error)")
+            #endif
         }
         
         return footnote
@@ -120,7 +122,9 @@ final class FootnoteManager: ObservableObject {
         do {
             try context.save()
         } catch {
+            #if DEBUG
             print("❌ Failed to update footnote text: \(error)")
+            #endif
         }
     }
     
@@ -130,7 +134,9 @@ final class FootnoteManager: ObservableObject {
     ///   - context: SwiftData model context
     func deleteFootnote(_ footnote: FootnoteModel, context: ModelContext) {
         guard let version = footnote.version else {
+            #if DEBUG
             print("❌ Cannot delete footnote: no version relationship")
+            #endif
             return
         }
         
@@ -139,9 +145,13 @@ final class FootnoteManager: ObservableObject {
         
         do {
             try context.save()
+            #if DEBUG
             print("✅ Footnote permanently deleted")
+            #endif
         } catch {
+            #if DEBUG
             print("❌ Failed to delete footnote: \(error)")
+            #endif
             return
         }
         
@@ -192,14 +202,18 @@ final class FootnoteManager: ObservableObject {
             let newNumber = index + 1
             if footnote.number != newNumber {
                 footnote.updateNumber(newNumber)
+                #if DEBUG
                 print("📝🔢 Renumbered footnote \(footnote.id) from \(footnote.number) to \(newNumber) at position \(footnote.characterPosition)")
+                #endif
             }
         }
         
         do {
             try context.save()
         } catch {
+            #if DEBUG
             print("❌ Failed to save renumbered footnotes: \(error)")
+            #endif
         }
     }
     
@@ -232,7 +246,9 @@ final class FootnoteManager: ObservableObject {
             // Renumber in case order changed
             renumberFootnotes(forVersion: version, context: context)
         } catch {
+            #if DEBUG
             print("❌ Failed to update footnote positions: \(error)")
+            #endif
         }
     }
     

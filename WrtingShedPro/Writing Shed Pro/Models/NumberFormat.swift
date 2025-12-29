@@ -169,4 +169,42 @@ extension NumberFormat {
         guard let string = attributeValue as? String else { return nil }
         return NumberFormat(rawValue: string)
     }
+    
+    /// Estimate the width needed for paragraph numbers in this format
+    /// Used to automatically add space for numbers in the first line indent
+    /// - Parameters:
+    ///   - font: The font used for the paragraph
+    ///   - adornment: The number adornment style
+    ///   - hasParent: Whether this is a child style with hierarchical numbering (e.g., "1.a")
+    /// - Returns: Estimated width needed for the number plus a small gap
+    func estimatedWidth(for font: UIFont, adornment: NumberingAdornment = .period, hasParent: Bool = false) -> CGFloat {
+        guard self != .none else { return 0 }
+        
+        // Use a representative "wide" number for estimation
+        // For most formats, index 8 ("9" or "ix") is a reasonable worst case for single digits
+        let sampleNumber: String
+        switch self {
+        case .none:
+            return 0
+        case .decimal:
+            sampleNumber = hasParent ? "99.9" : "99" // Allow for 2 digits
+        case .lowercaseRoman:
+            sampleNumber = hasParent ? "x.viii" : "viii" // Roman numeral 8
+        case .uppercaseRoman:
+            sampleNumber = hasParent ? "X.VIII" : "VIII"
+        case .lowercaseLetter:
+            sampleNumber = hasParent ? "9.m" : "m" // Wide letter
+        case .uppercaseLetter:
+            sampleNumber = hasParent ? "9.M" : "M"
+        case .footnoteSymbols, .bulletSymbols:
+            sampleNumber = "•" // Single character
+        }
+        
+        let displayNumber = adornment.apply(to: sampleNumber)
+        let attributes: [NSAttributedString.Key: Any] = [.font: font]
+        let size = (displayNumber as NSString).size(withAttributes: attributes)
+        
+        // Add a small gap (4pt) between number and text
+        return ceil(size.width) + 4
+    }
 }

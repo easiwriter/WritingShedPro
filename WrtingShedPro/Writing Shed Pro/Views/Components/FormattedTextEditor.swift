@@ -229,6 +229,10 @@ struct FormattedTextEditor: UIViewRepresentable {
         // Set initial content - this should be done AFTER layout configuration
         textView.attributedText = attributedText
         
+        // Update caption numbers for image attachments (Feature 016)
+        // This must be done after setting the attributed text
+        ImageAttachment.updateCaptionNumbers(in: textView.textStorage, styleSheet: project?.styleSheet)
+        
         // Set typing attributes to match the content
         // This ensures that when typing in an empty document or at the end,
         // the correct font is used
@@ -309,26 +313,18 @@ struct FormattedTextEditor: UIViewRepresentable {
     
     func updateUIView(_ textView: UITextView, context: Context) {
         let updateStart = CFAbsoluteTimeGetCurrent()
-        print("📝 updateUIView called")
-        print("📝 isUpdatingFromSwiftUI: \(context.coordinator.isUpdatingFromSwiftUI)")
         
         // Skip if we're already in the middle of an update to prevent feedback loops
         guard !context.coordinator.isUpdatingFromSwiftUI else {
-            print("📝 Skipping - already updating from SwiftUI")
             return
         }
-        
-        print("📝 Current text: '\(textView.attributedText.string.prefix(50))'")
-        print("📝 New text: '\(attributedText.string.prefix(50))'")
         
         // Check if attributed text actually changed (either content OR formatting)
         // We need to update if either the string OR the attributes changed
         guard let textViewAttrs = textView.attributedText else {
             // If textView has no attributed text, we definitely need to update
-            print("📝 Text view has no attributed text - updating")
             context.coordinator.isUpdatingFromSwiftUI = true
             defer {
-                print("📝 Reset isUpdatingFromSwiftUI flag")
                 context.coordinator.isUpdatingFromSwiftUI = false
             }
             textView.attributedText = attributedText
@@ -362,13 +358,6 @@ struct FormattedTextEditor: UIViewRepresentable {
         #endif
         
         if attributesChanged {
-            if stringsMatch {
-                print("📝 Formatting changed - updating attributes only")
-            } else {
-                print("📝 Content different - updating text view")
-                print("📝 Current text in view: '\(textViewString.prefix(50))'")
-                print("📝 New text from binding: '\(newString.prefix(50))'")
-            }
             
             // Set flag to prevent feedback from delegate
             context.coordinator.isUpdatingFromSwiftUI = true
@@ -403,14 +392,20 @@ struct FormattedTextEditor: UIViewRepresentable {
                         ))
                     }
                 }
+                #if DEBUG
                 if !searchHighlights.isEmpty {
                     print("📝 Preserved \(searchHighlights.count) search highlight ranges")
                 }
+                #endif
             }
             
             // Update text storage directly for better control
             // This ensures attributes are properly applied
             textView.textStorage.setAttributedString(attributedText)
+            
+            // Update caption numbers for image attachments (Feature 016)
+            // This must be done after setting the attributed string
+            ImageAttachment.updateCaptionNumbers(in: textView.textStorage, styleSheet: project?.styleSheet)
             
             // CRITICAL: Restore search highlights after updating attributes
             if !searchHighlights.isEmpty {
@@ -428,7 +423,9 @@ struct FormattedTextEditor: UIViewRepresentable {
                         }
                     }
                 }
+                #if DEBUG
                 print("📝 Restored \(searchHighlights.count) search highlight ranges")
+                #endif
             }
             
             #if DEBUG
@@ -516,7 +513,6 @@ struct FormattedTextEditor: UIViewRepresentable {
                 
                 textView.typingAttributes = attrs
             }
-            print("📝 Text view updated")
             
             // If there's a selected image, recalculate its frame and update the border
             if let customTextView = textView as? CustomTextView,
@@ -549,19 +545,15 @@ struct FormattedTextEditor: UIViewRepresentable {
             // Reset flag after a short delay to allow delegate callbacks to settle
             DispatchQueue.main.async {
                 context.coordinator.isUpdatingFromSwiftUI = false
-                print("📝 Reset isUpdatingFromSwiftUI flag")
             }
             
             // Also update selection when content changed (e.g., after undo/redo)
             if textView.selectedRange != selectedRange && selectedRange.location != NSNotFound {
-                print("📝 Updating selection to \(selectedRange) after content change")
                 if selectedRange.location <= textView.attributedText.length {
                     textView.selectedRange = selectedRange
                 }
             }
         } else {
-            print("📝 Content identical - skipping text update")
-            
             // IMPORTANT: If content unchanged, DON'T update selection
             // User is typing normally - let UITextView handle cursor naturally
         }
@@ -583,9 +575,11 @@ struct FormattedTextEditor: UIViewRepresentable {
         textView.spellCheckingType = .yes
         
         let updateTime = CFAbsoluteTimeGetCurrent() - updateStart
+        #if DEBUG
         if updateTime > 0.01 { // Only print if > 10ms
             print("📝 updateUIView took: \(String(format: "%.3f", updateTime))s")
         }
+        #endif
     }
     
     func makeCoordinator() -> Coordinator {
@@ -631,11 +625,9 @@ struct FormattedTextEditor: UIViewRepresentable {
         
         // Intercept text changes to handle Enter key and ensure correct styling
         func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
-            print("🔑 shouldChangeTextIn called: text='\(text)', range=\(range)")
             
             // Check if user pressed Enter (newline character)
             if text == "\n" {
-                print("⏎⏎⏎ ENTER KEY DETECTED at position \(range.location)")
                 
                 // Get the attributes at the current position
                 if range.location > 0, let attrText = textView.attributedText {
@@ -643,7 +635,6 @@ struct FormattedTextEditor: UIViewRepresentable {
                     var useFollowOnStyle = false
                     
                     if let styleName = attrs[.textStyle] as? String {
-                        print("⏎ Current paragraph style: \(styleName)")
                         
                         // Check if current style has a follow-on style defined
                         if let project = parent.project,
@@ -653,16 +644,10 @@ struct FormattedTextEditor: UIViewRepresentable {
                            !followOnStyleName.isEmpty,
                            let followOnStyle = styleSheet.textStyles?.first(where: { $0.name == followOnStyleName }) {
                             
-                            print("⏎ Switching to follow-on style: \(followOnStyleName)")
-                            
                             // Generate new attributes from the follow-on style
                             attrs = followOnStyle.generateAttributes()
                             useFollowOnStyle = true
-                        } else {
-                            print("⏎ No follow-on style, continuing with same style")
                         }
-                    } else {
-                        print("⏎ NO textStyle attribute found!")
                     }
                     
                     // If we have a follow-on style, manually insert the newline with correct attributes
@@ -685,13 +670,11 @@ struct FormattedTextEditor: UIViewRepresentable {
                         
                         // Set typingAttributes to follow-on style for continued typing
                         textView.typingAttributes = attrs
-                        print("⏎ Inserted newline + zero-width space with follow-on style: \(attrs[.textStyle] ?? "unknown")")
                         
                         // Force layout manager to redraw numbers
                         textView.setNeedsDisplay()
                         if let layoutManager = textView.layoutManager as? NumberingLayoutManager {
                             layoutManager.invalidateDisplay(forCharacterRange: NSRange(location: 0, length: textView.textStorage.length))
-                            print("⏎ Invalidated layout manager display")
                         }
                         
                         // Notify delegate of text change manually since we handled it
@@ -707,13 +690,11 @@ struct FormattedTextEditor: UIViewRepresentable {
                         
                         // Apply the same attributes for the next paragraph
                         textView.typingAttributes = attrs
-                        print("⏎ Set typingAttributes after Enter (same style)")
                         
                         // Force layout manager to redraw numbers
                         textView.setNeedsDisplay()
                         if let layoutManager = textView.layoutManager as? NumberingLayoutManager {
                             layoutManager.invalidateDisplay(forCharacterRange: NSRange(location: 0, length: textView.textStorage.length))
-                            print("⏎ Invalidated layout manager display")
                         }
                     }
                 }
@@ -741,8 +722,6 @@ struct FormattedTextEditor: UIViewRepresentable {
                                 let isEndOfLine = afterZWS >= string.endIndex || string[afterZWS] == "\n"
                                 
                                 if isEndOfLine {
-                                    print("⌫ Backspace on empty paragraph - deleting zero-width space + newline")
-                                    
                                     // Delete both the newline and zero-width space
                                     let extendedRange = NSRange(location: range.location - 1, length: 2)
                                     textView.textStorage.replaceCharacters(in: extendedRange, with: "")
@@ -795,51 +774,26 @@ struct FormattedTextEditor: UIViewRepresentable {
             }
             #endif
             
-            // Ensure text has proper .textStyle attribute
+            // PERFORMANCE FIX: Only check .textStyle at cursor position, not the entire document
             // UITextView sometimes strips this when typing, so reapply it
+            // The old approach enumerated the entire document twice per keystroke - very slow
             let textStorage = textView.textStorage
-            if textStorage.length > 0 {
-                var needsStyleFix = false
-                textStorage.enumerateAttribute(.textStyle, in: NSRange(location: 0, length: textStorage.length)) { value, range, stop in
-                    if value == nil {
-                        needsStyleFix = true
-                        stop.pointee = true
-                    }
-                }
-                
-                if needsStyleFix {
-                    // For each unstyled range, look at the adjacent character to determine the correct style
-                    // This properly handles follow-on styles by inheriting from the zero-width space we inserted
-                    textStorage.enumerateAttribute(.textStyle, in: NSRange(location: 0, length: textStorage.length)) { value, range, stop in
-                        if value == nil {
-                            // Find the style from adjacent text
-                            var styleToApply: String = UIFont.TextStyle.body.rawValue
-                            
-                            // First, try to get style from the character BEFORE this range (most common case - typing)
-                            if range.location > 0 {
-                                if let prevStyle = textStorage.attribute(.textStyle, at: range.location - 1, effectiveRange: nil) as? String {
-                                    styleToApply = prevStyle
-                                    print("⚠️ Text missing .textStyle at range \(range) - inheriting from previous char: \(prevStyle)")
-                                }
-                            }
-                            // If no previous char, try the character AFTER this range
-                            else if range.location + range.length < textStorage.length {
-                                if let nextStyle = textStorage.attribute(.textStyle, at: range.location + range.length, effectiveRange: nil) as? String {
-                                    styleToApply = nextStyle
-                                    print("⚠️ Text missing .textStyle at range \(range) - inheriting from next char: \(nextStyle)")
-                                }
-                            } else {
-                                print("⚠️ Text missing .textStyle at range \(range) - no adjacent text, applying Body style")
-                            }
-                            
-                            textStorage.addAttribute(.textStyle, value: styleToApply, range: range)
+            let cursorPos = textView.selectedRange.location
+            if textStorage.length > 0 && cursorPos > 0 && cursorPos <= textStorage.length {
+                // Only check the character just typed (at cursor - 1)
+                let checkPos = cursorPos - 1
+                if textStorage.attribute(.textStyle, at: checkPos, effectiveRange: nil) == nil {
+                    // Find style from previous character
+                    var styleToApply: String = UIFont.TextStyle.body.rawValue
+                    if checkPos > 0 {
+                        if let prevStyle = textStorage.attribute(.textStyle, at: checkPos - 1, effectiveRange: nil) as? String {
+                            styleToApply = prevStyle
+                            #if DEBUG
+                            print("⚠️ Text missing .textStyle at range {\(checkPos), 1} - inheriting from previous char: \(prevStyle)")
+                            #endif
                         }
                     }
-                    // Force layout manager redraw
-                    textView.setNeedsDisplay()
-                    if let layoutManager = textView.layoutManager as? NumberingLayoutManager {
-                        layoutManager.invalidateDisplay(forCharacterRange: NSRange(location: 0, length: textStorage.length))
-                    }
+                    textStorage.addAttribute(.textStyle, value: styleToApply, range: NSRange(location: checkPos, length: 1))
                 }
             }
             
@@ -847,11 +801,15 @@ struct FormattedTextEditor: UIViewRepresentable {
             // Update if either content OR formatting changed
             if let attributedText = textView.attributedText {
                 // Always update - could be text change or formatting change
+                #if DEBUG
                 print("📝 Text or formatting changed - updating binding")
                 print("📝 Binding will be set to: '\(attributedText.string.prefix(50))'")
+                #endif
                 parent.attributedText = attributedText
                 parent.onTextChange?(attributedText)
+                #if DEBUG
                 print("📝 Binding updated successfully")
+                #endif
             }
         }
         

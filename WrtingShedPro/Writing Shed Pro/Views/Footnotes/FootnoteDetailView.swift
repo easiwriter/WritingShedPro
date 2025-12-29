@@ -151,7 +151,7 @@ struct FootnoteDetailView: View {
                 // View mode: Show Edit and Delete
                 HStack(spacing: 12) {
                     Button(action: { isEditing = true }) {
-                        Label("footnoteDetail.edit", systemImage: "square.and.pencil")
+                        Label("footnoteDetail.edit", systemImage: "pencil.circle")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)

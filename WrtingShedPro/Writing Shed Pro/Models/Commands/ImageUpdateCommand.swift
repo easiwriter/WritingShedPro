@@ -78,7 +78,9 @@ final class ImageUpdateCommand: UndoableCommand {
         // This is called when the command is first executed
         // Update the file's attributed content
         guard let file = targetFile else {
+            #if DEBUG
             print("⚠️ ImageUpdateCommand.execute() - targetFile is nil")
+            #endif
             return
         }
         
@@ -104,7 +106,9 @@ final class ImageUpdateCommand: UndoableCommand {
     func undo() {
         // Restore the previous attributed content and image properties
         guard let file = targetFile else {
+            #if DEBUG
             print("⚠️ ImageUpdateCommand.undo() - targetFile is nil")
+            #endif
             return
         }
         

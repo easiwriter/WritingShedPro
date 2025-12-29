@@ -109,11 +109,15 @@ struct StyleSheetService {
     /// Fix categories for existing system styles that were created before categories were properly set
     static func fixStyleCategories(in stylesheet: StyleSheet, context: ModelContext) {
         guard let styles = stylesheet.textStyles else {
+            #if DEBUG
             print("⚠️ No styles found in stylesheet")
+            #endif
             return
         }
         
+        #if DEBUG
         print("🔧 Checking \(styles.count) styles for category fixes...")
+        #endif
         
         // Map of style names to their correct categories
         let categoryMap: [String: StyleCategory] = [
@@ -141,7 +145,9 @@ struct StyleSheetService {
         for style in styles {
             // Check if this is an obsolete style that should be deleted
             if obsoleteStyleNames.contains(style.name) {
+                #if DEBUG
                 print("🗑️ Removing obsolete style: \(style.displayName)")
+                #endif
                 context.delete(style)
                 deletedCount += 1
                 continue
@@ -150,7 +156,9 @@ struct StyleSheetService {
             // Fix category if needed
             if let correctCategory = categoryMap[style.name] {
                 if style.styleCategory != correctCategory {
+                    #if DEBUG
                     print("📝 Fixing category for \(style.displayName): \(style.styleCategory.rawValue) -> \(correctCategory.rawValue)")
+                    #endif
                     style.styleCategory = correctCategory
                     fixedCount += 1
                     
@@ -158,22 +166,32 @@ struct StyleSheetService {
                     if correctCategory == .footnote {
                         style.numberFormat = .decimal
                         style.numberAdornment = .plain
+                        #if DEBUG
                         print("   Also set footnote numbering to decimal/plain")
+                        #endif
                     }
                 }
             }
         }
         
         if fixedCount > 0 || deletedCount > 0 {
+            #if DEBUG
             print("✅ Fixed \(fixedCount) style categories, deleted \(deletedCount) obsolete styles - saving...")
+            #endif
             do {
                 try context.save()
+                #if DEBUG
                 print("✅ Changes saved successfully")
+                #endif
             } catch {
+                #if DEBUG
                 print("❌ Error saving changes: \(error)")
+                #endif
             }
         } else {
+            #if DEBUG
             print("✅ All style categories are correct, no obsolete styles found")
+            #endif
         }
     }
     
@@ -181,7 +199,9 @@ struct StyleSheetService {
     
     /// Initialize stylesheets in the model context if none exist
     static func initializeStyleSheetsIfNeeded(context: ModelContext) {
+        #if DEBUG
         print("🔧 initializeStyleSheetsIfNeeded called")
+        #endif
         
         // Check if we already have a system stylesheet
         let systemDescriptor = FetchDescriptor<StyleSheet>(
@@ -189,7 +209,9 @@ struct StyleSheetService {
         )
         let existingSystemSheets = (try? context.fetch(systemDescriptor)) ?? []
         
+        #if DEBUG
         print("🔧 Found \(existingSystemSheets.count) system stylesheets")
+        #endif
         
         // Fix categories in existing stylesheets
         for sheet in existingSystemSheets {
@@ -198,7 +220,9 @@ struct StyleSheetService {
         
         // Remove duplicates if they exist
         if existingSystemSheets.count > 1 {
+            #if DEBUG
             print("⚠️ Found \(existingSystemSheets.count) system stylesheets - removing duplicates")
+            #endif
             // Keep the first one, delete the rest
             for i in 1..<existingSystemSheets.count {
                 context.delete(existingSystemSheets[i])
@@ -208,11 +232,15 @@ struct StyleSheetService {
         
         // If we have an existing system stylesheet, check if it has image styles
         if let existingSheet = existingSystemSheets.first {
+            #if DEBUG
             print("📐 System stylesheet already exists")
+            #endif
             
             // Check if it has image styles
             if existingSheet.imageStyles?.isEmpty ?? true {
+                #if DEBUG
                 print("📐 Adding default image style to existing stylesheet...")
+                #endif
                 
                 let defaultImageStyle = ImageStyle.createDefault()
                 defaultImageStyle.styleSheet = existingSheet
@@ -226,17 +254,25 @@ struct StyleSheetService {
                 
                 do {
                     try context.save()
+                    #if DEBUG
                     print("✅ Added default image style to existing stylesheet")
+                    #endif
                 } catch {
+                    #if DEBUG
                     print("❌ Error saving image style: \(error)")
+                    #endif
                 }
             } else {
+                #if DEBUG
                 print("📐 System stylesheet already has \(existingSheet.imageStyles?.count ?? 0) image styles")
+                #endif
             }
             return
         }
         
+        #if DEBUG
         print("📐 Creating default stylesheet...")
+        #endif
         
         // Create default stylesheet
         let defaultSheet = createDefaultStyleSheet()
@@ -259,9 +295,13 @@ struct StyleSheetService {
         // Save context
         do {
             try context.save()
+            #if DEBUG
             print("📐 Default stylesheet created successfully with \(defaultSheet.textStyles?.count ?? 0) text styles and \(defaultSheet.imageStyles?.count ?? 0) image styles")
+            #endif
         } catch {
+            #if DEBUG
             print("❌ Error saving default stylesheet: \(error)")
+            #endif
         }
     }
     
@@ -395,7 +435,9 @@ struct StyleSheetService {
         #if DEBUG
         print("✅ findStyleUsage: Found \(filesUsingStyle.count) file(s) using style '\(styleName)'")
         if !filesUsingStyle.isEmpty {
+            #if DEBUG
             print("   Files: \(filesUsingStyle.joined(separator: ", "))")
+            #endif
         }
         #endif
         
@@ -415,7 +457,9 @@ struct StyleSheetService {
         
         #if DEBUG
         print("🔍 fileUsesStyle: Checking file '\(file.name)' for style '\(styleName)'")
+        #if DEBUG
         print("   Content length: \(attributedString.length)")
+        #endif
         #endif
         
         // Search for the style attribute in the string
@@ -429,12 +473,18 @@ struct StyleSheetService {
         ) { value, range, stop in
             #if DEBUG
             if let styleValue = value as? String {
+                #if DEBUG
                 print("   Found style '\(styleValue)' at range \(range)")
+                #endif
                 if styleValue == styleName {
+                    #if DEBUG
                     print("   ✅ MATCH!")
+                    #endif
                 }
             } else if value != nil {
+                #if DEBUG
                 print("   Found non-string style value: \(String(describing: value))")
+                #endif
             }
             #endif
             

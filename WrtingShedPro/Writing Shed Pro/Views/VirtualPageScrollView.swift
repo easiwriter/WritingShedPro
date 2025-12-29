@@ -183,11 +183,21 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         
         #if DEBUG
         print("📍 Initial scroll view state:")
+        #if DEBUG
         print("   contentSize: \(contentSize)")
+        #endif
+        #if DEBUG
         print("   contentOffset: \(contentOffset)")
+        #endif
+        #if DEBUG
         print("   contentInset: \(contentInset)")
+        #endif
+        #if DEBUG
         print("   zoomContainerView.frame: \(zoomContainerView.frame)")
+        #endif
+        #if DEBUG
         print("   bounds: \(bounds)")
+        #endif
         #endif
     }
     
@@ -196,11 +206,21 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         
         #if DEBUG
         print("📐 layoutSubviews called")
+        #if DEBUG
         print("   bounds: \(bounds)")
+        #endif
+        #if DEBUG
         print("   contentSize: \(contentSize)")
+        #endif
+        #if DEBUG
         print("   contentOffset: \(contentOffset)")
+        #endif
+        #if DEBUG
         print("   contentInset: \(contentInset)")
+        #endif
+        #if DEBUG
         print("   zoomContainerView.frame: \(zoomContainerView.frame)")
+        #endif
         #endif
         
         // Force scroll position to top-left if content is wider than viewport
@@ -286,10 +306,18 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         
         #if DEBUG
         print("🔍 Zoom changed to \(String(format: "%.0f%%", scrollView.zoomScale * 100))")
+        #if DEBUG
         print("   contentSize: \(contentSize)")
+        #endif
+        #if DEBUG
         print("   boundsSize: \(boundsSize)")
+        #endif
+        #if DEBUG
         print("   contentInset: \(scrollView.contentInset)")
+        #endif
+        #if DEBUG
         print("   contentOffset: \(scrollView.contentOffset)")
+        #endif
         #endif
     }
     
@@ -346,7 +374,9 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
             
             #if DEBUG
             if !footnotes.isEmpty {
+                #if DEBUG
                 print("📄 Page \(pageIndex): Found \(footnotes.count) footnotes")
+                #endif
             }
             #endif
             
@@ -425,7 +455,9 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         #if DEBUG
         print("   � Text view frame: height=\(textViewHeight)pt (topInset: \(topInset)pt + content: \(contentHeight)pt)")
         if footnoteHeight > 0 {
+            #if DEBUG
             print("   📐 Footnote space reserved: \(footnoteHeight)pt")
+            #endif
         }
         #endif
         
@@ -451,7 +483,9 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
             
             #if DEBUG
             print("📍 Footnote frame: \(footnoteFrame)")
+            #if DEBUG
             print("📏 Page frame: \(pageFrame), leftMargin: \(leftMargin), bottomMargin: \(bottomMargin)")
+            #endif
             #endif
             
             footnoteController.view.frame = footnoteFrame
@@ -654,7 +688,9 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         
         #if DEBUG
         let preview = String(mutableString.string.prefix(50))
+        #if DEBUG
         print("   📝 Set text for page \(pageInfo.pageIndex): '\(preview)...' (\(mutableString.length) chars)")
+        #endif
         #endif
     }
     

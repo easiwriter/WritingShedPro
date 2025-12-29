@@ -52,7 +52,9 @@ final class CommentManager: ObservableObject {
         do {
             try context.save()
         } catch {
+            #if DEBUG
             print("❌ Failed to save comment: \(error)")
+            #endif
         }
         
         return comment
@@ -99,7 +101,9 @@ final class CommentManager: ObservableObject {
         do {
             try context.save()
         } catch {
+            #if DEBUG
             print("❌ Failed to update comment text: \(error)")
+            #endif
         }
     }
     
@@ -113,7 +117,9 @@ final class CommentManager: ObservableObject {
         do {
             try context.save()
         } catch {
+            #if DEBUG
             print("❌ Failed to delete comment: \(error)")
+            #endif
         }
     }
     
@@ -127,7 +133,9 @@ final class CommentManager: ObservableObject {
         do {
             try context.save()
         } catch {
+            #if DEBUG
             print("❌ Failed to resolve comment: \(error)")
+            #endif
         }
     }
     
@@ -141,7 +149,9 @@ final class CommentManager: ObservableObject {
         do {
             try context.save()
         } catch {
+            #if DEBUG
             print("❌ Failed to reopen comment: \(error)")
+            #endif
         }
     }
     
@@ -172,7 +182,9 @@ final class CommentManager: ObservableObject {
         do {
             try context.save()
         } catch {
+            #if DEBUG
             print("❌ Failed to update comment positions: \(error)")
+            #endif
         }
     }
     

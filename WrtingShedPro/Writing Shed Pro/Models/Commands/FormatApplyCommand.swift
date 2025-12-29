@@ -53,7 +53,9 @@ final class FormatApplyCommand: UndoableCommand {
     func undo() {
         // Restore the previous attributed content
         guard let file = targetFile else {
+            #if DEBUG
             print("⚠️ FormatApplyCommand.undo() - targetFile is nil")
+            #endif
             return
         }
         

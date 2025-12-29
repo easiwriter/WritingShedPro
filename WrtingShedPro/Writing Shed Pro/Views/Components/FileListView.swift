@@ -418,7 +418,7 @@ struct FileListView: View {
             } label: {
                 Label(
                     NSLocalizedString("fileList.rename", comment: "Rename file"),
-                    systemImage: "square.and.pencil"
+                    systemImage: "pencil.circle"
                 )
             }
             .accessibilityLabel("fileList.rename.accessibility")

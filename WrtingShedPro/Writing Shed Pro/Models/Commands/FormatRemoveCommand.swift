@@ -48,12 +48,16 @@ final class FormatRemoveCommand: UndoableCommand {
     func execute() {
         // Placeholder: Will be implemented when AttributedString support is added
         // For now, this is a no-op since File.content is plain String
+        #if DEBUG
         print("⚠️ FormatRemoveCommand.execute() - Formatting not yet supported with plain String content")
+        #endif
     }
     
     func undo() {
         // Placeholder: Will be implemented when AttributedString support is added
+        #if DEBUG
         print("⚠️ FormatRemoveCommand.undo() - Formatting not yet supported with plain String content")
+        #endif
     }
     
     // MARK: - Codable

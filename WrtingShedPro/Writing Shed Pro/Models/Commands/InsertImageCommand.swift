@@ -67,43 +67,61 @@ final class InsertImageCommand: UndoableCommand {
     // MARK: - UndoableCommand
     
     func execute() {
+        #if DEBUG
         print("🖼️💾 InsertImageCommand.execute() called")
+        #endif
         guard let file = targetFile,
               let currentVersion = file.currentVersion else {
+            #if DEBUG
             print("❌ No file or current version")
+            #endif
             return
         }
         
         let content = currentVersion.attributedContent ?? NSAttributedString()
+        #if DEBUG
         print("🖼️💾 Current content length: \(content.length)")
+        #endif
+        #if DEBUG
         print("🖼️💾 Insert position: \(position)")
+        #endif
         
         guard position >= 0, position <= content.length else {
+            #if DEBUG
             print("❌ Invalid position: \(position), content length: \(content.length)")
+            #endif
             return
         }
         
         // Create the ImageAttachment
         guard let attachment = ImageAttachment.from(imageData: imageData) else {
+            #if DEBUG
             print("❌ Failed to create ImageAttachment from data")
+            #endif
             return
         }
         
+        #if DEBUG
         print("🖼️💾 Created ImageAttachment: \(attachment)")
+        #endif
         
         // Set properties
         attachment.scale = scale
         attachment.alignment = alignment
         attachment.fileID = file.id // Set file ID for stylesheet access
         attachment.originalFilename = originalFilename // Set the original filename
+        #if DEBUG
         print("🖼️💾 Set originalFilename on attachment: \(originalFilename ?? "nil")")
+        #endif
         if hasCaption {
             attachment.setCaption(text: captionText, style: captionStyle)
         }
         
         // Create attributed string with the attachment
         let attachmentString = NSMutableAttributedString(attachment: attachment)
+        #if DEBUG
         print("🖼️💾 Created attachment string, length: \(attachmentString.length)")
+        #endif
         
         // Apply paragraph alignment based on image alignment
         let paragraphStyle = NSMutableParagraphStyle()
@@ -122,7 +140,9 @@ final class InsertImageCommand: UndoableCommand {
         
         // Create mutable copy and insert
         let mutableContent = NSMutableAttributedString(attributedString: content)
+        #if DEBUG
         print("🖼️💾 Before insert - mutableContent length: \(mutableContent.length)")
+        #endif
         
         // For center/right aligned images, wrap in newlines to isolate the paragraph
         if alignment == .center || alignment == .right {
@@ -175,31 +195,43 @@ final class InsertImageCommand: UndoableCommand {
             mutableContent.insert(attachmentString, at: position)
         }
         
+        #if DEBUG
         print("🖼️💾 After insert - mutableContent length: \(mutableContent.length)")
+        #endif
         
         // Verify the attachment is there
         if mutableContent.length > position {
             var effectiveRange = NSRange(location: 0, length: 0)
             let attrs = mutableContent.attributes(at: position, effectiveRange: &effectiveRange)
             if let att = attrs[NSAttributedString.Key.attachment] {
+                #if DEBUG
                 print("🖼️💾 ✅ Attachment verified at position \(position): \(type(of: att))")
+                #endif
             } else {
+                #if DEBUG
                 print("❌ NO attachment at position \(position) after insert!")
+                #endif
             }
         }
         
         // Update the version's content
         currentVersion.attributedContent = mutableContent
+        #if DEBUG
         print("🖼️💾 Set currentVersion.attributedContent")
+        #endif
         
         // DEBUG: Check if font size is preserved
         if mutableContent.length > 0 {
             let attrs = mutableContent.attributes(at: 0, effectiveRange: nil)
             if let font = attrs[.font] as? UIFont {
+                #if DEBUG
                 print("🖼️💾 Font at position 0: \(font.fontName) \(font.pointSize)pt")
+                #endif
             }
             if let textStyle = attrs[.textStyle] {
+                #if DEBUG
                 print("🖼️💾 TextStyle at position 0: \(textStyle)")
+                #endif
             }
         }
         

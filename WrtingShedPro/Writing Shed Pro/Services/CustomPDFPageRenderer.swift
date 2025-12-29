@@ -71,7 +71,9 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
     
     override func drawPage(at pageIndex: Int, in printableRect: CGRect) {
         guard let context = UIGraphicsGetCurrentContext() else {
+            #if DEBUG
             print("❌ [CustomPDFPageRenderer] No graphics context")
+            #endif
             return
         }
         
@@ -81,7 +83,9 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
         
         // Get page info from layout manager
         guard let pageInfo = layoutManager.pageInfo(forPage: pageIndex) else {
+            #if DEBUG
             print("❌ [CustomPDFPageRenderer] No page info for page \(pageIndex)")
+            #endif
             return
         }
         

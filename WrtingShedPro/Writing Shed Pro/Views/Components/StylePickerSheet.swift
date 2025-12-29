@@ -136,7 +136,10 @@ struct StylePickerSheet: View {
                     TextStyleEditorView(
                         style: style,
                         isNewStyle: false,
-                        onSave: nil
+                        onSave: {
+                            // Reapply all styles to update existing text with the new style settings
+                            onReapplyStyles?()
+                        }
                     )
                 }
             }

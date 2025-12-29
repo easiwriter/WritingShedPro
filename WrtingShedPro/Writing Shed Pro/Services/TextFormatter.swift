@@ -47,9 +47,13 @@ struct TextFormatter {
         
         #if DEBUG
         if removedCount > 0 {
+            #if DEBUG
             print("🧹 cleanParagraphStyles: Removed \(removedCount) default paragraph styles")
+            #endif
         } else {
+            #if DEBUG
             print("🧹 cleanParagraphStyles: No invalid styles to remove")
+            #endif
         }
         #endif
         
@@ -535,41 +539,73 @@ struct TextFormatter {
         project: Project,
         context: ModelContext
     ) -> NSAttributedString {
+        #if DEBUG
         print("🎨 ========== APPLY STYLE START ==========")
+        #endif
+        #if DEBUG
         print("🎨 Style name: '\(styleName)'")
+        #endif
+        #if DEBUG
         print("🎨 Range: {\(range.location), \(range.length)}")
+        #endif
+        #if DEBUG
         print("🎨 Document length: \(attributedText.length)")
+        #endif
         
         guard range.location != NSNotFound,
               range.location <= attributedText.length else {
+            #if DEBUG
             print("⚠️ Invalid range")
+            #endif
+            #if DEBUG
             print("🎨 ========== END ==========")
+            #endif
             return attributedText
         }
         
         // Resolve style from database
         guard let textStyle = StyleSheetService.resolveStyle(named: styleName, for: project, context: context) else {
+            #if DEBUG
             print("⚠️ Could not resolve style '\(styleName)' - using body as fallback")
+            #endif
             return applyStyle(.body, to: attributedText, range: range)
         }
         
+        #if DEBUG
         print("✅ Style resolved from database")
+        #endif
+        #if DEBUG
         print("   Font: \(textStyle.fontFamily ?? "default") \(textStyle.fontSize)pt")
+        #endif
+        #if DEBUG
         print("   Bold: \(textStyle.isBold), Italic: \(textStyle.isItalic)")
+        #endif
+        #if DEBUG
         print("   Underline: \(textStyle.isUnderlined), Strikethrough: \(textStyle.isStrikethrough)")
+        #endif
         if let color = textStyle.textColor {
+            #if DEBUG
             print("   Color: \(color.toHex() ?? "unknown")")
+            #endif
         } else {
+            #if DEBUG
             print("   Color: none (will use default)")
+            #endif
         }
+        #if DEBUG
         print("   Alignment: \(textStyle.alignment)")
+        #endif
         
         // Special case: empty text
         if attributedText.length == 0 {
             var attrs = textStyle.generateAttributes()
             attrs[.textStyle] = styleName  // Add TextStyle attribute
+            #if DEBUG
             print("📝 Empty text - returning styled empty string")
+            #endif
+            #if DEBUG
             print("🎨 ========== END ==========")
+            #endif
             return NSAttributedString(string: "", attributes: attrs)
         }
         
@@ -579,21 +615,31 @@ struct TextFormatter {
         
         // Expand range to paragraph boundaries
         let paragraphRange = getParagraphRange(for: range, in: mutableText.string)
+        #if DEBUG
         print("📍 Expanded to paragraph range: {\(paragraphRange.location), \(paragraphRange.length)}")
+        #endif
         
         // Get base attributes from the style model
         let baseAttributes = textStyle.generateAttributes()
         guard let baseFont = baseAttributes[NSAttributedString.Key.font] as? UIFont else {
+            #if DEBUG
             print("⚠️ Style '\(styleName)' has no font - using existing method")
+            #endif
             return applyStyle(.body, to: attributedText, range: range)
         }
         
+        #if DEBUG
         print("📦 Base attributes from style:")
+        #endif
         if let color = baseAttributes[.foregroundColor] as? UIColor {
+            #if DEBUG
             print("   Color: \(color.toHex() ?? "unknown")")
+            #endif
         }
         if let paragraphStyle = baseAttributes[.paragraphStyle] as? NSParagraphStyle {
+            #if DEBUG
             print("   Alignment: \(paragraphStyle.alignment.rawValue)")
+            #endif
         }
         
         // Apply the style to each character in the paragraph range
@@ -602,12 +648,18 @@ struct TextFormatter {
         mutableText.enumerateAttributes(in: paragraphRange, options: []) { attributes, subrange, _ in
             charCount += 1
             if charCount == 1 {
+                #if DEBUG
                 print("🔍 Before applying to first character:")
+                #endif
                 if let existingColor = attributes[.foregroundColor] as? UIColor {
+                    #if DEBUG
                     print("   Existing color: \(existingColor.toHex() ?? "unknown")")
+                    #endif
                 }
                 if let existingParagraphStyle = attributes[.paragraphStyle] as? NSParagraphStyle {
+                    #if DEBUG
                     print("   Existing alignment: \(existingParagraphStyle.alignment.rawValue)")
+                    #endif
                 }
             }
             
@@ -634,41 +686,63 @@ struct TextFormatter {
             // This ensures the style definition is fully respected
             
             if charCount == 1 {
+                #if DEBUG
                 print("✅ After applying to first character:")
+                #endif
                 if let newColor = newAttributes[.foregroundColor] as? UIColor {
+                    #if DEBUG
                     print("   New color: \(newColor.toHex() ?? "unknown")")
+                    #endif
                 }
                 if let newParagraphStyle = newAttributes[.paragraphStyle] as? NSParagraphStyle {
+                    #if DEBUG
                     print("   New alignment: \(newParagraphStyle.alignment.rawValue)")
+                    #endif
                 }
             }
             
             mutableText.setAttributes(newAttributes, range: subrange)
         }
         
+        #if DEBUG
         print("✅ Applied style to \(charCount) character ranges")
+        #endif
         
         #if DEBUG
         // Log what we're returning
         if mutableText.length > 0 {
+            #if DEBUG
             print("📤 Returning attributed string:")
+            #endif
+            #if DEBUG
             print("   Length: \(mutableText.length)")
+            #endif
             if let ps0 = mutableText.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle {
+                #if DEBUG
                 print("   Position 0 has paragraph style: alignment=\(ps0.alignment.rawValue)")
+                #endif
             } else {
+                #if DEBUG
                 print("   ⚠️ Position 0 has NO paragraph style!")
+                #endif
             }
             if mutableText.length > 20 {
                 if let ps20 = mutableText.attribute(.paragraphStyle, at: 20, effectiveRange: nil) as? NSParagraphStyle {
+                    #if DEBUG
                     print("   Position 20 has paragraph style: alignment=\(ps20.alignment.rawValue)")
+                    #endif
                 } else {
+                    #if DEBUG
                     print("   ⚠️ Position 20 has NO paragraph style!")
+                    #endif
                 }
             }
         }
         #endif
         
+        #if DEBUG
         print("🎨 ========== APPLY STYLE END ==========")
+        #endif
         
         return mutableText
     }

@@ -221,7 +221,7 @@ struct FootnotesListView: View {
                     Button {
                         startEditing(footnote)
                     } label: {
-                        Label("footnotesList.edit", systemImage: "square.and.pencil")
+                        Label("footnotesList.edit", systemImage: "pencil.circle")
                     }
 
                     Button {
@@ -262,7 +262,7 @@ struct FootnotesListView: View {
                 Button {
                     startEditing(footnote)
                 } label: {
-                    Label("footnotesList.edit", systemImage: "square.and.pencil")
+                    Label("footnotesList.edit", systemImage: "pencil.circle")
                 }
                 .tint(.blue)
             }

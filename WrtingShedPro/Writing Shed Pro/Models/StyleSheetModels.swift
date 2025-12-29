@@ -320,7 +320,19 @@ final class TextStyleModel {
         paragraphStyle.lineSpacing = lineSpacing
         paragraphStyle.paragraphSpacingBefore = paragraphSpacingBefore
         paragraphStyle.paragraphSpacing = paragraphSpacingAfter
-        paragraphStyle.firstLineHeadIndent = firstLineIndent
+        
+        // Calculate first line indent, adding space for paragraph numbers if enabled
+        var effectiveFirstLineIndent = firstLineIndent
+        if numberFormat != .none {
+            // Add automatic space for the paragraph number
+            let font = generateFont()
+            let hasParent = parentStyleName != nil && !parentStyleName!.isEmpty
+            let numberWidth = numberFormat.estimatedWidth(for: font, adornment: numberAdornment, hasParent: hasParent)
+            effectiveFirstLineIndent += numberWidth
+        }
+        paragraphStyle.firstLineHeadIndent = effectiveFirstLineIndent
+        
+        // Head indent for lines 2+ (also add number width to maintain alignment if desired)
         paragraphStyle.headIndent = headIndent
         paragraphStyle.tailIndent = tailIndent
         if lineHeightMultiple > 0 {

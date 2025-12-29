@@ -69,8 +69,10 @@ struct FormattingToolbar: View {
             }) {
                 Image(systemName: "paragraph")
                     .imageScale(.large)
+                    .foregroundColor(isImageSelected ? .secondary : nil)
             }
             .buttonStyle(.plain)
+            .disabled(isImageSelected)
             .help("Paragraph Style")
             
             Spacer()

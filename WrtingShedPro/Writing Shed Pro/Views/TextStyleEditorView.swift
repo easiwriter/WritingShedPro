@@ -10,6 +10,7 @@ struct TextStyleEditorView: View {
     @Bindable var style: TextStyleModel
     let isNewStyle: Bool
     let onSave: (() -> Void)?
+    let hideDeleteButton: Bool
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     
@@ -27,17 +28,24 @@ struct TextStyleEditorView: View {
         style.styleSheet?.projects?.first
     }
     
-    init(style: TextStyleModel, isNewStyle: Bool = false, onSave: (() -> Void)? = nil) {
+    init(style: TextStyleModel, isNewStyle: Bool = false, onSave: (() -> Void)? = nil, hideDeleteButton: Bool = false) {
         self.style = style
         self.isNewStyle = isNewStyle
         self.onSave = onSave
+        self.hideDeleteButton = hideDeleteButton
         _editedDisplayName = State(initialValue: style.displayName)
         
         #if DEBUG
         print("📝 TextStyleEditorView - Style: \(style.displayName)")
+        #if DEBUG
         print("   Name: \(style.name)")
+        #endif
+        #if DEBUG
         print("   Category: \(style.styleCategory.rawValue)")
+        #endif
+        #if DEBUG
         print("   Category raw: \(style.styleCategoryRaw)")
+        #endif
         #endif
     }
     
@@ -77,8 +85,8 @@ struct TextStyleEditorView: View {
             }
             
             if style.styleSheet?.isSystemStyleSheet != true {
-                // Delete button (only for non-system styles)
-                if !style.isSystemStyle {
+                // Delete button (only for non-system styles and when not hidden)
+                if !style.isSystemStyle && !hideDeleteButton {
                     ToolbarItem(placement: .destructiveAction) {
                         Button(role: .destructive) {
                             handleDeleteAttempt()
@@ -649,24 +657,34 @@ struct TextStyleEditorView: View {
             
             // Notify that a style in the stylesheet has been modified
             if let stylesheetID = style.styleSheet?.id {
+                #if DEBUG
                 print("📤 Posting StyleSheetModified notification for stylesheet: \(stylesheetID.uuidString)")
+                #endif
                 NotificationCenter.default.post(
                     name: NSNotification.Name("StyleSheetModified"),
                     object: nil,
                     userInfo: ["stylesheetID": stylesheetID]
                 )
+                #if DEBUG
                 print("✅ StyleSheetModified notification posted")
+                #endif
             } else {
+                #if DEBUG
                 print("⚠️ Style has no stylesheet - cannot post notification")
+                #endif
             }
         } catch {
+            #if DEBUG
             print("Error saving style: \(error)")
+            #endif
         }
     }
     
     private func createNewStyleFromChanges() {
         guard let stylesheet = style.styleSheet else {
+            #if DEBUG
             print("⚠️ Cannot create new style - no stylesheet")
+            #endif
             return
         }
         
@@ -716,7 +734,9 @@ struct TextStyleEditorView: View {
             try modelContext.save()
             onSave?()
             
+            #if DEBUG
             print("✅ Created new style: \(newDisplayName) (\(newStyleName))")
+            #endif
             
             // Notify that stylesheet was modified
             NotificationCenter.default.post(
@@ -725,7 +745,9 @@ struct TextStyleEditorView: View {
                 userInfo: ["stylesheetID": stylesheet.id]
             )
         } catch {
+            #if DEBUG
             print("❌ Error creating new style: \(error)")
+            #endif
         }
     }
     
@@ -740,8 +762,12 @@ struct TextStyleEditorView: View {
         guard let proj = project else {
             #if DEBUG
             print("⚠️ No project found for this style's stylesheet")
+            #if DEBUG
             print("   Stylesheet: \(style.styleSheet?.name ?? "nil")")
+            #endif
+            #if DEBUG
             print("   Stylesheet projects count: \(style.styleSheet?.projects?.count ?? 0)")
+            #endif
             #endif
             showingDeleteAlert = true
             return

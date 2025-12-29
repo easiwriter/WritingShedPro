@@ -63,6 +63,10 @@ class ImageAttachment: NSTextAttachment, Identifiable {
     /// Caption style name (from stylesheet)
     var captionStyle: String?
     
+    /// Caption number (for numbered caption styles) - updated by document processing
+    /// This is computed based on document order, not stored persistently
+    var captionNumber: Int = 0
+    
     /// Image style name (from stylesheet) - references an ImageStyle
     var imageStyleName: String = "default"
     
@@ -105,6 +109,7 @@ class ImageAttachment: NSTextAttachment, Identifiable {
     // MARK: - Computed Properties
     
     /// Calculate display size based on original image size and scale
+    /// Includes caption height if caption is enabled
     var displaySize: CGSize {
         guard let image = image else {
             return CGSize(width: 300, height: 200) // Default size
@@ -112,16 +117,38 @@ class ImageAttachment: NSTextAttachment, Identifiable {
         
         let originalSize = image.size
         let width = originalSize.width * scale
-        let height = originalSize.height * scale
+        var height = originalSize.height * scale
         
-        #if DEBUG
-        // Only log if scale is unusual (< 0.5 or > 1.5)
-        if scale < 0.5 || scale > 1.5 {
-            print("🖼️ displaySize calc: originalSize=\(originalSize), scale=\(scale), result=\(CGSize(width: width, height: height))")
+        // Add caption height if caption is enabled
+        if hasCaption, let captionText = captionText, !captionText.isEmpty {
+            let captionHeight = estimateCaptionHeight(for: captionText, width: width)
+            height += captionHeight + 4 // 4pt spacing between image and caption
         }
-        #endif
         
         return CGSize(width: width, height: height)
+    }
+    
+    /// Estimate caption height for bounds calculation
+    private func estimateCaptionHeight(for text: String, width: CGFloat) -> CGFloat {
+        var attributes: [NSAttributedString.Key: Any]
+        
+        if let fileID = fileID,
+           let styleSheet = StyleSheetProvider.shared.styleSheet(for: fileID),
+           let captionStyleName = captionStyle,
+           let style = styleSheet.style(named: captionStyleName) {
+            attributes = style.generateAttributes()
+        } else {
+            attributes = [.font: UIFont.systemFont(ofSize: 14)]
+        }
+        
+        let maxSize = CGSize(width: width, height: .greatestFiniteMagnitude)
+        let boundingRect = text.boundingRect(
+            with: maxSize,
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: attributes,
+            context: nil
+        )
+        return ceil(boundingRect.height)
     }
     
     // MARK: - Initialization
@@ -259,7 +286,9 @@ class ImageAttachment: NSTextAttachment, Identifiable {
     
     /// Update caption properties
     func updateCaption(hasCaption: Bool, text: String?, style: String?) {
+        #if DEBUG
         print("🔵 ImageAttachment.updateCaption() - imageID: \(imageID), hasCaption: \(hasCaption), text: \(text ?? "nil"), style: \(style ?? "nil")")
+        #endif
         self.hasCaption = hasCaption
         self.captionText = text
         self.captionStyle = style
@@ -268,7 +297,9 @@ class ImageAttachment: NSTextAttachment, Identifiable {
     
     /// Notify observers that properties have changed
     private func notifyPropertiesChanged() {
+        #if DEBUG
         print("📤 ImageAttachment.notifyPropertiesChanged() - Posting notification for imageID: \(imageID)")
+        #endif
         NotificationCenter.default.post(
             name: NSNotification.Name("ImageAttachmentPropertiesChanged"),
             object: nil,
@@ -371,6 +402,7 @@ class ImageAttachment: NSTextAttachment, Identifiable {
     private func createCompositeImage(baseImage: UIImage, captionText: String, bounds: CGRect) -> UIImage? {
         // Get caption style attributes from stylesheet
         var attributes: [NSAttributedString.Key: Any]
+        var finalCaptionText = captionText
         
         if let fileID = fileID,
            let styleSheet = StyleSheetProvider.shared.styleSheet(for: fileID),
@@ -378,6 +410,12 @@ class ImageAttachment: NSTextAttachment, Identifiable {
            let style = styleSheet.style(named: captionStyleName) {
             // Use actual caption style from stylesheet
             attributes = style.generateAttributes()
+            
+            // Add caption number if style has numbering and we have a number
+            if style.numberFormat != .none && captionNumber > 0 {
+                let formattedNumber = style.numberFormat.symbol(for: captionNumber - 1, adornment: style.numberAdornment)
+                finalCaptionText = "\(formattedNumber) \(captionText)"
+            }
         } else {
             // Fallback styling if style not found
             let captionFont = UIFont.systemFont(ofSize: 14)
@@ -393,7 +431,7 @@ class ImageAttachment: NSTextAttachment, Identifiable {
         
         // Calculate caption height based on actual text rendering
         let maxSize = CGSize(width: bounds.width, height: .greatestFiniteMagnitude)
-        let boundingRect = captionText.boundingRect(
+        let boundingRect = finalCaptionText.boundingRect(
             with: maxSize,
             options: [.usesLineFragmentOrigin, .usesFontLeading],
             attributes: attributes,
@@ -415,7 +453,7 @@ class ImageAttachment: NSTextAttachment, Identifiable {
         
         // Draw the caption below
         let captionRect = CGRect(x: 0, y: bounds.height + 4, width: bounds.width, height: captionHeight)
-        captionText.draw(in: captionRect, withAttributes: attributes)
+        finalCaptionText.draw(in: captionRect, withAttributes: attributes)
         
         return UIGraphicsGetImageFromCurrentImageContext()
     }
@@ -452,6 +490,80 @@ class ImageAttachment: NSTextAttachment, Identifiable {
         )
     }
     #endif
+    
+    // MARK: - Caption Numbering
+    
+    /// Update caption numbers for all ImageAttachments in a text storage
+    /// Call this after document loads or when attachments change
+    /// - Parameters:
+    ///   - textStorage: The text storage containing images
+    ///   - styleSheet: The stylesheet to check for numbered caption styles
+    static func updateCaptionNumbers(in textStorage: NSTextStorage, styleSheet: StyleSheet?) {
+        guard let styleSheet = styleSheet else { return }
+        
+        // Track caption counts per style
+        var captionCounters: [String: Int] = [:]
+        
+        // Enumerate all attachments in document order
+        textStorage.enumerateAttribute(.attachment, in: NSRange(location: 0, length: textStorage.length), options: []) { value, _, _ in
+            guard let imageAttachment = value as? ImageAttachment,
+                  imageAttachment.hasCaption,
+                  let captionStyleName = imageAttachment.captionStyle,
+                  let captionStyle = styleSheet.style(named: captionStyleName),
+                  captionStyle.numberFormat != .none else {
+                return
+            }
+            
+            // Increment counter for this caption style
+            let counter = (captionCounters[captionStyleName] ?? 0) + 1
+            captionCounters[captionStyleName] = counter
+            
+            // Update the attachment's caption number
+            imageAttachment.captionNumber = counter
+            
+            #if DEBUG
+            print("📷 Updated caption number: \(imageAttachment.imageID) -> \(counter) (style: \(captionStyleName))")
+            #endif
+        }
+    }
+    
+    /// Update caption numbers for all ImageAttachments in an attributed string
+    /// This is used before the attributed string is set to the text storage
+    /// - Parameters:
+    ///   - attributedString: The attributed string containing images
+    ///   - styleSheet: The stylesheet to check for numbered caption styles
+    static func updateCaptionNumbersInAttributedString(_ attributedString: NSAttributedString, styleSheet: StyleSheet?) {
+        guard let styleSheet = styleSheet else {
+            return
+        }
+        
+        // Track caption counts per style
+        var captionCounters: [String: Int] = [:]
+        
+        // Enumerate all attachments in document order
+        attributedString.enumerateAttribute(.attachment, in: NSRange(location: 0, length: attributedString.length), options: []) { value, range, _ in
+            guard let imageAttachment = value as? ImageAttachment else {
+                return
+            }
+            
+            guard imageAttachment.hasCaption,
+                  let captionStyleName = imageAttachment.captionStyle,
+                  let captionStyle = styleSheet.style(named: captionStyleName) else {
+                return
+            }
+            
+            guard captionStyle.numberFormat != .none else {
+                return
+            }
+            
+            // Increment counter for this caption style
+            let counter = (captionCounters[captionStyleName] ?? 0) + 1
+            captionCounters[captionStyleName] = counter
+            
+            // Update the attachment's caption number
+            imageAttachment.captionNumber = counter
+        }
+    }
 }
 
 // MARK: - Extension for UIImage/NSImage compatibility

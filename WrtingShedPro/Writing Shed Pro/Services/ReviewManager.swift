@@ -189,7 +189,9 @@ final class ReviewManager: ObservableObject {
         UserDefaults.standard.removeObject(forKey: Keys.firstLaunchDate)
         UserDefaults.standard.removeObject(forKey: Keys.appLaunchCount)
         UserDefaults.standard.removeObject(forKey: Keys.significantEventCount)
+        #if DEBUG
         print("📱 Review: All tracking data reset")
+        #endif
     }
     
     /// Get current review tracking stats (debug only)

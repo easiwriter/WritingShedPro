@@ -60,7 +60,9 @@ class AttributedStringConverter {
                 }
             }
         }
+        #if DEBUG
         print("[AttributedStringConverter] BEFORE RTF conversion: \(boldCount) bold ranges, \(italicCount) italic ranges")
+        #endif
         
         // CRITICAL: Preserve multiple consecutive spaces for poetry formatting
         // RTF automatically collapses multiple spaces during encoding/decoding
@@ -73,12 +75,16 @@ class AttributedStringConverter {
                 from: range,
                 documentAttributes: [.documentType: NSAttributedString.DocumentType.rtf]
             )
+            #if DEBUG
             print("[AttributedStringConverter] RTF conversion successful: \(rtfData.count) bytes")
+            #endif
             return rtfData
         } catch {
             // RTF conversion failed, return nil
             // Caller will use plain text fallback
+            #if DEBUG
             print("[AttributedStringConverter] RTF conversion failed: \(error)")
+            #endif
             return nil
         }
     }

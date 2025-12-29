@@ -67,7 +67,13 @@ class NumberingLayoutManager: NSLayoutManager {
                 #if DEBUG
                 print("   ✅ Body style has numbering - drawing '1' at \(origin)")
                 #endif
-                drawNumber("1", at: origin, with: defaultStyle)
+                let font = defaultStyle.generateFont(applyPlatformScaling: true)
+                let defaultLineRect = CGRect(x: 0, y: 0, width: 100, height: font.lineHeight)
+                let defaultAttrs: [NSAttributedString.Key: Any] = [
+                    .font: font,
+                    .foregroundColor: defaultStyle.textColor ?? UIColor.label
+                ]
+                drawNumber("1", at: origin, lineFragmentRect: defaultLineRect, paragraphAttributes: defaultAttrs, with: defaultStyle)
             } else {
                 #if DEBUG
                 print("   ❌ Body style has no numbering or not found")
@@ -81,16 +87,9 @@ class NumberingLayoutManager: NSLayoutManager {
         let text = textStorage.string as NSString
         let fullRange = NSRange(location: 0, length: textStorage.length)
         
-        #if DEBUG
-        print("   🔍 Enumerating paragraphs in range \(charRange)")
-        #endif
-        
         text.enumerateSubstrings(in: fullRange, options: .byParagraphs) { [weak self] _, paragraphRange, _, _ in
             guard let self = self,
                   paragraphRange.location < textStorage.length else {
-                #if DEBUG
-                print("   ⏭️ Skipping paragraph (out of range)")
-                #endif
                 return
             }
             
@@ -138,13 +137,6 @@ class NumberingLayoutManager: NSLayoutManager {
                 return
             }
             
-            #if DEBUG
-            print("   📝 Found paragraph at range \(paragraphRange)")
-            print("   🔍 Attributes at position \(attrLocation):")
-            print("      textStyle: \(styleName)")
-            print("      ✅ Style '\(styleName)' has numbering: \(style.numberFormat)")
-            #endif
-            
             // Build the formatted number, with parent prefix for hierarchical numbering
             let formattedNumber: String
             if let parentName = parentStyleName,
@@ -161,10 +153,6 @@ class NumberingLayoutManager: NSLayoutManager {
                 formattedNumber = style.numberFormat.symbol(for: counter - 1, adornment: style.numberAdornment)
             }
             
-            #if DEBUG
-            print("      🎯 Drawing number '\(formattedNumber)' for paragraph \(counter)")
-            #endif
-            
             // Get the line fragment for this paragraph
             let glyphRange = self.glyphRange(forCharacterRange: paragraphRange, actualCharacterRange: nil)
             
@@ -178,30 +166,16 @@ class NumberingLayoutManager: NSLayoutManager {
                 lineFragmentRect = CGRect(x: 0, y: CGFloat(styleCounters[styleName]! - 1) * font.lineHeight, width: 100, height: font.lineHeight)
             }
             
-            // Draw the number at the paragraph position
-            self.drawNumber(formattedNumber, at: CGPoint(x: origin.x, y: origin.y + lineFragmentRect.origin.y), with: style)
+            // Draw the number at the paragraph position with matching attributes
+            self.drawNumber(formattedNumber, at: CGPoint(x: origin.x, y: origin.y + lineFragmentRect.origin.y), lineFragmentRect: lineFragmentRect, paragraphAttributes: attrs, with: style)
         }
         
         // Check for empty trailing paragraph (e.g., after pressing Enter)
         // enumerateSubstrings doesn't include empty paragraphs at the end
         if text.hasSuffix("\n") {
-            let lastParaStart = textStorage.length
-            
-            #if DEBUG
-            print("   📝 Found empty trailing paragraph at position \(lastParaStart)")
-            #endif
-            
             // Get attributes for the empty paragraph (use last character's attributes)
             if textStorage.length > 0 {
                 let attrs = textStorage.attributes(at: textStorage.length - 1, effectiveRange: nil)
-                
-                #if DEBUG
-                if let styleName = attrs[.textStyle] as? String {
-                    print("      textStyle: \(styleName)")
-                } else {
-                    print("      textStyle: NONE")
-                }
-                #endif
                 
                 if let styleName = attrs[.textStyle] as? String,
                    let style = styleSheet.style(named: styleName),
@@ -239,64 +213,78 @@ class NumberingLayoutManager: NSLayoutManager {
                         formattedNumber = style.numberFormat.symbol(for: counter - 1, adornment: style.numberAdornment)
                     }
                     
-                    #if DEBUG
-                    print("      ✅ Style '\(styleName)' has numbering")
-                    print("      🎯 Drawing number '\(formattedNumber)' for empty paragraph \(counter)")
-                    #endif
-                    
                     // Calculate Y position for empty paragraph (after last line)
                     let font = style.generateFont(applyPlatformScaling: true)
                     let lastLineY: CGFloat
+                    let lastLineRect: CGRect
                     if textStorage.length > 1 {
                         let lastGlyphRange = self.glyphRange(forCharacterRange: NSRange(location: textStorage.length - 2, length: 1), actualCharacterRange: nil)
                         if lastGlyphRange.length > 0 {
-                            let lastLineRect = self.lineFragmentRect(forGlyphAt: lastGlyphRange.location, effectiveRange: nil)
+                            lastLineRect = self.lineFragmentRect(forGlyphAt: lastGlyphRange.location, effectiveRange: nil)
                             lastLineY = lastLineRect.origin.y + lastLineRect.height
                         } else {
                             lastLineY = font.lineHeight
+                            lastLineRect = CGRect(x: 0, y: 0, width: 100, height: font.lineHeight)
                         }
                     } else {
                         lastLineY = 0
+                        lastLineRect = CGRect(x: 0, y: 0, width: 100, height: font.lineHeight)
                     }
                     
-                    // Draw the number for empty paragraph
-                    self.drawNumber(formattedNumber, at: CGPoint(x: origin.x, y: origin.y + lastLineY), with: style)
+                    // Draw the number for empty paragraph with matching attributes
+                    self.drawNumber(formattedNumber, at: CGPoint(x: origin.x, y: origin.y + lastLineY), lineFragmentRect: lastLineRect, paragraphAttributes: attrs, with: style)
                 }
             }
         }
     }
     
-    /// Helper method to draw a number in the left margin
-    private func drawNumber(_ formattedNumber: String, at origin: CGPoint, with style: TextStyleModel) {
-        // Calculate position for the number (in left margin)
-        let numberX = origin.x - 60 // 60pt left of text container
-        let numberY = origin.y
+    /// Helper method to draw a number at the start of a paragraph's first line
+    /// The number is drawn at the beginning of the line, within the automatically-added
+    /// firstLineHeadIndent space that was created when the style has numbering enabled.
+    /// - Parameters:
+    ///   - formattedNumber: The number string to draw
+    ///   - origin: The origin point for drawing (includes text container inset)
+    ///   - lineFragmentRect: The line fragment rect for baseline calculation
+    ///   - paragraphAttributes: The actual attributes from the paragraph text
+    ///   - style: The TextStyleModel for fallback values
+    private func drawNumber(_ formattedNumber: String, at origin: CGPoint, lineFragmentRect: CGRect, paragraphAttributes: [NSAttributedString.Key: Any], with style: TextStyleModel) {
+        // Get font from paragraph attributes (preserves bold/italic traits)
+        let paragraphFont = paragraphAttributes[.font] as? UIFont ?? style.generateFont(applyPlatformScaling: true)
         
-        // Get font and color from style
-        let font = style.generateFont(applyPlatformScaling: true)
-        let color = style.textColor ?? UIColor.label
+        // Get color from paragraph attributes (or fall back to style color)
+        let paragraphColor: UIColor
+        if let attrColor = paragraphAttributes[.foregroundColor] as? UIColor {
+            paragraphColor = attrColor
+        } else {
+            paragraphColor = style.textColor ?? UIColor.label
+        }
         
-        // Draw the number
+        // Build number attributes matching the paragraph
         let numberAttributes: [NSAttributedString.Key: Any] = [
-            .font: font,
-            .foregroundColor: color.withAlphaComponent(0.5) // Dimmed
+            .font: paragraphFont,
+            .foregroundColor: paragraphColor
         ]
         
         let numberString = formattedNumber as NSString
         let numberSize = numberString.size(withAttributes: numberAttributes)
+        
+        // The number is drawn at the very start of where the line fragment begins
+        // The text has been automatically indented by the number width in generateAttributes()
+        // So we draw at lineFragmentRect.origin.x which is position 0 of the text container
+        let numberX = origin.x + lineFragmentRect.origin.x
+        
+        // Calculate baseline-aligned Y position
+        let baselineY = origin.y + lineFragmentRect.height - paragraphFont.descender - numberSize.height + paragraphFont.descender
+        
+        // Draw number left-aligned at the start of the line
+        // The text will start after the number due to the automatic firstLineHeadIndent
         let numberRect = CGRect(
             x: numberX,
-            y: numberY,
-            width: 55,
+            y: baselineY,
+            width: numberSize.width,
             height: numberSize.height
         )
         
-        // Right-align the number
-        let paragraphStyle = NSMutableParagraphStyle()
-        paragraphStyle.alignment = .right
-        var drawAttributes = numberAttributes
-        drawAttributes[.paragraphStyle] = paragraphStyle
-        
-        numberString.draw(in: numberRect, withAttributes: drawAttributes)
+        numberString.draw(in: numberRect, withAttributes: numberAttributes)
     }
 }

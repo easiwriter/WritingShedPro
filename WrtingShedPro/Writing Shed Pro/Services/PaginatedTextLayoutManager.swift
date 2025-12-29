@@ -109,7 +109,9 @@ class PaginatedTextLayoutManager {
         
         #if DEBUG
         print("🔧 Using FOOTNOTE-AWARE layout with version: \(version!.id.uuidString.prefix(8))")
+        #if DEBUG
         print("   📏 Base container size: \(baseContainerSize.width) x \(baseContainerSize.height)")
+        #endif
         #endif
         
         // Footnote-aware layout: iteratively adjust for footnote space
@@ -124,9 +126,15 @@ class PaginatedTextLayoutManager {
     
     /// Simple layout calculation without footnote adjustment
     private func calculateSimpleLayout(containerSize: CGSize, pageLayout: PageLayoutCalculator.PageLayout, startTime: Date) -> LayoutResult {
+        #if DEBUG
         print("📄 Pagination Layout Setup:")
+        #endif
+        #if DEBUG
         print("   - Container size: \(containerSize.width) x \(containerSize.height)")
+        #endif
+        #if DEBUG
         print("   - lineFragmentPadding: 0")
+        #endif
         
         // Calculate pages by measuring how much text fits in each page container
         // Note: Form feed characters (\u{000C}) in the text will naturally cause page breaks
@@ -165,7 +173,9 @@ class PaginatedTextLayoutManager {
                 // Convert back to glyph range
                 glyphRange = layoutManager.glyphRange(forCharacterRange: characterRange, actualCharacterRange: nil)
                 
+                #if DEBUG
                 print("   📄 Page break found at character \(formFeedLocation), ending page \(pageIndex)")
+                #endif
             }
             
             // Get the used rect (actual bounds of text in container)
@@ -188,7 +198,9 @@ class PaginatedTextLayoutManager {
                     let nextCharString = (textStorage.string as NSString).substring(with: NSRange(location: nextChar, length: 1))
                     if nextCharString == "\u{000C}" {
                         characterIndex = nextChar + 1  // Skip the form feed character
+                        #if DEBUG
                         print("   ⏭️  Skipping form feed character at \(nextChar)")
+                        #endif
                     } else {
                         characterIndex = nextChar
                     }

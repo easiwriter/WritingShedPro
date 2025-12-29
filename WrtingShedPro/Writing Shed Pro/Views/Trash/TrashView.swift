@@ -119,11 +119,15 @@ struct TrashView: View {
                 // Manual Edit/Done button (EditButton doesn't work with local @State)
                 if !allTrashItems.isEmpty {
                     Button {
+                        #if DEBUG
                         print("🗑️ TrashView: Edit button tapped, current mode: \(editMode)")
+                        #endif
                         withAnimation {
                             editMode = editMode == .inactive ? .active : .inactive
                         }
+                        #if DEBUG
                         print("🗑️ TrashView: After toggle, new mode: \(editMode)")
+                        #endif
                     } label: {
                         Text(editMode == .inactive ? "button.edit" : "button.done")
                     }
@@ -349,7 +353,9 @@ struct TrashView: View {
                     restoredToFallback.append(item.displayName)
                 }
             } catch {
+                #if DEBUG
                 print("Error putting back file: \(error)")
+                #endif
                 // Continue with other files
             }
         }

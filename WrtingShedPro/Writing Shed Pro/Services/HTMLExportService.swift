@@ -32,7 +32,9 @@ class HTMLExportService {
         let range = NSRange(location: 0, length: attributedString.length)
         
         // ALWAYS print
+        #if DEBUG
         print("🔍 HTMLExportService: Scanning for images in attributed string (length: \(attributedString.length))")
+        #endif
         
         // Check for any attachments at all
         var attachmentCount = 0
@@ -41,20 +43,32 @@ class HTMLExportService {
                 attachmentCount += 1
             }
         }
+        #if DEBUG
         print("🔍 Total attachments found: \(attachmentCount)")
+        #endif
         
         attributedString.enumerateAttribute(.attachment, in: range, options: []) { value, range, _ in
             if value != nil {
+                #if DEBUG
                 print("🔍 Found attachment at range \(range): \(type(of: value!))")
+                #endif
             }
             
             if let attachment = value as? ImageAttachment {
                 #if DEBUG
                 print("✅ ImageAttachment found!")
+                #if DEBUG
                 print("   - Has image: \(attachment.image != nil)")
+                #endif
+                #if DEBUG
                 print("   - Has imageData: \(attachment.imageData != nil)")
+                #endif
+                #if DEBUG
                 print("   - Scale: \(attachment.scale)")
+                #endif
+                #if DEBUG
                 print("   - Alignment: \(attachment.alignment.rawValue)")
+                #endif
                 #endif
                 
                 // Try to get image data from attachment
@@ -129,7 +143,9 @@ class HTMLExportService {
         #if DEBUG
         // Debug: Check what HTML is being generated
         if let debugHTML = String(data: htmlData, encoding: .utf8) {
+            #if DEBUG
             print("📝 Raw HTML conversion sample: \(debugHTML.prefix(500))")
+            #endif
         }
         #endif
         
@@ -142,7 +158,9 @@ class HTMLExportService {
         
         #if DEBUG
         print("📤 HTMLExportService: Exported '\(filename).html'")
+        #if DEBUG
         print("   HTML size: \(htmlString.count) characters")
+        #endif
         #endif
         
         return htmlString
@@ -182,10 +200,16 @@ class HTMLExportService {
         includeStyles: Bool = true
     ) throws -> Data {
         // ALWAYS print, not just in DEBUG
+        #if DEBUG
         print("🌐 HTMLExportService.exportMultipleToHTMLData() called")
+        #endif
+        #if DEBUG
         print("   - Number of attributed strings: \(attributedStrings.count)")
+        #endif
         for (index, attrString) in attributedStrings.enumerated() {
+            #if DEBUG
             print("   - String \(index + 1): length=\(attrString.length)")
+            #endif
         }
         
         // Convert each attributed string to HTML body content
@@ -193,16 +217,24 @@ class HTMLExportService {
         var allStyles = ""  // Accumulate all unique styles
         
         for (index, attributedString) in attributedStrings.enumerated() {
+            #if DEBUG
             print("🔍 Processing attributed string \(index + 1) of \(attributedStrings.count)")
+            #endif
+            #if DEBUG
             print("   - Length: \(attributedString.length)")
+            #endif
+            #if DEBUG
             print("   - String preview: \(attributedString.string.prefix(100))...")
+            #endif
             
             // Prepare content for HTML export (removes adaptive/white colors, allows CSS dark mode)
             let exportReady = AttributedStringSerializer.prepareForHTMLExport(from: attributedString)
             
             // Extract images before HTML conversion
             let extractedImages = extractImages(from: exportReady)
+            #if DEBUG
             print("📸 File \(index + 1): Found \(extractedImages.count) images")
+            #endif
             
             // Convert to HTML
             let documentAttributes: [NSAttributedString.DocumentAttributeKey: Any] = [
@@ -220,19 +252,27 @@ class HTMLExportService {
             
             #if DEBUG
             // Debug: Check what HTML is being generated for each file
+            #if DEBUG
             print("📝 Raw HTML conversion sample (file \(index + 1)): \(htmlString.prefix(500))")
+            #endif
             
             // Debug: Show where images appear in the raw HTML
             if htmlString.contains("Attachment") {
                 let lines = htmlString.components(separatedBy: "\n")
                 for (lineIdx, line) in lines.enumerated() {
                     if line.contains("Attachment") || line.contains("</style>") {
+                        #if DEBUG
                         print("📝 Line \(lineIdx): \(line)")
+                        #endif
                         if lineIdx < lines.count - 1 {
+                            #if DEBUG
                             print("📝 Line \(lineIdx + 1): \(lines[lineIdx + 1])")
+                            #endif
                         }
                         if lineIdx < lines.count - 2 {
+                            #if DEBUG
                             print("📝 Line \(lineIdx + 2): \(lines[lineIdx + 2])")
+                            #endif
                         }
                     }
                 }
@@ -247,7 +287,9 @@ class HTMLExportService {
                 
                 #if DEBUG
                 print("📋 Original CSS for file \(index + 1):")
+                #if DEBUG
                 print(styleContent.prefix(300))
+                #endif
                 #endif
                 
                 // Namespace the CSS class names to prevent conflicts (e.g., .p1 -> .f0_p1)
@@ -318,14 +360,20 @@ class HTMLExportService {
             // Replace image placeholders with actual <img> tags with base64 data URIs
             #if DEBUG
             print("📝 Body content contains \(extractedImages.count) images to replace")
+            #if DEBUG
             print("📝 Checking for unicode attachment chars: \(bodyContent.contains("\u{FFFC}"))")
+            #endif
+            #if DEBUG
             print("📝 Checking for 'Attachment' text: \(bodyContent.contains("Attachment"))")
+            #endif
             if bodyContent.contains("Attachment") {
                 // Show sample of where Attachment appears
                 if let range = bodyContent.range(of: "Attachment") {
                     let start = bodyContent.index(range.lowerBound, offsetBy: -20, limitedBy: bodyContent.startIndex) ?? bodyContent.startIndex
                     let end = bodyContent.index(range.upperBound, offsetBy: 20, limitedBy: bodyContent.endIndex) ?? bodyContent.endIndex
+                    #if DEBUG
                     print("📝 Sample: ...\(bodyContent[start..<end])...")
+                    #endif
                 }
             }
             #endif
@@ -388,7 +436,9 @@ class HTMLExportService {
                 
                 #if DEBUG
                 if !replaced {
+                    #if DEBUG
                     print("❌ Could not find placeholder to replace for image \(imgIndex + 1)")
+                    #endif
                 }
                 #endif
             }
@@ -398,14 +448,20 @@ class HTMLExportService {
             let wrappedContent = "<div class=\"file-page\">\(bodyContent)</div>"
             htmlBodies.append(wrappedContent)
             
+            #if DEBUG
             print("📦 File \(index + 1) wrapped in file-page div (length: \(bodyContent.count) chars)")
+            #endif
         }
         
         // Join all files (page breaks will be applied via CSS to .file-page elements)
         let combinedBody = htmlBodies.joined(separator: "\n")
         
+        #if DEBUG
         print("📊 HTMLExportService: Created \(htmlBodies.count) file-page divs")
+        #endif
+        #if DEBUG
         print("   - Total HTML body length: \(combinedBody.count) characters")
+        #endif
         
         // Create complete HTML document
         var html = """
@@ -614,8 +670,12 @@ class HTMLExportService {
         
         #if DEBUG
         print("📤 HTMLExportService: Exported '\(filename).html' with \(attributedStrings.count) files")
+        #if DEBUG
         print("   HTML size: \(html.count) characters")
+        #endif
+        #if DEBUG
         print("   Page breaks inserted: \(attributedStrings.count - 1)")
+        #endif
         #endif
         
         return data

@@ -140,7 +140,9 @@ struct FootnoteInsertionHelper {
             // Replace the old attachment
             mutableText.replaceCharacters(in: range, with: newAttachmentString)
             
+            #if DEBUG
             print("📝🔄 Updated footnote \(footnoteID) to number \(newNumber)")
+            #endif
         }
         
         return mutableText
@@ -177,7 +179,9 @@ struct FootnoteInsertionHelper {
                     // Replace the old attachment
                     mutableText.replaceCharacters(in: range, with: newAttachmentString)
                     
+                    #if DEBUG
                     print("📝🔄 Updated footnote \(footnote.id) to number \(footnote.number) at position \(range.location)")
+                    #endif
                 }
             }
         }
@@ -203,7 +207,9 @@ struct FootnoteInsertionHelper {
             // Remove the attachment
             mutableText.deleteCharacters(in: range)
             
+            #if DEBUG
             print("📝🗑️ Removed footnote \(footnoteID) from text")
+            #endif
         }
         
         return mutableText
@@ -222,10 +228,16 @@ struct FootnoteInsertionHelper {
         
         // Debug: Log all footnote attachments in the text
         let allFootnotes = textStorage.footnoteAttachments()
+        #if DEBUG
         print("📝🔍 Searching for footnote with attachmentID: \(footnoteID)")
+        #endif
+        #if DEBUG
         print("📝🔍 Found \(allFootnotes.count) footnote attachments in text:")
+        #endif
         for (attachment, range) in allFootnotes {
+            #if DEBUG
             print("   - Attachment at position \(range.location), footnoteID: \(attachment.footnoteID), number: \(attachment.number)")
+            #endif
         }
         
         // Find the footnote attachment
@@ -233,12 +245,16 @@ struct FootnoteInsertionHelper {
             // Delete the attachment
             textStorage.deleteCharacters(in: range)
             
+            #if DEBUG
             print("📝🗑️ Removed footnote \(footnoteID) from text view at position \(range.location)")
+            #endif
             
             return range
         }
         
+        #if DEBUG
         print("⚠️ Footnote attachment with ID \(footnoteID) not found in text")
+        #endif
         return nil
     }
     

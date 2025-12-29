@@ -22,35 +22,51 @@ struct SwiftUIFormattingToolbar: View {
     
     var body: some View {
         HStack(spacing: 8) {
-            // Paragraph style
+            // Paragraph style (disabled when image selected)
             toolbarButton(systemName: "text.square.filled", action: .paragraphStyle)
+                .opacity(hasSelectedImage ? 0.3 : 1.0)
+                .disabled(hasSelectedImage)
             
             Divider()
                 .frame(height: 24)
             
-            // Image style (dimmed when no image selected)
+            // Image style (only enabled when image selected)
             toolbarButton(systemName: "photo", action: .imageStyle)
                 .opacity(hasSelectedImage ? 1.0 : 0.3)
                 .disabled(!hasSelectedImage)
             
-            // Notes
+            // Notes (disabled when image selected)
             toolbarButton(systemName: "list.clipboard", action: .notes)
+                .opacity(hasSelectedImage ? 0.3 : 1.0)
+                .disabled(hasSelectedImage)
             
             Divider()
                 .frame(height: 24)
             
-            // Lists
+            // Lists (disabled when image selected)
             toolbarButton(systemName: "list.number", action: .numberedList)
+                .opacity(hasSelectedImage ? 0.3 : 1.0)
+                .disabled(hasSelectedImage)
             toolbarButton(systemName: "list.bullet", action: .bulletedList)
+                .opacity(hasSelectedImage ? 0.3 : 1.0)
+                .disabled(hasSelectedImage)
             
             Divider()
                 .frame(height: 24)
             
-            // Text formatting
+            // Text formatting (disabled when image selected)
             toolbarButton(systemName: "bold", action: .bold)
+                .opacity(hasSelectedImage ? 0.3 : 1.0)
+                .disabled(hasSelectedImage)
             toolbarButton(systemName: "italic", action: .italic)
+                .opacity(hasSelectedImage ? 0.3 : 1.0)
+                .disabled(hasSelectedImage)
             toolbarButton(systemName: "underline", action: .underline)
+                .opacity(hasSelectedImage ? 0.3 : 1.0)
+                .disabled(hasSelectedImage)
             toolbarButton(systemName: "strikethrough", action: .strikethrough)
+                .opacity(hasSelectedImage ? 0.3 : 1.0)
+                .disabled(hasSelectedImage)
             
             #if !targetEnvironment(macCatalyst)
             if !hasHardwareKeyboard {

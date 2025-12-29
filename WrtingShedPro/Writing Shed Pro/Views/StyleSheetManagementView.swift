@@ -178,7 +178,9 @@ struct StyleSheetManagementView: View {
             try modelContext.save()
             loadStyleSheets()
         } catch {
+            #if DEBUG
             print("❌ Error duplicating stylesheet: \(error)")
+            #endif
         }
     }
     
@@ -189,20 +191,26 @@ struct StyleSheetManagementView: View {
             try modelContext.save()
             loadStyleSheets()
         } catch {
+            #if DEBUG
             print("❌ Error deleting stylesheet: \(error)")
+            #endif
         }
     }
     
     #if DEBUG
     /// Debug function to reset database to clean state with fresh default stylesheet
     private func resetDatabase() {
+        #if DEBUG
         print("🔄 Resetting database...")
+        #endif
         
         // Delete ALL stylesheets (including system default - we'll recreate it)
         let descriptor = FetchDescriptor<StyleSheet>()
         if let sheets = try? modelContext.fetch(descriptor) {
             for sheet in sheets {
+                #if DEBUG
                 print("🗑️ Deleting stylesheet: \(sheet.name) (isSystem: \(sheet.isSystemStyleSheet))")
+                #endif
                 modelContext.delete(sheet)
             }
         }
@@ -211,38 +219,56 @@ struct StyleSheetManagementView: View {
         let projectDescriptor = FetchDescriptor<Project>()
         if let projects = try? modelContext.fetch(projectDescriptor) {
             for project in projects {
+                #if DEBUG
                 print("🗑️ Deleting project: \(project.name ?? "unnamed")")
+                #endif
                 modelContext.delete(project)
             }
         }
         
         do {
             try modelContext.save()
+            #if DEBUG
             print("✅ Database cleared")
+            #endif
             
             // Recreate fresh default stylesheet with correct values
+            #if DEBUG
             print("📐 Creating fresh default stylesheet...")
+            #endif
             StyleSheetService.initializeStyleSheetsIfNeeded(context: modelContext)
             
             loadStyleSheets()
+            #if DEBUG
             print("✅ Reset complete")
+            #endif
         } catch {
+            #if DEBUG
             print("❌ Error resetting database: \(error)")
+            #endif
         }
     }
     
     private func fixAllCategories() {
+        #if DEBUG
         print("🔧 Manually fixing all stylesheet categories...")
+        #endif
         let descriptor = FetchDescriptor<StyleSheet>()
         if let sheets = try? modelContext.fetch(descriptor) {
             for sheet in sheets {
+                #if DEBUG
                 print("🔧 Fixing categories for stylesheet: \(sheet.name)")
+                #endif
                 StyleSheetService.fixStyleCategories(in: sheet, context: modelContext)
             }
             loadStyleSheets()
+            #if DEBUG
             print("✅ Category fix complete - check console for details")
+            #endif
         } else {
+            #if DEBUG
             print("❌ No stylesheets found")
+            #endif
         }
     }
     #endif

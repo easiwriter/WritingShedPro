@@ -220,9 +220,13 @@ struct PublicationsListView: View {
                     modelContext.delete(submission)
                 }
                 
+                #if DEBUG
                 print("✅ Deleted \(submissions.count) submissions for publication '\(publication.name)'")
+                #endif
             } catch {
+                #if DEBUG
                 print("❌ Error fetching submissions for publication: \(error)")
+                #endif
             }
             
             // Delete the publication
@@ -232,9 +236,13 @@ struct PublicationsListView: View {
         // Save context to persist all deletions
         do {
             try modelContext.save()
+            #if DEBUG
             print("✅ Successfully deleted \(publicationsToDelete.count) publication(s)")
+            #endif
         } catch {
+            #if DEBUG
             print("❌ Error saving after publication deletion: \(error)")
+            #endif
         }
         
         publicationsToDelete = []

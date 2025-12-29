@@ -102,7 +102,9 @@ class ImportProgressTracker {
     /// Set current phase
     func setPhase(_ phase: String) {
         self.currentPhase = phase
+        #if DEBUG
         print("📍 \(phase)")
+        #endif
     }
     
     /// Set current item being processed
@@ -114,14 +116,18 @@ class ImportProgressTracker {
     func markComplete() {
         self.isComplete = true
         self.processedItems = totalItems
+        #if DEBUG
         print("✅ Import complete")
+        #endif
     }
     
     /// Mark as errored
     func markError(_ message: String) {
         self.hasError = true
         self.errorMessage = message
+        #if DEBUG
         print("❌ Import error: \(message)")
+        #endif
     }
     
     /// Reset progress

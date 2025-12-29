@@ -35,7 +35,9 @@ struct Write_App: App {
             FootnoteModel.self
         ])
         
+        #if DEBUG
         print("☁️ [Write_App] Initializing ModelContainer with CloudKit")
+        #endif
         
         let storeURL = URL.documentsDirectory.appending(path: "writingshed.sqlite")
         let modelConfiguration = ModelConfiguration(
@@ -46,16 +48,28 @@ struct Write_App: App {
         )
 
         do {
+            #if DEBUG
             print("✅ [Write_App] Creating ModelContainer...")
+            #endif
+            #if DEBUG
             print("   Container ID: iCloud.com.appworks.writingshedpro")
+            #endif
+            #if DEBUG
             print("   Database URL: \(storeURL.path)")
+            #endif
+            #if DEBUG
             print("   Configuration: WritingShedProConfiguration")
+            #endif
             let container = try ModelContainer(for: schema, configurations: [modelConfiguration])
+            #if DEBUG
             print("✅ [Write_App] ModelContainer created successfully with CloudKit enabled")
+            #endif
             
             // Check if CloudKit is actually syncing
             let mainContext = container.mainContext
+            #if DEBUG
             print("✅ [Write_App] Main context ready")
+            #endif
             
             // Monitor CloudKit sync errors at the transaction level
             mainContext.autosaveEnabled = true
@@ -67,7 +81,9 @@ struct Write_App: App {
                 queue: OperationQueue()  // Run on background queue
             ) { notification in
                 DispatchQueue.main.async {
+                    #if DEBUG
                     print("🔄 [CloudKit] Remote change notification received")
+                    #endif
                     Write_App.logErrorToFile("🔄 [CloudKit] Remote change notification received")
                 }
             }
@@ -79,27 +95,45 @@ struct Write_App: App {
                 queue: OperationQueue()  // Run on background queue
             ) { notification in
                 DispatchQueue.main.async {
+                    #if DEBUG
                     print("🔄 [CloudKit] Stores changed - possible sync event")
+                    #endif
                     Write_App.logErrorToFile("🔄 [CloudKit] Stores changed - possible sync event")
                 }
             }
             
             // Check the actual store URL and configuration
+            #if DEBUG
             print("✅ [Write_App] Database configuration:")
+            #endif
+            #if DEBUG
             print("   Store URL: \(storeURL)")
+            #endif
             
             // NOTE: StyleSheet initialization moved to ContentView.onAppear to avoid blocking app launch
             
             return container
         } catch let error as NSError {
             let errorMsg = "❌ [Write_App] CRITICAL: ModelContainer initialization failed"
+            #if DEBUG
             print(errorMsg)
+            #endif
+            #if DEBUG
             print("   Error domain: \(error.domain)")
+            #endif
+            #if DEBUG
             print("   Error code: \(error.code)")
+            #endif
+            #if DEBUG
             print("   Error description: \(error.localizedDescription)")
+            #endif
+            #if DEBUG
             print("   Full error: \(error)")
+            #endif
             if let underlyingError = error.userInfo[NSUnderlyingErrorKey] as? NSError {
+                #if DEBUG
                 print("   Underlying error: \(underlyingError)")
+                #endif
             }
             // Log to file as well using direct file I/O
             Write_App.logErrorToFile(errorMsg)
@@ -109,7 +143,9 @@ struct Write_App: App {
             fatalError(errorMsg)
         } catch {
             let errorMsg = "❌ [Write_App] CRITICAL: ModelContainer initialization failed with unknown error: \(error)"
+            #if DEBUG
             print(errorMsg)
+            #endif
             Write_App.logErrorToFile(errorMsg)
             fatalError(errorMsg)
         }
@@ -117,14 +153,28 @@ struct Write_App: App {
 
     init() {
         // Log CloudKit configuration for debugging
+        #if DEBUG
         print("========================================")
+        #endif
+        #if DEBUG
         print("🚀 Writing Shed Pro APP LAUNCHED")
+        #endif
+        #if DEBUG
         print("========================================")
+        #endif
+        #if DEBUG
         print("🚀 App initializing...")
+        #endif
         
+        #if DEBUG
         print("✅ [CloudKit Config] Container: iCloud.com.appworks.writingshedpro")
+        #endif
+        #if DEBUG
         print("✅ [CloudKit Config] Database: private")
+        #endif
+        #if DEBUG
         print("✅ [CloudKit Config] aps-environment: production")
+        #endif
         
         // Log to file for TestFlight diagnostics
         Write_App.logToFile("========================================")
@@ -167,12 +217,16 @@ struct Write_App: App {
             @unknown default:
                 statusMsg = "❓ Unknown iCloud status"
             }
+            #if DEBUG
             print(statusMsg)
+            #endif
             Write_App.logToFile(statusMsg)
             
             if let error = error {
                 let errorMsg = "❌ Error checking account: \(error.localizedDescription)"
+                #if DEBUG
                 print(errorMsg)
+                #endif
                 Write_App.logToFile(errorMsg)
             }
         }
@@ -183,30 +237,40 @@ struct Write_App: App {
         
         container.accountStatus { status, error in
             if status == .available {
+                #if DEBUG
                 print("✅ CloudKit container accessible")
+                #endif
                 Write_App.logToFile("✅ CloudKit container accessible")
                 
                 // Try to access the private database
                 container.privateCloudDatabase.fetchAllRecordZones { zones, error in
                     if let zones = zones {
                         let zoneMsg = "✅ Private database accessible, zones: \(zones.count)"
+                        #if DEBUG
                         print(zoneMsg)
+                        #endif
                         Write_App.logToFile(zoneMsg)
                     }
                     if let error = error {
                         let errorMsg = "❌ Error fetching zones: \(error.localizedDescription)"
+                        #if DEBUG
                         print(errorMsg)
+                        #endif
                         Write_App.logToFile(errorMsg)
                     }
                 }
             } else {
                 let statusMsg = "❌ CloudKit container not accessible: \(status)"
+                #if DEBUG
                 print(statusMsg)
+                #endif
                 Write_App.logToFile(statusMsg)
             }
             if let error = error {
                 let errorMsg = "❌ Container error: \(error.localizedDescription)"
+                #if DEBUG
                 print(errorMsg)
+                #endif
                 Write_App.logToFile(errorMsg)
             }
         }

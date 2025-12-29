@@ -125,13 +125,17 @@ struct SubmissionDetailView: View {
     
     /// Handle print submission action
     private func printSubmission() {
+        #if DEBUG
         print("🖨️ Print Submission button tapped")
+        #endif
         
         // Get the view controller to present from
         guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
               let window = windowScene.windows.first,
               let viewController = window.rootViewController else {
+            #if DEBUG
             print("❌ Could not find view controller for print dialog")
+            #endif
             printErrorMessage = "Unable to present print dialog"
             showPrintError = true
             return
@@ -143,13 +147,19 @@ struct SubmissionDetailView: View {
             from: viewController
         ) { success, error in
             if let error = error {
+                #if DEBUG
                 print("❌ Print failed: \(error.localizedDescription)")
+                #endif
                 printErrorMessage = error.localizedDescription
                 showPrintError = true
             } else if success {
+                #if DEBUG
                 print("✅ Print completed successfully")
+                #endif
             } else {
+                #if DEBUG
                 print("⚠️ Print was cancelled")
+                #endif
             }
         }
     }
@@ -179,7 +189,9 @@ struct SubmissionDetailView: View {
         do {
             try modelContext.save()
         } catch {
+            #if DEBUG
             print("Error moving file to Published folder: \(error)")
+            #endif
         }
     }
     

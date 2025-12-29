@@ -243,7 +243,7 @@ struct CommentsListView: View {
                     Button {
                         startEditing(comment)
                     } label: {
-                        Label("commentsList.edit", systemImage: "square.and.pencil")
+                        Label("commentsList.edit", systemImage: "pencil.circle")
                     }
                     
                     Button {
@@ -284,7 +284,7 @@ struct CommentsListView: View {
                 Button {
                     startEditing(comment)
                 } label: {
-                    Label("commentsList.edit", systemImage: "square.and.pencil")
+                    Label("commentsList.edit", systemImage: "pencil.circle")
                 }
                 .tint(.blue)
             }

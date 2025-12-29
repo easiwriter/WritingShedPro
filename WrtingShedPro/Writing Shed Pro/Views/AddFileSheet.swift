@@ -93,7 +93,9 @@ struct AddFileSheet: View {
             // Record significant event for review prompts
             ReviewManager.shared.recordSignificantEvent()
         } catch {
+            #if DEBUG
             print("Error saving new file: \(error)")
+            #endif
             errorMessage = "Failed to save file: \(error.localizedDescription)"
             showErrorAlert = true
             return

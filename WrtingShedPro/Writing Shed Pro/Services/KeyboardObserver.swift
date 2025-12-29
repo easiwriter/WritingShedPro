@@ -105,7 +105,9 @@ class KeyboardObserver {
             
             self.detectKeyboardType()
             
+            #if DEBUG
             print("🎹 Keyboard shown - Height: \(self.keyboardHeight), Type: \(self.isOnScreenKeyboard ? "On-Screen" : "External")")
+            #endif
         }
     }
     
@@ -126,7 +128,9 @@ class KeyboardObserver {
             self.keyboardAnimationCurve = curve
             self.isOnScreenKeyboard = false
             
+            #if DEBUG
             print("🎹 Keyboard hidden")
+            #endif
         }
     }
     
@@ -146,7 +150,9 @@ class KeyboardObserver {
                 self.keyboardHeight = newHeight
                 self.detectKeyboardType()
                 
+                #if DEBUG
                 print("🎹 Keyboard frame changed - Height: \(self.keyboardHeight)")
+                #endif
             }
         }
     }
