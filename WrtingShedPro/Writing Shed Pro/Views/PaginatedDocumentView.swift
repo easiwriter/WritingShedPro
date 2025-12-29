@@ -79,6 +79,12 @@ struct PaginatedDocumentView: View {
             #if DEBUG
             print("   - currentVersionIndex: \(textFile.currentVersionIndex)")
             #endif
+            
+            // Register stylesheet with provider so ImageAttachment can access it
+            if let styleSheet = project.styleSheet {
+                StyleSheetProvider.shared.register(styleSheet: styleSheet, for: textFile.id)
+            }
+            
             // Always recalculate on appear in case version changed while in edit mode
             if layoutManager != nil {
                 #if DEBUG
@@ -88,6 +94,10 @@ struct PaginatedDocumentView: View {
             } else {
                 setupLayoutManager()
             }
+        }
+        .onDisappear {
+            // Unregister stylesheet when leaving paginated view
+            StyleSheetProvider.shared.unregister(fileID: textFile.id)
         }
         .onChange(of: textFile.currentVersionIndex) { oldValue, newValue in
             #if DEBUG
@@ -263,6 +273,9 @@ struct PaginatedDocumentView: View {
         let printSizeContent = removePlatformScaling(from: attributedContent)
         let textStorage = NSTextStorage(attributedString: printSizeContent)
         
+        // Update caption numbers for image attachments (Feature 016)
+        ImageAttachment.updateCaptionNumbers(in: textStorage, styleSheet: project.styleSheet)
+        
         // Create layout manager
         let manager = PaginatedTextLayoutManager(
             textStorage: textStorage,
@@ -323,6 +336,9 @@ struct PaginatedDocumentView: View {
                     in: NSRange(location: 0, length: existingManager.textStorage.length),
                     with: printSizeContent
                 )
+                
+                // Update caption numbers for image attachments (Feature 016)
+                ImageAttachment.updateCaptionNumbers(in: existingManager.textStorage, styleSheet: project.styleSheet)
             }
             
             existingManager.updatePageSetup(pageSetup)

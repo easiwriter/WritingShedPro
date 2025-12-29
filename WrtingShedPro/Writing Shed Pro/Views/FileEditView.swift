@@ -566,8 +566,8 @@ struct FileEditView: View {
         .sheet(item: $imageToEdit) { imageAttachment in
             let imageData = imageAttachment.imageData ?? imageAttachment.image?.pngData()
             
-            // Get available caption styles from stylesheet
-            let styleSheet = StyleSheetProvider.shared.styleSheet(for: file.id)
+            // Get available caption styles from stylesheet (use project directly, not StyleSheetProvider)
+            let styleSheet = file.project?.styleSheet
             let captionStyles = styleSheet?.textStyles?
                 .filter { $0.name.contains("Caption") }
                 .map { $0.name } ?? ["UICTFontTextStyleCaption1", "UICTFontTextStyleCaption2"]

@@ -33,8 +33,8 @@ struct ImageStyleEditorView: View {
         alignment: ImageAttachment.ImageAlignment = .center,
         hasCaption: Bool = false,
         captionText: String = "",
-        captionStyle: String = "UICTFontTextStyleBody",
-        availableCaptionStyles: [String] = ["UICTFontTextStyleBody", "UICTFontTextStyleCaption1", "UICTFontTextStyleCaption2"],
+        captionStyle: String = "UICTFontTextStyleCaption1",
+        availableCaptionStyles: [String] = ["UICTFontTextStyleCaption1", "UICTFontTextStyleCaption2"],
         styleSheet: StyleSheet? = nil,
         onApply: @escaping (Data?, CGFloat, ImageAttachment.ImageAlignment, Bool, String, String) -> Void
     ) {
@@ -207,7 +207,9 @@ struct ImageStyleEditorView: View {
                 }
             }
         }
+        #if targetEnvironment(macCatalyst)
         .frame(minWidth: 500, minHeight: 450)
+        #endif
         .alert(NSLocalizedString("imageStyleEditor.invalidScale.title", comment: ""), isPresented: $showInvalidScaleAlert) {
             Button(NSLocalizedString("button.ok", comment: ""), role: .cancel) {
                 // Reset to current scale
