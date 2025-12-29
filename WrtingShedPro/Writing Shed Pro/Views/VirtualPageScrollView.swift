@@ -314,10 +314,10 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         #if DEBUG
         print("🔍 Zoom changed to \(String(format: "%.0f%%", scrollView.zoomScale * 100))")
         #if DEBUG
-        print("   contentSize: \(contentSize)")
+        print("   contentSize: \(zoomContainerView.frame.size)")
         #endif
         #if DEBUG
-        print("   boundsSize: \(boundsSize)")
+        print("   boundsSize: \(bounds.size)")
         #endif
         #if DEBUG
         print("   contentInset: \(scrollView.contentInset)")

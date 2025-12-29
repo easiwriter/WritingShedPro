@@ -51,7 +51,9 @@ struct PaginatedDocumentView: View {
                     project: project,
                     currentPage: $currentPage,
                     onZoomChange: { newZoom in
-                        zoomScale = newZoom
+                        DispatchQueue.main.async {
+                            zoomScale = newZoom
+                        }
                     }
                 )
                 .accessibilityLabel("paginatedDocument.pages.accessibility")
