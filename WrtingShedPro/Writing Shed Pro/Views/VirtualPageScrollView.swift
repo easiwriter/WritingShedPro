@@ -270,19 +270,12 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         if zoomScale != scale {
             setZoomScale(scale, animated: false)
         }
+        // Always center content (needed for initial display and after layout updates)
+        centerContentIfNeeded()
     }
     
-    // MARK: - UIScrollViewDelegate (Zoom)
-    
-    func viewForZooming(in scrollView: UIScrollView) -> UIView? {
-        return zoomContainerView
-    }
-    
-    func scrollViewDidZoom(_ scrollView: UIScrollView) {
-        currentZoomScale = scrollView.zoomScale
-        zoomChangeHandler?(scrollView.zoomScale)
-        
-        // Center content using insets instead of frame positioning
+    /// Center content horizontally/vertically when smaller than viewport
+    private func centerContentIfNeeded() {
         let boundsSize = bounds.size
         let contentSize = zoomContainerView.frame.size
         
@@ -297,12 +290,26 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
             verticalInset = (boundsSize.height - contentSize.height) / 2
         }
         
-        scrollView.contentInset = UIEdgeInsets(
+        contentInset = UIEdgeInsets(
             top: verticalInset,
             left: horizontalInset,
             bottom: verticalInset,
             right: horizontalInset
         )
+    }
+    
+    // MARK: - UIScrollViewDelegate (Zoom)
+    
+    func viewForZooming(in scrollView: UIScrollView) -> UIView? {
+        return zoomContainerView
+    }
+    
+    func scrollViewDidZoom(_ scrollView: UIScrollView) {
+        currentZoomScale = scrollView.zoomScale
+        zoomChangeHandler?(scrollView.zoomScale)
+        
+        // Center content using shared method
+        centerContentIfNeeded()
         
         #if DEBUG
         print("🔍 Zoom changed to \(String(format: "%.0f%%", scrollView.zoomScale * 100))")
