@@ -57,6 +57,9 @@ class ImageAttachment: NSTextAttachment, Identifiable {
     /// Whether to show caption
     var hasCaption: Bool = false
     
+    /// Optional caption prefix (e.g., "Figure", "Photo")
+    var captionPrefix: String?
+    
     /// Optional caption text
     var captionText: String?
     
@@ -285,11 +288,12 @@ class ImageAttachment: NSTextAttachment, Identifiable {
     }
     
     /// Update caption properties
-    func updateCaption(hasCaption: Bool, text: String?, style: String?) {
+    func updateCaption(hasCaption: Bool, prefix: String?, text: String?, style: String?) {
         #if DEBUG
-        print("🔵 ImageAttachment.updateCaption() - imageID: \(imageID), hasCaption: \(hasCaption), text: \(text ?? "nil"), style: \(style ?? "nil")")
+        print("🔵 ImageAttachment.updateCaption() - imageID: \(imageID), hasCaption: \(hasCaption), prefix: \(prefix ?? "nil"), text: \(text ?? "nil"), style: \(style ?? "nil")")
         #endif
         self.hasCaption = hasCaption
+        self.captionPrefix = prefix
         self.captionText = text
         self.captionStyle = style
         notifyPropertiesChanged()
@@ -390,12 +394,22 @@ class ImageAttachment: NSTextAttachment, Identifiable {
         }
         
         // If no caption, return the original image
-        guard hasCaption, let captionText = captionText, !captionText.isEmpty else {
+        guard hasCaption else {
+            return baseImage
+        }
+        
+        // Build caption text with prefix
+        let prefix = captionPrefix ?? ""
+        let userCaptionText = captionText ?? ""
+        let fullCaptionText = prefix.isEmpty ? userCaptionText : (userCaptionText.isEmpty ? prefix : "\(prefix) \(userCaptionText)")
+        
+        // If caption is effectively empty, return the original image
+        guard !fullCaptionText.isEmpty else {
             return baseImage
         }
         
         // Create a composite image with caption below
-        return createCompositeImage(baseImage: baseImage, captionText: captionText, bounds: imageBounds)
+        return createCompositeImage(baseImage: baseImage, captionText: fullCaptionText, bounds: imageBounds)
     }
     
     /// Create composite image with caption
@@ -411,10 +425,20 @@ class ImageAttachment: NSTextAttachment, Identifiable {
             // Use actual caption style from stylesheet
             attributes = style.generateAttributes()
             
-            // Add caption number if style has numbering and we have a number
+            // Add caption number after prefix if style has numbering
+            // captionText already contains "prefix userCaption" or just "userCaption"
+            // We need to insert number after prefix
             if style.numberFormat != .none && captionNumber > 0 {
                 let formattedNumber = style.numberFormat.symbol(for: captionNumber - 1, adornment: style.numberAdornment)
-                finalCaptionText = "\(formattedNumber) \(captionText)"
+                let prefix = captionPrefix ?? ""
+                let userCaption = self.captionText ?? ""
+                
+                // Build: prefix + number + userCaption
+                var parts: [String] = []
+                if !prefix.isEmpty { parts.append(prefix) }
+                parts.append(formattedNumber)
+                if !userCaption.isEmpty { parts.append(userCaption) }
+                finalCaptionText = parts.joined(separator: " ")
             }
         } else {
             // Fallback styling if style not found

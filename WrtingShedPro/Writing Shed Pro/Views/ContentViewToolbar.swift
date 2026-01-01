@@ -14,6 +14,8 @@ struct ContentViewToolbar: ToolbarContent {
     
     @Environment(\.requestReview) var requestReview
     
+    private let poetryPrefs = PoetryPreferences.shared
+    
     var body: some ToolbarContent {
         // Settings menu (leading)
         ToolbarItem(placement: .navigationBarLeading) {
@@ -28,6 +30,39 @@ struct ContentViewToolbar: ToolbarContent {
                 
                 Button(action: { onHandleImportMenu() }) {
                     Label("Import", systemImage: "arrow.down.doc")
+                }
+                
+                // Poetry preferences submenu
+                Menu {
+                    Toggle(isOn: Binding(
+                        get: { poetryPrefs.showMetricsBar },
+                        set: { poetryPrefs.showMetricsBar = $0 }
+                    )) {
+                        Label("Show Metrics Bar", systemImage: "chart.bar")
+                    }
+                    
+                    Toggle(isOn: Binding(
+                        get: { poetryPrefs.showStressAnalysis },
+                        set: { poetryPrefs.showStressAnalysis = $0 }
+                    )) {
+                        Label("Enable Stress Analysis", systemImage: "waveform.path")
+                    }
+                    
+                    Toggle(isOn: Binding(
+                        get: { poetryPrefs.showSyllableHints },
+                        set: { poetryPrefs.showSyllableHints = $0 }
+                    )) {
+                        Label("Show Syllable Hints", systemImage: "textformat.123")
+                    }
+                    
+                    Toggle(isOn: Binding(
+                        get: { poetryPrefs.autoOpenFormReference },
+                        set: { poetryPrefs.autoOpenFormReference = $0 }
+                    )) {
+                        Label("Auto-Open Form Reference", systemImage: "book")
+                    }
+                } label: {
+                    Label("Poetry Settings", systemImage: "text.quote")
                 }
                 
                 #if !targetEnvironment(macCatalyst)

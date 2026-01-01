@@ -166,11 +166,12 @@ class ImageAttachmentViewProvider: NSTextAttachmentViewProvider {
         captionLabel.numberOfLines = 0 // Allow multiple lines
         captionLabel.lineBreakMode = .byWordWrapping
         
-        // Get caption text
-        var captionText = attachment.captionText ?? ""
+        // Get caption components
+        let prefix = attachment.captionPrefix ?? ""
+        let userCaptionText = attachment.captionText ?? ""
         
         #if DEBUG
-        print("📝 createCaptionView: captionText='\(captionText)', captionStyle=\(attachment.captionStyle ?? "nil"), captionNumber=\(attachment.captionNumber)")
+        print("📝 createCaptionView: prefix='\(prefix)', captionText='\(userCaptionText)', captionStyle=\(attachment.captionStyle ?? "nil"), captionNumber=\(attachment.captionNumber)")
         #endif
         
         // Apply caption style from stylesheet
@@ -182,18 +183,38 @@ class ImageAttachmentViewProvider: NSTextAttachmentViewProvider {
             print("📝 Found caption style '\(captionStyleName)' - numberFormat=\(captionStyle.numberFormat), captionNumber=\(attachment.captionNumber)")
             #endif
             
-            // Check if the caption style has numbering enabled
+            // Build caption: prefix + number + caption text
+            var captionText = ""
+            
+            // Add prefix first
+            if !prefix.isEmpty {
+                captionText = prefix
+            }
+            
+            // Add number if style has numbering enabled
             if captionStyle.numberFormat != .none && attachment.captionNumber > 0 {
-                // Build the formatted number with parent prefix if applicable
                 let formattedNumber = buildFormattedCaptionNumber(
                     for: attachment,
                     style: captionStyle,
                     styleSheet: styleSheet
                 )
-                captionText = "\(formattedNumber) \(captionText)"
+                if captionText.isEmpty {
+                    captionText = formattedNumber
+                } else {
+                    captionText = "\(captionText) \(formattedNumber)"
+                }
                 #if DEBUG
-                print("📝 Added number prefix: '\(formattedNumber)' -> '\(captionText)'")
+                print("📝 Added number: '\(formattedNumber)' -> '\(captionText)'")
                 #endif
+            }
+            
+            // Add user caption text
+            if !userCaptionText.isEmpty {
+                if captionText.isEmpty {
+                    captionText = userCaptionText
+                } else {
+                    captionText = "\(captionText) \(userCaptionText)"
+                }
             }
             
             let attributes = captionStyle.generateAttributes()
@@ -203,10 +224,11 @@ class ImageAttachmentViewProvider: NSTextAttachmentViewProvider {
             captionLabel.textAlignment = captionStyle.alignment
             
             #if DEBUG
-            print("📝 Applied caption style '\(captionStyleName)' - alignment: \(captionStyle.alignment.rawValue), number: \(attachment.captionNumber)")
+            print("📝 Applied caption style '\(captionStyleName)' - alignment: \(captionStyle.alignment.rawValue), final caption: '\(captionText)'")
             #endif
         } else {
             // Fallback to simple styling if no style found
+            let captionText = prefix.isEmpty ? userCaptionText : (userCaptionText.isEmpty ? prefix : "\(prefix) \(userCaptionText)")
             captionLabel.text = captionText
             captionLabel.font = UIFont.systemFont(ofSize: 14)
             captionLabel.textColor = .secondaryLabel

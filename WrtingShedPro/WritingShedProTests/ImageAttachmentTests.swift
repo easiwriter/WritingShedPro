@@ -22,6 +22,7 @@ final class ImageAttachmentTests: XCTestCase {
         XCTAssertEqual(attachment.scale, 1.0, "Default scale should be 1.0 (100%)")
         XCTAssertEqual(attachment.alignment, .left, "Default alignment should be left")
         XCTAssertFalse(attachment.hasCaption, "Caption should be disabled by default")
+        XCTAssertNil(attachment.captionPrefix, "Caption prefix should be nil by default")
         XCTAssertNil(attachment.captionText, "Caption text should be nil by default")
         XCTAssertNil(attachment.captionStyle, "Caption style should be nil by default")
         XCTAssertNil(attachment.fileID, "File ID should be nil by default")
@@ -192,10 +193,11 @@ final class ImageAttachmentTests: XCTestCase {
         let attachment = ImageAttachment()
         
         // When
-        attachment.updateCaption(hasCaption: true, text: "Test caption", style: "caption2")
+        attachment.updateCaption(hasCaption: true, prefix: "Figure", text: "Test caption", style: "caption2")
         
         // Then
         XCTAssertTrue(attachment.hasCaption, "hasCaption should be true")
+        XCTAssertEqual(attachment.captionPrefix, "Figure")
         XCTAssertEqual(attachment.captionText, "Test caption")
         XCTAssertEqual(attachment.captionStyle, "caption2")
     }
@@ -203,13 +205,14 @@ final class ImageAttachmentTests: XCTestCase {
     func testUpdateCaptionDisabled() {
         // Given
         let attachment = ImageAttachment()
-        attachment.updateCaption(hasCaption: true, text: "Initial", style: "caption1")
+        attachment.updateCaption(hasCaption: true, prefix: "Photo", text: "Initial", style: "caption1")
         
         // When - disable caption but keep text
-        attachment.updateCaption(hasCaption: false, text: "Initial", style: "caption1")
+        attachment.updateCaption(hasCaption: false, prefix: "Photo", text: "Initial", style: "caption1")
         
         // Then
         XCTAssertFalse(attachment.hasCaption, "hasCaption should be false")
+        XCTAssertEqual(attachment.captionPrefix, "Photo", "Caption prefix should be preserved")
         XCTAssertEqual(attachment.captionText, "Initial", "Caption text should be preserved")
         XCTAssertEqual(attachment.captionStyle, "caption1", "Caption style should be preserved")
     }
@@ -231,14 +234,41 @@ final class ImageAttachmentTests: XCTestCase {
         }
         
         // When
-        attachment.updateCaption(hasCaption: true, text: "Test", style: "caption1")
+        attachment.updateCaption(hasCaption: true, prefix: "Figure", text: "Test", style: "caption1")
         
         // Then
         wait(for: [expectation], timeout: 1.0)
         NotificationCenter.default.removeObserver(observer)
     }
     
+    func testUpdateCaptionWithNilPrefix() {
+        // Given
+        let attachment = ImageAttachment()
+        
+        // When - set caption without prefix
+        attachment.updateCaption(hasCaption: true, prefix: nil, text: "No prefix caption", style: "caption1")
+        
+        // Then
+        XCTAssertTrue(attachment.hasCaption, "hasCaption should be true")
+        XCTAssertNil(attachment.captionPrefix, "Caption prefix should be nil")
+        XCTAssertEqual(attachment.captionText, "No prefix caption")
+        XCTAssertEqual(attachment.captionStyle, "caption1")
+    }
+    
+    func testUpdateCaptionPrefixCanBeChanged() {
+        // Given
+        let attachment = ImageAttachment()
+        attachment.updateCaption(hasCaption: true, prefix: "Figure", text: "Caption", style: "caption1")
+        
+        // When - change prefix
+        attachment.updateCaption(hasCaption: true, prefix: "Photo", text: "Caption", style: "caption1")
+        
+        // Then
+        XCTAssertEqual(attachment.captionPrefix, "Photo", "Caption prefix should be updated to Photo")
+    }
+    
     // MARK: - Display Size Tests
+
     
     func testDisplaySizeWithImage() {
         // Given

@@ -2,7 +2,8 @@ import Foundation
 
 struct UniquenessChecker {
     static func isProjectNameUnique(_ name: String, in projects: [Project]) -> Bool {
-        !projects.contains { ($0.name ?? "").caseInsensitiveCompare(name) == .orderedSame }
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !projects.contains { ($0.name ?? "").trimmingCharacters(in: .whitespacesAndNewlines).caseInsensitiveCompare(trimmedName) == .orderedSame }
     }
     
     /// Check if folder name is unique within its parent context
@@ -14,6 +15,7 @@ struct UniquenessChecker {
     ///   - parentFolder: Optional parent folder (nil for root-level)
     ///   - excludingFolder: Optional folder to exclude from check (for rename operations)
     static func isFolderNameUnique(_ name: String, in project: Project, parentFolder: Folder? = nil, excludingFolder: Folder? = nil) -> Bool {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         let folders: [Folder]
         
         if let parentFolder = parentFolder {
@@ -29,7 +31,7 @@ struct UniquenessChecker {
             if let excludingFolder = excludingFolder, folder.id == excludingFolder.id {
                 return false
             }
-            return (folder.name ?? "").caseInsensitiveCompare(name) == .orderedSame
+            return (folder.name ?? "").trimmingCharacters(in: .whitespacesAndNewlines).caseInsensitiveCompare(trimmedName) == .orderedSame
         }
     }
     
@@ -48,9 +50,10 @@ struct UniquenessChecker {
     ///   - name: The file name to check
     ///   - folder: The folder to check within
     static func getFileNameConflict(_ name: String, in folder: Folder) -> String? {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         // Check active files
         let files = folder.textFiles ?? []
-        if files.contains(where: { $0.name.caseInsensitiveCompare(name) == .orderedSame }) {
+        if files.contains(where: { $0.name.trimmingCharacters(in: .whitespacesAndNewlines).caseInsensitiveCompare(trimmedName) == .orderedSame }) {
             return "active"
         }
         
@@ -60,7 +63,7 @@ struct UniquenessChecker {
             if trashedItems.contains(where: { trashItem in
                 // Check if this trash item is from the same folder and has matching name
                 trashItem.originalFolder?.id == folder.id &&
-                (trashItem.textFile?.name ?? "").caseInsensitiveCompare(name) == .orderedSame
+                (trashItem.textFile?.name ?? "").trimmingCharacters(in: .whitespacesAndNewlines).caseInsensitiveCompare(trimmedName) == .orderedSame
             }) {
                 return "trash"
             }

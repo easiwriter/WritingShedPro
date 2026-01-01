@@ -87,6 +87,10 @@ struct FileListView: View {
     /// Tracks the most recently opened section for quick return
     @State private var lastOpenedSection: String?
     
+    /// Feature 021: Poetry form picker for changing form
+    @State private var showPoetryFormPicker = false
+    @State private var fileForFormChange: TextFile?
+    
     /// AppStorage key prefix for persisting last opened section per folder
     private var storageKey: String {
         // Use hash of files to create unique key per folder
@@ -220,6 +224,11 @@ struct FileListView: View {
                         selectedFileIDs.removeAll()
                     }
                 )
+            }
+        }
+        .sheet(isPresented: $showPoetryFormPicker) {
+            if let file = fileForFormChange {
+                PoetryFormPickerSheet(file: file)
             }
         }
     }
@@ -464,6 +473,18 @@ struct FileListView: View {
             onFileSelected(file)
         } label: {
             Label("fileList.contextMenu.open", systemImage: "doc")
+        }
+        
+        // Poetry form change option (only for poetry projects)
+        if file.project?.type == .poetry {
+            Divider()
+            
+            Button {
+                fileForFormChange = file
+                showPoetryFormPicker = true
+            } label: {
+                Label("fileList.contextMenu.changeForm", systemImage: "text.book.closed")
+            }
         }
         
         Divider()

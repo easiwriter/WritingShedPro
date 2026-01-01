@@ -145,6 +145,104 @@
 "addFile.ok" = "OK";
 "addFile.duplicateName" = "A file with this name already exists in this folder.";
 "addFile.duplicateNameInTrash" = "A file with this name exists in Trash. Restore or permanently delete it first, or use a different name.";
+"addFile.poetryFormHeader" = "Poetry Form";
+"addFile.poetryFormFooter" = "Choose a form to get a template with structure guidelines, or leave as Free Verse for no constraints.";
+
+/* Poetry Form Picker */
+"poetryForm.selectForm" = "Select Poetry Form";
+"poetryForm.formDetails" = "Form Details";
+"poetryForm.poetryForm" = "Poetry Form";
+"poetryForm.freeVerse" = "Free Verse";
+"poetryForm.noRequirements" = "No specific requirements";
+"poetryForm.lines" = "Lines";
+"poetryForm.syllables" = "Syllables";
+"poetryForm.rhyme" = "Rhyme";
+"poetryForm.meter" = "Meter";
+
+/* Poetry Form Reference */
+"poetryFormReference.done" = "Done";
+"poetryFormReference.about" = "About";
+"poetryFormReference.requirements" = "Requirements";
+"poetryFormReference.template" = "Template";
+"poetryFormReference.lineCount" = "Line Count";
+"poetryFormReference.syllablePattern" = "Syllable Pattern";
+"poetryFormReference.rhymeScheme" = "Rhyme Scheme";
+"poetryFormReference.meter" = "Meter";
+"poetryFormReference.totalSyllables" = "%d syllables total";
+"poetryFormReference.uniqueRhymes" = "%d unique rhyme sounds";
+"poetryFormReference.iambicDetail" = "Unstressed-stressed pattern (da-DUM)";
+"poetryFormReference.trochaicDetail" = "Stressed-unstressed pattern (DUM-da)";
+"poetryFormReference.anapesticDetail" = "Two unstressed, one stressed (da-da-DUM)";
+"poetryFormReference.dactylicDetail" = "One stressed, two unstressed (DUM-da-da)";
+"poetryFormReference.freeVerse.title" = "Free Verse";
+"poetryFormReference.freeVerse.description" = "Free verse has no fixed meter, rhyme scheme, or line length requirements. Write freely and let your content determine the form.";
+"poetryFormReference.formButton" = "Form";
+"poetryFormReference.formButtonAccessibility" = "Show poetry form reference";
+
+/* Poetry Form Picker Sheet */
+"poetryFormPicker.changeForm" = "Change Poetry Form";
+"poetryFormPicker.currentForm" = "Current form: %@";
+"poetryFormPicker.cancel" = "Cancel";
+"poetryFormPicker.save" = "Save";
+
+/* Syllable Count View */
+"syllableCount.line" = "Line";
+"syllableCount.text" = "Text";
+"syllableCount.expected" = "Exp";
+"syllableCount.actual" = "Act";
+"syllableCount.totalSyllables" = "Total Syllables";
+"syllableCount.accuracy" = "Lines Matching";
+"syllableCount.syllables" = "Syllables";
+"syllableCount.match" = "Match";
+"syllableCount.empty" = "No Text to Analyze";
+"syllableCount.emptyHint" = "Start writing to see syllable counts for each line.";
+
+/* Stress Pattern View */
+"stressPattern.expectedMeter" = "Expected Meter";
+"stressPattern.detectedMeter" = "Detected";
+"stressPattern.stressed" = "Stressed";
+"stressPattern.unstressed" = "Unstressed";
+"stressPattern.secondary" = "Secondary";
+"stressPattern.meter" = "Meter";
+"stressPattern.empty" = "No Text to Analyze";
+"stressPattern.emptyHint" = "Start writing to see stress patterns and meter analysis.";
+
+/* Poetry Metrics Dashboard */
+"poetryMetrics.title" = "Poetry Metrics";
+"poetryMetrics.done" = "Done";
+"poetryMetrics.buttonAccessibility" = "Show poetry metrics";
+"poetryMetrics.tab.overview" = "Overview";
+"poetryMetrics.tab.issues" = "Issues";
+"poetryMetrics.tab.syllables" = "Syllables";
+"poetryMetrics.tab.stress" = "Stress";
+"poetryMetrics.quickStats" = "Quick Stats";
+"poetryMetrics.lines" = "Lines";
+"poetryMetrics.syllables" = "Syllables";
+"poetryMetrics.words" = "Words";
+"poetryMetrics.formProgress" = "Form Progress";
+"poetryMetrics.lineCount" = "Line Count";
+"poetryMetrics.syllablePattern" = "Syllable Pattern";
+"poetryMetrics.meter" = "Meter";
+"poetryMetrics.tips" = "Tips";
+"poetryMetrics.tip.needMoreLines" = "Add %d more lines to match the form requirements.";
+"poetryMetrics.tip.tooManyLines" = "You have %d extra lines. Consider trimming to match the form.";
+"poetryMetrics.tip.checkSyllables" = "Some lines don't match the expected syllable count. Check the Syllables tab for details.";
+"poetryMetrics.tip.checkMeter" = "The meter could be improved. Check the Stress tab to see which feet need adjustment.";
+"poetryMetrics.closePanel" = "Close metrics panel";
+"poetryMetrics.hidePanel" = "Hide metrics panel";
+"poetryMetrics.showPanel" = "Show metrics panel";
+
+/* Poetry Validator */
+"poetryValidator.needMoreLines" = "Need %d more lines";
+"poetryValidator.extraLine" = "Extra line beyond form requirement";
+"poetryValidator.wrongSyllables" = "Expected %d syllables, found %d";
+"poetryValidator.meterMismatch" = "Meter is %d%% accurate (needs improvement)";
+"poetryValidator.shouldRhyme" = "Should rhyme with group %@ ('%@')";
+"poetryValidator.wrongEndWord" = "End word should be %@ ('%@')";
+"poetryValidator.shouldBeRefrain1" = "Should be first refrain (A1)";
+"poetryValidator.shouldBeRefrain2" = "Should be second refrain (A2)";
+"poetryValidator.issuesFound" = "%d issues found";
+"poetryValidator.noIssues" = "Form requirements met";
 
 /* FileDetailView */
 "fileDetail.title" = "File";
@@ -951,6 +1049,7 @@
 "fileList.contextMenu.open" = "Open";
 "fileList.contextMenu.moveTo" = "Move To...";
 "fileList.contextMenu.delete" = "Delete";
+"fileList.contextMenu.changeForm" = "Change Poetry Form";
 "fileList.deleteConfirmation.message" = "Deleted files can be restored from Trash.";
 "fileList.rename" = "Rename";
 "fileList.rename.title" = "Rename File";

@@ -63,6 +63,7 @@ struct AddProjectSheet: View {
                         addProject()
                     }
                     .disabled(projectName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .foregroundColor(.blue)
                 }
             }
             .alert(NSLocalizedString("addProject.error", comment: "Error alert title"), isPresented: $showErrorAlert) {

@@ -15,6 +15,7 @@ struct ImageStyleEditorView: View {
     @State private var scaleText: String
     @State private var alignment: ImageAttachment.ImageAlignment
     @State private var hasCaption: Bool
+    @State private var captionPrefix: String
     @State private var captionText: String
     @State private var captionStyle: String
     
@@ -25,18 +26,19 @@ struct ImageStyleEditorView: View {
     let styleSheet: StyleSheet?
     
     // Callback when user applies changes
-    let onApply: (Data?, CGFloat, ImageAttachment.ImageAlignment, Bool, String, String) -> Void
+    let onApply: (Data?, CGFloat, ImageAttachment.ImageAlignment, Bool, String, String, String) -> Void
     
     init(
         imageData: Data? = nil,
         scale: CGFloat = 1.0,
         alignment: ImageAttachment.ImageAlignment = .center,
         hasCaption: Bool = false,
+        captionPrefix: String = "Figure",
         captionText: String = "",
         captionStyle: String = "UICTFontTextStyleCaption1",
         availableCaptionStyles: [String] = ["UICTFontTextStyleCaption1", "UICTFontTextStyleCaption2"],
         styleSheet: StyleSheet? = nil,
-        onApply: @escaping (Data?, CGFloat, ImageAttachment.ImageAlignment, Bool, String, String) -> Void
+        onApply: @escaping (Data?, CGFloat, ImageAttachment.ImageAlignment, Bool, String, String, String) -> Void
     ) {
         #if DEBUG
         print("🎨 ImageStyleEditorView.init called with imageData: \(imageData?.count ?? 0) bytes")
@@ -46,8 +48,11 @@ struct ImageStyleEditorView: View {
         self._scaleText = State(initialValue: "\(Int(scale * 100))")
         self._alignment = State(initialValue: alignment)
         self._hasCaption = State(initialValue: hasCaption)
+        self._captionPrefix = State(initialValue: captionPrefix)
         self._captionText = State(initialValue: captionText)
-        self._captionStyle = State(initialValue: captionStyle)
+        // Normalize caption style to match available styles (handles legacy values like "caption1")
+        let normalizedStyle = Self.normalizedCaptionStyle(captionStyle, availableStyles: availableCaptionStyles)
+        self._captionStyle = State(initialValue: normalizedStyle)
         self.availableCaptionStyles = availableCaptionStyles
         self.styleSheet = styleSheet
         self.onApply = onApply
@@ -61,6 +66,28 @@ struct ImageStyleEditorView: View {
         // Add space before numbers: Caption1 -> Caption 1
         let withSpaces = withoutPrefix.replacingOccurrences(of: #"(\d+)"#, with: " $1", options: .regularExpression)
         return withSpaces
+    }
+    
+    /// Normalize caption style to match available styles
+    /// Handles legacy values like "caption1" -> "UICTFontTextStyleCaption1"
+    private static func normalizedCaptionStyle(_ style: String, availableStyles: [String]) -> String {
+        // If it already matches an available style, use it
+        if availableStyles.contains(style) {
+            return style
+        }
+        
+        // Try to find a matching style (case-insensitive, with or without prefix)
+        let normalizedInput = style.lowercased().replacingOccurrences(of: "uictfonttextstyle", with: "")
+        
+        for availableStyle in availableStyles {
+            let normalizedAvailable = availableStyle.lowercased().replacingOccurrences(of: "uictfonttextstyle", with: "")
+            if normalizedInput == normalizedAvailable {
+                return availableStyle
+            }
+        }
+        
+        // Default to first available style, or a sensible default
+        return availableStyles.first ?? "UICTFontTextStyleCaption1"
     }
     
     var body: some View {
@@ -152,6 +179,14 @@ struct ImageStyleEditorView: View {
                     
                     if hasCaption {
                         HStack {
+                            Text("Prefix")
+                                .frame(width: 60, alignment: .leading)
+                            TextField("Figure", text: $captionPrefix)
+                                .textFieldStyle(.roundedBorder)
+                        }
+                        .padding(.vertical, -4)
+                        
+                        HStack {
                             Text("Caption")
                                 .frame(width: 60, alignment: .leading)
                             TextField("imageStyleEditor.captionText.placeholder", text: $captionText)
@@ -167,7 +202,7 @@ struct ImageStyleEditorView: View {
                                 }
                             }
                             
-                            // Edit Style button - opens the style editor for the selected caption style
+                            // Edit Style button
                             if styleSheet != nil {
                                 Button {
                                     if let style = styleSheet?.style(named: captionStyle) {
@@ -177,7 +212,7 @@ struct ImageStyleEditorView: View {
                                     Image(systemName: "pencil.circle")
                                         .font(.title2)
                                 }
-                                .buttonStyle(.plain)
+                                .buttonStyle(.borderless)
                             }
                         }
                         .padding(.vertical, -4)
@@ -200,7 +235,7 @@ struct ImageStyleEditorView: View {
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(NSLocalizedString("imageStyleEditor.apply", comment: "")) {
-                        onApply(imageData, scale, alignment, hasCaption, captionText, captionStyle)
+                        onApply(imageData, scale, alignment, hasCaption, captionPrefix, captionText, captionStyle)
                         dismiss()
                     }
                     .disabled(imageData == nil)

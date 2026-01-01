@@ -319,4 +319,70 @@ final class ImageSerializationTests: XCTestCase {
         
         XCTAssertEqual(restoredAttachment?.fileID, testFileID, "File ID should be preserved through serialization")
     }
+    
+    func testEncodeImageWithCaptionPrefix() {
+        // Given
+        let text = "Image:\u{FFFC}"
+        let attributedString = NSMutableAttributedString(string: text)
+        
+        // Create image attachment with caption including prefix
+        let testImage = createTestImage(width: 200, height: 150)
+        guard let imageData = testImage.pngData(),
+              let attachment = ImageAttachment.from(imageData: imageData) else {
+            XCTFail("Failed to create image attachment")
+            return
+        }
+        
+        attachment.updateCaption(hasCaption: true, prefix: "Figure", text: "My caption", style: "caption1")
+        
+        // Insert attachment
+        let attachmentString = NSAttributedString(attachment: attachment)
+        attributedString.replaceCharacters(in: NSRange(location: 6, length: 1), with: attachmentString)
+        
+        // When
+        let encoded = AttributedStringSerializer.encode(attributedString)
+        let decoded = AttributedStringSerializer.decode(encoded, text: text)
+        
+        // Then
+        let attrs = decoded.attributes(at: 6, effectiveRange: nil)
+        let restoredAttachment = attrs[.attachment] as? ImageAttachment
+        
+        XCTAssertTrue(restoredAttachment?.hasCaption ?? false, "Caption should be enabled")
+        XCTAssertEqual(restoredAttachment?.captionPrefix, "Figure", "Caption prefix should be preserved")
+        XCTAssertEqual(restoredAttachment?.captionText, "My caption", "Caption text should be preserved")
+        XCTAssertEqual(restoredAttachment?.captionStyle, "caption1", "Caption style should be preserved")
+    }
+    
+    func testEncodeImageWithNilCaptionPrefix() {
+        // Given
+        let text = "Image:\u{FFFC}"
+        let attributedString = NSMutableAttributedString(string: text)
+        
+        // Create image attachment with caption but no prefix
+        let testImage = createTestImage(width: 200, height: 150)
+        guard let imageData = testImage.pngData(),
+              let attachment = ImageAttachment.from(imageData: imageData) else {
+            XCTFail("Failed to create image attachment")
+            return
+        }
+        
+        attachment.updateCaption(hasCaption: true, prefix: nil, text: "Just caption", style: "caption2")
+        
+        // Insert attachment
+        let attachmentString = NSAttributedString(attachment: attachment)
+        attributedString.replaceCharacters(in: NSRange(location: 6, length: 1), with: attachmentString)
+        
+        // When
+        let encoded = AttributedStringSerializer.encode(attributedString)
+        let decoded = AttributedStringSerializer.decode(encoded, text: text)
+        
+        // Then
+        let attrs = decoded.attributes(at: 6, effectiveRange: nil)
+        let restoredAttachment = attrs[.attachment] as? ImageAttachment
+        
+        XCTAssertTrue(restoredAttachment?.hasCaption ?? false, "Caption should be enabled")
+        XCTAssertNil(restoredAttachment?.captionPrefix, "Caption prefix should be nil")
+        XCTAssertEqual(restoredAttachment?.captionText, "Just caption", "Caption text should be preserved")
+        XCTAssertEqual(restoredAttachment?.captionStyle, "caption2", "Caption style should be preserved")
+    }
 }

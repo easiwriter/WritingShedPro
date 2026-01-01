@@ -55,6 +55,12 @@ struct FileEditView: View {
     @State private var showPrintError = false
     @State private var printErrorMessage = ""
     
+    // Feature 021: Smart Poetry Creation
+    @State private var showPoetryFormReference = false
+    @State private var showPoetryMetrics = false
+    @State private var showValidationPanel = false
+    @State private var validationPanelExpanded = false
+    
     // Feature 017: Search and Replace
     @State private var showSearchBar = false
     @State private var searchManager = InEditorSearchManager()
@@ -219,6 +225,27 @@ struct FileEditView: View {
                             }
                         }
                     }
+                    
+                    // Poetry validation panel overlay for iPhone
+                    if isPoetryProject,
+                       let form = file.poetryForm,
+                       form.id != PoetryForm.freeVerseId {
+                        let validation = PoetryValidator.shared.validate(text: attributedContent.string, against: form)
+                        if validation.hasIssues {
+                            VStack {
+                                Spacer()
+                                HStack {
+                                    Spacer()
+                                    PoetryValidationPanel(
+                                        validation: validation,
+                                        isExpanded: $validationPanelExpanded
+                                    )
+                                    .padding(.trailing, 12)
+                                    .padding(.bottom, 8)
+                                }
+                            }
+                        }
+                    }
                 }
             } else {
                 // iPad: Use GeometryReader for percentage-based padding
@@ -285,6 +312,27 @@ struct FileEditView: View {
                         }
                     }
                     .padding(.horizontal, geometry.size.width * 0.05)
+                    
+                    // Poetry validation panel overlay
+                    if isPoetryProject,
+                       let form = file.poetryForm,
+                       form.id != PoetryForm.freeVerseId {
+                        let validation = PoetryValidator.shared.validate(text: attributedContent.string, against: form)
+                        if validation.hasIssues {
+                            VStack {
+                                Spacer()
+                                HStack {
+                                    Spacer()
+                                    PoetryValidationPanel(
+                                        validation: validation,
+                                        isExpanded: $validationPanelExpanded
+                                    )
+                                    .padding(.trailing, 16)
+                                    .padding(.bottom, 8)
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -325,6 +373,8 @@ struct FileEditView: View {
                     applyNumberFormat(.decimal)
                 case .bulletedList:
                     applyNumberFormat(.bulletSymbols)
+                case .insertTab:
+                    insertTab()
                 }
             },
             hasSelectedImage: selectedImage != nil
@@ -350,7 +400,9 @@ struct FileEditView: View {
     
     @ViewBuilder
     private func navigationBarButtons() -> some View {
-        HStack(spacing: 16) {
+        let isCompact = UIDevice.current.userInterfaceIdiom == .phone
+        
+        return HStack(spacing: isCompact ? 12 : 16) {
             // Search button (only in edit mode and not opened from multi-file search)
             if !isPaginationMode && !isFromMultiFileSearch {
                 Button(action: {
@@ -373,6 +425,51 @@ struct FileEditView: View {
                 .keyboardShortcut("f", modifiers: .command)
             }
             
+            // Poetry form reference button (only for poetry projects)
+            if isPoetryProject {
+                Button(action: {
+                    showPoetryFormReference = true
+                }) {
+                    Image(systemName: "text.book.closed")
+                        .overlay(alignment: .topTrailing) {
+                            // Show badge hint when document is empty and has a structured form
+                            if attributedContent.length == 0,
+                               let form = file.poetryForm,
+                               form.id != PoetryForm.freeVerseId {
+                                Circle()
+                                    .fill(Color.accentColor)
+                                    .frame(width: 8, height: 8)
+                                    .offset(x: 4, y: -4)
+                            }
+                        }
+                }
+                .accessibilityLabel(NSLocalizedString("poetryFormReference.formButtonAccessibility", comment: "Show poetry form reference"))
+                
+                // Poetry metrics button with validation badge
+                Button(action: {
+                    showPoetryMetrics = true
+                }) {
+                    Image(systemName: "chart.bar")
+                        .overlay(alignment: .topTrailing) {
+                            // Show badge with issue count when there are validation issues
+                            if let form = file.poetryForm,
+                               form.id != PoetryForm.freeVerseId {
+                                let validation = PoetryValidator.shared.validate(text: attributedContent.string, against: form)
+                                if validation.hasIssues {
+                                    Text("\(min(validation.issueCount, 99))")
+                                        .font(.system(size: 9, weight: .bold))
+                                        .foregroundColor(.white)
+                                        .padding(3)
+                                        .background(Color.red)
+                                        .clipShape(Circle())
+                                        .offset(x: 6, y: -6)
+                                }
+                            }
+                        }
+                }
+                .accessibilityLabel(NSLocalizedString("poetryMetrics.buttonAccessibility", comment: "Show poetry metrics"))
+            }
+            
             // Pagination mode toggle (always available - uses global page setup)
             Button(action: {
                 withAnimation(.easeInOut(duration: 0.3)) {
@@ -385,105 +482,160 @@ struct FileEditView: View {
             
             // Insert menu (only in edit mode)
             if !isPaginationMode {
-                Menu {
-                    Button(action: {
-                        showImagePicker()
-                    }) {
-                        Label("Insert Image", systemImage: "photo")
-                    }
-                    
-                    Button(action: {
-                        // TODO: Implement list insertion
-                    }) {
-                        Label("List", systemImage: "list.bullet")
-                    }
-                    .disabled(true)
-                    
-                    // Comments submenu
+                insertMenu
+            }
+            
+            // On iPhone, group undo/redo/print into a menu to save space
+            if isCompact {
+                if !isPaginationMode {
                     Menu {
                         Button(action: {
-                            showNewCommentDialog = true
+                            performUndo()
+                            restoreKeyboardFocus()
                         }) {
-                            Label("Add Comment", systemImage: "pencil.circle")
+                            Label("Undo", systemImage: "arrow.uturn.backward")
                         }
+                        .disabled(!undoManager.canUndo || isPerformingUndoRedo)
                         
-                        if let currentVersion = file.currentVersion, currentVersion.comments?.isEmpty == false {
-                            Divider()
-                            
-                            Button(action: {
-                                showCommentsList = true
-                            }) {
-                                Label("Show Comments", systemImage: "bubble.left.and.bubble.right")
-                            }
-                        }
-                    } label: {
-                        Label("Comment", systemImage: "bubble.left")
-                    }
-                    
-                    // Footnotes submenu
-                    Menu {
                         Button(action: {
-                            showNewFootnoteDialog = true
+                            performRedo()
+                            restoreKeyboardFocus()
                         }) {
-                            Label("Add Footnote", systemImage: "pencil.circle")
+                            Label("Redo", systemImage: "arrow.uturn.forward")
                         }
+                        .disabled(!undoManager.canRedo || isPerformingUndoRedo)
                         
-                        if let currentVersion = file.currentVersion, currentVersion.footnotes?.isEmpty == false {
-                            Divider()
-                            
-                            Button(action: {
-                                showFootnotesList = true
-                            }) {
-                                Label("Show Footnotes", systemImage: "list.number")
-                            }
+                        Divider()
+                        
+                        Button(action: {
+                            printFile()
+                        }) {
+                            Label("Print", systemImage: "printer")
                         }
+                        .disabled(!PrintService.isPrintingAvailable())
                     } label: {
-                        Label("Footnote", systemImage: "number.circle")
+                        Image(systemName: "ellipsis.circle")
                     }
+                }
+            } else {
+                // iPad/Mac: Show undo/redo/print as separate buttons
+                if !isPaginationMode {
+                    Button(action: {
+                        performUndo()
+                        restoreKeyboardFocus()
+                    }) {
+                        Image(systemName: "arrow.uturn.backward")
+                    }
+                    .disabled(!undoManager.canUndo || isPerformingUndoRedo)
+                    .accessibilityLabel("fileEdit.undo.accessibility")
                     
+                    Button(action: {
+                        performRedo()
+                        restoreKeyboardFocus()
+                    }) {
+                        Image(systemName: "arrow.uturn.forward")
+                    }
+                    .disabled(!undoManager.canRedo || isPerformingUndoRedo)
+                    .accessibilityLabel("fileEdit.redo.accessibility")
+                }
+                
+                // Print button (available in both modes)
+                Button(action: {
+                    printFile()
+                }) {
+                    Image(systemName: "printer")
+                }
+                .disabled(!PrintService.isPrintingAvailable())
+                .accessibilityLabel("fileEdit.print.accessibility")
+            }
+        }
+    }
+    
+    /// Insert menu for adding images, comments, footnotes, etc.
+    private var insertMenu: some View {
+        Menu {
+            Button(action: {
+                showImagePicker()
+            }) {
+                Label("Insert Image", systemImage: "photo")
+            }
+            
+            // Comments submenu
+            Menu {
+                Button(action: {
+                    showNewCommentDialog = true
+                }) {
+                    Label("Add Comment", systemImage: "pencil.circle")
+                }
+                
+                if let currentVersion = file.currentVersion, currentVersion.comments?.isEmpty == false {
                     Divider()
                     
                     Button(action: {
-                        insertPageBreak()
+                        showCommentsList = true
                     }) {
-                        Label("Page Break", systemImage: "page.break")
+                        Label("Show Comments", systemImage: "bubble.left.and.bubble.right")
                     }
-                } label: {
-                    Image(systemName: "text.badge.plus")
                 }
-                .accessibilityLabel("fileEdit.insertMenu.accessibility")
+            } label: {
+                Label("Comment", systemImage: "bubble.left")
             }
             
-            // Undo button (only in edit mode)
-            if !isPaginationMode {
+            // Footnotes submenu
+            Menu {
                 Button(action: {
-                    performUndo()
-                    restoreKeyboardFocus()
+                    showNewFootnoteDialog = true
                 }) {
-                    Image(systemName: "arrow.uturn.backward")
+                    Label("Add Footnote", systemImage: "pencil.circle")
                 }
-                .disabled(!undoManager.canUndo || isPerformingUndoRedo)
-                .accessibilityLabel("fileEdit.undo.accessibility")
                 
-                // Redo button
-                Button(action: {
-                    performRedo()
-                    restoreKeyboardFocus()
-                }) {
-                    Image(systemName: "arrow.uturn.forward")
+                if let currentVersion = file.currentVersion, currentVersion.footnotes?.isEmpty == false {
+                    Divider()
+                    
+                    Button(action: {
+                        showFootnotesList = true
+                    }) {
+                        Label("Show Footnotes", systemImage: "list.number")
+                    }
                 }
-                .disabled(!undoManager.canRedo || isPerformingUndoRedo)
-                .accessibilityLabel("fileEdit.redo.accessibility")
+            } label: {
+                Label("Footnote", systemImage: "number.circle")
             }
             
-            // Print button (available in both modes)
+            Divider()
+            
             Button(action: {
-                printFile()
+                insertPageBreak()
             }) {
-                Image(systemName: "printer")
+                Label("Page Break", systemImage: "page.break")
             }
-            .disabled(!PrintService.isPrintingAvailable())
-            .accessibilityLabel("fileEdit.print.accessibility")
+        } label: {
+            Image(systemName: "text.badge.plus")
+        }
+        .accessibilityLabel("fileEdit.insertMenu.accessibility")
+    }
+    
+    /// Whether this file belongs to a Poetry project
+    private var isPoetryProject: Bool {
+        file.project?.type == .poetry
+    }
+    
+    /// Custom title view showing file name and poetry form
+    private var poetryTitleView: some View {
+        VStack(spacing: 2) {
+            Text(file.name)
+                .font(.headline)
+                .lineLimit(1)
+            
+            if let formName = file.poetryFormName ?? file.poetryForm?.name {
+                Text(formName)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            } else {
+                Text(NSLocalizedString("poetryForm.freeVerse", comment: "Free Verse"))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
         }
     }
     
@@ -564,29 +716,16 @@ struct FileEditView: View {
             )
         }
         .sheet(item: $imageToEdit) { imageAttachment in
-            let imageData = imageAttachment.imageData ?? imageAttachment.image?.pngData()
-            
-            // Get available caption styles from stylesheet (use project directly, not StyleSheetProvider)
-            let styleSheet = file.project?.styleSheet
-            let captionStyles = styleSheet?.textStyles?
-                .filter { $0.name.contains("Caption") }
-                .map { $0.name } ?? ["UICTFontTextStyleCaption1", "UICTFontTextStyleCaption2"]
-            
-            ImageStyleEditorView(
-                imageData: imageData,
-                scale: imageAttachment.scale,
-                alignment: imageAttachment.alignment,
-                hasCaption: imageAttachment.hasCaption,
-                captionText: imageAttachment.captionText ?? "",
-                captionStyle: imageAttachment.captionStyle ?? "UICTFontTextStyleCaption1",
-                availableCaptionStyles: captionStyles,
-                styleSheet: styleSheet,
-                onApply: { imageData, scale, alignment, hasCaption, captionText, captionStyle in
+            ImageStyleEditorSheetContent(
+                imageAttachment: imageAttachment,
+                file: file,
+                onApply: { imageData, scale, alignment, hasCaption, captionPrefix, captionText, captionStyle in
                     updateImage(
                         attachment: imageAttachment,
                         scale: scale,
                         alignment: alignment,
                         hasCaption: hasCaption,
+                        captionPrefix: captionPrefix,
                         captionText: captionText,
                         captionStyle: captionStyle
                     )
@@ -607,6 +746,12 @@ struct FileEditView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     PopToRootBackButton()
+                }
+                // Custom title with form subtitle for poetry projects
+                if isPoetryProject {
+                    ToolbarItem(placement: .principal) {
+                        poetryTitleView
+                    }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     navigationBarButtons()
@@ -724,6 +869,31 @@ struct FileEditView: View {
             .sheet(isPresented: $showNotesEditor) {
                 if let currentVersion = file.currentVersion {
                     NotesEditorSheet(version: currentVersion)
+                }
+            }
+            .sheet(isPresented: $showPoetryFormReference) {
+                if let form = file.poetryForm {
+                    PoetryFormReference(form: form)
+                } else {
+                    // Default to free verse reference if no form set
+                    FreeVerseReference()
+                }
+            }
+            .sheet(isPresented: $showPoetryMetrics) {
+                NavigationStack {
+                    PoetryMetricsDashboard(
+                        text: attributedContent.string,
+                        form: file.poetryForm
+                    )
+                    .navigationTitle(NSLocalizedString("poetryMetrics.title", comment: "Poetry Metrics"))
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button(NSLocalizedString("poetryMetrics.done", comment: "Done")) {
+                                showPoetryMetrics = false
+                            }
+                        }
+                    }
                 }
             }
             .onDisappear {
@@ -1015,6 +1185,16 @@ struct FileEditView: View {
             #endif
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 activateSearchFromContext(context)
+            }
+        }
+        
+        // Auto-show poetry form reference for empty poetry documents with a structured form
+        // (not Free Verse, which has no structure to show)
+        if isPoetryProject && attributedContent.length == 0 {
+            if let form = file.poetryForm, form.id != PoetryForm.freeVerseId {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    showPoetryFormReference = true
+                }
             }
         }
     }
@@ -2102,6 +2282,21 @@ struct FileEditView: View {
                 print("⚠️ Print was cancelled")
                 #endif
             }
+        }
+    }
+    
+    // MARK: - Tab Insertion
+    
+    /// Insert a tab character at the current cursor position
+    private func insertTab() {
+        guard let textView = textViewCoordinator.textView else { return }
+        
+        // Insert tab character at current selection
+        let tabString = "\t"
+        
+        // Use UITextView's built-in replace method which handles undo automatically
+        if let selectedTextRange = textView.selectedTextRange {
+            textView.replace(selectedTextRange, withText: tabString)
         }
     }
     
@@ -3400,6 +3595,7 @@ struct FileEditView: View {
         scale: CGFloat,
         alignment: ImageAttachment.ImageAlignment,
         hasCaption: Bool,
+        captionPrefix: String,
         captionText: String,
         captionStyle: String
     ) {
@@ -3422,6 +3618,7 @@ struct FileEditView: View {
         let oldScale = attachment.scale
         let oldAlignment = attachment.alignment
         let oldHasCaption = attachment.hasCaption
+        let oldCaptionPrefix = attachment.captionPrefix
         let oldCaptionText = attachment.captionText
         let oldCaptionStyle = attachment.captionStyle
         
@@ -3430,9 +3627,9 @@ struct FileEditView: View {
         #if DEBUG
         print("🖼️ FileEditView.updateImage() - About to update caption")
         #endif
-        attachment.updateCaption(hasCaption: hasCaption, text: captionText, style: captionStyle)
+        attachment.updateCaption(hasCaption: hasCaption, prefix: captionPrefix, text: captionText, style: captionStyle)
         #if DEBUG
-        print("   After update: hasCaption=\(attachment.hasCaption), text=\(attachment.captionText ?? "nil")")
+        print("   After update: hasCaption=\(attachment.hasCaption), prefix=\(attachment.captionPrefix ?? "nil"), text=\(attachment.captionText ?? "nil")")
         #endif
         
         // Update the paragraph alignment to match image alignment
@@ -3476,11 +3673,13 @@ struct FileEditView: View {
             oldScale: oldScale,
             oldAlignment: oldAlignment,
             oldHasCaption: oldHasCaption,
+            oldCaptionPrefix: oldCaptionPrefix,
             oldCaptionText: oldCaptionText,
             oldCaptionStyle: oldCaptionStyle,
             newScale: scale,
             newAlignment: alignment,
             newHasCaption: hasCaption,
+            newCaptionPrefix: captionPrefix,
             newCaptionText: captionText,
             newCaptionStyle: captionStyle,
             targetFile: file
@@ -3629,5 +3828,56 @@ private struct NewFootnoteSheet: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - Image Style Editor Sheet Content
+
+/// Helper view to encapsulate the caption style logic for ImageStyleEditorView
+private struct ImageStyleEditorSheetContent: View {
+    let imageAttachment: ImageAttachment
+    let file: TextFile
+    let onApply: (Data?, CGFloat, ImageAttachment.ImageAlignment, Bool, String, String, String) -> Void
+    
+    private var imageData: Data? {
+        imageAttachment.imageData ?? imageAttachment.image?.pngData()
+    }
+    
+    private var styleSheet: StyleSheet? {
+        file.project?.styleSheet
+    }
+    
+    private var captionStyles: [String] {
+        // Get available caption styles from stylesheet
+        let filteredCaptionStyles = styleSheet?.textStyles?
+            .filter { $0.name.contains("Caption") }
+            .map { $0.name }
+            .sorted() ?? []
+        
+        if !filteredCaptionStyles.isEmpty {
+            return filteredCaptionStyles
+        }
+        
+        // Fallback: check if default caption styles exist in the stylesheet
+        let defaults = ["UICTFontTextStyleCaption1", "UICTFontTextStyleCaption2"]
+        let existingDefaults = defaults.filter { styleSheet?.style(named: $0) != nil }
+        
+        // If still empty, use defaults anyway for display
+        return existingDefaults.isEmpty ? defaults : existingDefaults
+    }
+    
+    var body: some View {
+        ImageStyleEditorView(
+            imageData: imageData,
+            scale: imageAttachment.scale,
+            alignment: imageAttachment.alignment,
+            hasCaption: imageAttachment.hasCaption,
+            captionPrefix: imageAttachment.captionPrefix ?? "Figure",
+            captionText: imageAttachment.captionText ?? "",
+            captionStyle: imageAttachment.captionStyle ?? "UICTFontTextStyleCaption1",
+            availableCaptionStyles: captionStyles,
+            styleSheet: styleSheet,
+            onApply: onApply
+        )
     }
 }

@@ -31,6 +31,7 @@ struct AttributeValues: Codable {
     var imageScale: CGFloat?
     var imageAlignment: String?
     var hasCaption: Bool?
+    var captionPrefix: String?
     var captionText: String?
     var captionStyle: String?
     var imageFileID: String?  // File ID for stylesheet access
@@ -324,6 +325,7 @@ struct AttributedStringSerializer {
                             attributes.imageScale = imageAttachment.scale
                             attributes.imageAlignment = imageAttachment.alignment.rawValue
                             attributes.hasCaption = imageAttachment.hasCaption
+                            attributes.captionPrefix = imageAttachment.captionPrefix
                             attributes.captionText = imageAttachment.captionText
                             attributes.captionStyle = imageAttachment.captionStyle
                             attributes.originalFilename = imageAttachment.originalFilename
@@ -520,6 +522,7 @@ struct AttributedStringSerializer {
                     
                     // Restore caption
                     attachment.hasCaption = jsonAttributes.hasCaption ?? false
+                    attachment.captionPrefix = jsonAttributes.captionPrefix
                     attachment.captionText = jsonAttributes.captionText
                     attachment.captionStyle = jsonAttributes.captionStyle
                     

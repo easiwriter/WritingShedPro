@@ -334,6 +334,11 @@ final class TextFile {
     var undoStackMaxSize: Int = 100
     var lastUndoSaveDate: Date?
     
+    // Feature 021: Smart Poetry Creation
+    // Stores the selected poetry form for this file (Poetry projects only)
+    var poetryFormId: UUID?
+    var poetryFormName: String?  // Denormalized for display without lookup
+    
     // SwiftData Relationships - all must be optional for CloudKit
     @Relationship(deleteRule: .nullify, inverse: \Folder.textFiles) 
     var parentFolder: Folder?
@@ -352,17 +357,35 @@ final class TextFile {
         return parentFolder?.project
     }
     
-    init(name: String = "", initialContent: String = "", parentFolder: Folder? = nil) {
+    /// Get the poetry form for this file (if assigned)
+    var poetryForm: PoetryForm? {
+        guard let formId = poetryFormId else { return nil }
+        return PoetryFormService.shared.getForm(byId: formId)
+    }
+    
+    init(name: String = "", initialContent: String = "", parentFolder: Folder? = nil, poetryFormId: UUID? = nil, poetryFormName: String? = nil) {
         self.name = name
         self.createdDate = Date()
         self.modifiedDate = Date()
         self.parentFolder = parentFolder
         self.currentVersionIndex = 0
+        self.poetryFormId = poetryFormId
+        self.poetryFormName = poetryFormName
         
         // Create initial version and assign to optional array
         let firstVersion = Version(content: initialContent, versionNumber: 1)
         self.versions = [firstVersion]
         firstVersion.textFile = self
+    }
+    
+    // MARK: - Poetry Form Methods
+    
+    /// Set the poetry form for this file
+    /// - Parameter form: The poetry form to assign, or nil to clear
+    func setPoetryForm(_ form: PoetryForm?) {
+        poetryFormId = form?.id
+        poetryFormName = form?.name
+        modifiedDate = Date()
     }
     
     // MARK: - Computed Properties

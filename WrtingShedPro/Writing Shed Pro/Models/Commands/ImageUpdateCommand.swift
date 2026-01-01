@@ -20,6 +20,7 @@ final class ImageUpdateCommand: UndoableCommand {
     let oldScale: CGFloat
     let oldAlignment: ImageAttachment.ImageAlignment
     let oldHasCaption: Bool
+    let oldCaptionPrefix: String?
     let oldCaptionText: String?
     let oldCaptionStyle: String?
     
@@ -27,6 +28,7 @@ final class ImageUpdateCommand: UndoableCommand {
     let newScale: CGFloat
     let newAlignment: ImageAttachment.ImageAlignment
     let newHasCaption: Bool
+    let newCaptionPrefix: String
     let newCaptionText: String
     let newCaptionStyle: String
     
@@ -44,11 +46,13 @@ final class ImageUpdateCommand: UndoableCommand {
          oldScale: CGFloat,
          oldAlignment: ImageAttachment.ImageAlignment,
          oldHasCaption: Bool,
+         oldCaptionPrefix: String?,
          oldCaptionText: String?,
          oldCaptionStyle: String?,
          newScale: CGFloat,
          newAlignment: ImageAttachment.ImageAlignment,
          newHasCaption: Bool,
+         newCaptionPrefix: String,
          newCaptionText: String,
          newCaptionStyle: String,
          targetFile: TextFile?) {
@@ -61,11 +65,13 @@ final class ImageUpdateCommand: UndoableCommand {
         self.oldScale = oldScale
         self.oldAlignment = oldAlignment
         self.oldHasCaption = oldHasCaption
+        self.oldCaptionPrefix = oldCaptionPrefix
         self.oldCaptionText = oldCaptionText
         self.oldCaptionStyle = oldCaptionStyle
         self.newScale = newScale
         self.newAlignment = newAlignment
         self.newHasCaption = newHasCaption
+        self.newCaptionPrefix = newCaptionPrefix
         self.newCaptionText = newCaptionText
         self.newCaptionStyle = newCaptionStyle
         self.targetFile = targetFile
@@ -89,7 +95,7 @@ final class ImageUpdateCommand: UndoableCommand {
         // Update attachment properties to new state
         attachment?.scale = newScale
         attachment?.alignment = newAlignment
-        attachment?.updateCaption(hasCaption: newHasCaption, text: newCaptionText, style: newCaptionStyle)
+        attachment?.updateCaption(hasCaption: newHasCaption, prefix: newCaptionPrefix, text: newCaptionText, style: newCaptionStyle)
         
         #if DEBUG
         print("✅ ImageUpdateCommand.execute() - Applied image update: \(description)")
@@ -117,7 +123,7 @@ final class ImageUpdateCommand: UndoableCommand {
         // Restore old attachment properties
         attachment?.scale = oldScale
         attachment?.alignment = oldAlignment
-        attachment?.updateCaption(hasCaption: oldHasCaption, text: oldCaptionText, style: oldCaptionStyle)
+        attachment?.updateCaption(hasCaption: oldHasCaption, prefix: oldCaptionPrefix, text: oldCaptionText, style: oldCaptionStyle)
         
         #if DEBUG
         print("↩️ ImageUpdateCommand.undo() - Reverted image update: \(description)")
@@ -137,8 +143,8 @@ final class ImageUpdateCommand: UndoableCommand {
         case id, timestamp, description
         case beforeContentData, beforeContentText
         case afterContentData, afterContentText
-        case oldScale, oldAlignment, oldHasCaption, oldCaptionText, oldCaptionStyle
-        case newScale, newAlignment, newHasCaption, newCaptionText, newCaptionStyle
+        case oldScale, oldAlignment, oldHasCaption, oldCaptionPrefix, oldCaptionText, oldCaptionStyle
+        case newScale, newAlignment, newHasCaption, newCaptionPrefix, newCaptionText, newCaptionStyle
     }
     
     required init(from decoder: Decoder) throws {
@@ -159,6 +165,7 @@ final class ImageUpdateCommand: UndoableCommand {
         let oldAlignmentRaw = try container.decode(String.self, forKey: .oldAlignment)
         self.oldAlignment = ImageAttachment.ImageAlignment(rawValue: oldAlignmentRaw) ?? .center
         self.oldHasCaption = try container.decode(Bool.self, forKey: .oldHasCaption)
+        self.oldCaptionPrefix = try container.decodeIfPresent(String.self, forKey: .oldCaptionPrefix)
         self.oldCaptionText = try container.decodeIfPresent(String.self, forKey: .oldCaptionText)
         self.oldCaptionStyle = try container.decodeIfPresent(String.self, forKey: .oldCaptionStyle)
         
@@ -167,6 +174,7 @@ final class ImageUpdateCommand: UndoableCommand {
         let newAlignmentRaw = try container.decode(String.self, forKey: .newAlignment)
         self.newAlignment = ImageAttachment.ImageAlignment(rawValue: newAlignmentRaw) ?? .center
         self.newHasCaption = try container.decode(Bool.self, forKey: .newHasCaption)
+        self.newCaptionPrefix = try container.decodeIfPresent(String.self, forKey: .newCaptionPrefix) ?? "Figure"
         self.newCaptionText = try container.decode(String.self, forKey: .newCaptionText)
         self.newCaptionStyle = try container.decode(String.self, forKey: .newCaptionStyle)
         
@@ -184,11 +192,13 @@ final class ImageUpdateCommand: UndoableCommand {
         try container.encode(oldScale, forKey: .oldScale)
         try container.encode(oldAlignment.rawValue, forKey: .oldAlignment)
         try container.encode(oldHasCaption, forKey: .oldHasCaption)
+        try container.encodeIfPresent(oldCaptionPrefix, forKey: .oldCaptionPrefix)
         try container.encodeIfPresent(oldCaptionText, forKey: .oldCaptionText)
         try container.encodeIfPresent(oldCaptionStyle, forKey: .oldCaptionStyle)
         try container.encode(newScale, forKey: .newScale)
         try container.encode(newAlignment.rawValue, forKey: .newAlignment)
         try container.encode(newHasCaption, forKey: .newHasCaption)
+        try container.encode(newCaptionPrefix, forKey: .newCaptionPrefix)
         try container.encode(newCaptionText, forKey: .newCaptionText)
         try container.encode(newCaptionStyle, forKey: .newCaptionStyle)
     }

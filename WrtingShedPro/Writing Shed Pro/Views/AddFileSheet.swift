@@ -9,7 +9,13 @@ struct AddFileSheet: View {
     @State private var fileName = ""
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
+    @State private var selectedPoetryForm: PoetryForm?
     @Environment(\.modelContext) var modelContext
+    
+    /// Whether this file is being created in a Poetry project
+    private var isPoetryProject: Bool {
+        parentFolder.project?.type == .poetry
+    }
     
     var body: some View {
         NavigationStack {
@@ -22,6 +28,17 @@ struct AddFileSheet: View {
                                 addFile()
                             }
                         }
+                }
+                
+                // Poetry form picker section (only for Poetry projects)
+                if isPoetryProject {
+                    Section {
+                        PoetryFormPickerCompact(selectedForm: $selectedPoetryForm)
+                    } header: {
+                        Text(NSLocalizedString("addFile.poetryFormHeader", comment: "Poetry Form section header"))
+                    } footer: {
+                        Text(NSLocalizedString("addFile.poetryFormFooter", comment: "Poetry Form section footer"))
+                    }
                 }
             }
             .navigationTitle(NSLocalizedString("addFile.title", comment: "Add file title"))
@@ -37,6 +54,7 @@ struct AddFileSheet: View {
                         addFile()
                     }
                     .disabled(fileName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .foregroundColor(.blue)
                 }
             }
             .alert(NSLocalizedString("addFile.error", comment: "Error alert title"), isPresented: $showErrorAlert) {
@@ -77,11 +95,23 @@ struct AddFileSheet: View {
             return
         }
         
-        // Create TextFile
+        // Store poetry form info (but don't insert template - show reference sheet instead)
+        var poetryFormId: UUID? = nil
+        var poetryFormName: String? = nil
+        
+        if isPoetryProject, let form = selectedPoetryForm {
+            poetryFormId = form.id
+            poetryFormName = form.name
+        }
+        
+        // Create TextFile with empty content
+        // Poetry form reference will auto-show when document opens
         let newFile = TextFile(
             name: fileName,
             initialContent: "",
-            parentFolder: parentFolder
+            parentFolder: parentFolder,
+            poetryFormId: poetryFormId,
+            poetryFormName: poetryFormName
         )
         modelContext.insert(newFile)
         

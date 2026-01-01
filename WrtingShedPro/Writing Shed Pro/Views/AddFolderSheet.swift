@@ -38,6 +38,7 @@ struct AddFolderSheet: View {
                         addFolder()
                     }
                     .disabled(folderName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .foregroundColor(.blue)
                 }
             }
             .alert(NSLocalizedString("addFolder.error", comment: "Error alert title"), isPresented: $showErrorAlert) {

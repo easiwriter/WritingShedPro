@@ -224,7 +224,7 @@ struct ProjectInfoSheet: View {
                 // Check for duplicate name (excluding current project)
                 let isDuplicate: Bool = allProjects.contains { (otherProject: Project) -> Bool in
                     guard otherProject.id != project.id else { return false }
-                    let otherName: String = otherProject.name ?? ""
+                    let otherName: String = (otherProject.name ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
                     return otherName.lowercased() == trimmedName.lowercased()
                 }
                 
