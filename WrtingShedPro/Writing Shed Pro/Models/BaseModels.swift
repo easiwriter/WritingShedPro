@@ -37,7 +37,11 @@ final class Project {
     var type: ProjectType {
         get {
             guard let typeRaw = typeRaw, let projectType = ProjectType(rawValue: typeRaw) else {
-                return .blank
+                // Handle legacy "blank" value
+                if typeRaw == "blank" {
+                    return .generalPurpose
+                }
+                return .generalPurpose
             }
             return projectType
         }
@@ -58,7 +62,7 @@ final class Project {
         }
     }
     
-    init(name: String?, type: ProjectType = ProjectType.blank, creationDate: Date? = Date(), details: String? = nil, notes: String? = nil, userOrder: Int? = nil, styleSheet: StyleSheet? = nil) {
+    init(name: String?, type: ProjectType = ProjectType.generalPurpose, creationDate: Date? = Date(), details: String? = nil, notes: String? = nil, userOrder: Int? = nil, styleSheet: StyleSheet? = nil) {
         self.name = name
         self.typeRaw = type.rawValue
         self.statusRaw = ProjectStatus.pro.rawValue // Default to .pro
@@ -73,23 +77,38 @@ final class Project {
 }
 
 enum ProjectType: String, Codable, CaseIterable {
-    case blank, novel, poetry, script, shortStory
+    case generalPurpose, novel, poetry, script, shortStory
+    
+    // Backward compatibility: decode "blank" as generalPurpose
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let rawValue = try container.decode(String.self)
+        if rawValue == "blank" {
+            self = .generalPurpose
+        } else if let type = ProjectType(rawValue: rawValue) {
+            self = type
+        } else {
+            self = .generalPurpose
+        }
+    }
 }
 
 @Model
 final class Folder {
     var id: UUID = UUID()
     var name: String?
+    var userOrder: Int?  // For user-defined ordering in General Purpose projects
     @Relationship(deleteRule: .cascade) var folders: [Folder]?  // Inverse is parentFolder
     @Relationship(deleteRule: .cascade) var textFiles: [TextFile]?  // Inverse is TextFile.parentFolder
     @Relationship(inverse: \Folder.folders) var parentFolder: Folder?  // Inverse is folders
     var project: Project?
     var trashedItems: [TrashItem]? // Inverse for TrashItem.originalFolder
     
-    init(name: String?, project: Project? = nil, parentFolder: Folder? = nil) {
+    init(name: String?, project: Project? = nil, parentFolder: Folder? = nil, userOrder: Int? = nil) {
         self.name = name
         self.project = project
         self.parentFolder = parentFolder
+        self.userOrder = userOrder
         self.folders = []
         self.textFiles = []
     }

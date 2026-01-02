@@ -61,6 +61,66 @@ class FileMoveService {
         try modelContext.save()
     }
     
+    // MARK: - Folder Move Operations
+    
+    /// Moves a folder to a new parent folder
+    /// - Parameters:
+    ///   - folder: The Folder to move
+    ///   - destination: The destination Folder (new parent)
+    /// - Throws: FileMoveError if the move is invalid
+    func moveFolder(_ folder: Folder, to destination: Folder) throws {
+        // Validate: Can't move folder into itself
+        guard folder.id != destination.id else {
+            throw FileMoveError.cannotMoveToSelf
+        }
+        
+        // Validate: Can't move folder into one of its own descendants
+        if isDescendant(destination, of: folder) {
+            throw FileMoveError.cannotMoveToDescendant
+        }
+        
+        // Validate: Must be in same project
+        guard folder.project?.id == destination.project?.id else {
+            throw FileMoveError.differentProjects
+        }
+        
+        // Check for name conflict and auto-rename if needed
+        if destination.folders?.contains(where: { $0.name == folder.name && $0.id != folder.id }) == true {
+            folder.name = generateUniqueFolderName(baseName: folder.name, in: destination)
+        }
+        
+        // Perform the move
+        folder.parentFolder = destination
+        
+        try modelContext.save()
+    }
+    
+    /// Checks if potentialDescendant is a descendant of ancestor
+    private func isDescendant(_ potentialDescendant: Folder, of ancestor: Folder) -> Bool {
+        var current: Folder? = potentialDescendant.parentFolder
+        while let parent = current {
+            if parent.id == ancestor.id {
+                return true
+            }
+            current = parent.parentFolder
+        }
+        return false
+    }
+    
+    /// Generates a unique folder name in the destination
+    private func generateUniqueFolderName(baseName: String?, in destination: Folder) -> String {
+        let base = baseName ?? "Folder"
+        var counter = 1
+        var candidateName = base
+        
+        while destination.folders?.contains(where: { $0.name == candidateName }) == true {
+            counter += 1
+            candidateName = "\(base) \(counter)"
+        }
+        
+        return candidateName
+    }
+    
     // MARK: - Delete to Trash Operations
     
     /// Deletes a file by moving it to Trash
@@ -275,6 +335,9 @@ enum FileMoveError: LocalizedError, Equatable {
     case nameConflict(suggestedName: String)
     case cannotMoveToTrash
     case noDraftFolder
+    case cannotMoveToSelf
+    case cannotMoveToDescendant
+    case differentProjects
     
     var errorDescription: String? {
         switch self {
@@ -296,6 +359,12 @@ enum FileMoveError: LocalizedError, Equatable {
             return "Cannot move files directly to Trash. Use the Delete action instead."
         case .noDraftFolder:
             return "Could not find Draft folder for file restoration"
+        case .cannotMoveToSelf:
+            return "Cannot move a folder into itself"
+        case .cannotMoveToDescendant:
+            return "Cannot move a folder into one of its subfolders"
+        case .differentProjects:
+            return "Cannot move folders between different projects"
         }
     }
     
@@ -309,6 +378,10 @@ enum FileMoveError: LocalizedError, Equatable {
             return "Use the Delete button to move files to Trash."
         case .noDraftFolder:
             return "File will be restored to Draft folder, but Draft folder could not be found. Please create a Draft folder in your project."
+        case .cannotMoveToSelf, .cannotMoveToDescendant:
+            return "Choose a different destination folder."
+        case .differentProjects:
+            return "Folders can only be moved within the same project."
         default:
             return nil
         }

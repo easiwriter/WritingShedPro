@@ -132,7 +132,7 @@ final class StyleSheetServiceTests: XCTestCase {
     func testGetStyleSheetForProject() throws {
         // Given
         StyleSheetService.initializeStyleSheetsIfNeeded(context: context)
-        let project = Project(name: "Test Project", type: .blank)
+        let project = Project(name: "Test Project", type: .generalPurpose)
         context.insert(project)
         try context.save()
         
@@ -151,7 +151,7 @@ final class StyleSheetServiceTests: XCTestCase {
         let customSheet = StyleSheet(name: "Custom", isSystemStyleSheet: false)
         context.insert(customSheet)
         
-        let project = Project(name: "Test Project", type: .blank)
+        let project = Project(name: "Test Project", type: .generalPurpose)
         project.styleSheet = customSheet
         context.insert(project)
         try context.save()
@@ -167,7 +167,7 @@ final class StyleSheetServiceTests: XCTestCase {
     func testResolveStyleByName() throws {
         // Given
         StyleSheetService.initializeStyleSheetsIfNeeded(context: context)
-        let project = Project(name: "Test Project", type: .blank)
+        let project = Project(name: "Test Project", type: .generalPurpose)
         context.insert(project)
         try context.save()
         
@@ -183,7 +183,7 @@ final class StyleSheetServiceTests: XCTestCase {
     func testResolveStyleByUIFontTextStyle() throws {
         // Given
         StyleSheetService.initializeStyleSheetsIfNeeded(context: context)
-        let project = Project(name: "Test Project", type: .blank)
+        let project = Project(name: "Test Project", type: .generalPurpose)
         context.insert(project)
         try context.save()
         
@@ -203,7 +203,7 @@ final class StyleSheetServiceTests: XCTestCase {
         // Don't add any styles to custom sheet
         context.insert(customSheet)
         
-        let project = Project(name: "Test Project", type: .blank)
+        let project = Project(name: "Test Project", type: .generalPurpose)
         project.styleSheet = customSheet
         context.insert(project)
         try context.save()
@@ -219,7 +219,7 @@ final class StyleSheetServiceTests: XCTestCase {
     func testResolveStyleFallsBackToBody() throws {
         // Given
         StyleSheetService.initializeStyleSheetsIfNeeded(context: context)
-        let project = Project(name: "Test Project", type: .blank)
+        let project = Project(name: "Test Project", type: .generalPurpose)
         context.insert(project)
         try context.save()
         

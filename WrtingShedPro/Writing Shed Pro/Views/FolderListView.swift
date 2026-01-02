@@ -21,8 +21,11 @@ struct FolderListView: View {
         guard !isLoadingFolders else { return [] }
         let order = folderOrderForProjectType(project.type)
         
+        // Filter to only top-level folders (no parent folder)
+        let topLevelFolders = loadedFolders.filter { $0.parentFolder == nil }
+        
         // Sort folders by predefined order
-        return loadedFolders.sorted { folder1, folder2 in
+        return topLevelFolders.sorted { folder1, folder2 in
             let name1 = folder1.name ?? ""
             let name2 = folder2.name ?? ""
             let index1 = order.firstIndex(of: name1) ?? Int.max
@@ -34,8 +37,8 @@ struct FolderListView: View {
     // Define the display order for each project type
     private func folderOrderForProjectType(_ type: ProjectType) -> [String] {
         switch type {
-        case .blank:
-            return ["Files", "Trash"]
+        case .generalPurpose:
+            return ["Folders", "Trash"]
             
         case .poetry, .shortStory:
             return [
@@ -65,8 +68,8 @@ struct FolderListView: View {
     
     // Determines if spacing should be added after this folder
     private func shouldAddSpacingAfter(folder: Folder) -> Bool {
-        // Don't add spacing for blank projects
-        guard project.type != .blank else { return false }
+        // Don't add spacing for general purpose projects
+        guard project.type != .generalPurpose else { return false }
         
         let folderName = folder.name ?? ""
         
@@ -142,17 +145,23 @@ struct FolderListView: View {
                                 FolderRowView(folder: folder)
                             }
                         } else {
-                            // Navigate to subfolders OR to file list based on folder capabilities
-                            let canAddFolder = FolderCapabilityService.canAddSubfolder(to: folder)
-                            let _ = FolderCapabilityService.canAddFile(to: folder)
+                            // Navigate based on folder capabilities
+                            let canAddSubfolder = FolderCapabilityService.canAddSubfolder(to: folder)
+                            let canAddFile = FolderCapabilityService.canAddFile(to: folder)
                             
-                            if canAddFolder {
-                                // This folder contains subfolders - navigate to FolderListView
+                            if canAddFile {
+                                // Mixed content or file-only folders - navigate to FolderFilesView
+                                // FolderFilesView handles both files and subfolders for mixed-content folders
+                                NavigationLink(destination: FolderFilesView(folder: folder)) {
+                                    FolderRowView(folder: folder)
+                                }
+                            } else if canAddSubfolder {
+                                // Subfolder-only folders (Chapters, Acts, etc.) - navigate to FolderListView
                                 NavigationLink(destination: FolderListView(project: project, selectedFolder: folder)) {
                                     FolderRowView(folder: folder)
                                 }
                             } else {
-                                // This folder contains files - navigate to FolderFilesView
+                                // Read-only folders - navigate to FolderFilesView (view-only)
                                 NavigationLink(destination: FolderFilesView(folder: folder)) {
                                     FolderRowView(folder: folder)
                                 }
@@ -170,17 +179,22 @@ struct FolderListView: View {
                 if !currentSubfolders.isEmpty {
                     Section {
                         ForEach(currentSubfolders) { subfolder in
-                            // Navigate to subfolders OR to file list based on folder capabilities
-                            let canAddFolder = FolderCapabilityService.canAddSubfolder(to: subfolder)
-                            let _ = FolderCapabilityService.canAddFile(to: subfolder)
+                            // Navigate based on folder capabilities
+                            let canAddSubfolder = FolderCapabilityService.canAddSubfolder(to: subfolder)
+                            let canAddFile = FolderCapabilityService.canAddFile(to: subfolder)
                             
-                            if canAddFolder {
-                                // This folder contains subfolders - navigate to FolderListView
+                            if canAddFile {
+                                // Mixed content or file-only folders - navigate to FolderFilesView
+                                NavigationLink(destination: FolderFilesView(folder: subfolder)) {
+                                    FolderRowView(folder: subfolder)
+                                }
+                            } else if canAddSubfolder {
+                                // Subfolder-only folders - navigate to FolderListView
                                 NavigationLink(destination: FolderListView(project: project, selectedFolder: subfolder)) {
                                     FolderRowView(folder: subfolder)
                                 }
                             } else {
-                                // This folder contains files - navigate to FolderFilesView
+                                // Read-only folders - navigate to FolderFilesView
                                 NavigationLink(destination: FolderFilesView(folder: subfolder)) {
                                     FolderRowView(folder: subfolder)
                                 }
@@ -351,6 +365,9 @@ struct FolderRowView: View {
         } else if isTrashFolder {
             // Trash folder shows count of TrashItem objects
             count = fileCount  // Will be computed in .task
+        } else if isMixedContentFolder {
+            // For mixed-content folders (like "Folders"), show subfolder count only at project level
+            count = subfolderCount
         } else if subfolderCount > 0 && fileCount > 0 {
             count = subfolderCount + fileCount
         } else if subfolderCount > 0 {
@@ -360,6 +377,11 @@ struct FolderRowView: View {
         }
         
         return "\(baseName) (\(count))"
+    }
+    
+    /// Check if this folder supports mixed content (both files and subfolders)
+    private var isMixedContentFolder: Bool {
+        FolderCapabilityService.canAddSubfolder(to: folder) && FolderCapabilityService.canAddFile(to: folder)
     }
     
     var body: some View {

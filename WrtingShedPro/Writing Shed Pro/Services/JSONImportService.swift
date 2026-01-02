@@ -264,10 +264,12 @@ class JSONImportService {
             "script": .script,
             "shortStory": .shortStory,
             "short story": .shortStory,
-            "blank": .blank
+            "generalpurpose": .generalPurpose,
+            "general purpose": .generalPurpose,
+            "blank": .generalPurpose  // Legacy support
         ]
         
-        return typeMapping[modelString.lowercased()] ?? .blank
+        return typeMapping[modelString.lowercased()] ?? .generalPurpose
     }
     
     // MARK: - Text Files Import
@@ -952,8 +954,8 @@ class JSONImportService {
         let folderNames: [String]
         
         switch project.type {
-        case .blank:
-            folderNames = ["Files", "Trash"]
+        case .generalPurpose:
+            folderNames = ["Folders", "Trash"]
             
         case .poetry, .shortStory:
             folderNames = [

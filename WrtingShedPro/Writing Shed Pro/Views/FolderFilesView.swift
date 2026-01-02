@@ -30,6 +30,9 @@ struct FolderFilesView: View {
     // State for add file sheet
     @State private var showAddFileSheet = false
     
+    // State for add folder sheet (for mixed-content folders)
+    @State private var showAddFolderSheet = false
+    
     // State for navigation
     @State private var selectedFile: TextFile?
     @State private var navigateToFile = false
@@ -45,6 +48,18 @@ struct FolderFilesView: View {
     // State for rename
     @State private var showRenamePicker = false
     @State private var filesToRename: [TextFile] = []
+    
+    // State for folder movement (for mixed-content folders)
+    @State private var showFolderMoveDestinationPicker = false
+    @State private var folderToMove: Folder?
+    
+    // State for multi-select in mixed content view
+    @State private var selectedFileIDs: Set<UUID> = []
+    @State private var selectedFolderIDs: Set<UUID> = []
+    
+    // State for sorting in mixed content view
+    @State private var fileSortOrder: FileSortOrder = .byName
+    @State private var folderSortOrder: FolderSortOrder = .byName
     
     // State for Word document import
     @State private var showImportPicker = false
@@ -119,9 +134,47 @@ struct FolderFilesView: View {
         return folder.name == "Ready"
     }
     
+    // Check if this folder supports mixed content (both files and subfolders)
+    private var isMixedContentFolder: Bool {
+        return FolderCapabilityService.canAddSubfolder(to: folder) && FolderCapabilityService.canAddFile(to: folder)
+    }
+    
+    // Get subfolders sorted by current sort order
+    private var sortedSubfolders: [Folder] {
+        return FolderSortService.sort(folder.folders ?? [], by: folderSortOrder)
+    }
+    
+    // Get files sorted by current sort order (for mixed content view)
+    private var sortedMixedFiles: [TextFile] {
+        return FileSortService.sort(folder.textFiles ?? [], by: fileSortOrder)
+    }
+    
+    // Whether edit mode is currently active
+    private var isEditMode: Bool {
+        editMode == .active
+    }
+    
+    // Selected files based on selectedFileIDs
+    private var selectedFiles: [TextFile] {
+        sortedFiles.filter { selectedFileIDs.contains($0.id) }
+    }
+    
+    // Selected folders based on selectedFolderIDs
+    private var selectedFolders: [Folder] {
+        sortedSubfolders.filter { selectedFolderIDs.contains($0.id) }
+    }
+    
+    // Whether bottom toolbar should be visible (edit mode + items selected)
+    private var showMixedContentToolbar: Bool {
+        isEditMode && (!selectedFileIDs.isEmpty || !selectedFolderIDs.isEmpty)
+    }
+    
     var body: some View {
         Group {
-            if !sortedFiles.isEmpty {
+            if isMixedContentFolder {
+                // Mixed content folder - show both subfolders and files
+                mixedContentBody
+            } else if !sortedFiles.isEmpty {
                 // Show FileListView with sorted files
                 FileListView(
                     files: sortedFiles,
@@ -200,17 +253,38 @@ struct FolderFilesView: View {
                 
                 // Add file button
                 if FolderCapabilityService.canAddFile(to: folder) {
-                    Button {
-                        showAddFileSheet = true
-                    } label: {
-                        Image(systemName: "plus")
+                    if isMixedContentFolder {
+                        // Show menu with options for both file and folder
+                        Menu {
+                            Button {
+                                showAddFileSheet = true
+                            } label: {
+                                Label(NSLocalizedString("folderFiles.addFile", comment: "Add File"), systemImage: "doc.badge.plus")
+                            }
+                            
+                            Button {
+                                showAddFolderSheet = true
+                            } label: {
+                                Label(NSLocalizedString("folderFiles.addFolder", comment: "Add Folder"), systemImage: "folder.badge.plus")
+                            }
+                        } label: {
+                            Image(systemName: "plus")
+                        }
+                        .accessibilityLabel("folderFiles.add.accessibility")
+                        .disabled(editMode == .active)
+                    } else {
+                        Button {
+                            showAddFileSheet = true
+                        } label: {
+                            Image(systemName: "plus")
+                        }
+                        .accessibilityLabel("folderFiles.addFile.accessibility")
+                        .disabled(editMode == .active)
                     }
-                    .accessibilityLabel("folderFiles.addFile.accessibility")
-                    .disabled(editMode == .active)
                 }
                 
                 // Manual Edit/Done button on far right (replaces SwiftUI's EditButton which isn't working)
-                if !sortedFiles.isEmpty {
+                if !sortedFiles.isEmpty || (isMixedContentFolder && !sortedSubfolders.isEmpty) {
                     Button {
                         withAnimation {
                             editMode = editMode == .inactive ? .active : .inactive
@@ -247,6 +321,16 @@ struct FolderFilesView: View {
                 parentFolder: folder,
                 existingFiles: folder.textFiles ?? []
             )
+        }
+        .sheet(isPresented: $showAddFolderSheet) {
+            if let project = folder.project {
+                AddFolderSheet(
+                    isPresented: $showAddFolderSheet,
+                    project: project,
+                    parentFolder: folder,
+                    existingFolders: sortedSubfolders
+                )
+            }
         }
         .sheet(isPresented: $showSubmissionPicker) {
             if let project = folder.project {
@@ -296,6 +380,27 @@ struct FolderFilesView: View {
                         }
                     )
                 }
+            }
+        }
+        .sheet(isPresented: $showFolderMoveDestinationPicker) {
+            if let project = folder.project {
+                FolderMoveDestinationPicker(
+                    project: project,
+                    currentFolder: folder,
+                    folderToMove: folderToMove,
+                    filesToMove: filesToMove,
+                    onDestinationSelected: { destination in
+                        if let folderMoving = folderToMove {
+                            moveSubfolder(folderMoving, to: destination)
+                        } else {
+                            moveFilesToFolder(filesToMove, to: destination)
+                        }
+                        showFolderMoveDestinationPicker = false
+                    },
+                    onCancel: {
+                        showFolderMoveDestinationPicker = false
+                    }
+                )
             }
         }
         .fileImporter(
@@ -401,6 +506,357 @@ struct FolderFilesView: View {
         } : nil
     }
     
+    // MARK: - Mixed Content View
+    
+    /// View for folders that support both subfolders and files
+    @ViewBuilder
+    private var mixedContentBody: some View {
+        List {
+            // Subfolders section
+            if !sortedSubfolders.isEmpty {
+                Section {
+                    ForEach(sortedSubfolders) { subfolder in
+                        mixedContentSubfolderRow(subfolder)
+                    }
+                    .onMove(perform: moveSubfolders)
+                } header: {
+                    HStack {
+                        Text(NSLocalizedString("folderFiles.subfoldersHeader", comment: "Subfolders section header"))
+                        Spacer()
+                        if !isEditMode {
+                            folderSortMenu
+                        }
+                    }
+                }
+            }
+            
+            // Files section
+            if !sortedMixedFiles.isEmpty {
+                Section {
+                    ForEach(sortedMixedFiles) { file in
+                        mixedContentFileRow(file)
+                    }
+                    .onMove(perform: moveMixedFiles)
+                } header: {
+                    HStack {
+                        Text(NSLocalizedString("folderFiles.filesHeader", comment: "Files section header"))
+                        Spacer()
+                        if !isEditMode {
+                            fileSortMenu
+                        }
+                    }
+                }
+            }
+            
+            // Empty state when both are empty
+            if sortedSubfolders.isEmpty && sortedMixedFiles.isEmpty {
+                ContentUnavailableView {
+                    Label(NSLocalizedString("folderFiles.emptyFolder", comment: "Empty folder"), systemImage: "folder")
+                } description: {
+                    Text(NSLocalizedString("folderFiles.emptyFolder.hint", comment: "Empty folder hint"))
+                }
+            }
+        }
+        .environment(\.editMode, $editMode)
+        .toolbar {
+            // Bottom toolbar for multi-select actions (only in edit mode)
+            ToolbarItemGroup(placement: .bottomBar) {
+                if showMixedContentToolbar {
+                    mixedContentBottomToolbar
+                }
+            }
+        }
+        .onChange(of: editMode) { _, newValue in
+            if newValue == .inactive {
+                // Clear selection when exiting edit mode
+                selectedFileIDs.removeAll()
+                selectedFolderIDs.removeAll()
+            }
+        }
+    }
+    
+    /// Sort menu for folders section
+    @ViewBuilder
+    private var folderSortMenu: some View {
+        Menu {
+            ForEach(FolderSortService.sortOptions(), id: \.order) { option in
+                Button {
+                    folderSortOrder = option.order
+                } label: {
+                    HStack {
+                        Text(option.title)
+                        if folderSortOrder == option.order {
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                }
+            }
+        } label: {
+            Image(systemName: "arrow.up.arrow.down")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+    
+    /// Sort menu for files section
+    @ViewBuilder
+    private var fileSortMenu: some View {
+        Menu {
+            ForEach(FileSortService.sortOptions(), id: \.order) { option in
+                Button {
+                    fileSortOrder = option.order
+                } label: {
+                    HStack {
+                        Text(option.title)
+                        if fileSortOrder == option.order {
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                }
+            }
+        } label: {
+            Image(systemName: "arrow.up.arrow.down")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+    
+    /// Row for a subfolder in mixed content view - supports edit mode selection
+    @ViewBuilder
+    private func mixedContentSubfolderRow(_ subfolder: Folder) -> some View {
+        HStack {
+            // Selection circle in edit mode - tappable to toggle selection
+            if isEditMode {
+                Button {
+                    toggleFolderSelection(subfolder)
+                } label: {
+                    Image(systemName: selectedFolderIDs.contains(subfolder.id) ? "checkmark.circle.fill" : "circle")
+                        .foregroundStyle(selectedFolderIDs.contains(subfolder.id) ? .blue : .gray)
+                        .imageScale(.large)
+                }
+                .buttonStyle(.plain)
+            }
+            
+            // Main content - NavigationLink works in both modes
+            NavigationLink(destination: FolderFilesView(folder: subfolder)) {
+                Label(subfolder.name ?? NSLocalizedString("folderList.untitledFolder", comment: "Untitled folder"), systemImage: "folder")
+            }
+        }
+        .contextMenu {
+            Button {
+                folderToMove = subfolder
+                showFolderMoveDestinationPicker = true
+            } label: {
+                Label(NSLocalizedString("folderFiles.moveToFolder", comment: "Move to Folder"), systemImage: "folder")
+            }
+            
+            Divider()
+            
+            Button(role: .destructive) {
+                deleteSubfolder(subfolder)
+            } label: {
+                Label(NSLocalizedString("button.delete", comment: "Delete"), systemImage: "trash")
+            }
+        }
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            if !isEditMode {
+                Button(role: .destructive) {
+                    deleteSubfolder(subfolder)
+                } label: {
+                    Label(NSLocalizedString("button.delete", comment: "Delete"), systemImage: "trash")
+                }
+            }
+        }
+    }
+    
+    /// Row for a file in mixed content view - supports edit mode selection
+    @ViewBuilder
+    private func mixedContentFileRow(_ file: TextFile) -> some View {
+        HStack {
+            // Selection circle in edit mode - tappable to toggle selection
+            if isEditMode {
+                Button {
+                    toggleFileSelection(file)
+                } label: {
+                    Image(systemName: selectedFileIDs.contains(file.id) ? "checkmark.circle.fill" : "circle")
+                        .foregroundStyle(selectedFileIDs.contains(file.id) ? .blue : .gray)
+                        .imageScale(.large)
+                }
+                .buttonStyle(.plain)
+            }
+            
+            // Main content - tappable for navigation
+            Button {
+                selectedFile = file
+                navigateToFile = true
+            } label: {
+                HStack {
+                    Label(file.name.isEmpty ? NSLocalizedString("folderFiles.untitledFile", comment: "Untitled file") : file.name, systemImage: "doc.text")
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .foregroundColor(.secondary)
+                        .font(.caption)
+                }
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.primary)
+        }
+        .contextMenu {
+            Button {
+                folderToMove = nil  // Moving files, not folder
+                filesToMove = [file]
+                showFolderMoveDestinationPicker = true
+            } label: {
+                Label(NSLocalizedString("folderFiles.moveToFolder", comment: "Move to Folder"), systemImage: "folder")
+            }
+            
+            Divider()
+            
+            Button(role: .destructive) {
+                deleteFiles([file])
+            } label: {
+                Label(NSLocalizedString("button.delete", comment: "Delete"), systemImage: "trash")
+            }
+        }
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            if !isEditMode {
+                Button(role: .destructive) {
+                    deleteFiles([file])
+                } label: {
+                    Label(NSLocalizedString("button.delete", comment: "Delete"), systemImage: "trash")
+                }
+            }
+        }
+    }
+    
+    /// Bottom toolbar for mixed content multi-select actions
+    @ViewBuilder
+    private var mixedContentBottomToolbar: some View {
+        let totalSelected = selectedFileIDs.count + selectedFolderIDs.count
+        
+        // Move button with count
+        Button {
+            // Move selected files and folders
+            filesToMove = selectedFiles
+            if let firstFolder = selectedFolders.first {
+                folderToMove = firstFolder
+            }
+            showFolderMoveDestinationPicker = true
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "folder")
+                Text("(\(totalSelected))")
+                    .font(.caption)
+            }
+        }
+        .disabled(totalSelected == 0)
+        .accessibilityLabel(String(format: NSLocalizedString("fileList.moveCount", comment: "Move count"), totalSelected))
+        
+        Spacer()
+        
+        // Deselect all button
+        Button {
+            selectedFileIDs.removeAll()
+            selectedFolderIDs.removeAll()
+        } label: {
+            Image(systemName: "circle.slash")
+        }
+        .disabled(totalSelected == 0)
+        .accessibilityLabel(NSLocalizedString("fileList.deselectAll", comment: "Deselect all"))
+        
+        Spacer()
+        
+        // Trash button
+        Button(role: .destructive) {
+            // Delete selected files and folders
+            for subfolder in selectedFolders {
+                deleteSubfolder(subfolder)
+            }
+            deleteFiles(selectedFiles)
+            selectedFileIDs.removeAll()
+            selectedFolderIDs.removeAll()
+            editMode = .inactive
+        } label: {
+            Image(systemName: "trash")
+        }
+        .disabled(totalSelected == 0)
+        .accessibilityLabel(String(format: NSLocalizedString("fileList.deleteCount", comment: "Delete count"), totalSelected))
+    }
+    
+    /// Toggle file selection
+    private func toggleFileSelection(_ file: TextFile) {
+        if selectedFileIDs.contains(file.id) {
+            selectedFileIDs.remove(file.id)
+        } else {
+            selectedFileIDs.insert(file.id)
+        }
+    }
+    
+    /// Toggle folder selection
+    private func toggleFolderSelection(_ folder: Folder) {
+        if selectedFolderIDs.contains(folder.id) {
+            selectedFolderIDs.remove(folder.id)
+        } else {
+            selectedFolderIDs.insert(folder.id)
+        }
+    }
+    
+    /// Move subfolders for drag-to-reorder (updates userOrder)
+    private func moveSubfolders(from source: IndexSet, to destination: Int) {
+        var folders = sortedSubfolders
+        folders.move(fromOffsets: source, toOffset: destination)
+        
+        // Update userOrder for all folders
+        for (index, folder) in folders.enumerated() {
+            folder.userOrder = index
+        }
+        
+        // Switch to user order sorting to show the new order
+        folderSortOrder = .byUserOrder
+        
+        do {
+            try modelContext.save()
+        } catch {
+            #if DEBUG
+            print("Error saving folder order: \(error)")
+            #endif
+        }
+    }
+    
+    /// Move files for drag-to-reorder (updates userOrder)
+    private func moveMixedFiles(from source: IndexSet, to destination: Int) {
+        var files = sortedMixedFiles
+        files.move(fromOffsets: source, toOffset: destination)
+        
+        // Update userOrder for all files
+        for (index, file) in files.enumerated() {
+            file.userOrder = index
+        }
+        
+        // Switch to user order sorting to show the new order
+        fileSortOrder = .byUserOrder
+        
+        do {
+            try modelContext.save()
+        } catch {
+            #if DEBUG
+            print("Error saving file order: \(error)")
+            #endif
+        }
+    }
+    
+    /// Delete a single subfolder
+    private func deleteSubfolder(_ subfolder: Folder) {
+        modelContext.delete(subfolder)
+        do {
+            try modelContext.save()
+        } catch {
+            #if DEBUG
+            print("Error deleting subfolder: \(error)")
+            #endif
+        }
+    }
+    
     // MARK: - Actions
     
     private func deleteFiles(_ files: [TextFile]) {
@@ -426,6 +882,36 @@ struct FolderFilesView: View {
         } catch {
             #if DEBUG
             print("Error moving files: \(error)")
+            #endif
+            // TODO: Show error alert
+        }
+    }
+    
+    /// Move a subfolder to a new destination folder
+    private func moveSubfolder(_ subfolder: Folder, to destination: Folder) {
+        let service = FileMoveService(modelContext: modelContext)
+        
+        do {
+            try service.moveFolder(subfolder, to: destination)
+            folderToMove = nil
+        } catch {
+            #if DEBUG
+            print("Error moving folder: \(error)")
+            #endif
+            // TODO: Show error alert
+        }
+    }
+    
+    /// Move files to a destination folder (for General Purpose mixed content folders)
+    private func moveFilesToFolder(_ files: [TextFile], to destination: Folder) {
+        let service = FileMoveService(modelContext: modelContext)
+        
+        do {
+            try service.moveFiles(files, to: destination)
+            filesToMove = []
+        } catch {
+            #if DEBUG
+            print("Error moving files to folder: \(error)")
             #endif
             // TODO: Show error alert
         }

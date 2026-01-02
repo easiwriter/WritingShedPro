@@ -7,7 +7,7 @@ final class ProjectRenameDeleteTests: XCTestCase {
     
     func testRenameProjectWithValidName() {
         // Arrange
-        let project = Project(name: "Original Name", type: .blank)
+        let project = Project(name: "Original Name", type: .generalPurpose)
         let newName = "Updated Name"
         
         // Act
@@ -40,7 +40,7 @@ final class ProjectRenameDeleteTests: XCTestCase {
     func testRenameProjectUniquenessCheck() {
         // Arrange
         let existingProjects = [
-            Project(name: "Project One", type: .blank),
+            Project(name: "Project One", type: .generalPurpose),
             Project(name: "Project Two", type: .poetry)
         ]
         
@@ -52,7 +52,7 @@ final class ProjectRenameDeleteTests: XCTestCase {
     func testRenameProjectUniquenessCaseInsensitive() {
         // Arrange
         let existingProjects = [
-            Project(name: "My Project", type: .blank)
+            Project(name: "My Project", type: .generalPurpose)
         ]
         
         // Act & Assert
@@ -63,7 +63,7 @@ final class ProjectRenameDeleteTests: XCTestCase {
     
     func testRenameProjectToSameNameIsValid() {
         // Arrange
-        let project = Project(name: "My Project", type: .blank)
+        let project = Project(name: "My Project", type: .generalPurpose)
         let projects = [project]
         
         // Act & Assert - renaming to the same name should be allowed
@@ -76,7 +76,7 @@ final class ProjectRenameDeleteTests: XCTestCase {
     func testDeleteProjectRemovesFromList() {
         // Arrange
         var projects = [
-            Project(name: "Project 1", type: .blank),
+            Project(name: "Project 1", type: .generalPurpose),
             Project(name: "Project 2", type: .poetry),
             Project(name: "Project 3", type: .script)
         ]
@@ -92,7 +92,7 @@ final class ProjectRenameDeleteTests: XCTestCase {
     
     func testDeleteProjectPreservesOtherProjects() {
         // Arrange
-        let project1 = Project(name: "Project 1", type: .blank)
+        let project1 = Project(name: "Project 1", type: .generalPurpose)
         let project2 = Project(name: "Project 2", type: .poetry)
         let project3 = Project(name: "Project 3", type: .script)
         var projects = [project1, project2, project3]
@@ -108,7 +108,7 @@ final class ProjectRenameDeleteTests: XCTestCase {
     
     func testDeleteLastProjectLeavesEmptyList() {
         // Arrange
-        let project = Project(name: "Only Project", type: .blank)
+        let project = Project(name: "Only Project", type: .generalPurpose)
         var projects = [project]
         
         // Act
@@ -120,7 +120,7 @@ final class ProjectRenameDeleteTests: XCTestCase {
     
     func testDeleteProjectWithFolders() {
         // Arrange
-        let project = Project(name: "Project", type: .blank)
+        let project = Project(name: "Project", type: .generalPurpose)
         let folder = Folder(name: "Folder", project: project)
         project.folders = [folder]
         
@@ -136,7 +136,7 @@ final class ProjectRenameDeleteTests: XCTestCase {
     
     func testUpdateProjectDetails() {
         // Arrange
-        let project = Project(name: "My Novel", type: .blank, details: "Initial details")
+        let project = Project(name: "My Novel", type: .generalPurpose, details: "Initial details")
         
         // Act
         project.details = "Updated details with more information"
@@ -147,7 +147,7 @@ final class ProjectRenameDeleteTests: XCTestCase {
     
     func testClearProjectDetails() {
         // Arrange
-        let project = Project(name: "My Novel", type: .blank, details: "Some details")
+        let project = Project(name: "My Novel", type: .generalPurpose, details: "Some details")
         
         // Act
         project.details = nil
@@ -159,7 +159,7 @@ final class ProjectRenameDeleteTests: XCTestCase {
     func testProjectPreservesCreationDate() {
         // Arrange
         let creationDate = Date(timeIntervalSinceNow: -3600)
-        let project = Project(name: "Project", type: .blank, creationDate: creationDate)
+        let project = Project(name: "Project", type: .generalPurpose, creationDate: creationDate)
         
         // Act - rename project
         project.name = "Renamed Project"

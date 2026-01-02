@@ -32,7 +32,9 @@ struct Write_App: App {
             // Feature 014: Comments
             CommentModel.self,
             // Feature 015: Footnotes
-            FootnoteModel.self
+            FootnoteModel.self,
+            // Feature 021 Phase 2: Custom Poetry Forms
+            PoetryFormModel.self
         ])
         
         #if DEBUG
@@ -190,6 +192,9 @@ struct Write_App: App {
         WindowGroup {
             ContentView()
                 .task {
+                    // Configure PoetryFormService with model context for database access
+                    PoetryFormService.shared.configureWithContext(sharedModelContainer.mainContext)
+                    
                     // Defer CloudKit status check to avoid blocking app launch
                     try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
                     checkCloudKitStatus()

@@ -241,8 +241,8 @@ final class JSONImportServiceTests: XCTestCase {
             ("script", .script),
             ("shortStory", .shortStory),
             ("short story", .shortStory),
-            ("blank", .blank),
-            ("unknown", .blank)
+            ("blank", .generalPurpose),
+            ("unknown", .generalPurpose)
         ]
         
         for testCase in testCases {
@@ -270,10 +270,12 @@ final class JSONImportServiceTests: XCTestCase {
             "script": .script,
             "shortstory": .shortStory,
             "short story": .shortStory,
-            "blank": .blank
+            "generalpurpose": .generalPurpose,
+            "general purpose": .generalPurpose,
+            "blank": .generalPurpose  // Legacy support
         ]
         
-        return typeMapping[modelString.lowercased()] ?? .blank
+        return typeMapping[modelString.lowercased()] ?? .generalPurpose
     }
     
     // MARK: - Folder Name Mapping Tests

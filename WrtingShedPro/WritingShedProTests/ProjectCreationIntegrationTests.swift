@@ -6,7 +6,7 @@ final class ProjectCreationIntegrationTests: XCTestCase {
     func testCreateProjectInMemory() {
         // Arrange
         let projectName = "My First Project"
-        let projectType = ProjectType.blank
+        let projectType = ProjectType.generalPurpose
         
         // Act
         let project = Project(name: projectName, type: projectType)
@@ -22,7 +22,7 @@ final class ProjectCreationIntegrationTests: XCTestCase {
         let projectNames = ["Project A", "Project B", "Project C"]
         
         // Act
-        let projects = projectNames.map { Project(name: $0, type: .blank) }
+        let projects = projectNames.map { Project(name: $0, type: .generalPurpose) }
         
         // Assert
         XCTAssertEqual(projects.count, 3)
@@ -37,7 +37,7 @@ final class ProjectCreationIntegrationTests: XCTestCase {
         let details = "A sci-fi novel set in the future"
         
         // Act
-        let project = Project(name: projectName, type: .blank, details: details)
+        let project = Project(name: projectName, type: .generalPurpose, details: details)
         
         // Assert
         XCTAssertEqual(project.name, projectName)
@@ -46,7 +46,7 @@ final class ProjectCreationIntegrationTests: XCTestCase {
     
     func testCreateProjectWithDifferentTypes() {
         // Arrange
-        let types: [ProjectType] = [.blank, .poetry, .script]
+        let types: [ProjectType] = [.generalPurpose, .poetry, .script]
         
         // Act
         let projects = types.enumerated().map { (index, type) in
@@ -55,14 +55,14 @@ final class ProjectCreationIntegrationTests: XCTestCase {
         
         // Assert
         XCTAssertEqual(projects.count, 3)
-        XCTAssertEqual(projects[0].type, .blank)
+        XCTAssertEqual(projects[0].type, .generalPurpose)
         XCTAssertEqual(projects[1].type, .poetry)
         XCTAssertEqual(projects[2].type, .script)
     }
     
     func testRenameProjectInMemory() {
         // Arrange
-        let project = Project(name: "Original Name", type: .blank)
+        let project = Project(name: "Original Name", type: .generalPurpose)
         
         // Act
         project.name = "New Name"
@@ -73,7 +73,7 @@ final class ProjectCreationIntegrationTests: XCTestCase {
     
     func testUpdateProjectDetails() {
         // Arrange
-        let project = Project(name: "My Project", type: .blank)
+        let project = Project(name: "My Project", type: .generalPurpose)
         
         // Act
         project.details = "New details"

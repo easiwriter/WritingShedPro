@@ -1,7 +1,7 @@
 /* Localization strings for Write! app */
 
 /* Project types */
-"projectType.blank" = "Blank";
+"projectType.generalPurpose" = "General Purpose";
 "projectType.novel" = "Novel";
 "projectType.poetry" = "Poetry";
 "projectType.script" = "Script";
@@ -159,6 +159,46 @@
 "poetryForm.rhyme" = "Rhyme";
 "poetryForm.meter" = "Meter";
 
+/* Poetry Form Management (Phase 2) */
+"poetryForms.management.title" = "Poetry Forms";
+"poetryForms.management.predefined" = "Predefined Forms";
+"poetryForms.management.custom" = "Custom Forms";
+"poetryForms.management.empty" = "No custom forms yet.\nTap + to create one.";
+"poetryForms.management.add" = "Add Custom Form";
+
+/* Poetry Form Editor (Phase 2) */
+"poetryForms.editor.newTitle" = "New Form";
+"poetryForms.editor.editTitle" = "Edit Form";
+"poetryForms.editor.viewTitle" = "Form Details";
+"poetryForms.editor.name" = "Name";
+"poetryForms.editor.nameRequired" = "Name is required";
+"poetryForms.editor.category" = "Category";
+"poetryForms.editor.description" = "Description";
+"poetryForms.editor.descriptionRequired" = "Description is required";
+"poetryForms.editor.structure" = "Structure (Optional)";
+"poetryForms.editor.lineCount" = "Line Count";
+"poetryForms.editor.syllablePattern" = "Syllable Pattern";
+"poetryForms.editor.syllablePatternHint" = "e.g., 5,7,5";
+"poetryForms.editor.syllablePatternInvalid" = "Use numbers separated by commas or hyphens";
+"poetryForms.editor.rhymeScheme" = "Rhyme Scheme";
+"poetryForms.editor.rhymeSchemeHint" = "e.g., ABAB CDCD";
+"poetryForms.editor.meterPattern" = "Meter";
+"poetryForms.editor.meterPatternHint" = "e.g., iambic pentameter";
+"poetryForms.editor.templateContent" = "Template Content";
+"poetryForms.editor.duplicateAsCustom" = "Duplicate as Custom";
+"poetryForms.editor.readOnly" = "Predefined forms cannot be edited";
+
+/* Poetry Form Delete Confirmation (Phase 2) */
+"poetryForms.delete.title" = "Delete Form?";
+"poetryForms.delete.message" = "This will delete \"%@\". %d file(s) using this form will be changed to Free Verse.";
+"poetryForms.delete.messageNoFiles" = "This will delete \"%@\".";
+"poetryForms.delete.confirm" = "Delete";
+
+/* Poetry Form Picker (Phase 2) */
+"poetryForms.picker.manageButton" = "Manage";
+"poetryForms.reference.unknownForm" = "Unknown Form";
+"poetryForms.reference.unknownFormMessage" = "This form is no longer available. Tap to select a different form.";
+
 /* Poetry Form Reference */
 "poetryFormReference.done" = "Done";
 "poetryFormReference.about" = "About";
@@ -272,6 +312,7 @@
 /* Default folder names */
 "folder.all" = "All";
 "folder.files" = "Files";
+"folder.folders" = "Folders";
 "folder.draft" = "Draft";
 "folder.ready" = "Ready";
 "folder.setAside" = "Set Aside";
@@ -294,7 +335,7 @@
 "folder.acts" = "Acts";
 
 /* Project type folder names */
-"projectFolder.blank" = "BLANK";
+"projectFolder.generalPurpose" = "GENERAL PURPOSE";
 "projectFolder.yourPoetry" = "YOUR POETRY";
 "projectFolder.yourStories" = "YOUR STORIES";
 "projectFolder.yourNovel" = "YOUR NOVEL";
@@ -636,6 +677,14 @@
 "folderFiles.noFiles.hint" = "Tap + to create your first file";
 "folderFiles.sort.accessibility" = "Sort files";
 "folderFiles.addFile.accessibility" = "Add file";
+"folderFiles.addFile" = "Add File";
+"folderFiles.addFolder" = "Add Folder";
+"folderFiles.add.accessibility" = "Add file or folder";
+"folderFiles.subfoldersHeader" = "Folders";
+"folderFiles.filesHeader" = "Files";
+"folderFiles.untitledFile" = "Untitled";
+"folderFiles.emptyFolder" = "Empty Folder";
+"folderFiles.emptyFolder.hint" = "Tap + to add a file or folder";
 
 /* PaginatedDocumentView - New Keys */
 "paginatedDocument.pages.accessibility" = "Document pages";
@@ -1143,3 +1192,15 @@
 /* Navigation */
 "navigation.back" = "Back";
 "navigation.backLongPressHint" = "Long press to return to project list";
+
+/* Folder Move Destination Picker */
+"folderMoveDestination.moveFolder" = "Move Folder";
+"folderMoveDestination.moveFile" = "Move File";
+"folderMoveDestination.moveFiles" = "Move %d Files";
+"folderMoveDestination.rootLevel" = "Root Level";
+"folderMoveDestination.selectDestination" = "Select Destination";
+"folderMoveDestination.noFolders.title" = "No Valid Destinations";
+"folderMoveDestination.noFolders.message" = "There are no valid folders to move to. Create a new folder first.";
+
+/* Folder Sorting */
+"sort.byUserOrder" = "Custom Order";

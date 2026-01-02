@@ -7,6 +7,7 @@ enum FolderSortOrder: String, CaseIterable {
     case byName = "name"
     case byCreationDate = "creationDate"
     case byItemCount = "itemCount"
+    case byUserOrder = "userOrder"
 }
 
 struct FolderSortService {
@@ -22,6 +23,8 @@ struct FolderSortService {
                 let count2 = $1.textFiles?.count ?? 0
                 return count1 > count2
             }
+        case .byUserOrder:
+            return folders.sorted { ($0.userOrder ?? Int.max) < ($1.userOrder ?? Int.max) }
         }
     }
     
@@ -29,7 +32,8 @@ struct FolderSortService {
         [
             SortOption(.byName, title: NSLocalizedString("sort.byName", comment: "Sort by name")),
             SortOption(.byCreationDate, title: NSLocalizedString("sort.byCreationDate", comment: "Sort by creation date")),
-            SortOption(.byItemCount, title: NSLocalizedString("sort.byItemCount", comment: "Sort by item count"))
+            SortOption(.byItemCount, title: NSLocalizedString("sort.byItemCount", comment: "Sort by item count")),
+            SortOption(.byUserOrder, title: NSLocalizedString("sort.byUserOrder", comment: "Sort by custom order"))
         ]
     }
 }

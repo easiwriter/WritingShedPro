@@ -7,7 +7,7 @@ final class ProjectRenameDeleteIntegrationTests: XCTestCase {
     
     func testRenameProjectEndToEnd() {
         // Arrange
-        let project = Project(name: "Original Name", type: .blank)
+        let project = Project(name: "Original Name", type: .generalPurpose)
         let newName = "New Name"
         let projects = [project]
         
@@ -27,7 +27,7 @@ final class ProjectRenameDeleteIntegrationTests: XCTestCase {
     
     func testRenameProjectWithValidationFailure() {
         // Arrange
-        let project = Project(name: "Valid Name", type: .blank)
+        let project = Project(name: "Valid Name", type: .generalPurpose)
         let invalidName = "  "
         
         // Act & Assert - validation should fail
@@ -41,7 +41,7 @@ final class ProjectRenameDeleteIntegrationTests: XCTestCase {
     
     func testRenameProjectWithDuplicateNameFailure() {
         // Arrange
-        let project1 = Project(name: "Project 1", type: .blank)
+        let project1 = Project(name: "Project 1", type: .generalPurpose)
         let project2 = Project(name: "Project 2", type: .poetry)
         let projects = [project1, project2]
         
@@ -58,7 +58,7 @@ final class ProjectRenameDeleteIntegrationTests: XCTestCase {
     
     func testRenameProjectToSameName() {
         // Arrange
-        let project = Project(name: "My Project", type: .blank)
+        let project = Project(name: "My Project", type: .generalPurpose)
         let originalName = project.name
         let projects = [project]
         
@@ -95,7 +95,7 @@ final class ProjectRenameDeleteIntegrationTests: XCTestCase {
     func testDeleteProjectEndToEnd() {
         // Arrange
         var projects = [
-            Project(name: "Keep 1", type: .blank),
+            Project(name: "Keep 1", type: .generalPurpose),
             Project(name: "Delete Me", type: .poetry),
             Project(name: "Keep 2", type: .script)
         ]
@@ -114,7 +114,7 @@ final class ProjectRenameDeleteIntegrationTests: XCTestCase {
     
     func testDeleteProjectWithConfirmation() {
         // Arrange
-        let project = Project(name: "To Delete", type: .blank)
+        let project = Project(name: "To Delete", type: .generalPurpose)
         var projects = [project]
         var userConfirmed = false
         
@@ -131,7 +131,7 @@ final class ProjectRenameDeleteIntegrationTests: XCTestCase {
     
     func testCancelDeletePreservesProject() {
         // Arrange
-        let project = Project(name: "To Keep", type: .blank)
+        let project = Project(name: "To Keep", type: .generalPurpose)
         var projects = [project]
         
         // Act - simulate user canceling delete by NOT calling removeAll
@@ -151,7 +151,7 @@ final class ProjectRenameDeleteIntegrationTests: XCTestCase {
     func testDeleteProjectFromSortedList() {
         // Arrange
         var projects = [
-            Project(name: "Zebra", type: .blank),
+            Project(name: "Zebra", type: .generalPurpose),
             Project(name: "Alpha", type: .poetry),
             Project(name: "Beta", type: .script)
         ]
@@ -172,7 +172,7 @@ final class ProjectRenameDeleteIntegrationTests: XCTestCase {
     
     func testViewAndEditProjectDetails() {
         // Arrange
-        let project = Project(name: "My Novel", type: .blank, details: "Initial outline")
+        let project = Project(name: "My Novel", type: .generalPurpose, details: "Initial outline")
         
         // Act - view details
         let initialDetails = project.details
@@ -187,7 +187,7 @@ final class ProjectRenameDeleteIntegrationTests: XCTestCase {
     
     func testAddDetailsToProjectWithoutDetails() {
         // Arrange
-        let project = Project(name: "My Novel", type: .blank)
+        let project = Project(name: "My Novel", type: .generalPurpose)
         XCTAssertNil(project.details)
         
         // Act
@@ -199,7 +199,7 @@ final class ProjectRenameDeleteIntegrationTests: XCTestCase {
     
     func testClearProjectDetails() {
         // Arrange
-        let project = Project(name: "My Novel", type: .blank, details: "Some details")
+        let project = Project(name: "My Novel", type: .generalPurpose, details: "Some details")
         
         // Act
         project.details = ""
@@ -210,7 +210,7 @@ final class ProjectRenameDeleteIntegrationTests: XCTestCase {
     
     func testEditMultipleProjectProperties() {
         // Arrange
-        let project = Project(name: "Original", type: .blank)
+        let project = Project(name: "Original", type: .generalPurpose)
         
         // Act - edit name and details
         project.name = "Updated Name"
@@ -219,7 +219,7 @@ final class ProjectRenameDeleteIntegrationTests: XCTestCase {
         // Assert
         XCTAssertEqual(project.name, "Updated Name")
         XCTAssertEqual(project.details, "New details")
-        XCTAssertEqual(project.type, .blank) // Type unchanged
+        XCTAssertEqual(project.type, .generalPurpose) // Type unchanged
     }
     
     // MARK: - Combined Workflow Tests
@@ -227,7 +227,7 @@ final class ProjectRenameDeleteIntegrationTests: XCTestCase {
     func testCompleteProjectLifecycle() {
         // Arrange - create project
         var projects: [Project] = []
-        let newProject = Project(name: "My Project", type: .blank, details: "Initial details")
+        let newProject = Project(name: "My Project", type: .generalPurpose, details: "Initial details")
         projects.append(newProject)
         
         XCTAssertEqual(projects.count, 1)

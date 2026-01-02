@@ -9,6 +9,12 @@ struct FolderCapabilityService {
         "Chapters", "Acts", "Magazines", "Competitions", "Commissions", "Other"
     ]
     
+    /// Folders that can contain BOTH subfolders AND files
+    /// These are flexible containers for General Purpose projects
+    private static let mixedContentFolders: Set<String> = [
+        "Folders"
+    ]
+    
     /// Folders that show publications instead of regular content
     /// These are special views into the publication system
     private static let publicationFolders: Set<String> = [
@@ -34,12 +40,29 @@ struct FolderCapabilityService {
     static func canAddSubfolder(to folder: Folder) -> Bool {
         guard let folderName = folder.name else { return false }
         
+        // Mixed content folders can contain subfolders
+        if mixedContentFolders.contains(folderName) {
+            return true
+        }
+        
+        // User-created folders inside "Folders" can also contain subfolders
+        if let parentFolder = folder.parentFolder,
+           let parentName = parentFolder.name,
+           mixedContentFolders.contains(parentName) || isUserCreatedFolder(folder) {
+            return true
+        }
+        
+        // Recursively check if this is a descendant of a mixed content folder
+        if isDescendantOfMixedContentFolder(folder) {
+            return true
+        }
+        
         // Template folders can only contain subfolders if explicitly allowed
         if isTemplateFolder(folderName) {
             return subfolderOnlyFolders.contains(folderName)
         }
         
-        // User-created folders cannot contain subfolders
+        // User-created folders cannot contain subfolders (unless under Folders)
         return false
     }
     
@@ -50,6 +73,16 @@ struct FolderCapabilityService {
         // Read-only folders cannot have files added manually
         if readOnlyFolders.contains(folderName) {
             return false
+        }
+        
+        // Mixed content folders can contain files
+        if mixedContentFolders.contains(folderName) {
+            return true
+        }
+        
+        // Descendants of mixed content folders can contain files
+        if isDescendantOfMixedContentFolder(folder) {
+            return true
         }
         
         // Template folders can only contain files if explicitly allowed
@@ -65,7 +98,31 @@ struct FolderCapabilityService {
     static func isTemplateFolder(_ folderName: String) -> Bool {
         return subfolderOnlyFolders.contains(folderName) ||
                fileOnlyFolders.contains(folderName) ||
-               readOnlyFolders.contains(folderName)
+               readOnlyFolders.contains(folderName) ||
+               mixedContentFolders.contains(folderName)
+    }
+    
+    /// Determines if a folder is user-created (not a template folder)
+    static func isUserCreatedFolder(_ folder: Folder) -> Bool {
+        guard let folderName = folder.name else { return false }
+        return !isTemplateFolder(folderName)
+    }
+    
+    /// Determines if a folder is a descendant of a mixed content folder
+    private static func isDescendantOfMixedContentFolder(_ folder: Folder) -> Bool {
+        var current = folder.parentFolder
+        while let parent = current {
+            if let parentName = parent.name, mixedContentFolders.contains(parentName) {
+                return true
+            }
+            // Also check if parent is user-created under mixed content
+            if isUserCreatedFolder(parent) {
+                current = parent.parentFolder
+            } else {
+                current = parent.parentFolder
+            }
+        }
+        return false
     }
     
     /// Returns a user-friendly message explaining why an operation is not allowed

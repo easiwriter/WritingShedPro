@@ -47,7 +47,7 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
     
     func testCanNavigateToCreatedFolders() throws {
         // Given: A project with template folders
-        let project = Project(name: "Test Project", type: .blank)
+        let project = Project(name: "Test Project", type: .generalPurpose)
         modelContext.insert(project)
         ProjectTemplateService.createDefaultFolders(for: project, in: modelContext)
         
@@ -62,7 +62,7 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
             XCTAssertEqual(folder.project, project, "Folder should reference project")
             
             // Verify blank project has expected folders
-            XCTAssertTrue(["Files", "Trash"].contains(folder.name), "Should be expected folder name")
+            XCTAssertTrue(["Folders", "Trash"].contains(folder.name), "Should be expected folder name")
         }
     }
     
@@ -89,7 +89,7 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
     func testMultipleProjectsHaveIsolatedFolderStructures() throws {
         // Given: Two projects with different types
         let poetryProject = Project(name: "Poetry Project", type: .poetry)
-        let proseProject = Project(name: "Prose Project", type: .blank)
+        let proseProject = Project(name: "Prose Project", type: .generalPurpose)
         
         modelContext.insert(poetryProject)
         modelContext.insert(proseProject)
@@ -112,8 +112,8 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
         XCTAssert(poetryFolderNames.contains("Magazines"), "Poetry project should have Magazines folder")
         XCTAssert(poetryFolderNames.contains("Published"), "Poetry project should have Published folder")
         
-        XCTAssertFalse(proseFolderNames.contains("Magazines"), "Blank project should not have Magazines folder")
-        XCTAssertEqual(proseFolderNames, ["Files", "Trash"], "Blank project should only have Files and Trash")
+        XCTAssertFalse(proseFolderNames.contains("Magazines"), "General Purpose project should not have Magazines folder")
+        XCTAssertEqual(proseFolderNames, ["Folders", "Trash"], "General Purpose project should only have Folders and Trash")
     }
     
     func testDeletingProjectCascadeDeletesFolders() throws {

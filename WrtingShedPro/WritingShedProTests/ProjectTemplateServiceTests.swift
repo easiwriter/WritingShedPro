@@ -47,7 +47,7 @@ final class ProjectTemplateServiceTests: XCTestCase {
     
     func testCreateDefaultFoldersForBlankProject() throws {
         // Given a blank project
-        let project = Project(name: "Test Blank", type: .blank)
+        let project = Project(name: "Test Blank", type: .generalPurpose)
         modelContext.insert(project)
         
         // When creating default folders
@@ -59,7 +59,7 @@ final class ProjectTemplateServiceTests: XCTestCase {
         XCTAssertEqual(folders.count, 2, "Should have 2 folders for blank project")
         
         let folderNames = Set(folders.compactMap { $0.name })
-        let expectedNames: Set<String> = ["Files", "Trash"]
+        let expectedNames: Set<String> = ["Folders", "Trash"]
         XCTAssertEqual(folderNames, expectedNames, "Should have correct folder names")
     }
     
@@ -286,7 +286,7 @@ final class ProjectTemplateServiceTests: XCTestCase {
     func testMultipleProjectsHaveIndependentFolders() throws {
         // Given two projects
         let project1 = Project(name: "Project 1", type: .poetry)
-        let project2 = Project(name: "Project 2", type: .blank)
+        let project2 = Project(name: "Project 2", type: .generalPurpose)
         modelContext.insert(project1)
         modelContext.insert(project2)
         

@@ -185,7 +185,7 @@ final class StyleReapplicationTests: XCTestCase {
     
     func testApplyStyleWithModelBasedFormatting() throws {
         // Given
-        let project = Project(name: "Test Project", type: .blank)
+        let project = Project(name: "Test Project", type: .generalPurpose)
         context.insert(project)
         
         let stylesheet = StyleSheet(name: "Test Stylesheet")
@@ -230,7 +230,7 @@ final class StyleReapplicationTests: XCTestCase {
     
     func testApplyStylePreservesCharacterFormatting() throws {
         // Given
-        let project = Project(name: "Test Project", type: .blank)
+        let project = Project(name: "Test Project", type: .generalPurpose)
         context.insert(project)
         
         let stylesheet = StyleSheet(name: "Test Stylesheet")
@@ -282,7 +282,7 @@ final class StyleReapplicationTests: XCTestCase {
     
     func testGetCurrentStyleName() throws {
         // Given
-        let project = Project(name: "Test Project", type: .blank)
+        let project = Project(name: "Test Project", type: .generalPurpose)
         context.insert(project)
         try context.save()
         
@@ -319,7 +319,7 @@ final class StyleReapplicationTests: XCTestCase {
     
     func testMultipleStylesInDocument() throws {
         // Given - Document with multiple paragraph styles
-        let project = Project(name: "Test Project", type: .blank)
+        let project = Project(name: "Test Project", type: .generalPurpose)
         context.insert(project)
         
         let stylesheet = StyleSheet(name: "Test Stylesheet")
@@ -390,7 +390,7 @@ final class StyleReapplicationTests: XCTestCase {
     
     func testReapplicationPreservesLocalFormatting() throws {
         // Given - Text with paragraph style AND local character formatting
-        let project = Project(name: "Test Project", type: .blank)
+        let project = Project(name: "Test Project", type: .generalPurpose)
         context.insert(project)
         
         let stylesheet = StyleSheet(name: "Test Stylesheet")
@@ -462,7 +462,7 @@ final class StyleReapplicationTests: XCTestCase {
     
     func testEnumerateTextStyleAttributeInDocument() throws {
         // Given - Document with multiple styled paragraphs
-        let project = Project(name: "Test Project", type: .blank)
+        let project = Project(name: "Test Project", type: .generalPurpose)
         context.insert(project)
         
         let stylesheet = StyleSheet(name: "Test Stylesheet")

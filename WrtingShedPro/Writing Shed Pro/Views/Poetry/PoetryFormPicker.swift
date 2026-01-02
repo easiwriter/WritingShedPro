@@ -5,18 +5,40 @@ import SwiftUI
 struct PoetryFormPicker: View {
     @Binding var selectedForm: PoetryForm?
     @State private var expandedCategories: Set<PoetryFormCategory> = Set(PoetryFormCategory.allCases)
+    @State private var showingManagement = false
     
     private let service = PoetryFormService.shared
     
+    /// Computed property to get forms by category (always fresh from service)
+    private var formsByCategory: [PoetryFormCategory: [PoetryForm]] {
+        service.getFormsByCategory()
+    }
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Section header
-            Text(NSLocalizedString("poetryForm.selectForm", comment: "Select Poetry Form"))
-                .font(.subheadline)
-                .fontWeight(.medium)
-                .foregroundColor(.secondary)
-                .padding(.horizontal)
-                .padding(.bottom, 8)
+            // Section header with Manage button
+            HStack {
+                Text(NSLocalizedString("poetryForm.selectForm", comment: "Select Poetry Form"))
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundColor(.secondary)
+                
+                Spacer()
+                
+                Button {
+                    showingManagement = true
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "slider.horizontal.3")
+                            .font(.caption)
+                        Text(NSLocalizedString("poetryForms.picker.manageButton", comment: "Manage Forms"))
+                            .font(.caption)
+                    }
+                    .foregroundColor(.accentColor)
+                }
+            }
+            .padding(.horizontal)
+            .padding(.bottom, 8)
             
             // Form list grouped by category
             ForEach(service.getCategories(), id: \.self) { category in
@@ -28,13 +50,22 @@ struct PoetryFormPicker: View {
                 selectedFormPreview(form)
             }
         }
+        .sheet(isPresented: $showingManagement) {
+            PoetryFormManagementView()
+        }
+        .onChange(of: showingManagement) { _, isShowing in
+            if !isShowing {
+                // Clear cache when management sheet closes so forms refresh
+                service.clearCache()
+            }
+        }
     }
     
     // MARK: - Category Section
     
     @ViewBuilder
     private func categorySection(_ category: PoetryFormCategory) -> some View {
-        let forms = service.getFormsByCategory()[category] ?? []
+        let forms = formsByCategory[category] ?? []
         
         if !forms.isEmpty {
             VStack(spacing: 0) {
@@ -53,6 +84,13 @@ struct PoetryFormPicker: View {
                             .font(.footnote)
                             .fontWeight(.semibold)
                             .foregroundColor(.secondary)
+                        
+                        // Show custom badge for custom category
+                        if category == .custom {
+                            Image(systemName: "person.fill")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
                         
                         Spacer()
                         
@@ -86,9 +124,18 @@ struct PoetryFormPicker: View {
         } label: {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(form.name)
-                        .font(.body)
-                        .foregroundColor(.primary)
+                    HStack(spacing: 6) {
+                        Text(form.name)
+                            .font(.body)
+                            .foregroundColor(.primary)
+                        
+                        // Show custom badge for user-created forms
+                        if form.isCustom {
+                            Image(systemName: "person.fill")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                    }
                     
                     Text(formShortDescription(form))
                         .font(.caption)

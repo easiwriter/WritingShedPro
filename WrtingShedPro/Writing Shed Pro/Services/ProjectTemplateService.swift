@@ -20,8 +20,8 @@ struct ProjectTemplateService {
         let typeFolders = createTypeFolders(for: project, in: modelContext)
         foldersToAdd.append(contentsOf: typeFolders)
         
-        // 2. Create Publications folders (only for non-blank projects)
-        if project.type != .blank {
+        // 2. Create Publications folders (only for non-generalPurpose projects)
+        if project.type != .generalPurpose {
             let publicationsFolders = createPublicationsFolders(for: project, in: modelContext)
             foldersToAdd.append(contentsOf: publicationsFolders)
         }
@@ -58,8 +58,8 @@ struct ProjectTemplateService {
         let folderKeys: [String]
         
         switch project.type {
-        case .blank:
-            folderKeys = ["folder.files"]
+        case .generalPurpose:
+            folderKeys = ["folder.folders"]
             
         case .poetry, .shortStory:
             folderKeys = [
@@ -107,8 +107,8 @@ struct ProjectTemplateService {
         let folderKeys: [String]
         
         switch project.type {
-        case .blank:
-            folderKeys = [] // No publications for blank projects
+        case .generalPurpose:
+            folderKeys = [] // No publications for general purpose projects
             
         case .poetry, .shortStory:
             folderKeys = [
@@ -147,8 +147,8 @@ extension ProjectType {
     /// Returns the localized display name for this project type
     var localizedName: String {
         switch self {
-        case .blank:
-            return NSLocalizedString("projectType.blank", comment: "Blank project type")
+        case .generalPurpose:
+            return NSLocalizedString("projectType.generalPurpose", comment: "General Purpose project type")
         case .novel:
             return NSLocalizedString("projectType.novel", comment: "Novel project type")
         case .poetry:
