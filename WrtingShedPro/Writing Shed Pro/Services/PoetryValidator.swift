@@ -74,10 +74,26 @@ final class PoetryValidator {
     
     /// Validate text against a poetry form
     /// - Parameters:
-    ///   - text: The poem text
+    ///   - text: The poem text (plain string - all text is analyzed)
     ///   - form: The poetry form to validate against
     /// - Returns: ValidationResult with all issues found
     func validate(text: String, against form: PoetryForm) -> ValidationResult {
+        return validateInternal(text: text, form: form)
+    }
+    
+    /// Validate attributed text against a poetry form, filtering out non-poem sections
+    /// - Parameters:
+    ///   - attributedText: The poem text with section markers
+    ///   - form: The poetry form to validate against
+    /// - Returns: ValidationResult with all issues found (only poem body is analyzed)
+    func validate(attributedText: NSAttributedString, against form: PoetryForm) -> ValidationResult {
+        // Extract only the poem body, excluding title/epigraph/signature etc.
+        let poemBody = attributedText.extractPoemBody()
+        return validateInternal(text: poemBody, form: form)
+    }
+    
+    /// Internal validation logic
+    private func validateInternal(text: String, form: PoetryForm) -> ValidationResult {
         var issues: [LineValidationIssue] = []
         
         let lines = text.components(separatedBy: .newlines)

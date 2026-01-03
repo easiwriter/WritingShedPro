@@ -402,7 +402,7 @@ struct FileEditView: View {
     private func navigationBarButtons() -> some View {
         let isCompact = UIDevice.current.userInterfaceIdiom == .phone
         
-        return HStack(spacing: isCompact ? 12 : 16) {
+        HStack(spacing: isCompact ? 12 : 16) {
             // Search button (only in edit mode and not opened from multi-file search)
             if !isPaginationMode && !isFromMultiFileSearch {
                 Button(action: {
@@ -470,40 +470,101 @@ struct FileEditView: View {
                 .accessibilityLabel(NSLocalizedString("poetryMetrics.buttonAccessibility", comment: "Show poetry metrics"))
             }
             
-            // Pagination mode toggle (always available - uses global page setup)
-            Button(action: {
-                withAnimation(.easeInOut(duration: 0.3)) {
-                    isPaginationMode.toggle()
-                }
-            }) {
-                Image(systemName: isPaginationMode ? "document.on.document.fill" : "document.on.document")
-            }
-            .accessibilityLabel(isPaginationMode ? "fileEdit.switchToEditMode.accessibility" : "fileEdit.switchToPaginationPreview.accessibility")
-            
-            // Insert menu (only in edit mode)
-            if !isPaginationMode {
-                insertMenu
-            }
-            
-            // On iPhone, group undo/redo/print into a menu to save space
+            // On iPhone, group paginate/insert/print into a menu to save space
+            // Undo/redo are more commonly used, so they're visible buttons
             if isCompact {
                 if !isPaginationMode {
+                    // Undo/redo as visible buttons on iPhone
+                    Button(action: {
+                        performUndo()
+                        restoreKeyboardFocus()
+                    }) {
+                        Image(systemName: "arrow.uturn.backward")
+                    }
+                    .disabled(!undoManager.canUndo || isPerformingUndoRedo)
+                    .accessibilityLabel("fileEdit.undo.accessibility")
+                    
+                    Button(action: {
+                        performRedo()
+                        restoreKeyboardFocus()
+                    }) {
+                        Image(systemName: "arrow.uturn.forward")
+                    }
+                    .disabled(!undoManager.canRedo || isPerformingUndoRedo)
+                    .accessibilityLabel("fileEdit.redo.accessibility")
+                    
+                    // Menu with paginate, insert options, and print
                     Menu {
+                        // Pagination mode toggle
                         Button(action: {
-                            performUndo()
-                            restoreKeyboardFocus()
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                isPaginationMode.toggle()
+                            }
                         }) {
-                            Label("Undo", systemImage: "arrow.uturn.backward")
+                            Label(isPaginationMode ? "Edit Mode" : "Paginate Preview", systemImage: isPaginationMode ? "pencil" : "document.on.document")
                         }
-                        .disabled(!undoManager.canUndo || isPerformingUndoRedo)
+                        
+                        Divider()
+                        
+                        // Insert options (previously in insertMenu)
+                        Button(action: {
+                            showImagePicker()
+                        }) {
+                            Label("Insert Image", systemImage: "photo")
+                        }
+                        
+                        // Comments submenu
+                        Menu {
+                            Button(action: {
+                                showNewCommentDialog = true
+                            }) {
+                                Label("Add Comment", systemImage: "pencil.circle")
+                            }
+                            
+                            if let currentVersion = file.currentVersion, currentVersion.comments?.isEmpty == false {
+                                Divider()
+                                
+                                Button(action: {
+                                    showCommentsList = true
+                                }) {
+                                    Label("Show Comments", systemImage: "bubble.left.and.bubble.right")
+                                }
+                            }
+                        } label: {
+                            Label("Comment", systemImage: "bubble.left")
+                        }
+                        
+                        // Footnotes submenu
+                        Menu {
+                            Button(action: {
+                                showNewFootnoteDialog = true
+                            }) {
+                                Label("Add Footnote", systemImage: "pencil.circle")
+                            }
+                            
+                            if let currentVersion = file.currentVersion, currentVersion.footnotes?.isEmpty == false {
+                                Divider()
+                                
+                                Button(action: {
+                                    showFootnotesList = true
+                                }) {
+                                    Label("Show Footnotes", systemImage: "list.number")
+                                }
+                            }
+                        } label: {
+                            Label("Footnote", systemImage: "number.circle")
+                        }
+                        
+                        // Section marking menu (poetry projects only)
+                        if isPoetryProject {
+                            sectionMarkingMenu
+                        }
                         
                         Button(action: {
-                            performRedo()
-                            restoreKeyboardFocus()
+                            insertPageBreak()
                         }) {
-                            Label("Redo", systemImage: "arrow.uturn.forward")
+                            Label("Page Break", systemImage: "arrow.up.and.line.horizontal.and.arrow.down")
                         }
-                        .disabled(!undoManager.canRedo || isPerformingUndoRedo)
                         
                         Divider()
                         
@@ -516,8 +577,33 @@ struct FileEditView: View {
                     } label: {
                         Image(systemName: "ellipsis.circle")
                     }
+                } else {
+                    // In pagination mode on iPhone, just show the toggle button
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            isPaginationMode.toggle()
+                        }
+                    }) {
+                        Image(systemName: "document.on.document.fill")
+                    }
+                    .accessibilityLabel("fileEdit.switchToEditMode.accessibility")
                 }
             } else {
+                // iPad/Mac: Pagination mode toggle (always available)
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        isPaginationMode.toggle()
+                    }
+                }) {
+                    Image(systemName: isPaginationMode ? "document.on.document.fill" : "document.on.document")
+                }
+                .accessibilityLabel(isPaginationMode ? "fileEdit.switchToEditMode.accessibility" : "fileEdit.switchToPaginationPreview.accessibility")
+                
+                // Insert menu (only in edit mode)
+                if !isPaginationMode {
+                    insertMenu
+                }
+                
                 // iPad/Mac: Show undo/redo/print as separate buttons
                 if !isPaginationMode {
                     Button(action: {
@@ -602,17 +688,109 @@ struct FileEditView: View {
                 Label("Footnote", systemImage: "number.circle")
             }
             
+            // Section marking menu (poetry projects only)
+            if isPoetryProject {
+                sectionMarkingMenu
+            }
+            
             Divider()
             
             Button(action: {
                 insertPageBreak()
             }) {
-                Label("Page Break", systemImage: "page.break")
+                Label("Page Break", systemImage: "arrow.up.and.line.horizontal.and.arrow.down")
             }
         } label: {
             Image(systemName: "text.badge.plus")
         }
         .accessibilityLabel("fileEdit.insertMenu.accessibility")
+    }
+    
+    /// Menu for marking text sections in poetry files
+    /// Allows marking text as title, epigraph, signature etc. to exclude from analysis
+    @ViewBuilder
+    private var sectionMarkingMenu: some View {
+        Menu {
+            // Get current section type at cursor
+            let currentType = currentSectionType
+            
+            ForEach(PoemSectionType.allCases) { sectionType in
+                Button(action: {
+                    markSelectionAsSection(sectionType)
+                }) {
+                    HStack {
+                        Label(sectionType.displayName, systemImage: sectionType.iconName)
+                        if currentType == sectionType {
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                }
+            }
+        } label: {
+            Label(NSLocalizedString("poemSection.markSection", comment: "Mark Section"), systemImage: "text.badge.checkmark")
+        }
+    }
+    
+    /// Get the current section type at the cursor position
+    private var currentSectionType: PoemSectionType {
+        guard let textView = textViewCoordinator.textView,
+              let selectedRange = textView.selectedRange as NSRange?,
+              selectedRange.location < attributedContent.length else {
+            return .poem
+        }
+        return attributedContent.sectionType(at: selectedRange.location)
+    }
+    
+    /// Mark the current selection as a specific section type
+    private func markSelectionAsSection(_ sectionType: PoemSectionType) {
+        guard let textView = textViewCoordinator.textView,
+              let selectedRange = textView.selectedRange as NSRange?,
+              selectedRange.length > 0 else {
+            // No selection - show alert
+            return
+        }
+        
+        // Extend to line boundaries for cleaner marking
+        let mutableContent = NSMutableAttributedString(attributedString: attributedContent)
+        let lineRange = mutableContent.extendToLinesBoundaries(selectedRange)
+        
+        // Apply the section type
+        mutableContent.markSection(sectionType, in: lineRange)
+        
+        // Apply visual styling based on section type
+        applySectionStyling(to: mutableContent, sectionType: sectionType, range: lineRange)
+        
+        // Update content
+        attributedContent = mutableContent
+        
+        // Keep selection
+        textView.selectedRange = lineRange
+    }
+    
+    /// Apply visual styling for a section type
+    private func applySectionStyling(to attributedString: NSMutableAttributedString, sectionType: PoemSectionType, range: NSRange) {
+        switch sectionType {
+        case .poem:
+            // Remove any special styling - restore to default
+            attributedString.removeAttribute(.backgroundColor, range: range)
+            // Foreground color handled by standard text styling
+            
+        case .title:
+            // Subtle blue-gray background tint for title
+            attributedString.addAttribute(.backgroundColor, value: UIColor.systemBlue.withAlphaComponent(0.08), range: range)
+            
+        case .epigraph, .dedication:
+            // Subtle warm background tint for epigraph/dedication
+            attributedString.addAttribute(.backgroundColor, value: UIColor.systemOrange.withAlphaComponent(0.06), range: range)
+            
+        case .signature:
+            // Subtle green-gray background for signature
+            attributedString.addAttribute(.backgroundColor, value: UIColor.systemGreen.withAlphaComponent(0.06), range: range)
+            
+        case .stanzaNumber:
+            // Subtle gray background for stanza numbers
+            attributedString.addAttribute(.backgroundColor, value: UIColor.systemGray.withAlphaComponent(0.08), range: range)
+        }
     }
     
     /// Whether this file belongs to a Poetry project
@@ -873,7 +1051,7 @@ struct FileEditView: View {
             .sheet(isPresented: $showPoetryMetrics) {
                 NavigationStack {
                     PoetryMetricsDashboard(
-                        text: attributedContent.string,
+                        attributedText: attributedContent,
                         form: file.poetryForm
                     )
                     .navigationTitle(NSLocalizedString("poetryMetrics.title", comment: "Poetry Metrics"))

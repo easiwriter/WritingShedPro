@@ -188,6 +188,10 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
             mutableString.replaceCharacters(in: range, with: replacement)
         }
         
+        // Remove section type background colors for clean PDF output
+        // The subtle tints are for on-screen editing only
+        mutableString.removeAttribute(.backgroundColor, range: NSRange(location: 0, length: mutableString.length))
+        
         // CRITICAL: Convert dynamic colors to fixed colors for PDF rendering
         // Dynamic colors (like .label, .systemBackground) don't resolve correctly in PDF context
         mutableString.enumerateAttribute(.foregroundColor, in: NSRange(location: 0, length: mutableString.length), options: []) { value, range, stop in

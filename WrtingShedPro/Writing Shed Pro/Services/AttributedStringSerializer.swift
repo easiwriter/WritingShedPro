@@ -46,6 +46,9 @@ struct AttributeValues: Codable {
     var isFootnoteAttachment: Bool?
     var footnoteID: String?
     var footnoteNumber: Int?
+    
+    // Poem section type for poetry analysis
+    var poemSectionType: String?
 }
 
 /// Service for converting between NSAttributedString and storable formats
@@ -345,6 +348,12 @@ struct AttributedStringSerializer {
                         }
                         // Note: Unknown attachment types are silently ignored
                         
+                    case .poemSectionType:
+                        // Store poem section type for poetry analysis
+                        if let sectionType = value as? String {
+                            attributes.poemSectionType = sectionType
+                        }
+                        
                     default:
                         break
                     }
@@ -561,6 +570,11 @@ struct AttributedStringSerializer {
                     // Create FootnoteAttachment
                     let attachment = FootnoteAttachment(footnoteID: footnoteID, number: footnoteNumber)
                     attributes[.attachment] = attachment
+                }
+                
+                // Poem section type - for poetry analysis filtering
+                if let sectionType = jsonAttributes.poemSectionType {
+                    attributes[.poemSectionType] = sectionType
                 }
                 
                 result.addAttributes(attributes, range: NSRange(location: location, length: length))

@@ -1,9 +1,16 @@
 import SwiftUI
+import UIKit
 
 /// A comprehensive dashboard showing poetry metrics including syllables, stress, and form compliance
 struct PoetryMetricsDashboard: View {
-    let text: String
+    /// The attributed text containing the poem with section markers
+    let attributedText: NSAttributedString
     let form: PoetryForm?
+    
+    /// The poem body text extracted from attributed text (excludes title, epigraph, etc.)
+    private var poemBodyText: String {
+        attributedText.extractPoemBody()
+    }
     
     @State private var selectedTab: MetricsTab = .overview
     
@@ -35,7 +42,7 @@ struct PoetryMetricsDashboard: View {
     /// Computed validation result
     private var validationResult: ValidationResult? {
         guard let form = form else { return nil }
-        return PoetryValidator.shared.validate(text: text, against: form)
+        return PoetryValidator.shared.validate(attributedText: attributedText, against: form)
     }
     
     var body: some View {
@@ -315,10 +322,10 @@ struct PoetryMetricsDashboard: View {
     }
     
     private var quickStatsSection: some View {
-        let lines = text.components(separatedBy: .newlines).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
-        let syllableCounts = SyllableCounter.shared.countSyllablesPerLine(in: text)
+        let lines = poemBodyText.components(separatedBy: .newlines).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+        let syllableCounts = SyllableCounter.shared.countSyllablesPerLine(in: poemBodyText)
         let totalSyllables = syllableCounts.reduce(0, +)
-        let wordCount = text.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }.count
+        let wordCount = poemBodyText.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }.count
         
         return VStack(alignment: .leading, spacing: 12) {
             Text(NSLocalizedString("poetryMetrics.quickStats", comment: "Quick Stats"))
@@ -492,7 +499,7 @@ struct PoetryMetricsDashboard: View {
     
     private var syllablesTab: some View {
         SyllableCountView(
-            text: text,
+            text: poemBodyText,
             expectedPattern: form?.syllablePattern
         )
     }
@@ -501,7 +508,7 @@ struct PoetryMetricsDashboard: View {
     
     private var stressTab: some View {
         StressPatternView(
-            text: text,
+            text: poemBodyText,
             expectedMeter: form?.meterPattern
         )
     }
@@ -518,12 +525,12 @@ struct PoetryMetricsDashboard: View {
     private func analyzeFormCompliance(_ form: PoetryForm) -> FormAnalysis {
         var analysis = FormAnalysis()
         
-        let lines = text.components(separatedBy: .newlines)
+        let lines = poemBodyText.components(separatedBy: .newlines)
         analysis.lineCount = lines.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }.count
         
         // Check syllable pattern
         if let pattern = form.syllablePattern, !pattern.isEmpty {
-            let syllableCounts = SyllableCounter.shared.countSyllablesPerLine(in: text)
+            let syllableCounts = SyllableCounter.shared.countSyllablesPerLine(in: poemBodyText)
             analysis.totalSyllables = syllableCounts.reduce(0, +)
             
             for (index, expected) in pattern.enumerated() {
@@ -602,12 +609,17 @@ struct PoetryMetricsDashboard: View {
 
 /// A compact summary of poetry metrics for inline display
 struct PoetryMetricsSummary: View {
-    let text: String
+    let attributedText: NSAttributedString
     let form: PoetryForm?
     
+    /// The poem body text extracted from attributed text
+    private var poemBodyText: String {
+        attributedText.extractPoemBody()
+    }
+    
     var body: some View {
-        let lines = text.components(separatedBy: .newlines).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
-        let syllableCounts = SyllableCounter.shared.countSyllablesPerLine(in: text)
+        let lines = poemBodyText.components(separatedBy: .newlines).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+        let syllableCounts = SyllableCounter.shared.countSyllablesPerLine(in: poemBodyText)
         let totalSyllables = syllableCounts.reduce(0, +)
         
         HStack(spacing: 16) {

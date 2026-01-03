@@ -1,4 +1,5 @@
 import SwiftUI
+import GameController
 
 /// Pure SwiftUI formatting toolbar - works correctly with iOS 26.2+ button styling
 struct SwiftUIFormattingToolbar: View {
@@ -83,9 +84,11 @@ struct SwiftUIFormattingToolbar: View {
             .padding(.horizontal, 12)
         }
         .frame(height: 44)
-        .background(Color(uiColor: .systemBackground))
+        .background(Color(uiColor: .secondarySystemBackground))
         .overlay(alignment: .top) {
-            Divider()
+            Rectangle()
+                .fill(Color(uiColor: .separator))
+                .frame(height: 1)
         }
         .onAppear {
             detectHardwareKeyboard()
@@ -107,23 +110,32 @@ struct SwiftUIFormattingToolbar: View {
     
     private func detectHardwareKeyboard() {
         #if !targetEnvironment(macCatalyst)
-        // Check if hardware keyboard is connected
-        if UIDevice.current.userInterfaceIdiom == .pad {
-            // On iPad, assume hardware keyboard might be present
-            hasHardwareKeyboard = false // Start showing cursor buttons, will hide if hardware keyboard detected
-        } else {
-            hasHardwareKeyboard = false
-        }
+        // Check if a hardware keyboard is connected using GameController
+        hasHardwareKeyboard = GCKeyboard.coalesced != nil
+        #else
+        // On Mac Catalyst, always assume hardware keyboard
+        hasHardwareKeyboard = true
         #endif
     }
     
     private func observeKeyboardNotifications() {
+        #if !targetEnvironment(macCatalyst)
         NotificationCenter.default.addObserver(
             forName: UIResponder.keyboardWillShowNotification,
             object: nil,
             queue: .main
-        ) { _ in
+        ) { notification in
             isKeyboardVisible = true
+            
+            // Detect hardware keyboard by checking keyboard height
+            // Hardware keyboard shows only a small shortcut bar (~55pt)
+            // Software keyboard is much taller (>200pt)
+            if let userInfo = notification.userInfo,
+               let keyboardFrame = userInfo[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect {
+                let keyboardHeight = keyboardFrame.height
+                // If keyboard height is less than 100, it's likely hardware keyboard with shortcut bar
+                hasHardwareKeyboard = keyboardHeight < 100
+            }
         }
         
         NotificationCenter.default.addObserver(
@@ -132,6 +144,26 @@ struct SwiftUIFormattingToolbar: View {
             queue: .main
         ) { _ in
             isKeyboardVisible = false
+            // Re-check hardware keyboard when keyboard hides (in case it was disconnected)
+            hasHardwareKeyboard = GCKeyboard.coalesced != nil
         }
+        
+        // Also observe hardware keyboard connect/disconnect
+        NotificationCenter.default.addObserver(
+            forName: .GCKeyboardDidConnect,
+            object: nil,
+            queue: .main
+        ) { _ in
+            hasHardwareKeyboard = true
+        }
+        
+        NotificationCenter.default.addObserver(
+            forName: .GCKeyboardDidDisconnect,
+            object: nil,
+            queue: .main
+        ) { _ in
+            hasHardwareKeyboard = GCKeyboard.coalesced != nil
+        }
+        #endif
     }
 }

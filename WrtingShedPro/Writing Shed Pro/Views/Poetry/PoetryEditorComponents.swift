@@ -1,10 +1,11 @@
 import SwiftUI
+import UIKit
 
 /// A split view layout for iPad that shows the text editor alongside a poetry metrics panel
 /// Automatically collapses on compact width devices
 struct PoetryEditorSplitView<EditorContent: View>: View {
     let editorContent: EditorContent
-    let text: String
+    let attributedText: NSAttributedString
     let form: PoetryForm?
     
     @Binding var showMetricsPanel: Bool
@@ -16,12 +17,12 @@ struct PoetryEditorSplitView<EditorContent: View>: View {
     private let metricsPanelFraction: CGFloat = 0.35
     
     init(
-        text: String,
+        attributedText: NSAttributedString,
         form: PoetryForm?,
         showMetricsPanel: Binding<Bool>,
         @ViewBuilder editorContent: () -> EditorContent
     ) {
-        self.text = text
+        self.attributedText = attributedText
         self.form = form
         self._showMetricsPanel = showMetricsPanel
         self.editorContent = editorContent()
@@ -77,7 +78,7 @@ struct PoetryEditorSplitView<EditorContent: View>: View {
             Divider()
             
             // Metrics content
-            PoetryMetricsDashboard(text: text, form: form)
+            PoetryMetricsDashboard(attributedText: attributedText, form: form)
         }
         .background(Color(.systemBackground))
     }
