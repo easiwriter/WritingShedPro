@@ -660,18 +660,11 @@ struct FileEditView: View {
                 paginationSection()
             } else {
                 textEditorSection()
-                // TODO: KEYBOARD GAP - There's a gap between the toolbar and keyboard
-                // This is SwiftUI's default keyboard avoidance behavior
-                // Potential solutions to explore:
-                // 1. Use UITextView.inputAccessoryView to attach toolbar to keyboard (like Pages does)
-                // 2. Use UIKit view controller and attach toolbar as inputAccessoryView
-                // 3. Custom keyboard tracking with GeometryReader and keyboard notifications
-                // Apple's apps (Pages, Notes, Mail) likely use UIKit's inputAccessoryView
                 formattingToolbar()
             }
-            
-            // Hidden keyboard shortcut handlers for search navigation
-            // Using invisible buttons to capture ⌘G and ⌘⇧G
+        }
+        // Hidden keyboard shortcut handlers - using overlay so they don't affect layout
+        .overlay {
             Group {
                 Button("") {
                     if showSearchBar && searchManager.hasMatches {
@@ -679,7 +672,6 @@ struct FileEditView: View {
                     }
                 }
                 .keyboardShortcut("g", modifiers: .command)
-                .hidden()
                 
                 Button("") {
                     if showSearchBar && searchManager.hasMatches {
@@ -687,21 +679,20 @@ struct FileEditView: View {
                     }
                 }
                 .keyboardShortcut("g", modifiers: [.command, .shift])
-                .hidden()
                 
                 // List shortcuts: Cmd+Shift+7 for numbered, Cmd+Shift+8 for bulleted
                 Button("") {
                     applyNumberFormat(.decimal)
                 }
                 .keyboardShortcut("7", modifiers: [.command, .shift])
-                .hidden()
                 
                 Button("") {
                     applyNumberFormat(.bulletSymbols)
                 }
                 .keyboardShortcut("8", modifiers: [.command, .shift])
-                .hidden()
             }
+            .frame(width: 0, height: 0)
+            .opacity(0)
         }
         .sheet(isPresented: $showStylePicker) {
             StylePickerSheet(
