@@ -126,4 +126,7 @@ extension PoetryForm {
     static let ghazalId = UUID(uuidString: "00000000-0000-0000-0000-000000000008")!
     static let blankVerseId = UUID(uuidString: "00000000-0000-0000-0000-000000000009")!
     static let customId = UUID(uuidString: "00000000-0000-0000-0000-000000000010")!
+    static let cinquainId = UUID(uuidString: "00000000-0000-0000-0000-000000000011")!
+    static let sestinaId = UUID(uuidString: "00000000-0000-0000-0000-000000000012")!
+    static let pantoumId = UUID(uuidString: "00000000-0000-0000-0000-000000000013")!
 }

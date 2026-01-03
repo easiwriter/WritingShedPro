@@ -142,5 +142,17 @@
     "description": "Complex form with six 6-line stanzas and a 3-line envoi. Six end-words rotate through a fixed pattern. The same six words end lines throughout.",
     "templateContent": "Stanza 1: Lines end with words A, B, C, D, E, F\nStanza 2: Lines end with words F, A, E, B, D, C\nStanza 3: Lines end with words C, F, D, A, B, E\nStanza 4: Lines end with words E, C, B, F, A, D\nStanza 5: Lines end with words D, E, A, C, F, B\nStanza 6: Lines end with words B, D, F, E, C, A\n\nEnvoi (3 lines): Contains all six words\n  Line 1 middle: B, end: E\n  Line 2 middle: D, end: C\n  Line 3 middle: F, end: A",
     "isCustom": false
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000013",
+    "name": "Pantoum",
+    "category": "Rhymed",
+    "lineCount": null,
+    "syllablePattern": null,
+    "rhymeScheme": "ABAB (with line repetition)",
+    "meterPattern": null,
+    "description": "Malaysian form with interlocking quatrains. Lines 2 and 4 of each stanza become lines 1 and 3 of the next. In the final stanza, lines 1 and 3 of the first stanza return as lines 4 and 2, creating a circular structure.",
+    "templateContent": "Stanza 1:\nLine 1 (A) - new\nLine 2 (B) - new → becomes line 1 of stanza 2\nLine 3 (A) - new\nLine 4 (B) - new → becomes line 3 of stanza 2\n\nStanza 2:\nLine 1 (A) - repeat of stanza 1, line 2\nLine 2 (B) - new → becomes line 1 of stanza 3\nLine 3 (A) - repeat of stanza 1, line 4\nLine 4 (B) - new → becomes line 3 of stanza 3\n\n[Continue pattern...]\n\nFinal Stanza:\nLine 1 - repeat from previous stanza\nLine 2 - line 3 from stanza 1\nLine 3 - repeat from previous stanza\nLine 4 - line 1 from stanza 1",
+    "isCustom": false
   }
 ]
