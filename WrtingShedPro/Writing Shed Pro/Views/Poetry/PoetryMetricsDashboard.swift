@@ -499,7 +499,7 @@ struct PoetryMetricsDashboard: View {
     
     private var syllablesTab: some View {
         SyllableCountView(
-            text: poemBodyText,
+            attributedText: attributedText,
             expectedPattern: form?.syllablePattern
         )
     }

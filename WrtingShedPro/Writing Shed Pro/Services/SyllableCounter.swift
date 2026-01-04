@@ -429,6 +429,8 @@ struct SyllableComparison: Identifiable {
     let actualCount: Int
     let expectedCount: Int?
     let accuracy: SyllableAccuracy
+    /// Whether this line is excluded from analysis (title, epigraph, etc.)
+    var isExcluded: Bool = false
 }
 
 /// Accuracy level for syllable matching

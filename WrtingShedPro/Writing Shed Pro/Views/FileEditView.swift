@@ -445,29 +445,31 @@ struct FileEditView: View {
                 }
                 .accessibilityLabel(NSLocalizedString("poetryFormReference.formButtonAccessibility", comment: "Show poetry form reference"))
                 
-                // Poetry metrics button with validation badge
-                Button(action: {
-                    showPoetryMetrics = true
-                }) {
-                    Image(systemName: "chart.bar")
-                        .overlay(alignment: .topTrailing) {
-                            // Show badge with issue count when there are validation issues
-                            if let form = file.poetryForm,
-                               form.id != PoetryForm.freeVerseId {
-                                let validation = PoetryValidator.shared.validate(text: attributedContent.string, against: form)
-                                if validation.hasIssues {
-                                    Text("\(min(validation.issueCount, 99))")
-                                        .font(.system(size: 9, weight: .bold))
-                                        .foregroundColor(.white)
-                                        .padding(3)
-                                        .background(Color.red)
-                                        .clipShape(Circle())
-                                        .offset(x: 6, y: -6)
+                // Poetry metrics button with validation badge (English only - analysis requires CMU dictionary)
+                if isEnglishLocale {
+                    Button(action: {
+                        showPoetryMetrics = true
+                    }) {
+                        Image(systemName: "chart.bar")
+                            .overlay(alignment: .topTrailing) {
+                                // Show badge with issue count when there are validation issues
+                                if let form = file.poetryForm,
+                                   form.id != PoetryForm.freeVerseId {
+                                    let validation = PoetryValidator.shared.validate(text: attributedContent.string, against: form)
+                                    if validation.hasIssues {
+                                        Text("\(min(validation.issueCount, 99))")
+                                            .font(.system(size: 9, weight: .bold))
+                                            .foregroundColor(.white)
+                                            .padding(3)
+                                            .background(Color.red)
+                                            .clipShape(Circle())
+                                            .offset(x: 6, y: -6)
+                                    }
                                 }
                             }
-                        }
+                    }
+                    .accessibilityLabel(NSLocalizedString("poetryMetrics.buttonAccessibility", comment: "Show poetry metrics"))
                 }
-                .accessibilityLabel(NSLocalizedString("poetryMetrics.buttonAccessibility", comment: "Show poetry metrics"))
             }
             
             // On iPhone, group paginate/insert/print into a menu to save space
@@ -501,7 +503,7 @@ struct FileEditView: View {
                                 isPaginationMode.toggle()
                             }
                         }) {
-                            Label(isPaginationMode ? "Edit Mode" : "Paginate Preview", systemImage: isPaginationMode ? "pencil" : "document.on.document")
+                            Label(isPaginationMode ? "Edit Mode" : "Page Preview", systemImage: isPaginationMode ? "pencil" : "document.on.document")
                         }
                         
                         Divider()
@@ -796,6 +798,12 @@ struct FileEditView: View {
     /// Whether this file belongs to a Poetry project
     private var isPoetryProject: Bool {
         file.project?.type == .poetry
+    }
+    
+    /// Whether the device is set to an English locale
+    /// Poetry analysis (syllables, stress, rhyme) only works for English
+    private var isEnglishLocale: Bool {
+        Locale.current.language.languageCode?.identifier == "en"
     }
     
     /// Custom title view showing file name and poetry form

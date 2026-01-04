@@ -129,4 +129,9 @@ extension PoetryForm {
     static let cinquainId = UUID(uuidString: "00000000-0000-0000-0000-000000000011")!
     static let sestinaId = UUID(uuidString: "00000000-0000-0000-0000-000000000012")!
     static let pantoumId = UUID(uuidString: "00000000-0000-0000-0000-000000000013")!
+    static let trioletId = UUID(uuidString: "00000000-0000-0000-0000-000000000014")!
+    static let balladId = UUID(uuidString: "00000000-0000-0000-0000-000000000015")!
+    static let ottavaRimaId = UUID(uuidString: "00000000-0000-0000-0000-000000000016")!
+    static let terzaRimaId = UUID(uuidString: "00000000-0000-0000-0000-000000000017")!
+    static let spenserianStanzaId = UUID(uuidString: "00000000-0000-0000-0000-000000000018")!
 }

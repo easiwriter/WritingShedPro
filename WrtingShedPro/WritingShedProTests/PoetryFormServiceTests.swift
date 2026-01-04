@@ -126,6 +126,59 @@ final class PoetryFormServiceTests: XCTestCase {
         XCTAssertNil(form?.rhymeScheme) // Blank verse has no rhyme
     }
     
+    func testGetFormByIdPantoum() {
+        let form = service.getForm(byId: PoetryForm.pantoumId)
+        
+        XCTAssertNotNil(form)
+        XCTAssertEqual(form?.name, "Pantoum")
+        XCTAssertEqual(form?.category, .rhymed)
+    }
+    
+    func testGetFormByIdTriolet() {
+        let form = service.getForm(byId: PoetryForm.trioletId)
+        
+        XCTAssertNotNil(form)
+        XCTAssertEqual(form?.name, "Triolet")
+        XCTAssertEqual(form?.lineCount, 8)
+        XCTAssertEqual(form?.rhymeScheme, "ABaAabAB")
+    }
+    
+    func testGetFormByIdBallad() {
+        let form = service.getForm(byId: PoetryForm.balladId)
+        
+        XCTAssertNotNil(form)
+        XCTAssertEqual(form?.name, "Ballad")
+        XCTAssertEqual(form?.category, .rhymed)
+    }
+    
+    func testGetFormByIdOttavaRima() {
+        let form = service.getForm(byId: PoetryForm.ottavaRimaId)
+        
+        XCTAssertNotNil(form)
+        XCTAssertEqual(form?.name, "Ottava Rima")
+        XCTAssertEqual(form?.lineCount, 8)
+        XCTAssertEqual(form?.rhymeScheme, "ABABABCC")
+        XCTAssertEqual(form?.meterPattern, "iambic pentameter")
+    }
+    
+    func testGetFormByIdTerzaRima() {
+        let form = service.getForm(byId: PoetryForm.terzaRimaId)
+        
+        XCTAssertNotNil(form)
+        XCTAssertEqual(form?.name, "Terza Rima")
+        XCTAssertEqual(form?.rhymeScheme, "ABA BCB CDC...")
+        XCTAssertEqual(form?.meterPattern, "iambic pentameter")
+    }
+    
+    func testGetFormByIdSpenserianStanza() {
+        let form = service.getForm(byId: PoetryForm.spenserianStanzaId)
+        
+        XCTAssertNotNil(form)
+        XCTAssertEqual(form?.name, "Spenserian Stanza")
+        XCTAssertEqual(form?.lineCount, 9)
+        XCTAssertEqual(form?.rhymeScheme, "ABABBCBCC")
+    }
+    
     func testGetFormByIdCustom() {
         // The "Custom" form placeholder exists in JSON with specific ID
         let form = service.getForm(byId: PoetryForm.customId)

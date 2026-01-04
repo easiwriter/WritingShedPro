@@ -17,6 +17,12 @@ struct AddFileSheet: View {
         parentFolder.project?.type == .poetry
     }
     
+    /// Whether the device is set to an English locale
+    /// Poetry form analysis only works for English
+    private var isEnglishLocale: Bool {
+        Locale.current.language.languageCode?.identifier == "en"
+    }
+    
     var body: some View {
         NavigationStack {
             Form {
@@ -30,8 +36,8 @@ struct AddFileSheet: View {
                         }
                 }
                 
-                // Poetry form picker section (only for Poetry projects)
-                if isPoetryProject {
+                // Poetry form picker section (only for Poetry projects with English locale)
+                if isPoetryProject && isEnglishLocale {
                     Section {
                         PoetryFormPickerCompact(selectedForm: $selectedPoetryForm)
                     } header: {

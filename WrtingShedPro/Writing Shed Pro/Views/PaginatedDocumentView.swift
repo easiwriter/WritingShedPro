@@ -135,7 +135,7 @@ struct PaginatedDocumentView: View {
             // Page info
             if let layoutManager = layoutManager, layoutManager.isLayoutValid {
                 Label {
-                    Text("paginatedDocument.pageIndicator \(currentPage + 1) \(layoutManager.pageCount)")
+                    Text(String(format: NSLocalizedString("paginatedDocument.pageIndicator", comment: "Page indicator"), currentPage + 1, layoutManager.pageCount))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .dynamicTypeSize(...DynamicTypeSize.xxxLarge)

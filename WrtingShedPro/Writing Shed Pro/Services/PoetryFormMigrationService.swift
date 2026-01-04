@@ -16,7 +16,7 @@ struct PoetryFormMigrationService {
     // MARK: - UserDefaults Keys
     
     private static let migrationVersionKey = "poetryFormMigrationVersion"
-    private static let currentMigrationVersion = 1
+    private static let currentMigrationVersion = 3  // Bumped to add Triolet, Ballad, Ottava Rima, Terza Rima, Spenserian Stanza
     
     // MARK: - Public Methods
     
@@ -90,19 +90,68 @@ struct PoetryFormMigrationService {
         #endif
         
         for form in forms {
-            let model = PoetryFormModel.from(form, isPredefined: true)
-            model.isCustom = false
-            modelContext.insert(model)
+            // Check if form already exists to prevent duplicates
+            if !formExists(id: form.id, modelContext: modelContext) {
+                let model = PoetryFormModel.from(form, isPredefined: true)
+                model.isCustom = false
+                modelContext.insert(model)
+            }
         }
         
         do {
             try modelContext.save()
             #if DEBUG
-            print("[PoetryFormMigration] ✅ Successfully seeded \(forms.count) predefined forms")
+            print("[PoetryFormMigration] ✅ Successfully seeded predefined forms")
             #endif
         } catch {
             #if DEBUG
             print("[PoetryFormMigration] ❌ Failed to save predefined forms: \(error)")
+            #endif
+        }
+    }
+    
+    /// Remove duplicate predefined forms, keeping only one of each
+    /// - Parameter modelContext: The SwiftData context to use
+    static func removeDuplicatePredefinedForms(modelContext: ModelContext) {
+        let descriptor = FetchDescriptor<PoetryFormModel>(
+            predicate: #Predicate { $0.isPredefined == true },
+            sortBy: [SortDescriptor(\.id), SortDescriptor(\.createdDate)]
+        )
+        
+        do {
+            let allPredefined = try modelContext.fetch(descriptor)
+            
+            // Group by UUID
+            var seen = Set<UUID>()
+            var duplicatesToDelete: [PoetryFormModel] = []
+            
+            for form in allPredefined {
+                if seen.contains(form.id) {
+                    duplicatesToDelete.append(form)
+                } else {
+                    seen.insert(form.id)
+                }
+            }
+            
+            if duplicatesToDelete.isEmpty {
+                #if DEBUG
+                print("[PoetryFormMigration] No duplicate predefined forms found")
+                #endif
+                return
+            }
+            
+            for form in duplicatesToDelete {
+                modelContext.delete(form)
+            }
+            
+            try modelContext.save()
+            
+            #if DEBUG
+            print("[PoetryFormMigration] ✅ Removed \(duplicatesToDelete.count) duplicate predefined forms")
+            #endif
+        } catch {
+            #if DEBUG
+            print("[PoetryFormMigration] ❌ Failed to remove duplicates: \(error)")
             #endif
         }
     }
@@ -170,9 +219,13 @@ struct PoetryFormMigrationService {
             // First launch - seed all predefined forms
             seedPredefinedForms(modelContext: modelContext)
             
+        case 1:
+            // Fix duplicate forms bug and add any new predefined forms
+            removeDuplicatePredefinedForms(modelContext: modelContext)
+            addMissingPredefinedForms(modelContext: modelContext)
+            
         default:
             // Future versions: add incremental migrations here
-            // e.g., case 1: add new forms added in version 2
             addMissingPredefinedForms(modelContext: modelContext)
         }
     }

@@ -601,6 +601,8 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         
         // Pass project reference to layout manager for paragraph numbering
         numberingLayoutManager.project = project
+        // Enable poetry line numbers (only in paginated view)
+        numberingLayoutManager.isPaginatedView = true
         
         textStorage.addLayoutManager(numberingLayoutManager)
         numberingLayoutManager.addTextContainer(textContainer)
@@ -696,12 +698,59 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         // Set ONLY this page's text
         textView.attributedText = mutableString
         
+        // Set starting line number for poetry projects (for continuous numbering across pages)
+        if let numberingLayoutManager = textView.layoutManager as? NumberingLayoutManager,
+           project?.type == .poetry {
+            let startingLineNumber = calculatePoetryStartingLineNumber(forPage: pageIndex)
+            numberingLayoutManager.poetryStartingLineNumber = startingLineNumber
+        }
+        
         #if DEBUG
         let preview = String(mutableString.string.prefix(50))
         #if DEBUG
         print("   📝 Set text for page \(pageInfo.pageIndex): '\(preview)...' (\(mutableString.length) chars)")
         #endif
         #endif
+    }
+    
+    /// Calculate the starting poetry line number for a given page
+    /// by counting numbered lines in all preceding pages
+    private func calculatePoetryStartingLineNumber(forPage pageIndex: Int) -> Int {
+        guard pageIndex > 0 else { return 1 }
+        
+        var lineCount = 0
+        let fullText = layoutManager.textStorage.string as NSString
+        
+        // Count numbered lines in all pages before this one
+        for prevPage in 0..<pageIndex {
+            guard let prevPageInfo = layoutManager.pageInfo(forPage: prevPage) else { continue }
+            
+            let pageText = fullText.substring(with: prevPageInfo.characterRange) as NSString
+            let pageRange = NSRange(location: 0, length: pageText.length)
+            
+            pageText.enumerateSubstrings(in: pageRange, options: .byParagraphs) { substring, paragraphRange, _, _ in
+                // Skip blank lines
+                let lineText = substring ?? ""
+                if lineText.trimmingCharacters(in: .whitespaces).isEmpty {
+                    return
+                }
+                
+                // Check if this line is marked as excluded
+                // We need to check the original attributed string for the poemSectionType attribute
+                let originalLocation = prevPageInfo.characterRange.location + paragraphRange.location
+                if originalLocation < self.layoutManager.textStorage.length {
+                    if let sectionType = self.layoutManager.textStorage.attribute(.poemSectionType, at: originalLocation, effectiveRange: nil) as? String,
+                       sectionType != PoemSectionType.poem.rawValue {
+                        // This line is excluded - don't count it
+                        return
+                    }
+                }
+                
+                lineCount += 1
+            }
+        }
+        
+        return lineCount + 1
     }
     
     // MARK: - Page View Recycling

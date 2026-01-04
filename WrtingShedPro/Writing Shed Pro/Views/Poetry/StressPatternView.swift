@@ -1,6 +1,7 @@
 import SwiftUI
 
 /// A view displaying stress patterns with visual indicators
+/// Blank lines are filtered out
 struct StressPatternView: View {
     let text: String
     let expectedMeter: String?
@@ -9,6 +10,25 @@ struct StressPatternView: View {
     @State private var detectedMeter: MeterMatch?
     
     private let analyzer = StressAnalyzer.shared
+    
+    /// Filtered analyses - keeps blank lines but assigns them no line number
+    /// Returns tuple with optional display line number (nil for blank lines)
+    private var displayAnalyses: [(displayLineNumber: Int?, analysis: LineStressAnalysis)] {
+        var result: [(Int?, LineStressAnalysis)] = []
+        var displayNumber = 1
+        
+        for analysis in lineAnalyses {
+            let isBlank = analysis.lineText.trimmingCharacters(in: .whitespaces).isEmpty
+            if isBlank {
+                result.append((nil, analysis))
+            } else {
+                result.append((displayNumber, analysis))
+                displayNumber += 1
+            }
+        }
+        
+        return result
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -23,10 +43,10 @@ struct StressPatternView: View {
             } else {
                 ScrollView {
                     LazyVStack(spacing: 0) {
-                        ForEach(lineAnalyses) { analysis in
-                            StressLineRow(analysis: analysis)
+                        ForEach(Array(displayAnalyses.enumerated()), id: \.offset) { index, item in
+                            StressLineRow(analysis: item.analysis, displayLineNumber: item.displayLineNumber)
                             
-                            if analysis.lineNumber < lineAnalyses.count {
+                            if index < displayAnalyses.count - 1 {
                                 Divider()
                             }
                         }
@@ -197,45 +217,58 @@ struct LineStressAnalysis: Identifiable {
 
 struct StressLineRow: View {
     let analysis: LineStressAnalysis
+    let displayLineNumber: Int?
+    
+    /// Whether this is a blank line (no line number)
+    private var isBlankLine: Bool {
+        displayLineNumber == nil
+    }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            // Line number and text
-            HStack(alignment: .top, spacing: 8) {
-                Text("\(analysis.lineNumber)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .frame(width: 24, alignment: .trailing)
-                
-                Text(analysis.lineText.isEmpty ? "—" : analysis.lineText)
-                    .font(.body)
-                    .foregroundColor(analysis.lineText.isEmpty ? .secondary : .primary)
-                
-                Spacer()
-                
-                // Meter accuracy indicator (if matching)
-                if let match = analysis.meterMatch, match.totalFeet > 0 {
-                    accuracyBadge(match)
-                }
-            }
-            
-            // Stress pattern visualization
-            if !analysis.combinedPattern.isEmpty {
-                HStack(spacing: 0) {
-                    // Spacer for line number
-                    Color.clear
-                        .frame(width: 32)
+        if isBlankLine {
+            // Minimal spacer for blank lines
+            Color.clear
+                .frame(height: 12)
+        } else {
+            VStack(alignment: .leading, spacing: 8) {
+                // Line number and text
+                HStack(alignment: .top, spacing: 8) {
+                    if let lineNum = displayLineNumber {
+                        Text("\(lineNum)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .frame(width: 24, alignment: .trailing)
+                    }
                     
-                    // Word-by-word stress pattern
-                    stressPatternDisplay
+                    Text(analysis.lineText)
+                        .font(.body)
+                    
+                    Spacer()
+                    
+                    // Meter accuracy indicator (if matching)
+                    if let match = analysis.meterMatch, match.totalFeet > 0 {
+                        accuracyBadge(match)
+                    }
+                }
+                
+                // Stress pattern visualization
+                if !analysis.combinedPattern.isEmpty {
+                    HStack(spacing: 0) {
+                        // Spacer for line number
+                        Color.clear
+                            .frame(width: 32)
+                        
+                        // Word-by-word stress pattern
+                        stressPatternDisplay
+                    }
                 }
             }
+            .padding(.horizontal)
+            .padding(.vertical, 10)
+            .background(rowBackground)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(accessibilityDescription)
         }
-        .padding(.horizontal)
-        .padding(.vertical, 10)
-        .background(rowBackground)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(accessibilityDescription)
     }
     
     private var accessibilityDescription: String {

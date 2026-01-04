@@ -154,5 +154,65 @@
     "description": "Malaysian form with interlocking quatrains. Lines 2 and 4 of each stanza become lines 1 and 3 of the next. In the final stanza, lines 1 and 3 of the first stanza return as lines 4 and 2, creating a circular structure.",
     "templateContent": "Stanza 1:\nLine 1 (A) - new\nLine 2 (B) - new → becomes line 1 of stanza 2\nLine 3 (A) - new\nLine 4 (B) - new → becomes line 3 of stanza 2\n\nStanza 2:\nLine 1 (A) - repeat of stanza 1, line 2\nLine 2 (B) - new → becomes line 1 of stanza 3\nLine 3 (A) - repeat of stanza 1, line 4\nLine 4 (B) - new → becomes line 3 of stanza 3\n\n[Continue pattern...]\n\nFinal Stanza:\nLine 1 - repeat from previous stanza\nLine 2 - line 3 from stanza 1\nLine 3 - repeat from previous stanza\nLine 4 - line 1 from stanza 1",
     "isCustom": false
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000014",
+    "name": "Triolet",
+    "category": "Rhymed",
+    "lineCount": 8,
+    "syllablePattern": [8, 8, 8, 8, 8, 8, 8, 8],
+    "rhymeScheme": "ABaAabAB",
+    "meterPattern": "iambic tetrameter",
+    "description": "French form of 8 lines with two rhymes and two refrains. Line 1 repeats as lines 4 and 7; line 2 repeats as line 8. Usually in iambic tetrameter.",
+    "templateContent": "Line 1 (A) - first refrain\nLine 2 (B) - second refrain\nLine 3 (a) - rhymes with A\nLine 4 (A) - repeat of line 1\nLine 5 (a) - rhymes with A\nLine 6 (b) - rhymes with B\nLine 7 (A) - repeat of line 1\nLine 8 (B) - repeat of line 2",
+    "isCustom": false
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000015",
+    "name": "Ballad",
+    "category": "Rhymed",
+    "lineCount": null,
+    "syllablePattern": null,
+    "rhymeScheme": "ABAB or ABCB",
+    "meterPattern": "alternating tetrameter/trimeter",
+    "description": "Narrative poem in quatrains with alternating 4-stress and 3-stress lines. Traditional form for storytelling, often with a refrain. ABAB or ABCB rhyme scheme.",
+    "templateContent": "Line 1 (A) - 8 syllables (4 stresses)\nLine 2 (B) - 6 syllables (3 stresses)\nLine 3 (A or C) - 8 syllables (4 stresses)\nLine 4 (B) - 6 syllables (3 stresses)\n\n[Repeat quatrain pattern for narrative]\n\n[Optional refrain after each stanza]",
+    "isCustom": false
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000016",
+    "name": "Ottava Rima",
+    "category": "Metered",
+    "lineCount": 8,
+    "syllablePattern": [10, 10, 10, 10, 10, 10, 10, 10],
+    "rhymeScheme": "ABABABCC",
+    "meterPattern": "iambic pentameter",
+    "description": "Italian stanza form of 8 lines in iambic pentameter. Six lines of alternating rhyme followed by a couplet. Used by Byron in Don Juan.",
+    "templateContent": "Line 1 (A) - iambic pentameter\nLine 2 (B) - iambic pentameter\nLine 3 (A) - iambic pentameter\nLine 4 (B) - iambic pentameter\nLine 5 (A) - iambic pentameter\nLine 6 (B) - iambic pentameter\nLine 7 (C) - couplet begins\nLine 8 (C) - couplet ends",
+    "isCustom": false
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000017",
+    "name": "Terza Rima",
+    "category": "Metered",
+    "lineCount": null,
+    "syllablePattern": null,
+    "rhymeScheme": "ABA BCB CDC...",
+    "meterPattern": "iambic pentameter",
+    "description": "Italian form of interlocking tercets where the middle line of each stanza rhymes with the first and third lines of the next. Ends with a single line or couplet. Used by Dante in the Divine Comedy.",
+    "templateContent": "Stanza 1:\nLine 1 (A)\nLine 2 (B) - links to next stanza\nLine 3 (A)\n\nStanza 2:\nLine 4 (B) - rhymes with line 2\nLine 5 (C) - links to next stanza\nLine 6 (B)\n\nStanza 3:\nLine 7 (C) - rhymes with line 5\nLine 8 (D) - links to next stanza\nLine 9 (C)\n\n[Continue pattern...]\n\nFinal line or couplet:\nLine N (rhymes with middle line of last tercet)",
+    "isCustom": false
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000018",
+    "name": "Spenserian Stanza",
+    "category": "Metered",
+    "lineCount": 9,
+    "syllablePattern": [10, 10, 10, 10, 10, 10, 10, 10, 12],
+    "rhymeScheme": "ABABBCBCC",
+    "meterPattern": "iambic pentameter + alexandrine",
+    "description": "Nine-line stanza created by Edmund Spenser for The Faerie Queene. Eight lines of iambic pentameter followed by an alexandrine (12 syllables). Interlocking rhyme scheme ABABBCBCC.",
+    "templateContent": "Line 1 (A) - iambic pentameter\nLine 2 (B) - iambic pentameter\nLine 3 (A) - iambic pentameter\nLine 4 (B) - iambic pentameter\nLine 5 (B) - iambic pentameter\nLine 6 (C) - iambic pentameter\nLine 7 (B) - iambic pentameter\nLine 8 (C) - iambic pentameter\nLine 9 (C) - alexandrine (12 syllables)",
+    "isCustom": false
   }
 ]

@@ -118,6 +118,19 @@ extension NSAttributedString {
         return .poem
     }
     
+    /// Get the explicit section type at a specific location (nil if unmarked)
+    /// - Parameter location: Character index
+    /// - Returns: The section type, or nil if not explicitly marked
+    func explicitSectionType(at location: Int) -> PoemSectionType? {
+        guard location >= 0 && location < length else { return nil }
+        
+        if let typeString = attribute(.poemSectionType, at: location, effectiveRange: nil) as? String,
+           let type = PoemSectionType(rawValue: typeString) {
+            return type
+        }
+        return nil
+    }
+    
     /// Check if the given range contains any non-poem sections
     /// - Parameter range: The range to check
     /// - Returns: true if any part of the range is marked as non-poem

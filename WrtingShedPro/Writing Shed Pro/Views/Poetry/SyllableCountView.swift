@@ -2,13 +2,61 @@ import SwiftUI
 
 /// A view displaying line-by-line syllable counts with visual feedback
 /// Shows actual vs expected counts and color-codes accuracy
+/// Blank lines and marked sections are filtered out
 struct SyllableCountView: View {
-    let text: String
+    /// The full attributed text (to identify excluded sections)
+    let attributedText: NSAttributedString
     let expectedPattern: [Int]?
+    
+    /// Convenience for plain text when attributed text not available
+    init(text: String, expectedPattern: [Int]?) {
+        self.attributedText = NSAttributedString(string: text)
+        self.expectedPattern = expectedPattern
+    }
+    
+    init(attributedText: NSAttributedString, expectedPattern: [Int]?) {
+        self.attributedText = attributedText
+        self.expectedPattern = expectedPattern
+    }
     
     @State private var comparisons: [SyllableComparison] = []
     
     private let syllableCounter = SyllableCounter.shared
+    
+    /// Plain text from attributed text
+    private var text: String {
+        attributedText.string
+    }
+    
+    /// Filtered comparisons - excludes marked sections, keeps blank lines
+    /// Returns tuple with optional display line number (nil for blank lines)
+    private var displayComparisons: [(displayLineNumber: Int?, comparison: SyllableComparison)] {
+        var result: [(Int?, SyllableComparison)] = []
+        var displayNumber = 1
+        
+        for comparison in comparisons {
+            // Skip excluded lines entirely
+            if comparison.isExcluded {
+                continue
+            }
+            
+            // Keep blank lines but don't number them
+            let isBlank = comparison.lineText.trimmingCharacters(in: .whitespaces).isEmpty
+            if isBlank {
+                result.append((nil, comparison))
+            } else {
+                result.append((displayNumber, comparison))
+                displayNumber += 1
+            }
+        }
+        
+        return result
+    }
+    
+    /// Count of non-blank lines (for summary)
+    private var nonBlankLineCount: Int {
+        displayComparisons.filter { $0.displayLineNumber != nil }.count
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -23,10 +71,10 @@ struct SyllableCountView: View {
             } else {
                 ScrollView {
                     LazyVStack(spacing: 0) {
-                        ForEach(comparisons) { comparison in
-                            SyllableLineRow(comparison: comparison)
+                        ForEach(Array(displayComparisons.enumerated()), id: \.offset) { index, item in
+                            SyllableLineRow(comparison: item.comparison, displayLineNumber: item.displayLineNumber)
                             
-                            if comparison.lineNumber < comparisons.count {
+                            if index < displayComparisons.count - 1 {
                                 Divider()
                             }
                         }
@@ -35,7 +83,7 @@ struct SyllableCountView: View {
             }
             
             // Summary footer
-            if !comparisons.isEmpty && !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            if !displayComparisons.isEmpty && !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 Divider()
                 summaryFooter
             }
@@ -108,10 +156,12 @@ struct SyllableCountView: View {
     // MARK: - Summary
     
     private var summaryFooter: some View {
-        let totalActual = comparisons.reduce(0) { $0 + $1.actualCount }
+        // Use displayComparisons (already filtered), only count non-blank lines
+        let nonBlankItems = displayComparisons.filter { $0.displayLineNumber != nil }
+        let totalActual = nonBlankItems.reduce(0) { $0 + $1.comparison.actualCount }
         let totalExpected = expectedPattern?.reduce(0, +)
-        let matchCount = comparisons.filter { $0.accuracy == .exact }.count
-        let lineCount = comparisons.filter { !$0.lineText.isEmpty }.count
+        let matchCount = nonBlankItems.filter { $0.comparison.accuracy == .exact }.count
+        let lineCount = nonBlankItems.count
         
         return HStack {
             // Total syllables
@@ -134,10 +184,10 @@ struct SyllableCountView: View {
             
             Spacer()
             
-            // Accuracy indicator (only if pattern expected)
+            // Lines matching indicator (only if pattern expected)
             if expectedPattern != nil && lineCount > 0 {
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text(NSLocalizedString("syllableCount.accuracy", comment: "Accuracy"))
+                    Text(NSLocalizedString("syllableCount.accuracy", comment: "Lines Matching"))
                         .font(.caption)
                         .foregroundColor(.secondary)
                     
@@ -154,8 +204,16 @@ struct SyllableCountView: View {
     // MARK: - Analysis
     
     private func analyzeText() {
+        // Build a list of excluded line ranges based on section type
+        let excludedLines = identifyExcludedLines()
+        
         if let pattern = expectedPattern {
-            comparisons = syllableCounter.compareToPattern(text: text, pattern: pattern)
+            var baseComparisons = syllableCounter.compareToPattern(text: text, pattern: pattern)
+            // Mark excluded lines
+            for i in 0..<baseComparisons.count {
+                baseComparisons[i].isExcluded = excludedLines.contains(i)
+            }
+            comparisons = baseComparisons
         } else {
             // No pattern - just count syllables per line
             let lines = text.components(separatedBy: .newlines)
@@ -165,10 +223,44 @@ struct SyllableCountView: View {
                     lineText: line,
                     actualCount: syllableCounter.countSyllables(inLine: line),
                     expectedCount: nil,
-                    accuracy: .noExpectation
+                    accuracy: .noExpectation,
+                    isExcluded: excludedLines.contains(index)
                 )
             }
         }
+    }
+    
+    /// Identify which line indices are excluded (non-poem sections)
+    private func identifyExcludedLines() -> Set<Int> {
+        var excludedLines = Set<Int>()
+        let fullRange = NSRange(location: 0, length: attributedText.length)
+        guard fullRange.length > 0 else { return excludedLines }
+        
+        attributedText.enumerateAttribute(.poemSectionType, in: fullRange, options: []) { value, range, _ in
+            if let typeString = value as? String,
+               let sectionType = PoemSectionType(rawValue: typeString),
+               sectionType != .poem {
+                // Find which lines this range covers
+                let text = attributedText.string as NSString
+                var currentPos = 0
+                var lineIndex = 0
+                
+                while currentPos < text.length {
+                    let lineRange = text.lineRange(for: NSRange(location: currentPos, length: 0))
+                    
+                    // Check if this line overlaps with the excluded range
+                    let intersection = NSIntersectionRange(lineRange, range)
+                    if intersection.length > 0 {
+                        excludedLines.insert(lineIndex)
+                    }
+                    
+                    currentPos = NSMaxRange(lineRange)
+                    lineIndex += 1
+                }
+            }
+        }
+        
+        return excludedLines
     }
 }
 
@@ -177,46 +269,69 @@ struct SyllableCountView: View {
 /// A single row showing syllable count for one line
 struct SyllableLineRow: View {
     let comparison: SyllableComparison
+    let displayLineNumber: Int?
+    
+    /// Whether this is a blank line (no line number)
+    private var isBlankLine: Bool {
+        displayLineNumber == nil
+    }
     
     var body: some View {
         HStack(alignment: .center, spacing: 8) {
-            // Line number
-            Text("\(comparison.lineNumber)")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .frame(width: 32, alignment: .trailing)
+            // Line number (hidden for blank lines)
+            if let lineNum = displayLineNumber {
+                Text("\(lineNum)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .frame(width: 32, alignment: .trailing)
+            } else {
+                Text("")
+                    .frame(width: 32, alignment: .trailing)
+            }
             
-            // Accuracy indicator
-            accuracyIndicator
+            // Accuracy indicator (hidden for blank lines)
+            if isBlankLine {
+                Color.clear
+                    .frame(width: 16, height: 16)
+            } else {
+                accuracyIndicator
+            }
             
-            // Line text
-            Text(comparison.lineText.isEmpty ? "—" : comparison.lineText)
+            // Line text (empty for blank lines)
+            Text(isBlankLine ? "" : comparison.lineText)
                 .font(.body)
-                .foregroundColor(comparison.lineText.isEmpty ? .secondary : .primary)
                 .lineLimit(1)
             
             Spacer()
             
-            // Expected count (if available)
-            if let expected = comparison.expectedCount {
+            // Expected count (hidden for blank lines)
+            if !isBlankLine, let expected = comparison.expectedCount {
                 Text("\(expected)")
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .frame(width: 32, alignment: .center)
+            } else if comparison.expectedCount != nil {
+                Text("")
+                    .frame(width: 32, alignment: .center)
             }
             
-            // Actual count
-            Text("\(comparison.actualCount)")
-                .font(.body.monospacedDigit())
-                .fontWeight(.medium)
-                .foregroundColor(accuracyColor)
-                .frame(width: 32, alignment: .center)
+            // Actual count (hidden for blank lines)
+            if isBlankLine {
+                Text("")
+                    .frame(width: 32, alignment: .center)
+            } else {
+                Text("\(comparison.actualCount)")
+                    .font(.body.monospacedDigit())
+                    .fontWeight(.medium)
+                    .foregroundColor(accuracyColor)
+                    .frame(width: 32, alignment: .center)
+            }
         }
         .padding(.horizontal)
-        .padding(.vertical, 8)
-        .background(backgroundColor)
+        .padding(.vertical, isBlankLine ? 4 : 8)
+        .background(isBlankLine ? Color.clear : backgroundColor)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(comparison.accessibilityDescription)
+        .accessibilityLabel(isBlankLine ? "Blank line" : comparison.accessibilityDescription)
     }
     
     // MARK: - Visual Indicators

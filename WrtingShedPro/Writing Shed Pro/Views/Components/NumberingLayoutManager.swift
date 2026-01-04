@@ -5,17 +5,33 @@
 //  Feature 016: Custom NSLayoutManager that renders paragraph numbers dynamically
 //  Numbers are NEVER stored in the document - they're drawn at render time
 //  Supports hierarchical numbering (e.g., 1.1, 1.2) for follow-on styles
+//  For poetry projects, also draws line numbers on the right margin
 //
 
 import UIKit
 import SwiftData
 
 /// Custom layout manager that draws paragraph numbers in the left margin
+/// For poetry projects, also draws line numbers on the right margin (paginated view only)
 /// Similar to line numbers in a code editor - purely visual, not part of document
 class NumberingLayoutManager: NSLayoutManager {
     
     /// Reference to project for accessing style sheet (set by FormattedTextEditor)
     weak var project: Project?
+    
+    /// Whether this is a paginated view (enables poetry line numbers on right margin)
+    /// Set to true by VirtualPageScrollView, false by FormattedTextEditor
+    var isPaginatedView: Bool = false
+    
+    /// Starting line number for poetry projects (for paginated view where each page
+    /// has a separate text view). Set by VirtualPageScrollView based on preceding pages.
+    var poetryStartingLineNumber: Int = 1
+    
+    /// Width reserved for right-margin line numbers in poetry mode
+    private let poetryLineNumberWidth: CGFloat = 40
+    
+    /// Font size for poetry line numbers
+    private let poetryLineNumberFontSize: CGFloat = 11
     
     /// Build a map of child style → parent style from parentStyleName relationships
     /// If Title2.parentStyleName == "Title1", then Title2's numbers are prefixed with Title1's
@@ -35,12 +51,24 @@ class NumberingLayoutManager: NSLayoutManager {
     }
     
     /// Calculate and draw paragraph numbers for numbered styles
+    /// For poetry projects, also draws line numbers on the right margin
     override func drawBackground(forGlyphRange glyphsToShow: NSRange, at origin: CGPoint) {
         super.drawBackground(forGlyphRange: glyphsToShow, at: origin)
         
         guard let textStorage = textStorage,
-              let project = project,
-              let styleSheet = project.styleSheet else {
+              let project = project else {
+            return
+        }
+        
+        // MARK: - Poetry Line Numbers (Right Margin)
+        // For poetry projects in paginated view, draw line numbers on the right side
+        // Only shown in paginated view, not in edit mode
+        if project.type == .poetry && isPaginatedView {
+            drawPoetryLineNumbers(forGlyphRange: glyphsToShow, at: origin)
+        }
+        
+        // Paragraph numbering requires a stylesheet
+        guard let styleSheet = project.styleSheet else {
             return
         }
         
@@ -236,6 +264,102 @@ class NumberingLayoutManager: NSLayoutManager {
                 }
             }
         }
+    }
+    
+    /// Draw line numbers on the right margin for poetry projects
+    /// Numbers are consecutive, skip blank lines, respect marked sections
+    /// Uses poetryStartingLineNumber for correct numbering across pages
+    private func drawPoetryLineNumbers(forGlyphRange glyphsToShow: NSRange, at origin: CGPoint) {
+        guard let textStorage = textStorage,
+              let textContainer = textContainers.first else {
+            return
+        }
+        
+        // Get character range for visible glyphs
+        let visibleCharRange = characterRange(forGlyphRange: glyphsToShow, actualGlyphRange: nil)
+        
+        // Count lines in THIS page's text storage
+        let text = textStorage.string as NSString
+        let fullRange = NSRange(location: 0, length: textStorage.length)
+        
+        // Build a map of paragraph start position to line number (only non-blank, non-excluded lines)
+        // Start from poetryStartingLineNumber to continue from previous pages
+        var paragraphLineNumbers: [Int: Int] = [:] // paragraph start location -> line number
+        var lineNumber = poetryStartingLineNumber - 1 // Will be incremented to starting number
+        
+        text.enumerateSubstrings(in: fullRange, options: .byParagraphs) { substring, paragraphRange, _, _ in
+            // Skip blank lines
+            let lineText = substring ?? ""
+            if lineText.trimmingCharacters(in: .whitespaces).isEmpty {
+                return
+            }
+            
+            // Check if this line is marked as excluded (poemSectionType != .poem and != nil)
+            if paragraphRange.location < textStorage.length {
+                if let sectionType = textStorage.attribute(.poemSectionType, at: paragraphRange.location, effectiveRange: nil) as? String,
+                   sectionType != PoemSectionType.poem.rawValue {
+                    // This line is excluded - don't number it
+                    return
+                }
+            }
+            
+            // This is a numbered line
+            lineNumber += 1
+            paragraphLineNumbers[paragraphRange.location] = lineNumber
+        }
+        
+        // Second pass: draw line numbers for visible paragraphs
+        text.enumerateSubstrings(in: fullRange, options: .byParagraphs) { [weak self] substring, paragraphRange, _, _ in
+            guard let self = self else { return }
+            
+            // Check if this paragraph is visible
+            let paragraphEnd = paragraphRange.location + paragraphRange.length
+            let visibleEnd = visibleCharRange.location + visibleCharRange.length
+            let isVisible = (paragraphRange.location < visibleEnd) && (paragraphEnd > visibleCharRange.location)
+            
+            guard isVisible,
+                  let lineNum = paragraphLineNumbers[paragraphRange.location] else {
+                return
+            }
+            
+            // Get line fragment rect for this paragraph
+            let glyphRange = self.glyphRange(forCharacterRange: paragraphRange, actualCharacterRange: nil)
+            guard glyphRange.length > 0 else { return }
+            
+            let lineFragmentRect = self.lineFragmentRect(forGlyphAt: glyphRange.location, effectiveRange: nil)
+            
+            // Draw the line number on the right
+            self.drawPoetryLineNumber(lineNum, at: origin, lineFragmentRect: lineFragmentRect, containerWidth: textContainer.size.width)
+        }
+    }
+    
+    /// Draw a single poetry line number on the right margin
+    private func drawPoetryLineNumber(_ lineNumber: Int, at origin: CGPoint, lineFragmentRect: CGRect, containerWidth: CGFloat) {
+        let numberString = "\(lineNumber)" as NSString
+        
+        // Use a subtle, secondary color for line numbers
+        let numberAttributes: [NSAttributedString.Key: Any] = [
+            .font: UIFont.monospacedDigitSystemFont(ofSize: poetryLineNumberFontSize, weight: .regular),
+            .foregroundColor: UIColor.secondaryLabel
+        ]
+        
+        let numberSize = numberString.size(withAttributes: numberAttributes)
+        
+        // Position on the right side, just inside the right margin
+        // The containerWidth is the text container width, so we position at the far right
+        let numberX = origin.x + containerWidth - poetryLineNumberWidth + 5
+        
+        // Vertically center in the line fragment
+        let baselineY = origin.y + lineFragmentRect.origin.y + (lineFragmentRect.height - numberSize.height) / 2
+        
+        let numberRect = CGRect(
+            x: numberX,
+            y: baselineY,
+            width: poetryLineNumberWidth - 10,
+            height: numberSize.height
+        )
+        
+        numberString.draw(in: numberRect, withAttributes: numberAttributes)
     }
     
     /// Helper method to draw a number at the start of a paragraph's first line

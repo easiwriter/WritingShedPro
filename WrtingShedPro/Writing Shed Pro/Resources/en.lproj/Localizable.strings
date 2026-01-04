@@ -1205,17 +1205,7 @@
 /* Folder Sorting */
 "sort.byUserOrder" = "Custom Order";
 
-/* Poem Section Types */
+/* Poem Section Marking */
 "poemSection.markSection" = "Mark Section";
-"poemSection.poem" = "Poem";
-"poemSection.title" = "Title";
-"poemSection.epigraph" = "Epigraph";
-"poemSection.signature" = "Signature";
-"poemSection.stanzaNumber" = "Stanza Number";
-"poemSection.dedication" = "Dedication";
-"poemSection.poem.help" = "Main poem body - included in metrics analysis";
-"poemSection.title.help" = "Poem title - excluded from analysis";
-"poemSection.epigraph.help" = "Quotation or motto - excluded from analysis";
-"poemSection.signature.help" = "Author attribution - excluded from analysis";
-"poemSection.stanzaNumber.help" = "Stanza numbering - excluded from analysis";
-"poemSection.dedication.help" = "Dedication text - excluded from analysis";
+"poemSection.addToMarked" = "Add to Marked Section";
+"poemSection.clearAllMarks" = "Clear All Marks";
