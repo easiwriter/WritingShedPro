@@ -76,7 +76,7 @@ final class ProjectRenameDeleteIntegrationTests: XCTestCase {
         // Arrange
         let creationDate = Date(timeIntervalSinceNow: -3600)
         let details = "Project details"
-        let project = Project(name: "Original", type: .script, creationDate: creationDate, details: details)
+        let project = Project(name: "Original", type: .drama, creationDate: creationDate, details: details)
         let originalId = project.id
         
         // Act
@@ -85,7 +85,7 @@ final class ProjectRenameDeleteIntegrationTests: XCTestCase {
         // Assert - all other properties preserved
         XCTAssertEqual(project.name, "Renamed")
         XCTAssertEqual(project.id, originalId)
-        XCTAssertEqual(project.type, .script)
+        XCTAssertEqual(project.type, .drama)
         XCTAssertEqual(project.creationDate, creationDate)
         XCTAssertEqual(project.details, details)
     }
@@ -97,7 +97,7 @@ final class ProjectRenameDeleteIntegrationTests: XCTestCase {
         var projects = [
             Project(name: "Keep 1", type: .generalPurpose),
             Project(name: "Delete Me", type: .poetry),
-            Project(name: "Keep 2", type: .script)
+            Project(name: "Keep 2", type: .drama)
         ]
         let projectToDelete = projects[1]
         let initialCount = projects.count
@@ -153,7 +153,7 @@ final class ProjectRenameDeleteIntegrationTests: XCTestCase {
         var projects = [
             Project(name: "Zebra", type: .generalPurpose),
             Project(name: "Alpha", type: .poetry),
-            Project(name: "Beta", type: .script)
+            Project(name: "Beta", type: .drama)
         ]
         let sorted = ProjectSortService.sortProjects(projects, by: .byName)
         let projectToDelete = sorted[1] // Beta

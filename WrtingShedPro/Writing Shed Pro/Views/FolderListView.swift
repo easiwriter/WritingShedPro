@@ -40,7 +40,7 @@ struct FolderListView: View {
         case .generalPurpose:
             return ["Folders", "Trash"]
             
-        case .poetry, .shortStory:
+        case .poetry:
             return [
                 "All", "Draft", "Ready", "Collections", "Submissions", "Set Aside", "Published",
                 "Research",
@@ -48,18 +48,22 @@ struct FolderListView: View {
                 "Trash"
             ]
             
-        case .novel:
+        case .fiction:
+            // Fiction folder order - Feature 022
             return [
-                "Novel", "Chapters", "Scenes", "Characters", "Locations",
-                "Set Aside", "Research",
+                "Chapters", "Scenes",  // Structure (Novel has Chapters, Short Fiction has Scenes)
+                "Manuscript",
+                "Characters", "Locations", "Plot",
+                "Research",
                 "Competitions", "Commissions", "Other",
                 "Trash"
             ]
             
-        case .script:
+        case .drama:
+            // Drama folder order - to be defined in spec 023
             return [
-                "Script", "Acts", "Scenes", "Characters", "Locations",
-                "Set Aside", "Research",
+                "All", "Draft", "Ready", "Set Aside",
+                "Research",
                 "Competitions", "Commissions", "Other",
                 "Trash"
             ]
@@ -75,6 +79,11 @@ struct FolderListView: View {
         
         // Add spacing after "Research" (separates writing folders from organizational folders)
         // and after "Other" (separates organizational folders from Trash)
+        // For fiction, also add spacing after "Plot" (separates planning from research)
+        if project.type == .fiction {
+            return folderName == "Plot" || folderName == "Research" || folderName == "Other"
+        }
+        
         return folderName == "Research" || folderName == "Other"
     }
     
@@ -142,6 +151,31 @@ struct FolderListView: View {
                         } else if folderName == "Submissions" {
                             // Special handling for Submissions folder - show publication submissions
                             NavigationLink(destination: SubmissionsView(project: project)) {
+                                FolderRowView(folder: folder)
+                            }
+                        } else if folderName == "Characters" && project.type == .fiction {
+                            // Fiction: Characters folder navigates to CharacterListView
+                            NavigationLink(destination: CharacterListView(project: project)) {
+                                FolderRowView(folder: folder)
+                            }
+                        } else if folderName == "Locations" && project.type == .fiction {
+                            // Fiction: Locations folder navigates to LocationListView
+                            NavigationLink(destination: LocationListView(project: project)) {
+                                FolderRowView(folder: folder)
+                            }
+                        } else if folderName == "Plot" && project.type == .fiction {
+                            // Fiction: Plot folder navigates to PlotOutlineView
+                            NavigationLink(destination: PlotOutlineView(project: project)) {
+                                FolderRowView(folder: folder)
+                            }
+                        } else if folderName == "Chapters" && project.type == .fiction {
+                            // Fiction (Novel): Chapters folder navigates to ChapterListView
+                            NavigationLink(destination: ChapterListView(project: project)) {
+                                FolderRowView(folder: folder)
+                            }
+                        } else if folderName == "Scenes" && project.type == .fiction {
+                            // Fiction (Short Fiction): Scenes folder navigates to SceneListView
+                            NavigationLink(destination: SceneListView(project: project)) {
                                 FolderRowView(folder: folder)
                             }
                         } else {

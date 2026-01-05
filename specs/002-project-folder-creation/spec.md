@@ -54,14 +54,18 @@ File {
 
 ## Overview
 
-Automatically create type-specific folder structures when projects are created. Each project type (BLANK, POETRY, NOVEL, SCRIPT, SHORT STORY) gets a predefined set of folders in a **flat structure** (all folders created at the project root level). After creation, folders have **selective nesting capabilities** that control whether users can add subfolders, files, or both to each folder.
+Automatically create type-specific folder structures when projects are created. Each project type gets a predefined set of folders. Project types are:
+- **General Purpose (BLANK)**: Minimal structure for flexible use
+- **Poetry**: See [021-smart-poetry-creation](../021-smart-poetry-creation/spec.md)
+- **Fiction**: See [022-smart-fiction-creation](../022-smart-fiction-creation/spec.md)  
+- **Drama**: See [023-smart-drama-creation](../023-smart-drama-creation/spec.md)
+
+After creation, folders have **selective nesting capabilities** that control whether users can add subfolders, files, or both to each folder.
 
 ### UI Reference
 The folder navigation displays a hierarchical structure organized by category with custom SF Symbols:
 
 ![Folder Navigation UI](/Resources/Screenshot%202025-10-21%20at%2013.16.52.jpeg)
-
-**Project Type Folder Mappings (Selective Nesting):**
 
 **Folder Capability Legend:**
 All folders are initially created at the project root level (flat structure). The icons indicate what users can ADD to each folder after creation:
@@ -70,65 +74,11 @@ All folders are initially created at the project root level (flat structure). Th
 
 ---
 
-#### BLANK Project Type
+#### General Purpose (BLANK) Project Type
 - Files: `globe` 📄
 - Trash: `trash` 📄
 
-#### POETRY Project Type  
-- All: `globe` 📄
-- Draft: `doc.badge.ellipsis` 📄
-- Ready: `checkmark.circle` 📄
-- Set Aside: `archivebox` 📄
-- Published: `book.circle` 📄
-- Research: `magnifyingglass` 📄
-- Magazines: `magazine` 📁
-- Competitions: `medal` 📁
-- Commissions: `person.2` 📁
-- Other: `tray` 📁
-
-- Trash: `trash` 📄
-
-#### SHORT STORY Project Type
-- All: `globe` 📄
-- Draft: `doc.badge.ellipsis` 📄
-- Ready: `checkmark.circle` 📄
-- Set Aside: `archivebox` 📄
-- Published: `book.circle` 📄
-- Research: `magnifyingglass` 📄
-- Magazines: `magazine` 📁
-- Competitions: `medal` 📁
-- Commissions: `person.2` 📁
-- Other: `tray` 📁
-
-- Trash: `trash` 📄
-
-#### NOVEL Project Type
-- Novel: `book.closed.fill` 📄
-- Chapters: `document.on.document` 📁
-- Scenes: `document.badge.plus` 📄
-- Characters: `person.circle` 📄
-- Locations: `mountain.2` 📄
-- Set Aside: `archivebox` 📄
-- Research: `magnifyingglass` 📄
-- Competitions: `medal` 📁
-- Commissions: `person.2` 📁
-- Other: `tray` 📁
-
-- Trash: `trash` 📄
-
-#### SCRIPT Project Type
-- Script: `book.closed.fill` 📄
-- Acts: `document.on.document` 📁
-- Scenes: `document.badge.plus` 
-- Characters: `person.circle` 📄
-- Locations: `mountain.2` 📄
-- Set Aside: `archivebox` 📄
-- Research: `magnifyingglass` 📄
-- Competitions: `medal` 📁
-- Commissions: `person.2` 📁
-- Other: `tray` 📁
-
-- Trash: `trash` 📄
+**Note:** Poetry, Fiction, and Drama folder structures are defined in their respective smart creation specs (021, 022, 023).
 
 **Common UI Elements:**
 - **Item Counts**: Show file counts for each folder
@@ -140,15 +90,11 @@ All folders are initially created at the project root level (flat structure). Th
 
 ### Primary Goals
 1. **Automatic folder creation**: When a project is created, automatically generate type-specific folder structures
-2. **Project type differentiation**: Each project type (BLANK, POETRY, NOVEL, SCRIPT, SHORT STORY) gets appropriate folders
-3. **Flat initial structure with selective nesting capabilities**: All folders are created at the project root level; folders have different capabilities that control what users can add - some allow only subfolders, others only files, and some allow both
+2. **Project type differentiation**: Each project type gets appropriate folders as defined in their specs
+3. **Flat initial structure with selective nesting capabilities**: All folders are created at the project root level; folders have different capabilities that control what users can add
 4. **SF Symbol integration**: Each folder type has an appropriate SF Symbol icon
 5. **CloudKit sync**: All folder structures sync across devices
-6. **Folder structure consistency**: Each project type creates a standard set of folders at the project root (flat structure) with selective nesting capabilities enforced after creation:
-    - **Subfolder-only folders**: Magazines, Competitions, Commissions, Other, Chapters, Acts (users can only add subfolders, not files)
-    - **File-only folders (manual entry)**: Files, Draft, Research, Scenes, Characters, Locations (users can manually add files)
-    - **Read-only folders (auto-populated)**: All, Ready, Set Aside, Published, Trash, Novel, Script (content comes from elsewhere, no manual additions)
-    - **User-created folders**: Always file-only (can contain files but not subfolders)
+6. **Folder structure consistency**: Each project type creates a standard set of folders. Specific structures for Poetry, Fiction, and Drama are defined in specs 021, 022, and 023 respectively.
 
 ### Non-Goals (Future Phases)
 - File creation within folders (Phase 003)
@@ -172,11 +118,10 @@ All folders are initially created at the project root level (flat structure). Th
 **So that** I have an organized structure ready for my writing type
 
 **Acceptance Criteria:**
-- BLANK projects create minimal folder structure (Files + Trash)
-- POETRY projects create poetry-specific folders (Draft, Ready, Set Aside, etc.)
-- NOVEL projects create novel-specific folders (Chapters, Characters, Locations, etc.)
-- SCRIPT projects create script-specific folders (Acts, Scenes, Characters, etc.)
-- SHORT STORY projects create story-specific folders (similar to poetry structure)
+- General Purpose (BLANK) projects create minimal folder structure (Files + Trash)
+- Poetry projects create poetry-specific folders (see spec 021)
+- Fiction projects create fiction-specific folders (see spec 022)
+- Drama projects create drama-specific folders (see spec 023)
 - All folders sync automatically via CloudKit
 
 ---
@@ -201,11 +146,10 @@ All folders are initially created at the project root level (flat structure). Th
 **So that** I can work efficiently across multiple projects
 
 **Acceptance Criteria:**
-- All POETRY projects have identical folder structure
-- All NOVEL projects have identical folder structure  
-- All SCRIPT projects have identical folder structure
-- All SHORT STORY projects have identical folder structure
-- BLANK projects provide minimal, flexible structure
+- All Poetry projects have identical folder structure (per spec 021)
+- All Fiction projects have identical folder structure (per spec 022)
+- All Drama projects have identical folder structure (per spec 023)
+- General Purpose (BLANK) projects provide minimal, flexible structure
 
 ---
 
@@ -227,11 +171,10 @@ All folders are initially created at the project root level (flat structure). Th
 - **FR2.6:** Toolbar buttons (Add Folder, Add File) are shown/hidden based on folder capabilities from FolderCapabilityService
 
 ### FR3: Project Type Mapping
-- **FR3.1:** BLANK: Creates Files, Trash folders only
-- **FR3.2:** POETRY: Creates All, Draft, Ready, Set Aside, Published, Research, Magazines, Competitions, Commissions, Other, Trash (in that display order)
-- **FR3.3:** NOVEL: Creates Novel, Chapters, Scenes, Characters, Locations, Set Aside, Research, Competitions, Commissions, Other, Trash (in that display order)
-- **FR3.4:** SCRIPT: Creates Script, Acts, Scenes, Characters, Locations, Set Aside, Research, Competitions, Commissions, Other, Trash (in that display order)
-- **FR3.5:** SHORT STORY: Same as Poetry - All, Draft, Ready, Set Aside, Published, Research, Magazines, Competitions, Commissions, Other, Trash (in that display order)
+- **FR3.1:** General Purpose (BLANK): Creates Files, Trash folders only
+- **FR3.2:** POETRY: Folder structure defined in [021-smart-poetry-creation](../021-smart-poetry-creation/spec.md)
+- **FR3.3:** FICTION: Folder structure defined in [022-smart-fiction-creation](../022-smart-fiction-creation/spec.md)
+- **FR3.4:** DRAMA: Folder structure defined in [023-smart-drama-creation](../023-smart-drama-creation/spec.md)
 
 ### FR4: Data Persistence
 - **FR4.1:** All folders persist to SwiftData immediately upon creation
@@ -294,12 +237,7 @@ All folders are initially created at the project root level (flat structure). Th
 
 3. **Icon Mapping:** SF Symbols are mapped per project type in FolderItemView based on folder names
 
-4. **Flat Structure with Capability Controls:** All folders are created at the project root level. FolderListView displays folders in workflow order with toolbar buttons dynamically shown/hidden based on FolderCapabilityService:
-   - Subfolder-only folders (Magazines, Competitions, Commissions, Other, Chapters, Acts) - show "+" button for adding subfolders
-   - File-only folders (Files, Draft, Research, Scenes, Characters, Locations) - show "+" button for adding files
-   - Read-only folders (All, Ready, Set Aside, Published, Trash, Novel, Script) - no "+" button (content populated elsewhere)
-   - User-created folders always show "+" button for adding files only
-   - Location field removed from add dialogs for simplicity
+4. **Flat Structure with Capability Controls:** All folders are created at the project root level. FolderListView displays folders in workflow order with toolbar buttons dynamically shown/hidden based on FolderCapabilityService. Specific folder structures and capabilities for Poetry, Fiction, and Drama are defined in their respective smart creation specs (021, 022, 023).
 
 5. **Data Persistence:** Explicit modelContext.save() ensures immediate persistence of folder structures
 
@@ -307,7 +245,7 @@ All folders are initially created at the project root level (flat structure). Th
 
 ## Success Metrics
 
-- ✅ All 5 project types automatically create appropriate folder structures
+- ✅ All project types automatically create appropriate folder structures
 - ✅ Folders display with correct SF Symbol icons per specification
 - ✅ Folder sections are properly organized and labeled
 - ✅ ProjectTemplateService creates localized folder names

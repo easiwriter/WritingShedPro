@@ -2,10 +2,214 @@
 
 /* Project types */
 "projectType.generalPurpose" = "General Purpose";
-"projectType.novel" = "Novel";
 "projectType.poetry" = "Poetry";
-"projectType.script" = "Script";
-"projectType.shortStory" = "Short Story";
+"projectType.fiction" = "Fiction";
+"projectType.drama" = "Drama";
+
+/* Fiction Classes (Feature 022) */
+"fictionClass.novel" = "Novel";
+"fictionClass.shortFiction" = "Short Fiction";
+"fictionClass.label" = "Fiction Class";
+"fictionClass.accessibilityLabel" = "Select whether this is a novel or short fiction";
+"addProject.fictionClass" = "Fiction Class";
+"addProject.fictionClassFooter" = "Novel includes chapters containing scenes. Short Fiction has scenes only.";
+"fiction.useMonomyth" = "Use Hero's Journey Structure";
+"fiction.useMonomythAccessibility" = "Toggle to structure your plot using the 12-stage monomyth";
+"addProject.useMonomyth" = "Use Monomyth Structure";
+
+/* Fiction Folder Names (Feature 022) */
+"folder.manuscript" = "Manuscript";
+"folder.chapters" = "Chapters";
+"folder.scenes" = "Scenes";
+"folder.characters" = "Characters";
+"folder.locations" = "Locations";
+"folder.plot" = "Plot";
+"addProject.useMonomythFooter" = "Structure your plot using the 12-stage Hero's Journey.";
+
+/* Character Archetypes (Feature 022) */
+"archetype.hero" = "Hero";
+"archetype.mentor" = "Mentor";
+"archetype.herald" = "Herald";
+"archetype.thresholdGuardian" = "Threshold Guardian";
+"archetype.shapeshifter" = "Shapeshifter";
+"archetype.shadow" = "Shadow";
+"archetype.ally" = "Ally";
+"archetype.trickster" = "Trickster";
+"archetype.hero.description" = "The protagonist who undergoes transformation";
+"archetype.mentor.description" = "The guide who helps the hero";
+"archetype.herald.description" = "Announces the need for change";
+"archetype.thresholdGuardian.description" = "Tests the hero's commitment";
+"archetype.shapeshifter.description" = "Character of changing loyalties";
+"archetype.shadow.description" = "The villain or antagonist";
+"archetype.ally.description" = "Companions who assist the hero";
+"archetype.trickster.description" = "Comic relief or catalyst for change";
+
+/* Monomyth Stages (Feature 022) */
+"monomyth.ordinaryWorld" = "Ordinary World";
+"monomyth.callToAdventure" = "Call to Adventure";
+"monomyth.refusalOfTheCall" = "Refusal of the Call";
+"monomyth.meetingTheMentor" = "Meeting the Mentor";
+"monomyth.crossingTheThreshold" = "Crossing the Threshold";
+"monomyth.testsAlliesEnemies" = "Tests, Allies, Enemies";
+"monomyth.approachToTheInmostCave" = "Approach to the Inmost Cave";
+"monomyth.ordeal" = "Ordeal";
+"monomyth.reward" = "Reward";
+"monomyth.theRoadBack" = "The Road Back";
+"monomyth.resurrection" = "Resurrection";
+"monomyth.returnWithTheElixir" = "Return with the Elixir";
+"monomyth.ordinaryWorld.description" = "The hero's normal life before the adventure begins";
+"monomyth.callToAdventure.description" = "The hero is presented with a challenge";
+"monomyth.refusalOfTheCall.description" = "The hero hesitates or refuses the call";
+"monomyth.meetingTheMentor.description" = "The hero meets a guide who provides training or gifts";
+"monomyth.crossingTheThreshold.description" = "The hero commits to the adventure and enters a new world";
+"monomyth.testsAlliesEnemies.description" = "The hero faces challenges and meets friends and foes";
+"monomyth.approachToTheInmostCave.description" = "The hero prepares for the central crisis";
+"monomyth.ordeal.description" = "The hero faces their greatest fear or challenge";
+"monomyth.reward.description" = "The hero gains what they sought";
+"monomyth.theRoadBack.description" = "The hero begins the journey home";
+"monomyth.resurrection.description" = "The hero faces a final test using lessons learned";
+"monomyth.returnWithTheElixir.description" = "The hero returns transformed with something to share";
+
+/* Fiction UI Labels (Feature 022) */
+"fiction.scenes" = "Scenes";
+"fiction.chapters" = "Chapters";
+"fiction.characters" = "Characters";
+"fiction.locations" = "Locations";
+"fiction.plotOutline" = "Plot Outline";
+"fiction.manuscript" = "Manuscript";
+"fiction.addScene" = "Add Scene";
+"fiction.addChapter" = "Add Chapter";
+"fiction.addCharacter" = "Add Character";
+"fiction.addLocation" = "Add Location";
+"fiction.sceneName" = "Scene Name";
+"fiction.chapterName" = "Chapter Name";
+"fiction.characterName" = "Character Name";
+"fiction.locationName" = "Location Name";
+"fiction.synopsis" = "Synopsis";
+"fiction.archetype" = "Archetype";
+"fiction.noArchetype" = "No Archetype";
+"fiction.customAttributes" = "Custom Attributes";
+"fiction.addAttribute" = "Add Attribute";
+"fiction.attributeKey" = "Name";
+"fiction.attributeValue" = "Value";
+"fiction.linkedScenes" = "Linked Scenes";
+"fiction.linkScene" = "Link Scene";
+"fiction.unlinkScene" = "Unlink Scene";
+"fiction.untitled" = "Untitled";
+
+/* Fiction Characters View (Feature 022) */
+"fiction.characters.title" = "Characters";
+"fiction.characters.add" = "Add Character";
+"fiction.characters.empty.title" = "No Characters Yet";
+"fiction.characters.empty.message" = "Add characters to track who appears in your story.";
+"fiction.characters.unassigned" = "Unassigned";
+"fiction.characters.deleteConfirm.title" = "Delete Character?";
+"fiction.characters.deleteConfirm.message" = "Are you sure you want to delete \"%@\"?";
+"fiction.character.name" = "Name";
+"fiction.character.name.accessibility" = "Character name";
+"fiction.character.role" = "Role";
+"fiction.character.role.accessibility" = "Character role in the story";
+"fiction.character.section.basic" = "Basic Info";
+"fiction.character.archetype" = "Archetype";
+"fiction.character.archetype.none" = "None";
+"fiction.character.archetype.footer" = "Archetypes help structure your story using classic character roles.";
+"fiction.character.section.archetype" = "Archetype";
+"fiction.character.biography" = "Biography";
+"fiction.character.biography.accessibility" = "Character biography and backstory";
+"fiction.character.add.title" = "Add Character";
+"fiction.character.error.nameRequired" = "Character name is required.";
+"fiction.character.attributes" = "Custom Attributes";
+"fiction.character.scenes" = "Appears In";
+"fiction.character.delete" = "Delete Character";
+
+/* Fiction Locations View (Feature 022) */
+"fiction.locations.title" = "Locations";
+"fiction.locations.add" = "Add Location";
+"fiction.locations.empty.title" = "No Locations Yet";
+"fiction.locations.empty.message" = "Add locations to track where your story takes place.";
+"fiction.locations.deleteConfirm.title" = "Delete Location?";
+"fiction.locations.deleteConfirm.message" = "Are you sure you want to delete \"%@\"?";
+"fiction.location.name" = "Name";
+"fiction.location.name.accessibility" = "Location name";
+"fiction.location.section.basic" = "Basic Info";
+"fiction.location.description" = "Description";
+"fiction.location.description.accessibility" = "Location description";
+"fiction.location.description.footer" = "Describe this setting in detail.";
+"fiction.location.add.title" = "Add Location";
+"fiction.location.error.nameRequired" = "Location name is required.";
+"fiction.location.attributes" = "Custom Attributes";
+"fiction.location.scenes" = "Scenes Here";
+"fiction.location.sceneCount" = "%d scenes";
+"fiction.location.delete" = "Delete Location";
+
+/* Fiction Scenes View (Feature 022) */
+"fiction.scenes.title" = "Scenes";
+"fiction.scenes.add" = "Add Scene";
+"fiction.scenes.empty.title" = "No Scenes Yet";
+"fiction.scenes.empty.message" = "Add scenes to structure your story.";
+"fiction.scenes.deleteConfirm.title" = "Delete Scene?";
+"fiction.scenes.deleteConfirm.message" = "Are you sure you want to delete \"%@\"?";
+"fiction.scene.title" = "Title";
+"fiction.scene.title.accessibility" = "Scene title";
+"fiction.scene.number" = "Scene #";
+"fiction.scene.section.basic" = "Basic Info";
+"fiction.scene.summary" = "Summary";
+"fiction.scene.summary.accessibility" = "Scene summary";
+"fiction.scene.summary.footer" = "Brief description of what happens in this scene.";
+"fiction.scene.location" = "Location";
+"fiction.scene.location.none" = "No Location";
+"fiction.scene.section.location" = "Location";
+"fiction.scene.section.characters" = "Characters";
+"fiction.scene.characters.selected" = "%d characters selected";
+"fiction.scene.monomythStage" = "Story Stage";
+"fiction.scene.monomythStage.none" = "None";
+"fiction.scene.section.monomyth" = "Hero's Journey";
+"fiction.scene.add.title" = "Add Scene";
+"fiction.scene.error.titleRequired" = "Scene title is required.";
+"fiction.scene.file" = "Scene File";
+"fiction.scene.delete" = "Delete Scene";
+
+/* Fiction Chapters View (Feature 022) */
+"fiction.chapters.title" = "Chapters";
+"fiction.chapters.add" = "Add Chapter";
+"fiction.chapters.empty.title" = "No Chapters Yet";
+"fiction.chapters.empty.message" = "Add chapters to organize your novel's structure.";
+"fiction.chapters.deleteConfirm.title" = "Delete Chapter?";
+"fiction.chapters.deleteConfirm.message" = "Are you sure you want to delete \"%@\"? All scenes in this chapter will also be deleted.";
+"fiction.chapter.title" = "Title";
+"fiction.chapter.title.accessibility" = "Chapter title";
+"fiction.chapter.number" = "Chapter %d";
+"fiction.chapter.section.basic" = "Basic Info";
+"fiction.chapter.summary" = "Summary";
+"fiction.chapter.summary.accessibility" = "Chapter summary";
+"fiction.chapter.summary.footer" = "Brief overview of what happens in this chapter.";
+"fiction.chapter.add.title" = "Add Chapter";
+"fiction.chapter.defaultTitle" = "Chapter %d";
+"fiction.chapter.error.titleRequired" = "Chapter title is required.";
+"fiction.chapter.sceneCount" = "%d scenes";
+
+/* Fiction Plot View (Feature 022) */
+"fiction.plot.title" = "Plot Outline";
+"fiction.plot.add" = "Add Plot Element";
+"fiction.plot.empty.title" = "No Plot Elements Yet";
+"fiction.plot.empty.message" = "Add plot elements to structure your story.";
+"fiction.plot.empty.monomyth.message" = "Add plot elements and assign them to stages of the Hero's Journey.";
+"fiction.plot.unassigned" = "Unassigned";
+"fiction.plot.deleteConfirm.title" = "Delete Plot Element?";
+"fiction.plot.deleteConfirm.message" = "Are you sure you want to delete \"%@\"?";
+"fiction.plot.element.title" = "Title";
+"fiction.plot.element.title.accessibility" = "Plot element title";
+"fiction.plot.element.section.basic" = "Basic Info";
+"fiction.plot.element.description" = "Description";
+"fiction.plot.element.description.accessibility" = "Plot element description";
+"fiction.plot.element.description.footer" = "Describe what happens at this plot point.";
+"fiction.plot.element.stage" = "Story Stage";
+"fiction.plot.element.stage.none" = "None";
+"fiction.plot.element.stage.footer" = "Assign this element to a stage of the Hero's Journey.";
+"fiction.plot.element.section.monomyth" = "Hero's Journey";
+"fiction.plot.element.add.title" = "Add Plot Element";
+"fiction.plot.element.error.titleRequired" = "Plot element title is required.";
+"fiction.plot.element.delete" = "Delete Plot Element";
 
 /* ContentView */
 "contentView.title" = "Projects";
@@ -153,6 +357,7 @@
 "poetryForm.formDetails" = "Form Details";
 "poetryForm.poetryForm" = "Poetry Form";
 "poetryForm.freeVerse" = "Free Verse";
+"poetryForm.changeForm" = "Change Form";
 "poetryForm.noRequirements" = "No specific requirements";
 "poetryForm.lines" = "Lines";
 "poetryForm.syllables" = "Syllables";
@@ -1207,5 +1412,5 @@
 
 /* Poem Section Marking */
 "poemSection.markSection" = "Mark Section";
-"poemSection.addToMarked" = "Add to Marked Section";
+"poemSection.addToMarked" = "Add Marked Section";
 "poemSection.clearAllMarks" = "Clear All Marks";

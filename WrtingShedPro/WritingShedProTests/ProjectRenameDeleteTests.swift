@@ -78,7 +78,7 @@ final class ProjectRenameDeleteTests: XCTestCase {
         var projects = [
             Project(name: "Project 1", type: .generalPurpose),
             Project(name: "Project 2", type: .poetry),
-            Project(name: "Project 3", type: .script)
+            Project(name: "Project 3", type: .drama)
         ]
         let projectToDelete = projects[1]
         
@@ -94,7 +94,7 @@ final class ProjectRenameDeleteTests: XCTestCase {
         // Arrange
         let project1 = Project(name: "Project 1", type: .generalPurpose)
         let project2 = Project(name: "Project 2", type: .poetry)
-        let project3 = Project(name: "Project 3", type: .script)
+        let project3 = Project(name: "Project 3", type: .drama)
         var projects = [project1, project2, project3]
         
         // Act - delete middle project

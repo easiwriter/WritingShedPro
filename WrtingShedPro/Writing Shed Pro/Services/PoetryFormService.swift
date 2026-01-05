@@ -455,8 +455,13 @@ final class PoetryFormService {
     
     private func buildCategoryCache(from forms: [PoetryForm]) {
         var grouped: [PoetryFormCategory: [PoetryForm]] = [:]
+        var seenIds: Set<UUID> = []
         
         for form in forms {
+            // Skip duplicates by ID
+            guard !seenIds.contains(form.id) else { continue }
+            seenIds.insert(form.id)
+            
             if grouped[form.category] == nil {
                 grouped[form.category] = []
             }

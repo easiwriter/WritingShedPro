@@ -10,6 +10,11 @@ struct AddProjectSheet: View {
     @State private var errorMessage = ""
     @State private var selectedStyleSheet: StyleSheet?
     @State private var availableStyleSheets: [StyleSheet] = []
+    
+    // Fiction-specific state
+    @State private var selectedFictionClass: FictionClass = .novel
+    @State private var useMonomyth: Bool = false
+    
     @Environment(\.modelContext) var modelContext
     @Query private var allProjects: [Project]
     
@@ -30,6 +35,19 @@ struct AddProjectSheet: View {
                         }
                     }
                     .accessibilityLabel(NSLocalizedString("addProject.typeAccessibility", comment: "Accessibility label for project type picker"))
+                    
+                    // Fiction-specific options
+                    if selectedType == .fiction {
+                        Picker(NSLocalizedString("fictionClass.label", comment: "Label for fiction class picker"), selection: $selectedFictionClass) {
+                            ForEach(FictionClass.allCases, id: \.self) { fictionClass in
+                                Text(NSLocalizedString("fictionClass.\(fictionClass.rawValue)", comment: "Fiction class name")).tag(fictionClass)
+                            }
+                        }
+                        .accessibilityLabel(NSLocalizedString("fictionClass.accessibilityLabel", comment: "Accessibility label for fiction class picker"))
+                        
+                        Toggle(NSLocalizedString("fiction.useMonomyth", comment: "Toggle label for monomyth structure"), isOn: $useMonomyth)
+                            .accessibilityLabel(NSLocalizedString("fiction.useMonomythAccessibility", comment: "Accessibility label for monomyth toggle"))
+                    }
                 }
                 
                 Section(NSLocalizedString("addProject.stylesheet", comment: "Section header for stylesheet selection")) {
@@ -98,6 +116,12 @@ struct AddProjectSheet: View {
             details: details.isEmpty ? nil : details,
             userOrder: allProjects.count // Place new project at the end
         )
+        
+        // Set fiction-specific properties if applicable
+        if selectedType == .fiction {
+            newProject.fictionClassRaw = selectedFictionClass.rawValue
+            newProject.useMonomyth = useMonomyth
+        }
         
         // Assign selected stylesheet
         newProject.styleSheet = selectedStyleSheet

@@ -6,7 +6,7 @@ struct FolderCapabilityService {
     /// Folders that can ONLY contain subfolders (no files allowed)
     /// These are organizational containers
     private static let subfolderOnlyFolders: Set<String> = [
-        "Chapters", "Acts", "Magazines", "Competitions", "Commissions", "Other"
+        "Magazines", "Competitions", "Commissions", "Other"
     ]
     
     /// Folders that can contain BOTH subfolders AND files
@@ -25,13 +25,13 @@ struct FolderCapabilityService {
     /// Folders that can ONLY contain files (no subfolders)
     /// Users can manually add files to these folders
     private static let fileOnlyFolders: Set<String> = [
-        "Files", "Draft", "Research", "Scenes", "Characters", "Locations"
+        "Files", "Draft", "Research"
     ]
     
     /// Folders that receive content from elsewhere (no manual additions)
     /// These folders are populated automatically by the system
     private static let readOnlyFolders: Set<String> = [
-        "All", "Ready", "Collections", "Set Aside", "Published", "Trash", "Novel", "Script"
+        "All", "Ready", "Collections", "Set Aside", "Published", "Trash"
     ]
     
     // MARK: - Capability Checks

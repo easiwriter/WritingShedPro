@@ -41,17 +41,13 @@ struct StressPatternView: View {
             if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 emptyStateView
             } else {
-                ScrollView {
-                    LazyVStack(spacing: 0) {
-                        ForEach(Array(displayAnalyses.enumerated()), id: \.offset) { index, item in
-                            StressLineRow(analysis: item.analysis, displayLineNumber: item.displayLineNumber)
-                            
-                            if index < displayAnalyses.count - 1 {
-                                Divider()
-                            }
-                        }
+                List {
+                    ForEach(Array(displayAnalyses.enumerated()), id: \.offset) { _, item in
+                        StressLineRow(analysis: item.analysis, displayLineNumber: item.displayLineNumber)
+                            .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
                     }
                 }
+                .listStyle(.plain)
             }
         }
         .onAppear {

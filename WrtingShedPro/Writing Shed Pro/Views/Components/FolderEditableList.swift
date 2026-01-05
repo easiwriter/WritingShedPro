@@ -124,7 +124,7 @@ struct FolderItemView: View {
         let folderName = folder.name ?? ""
         
         switch project.type {
-        case .novel:
+        case .fiction:
             switch folderName {
             case NSLocalizedString("folder.chapters", comment: "Chapters"):
                 return "document.on.document"
@@ -139,7 +139,7 @@ struct FolderItemView: View {
             default:
                 return "folder"
             }
-        case .script:
+        case .drama:
             switch folderName {
             case NSLocalizedString("folder.scenes", comment: "Scenes"):
                 return "theatermasks"

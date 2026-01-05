@@ -337,7 +337,7 @@ final class SyllableCounter {
     }
     
     /// Calculate accuracy level for syllable matching
-    private func calculateAccuracy(actual: Int, expected: Int?) -> SyllableAccuracy {
+    func calculateAccuracy(actual: Int, expected: Int?) -> SyllableAccuracy {
         guard let expected = expected else { return .noExpectation }
         
         let difference = abs(actual - expected)

@@ -34,7 +34,14 @@ struct Write_App: App {
             // Feature 015: Footnotes
             FootnoteModel.self,
             // Feature 021 Phase 2: Custom Poetry Forms
-            PoetryFormModel.self
+            PoetryFormModel.self,
+            // Feature 022: Smart Fiction Creation
+            FictionScene.self,
+            FictionChapter.self,
+            FictionCharacter.self,
+            FictionLocation.self,
+            CustomAttribute.self,
+            PlotElement.self
         ])
         
         #if DEBUG

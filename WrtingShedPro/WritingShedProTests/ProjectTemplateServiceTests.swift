@@ -63,66 +63,89 @@ final class ProjectTemplateServiceTests: XCTestCase {
         XCTAssertEqual(folderNames, expectedNames, "Should have correct folder names")
     }
     
+    func testCreateDefaultFoldersForFictionProject() throws {
+        // Given a fiction project (Short Fiction by default when fictionClass is nil)
+        let project = Project(name: "Test Fiction", type: .fiction)
+        // fictionClass defaults to nil, which falls into shortFiction branch
+        modelContext.insert(project)
+        
+        // When creating default folders
+        ProjectTemplateService.createDefaultFolders(for: project, in: modelContext)
+        
+        // Then verify folders exist in flat structure
+        let folders = project.folders ?? []
+        
+        XCTAssertEqual(folders.count, 9, "Should have 9 folders for Short Fiction project")
+        
+        let folderNames = Set(folders.compactMap { $0.name })
+        let expectedNames: Set<String> = [
+            "Scenes", "Manuscript", "Characters", "Locations", "Plot",
+            "Research", "Competitions", "Commissions", "Other", "Trash"
+        ]
+        XCTAssertEqual(folderNames, expectedNames, "Should have correct folder names for Short Fiction")
+    }
+    
     func testCreateDefaultFoldersForNovelProject() throws {
         // Given a novel project
-        let project = Project(name: "Test Novel", type: .novel)
+        let project = Project(name: "Test Novel", type: .fiction)
+        project.fictionClass = .novel
         modelContext.insert(project)
         
         // When creating default folders
         ProjectTemplateService.createDefaultFolders(for: project, in: modelContext)
         
-        // Then verify 11 folders exist in flat structure
+        // Then verify folders exist in flat structure
         let folders = project.folders ?? []
         
-        XCTAssertEqual(folders.count, 11, "Should have 11 folders for novel project")
+        XCTAssertEqual(folders.count, 9, "Should have 9 folders for Novel project")
         
         let folderNames = Set(folders.compactMap { $0.name })
         let expectedNames: Set<String> = [
-            "Novel", "Chapters", "Scenes", "Characters", "Locations", "Set Aside",
+            "Chapters", "Manuscript", "Characters", "Locations", "Plot",
             "Research", "Competitions", "Commissions", "Other", "Trash"
         ]
-        XCTAssertEqual(folderNames, expectedNames, "Should have correct folder names")
+        XCTAssertEqual(folderNames, expectedNames, "Should have correct folder names for Novel")
     }
     
-    func testCreateDefaultFoldersForScriptProject() throws {
-        // Given a script project
-        let project = Project(name: "Test Script", type: .script)
+    func testCreateDefaultFoldersForShortFictionProject() throws {
+        // Given a short fiction project
+        let project = Project(name: "Test Short Fiction", type: .fiction)
+        project.fictionClass = .shortFiction
         modelContext.insert(project)
         
         // When creating default folders
         ProjectTemplateService.createDefaultFolders(for: project, in: modelContext)
         
-        // Then verify 11 folders exist in flat structure
+        // Then verify folders exist in flat structure
         let folders = project.folders ?? []
         
-        XCTAssertEqual(folders.count, 11, "Should have 11 folders for script project")
+        XCTAssertEqual(folders.count, 9, "Should have 9 folders for Short Fiction project")
         
         let folderNames = Set(folders.compactMap { $0.name })
         let expectedNames: Set<String> = [
-            "Script", "Acts", "Scenes", "Characters", "Locations", "Set Aside",
+            "Scenes", "Manuscript", "Characters", "Locations", "Plot",
             "Research", "Competitions", "Commissions", "Other", "Trash"
         ]
-        XCTAssertEqual(folderNames, expectedNames, "Should have correct folder names")
+        XCTAssertEqual(folderNames, expectedNames, "Should have correct folder names for Short Fiction")
     }
     
-    func testCreateDefaultFoldersForShortStoryProject() throws {
-        // Given a short story project
-        let project = Project(name: "Test Short Story", type: .shortStory)
+    func testCreateDefaultFoldersForDramaProject() throws {
+        // Given a drama project
+        let project = Project(name: "Test Drama", type: .drama)
         modelContext.insert(project)
         
         // When creating default folders
         ProjectTemplateService.createDefaultFolders(for: project, in: modelContext)
         
-        // Then verify 11 folders exist in flat structure (same as poetry)
+        // Then verify folders exist in flat structure
         let folders = project.folders ?? []
         
-        XCTAssertEqual(folders.count, 13, "Should have 13 folders for short story project")
+        XCTAssertEqual(folders.count, 9, "Should have 9 folders for drama project")
         
         let folderNames = Set(folders.compactMap { $0.name })
         let expectedNames: Set<String> = [
-            "All", "Draft", "Ready", "Collections", "Submissions", "Set Aside", "Published",
-            "Research", "Magazines", "Competitions", "Commissions",
-            "Other", "Trash"
+            "All", "Draft", "Ready", "Set Aside",
+            "Research", "Competitions", "Commissions", "Other", "Trash"
         ]
         XCTAssertEqual(folderNames, expectedNames, "Should have correct folder names")
     }
@@ -209,52 +232,93 @@ final class ProjectTemplateServiceTests: XCTestCase {
         }
     }
     
-    func testNovelProjectFolderCapabilities() throws {
-        // Given a novel project with folders
-        let project = Project(name: "Test Novel", type: .novel)
+    func testFictionProjectFolderCapabilities() throws {
+        // Given a fiction project with folders (Short Fiction)
+        let project = Project(name: "Test Fiction", type: .fiction)
+        project.fictionClass = .shortFiction
         modelContext.insert(project)
         ProjectTemplateService.createDefaultFolders(for: project, in: modelContext)
         
         let folders = project.folders ?? []
         
-        // Verify subfolder-only (📁)
-        let subfolderOnly = ["Chapters", "Competitions", "Commissions", "Other"]
+        // Verify subfolder-only (📁) - Publications folders
+        let subfolderOnly = ["Competitions", "Commissions", "Other"]
         for name in subfolderOnly {
             if let folder = folders.first(where: { $0.name == name }) {
-                XCTAssertTrue(FolderCapabilityService.canAddSubfolder(to: folder))
-                XCTAssertFalse(FolderCapabilityService.canAddFile(to: folder))
+                XCTAssertTrue(FolderCapabilityService.canAddSubfolder(to: folder),
+                             "\(name) should allow subfolders")
+                XCTAssertFalse(FolderCapabilityService.canAddFile(to: folder),
+                              "\(name) should NOT allow files")
             }
         }
         
-        // Verify file-only (📄)
-        let fileOnly = ["Scenes", "Characters", "Locations", "Research"]
+        // Verify file-only (📄) - Research and Manuscript
+        let fileOnly = ["Research", "Manuscript"]
         for name in fileOnly {
             if let folder = folders.first(where: { $0.name == name }) {
-                XCTAssertFalse(FolderCapabilityService.canAddSubfolder(to: folder))
-                XCTAssertTrue(FolderCapabilityService.canAddFile(to: folder))
+                XCTAssertFalse(FolderCapabilityService.canAddSubfolder(to: folder),
+                              "\(name) should NOT allow subfolders")
+                XCTAssertTrue(FolderCapabilityService.canAddFile(to: folder),
+                             "\(name) should allow files")
             }
         }
         
-        // Verify read-only (no manual additions)
-        let readOnly = ["Novel", "Set Aside", "Trash"]
-        for name in readOnly {
-            if let folder = folders.first(where: { $0.name == name }) {
-                XCTAssertFalse(FolderCapabilityService.canAddSubfolder(to: folder))
-                XCTAssertFalse(FolderCapabilityService.canAddFile(to: folder))
-            }
+        // Verify special fiction folders exist
+        let fictionFolders = ["Scenes", "Characters", "Locations", "Plot"]
+        for name in fictionFolders {
+            XCTAssertNotNil(folders.first(where: { $0.name == name }),
+                           "\(name) folder should exist")
+        }
+        
+        // Verify Trash is read-only
+        if let trashFolder = folders.first(where: { $0.name == "Trash" }) {
+            XCTAssertFalse(FolderCapabilityService.canAddSubfolder(to: trashFolder))
+            XCTAssertFalse(FolderCapabilityService.canAddFile(to: trashFolder))
         }
     }
     
-    func testScriptProjectFolderCapabilities() throws {
-        // Given a script project with folders
-        let project = Project(name: "Test Script", type: .script)
+    func testNovelProjectHasChaptersFolder() throws {
+        // Given a novel project
+        let project = Project(name: "Test Novel", type: .fiction)
+        project.fictionClass = .novel
+        modelContext.insert(project)
+        ProjectTemplateService.createDefaultFolders(for: project, in: modelContext)
+        
+        let folders = project.folders ?? []
+        
+        // Novel should have Chapters folder, not Scenes
+        XCTAssertNotNil(folders.first(where: { $0.name == "Chapters" }),
+                       "Novel should have Chapters folder")
+        XCTAssertNil(folders.first(where: { $0.name == "Scenes" }),
+                    "Novel should NOT have Scenes folder")
+    }
+    
+    func testShortFictionProjectHasScenesFolder() throws {
+        // Given a short fiction project
+        let project = Project(name: "Test Short Fiction", type: .fiction)
+        project.fictionClass = .shortFiction
+        modelContext.insert(project)
+        ProjectTemplateService.createDefaultFolders(for: project, in: modelContext)
+        
+        let folders = project.folders ?? []
+        
+        // Short Fiction should have Scenes folder, not Chapters
+        XCTAssertNotNil(folders.first(where: { $0.name == "Scenes" }),
+                       "Short Fiction should have Scenes folder")
+        XCTAssertNil(folders.first(where: { $0.name == "Chapters" }),
+                    "Short Fiction should NOT have Chapters folder")
+    }
+    
+    func testDramaProjectFolderCapabilities() throws {
+        // Given a drama project with folders
+        let project = Project(name: "Test Drama", type: .drama)
         modelContext.insert(project)
         ProjectTemplateService.createDefaultFolders(for: project, in: modelContext)
         
         let folders = project.folders ?? []
         
         // Verify subfolder-only (📁)
-        let subfolderOnly = ["Acts", "Competitions", "Commissions", "Other"]
+        let subfolderOnly = ["Competitions", "Commissions", "Other"]
         for name in subfolderOnly {
             if let folder = folders.first(where: { $0.name == name }) {
                 XCTAssertTrue(FolderCapabilityService.canAddSubfolder(to: folder))
@@ -263,7 +327,7 @@ final class ProjectTemplateServiceTests: XCTestCase {
         }
         
         // Verify file-only (📄)
-        let fileOnly = ["Scenes", "Characters", "Locations", "Research"]
+        let fileOnly = ["Draft", "Research"]
         for name in fileOnly {
             if let folder = folders.first(where: { $0.name == name }) {
                 XCTAssertFalse(FolderCapabilityService.canAddSubfolder(to: folder))
@@ -272,7 +336,7 @@ final class ProjectTemplateServiceTests: XCTestCase {
         }
         
         // Verify read-only (no manual additions)
-        let readOnly = ["Script", "Set Aside", "Trash"]
+        let readOnly = ["All", "Ready", "Set Aside", "Trash"]
         for name in readOnly {
             if let folder = folders.first(where: { $0.name == name }) {
                 XCTAssertFalse(FolderCapabilityService.canAddSubfolder(to: folder))
@@ -309,7 +373,7 @@ final class ProjectTemplateServiceTests: XCTestCase {
     
     func testAllFoldersHaveProjectReference() throws {
         // Given a project with default folders
-        let project = Project(name: "Test Project", type: .novel)
+        let project = Project(name: "Test Project", type: .fiction)
         modelContext.insert(project)
         ProjectTemplateService.createDefaultFolders(for: project, in: modelContext)
         

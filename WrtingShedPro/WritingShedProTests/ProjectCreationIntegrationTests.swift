@@ -46,7 +46,7 @@ final class ProjectCreationIntegrationTests: XCTestCase {
     
     func testCreateProjectWithDifferentTypes() {
         // Arrange
-        let types: [ProjectType] = [.generalPurpose, .poetry, .script]
+        let types: [ProjectType] = [.generalPurpose, .poetry, .drama]
         
         // Act
         let projects = types.enumerated().map { (index, type) in
@@ -57,7 +57,7 @@ final class ProjectCreationIntegrationTests: XCTestCase {
         XCTAssertEqual(projects.count, 3)
         XCTAssertEqual(projects[0].type, .generalPurpose)
         XCTAssertEqual(projects[1].type, .poetry)
-        XCTAssertEqual(projects[2].type, .script)
+        XCTAssertEqual(projects[2].type, .drama)
     }
     
     func testRenameProjectInMemory() {

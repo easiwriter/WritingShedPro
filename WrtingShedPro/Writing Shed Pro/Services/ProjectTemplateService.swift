@@ -61,7 +61,7 @@ struct ProjectTemplateService {
         case .generalPurpose:
             folderKeys = ["folder.folders"]
             
-        case .poetry, .shortStory:
+        case .poetry:
             folderKeys = [
                 "folder.all",
                 "folder.draft",
@@ -73,24 +73,31 @@ struct ProjectTemplateService {
                 "folder.research"
             ]
             
-        case .novel:
-            folderKeys = [
-                "folder.novel",
-                "folder.chapters",
-                "folder.scenes",
+        case .fiction:
+            // Fiction folder structure based on fiction class (Novel vs Short Fiction)
+            let baseFolders = [
+                "folder.manuscript",
                 "folder.characters",
                 "folder.locations",
-                "folder.setAside",
+                "folder.plot",
                 "folder.research"
             ]
             
-        case .script:
+            // Add structure folder based on fiction class
+            if project.fictionClass == .novel {
+                // Novel uses chapters containing scenes
+                folderKeys = ["folder.chapters"] + baseFolders
+            } else {
+                // Short Fiction uses scenes directly (no chapters)
+                folderKeys = ["folder.scenes"] + baseFolders
+            }
+            
+        case .drama:
+            // Drama folder structure - to be defined in spec 023
             folderKeys = [
-                "folder.script",
-                "folder.acts",
-                "folder.scenes", 
-                "folder.characters",
-                "folder.locations",
+                "folder.all",
+                "folder.draft",
+                "folder.ready",
                 "folder.setAside",
                 "folder.research"
             ]
@@ -110,7 +117,7 @@ struct ProjectTemplateService {
         case .generalPurpose:
             folderKeys = [] // No publications for general purpose projects
             
-        case .poetry, .shortStory:
+        case .poetry:
             folderKeys = [
                 "folder.magazines",
                 "folder.competitions", 
@@ -118,7 +125,8 @@ struct ProjectTemplateService {
                 "folder.other"
             ]
             
-        case .novel, .script:
+        case .fiction, .drama:
+            // Publications structure - to be defined in specs 022/023
             folderKeys = [
                 "folder.competitions",
                 "folder.commissions", 
@@ -149,14 +157,12 @@ extension ProjectType {
         switch self {
         case .generalPurpose:
             return NSLocalizedString("projectType.generalPurpose", comment: "General Purpose project type")
-        case .novel:
-            return NSLocalizedString("projectType.novel", comment: "Novel project type")
         case .poetry:
             return NSLocalizedString("projectType.poetry", comment: "Poetry project type")
-        case .script:
-            return NSLocalizedString("projectType.script", comment: "Script project type")
-        case .shortStory:
-            return NSLocalizedString("projectType.shortStory", comment: "Short Story project type")
+        case .fiction:
+            return NSLocalizedString("projectType.fiction", comment: "Fiction project type")
+        case .drama:
+            return NSLocalizedString("projectType.drama", comment: "Drama project type")
         }
     }
     

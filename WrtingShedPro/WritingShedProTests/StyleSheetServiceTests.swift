@@ -249,7 +249,7 @@ final class StyleSheetServiceTests: XCTestCase {
         chapterStyle.styleSheet = customSheet
         context.insert(customSheet)
         
-        let project = Project(name: "My Novel", type: .novel)
+        let project = Project(name: "My Fiction", type: .fiction)
         project.styleSheet = customSheet
         context.insert(project)
         try context.save()
@@ -269,29 +269,29 @@ final class StyleSheetServiceTests: XCTestCase {
         // Given
         StyleSheetService.initializeStyleSheetsIfNeeded(context: context)
         
-        let novelSheet = StyleSheet(name: "Novel Style", isSystemStyleSheet: false)
+        let novelSheet = StyleSheet(name: "Fiction Style", isSystemStyleSheet: false)
         let poetrySheet = StyleSheet(name: "Poetry Style", isSystemStyleSheet: false)
         
         context.insert(novelSheet)
         context.insert(poetrySheet)
         
-        let novelProject = Project(name: "Novel", type: .novel)
-        novelProject.styleSheet = novelSheet
+        let fictionProject = Project(name: "Fiction", type: .fiction)
+        fictionProject.styleSheet = novelSheet
         
         let poetryProject = Project(name: "Poetry", type: .poetry)
         poetryProject.styleSheet = poetrySheet
         
-        context.insert(novelProject)
+        context.insert(fictionProject)
         context.insert(poetryProject)
         try context.save()
         
         // When
-        let novelStylesheet = StyleSheetService.getStyleSheet(for: novelProject, context: context)
+        let fictionStylesheet = StyleSheetService.getStyleSheet(for: fictionProject, context: context)
         let poetryStylesheet = StyleSheetService.getStyleSheet(for: poetryProject, context: context)
         
         // Then
-        XCTAssertNotEqual(novelStylesheet?.id, poetryStylesheet?.id)
-        XCTAssertEqual(novelStylesheet?.name, "Novel Style")
+        XCTAssertNotEqual(fictionStylesheet?.id, poetryStylesheet?.id)
+        XCTAssertEqual(fictionStylesheet?.name, "Fiction Style")
         XCTAssertEqual(poetryStylesheet?.name, "Poetry Style")
     }
 }

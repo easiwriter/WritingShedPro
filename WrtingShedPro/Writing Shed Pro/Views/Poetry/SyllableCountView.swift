@@ -69,17 +69,13 @@ struct SyllableCountView: View {
             if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 emptyStateView
             } else {
-                ScrollView {
-                    LazyVStack(spacing: 0) {
-                        ForEach(Array(displayComparisons.enumerated()), id: \.offset) { index, item in
-                            SyllableLineRow(comparison: item.comparison, displayLineNumber: item.displayLineNumber)
-                            
-                            if index < displayComparisons.count - 1 {
-                                Divider()
-                            }
-                        }
+                List {
+                    ForEach(Array(displayComparisons.enumerated()), id: \.offset) { _, item in
+                        SyllableLineRow(comparison: item.comparison, displayLineNumber: item.displayLineNumber)
+                            .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
                     }
                 }
+                .listStyle(.plain)
             }
             
             // Summary footer
@@ -206,28 +202,46 @@ struct SyllableCountView: View {
     private func analyzeText() {
         // Build a list of excluded line ranges based on section type
         let excludedLines = identifyExcludedLines()
+        let lines = text.components(separatedBy: .newlines)
         
-        if let pattern = expectedPattern {
-            var baseComparisons = syllableCounter.compareToPattern(text: text, pattern: pattern)
-            // Mark excluded lines
-            for i in 0..<baseComparisons.count {
-                baseComparisons[i].isExcluded = excludedLines.contains(i)
-            }
-            comparisons = baseComparisons
-        } else {
-            // No pattern - just count syllables per line
-            let lines = text.components(separatedBy: .newlines)
-            comparisons = lines.enumerated().map { index, line in
-                SyllableComparison(
-                    lineNumber: index + 1,
-                    lineText: line,
-                    actualCount: syllableCounter.countSyllables(inLine: line),
+        // Build comparisons for all lines, but apply pattern only to poem lines (non-excluded, non-blank)
+        var results: [SyllableComparison] = []
+        var patternIndex = 0  // Track position in pattern for poem lines only
+        
+        for (lineIndex, lineText) in lines.enumerated() {
+            let isExcluded = excludedLines.contains(lineIndex)
+            let isBlank = lineText.trimmingCharacters(in: .whitespaces).isEmpty
+            let actual = syllableCounter.countSyllables(inLine: lineText)
+            
+            if isExcluded || isBlank {
+                // Excluded or blank line - no expected count
+                results.append(SyllableComparison(
+                    lineNumber: lineIndex + 1,
+                    lineText: lineText,
+                    actualCount: actual,
                     expectedCount: nil,
                     accuracy: .noExpectation,
-                    isExcluded: excludedLines.contains(index)
-                )
+                    isExcluded: isExcluded
+                ))
+            } else {
+                // Poem line - compare to pattern if available
+                let expected = (expectedPattern != nil && patternIndex < expectedPattern!.count) ? expectedPattern![patternIndex] : nil
+                let accuracy = syllableCounter.calculateAccuracy(actual: actual, expected: expected)
+                
+                results.append(SyllableComparison(
+                    lineNumber: lineIndex + 1,
+                    lineText: lineText,
+                    actualCount: actual,
+                    expectedCount: expected,
+                    accuracy: accuracy,
+                    isExcluded: false
+                ))
+                
+                patternIndex += 1
             }
         }
+        
+        comparisons = results
     }
     
     /// Identify which line indices are excluded (non-poem sections)

@@ -8,7 +8,7 @@ final class ProjectSortServiceTests: XCTestCase {
         let projects = [
             Project(name: "Zebra", type: .generalPurpose),
             Project(name: "Alpha", type: .poetry),
-            Project(name: "Beta", type: .script)
+            Project(name: "Beta", type: .drama)
         ]
         
         // Act
@@ -25,7 +25,7 @@ final class ProjectSortServiceTests: XCTestCase {
         let projects = [
             Project(name: "zebra", type: .generalPurpose),
             Project(name: "ALPHA", type: .poetry),
-            Project(name: "BeTa", type: .script)
+            Project(name: "BeTa", type: .drama)
         ]
         
         // Act
@@ -46,7 +46,7 @@ final class ProjectSortServiceTests: XCTestCase {
         let projects = [
             Project(name: "Future", type: .generalPurpose, creationDate: tomorrow),
             Project(name: "Today", type: .poetry, creationDate: now),
-            Project(name: "Yesterday", type: .script, creationDate: yesterday)
+            Project(name: "Yesterday", type: .drama, creationDate: yesterday)
         ]
         
         // Act
@@ -86,7 +86,7 @@ final class ProjectSortServiceTests: XCTestCase {
         let projects = [
             Project(name: "First", type: .generalPurpose, userOrder: 2),
             Project(name: "Second", type: .poetry, userOrder: 0),
-            Project(name: "Third", type: .script, userOrder: 1)
+            Project(name: "Third", type: .drama, userOrder: 1)
         ]
         
         // Act
@@ -103,7 +103,7 @@ final class ProjectSortServiceTests: XCTestCase {
         let projects = [
             Project(name: "HasOrder", type: .generalPurpose, userOrder: 1),
             Project(name: "NoOrder1", type: .poetry, userOrder: nil),
-            Project(name: "NoOrder2", type: .script, userOrder: nil)
+            Project(name: "NoOrder2", type: .drama, userOrder: nil)
         ]
         
         // Act
@@ -121,7 +121,7 @@ final class ProjectSortServiceTests: XCTestCase {
         let projects = [
             Project(name: "First", type: .generalPurpose, userOrder: 0),
             Project(name: "Second", type: .poetry, userOrder: 1),
-            Project(name: "Third", type: .script, userOrder: 2)
+            Project(name: "Third", type: .drama, userOrder: 2)
         ]
         let movedOffsets = IndexSet([0]) // Move "First" project
         let destination = 2 // Move to position 2 (between Second and Third)

@@ -8,7 +8,7 @@ final class ProjectListDisplayIntegrationTests: XCTestCase {
         let projects = [
             Project(name: "Novel", type: .generalPurpose),
             Project(name: "Sonnet", type: .poetry),
-            Project(name: "Play", type: .script)
+            Project(name: "Play", type: .drama)
         ]
         
         // Act
@@ -26,7 +26,7 @@ final class ProjectListDisplayIntegrationTests: XCTestCase {
         let projects = [
             Project(name: "Zebra Project", type: .generalPurpose),
             Project(name: "Alpha Project", type: .poetry),
-            Project(name: "Beta Project", type: .script)
+            Project(name: "Beta Project", type: .drama)
         ]
         
         // Act
@@ -47,7 +47,7 @@ final class ProjectListDisplayIntegrationTests: XCTestCase {
         let projects = [
             Project(name: "Future", type: .generalPurpose, creationDate: futureDate),
             Project(name: "Old", type: .poetry, creationDate: oldDate),
-            Project(name: "Recent", type: .script, creationDate: recentDate)
+            Project(name: "Recent", type: .drama, creationDate: recentDate)
         ]
         
         // Act
@@ -75,13 +75,13 @@ final class ProjectListDisplayIntegrationTests: XCTestCase {
         let projects = [
             Project(name: "Novel", type: .generalPurpose),
             Project(name: "Haiku", type: .poetry),
-            Project(name: "Screenplay", type: .script)
+            Project(name: "Screenplay", type: .drama)
         ]
         
         // Assert
         XCTAssertEqual(projects[0].type, .generalPurpose)
         XCTAssertEqual(projects[1].type, .poetry)
-        XCTAssertEqual(projects[2].type, .script)
+        XCTAssertEqual(projects[2].type, .drama)
     }
     
     func testProjectListHandlesMixedCaseNames() {
@@ -89,7 +89,7 @@ final class ProjectListDisplayIntegrationTests: XCTestCase {
         let projects = [
             Project(name: "UPPERCASE", type: .generalPurpose),
             Project(name: "lowercase", type: .poetry),
-            Project(name: "MixedCase", type: .script)
+            Project(name: "MixedCase", type: .drama)
         ]
         
         // Act

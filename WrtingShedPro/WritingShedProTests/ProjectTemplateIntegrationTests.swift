@@ -118,7 +118,7 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
     
     func testDeletingProjectCascadeDeletesFolders() throws {
         // Given: A project with template folders
-        let project = Project(name: "Test Project", type: .script)
+        let project = Project(name: "Test Project", type: .drama)
         modelContext.insert(project)
         ProjectTemplateService.createDefaultFolders(for: project, in: modelContext)
         

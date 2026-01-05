@@ -4,15 +4,13 @@
 **Phase**: 001  
 **Featur### Key Entities
 
-- **Project**: Re### Key Entities
-
 - **Project**: Represents a user's writing work. Key attributes: name, type, creation date, details, userOrder (for custom sorting). Each project is independent and stored in SwiftData. The following project types are supported:
-  - prose: allows files containing text and nested folders
-  - poetry: as vanilla with files containing poetry
-  - drama: as vanilla with files containing play scriptsts a user's writing work. Key attributes: name, type, creation date, notes. Each project is independent and stored in SwiftData. The followng project types are supported:
-  - prose: allows files containing text and nested folders
-  - poetry: as vanilla with files containing poetry
-  - drama: as vanilla with files containing play scriptsch**: `001-project-management-ios-macos`  
+  - General Purpose: allows files containing text and nested folders
+  - Poetry: see [021-smart-poetry-creation](../021-smart-poetry-creation/spec.md)
+  - Fiction: see [022-smart-fiction-creation](../022-smart-fiction-creation/spec.md)
+  - Drama: see [023-smart-drama-creation](../023-smart-drama-creation/spec.md)
+
+**Feature**: `001-project-management-ios-macos`  
 **Created**: 20 October 2025  
 **Status**: ✅ Complete (21 October 2025)  
 **Next Phase**: [002-folder-file-management](../002-folder-file-management/spec.md)  
@@ -123,10 +121,11 @@ It should propmpt the user to create a project
 
 ### Key Entities
 
-- **Project**: Represents a user’s writing work. Key attributes: name, type, creation date, details. Each project is independent and stored in SwiftData. The followng project types are supported:
-- prose: allows files containing text and nested folders
-- poetry: as vanilla with files containing poetry
-- drama: as vanilla with files containing play scripts
+- **Project**: Represents a user's writing work. Key attributes: name, type, creation date, details. Each project is independent and stored in SwiftData. The following project types are supported:
+  - General Purpose: allows files containing text and nested folders
+  - Poetry: see [021-smart-poetry-creation](../021-smart-poetry-creation/spec.md)
+  - Fiction: see [022-smart-fiction-creation](../022-smart-fiction-creation/spec.md)
+  - Drama: see [023-smart-drama-creation](../023-smart-drama-creation/spec.md)
 
 ## Success Criteria *(mandatory)*
 

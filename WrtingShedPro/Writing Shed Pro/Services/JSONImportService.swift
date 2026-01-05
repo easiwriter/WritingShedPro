@@ -246,10 +246,10 @@ class JSONImportService {
     private func mapProjectType(_ modelString: String) -> ProjectType {
         // Handle numeric values (legacy enum)
         let numericMapping: [String: ProjectType] = [
-            "35": .poetry,  // WS_Poetry_Project_Value
-            "36": .novel,   // WS_Novel_Project_Value
-            "37": .script,  // WS_Script_Project_Value
-            "38": .shortStory  // WS_Short_Story_Project_Value
+            "35": .poetry,   // WS_Poetry_Project_Value
+            "36": .fiction,  // WS_Novel_Project_Value (legacy novel -> fiction)
+            "37": .drama,    // WS_Script_Project_Value (legacy script -> drama)
+            "38": .fiction   // WS_Short_Story_Project_Value (legacy shortStory -> fiction)
         ]
         
         // Check numeric first
@@ -259,11 +259,13 @@ class JSONImportService {
         
         // Fall back to string names
         let typeMapping: [String: ProjectType] = [
-            "novel": .novel,
+            "novel": .fiction,
+            "shortstory": .fiction,
+            "short story": .fiction,
+            "fiction": .fiction,
             "poetry": .poetry,
-            "script": .script,
-            "shortStory": .shortStory,
-            "short story": .shortStory,
+            "script": .drama,
+            "drama": .drama,
             "generalpurpose": .generalPurpose,
             "general purpose": .generalPurpose,
             "blank": .generalPurpose  // Legacy support
@@ -957,7 +959,7 @@ class JSONImportService {
         case .generalPurpose:
             folderNames = ["Folders", "Trash"]
             
-        case .poetry, .shortStory:
+        case .poetry:
             folderNames = [
                 "All",
                 "Draft",
@@ -974,13 +976,12 @@ class JSONImportService {
                 "Trash"
             ]
             
-        case .novel:
+        case .fiction:
+            // Fiction folder structure - to be defined in spec 022
             folderNames = [
-                "Novel",
-                "Chapters",
-                "Scenes",
-                "Characters",
-                "Locations",
+                "All",
+                "Draft",
+                "Ready",
                 "Set Aside",
                 "Research",
                 "Competitions",
@@ -989,13 +990,12 @@ class JSONImportService {
                 "Trash"
             ]
             
-        case .script:
+        case .drama:
+            // Drama folder structure - to be defined in spec 023
             folderNames = [
-                "Script",
-                "Acts",
-                "Scenes",
-                "Characters",
-                "Locations",
+                "All",
+                "Draft",
+                "Ready",
                 "Set Aside",
                 "Research",
                 "Competitions",

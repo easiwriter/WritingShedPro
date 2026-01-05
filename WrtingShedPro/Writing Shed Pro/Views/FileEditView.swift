@@ -58,8 +58,7 @@ struct FileEditView: View {
     // Feature 021: Smart Poetry Creation
     @State private var showPoetryFormReference = false
     @State private var showPoetryMetrics = false
-    @State private var showValidationPanel = false
-    @State private var validationPanelExpanded = false
+    @State private var showPoetryFormPicker = false
     
     // Feature 017: Search and Replace
     @State private var showSearchBar = false
@@ -225,27 +224,6 @@ struct FileEditView: View {
                             }
                         }
                     }
-                    
-                    // Poetry validation panel overlay for iPhone
-                    if isPoetryProject,
-                       let form = file.poetryForm,
-                       form.id != PoetryForm.freeVerseId {
-                        let validation = PoetryValidator.shared.validate(text: attributedContent.string, against: form)
-                        if validation.hasIssues {
-                            VStack {
-                                Spacer()
-                                HStack {
-                                    Spacer()
-                                    PoetryValidationPanel(
-                                        validation: validation,
-                                        isExpanded: $validationPanelExpanded
-                                    )
-                                    .padding(.trailing, 12)
-                                    .padding(.bottom, 8)
-                                }
-                            }
-                        }
-                    }
                 }
             } else {
                 // iPad: Use GeometryReader for percentage-based padding
@@ -312,27 +290,6 @@ struct FileEditView: View {
                         }
                     }
                     .padding(.horizontal, geometry.size.width * 0.05)
-                    
-                    // Poetry validation panel overlay
-                    if isPoetryProject,
-                       let form = file.poetryForm,
-                       form.id != PoetryForm.freeVerseId {
-                        let validation = PoetryValidator.shared.validate(text: attributedContent.string, against: form)
-                        if validation.hasIssues {
-                            VStack {
-                                Spacer()
-                                HStack {
-                                    Spacer()
-                                    PoetryValidationPanel(
-                                        validation: validation,
-                                        isExpanded: $validationPanelExpanded
-                                    )
-                                    .padding(.trailing, 16)
-                                    .padding(.bottom, 8)
-                                }
-                            }
-                        }
-                    }
                 }
             }
         }
@@ -515,6 +472,15 @@ struct FileEditView: View {
                             Label("Insert Image", systemImage: "photo")
                         }
                         
+                        // Change poetry form (poetry projects only)
+                        if isPoetryProject {
+                            Button(action: {
+                                showPoetryFormPicker = true
+                            }) {
+                                Label(NSLocalizedString("poetryForm.changeForm", comment: "Change Form"), systemImage: "text.book.closed")
+                            }
+                        }
+                        
                         // Comments submenu
                         Menu {
                             Button(action: {
@@ -561,6 +527,8 @@ struct FileEditView: View {
                         if isPoetryProject {
                             sectionMarkingMenu
                         }
+                        
+                        Divider()
                         
                         Button(action: {
                             insertPageBreak()
@@ -648,6 +616,15 @@ struct FileEditView: View {
                 Label("Insert Image", systemImage: "photo")
             }
             
+            // Change poetry form (poetry projects only)
+            if isPoetryProject {
+                Button(action: {
+                    showPoetryFormPicker = true
+                }) {
+                    Label(NSLocalizedString("poetryForm.changeForm", comment: "Change Form"), systemImage: "text.book.closed")
+                }
+            }
+            
             // Comments submenu
             Menu {
                 Button(action: {
@@ -709,58 +686,49 @@ struct FileEditView: View {
     }
     
     /// Menu for marking text sections in poetry files
-    /// Allows marking text as title, epigraph, signature etc. to exclude from analysis
+    /// Marked sections are excluded from poetry analysis and shown in grey
     @ViewBuilder
     private var sectionMarkingMenu: some View {
         Menu {
-            // Get current section type at cursor
-            let currentType = currentSectionType
+            // Add marked section button
+            Button(action: {
+                addMarkedSection()
+            }) {
+                Label(NSLocalizedString("poemSection.addToMarked", comment: "Add Marked Section"), systemImage: "plus.circle")
+            }
             
-            ForEach(PoemSectionType.allCases) { sectionType in
-                Button(action: {
-                    markSelectionAsSection(sectionType)
-                }) {
-                    HStack {
-                        Label(sectionType.displayName, systemImage: sectionType.iconName)
-                        if currentType == sectionType {
-                            Image(systemName: "checkmark")
-                        }
-                    }
-                }
+            // Clear all marks button
+            Button(action: {
+                clearAllSectionMarks()
+            }) {
+                Label(NSLocalizedString("poemSection.clearAllMarks", comment: "Clear All Marks"), systemImage: "xmark.circle")
             }
         } label: {
             Label(NSLocalizedString("poemSection.markSection", comment: "Mark Section"), systemImage: "text.badge.checkmark")
         }
     }
     
-    /// Get the current section type at the cursor position
-    private var currentSectionType: PoemSectionType {
+    /// Mark the current selection as excluded from analysis (shown in grey)
+    /// If no text is selected, marks the entire line at cursor position
+    private func addMarkedSection() {
         guard let textView = textViewCoordinator.textView,
-              let selectedRange = textView.selectedRange as NSRange?,
-              selectedRange.location < attributedContent.length else {
-            return .poem
-        }
-        return attributedContent.sectionType(at: selectedRange.location)
-    }
-    
-    /// Mark the current selection as a specific section type
-    private func markSelectionAsSection(_ sectionType: PoemSectionType) {
-        guard let textView = textViewCoordinator.textView,
-              let selectedRange = textView.selectedRange as NSRange?,
-              selectedRange.length > 0 else {
-            // No selection - show alert
+              let selectedRange = textView.selectedRange as NSRange? else {
             return
         }
         
         // Extend to line boundaries for cleaner marking
+        // This works even when selection length is 0 (just a cursor)
         let mutableContent = NSMutableAttributedString(attributedString: attributedContent)
         let lineRange = mutableContent.extendToLinesBoundaries(selectedRange)
         
-        // Apply the section type
-        mutableContent.markSection(sectionType, in: lineRange)
+        // Don't mark empty ranges
+        guard lineRange.length > 0 else { return }
         
-        // Apply visual styling based on section type
-        applySectionStyling(to: mutableContent, sectionType: sectionType, range: lineRange)
+        // Mark as excluded section (using .title as the marker type - any non-.poem type works)
+        mutableContent.markSection(.title, in: lineRange)
+        
+        // Apply grey text styling
+        mutableContent.addAttribute(.foregroundColor, value: UIColor.systemGray, range: lineRange)
         
         // Update content
         attributedContent = mutableContent
@@ -769,30 +737,19 @@ struct FileEditView: View {
         textView.selectedRange = lineRange
     }
     
-    /// Apply visual styling for a section type
-    private func applySectionStyling(to attributedString: NSMutableAttributedString, sectionType: PoemSectionType, range: NSRange) {
-        switch sectionType {
-        case .poem:
-            // Remove any special styling - restore to default
-            attributedString.removeAttribute(.backgroundColor, range: range)
-            // Foreground color handled by standard text styling
-            
-        case .title:
-            // Subtle blue-gray background tint for title
-            attributedString.addAttribute(.backgroundColor, value: UIColor.systemBlue.withAlphaComponent(0.08), range: range)
-            
-        case .epigraph, .dedication:
-            // Subtle warm background tint for epigraph/dedication
-            attributedString.addAttribute(.backgroundColor, value: UIColor.systemOrange.withAlphaComponent(0.06), range: range)
-            
-        case .signature:
-            // Subtle green-gray background for signature
-            attributedString.addAttribute(.backgroundColor, value: UIColor.systemGreen.withAlphaComponent(0.06), range: range)
-            
-        case .stanzaNumber:
-            // Subtle gray background for stanza numbers
-            attributedString.addAttribute(.backgroundColor, value: UIColor.systemGray.withAlphaComponent(0.08), range: range)
-        }
+    /// Clear all section marks from the document, resetting everything to poem type
+    private func clearAllSectionMarks() {
+        let mutableContent = NSMutableAttributedString(attributedString: attributedContent)
+        let fullRange = NSRange(location: 0, length: mutableContent.length)
+        
+        // Remove section type attribute
+        mutableContent.removeAttribute(.poemSectionType, range: fullRange)
+        
+        // Remove grey text styling - restore to label color
+        mutableContent.addAttribute(.foregroundColor, value: UIColor.label, range: fullRange)
+        
+        // Update content
+        attributedContent = mutableContent
     }
     
     /// Whether this file belongs to a Poetry project
@@ -914,7 +871,8 @@ struct FileEditView: View {
     
     var body: some View {
         mainContent
-            .navigationTitle(file.name)
+            // For poetry projects, hide the navigation title since we use a custom title view
+            .navigationTitle(isPoetryProject ? "" : file.name)
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarBackButtonHidden(true)
             .onPopToRoot {
@@ -1072,6 +1030,9 @@ struct FileEditView: View {
                         }
                     }
                 }
+            }
+            .sheet(isPresented: $showPoetryFormPicker) {
+                PoetryFormPickerSheet(file: file)
             }
             .onDisappear {
                 // Unregister stylesheet from provider

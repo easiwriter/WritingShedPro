@@ -220,9 +220,9 @@ final class JSONImportServiceTests: XCTestCase {
         // Test mapping of legacy numeric project types
         let testCases: [(input: String, expected: ProjectType)] = [
             ("35", .poetry),
-            ("36", .novel),
-            ("37", .script),
-            ("38", .shortStory)
+            ("36", .fiction),  // legacy novel -> fiction
+            ("37", .drama),    // legacy script -> drama
+            ("38", .fiction)   // legacy shortStory -> fiction
         ]
         
         for testCase in testCases {
@@ -234,13 +234,13 @@ final class JSONImportServiceTests: XCTestCase {
     func testProjectType_StringMapping() throws {
         // Test mapping of string project types
         let testCases: [(input: String, expected: ProjectType)] = [
-            ("novel", .novel),
-            ("Novel", .novel),
-            ("NOVEL", .novel),
+            ("novel", .fiction),
+            ("Novel", .fiction),
+            ("NOVEL", .fiction),
             ("poetry", .poetry),
-            ("script", .script),
-            ("shortStory", .shortStory),
-            ("short story", .shortStory),
+            ("script", .drama),
+            ("fiction", .fiction),
+            ("drama", .drama),
             ("blank", .generalPurpose),
             ("unknown", .generalPurpose)
         ]
@@ -255,9 +255,9 @@ final class JSONImportServiceTests: XCTestCase {
     private func mapProjectTypeHelper(_ modelString: String) -> ProjectType {
         let numericMapping: [String: ProjectType] = [
             "35": .poetry,
-            "36": .novel,
-            "37": .script,
-            "38": .shortStory
+            "36": .fiction,
+            "37": .drama,
+            "38": .fiction
         ]
         
         if let type = numericMapping[modelString] {
@@ -265,11 +265,13 @@ final class JSONImportServiceTests: XCTestCase {
         }
         
         let typeMapping: [String: ProjectType] = [
-            "novel": .novel,
+            "novel": .fiction,
+            "fiction": .fiction,
             "poetry": .poetry,
-            "script": .script,
-            "shortstory": .shortStory,
-            "short story": .shortStory,
+            "script": .drama,
+            "drama": .drama,
+            "shortstory": .fiction,
+            "short story": .fiction,
             "generalpurpose": .generalPurpose,
             "general purpose": .generalPurpose,
             "blank": .generalPurpose  // Legacy support

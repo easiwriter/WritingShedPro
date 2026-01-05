@@ -34,6 +34,36 @@ final class Project {
     @Relationship(deleteRule: .cascade)
     var pageSetup: PageSetup?
     
+    // Feature 022: Smart Fiction Creation
+    var fictionClassRaw: String?  // "novel" or "shortFiction"
+    var useMonomyth: Bool = false
+    
+    // Fiction relationships
+    @Relationship(deleteRule: .cascade, inverse: \FictionScene.project)
+    var scenes: [FictionScene]? = []
+    
+    @Relationship(deleteRule: .cascade, inverse: \FictionChapter.project)
+    var chapters: [FictionChapter]? = []
+    
+    @Relationship(deleteRule: .cascade, inverse: \FictionCharacter.project)
+    var characters: [FictionCharacter]? = []
+    
+    @Relationship(deleteRule: .cascade, inverse: \FictionLocation.project)
+    var locations: [FictionLocation]? = []
+    
+    @Relationship(deleteRule: .cascade, inverse: \PlotElement.project)
+    var plotElements: [PlotElement]? = []
+    
+    var fictionClass: FictionClass? {
+        get {
+            guard let raw = fictionClassRaw else { return nil }
+            return FictionClass(rawValue: raw)
+        }
+        set {
+            fictionClassRaw = newValue?.rawValue
+        }
+    }
+    
     var type: ProjectType {
         get {
             guard let typeRaw = typeRaw, let projectType = ProjectType(rawValue: typeRaw) else {
@@ -77,18 +107,21 @@ final class Project {
 }
 
 enum ProjectType: String, Codable, CaseIterable {
-    case generalPurpose, novel, poetry, script, shortStory
+    case generalPurpose, poetry, fiction, drama
     
-    // Backward compatibility: decode "blank" as generalPurpose
+    // Backward compatibility: decode legacy values
     init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         let rawValue = try container.decode(String.self)
-        if rawValue == "blank" {
+        switch rawValue {
+        case "blank":
             self = .generalPurpose
-        } else if let type = ProjectType(rawValue: rawValue) {
-            self = type
-        } else {
-            self = .generalPurpose
+        case "novel", "shortStory":
+            self = .fiction
+        case "script":
+            self = .drama
+        default:
+            self = ProjectType(rawValue: rawValue) ?? .generalPurpose
         }
     }
 }
@@ -371,7 +404,11 @@ final class TextFile {
     @Relationship(deleteRule: .nullify, inverse: \SubmittedFile.textFile) 
     var submittedFiles: [SubmittedFile]? = []
     
-    /// Get the project this file belongs to (via parent folder)
+    // Feature 022: Smart Fiction Creation
+    // A TextFile can be the content of a FictionScene
+    var scene: FictionScene?
+    
+    /// Get the project this file belongs to (via parent folder or scene)
     var project: Project? {
         return parentFolder?.project
     }

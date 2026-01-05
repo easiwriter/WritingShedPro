@@ -6,13 +6,10 @@ struct PoetryFormPicker: View {
     @Binding var selectedForm: PoetryForm?
     @State private var expandedCategories: Set<PoetryFormCategory> = Set(PoetryFormCategory.allCases)
     @State private var showingManagement = false
+    @State private var formsByCategory: [PoetryFormCategory: [PoetryForm]] = [:]
+    @State private var categories: [PoetryFormCategory] = []
     
     private let service = PoetryFormService.shared
-    
-    /// Computed property to get forms by category (always fresh from service)
-    private var formsByCategory: [PoetryFormCategory: [PoetryForm]] {
-        service.getFormsByCategory()
-    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -41,7 +38,7 @@ struct PoetryFormPicker: View {
             .padding(.bottom, 8)
             
             // Form list grouped by category
-            ForEach(service.getCategories(), id: \.self) { category in
+            ForEach(categories, id: \.self) { category in
                 categorySection(category)
             }
             
@@ -50,6 +47,9 @@ struct PoetryFormPicker: View {
                 selectedFormPreview(form)
             }
         }
+        .onAppear {
+            loadForms()
+        }
         .sheet(isPresented: $showingManagement) {
             PoetryFormManagementView()
         }
@@ -57,8 +57,15 @@ struct PoetryFormPicker: View {
             if !isShowing {
                 // Clear cache when management sheet closes so forms refresh
                 service.clearCache()
+                loadForms()
             }
         }
+    }
+    
+    private func loadForms() {
+        service.clearCache()  // Clear cache to ensure fresh data
+        categories = service.getCategories()
+        formsByCategory = service.getFormsByCategory()
     }
     
     // MARK: - Category Section
@@ -286,9 +293,12 @@ struct PoetryFormPicker: View {
 // MARK: - Compact Picker (for inline use)
 
 /// A more compact version of the poetry form picker for use in sheets
+/// Uses flat list structure to avoid duplication issues
 struct PoetryFormPickerCompact: View {
     @Binding var selectedForm: PoetryForm?
-    @State private var isExpanded = false  // Start collapsed
+    @State private var isExpanded = true  // Start expanded
+    @State private var formsByCategory: [PoetryFormCategory: [PoetryForm]] = [:]
+    @State private var categories: [PoetryFormCategory] = []
     
     private let service = PoetryFormService.shared
     
@@ -296,8 +306,53 @@ struct PoetryFormPickerCompact: View {
         DisclosureGroup(
             isExpanded: $isExpanded,
             content: {
-                PoetryFormPicker(selectedForm: $selectedForm)
-                    .padding(.top, 8)
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(categories, id: \.self) { category in
+                        if let forms = formsByCategory[category], !forms.isEmpty {
+                            // Category header
+                            Text(category.displayName)
+                                .font(.footnote)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.secondary)
+                                .padding(.horizontal)
+                                .padding(.vertical, 8)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(Color(.systemGray6))
+                            
+                            // Forms in category
+                            ForEach(forms) { form in
+                                Button {
+                                    selectedForm = form
+                                } label: {
+                                    HStack {
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(form.name)
+                                                .font(.body)
+                                                .foregroundColor(.primary)
+                                            
+                                            Text(formShortDescription(form))
+                                                .font(.caption)
+                                                .foregroundColor(.secondary)
+                                        }
+                                        
+                                        Spacer()
+                                        
+                                        if selectedForm?.id == form.id || (selectedForm == nil && form.id == PoetryForm.freeVerseId) {
+                                            Image(systemName: "checkmark.circle.fill")
+                                                .foregroundColor(.accentColor)
+                                        }
+                                    }
+                                    .padding(.horizontal)
+                                    .padding(.vertical, 10)
+                                    .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                                .background((selectedForm?.id == form.id || (selectedForm == nil && form.id == PoetryForm.freeVerseId)) ? Color.accentColor.opacity(0.1) : Color.clear)
+                            }
+                        }
+                    }
+                }
+                .padding(.top, 8)
             },
             label: {
                 VStack(alignment: .leading, spacing: 2) {
@@ -311,33 +366,80 @@ struct PoetryFormPickerCompact: View {
                 }
             }
         )
+        .onAppear {
+            loadForms()
+        }
+    }
+    
+    private func loadForms() {
+        service.clearCache()  // Clear cache to ensure fresh data
+        categories = service.getCategories()
+        formsByCategory = service.getFormsByCategory()
+    }
+    
+    private func formShortDescription(_ form: PoetryForm) -> String {
+        var parts: [String] = []
+        
+        if let lines = form.lineCount {
+            parts.append("\(lines) lines")
+        }
+        
+        if let syllables = form.syllablePattern, !syllables.isEmpty {
+            parts.append(syllables.map { String($0) }.joined(separator: "-"))
+        }
+        
+        if let rhyme = form.rhymeScheme, !rhyme.isEmpty {
+            parts.append(rhyme)
+        }
+        
+        if parts.isEmpty {
+            if form.hasMeterRequirements {
+                return form.meterPattern?.capitalized ?? ""
+            }
+            return NSLocalizedString("poetryForm.noRequirements", comment: "No specific requirements")
+        }
+        
+        return parts.joined(separator: " • ")
     }
 }
 
 // MARK: - Poetry Form Picker Sheet
 
 /// A sheet view for changing the poetry form of an existing file
+/// Uses a flat List with sections for each category (avoids duplication issues)
 struct PoetryFormPickerSheet: View {
     @Bindable var file: TextFile
     @State private var selectedForm: PoetryForm?
+    @State private var formsByCategory: [PoetryFormCategory: [PoetryForm]] = [:]
+    @State private var categories: [PoetryFormCategory] = []
     @Environment(\.dismiss) private var dismiss
+    
+    private let service = PoetryFormService.shared
     
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 16) {
-                    // Current form info
-                    if let currentFormName = file.poetryFormName ?? file.poetryForm?.name {
+            List {
+                // Current form info
+                if let currentFormName = file.poetryFormName ?? file.poetryForm?.name {
+                    Section {
                         Text(String(format: NSLocalizedString("poetryFormPicker.currentForm", comment: "Current form: %@"), currentFormName))
                             .font(.subheadline)
                             .foregroundColor(.secondary)
-                            .padding(.horizontal)
                     }
-                    
-                    PoetryFormPicker(selectedForm: $selectedForm)
                 }
-                .padding(.vertical)
+                
+                // Form categories with forms
+                ForEach(categories, id: \.self) { category in
+                    if let forms = formsByCategory[category], !forms.isEmpty {
+                        Section(header: Text(category.displayName)) {
+                            ForEach(forms) { form in
+                                formRow(form)
+                            }
+                        }
+                    }
+                }
             }
+            .listStyle(.insetGrouped)
             .navigationTitle(NSLocalizedString("poetryFormPicker.changeForm", comment: "Change Poetry Form"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -356,12 +458,84 @@ struct PoetryFormPickerSheet: View {
                         dismiss()
                     }
                     .disabled(selectedForm == nil)
+                    .fontWeight(.semibold)
                 }
             }
         }
+        .presentationDetents([.large])
+        .presentationDragIndicator(.visible)
         .onAppear {
+            // Load forms first
+            loadForms()
             // Pre-select current form if available
             selectedForm = file.poetryForm
         }
+    }
+    
+    private func loadForms() {
+        service.clearCache()  // Clear cache to ensure fresh data
+        categories = service.getCategories()
+        formsByCategory = service.getFormsByCategory()
+    }
+    
+    // MARK: - Form Row
+    
+    private func formRow(_ form: PoetryForm) -> some View {
+        Button {
+            selectedForm = form
+        } label: {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(form.name)
+                            .foregroundColor(.primary)
+                        
+                        if form.isCustom {
+                            Image(systemName: "person.fill")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    
+                    Text(formShortDescription(form))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+                
+                if selectedForm?.id == form.id {
+                    Image(systemName: "checkmark")
+                        .foregroundColor(.accentColor)
+                }
+            }
+        }
+    }
+    
+    // MARK: - Helper
+    
+    private func formShortDescription(_ form: PoetryForm) -> String {
+        var parts: [String] = []
+        
+        if let lines = form.lineCount {
+            parts.append("\(lines) lines")
+        }
+        
+        if let syllables = form.syllablePattern, !syllables.isEmpty {
+            parts.append(syllables.map { String($0) }.joined(separator: "-"))
+        }
+        
+        if let rhyme = form.rhymeScheme, !rhyme.isEmpty {
+            parts.append(rhyme)
+        }
+        
+        if parts.isEmpty {
+            if form.hasMeterRequirements {
+                return form.meterPattern?.capitalized ?? ""
+            }
+            return NSLocalizedString("poetryForm.noRequirements", comment: "No specific requirements")
+        }
+        
+        return parts.joined(separator: " • ")
     }
 }

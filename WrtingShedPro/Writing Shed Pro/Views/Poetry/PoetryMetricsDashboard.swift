@@ -201,14 +201,14 @@ struct PoetryMetricsDashboard: View {
             if issue.lineNumber > 0 {
                 HStack {
                     Text("Line \(issue.lineNumber)")
-                        .font(.caption)
+                        .font(.subheadline)
                         .fontWeight(.medium)
                         .foregroundColor(.secondary)
                     Spacer()
                 }
                 
                 Text(issue.lineText)
-                    .font(.caption)
+                    .font(.body)
                     .foregroundColor(.primary)
                     .lineLimit(2)
                     .padding(.horizontal, 8)
@@ -218,16 +218,16 @@ struct PoetryMetricsDashboard: View {
             }
             
             Text(issue.message)
-                .font(.caption)
+                .font(.subheadline)
                 .foregroundColor(issueTypeColor(issue.issueType))
             
             if let expected = issue.expected, let actual = issue.actual {
                 HStack(spacing: 8) {
                     Label(expected, systemImage: "checkmark")
-                        .font(.caption2)
+                        .font(.caption)
                         .foregroundColor(.green)
                     Label(actual, systemImage: "xmark")
-                        .font(.caption2)
+                        .font(.caption)
                         .foregroundColor(.red)
                 }
             }
