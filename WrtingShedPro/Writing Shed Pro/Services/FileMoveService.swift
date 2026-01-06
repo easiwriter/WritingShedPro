@@ -183,6 +183,17 @@ class FileMoveService {
         try modelContext.save()
     }
     
+    /// Permanently deletes multiple files without moving to Trash
+    /// - Parameter files: Array of TextFiles to permanently delete
+    /// - Throws: FileMoveError if any file is invalid
+    func deleteFilesPermanently(_ files: [TextFile]) throws {
+        for file in files {
+            modelContext.delete(file)
+        }
+        
+        try modelContext.save()
+    }
+    
     // MARK: - Put Back from Trash Operations
     
     /// Restores a file from Trash to its original folder

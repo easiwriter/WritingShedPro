@@ -8,6 +8,57 @@ enum ProjectStatus: String, Codable {
     case pro     // Created in Writing Shed Pro
 }
 
+/// Workflow status for text files (Poetry, Fiction, Drama projects)
+/// Replaces the old folder-based workflow (Draft, Ready, etc.)
+enum WorkflowStatus: String, Codable, CaseIterable {
+    case draft      // Work in progress
+    case ready      // Ready for submission
+    case setAside   // On hold / archived
+    case published  // Accepted and/or published
+    
+    /// Localized display name for the status
+    var localizedName: String {
+        switch self {
+        case .draft:
+            return NSLocalizedString("workflow.status.draft", comment: "Draft status")
+        case .ready:
+            return NSLocalizedString("workflow.status.ready", comment: "Ready status")
+        case .setAside:
+            return NSLocalizedString("workflow.status.setAside", comment: "Set Aside status")
+        case .published:
+            return NSLocalizedString("workflow.status.published", comment: "Published status")
+        }
+    }
+    
+    /// System image name for the status
+    var systemImage: String {
+        switch self {
+        case .draft:
+            return "pencil.circle.fill"
+        case .ready:
+            return "checkmark.circle.fill"
+        case .setAside:
+            return "archivebox.fill"
+        case .published:
+            return "star.circle.fill"
+        }
+    }
+    
+    /// Color associated with the status
+    var color: UIColor {
+        switch self {
+        case .draft:
+            return .systemBlue
+        case .ready:
+            return .systemGreen
+        case .setAside:
+            return .systemRed
+        case .published:
+            return .label  // Black in light mode, white in dark mode
+        }
+    }
+}
+
 @Model
 final class Project {
     var id: UUID = UUID()
@@ -380,6 +431,10 @@ final class TextFile {
     var currentVersionIndex: Int = 0
     var userOrder: Int?
     
+    // Workflow status (replaces folder-based workflow)
+    // Only used for Poetry, Fiction, Drama projects - nil for General Purpose
+    var workflowStatusRaw: String?
+    
     // Undo/Redo support (for TextFileUndoManager)
     var undoStackData: Data?
     var redoStackData: Data?
@@ -407,6 +462,18 @@ final class TextFile {
     // Feature 022: Smart Fiction Creation
     // A TextFile can be the content of a FictionScene
     var scene: FictionScene?
+    
+    /// Workflow status for this file (Draft, Ready, Submitted, etc.)
+    var workflowStatus: WorkflowStatus? {
+        get {
+            guard let raw = workflowStatusRaw else { return nil }
+            return WorkflowStatus(rawValue: raw)
+        }
+        set {
+            workflowStatusRaw = newValue?.rawValue
+            modifiedDate = Date()
+        }
+    }
     
     /// Get the project this file belongs to (via parent folder or scene)
     var project: Project? {

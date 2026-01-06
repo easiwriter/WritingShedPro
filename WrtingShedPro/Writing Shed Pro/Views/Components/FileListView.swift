@@ -63,6 +63,12 @@ struct FileListView: View {
     /// Called when user renames a file
     let onRename: (([TextFile]) -> Void)?
     
+    /// Called when user initiates permanent delete action (bypassing trash)
+    let onDeletePermanently: (([TextFile]) -> Void)?
+    
+    /// Called when user wants to change workflow status (optional - only for content folders)
+    let onChangeStatus: (([TextFile]) -> Void)?
+    
     // MARK: - State
     
     /// Edit mode state - read from environment (set by parent view with EditButton)
@@ -176,18 +182,26 @@ struct FileListView: View {
                 }
             }
         }
-        .alert(
-            "Delete \(filesToDelete.count) \(filesToDelete.count == 1 ? "file" : "files")?",
-            isPresented: $showDeleteConfirmation
+        .confirmationDialog(
+            filesToDelete.count == 1 
+                ? NSLocalizedString("fileList.deleteFile.title", comment: "Delete file?")
+                : String(format: NSLocalizedString("fileList.deleteFiles.title", comment: "Delete files?"), filesToDelete.count),
+            isPresented: $showDeleteConfirmation,
+            titleVisibility: .visible
         ) {
-            Button("button.cancel", role: .cancel) {
-                filesToDelete = []
-            }
-            Button("fileList.delete", role: .destructive) {
+            Button(NSLocalizedString("fileList.delete", comment: "Delete"), role: .destructive) {
                 confirmDelete()
             }
+            if onDeletePermanently != nil {
+                Button(NSLocalizedString("fileList.deletePermanently", comment: "Delete Forever"), role: .destructive) {
+                    confirmDeletePermanently()
+                }
+            }
+            Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
+                filesToDelete = []
+            }
         } message: {
-            Text("fileList.deleteConfirmation.message")
+            Text(NSLocalizedString("fileList.deleteConfirmation.messageEnhanced", comment: "Delete moves to trash, Delete Forever is permanent"))
         }
         .onChange(of: editMode?.wrappedValue) { _, newValue in
             if useSections {
@@ -294,6 +308,7 @@ struct FileListView: View {
                     .foregroundStyle(.secondary)
                 
                 Text(file.name)
+                    .foregroundColor(file.workflowStatus.map { Color($0.color) } ?? .primary)
                 
                 Spacer(minLength: 8)  // Ensure some spacing before the button
             }
@@ -387,6 +402,21 @@ struct FileListView: View {
         .accessibilityLabel("fileList.moveSelected.accessibility")
         
         Spacer()
+        
+        // Change Status button (if onChangeStatus callback provided)
+        if let onChangeStatus = onChangeStatus {
+            Button {
+                onChangeStatus(selectedFiles)
+            } label: {
+                Label(
+                    NSLocalizedString("fileList.changeStatus", comment: "Change status"),
+                    systemImage: "arrow.triangle.2.circlepath"
+                )
+            }
+            .disabled(selectedFiles.isEmpty)
+            
+            Spacer()
+        }
         
         // Add to Collection button (if onAddToCollection callback provided)
         if let onAddToCollection = onAddToCollection {
@@ -487,6 +517,26 @@ struct FileListView: View {
             }
         }
         
+        // Workflow status change option (only if callback provided)
+        if onChangeStatus != nil {
+            Divider()
+            
+            Menu {
+                ForEach(WorkflowStatus.allCases, id: \.self) { status in
+                    Button {
+                        file.workflowStatus = status
+                    } label: {
+                        HStack {
+                            Image(systemName: status.systemImage)
+                            Text(status.localizedName)
+                        }
+                    }
+                }
+            } label: {
+                Label(NSLocalizedString("fileList.contextMenu.changeStatus", comment: "Change Status"), systemImage: "arrow.triangle.2.circlepath")
+            }
+        }
+        
         Divider()
         
         Button {
@@ -528,6 +578,13 @@ struct FileListView: View {
     /// Confirms deletion and exits edit mode
     private func confirmDelete() {
         onDelete(filesToDelete)
+        filesToDelete = []
+        exitEditMode()
+    }
+    
+    /// Confirms permanent deletion and exits edit mode
+    private func confirmDeletePermanently() {
+        onDeletePermanently?(filesToDelete)
         filesToDelete = []
         exitEditMode()
     }

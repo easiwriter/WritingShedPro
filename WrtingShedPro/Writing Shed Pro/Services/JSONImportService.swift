@@ -127,10 +127,14 @@ class JSONImportService {
         // Import collections (text collections)
         try importCollections(from: writingShedData, into: project)
         
-        // Import collection submissions - these link collections to publications
-        // In legacy app, WS_CollectionSubmission_Entity represents a collection that was submitted to a publication
-        // This creates Submission objects (isCollection=false) with publication set, placing them in Submissions folder
-        try importCollectionSubmissions(from: writingShedData, into: project)
+        // NOTE: We do NOT call importCollectionSubmissions() - see COLLECTION_SUBMISSION_FIX.md
+        // In legacy app, WS_CollectionSubmission_Entity is just metadata linking a collection to a publication
+        // The collection itself (WS_Collection_Entity) is what appears in Submissions folder
+        // The isCollection flag on the WS_Collection_Entity determines folder placement:
+        //   - isCollection = true (no collectionSubmissionIds) → Collections folder
+        //   - isCollection = false (has collectionSubmissionIds) → Submissions folder
+        // Calling importCollectionSubmissions() would create DUPLICATE submission records
+        // try importCollectionSubmissions(from: writingShedData, into: project)
         
         // Save
         try modelContext.save()
@@ -281,6 +285,10 @@ class JSONImportService {
         print("[JSONImport] Starting text file import for \(data.textFileDatas.count) files")
         #endif
         
+        // Get the content folder for this project type
+        let contentFolderNameForProject = contentFolderName(for: project.type)
+        let contentFolder = getOrCreateFolder(name: contentFolderNameForProject, in: project)
+        
         for (index, textFileData) in data.textFileDatas.enumerated() {
             #if DEBUG
             print("[JSONImport] Processing text file \(index + 1)/\(data.textFileDatas.count)")
@@ -308,18 +316,34 @@ class JSONImportService {
             print("[JSONImport]   Name: \(textFileMetadata.name)")
             #endif
             #if DEBUG
-            print("[JSONImport]   Folder: \(textFileMetadata.folderName)")
+            print("[JSONImport]   Original Folder: \(textFileMetadata.folderName)")
             #endif
             
-            // Get or create folder
-            let folder = getOrCreateFolder(name: textFileMetadata.folderName, in: project)
+            // Determine workflow status from original folder name
+            let workflowStatus = mapFolderNameToWorkflowStatus(textFileMetadata.folderName)
+            
+            // Determine target folder:
+            // - Workflow folders (Draft, Ready, etc.) → content folder with status
+            // - Other folders (Research, Collections, etc.) → keep original folder
+            let targetFolder: Folder
+            if workflowStatus != nil {
+                // This was a workflow folder, put file in content folder
+                targetFolder = contentFolder
+                #if DEBUG
+                print("[JSONImport]   Mapped to content folder with status: \(workflowStatus?.rawValue ?? "nil")")
+                #endif
+            } else {
+                // Keep the original folder (Research, Collections, etc.)
+                targetFolder = getOrCreateFolder(name: textFileMetadata.folderName, in: project)
+            }
             
             // Create TextFile
             let textFile = TextFile()
             textFile.name = textFileMetadata.name
             textFile.createdDate = textFileMetadata.createdDate ?? Date()
             textFile.modifiedDate = textFileMetadata.modifiedDate ?? Date()
-            textFile.parentFolder = folder
+            textFile.parentFolder = targetFolder
+            textFile.workflowStatus = workflowStatus
             
             // Clear the auto-created initial version - we'll import the real versions
             textFile.versions = []
@@ -951,7 +975,39 @@ class JSONImportService {
     
     // MARK: - Helper Methods
     
+    /// Map old workflow folder names to WorkflowStatus
+    private func mapFolderNameToWorkflowStatus(_ folderName: String) -> WorkflowStatus? {
+        switch folderName.lowercased() {
+        case "draft":
+            return .draft
+        case "ready":
+            return .ready
+        case "accepted", "published":
+            return .published
+        case "set aside", "setaside":
+            return .setAside
+        default:
+            // Submissions, Collections, Research, etc. are functional folders, not workflow status
+            return nil
+        }
+    }
+    
+    /// Get the content folder name for a project type
+    private func contentFolderName(for projectType: ProjectType) -> String {
+        switch projectType {
+        case .poetry:
+            return "Poems"
+        case .fiction:
+            return "Scenes"
+        case .drama:
+            return "Scripts"
+        case .generalPurpose:
+            return "Files"
+        }
+    }
+    
     /// Create all standard folders for a project based on its type
+    /// Updated to use new folder structure with workflow status on files
     private func createStandardFolders(for project: Project) {
         let folderNames: [String]
         
@@ -960,14 +1016,12 @@ class JSONImportService {
             folderNames = ["Folders", "Trash"]
             
         case .poetry:
+            // New Poetry structure: single Poems folder (workflow is on files)
             folderNames = [
-                "All",
-                "Draft",
-                "Ready",
+                "Poems",
                 "Collections",
                 "Submissions",
-                "Set Aside",
-                "Published",
+                "Manuscript",
                 "Research",
                 "Magazines",
                 "Competitions",
@@ -977,26 +1031,28 @@ class JSONImportService {
             ]
             
         case .fiction:
-            // Fiction folder structure - to be defined in spec 022
+            // New Fiction structure: single Scenes folder (workflow is on files)
             folderNames = [
-                "All",
-                "Draft",
-                "Ready",
-                "Set Aside",
+                "Scenes",
+                "Characters",
+                "Locations",
+                "Chapters",
+                "Collections",
+                "Submissions",
+                "Plot",
                 "Research",
+                "Magazines",
                 "Competitions",
-                "Commissions",
                 "Other",
                 "Trash"
             ]
             
         case .drama:
-            // Drama folder structure - to be defined in spec 023
+            // New Drama structure: single Scripts folder (workflow is on files)
             folderNames = [
-                "All",
-                "Draft",
-                "Ready",
-                "Set Aside",
+                "Scripts",
+                "Collections",
+                "Submissions",
                 "Research",
                 "Competitions",
                 "Commissions",
@@ -1202,10 +1258,8 @@ class JSONImportService {
     /// Map legacy Writing Shed v1 folder names to Writing Shed Pro folder names
     private func mapLegacyFolderName(_ legacyName: String) -> String {
         switch legacyName {
-        case "Accepted":
-            return "Published"  // Old app used "Accepted", new app uses "Published"
-        case "Draft", "Ready", "Set Aside", "Collections", "Research", "Trash":
-            return legacyName  // These names stayed the same
+        case "Draft", "Ready", "Submitted", "Accepted", "Set Aside", "Published", "Collections", "Submissions", "Research", "Trash":
+            return legacyName  // These names are handled by workflow status or kept as-is
         default:
             return legacyName  // Unknown folders keep their original name
         }

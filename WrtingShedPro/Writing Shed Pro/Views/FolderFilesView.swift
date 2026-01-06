@@ -82,56 +82,56 @@ struct FolderFilesView: View {
     // State for search
     @State private var showSearchView = false
     
-    // Files sorted alphabetically
-    private var sortedFiles: [TextFile] {
-        let files: [TextFile]
-        
-        // Special handling for "All" folder - compute from multiple folders
-        if folder.name == "All" {
-            if let project = folder.project {
-                files = allFilesFromProject(project)
-            } else {
-                files = []
-            }
+    // State for permanent delete confirmation
+    @State private var showPermanentDeleteConfirmation = false
+    @State private var filesToPermanentlyDelete: [TextFile] = []
+    
+    // State for workflow status filtering (for Poems, Scenes, Scripts folders)
+    @State private var statusFilter: WorkflowStatus? = nil  // nil = show all
+    
+    // State for status change sheet
+    @State private var showStatusPicker = false
+    @State private var filesToChangeStatus: [TextFile] = []
+    
+    // Whether this is a content folder that uses workflow status
+    private var isContentFolder: Bool {
+        FolderCapabilityService.isContentFolder(folder)
+    }
+    
+    // All files in folder (unfiltered) for counting
+    private var allFiles: [TextFile] {
+        folder.textFiles ?? []
+    }
+    
+    // Count of files for a specific workflow status
+    private func fileCount(for status: WorkflowStatus?) -> Int {
+        if let status = status {
+            return allFiles.filter { $0.workflowStatus == status }.count
         } else {
-            files = folder.textFiles ?? []
+            return allFiles.count
+        }
+    }
+    
+    // Files sorted alphabetically and filtered by workflow status if applicable
+    private var sortedFiles: [TextFile] {
+        var files: [TextFile] = folder.textFiles ?? []
+        
+        // Apply workflow status filter for content folders
+        if isContentFolder, let filter = statusFilter {
+            files = files.filter { $0.workflowStatus == filter }
         }
         
         // Always sort alphabetically by name
         return FileSortService.sort(files, by: .byName)
     }
     
-    // Get all files from Draft, Ready, Set Aside, and Published folders
-    private func allFilesFromProject(_ project: Project) -> [TextFile] {
-        // Use the queried folders instead of project.folders for fresh relationships
-        let projectFolders = allFolders.filter { $0.project?.id == project.id }
-        
-        guard !projectFolders.isEmpty else {
-            return []
+    // Check if this folder supports submissions (has files with Ready status)
+    private var supportsSubmissions: Bool {
+        // Content folders support submissions when viewing Ready files
+        if isContentFolder {
+            return statusFilter == .ready
         }
-        
-        let targetFolderNames = ["Draft", "Ready", "Set Aside", "Published"]
-        var allFiles: [TextFile] = []
-        var seenFileIDs = Set<UUID>()
-        
-        for folder in projectFolders {
-            if targetFolderNames.contains(folder.name ?? "") {
-                for file in folder.textFiles ?? [] {
-                    // Only add if we haven't seen this file ID before (deduplicate)
-                    if !seenFileIDs.contains(file.id) {
-                        allFiles.append(file)
-                        seenFileIDs.insert(file.id)
-                    }
-                }
-            }
-        }
-        
-        return allFiles
-    }
-    
-    // Check if this is the Ready folder (supports submissions)
-    private var isReadyFolder: Bool {
-        return folder.name == "Ready"
+        return false
     }
     
     // Check if this folder supports mixed content (both files and subfolders)
@@ -170,46 +170,60 @@ struct FolderFilesView: View {
     }
     
     var body: some View {
-        Group {
-            if isMixedContentFolder {
-                // Mixed content folder - show both subfolders and files
-                mixedContentBody
-            } else if !sortedFiles.isEmpty {
-                // Show FileListView with sorted files
-                FileListView(
-                    files: sortedFiles,
-                    onFileSelected: { file in
-                        selectedFile = file
-                        navigateToFile = true
-                    },
-                    onMove: { files in
-                        filesToMove = files
-                        showMoveDestinationPicker = true
-                    },
-                    onDelete: { files in
-                        deleteFiles(files)
-                    },
-                    onExport: { files in
-                        filesToExport = files
-                        showExportMenu = true
-                    },
-                    onSubmit: fileListOnSubmit,
-                    onAddToCollection: fileListOnAddToCollection,
-                    onReorder: nil,
-                    onRename: { files in
-                        filesToRename = files
-                        showRenamePicker = true
-                    }
-                )
-            } else {
-                // Empty state
-                ContentUnavailableView {
-                    Label("folderFiles.noFiles", systemImage: "doc.text")
-                } description: {
-                    Text("folderFiles.noFiles.hint")
-                }
+        VStack(spacing: 0) {
+            // Workflow status filter for content folders (Poems, Scenes, Scripts)
+            if isContentFolder {
+                workflowStatusFilter
             }
-        }
+            
+            Group {
+                if isMixedContentFolder {
+                    // Mixed content folder - show both subfolders and files
+                    mixedContentBody
+                } else if !sortedFiles.isEmpty {
+                    // Show FileListView with sorted files
+                    FileListView(
+                        files: sortedFiles,
+                        onFileSelected: { file in
+                            selectedFile = file
+                            navigateToFile = true
+                        },
+                        onMove: { files in
+                            filesToMove = files
+                            showMoveDestinationPicker = true
+                        },
+                        onDelete: { files in
+                            deleteFiles(files)
+                        },
+                        onExport: { files in
+                            filesToExport = files
+                            showExportMenu = true
+                        },
+                        onSubmit: fileListOnSubmit,
+                        onAddToCollection: fileListOnAddToCollection,
+                        onReorder: nil,
+                        onRename: { files in
+                            filesToRename = files
+                            showRenamePicker = true
+                        },
+                        onDeletePermanently: { files in
+                            deleteFilesPermanently(files)
+                        },
+                        onChangeStatus: isContentFolder ? { files in
+                            filesToChangeStatus = files
+                            showStatusPicker = true
+                        } : nil
+                    )
+                } else {
+                    // Empty state
+                    ContentUnavailableView {
+                        Label("folderFiles.noFiles", systemImage: "doc.text")
+                    } description: {
+                        Text("folderFiles.noFiles.hint")
+                    }
+                }
+            }  // End Group
+        }  // End VStack
         .navigationTitle(folder.name ?? "Files")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
@@ -403,6 +417,18 @@ struct FolderFilesView: View {
                 )
             }
         }
+        .sheet(isPresented: $showStatusPicker) {
+            WorkflowStatusPickerSheet(
+                files: filesToChangeStatus,
+                onStatusSelected: { newStatus in
+                    changeFilesStatus(filesToChangeStatus, to: newStatus)
+                    showStatusPicker = false
+                },
+                onCancel: {
+                    showStatusPicker = false
+                }
+            )
+        }
         .fileImporter(
             isPresented: $showImportPicker,
             allowedContentTypes: [.rtf, UTType("org.openxmlformats.wordprocessingml.document") ?? .data],
@@ -414,6 +440,25 @@ struct FolderFilesView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(importErrorMessage)
+        }
+        .confirmationDialog(
+            NSLocalizedString("folderFiles.deletePermanently.title", comment: "Delete Permanently"),
+            isPresented: $showPermanentDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button(NSLocalizedString("folderFiles.deletePermanently.confirm", comment: "Delete Permanently"), role: .destructive) {
+                deleteFilesPermanently(filesToPermanentlyDelete)
+                filesToPermanentlyDelete = []
+            }
+            Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
+                filesToPermanentlyDelete = []
+            }
+        } message: {
+            if filesToPermanentlyDelete.count == 1 {
+                Text(String(format: NSLocalizedString("folderFiles.deletePermanently.message.single", comment: "This will permanently delete the file"), filesToPermanentlyDelete.first?.name ?? ""))
+            } else {
+                Text(String(format: NSLocalizedString("folderFiles.deletePermanently.message.multiple", comment: "This will permanently delete files"), filesToPermanentlyDelete.count))
+            }
         }
         .confirmationDialog(NSLocalizedString("export.dialog.title", comment: "Export Format"), isPresented: $showExportMenu) {
             Button(ExportFormat.rtf.displayName) {
@@ -493,17 +538,64 @@ struct FolderFilesView: View {
     // MARK: - Computed Properties for Callbacks
     
     private var fileListOnSubmit: (([TextFile]) -> Void)? {
-        isReadyFolder ? { files in
+        supportsSubmissions ? { files in
             filesToSubmit = files
             showSubmissionPicker = true
         } : nil
     }
     
     private var fileListOnAddToCollection: (([TextFile]) -> Void)? {
-        isReadyFolder ? { files in
+        supportsSubmissions ? { files in
             filesToAddToCollection = files
             showCollectionPicker = true
         } : nil
+    }
+    
+    // MARK: - Workflow Status Filter
+    
+    /// Segmented control for filtering files by workflow status
+    @ViewBuilder
+    private var workflowStatusFilter: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                // "All" option with count
+                workflowStatusButton(nil, label: NSLocalizedString("workflow.filter.all", comment: "All"), count: fileCount(for: nil))
+                
+                // Individual status options with counts
+                ForEach(WorkflowStatus.allCases, id: \.self) { status in
+                    workflowStatusButton(status, label: status.localizedName, count: fileCount(for: status))
+                }
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 8)
+        }
+        .background(Color(.systemGroupedBackground))
+    }
+    
+    @ViewBuilder
+    private func workflowStatusButton(_ status: WorkflowStatus?, label: String, count: Int) -> some View {
+        let isSelected = statusFilter == status
+        let statusColor: Color = status.map { Color($0.color) } ?? .primary
+        
+        Button {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                statusFilter = status
+            }
+        } label: {
+            Text("\(label) (\(count))")
+                .font(.subheadline)
+                .fontWeight(isSelected ? .semibold : .regular)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(isSelected ? statusColor.opacity(0.2) : Color(.secondarySystemGroupedBackground))
+                .foregroundColor(statusColor)
+                .clipShape(Capsule())
+                .overlay(
+                    Capsule()
+                        .stroke(statusColor, lineWidth: isSelected ? 2 : 0)
+                )
+        }
+        .buttonStyle(.plain)
     }
     
     // MARK: - Mixed Content View
@@ -717,6 +809,13 @@ struct FolderFilesView: View {
             } label: {
                 Label(NSLocalizedString("button.delete", comment: "Delete"), systemImage: "trash")
             }
+            
+            Button(role: .destructive) {
+                filesToPermanentlyDelete = [file]
+                showPermanentDeleteConfirmation = true
+            } label: {
+                Label(NSLocalizedString("folderFiles.deletePermanently", comment: "Delete Forever"), systemImage: "trash.slash")
+            }
         }
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             if !isEditMode {
@@ -869,6 +968,34 @@ struct FolderFilesView: View {
             print("Error deleting files: \(error)")
             #endif
             // TODO: Show error alert
+        }
+    }
+    
+    private func deleteFilesPermanently(_ files: [TextFile]) {
+        let service = FileMoveService(modelContext: modelContext)
+        
+        do {
+            try service.deleteFilesPermanently(files)
+        } catch {
+            #if DEBUG
+            print("Error permanently deleting files: \(error)")
+            #endif
+            // TODO: Show error alert
+        }
+    }
+    
+    /// Change the workflow status of files
+    private func changeFilesStatus(_ files: [TextFile], to newStatus: WorkflowStatus) {
+        for file in files {
+            file.workflowStatus = newStatus
+        }
+        
+        do {
+            try modelContext.save()
+        } catch {
+            #if DEBUG
+            print("Error changing file status: \(error)")
+            #endif
         }
     }
     

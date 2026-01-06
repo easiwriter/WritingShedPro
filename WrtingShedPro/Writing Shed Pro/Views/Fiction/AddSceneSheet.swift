@@ -189,6 +189,9 @@ struct AddSceneSheet: View {
             return
         }
         
+        // Find Draft folder
+        let scenesFolder = project.folders?.first { $0.name == "Scenes" }
+        
         let scene = FictionScene(
             name: trimmedTitle,
             synopsis: summary.isEmpty ? nil : summary,
@@ -197,12 +200,25 @@ struct AddSceneSheet: View {
         scene.project = project
         scene.chapter = chapter
         
+        // Also add to project.scenes to ensure relationship is synced
+        if project.scenes == nil {
+            project.scenes = []
+        }
+        project.scenes?.append(scene)
+        
         // Set relationships
         scene.location = selectedLocation
         scene.monomythStage = selectedMonomythStage
         scene.characters = Array(selectedCharacters)
         
+        // Create TextFile for scene content in Draft folder
+        let textFile = TextFile(name: trimmedTitle, initialContent: "", parentFolder: scenesFolder)
+        textFile.workflowStatus = .draft  // New scenes start as drafts
+        textFile.scene = scene
+        scene.textFile = textFile
+        
         modelContext.insert(scene)
+        modelContext.insert(textFile)
         
         do {
             try modelContext.save()

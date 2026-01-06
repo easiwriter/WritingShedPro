@@ -136,7 +136,7 @@ struct PlotOutlineView: View {
                     if let stage = group.stage {
                         VStack(alignment: .leading, spacing: 2) {
                             HStack {
-                                Text("\(stage.order + 1).")
+                                Text("\(stage.order).")
                                     .fontWeight(.bold)
                                 Text(NSLocalizedString("monomyth.\(stage.rawValue)", comment: "Stage name"))
                             }

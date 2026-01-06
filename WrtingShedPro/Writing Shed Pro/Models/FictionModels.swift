@@ -195,6 +195,7 @@ final class FictionScene {
     var textFile: TextFile?  // Contains the actual scene content
     
     // Many-to-many with PlotElement
+    @Relationship(inverse: \PlotElement.linkedScenes)
     var plotElements: [PlotElement]?
     
     // Scene can have multiple characters
@@ -263,6 +264,9 @@ final class FictionCharacter {
     // Scenes this character appears in (many-to-many)
     var scenes: [FictionScene]?
     
+    // Plot elements this character is planned for (many-to-many)
+    var plotElements: [PlotElement]?
+    
     var archetype: CharacterArchetype? {
         get { 
             guard let raw = archetypeRaw else { return nil }
@@ -296,6 +300,9 @@ final class FictionLocation {
     
     // Scenes that take place at this location
     var scenes: [FictionScene]?
+    
+    // Plot elements this location is planned for (many-to-many)
+    var plotElements: [PlotElement]?
     
     init(name: String? = nil, description: String? = nil) {
         self.name = name
@@ -336,9 +343,16 @@ final class PlotElement {
     // Relationships
     var project: Project?
     
-    // Many-to-many with FictionScene
-    @Relationship(inverse: \FictionScene.plotElements)
+    // Many-to-many with FictionScene (inverse defined on FictionScene.plotElements)
     var linkedScenes: [FictionScene]?
+    
+    // Characters involved in this plot beat (planned involvement)
+    @Relationship(inverse: \FictionCharacter.plotElements)
+    var characters: [FictionCharacter]?
+    
+    // Locations for this plot beat (planned involvement)
+    @Relationship(inverse: \FictionLocation.plotElements)
+    var locations: [FictionLocation]?
     
     var monomythStage: MonomythStage? {
         get { 

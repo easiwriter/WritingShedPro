@@ -48,6 +48,12 @@ Fiction projects can optionally be structured according to Joseph Campbell's mon
 - If monomyth is selected: the plot outline follows the 12 stages (Ordinary World, Call to Adventure, Refusal of the Call, Meeting the Mentor, Crossing the Threshold, Tests/Allies/Enemies, Approach to the Inmost Cave, Ordeal, Reward, The Road Back, Resurrection, Return with the Elixir)
 - If monomyth is not selected: freeform plot outline structure
 
+**Plot Element Relationships (Hybrid Approach)**:
+- Plot elements can link to characters and locations to describe *planned* involvement ("Hero meets Mentor at Temple")
+- Scenes can also link to characters and locations to describe *actual* usage in the written content
+- When linking a scene to a plot element, the UI suggests the characters/locations from the plot element
+- This allows planning at the plot level while scenes can deviate or expand as needed
+
 Plot outline elements can link to scenes, allowing the writer to track which scenes fulfill which plot beats.
 
 ## User Stories
@@ -166,7 +172,13 @@ Plot outline elements can link to scenes, allowing the writer to track which sce
 - Without monomyth: can create custom outline elements
 - Can add notes to each outline element
 - Can link outline elements to scenes
+- Can link outline elements to characters (who is involved in this plot beat)
+- Can link outline elements to locations (where this plot beat takes place)
 - Can see which scenes fulfill which plot beats
+- When linking a scene to a plot element, characters and locations from the plot element are suggested
+- When creating a plot element, can optionally name a scene to be auto-created and linked
+- Can create a scene directly from a plot element detail view ("Create Scene" action)
+- When viewing a scene, can see and navigate to linked plot elements
 
 ---
 
@@ -236,6 +248,15 @@ Plot outline elements can link to scenes, allowing the writer to track which sce
 - **FR8.5:** System MUST allow linking outline elements to one or more scenes
 - **FR8.6:** System MUST display which scenes are linked to each outline element
 - **FR8.7:** System MUST allow reordering outline elements (freeform mode only)
+- **FR8.8:** System MUST allow linking outline elements to one or more characters
+- **FR8.9:** System MUST allow linking outline elements to one or more locations
+- **FR8.10:** When creating/editing a scene linked to plot elements, system SHOULD suggest characters from linked plot elements
+- **FR8.11:** When creating/editing a scene linked to plot elements, system SHOULD suggest locations from linked plot elements
+- **FR8.12:** When creating a plot element, system MUST allow optionally specifying a scene name to auto-create a linked scene
+- **FR8.13:** System MUST provide a "Create Scene" action on plot element detail view to create a scene linked to that element
+- **FR8.14:** When viewing/editing a scene, system MUST display which plot elements the scene is linked to
+- **FR8.15:** System MUST allow navigation from a scene to its linked plot elements
+- **FR8.16:** System MUST display linked scenes on the plot element detail view with navigation
 
 ### FR9: Folder Structure
 - **FR9.1:** Fiction projects MUST create these workflow folders: All, Draft, Ready, Submissions, Set Aside
@@ -391,12 +412,39 @@ final class PlotElement {
     // Relationships
     var project: Project?
     var linkedScenes: [Scene]?
+    var characters: [Character]?  // Characters involved in this plot beat (planned)
+    var locations: [Location]?    // Locations for this plot beat (planned)
     
     var monomythStage: MonomythStage? {
         get { MonomythStage(rawValue: monomythStageRaw ?? "") }
         set { monomythStageRaw = newValue?.rawValue }
     }
 }
+```
+
+### Scene (Updated)
+```swift
+@Model
+final class Scene {
+    var id: UUID = UUID()
+    var name: String?
+    var userOrder: Int?
+    var synopsis: String?
+    
+    // Relationships
+    var chapter: Chapter?  // nil for Short Fiction
+    var project: Project?
+    var textFile: TextFile?
+    var plotElements: [PlotElement]?  // Which plot beats this scene fulfills
+    var characters: [Character]?      // Characters actually used in this scene
+    var location: Location?           // Location where this scene takes place
+}
+```
+
+**Note on Hybrid Approach**: Both PlotElement and Scene have character/location relationships:
+- PlotElement.characters/locations = *planned* involvement at the story structure level
+- Scene.characters/location = *actual* usage in the written content
+- A scene can inherit suggestions from its linked plot elements but is not bound by them
 
 enum MonomythStage: String, Codable, CaseIterable {
     case ordinaryWorld
@@ -443,6 +491,9 @@ enum MonomythStage: String, Codable, CaseIterable {
 8. **Character without archetype (monomyth enabled)**: Allowed - archetype is optional even with monomyth
 9. **Plot element with no linked scenes**: Allowed - serves as planning placeholder
 10. **Fiction class not selected**: Block project creation until class is chosen
+11. **Scene declines suggested characters/locations**: Scene is not required to use characters/locations from linked plot elements
+12. **Deleting a character/location linked to plot elements**: Links should be removed but plot elements preserved
+13. **Plot element with characters but scene uses different characters**: Allowed - scene reflects actual content, plot element reflects plan
 
 ## Success Criteria
 

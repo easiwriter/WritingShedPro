@@ -29,6 +29,7 @@ struct SceneDetailView: View {
     @State private var editMonomythStage: MonomythStage?
     @State private var editLocation: FictionLocation?
     @State private var editCharacters: Set<FictionCharacter> = []
+    @State private var editPlotElements: Set<PlotElement> = []
     @State private var showDeleteConfirmation = false
     
     // MARK: - Computed
@@ -42,6 +43,12 @@ struct SceneDetailView: View {
     private var availableCharacters: [FictionCharacter] {
         (project.characters ?? []).sorted { 
             ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending
+        }
+    }
+    
+    private var availablePlotElements: [PlotElement] {
+        (project.plotElements ?? []).sorted {
+            ($0.userOrder ?? 0) < ($1.userOrder ?? 0)
         }
     }
     
@@ -152,6 +159,35 @@ struct SceneDetailView: View {
                 }
             } header: {
                 Text(NSLocalizedString("fiction.scene.section.characters", comment: "Characters"))
+            }
+        }
+        
+        // Plot Elements
+        if let plotElements = scene.plotElements, !plotElements.isEmpty {
+            Section {
+                ForEach(plotElements.sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }) { element in
+                    NavigationLink {
+                        PlotElementDetailView(plotElement: element, project: project)
+                    } label: {
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack {
+                                if let stage = element.monomythStage {
+                                    Text("\(stage.order).")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                Text(element.name ?? NSLocalizedString("fiction.untitled", comment: "Untitled"))
+                            }
+                            if let stage = element.monomythStage {
+                                Text(NSLocalizedString("monomyth.\(stage.rawValue)", comment: "Stage name"))
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                }
+            } header: {
+                Text(NSLocalizedString("fiction.scene.section.plotElements", comment: "Plot Elements"))
             }
         }
         
@@ -280,6 +316,45 @@ struct SceneDetailView: View {
                 Text(NSLocalizedString("fiction.scene.section.monomyth", comment: "Hero's Journey"))
             }
         }
+        
+        // Plot Elements (multi-select)
+        if !availablePlotElements.isEmpty {
+            Section {
+                ForEach(availablePlotElements) { element in
+                    Button {
+                        togglePlotElement(element)
+                    } label: {
+                        HStack {
+                            VStack(alignment: .leading) {
+                                HStack {
+                                    if let stage = element.monomythStage {
+                                        Text("\(stage.order).")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    Text(element.name ?? NSLocalizedString("fiction.untitled", comment: "Untitled"))
+                                        .foregroundColor(.primary)
+                                }
+                                if let stage = element.monomythStage {
+                                    Text(NSLocalizedString("monomyth.\(stage.rawValue)", comment: "Stage name"))
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                            Spacer()
+                            if editPlotElements.contains(element) {
+                                Image(systemName: "checkmark")
+                                    .foregroundColor(.blue)
+                            }
+                        }
+                    }
+                }
+            } header: {
+                Text(NSLocalizedString("fiction.scene.section.plotElements", comment: "Plot Elements"))
+            } footer: {
+                Text(NSLocalizedString("fiction.scene.plotElements.footer", comment: "Plot beats this scene implements"))
+            }
+        }
     }
     
     // MARK: - Actions
@@ -290,6 +365,7 @@ struct SceneDetailView: View {
         editMonomythStage = scene.monomythStage
         editLocation = scene.location
         editCharacters = Set(scene.characters ?? [])
+        editPlotElements = Set(scene.plotElements ?? [])
         isEditing = true
     }
     
@@ -301,12 +377,32 @@ struct SceneDetailView: View {
         }
     }
     
+    private func togglePlotElement(_ element: PlotElement) {
+        if editPlotElements.contains(element) {
+            editPlotElements.remove(element)
+        } else {
+            editPlotElements.insert(element)
+        }
+    }
+    
     private func saveChanges() {
         scene.name = editTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         scene.synopsis = editSummary.isEmpty ? nil : editSummary
         scene.monomythStage = editMonomythStage
         scene.location = editLocation
         scene.characters = Array(editCharacters)
+        scene.plotElements = Array(editPlotElements)
+        
+        // Update inverse relationships for plot elements
+        for element in availablePlotElements {
+            var elementScenes = Set(element.linkedScenes ?? [])
+            if editPlotElements.contains(element) {
+                elementScenes.insert(scene)
+            } else {
+                elementScenes.remove(scene)
+            }
+            element.linkedScenes = Array(elementScenes)
+        }
         
         try? modelContext.save()
         isEditing = false

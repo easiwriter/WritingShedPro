@@ -96,6 +96,8 @@
 "fiction.linkScene" = "Link Scene";
 "fiction.unlinkScene" = "Unlink Scene";
 "fiction.untitled" = "Untitled";
+"fiction.viewPlotElement" = "View Plot Element";
+"fiction.viewPlotElements" = "View Plot Elements";
 
 /* Fiction Characters View (Feature 022) */
 "fiction.characters.title" = "Characters";
@@ -207,9 +209,31 @@
 "fiction.plot.element.stage.none" = "None";
 "fiction.plot.element.stage.footer" = "Assign this element to a stage of the Hero's Journey.";
 "fiction.plot.element.section.monomyth" = "Hero's Journey";
+"fiction.plot.element.section.characters" = "Characters";
+"fiction.plot.element.section.locations" = "Locations";
+"fiction.plot.element.section.scenes" = "Scenes";
+"fiction.plot.element.section.createScene" = "Create Scene";
+"fiction.plot.element.characters.footer" = "Characters involved in this plot beat.";
+"fiction.plot.element.locations.footer" = "Where this plot beat takes place.";
+"fiction.plot.element.section.linkedScenes" = "Linked Scenes";
+"fiction.plot.element.linkedScenes.footer" = "Scenes that implement this plot beat.";
+"fiction.plot.element.section.linkScenes" = "Link Existing Scenes";
+"fiction.plot.element.linkScenes.footer" = "Select scenes to associate with this plot beat.";
 "fiction.plot.element.add.title" = "Add Plot Element";
 "fiction.plot.element.error.titleRequired" = "Plot element title is required.";
 "fiction.plot.element.delete" = "Delete Plot Element";
+"fiction.plot.element.createScene" = "Create Scene";
+"fiction.plot.element.scenes.empty" = "No scenes linked to this plot element.";
+"fiction.plot.element.sceneName" = "Scene Name (Optional)";
+"fiction.plot.element.sceneName.accessibility" = "Scene name to create";
+"fiction.plot.element.sceneName.footer" = "Optionally name a scene to auto-create for this plot beat.";
+"fiction.scene.orderLabel" = "Scene %d";
+
+/* Scene - Plot Element Integration */
+"fiction.scene.section.plotElements" = "Plot Elements";
+"fiction.scene.plotElements.footer" = "Plot beats this scene implements.";
+"fiction.scene.inheritedFromPlot" = "From Plot Element";
+"fiction.scene.inheritedFromPlot.footer" = "Characters and location will be copied from the plot element.";
 
 /* ContentView */
 "contentView.title" = "Projects";
@@ -595,6 +619,24 @@
 "folderList.mixedCount" = "%d folders, %d files";
 "folderList.parentFolder" = "Parent Folder";
 
+/* Workflow Status */
+"workflow.status.draft" = "Draft";
+"workflow.status.ready" = "Ready";
+"workflow.status.setAside" = "Set Aside";
+"workflow.status.published" = "Published";
+"workflow.filter.all" = "All";
+"workflow.picker.title" = "Change Status";
+"workflow.picker.header" = "Select the new status for the selected files";
+"workflow.picker.footer" = "The status will be applied to all selected files";
+
+/* File list - Status change */
+"fileList.changeStatus" = "Change Status";
+"fileList.contextMenu.changeStatus" = "Change Status";
+
+/* Folder names - Content folders */
+"folder.scripts" = "Scripts";
+"folder.plot" = "Plot";
+
 /* FileEditView */
 "fileEdit.untitledFile" = "Untitled File";
 "fileEdit.done" = "Done";
@@ -892,6 +934,13 @@
 "folderFiles.untitledFile" = "Untitled";
 "folderFiles.emptyFolder" = "Empty Folder";
 "folderFiles.emptyFolder.hint" = "Tap + to add a file or folder";
+"folderFiles.moveToFolder" = "Move to Folder";
+"folderFiles.moveToTrash" = "Move to Trash";
+"folderFiles.deletePermanently" = "Delete Permanently";
+"folderFiles.deletePermanently.title" = "Delete Permanently?";
+"folderFiles.deletePermanently.confirm" = "Delete Permanently";
+"folderFiles.deletePermanently.message.single" = "\"%@\" will be permanently deleted. This cannot be undone.";
+"folderFiles.deletePermanently.message.multiple" = "%d files will be permanently deleted. This cannot be undone.";
 
 /* PaginatedDocumentView - New Keys */
 "paginatedDocument.pages.accessibility" = "Document pages";
@@ -1307,6 +1356,9 @@
 "fileList.contextMenu.delete" = "Delete";
 "fileList.contextMenu.changeForm" = "Change Poetry Form";
 "fileList.deleteConfirmation.message" = "Deleted files can be restored from Trash.";
+"fileList.deleteConfirmation.messageEnhanced" = "Delete moves files to Trash where they can be restored. Delete Forever permanently removes files.";
+"fileList.deleteFiles.title" = "Delete %d files?";
+"fileList.deletePermanently" = "Delete Forever";
 "fileList.rename" = "Rename";
 "fileList.rename.title" = "Rename File";
 "fileList.rename.prompt" = "Enter a new name for the file";

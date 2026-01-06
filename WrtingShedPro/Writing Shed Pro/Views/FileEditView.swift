@@ -60,6 +60,9 @@ struct FileEditView: View {
     @State private var showPoetryMetrics = false
     @State private var showPoetryFormPicker = false
     
+    // Feature 022: Smart Fiction Creation
+    @State private var selectedPlotElement: PlotElement?
+    
     // Feature 017: Search and Replace
     @State private var showSearchBar = false
     @State private var searchManager = InEditorSearchManager()
@@ -429,6 +432,13 @@ struct FileEditView: View {
                 }
             }
             
+            // Plot elements button (only for files linked to fiction scenes with plot elements)
+            if let scene = file.scene,
+               let plotElements = scene.plotElements,
+               !plotElements.isEmpty {
+                plotElementsButton(plotElements: plotElements)
+            }
+            
             // On iPhone, group paginate/insert/print into a menu to save space
             // Undo/redo are more commonly used, so they're visible buttons
             if isCompact {
@@ -604,6 +614,43 @@ struct FileEditView: View {
                 .disabled(!PrintService.isPrintingAvailable())
                 .accessibilityLabel("fileEdit.print.accessibility")
             }
+        }
+    }
+    
+    /// Button to view plot elements associated with this scene
+    /// Shows a single button if one plot element, or a menu if multiple
+    @ViewBuilder
+    private func plotElementsButton(plotElements: [PlotElement]) -> some View {
+        let sortedElements = plotElements.sorted { 
+            ($0.userOrder ?? 0) < ($1.userOrder ?? 0) 
+        }
+        
+        if sortedElements.count == 1 {
+            // Single plot element - direct button
+            Button(action: {
+                selectedPlotElement = sortedElements.first
+            }) {
+                Image(systemName: "list.bullet.clipboard")
+            }
+            .accessibilityLabel(NSLocalizedString("fiction.viewPlotElement", comment: "View Plot Element"))
+        } else {
+            // Multiple plot elements - show menu
+            Menu {
+                ForEach(sortedElements, id: \.id) { element in
+                    Button(action: {
+                        selectedPlotElement = element
+                    }) {
+                        if let stage = element.monomythStage {
+                            Label("\(stage.order). \(element.name ?? stage.localizedName)", systemImage: "bookmark")
+                        } else {
+                            Label(element.name ?? NSLocalizedString("fiction.untitled", comment: "Untitled"), systemImage: "bookmark")
+                        }
+                    }
+                }
+            } label: {
+                Image(systemName: "list.bullet.clipboard")
+            }
+            .accessibilityLabel(NSLocalizedString("fiction.viewPlotElements", comment: "View Plot Elements"))
         }
     }
     
@@ -1094,6 +1141,11 @@ struct FileEditView: View {
                             }
                         }
                     }
+                }
+            }
+            .sheet(item: $selectedPlotElement) { plotElement in
+                if let project = file.project {
+                    PlotElementDetailView(plotElement: plotElement, project: project)
                 }
             }
             .sheet(isPresented: $showPoetryFormPicker) {

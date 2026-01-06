@@ -2,7 +2,10 @@ import Foundation
 import SwiftData
 
 /// Service responsible for generating default folder templates when a project is created.
-/// Creates a type-specific folder structure based on the project type (Poetry, Prose, Drama).
+/// Creates a type-specific folder structure based on the project type (Poetry, Fiction, Drama).
+///
+/// Updated architecture: Workflow status (Draft, Ready, etc.) is now a property on TextFile,
+/// not separate folders. Content folders are: Poems (Poetry), Scenes (Fiction), Scripts (Drama).
 struct ProjectTemplateService {
     
     // MARK: - Public Interface
@@ -40,6 +43,8 @@ struct ProjectTemplateService {
     // MARK: - Folder Order Configuration
     
     /// Returns all folder keys in the correct display order for a project type
+    /// Note: Workflow status (Draft, Ready, Submitted, Set Aside, Published) is now
+    /// a property on TextFile, not separate folders.
     private static func getOrderedFolderKeys(for project: Project) -> [String] {
         switch project.type {
         case .generalPurpose:
@@ -49,16 +54,12 @@ struct ProjectTemplateService {
             ]
             
         case .poetry:
-            // Poetry: Workflow → Manuscript → Research → Publications → Trash
+            // Poetry: Content → Collections → Submissions → Manuscript → Research → Publications → Trash
             return [
-                // Workflow folders
-                "folder.all",
-                "folder.draft",
-                "folder.ready",
-                "folder.submissions",
-                "folder.setAside",
-                "folder.published",
+                // Content folder (replaces Draft/Ready/etc)
+                "folder.poems",
                 "folder.collections",
+                "folder.submissions",
                 "folder.manuscript",
                 // Support
                 "folder.research",
@@ -72,19 +73,18 @@ struct ProjectTemplateService {
             ]
             
         case .fiction:
-            // Fiction: Workflow + Entity → Research → Publications → Trash
+            // Fiction: Content + Entity → Collections → Submissions → Research → Publications → Trash
             var keys = [
-                // Workflow folders
-                "folder.all",
-                "folder.draft",
-                "folder.ready",
-                "folder.submissions",
-                "folder.setAside",
+                // Content folder (replaces Draft/Ready/etc)
+                "folder.scenes",
                 // Entity folders
                 "folder.characters",
                 "folder.locations",
                 "folder.chapters",
                 "folder.plot",
+                // Collections and Submissions
+                "folder.collections",
+                "folder.submissions",
                 // Support
                 "folder.research"
             ]
@@ -113,13 +113,13 @@ struct ProjectTemplateService {
             return keys
             
         case .drama:
-            // Drama: Workflow → Research → Publications → Trash (to be refined in spec 023)
+            // Drama: Content → Collections → Submissions → Research → Publications → Trash
             return [
-                // Workflow folders
-                "folder.all",
-                "folder.draft",
-                "folder.ready",
-                "folder.setAside",
+                // Content folder (replaces Draft/Ready/etc)
+                "folder.scripts",
+                // Collections and Submissions
+                "folder.collections",
+                "folder.submissions",
                 // Support
                 "folder.research",
                 // Publications

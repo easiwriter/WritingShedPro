@@ -119,6 +119,12 @@ struct AddFileSheet: View {
             poetryFormId: poetryFormId,
             poetryFormName: poetryFormName
         )
+        
+        // Set initial workflow status for content folders (Poems, Scenes, Scripts)
+        if FolderCapabilityService.isContentFolder(parentFolder) {
+            newFile.workflowStatus = .draft
+        }
+        
         modelContext.insert(newFile)
         
         // Save context to ensure relationships are updated immediately

@@ -4,9 +4,9 @@ import Foundation
 struct FolderCapabilityService {
     
     /// Folders that can ONLY contain subfolders (no files allowed)
-    /// These are organizational containers
+    /// These are organizational containers for publications
     private static let subfolderOnlyFolders: Set<String> = [
-        "Magazines", "Competitions", "Commissions", "Other"
+        "Magazines", "Competitions", "Commissions", "Other", "Publishers", "Agents"
     ]
     
     /// Folders that can contain BOTH subfolders AND files
@@ -24,14 +24,20 @@ struct FolderCapabilityService {
     
     /// Folders that can ONLY contain files (no subfolders)
     /// Users can manually add files to these folders
+    /// Updated: Poems, Scenes, Scripts are the new content folders (replacing Draft)
     private static let fileOnlyFolders: Set<String> = [
-        "Files", "Draft", "Research"
+        "Files", "Research",
+        // New content folders (workflow status is now on TextFile)
+        "Poems", "Scenes", "Scripts"
     ]
     
     /// Folders that receive content from elsewhere (no manual additions)
     /// These folders are populated automatically by the system
+    /// Updated: Removed workflow folders (Draft, Ready, etc.) - workflow is now on TextFile
     private static let readOnlyFolders: Set<String> = [
-        "All", "Ready", "Collections", "Set Aside", "Published", "Trash"
+        "Collections", "Trash", "Manuscript",
+        // Entity folders for Fiction (managed via their own views)
+        "Characters", "Locations", "Chapters", "Plot"
     ]
     
     // MARK: - Capability Checks
@@ -92,6 +98,13 @@ struct FolderCapabilityService {
         
         // User-created folders can always contain files
         return true
+    }
+    
+    /// Determines if this is a content folder (Poems, Scenes, Scripts)
+    /// These folders use workflow status filtering
+    static func isContentFolder(_ folder: Folder) -> Bool {
+        guard let folderName = folder.name else { return false }
+        return ["Poems", "Scenes", "Scripts"].contains(folderName)
     }
     
     /// Determines if a folder is a root-level template folder (not user-created)

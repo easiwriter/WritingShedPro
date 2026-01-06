@@ -27,7 +27,44 @@ struct PlotElementDetailView: View {
     @State private var editTitle: String = ""
     @State private var editDescription: String = ""
     @State private var editMonomythStage: MonomythStage?
+    @State private var editCharacters: Set<FictionCharacter> = []
+    @State private var editLocations: Set<FictionLocation> = []
+    @State private var editLinkedScenes: Set<FictionScene> = []
     @State private var showDeleteConfirmation = false
+    @State private var showCreateSceneSheet = false
+    
+    // MARK: - Computed
+    
+    private var availableCharacters: [FictionCharacter] {
+        (project.characters ?? []).sorted { 
+            ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending
+        }
+    }
+    
+    private var availableLocations: [FictionLocation] {
+        (project.locations ?? []).sorted { 
+            ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending
+        }
+    }
+    
+    private var linkedScenes: [FictionScene] {
+        (plotElement.linkedScenes ?? []).sorted {
+            ($0.userOrder ?? 0) < ($1.userOrder ?? 0)
+        }
+    }
+    
+    private var availableScenes: [FictionScene] {
+        // Scenes are attached to TextFiles in folders, not directly in project.scenes
+        var scenes: [FictionScene] = []
+        for folder in project.folders ?? [] {
+            for textFile in folder.textFiles ?? [] {
+                if let scene = textFile.scene {
+                    scenes.append(scene)
+                }
+            }
+        }
+        return scenes.sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+    }
     
     // MARK: - Body
     
@@ -79,6 +116,9 @@ struct PlotElementDetailView: View {
             } message: {
                 Text(String(format: NSLocalizedString("fiction.plot.deleteConfirm.message", comment: "Delete message"), plotElement.name ?? ""))
             }
+            .sheet(isPresented: $showCreateSceneSheet) {
+                CreateSceneForPlotElementSheet(project: project, plotElement: plotElement)
+            }
         }
     }
     
@@ -108,7 +148,7 @@ struct PlotElementDetailView: View {
         if let stage = plotElement.monomythStage {
             Section {
                 LabeledContent(NSLocalizedString("fiction.plot.element.stage", comment: "Stage")) {
-                    Text("\(stage.order + 1). " + NSLocalizedString("monomyth.\(stage.rawValue)", comment: "Stage name"))
+                    Text("\(stage.order). " + NSLocalizedString("monomyth.\(stage.rawValue)", comment: "Stage name"))
                 }
                 
                 Text(NSLocalizedString("monomyth.\(stage.rawValue).description", comment: "Description"))
@@ -116,6 +156,61 @@ struct PlotElementDetailView: View {
                     .foregroundColor(.secondary)
             } header: {
                 Text(NSLocalizedString("fiction.plot.element.section.monomyth", comment: "Hero's Journey"))
+            }
+        }
+        
+        // Characters
+        if let characters = plotElement.characters, !characters.isEmpty {
+            Section {
+                ForEach(characters.sorted { ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending }) { character in
+                    Text(character.name ?? "")
+                }
+            } header: {
+                Text(NSLocalizedString("fiction.plot.element.section.characters", comment: "Characters"))
+            }
+        }
+        
+        // Locations
+        if let locations = plotElement.locations, !locations.isEmpty {
+            Section {
+                ForEach(locations.sorted { ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending }) { location in
+                    Text(location.name ?? "")
+                }
+            } header: {
+                Text(NSLocalizedString("fiction.plot.element.section.locations", comment: "Locations"))
+            }
+        }
+        
+        // Linked Scenes
+        Section {
+            if !linkedScenes.isEmpty {
+                ForEach(linkedScenes) { scene in
+                    NavigationLink {
+                        SceneDetailView(scene: scene, project: project)
+                    } label: {
+                        HStack {
+                            Text(scene.name ?? NSLocalizedString("fiction.untitled", comment: "Untitled"))
+                            Spacer()
+                            if let order = scene.userOrder {
+                                Text("#\(order + 1)")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                }
+            }
+            
+            Button {
+                showCreateSceneSheet = true
+            } label: {
+                Label(NSLocalizedString("fiction.plot.element.createScene", comment: "Create Scene"), systemImage: "plus.circle")
+            }
+        } header: {
+            Text(NSLocalizedString("fiction.plot.element.section.scenes", comment: "Scenes"))
+        } footer: {
+            if linkedScenes.isEmpty {
+                Text(NSLocalizedString("fiction.plot.element.scenes.empty", comment: "No scenes linked to this plot element"))
             }
         }
         
@@ -161,7 +256,7 @@ struct PlotElementDetailView: View {
                     
                     ForEach(MonomythStage.allCases, id: \.self) { stage in
                         HStack {
-                            Text("\(stage.order + 1).")
+                            Text("\(stage.order).")
                             Text(NSLocalizedString("monomyth.\(stage.rawValue)", comment: "Stage"))
                         }
                         .tag(stage as MonomythStage?)
@@ -177,14 +272,123 @@ struct PlotElementDetailView: View {
                 Text(NSLocalizedString("fiction.plot.element.section.monomyth", comment: "Hero's Journey"))
             }
         }
+        
+        // Characters (multi-select)
+        if !availableCharacters.isEmpty {
+            Section {
+                ForEach(availableCharacters) { character in
+                    Button {
+                        toggleCharacter(character)
+                    } label: {
+                        HStack {
+                            Text(character.name ?? "")
+                                .foregroundColor(.primary)
+                            Spacer()
+                            if editCharacters.contains(character) {
+                                Image(systemName: "checkmark")
+                                    .foregroundColor(.blue)
+                            }
+                        }
+                    }
+                }
+            } header: {
+                Text(NSLocalizedString("fiction.plot.element.section.characters", comment: "Characters"))
+            } footer: {
+                Text(NSLocalizedString("fiction.plot.element.characters.footer", comment: "Characters involved in this plot beat"))
+            }
+        }
+        
+        // Locations (multi-select)
+        if !availableLocations.isEmpty {
+            Section {
+                ForEach(availableLocations) { location in
+                    Button {
+                        toggleLocation(location)
+                    } label: {
+                        HStack {
+                            Text(location.name ?? "")
+                                .foregroundColor(.primary)
+                            Spacer()
+                            if editLocations.contains(location) {
+                                Image(systemName: "checkmark")
+                                    .foregroundColor(.blue)
+                            }
+                        }
+                    }
+                }
+            } header: {
+                Text(NSLocalizedString("fiction.plot.element.section.locations", comment: "Locations"))
+            } footer: {
+                Text(NSLocalizedString("fiction.plot.element.locations.footer", comment: "Where this plot beat takes place"))
+            }
+        }
+        
+        // Linked Scenes (multi-select)
+        if !availableScenes.isEmpty {
+            Section {
+                ForEach(availableScenes) { scene in
+                    Button {
+                        toggleScene(scene)
+                    } label: {
+                        HStack {
+                            VStack(alignment: .leading) {
+                                Text(scene.name ?? NSLocalizedString("fiction.untitled", comment: "Untitled"))
+                                    .foregroundColor(.primary)
+                                if let order = scene.userOrder {
+                                    Text(String(format: NSLocalizedString("fiction.scene.orderLabel", comment: "Scene #"), order + 1))
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                            Spacer()
+                            if editLinkedScenes.contains(scene) {
+                                Image(systemName: "checkmark")
+                                    .foregroundColor(.blue)
+                            }
+                        }
+                    }
+                }
+            } header: {
+                Text(NSLocalizedString("fiction.plot.element.section.linkedScenes", comment: "Linked Scenes"))
+            } footer: {
+                Text(NSLocalizedString("fiction.plot.element.linkedScenes.footer", comment: "Scenes that implement this plot beat"))
+            }
+        }
     }
     
     // MARK: - Actions
+    
+    private func toggleCharacter(_ character: FictionCharacter) {
+        if editCharacters.contains(character) {
+            editCharacters.remove(character)
+        } else {
+            editCharacters.insert(character)
+        }
+    }
+    
+    private func toggleLocation(_ location: FictionLocation) {
+        if editLocations.contains(location) {
+            editLocations.remove(location)
+        } else {
+            editLocations.insert(location)
+        }
+    }
+    
+    private func toggleScene(_ scene: FictionScene) {
+        if editLinkedScenes.contains(scene) {
+            editLinkedScenes.remove(scene)
+        } else {
+            editLinkedScenes.insert(scene)
+        }
+    }
     
     private func startEditing() {
         editTitle = plotElement.name ?? ""
         editDescription = plotElement.notes ?? ""
         editMonomythStage = plotElement.monomythStage
+        editCharacters = Set(plotElement.characters ?? [])
+        editLocations = Set(plotElement.locations ?? [])
+        editLinkedScenes = Set(plotElement.linkedScenes ?? [])
         isEditing = true
     }
     
@@ -192,6 +396,20 @@ struct PlotElementDetailView: View {
         plotElement.name = editTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         plotElement.notes = editDescription.isEmpty ? nil : editDescription
         plotElement.monomythStage = editMonomythStage
+        plotElement.characters = Array(editCharacters)
+        plotElement.locations = Array(editLocations)
+        plotElement.linkedScenes = Array(editLinkedScenes)
+        
+        // Update inverse relationships for scenes
+        for scene in availableScenes {
+            var scenePlotElements = Set(scene.plotElements ?? [])
+            if editLinkedScenes.contains(scene) {
+                scenePlotElements.insert(plotElement)
+            } else {
+                scenePlotElements.remove(plotElement)
+            }
+            scene.plotElements = Array(scenePlotElements)
+        }
         
         try? modelContext.save()
         isEditing = false
@@ -201,5 +419,147 @@ struct PlotElementDetailView: View {
         modelContext.delete(plotElement)
         try? modelContext.save()
         dismiss()
+    }
+}
+
+// MARK: - Create Scene for Plot Element Sheet
+
+/// Sheet for creating a scene linked to a specific plot element
+struct CreateSceneForPlotElementSheet: View {
+    
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+    
+    let project: Project
+    let plotElement: PlotElement
+    
+    @State private var sceneName: String = ""
+    @State private var summary: String = ""
+    @State private var showErrorAlert = false
+    @State private var errorMessage = ""
+    
+    private var isValid: Bool {
+        !sceneName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+    
+    private var nextSceneOrderIndex: Int {
+        let scenes = project.scenes ?? []
+        return (scenes.map { $0.userOrder ?? 0 }.max() ?? -1) + 1
+    }
+    
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField(NSLocalizedString("fiction.scene.title", comment: "Title"), text: $sceneName)
+                } header: {
+                    Text(NSLocalizedString("fiction.scene.section.basic", comment: "Basic Info"))
+                }
+                
+                Section {
+                    TextEditor(text: $summary)
+                        .frame(minHeight: 80)
+                } header: {
+                    Text(NSLocalizedString("fiction.scene.summary", comment: "Summary"))
+                }
+                
+                // Show what will be inherited from plot element
+                Section {
+                    LabeledContent(NSLocalizedString("fiction.plot.element.title", comment: "Plot Element")) {
+                        Text(plotElement.name ?? "-")
+                    }
+                    
+                    if let characters = plotElement.characters, !characters.isEmpty {
+                        LabeledContent(NSLocalizedString("fiction.plot.element.section.characters", comment: "Characters")) {
+                            Text(characters.compactMap { $0.name }.joined(separator: ", "))
+                                .font(.caption)
+                        }
+                    }
+                    
+                    if let locations = plotElement.locations, !locations.isEmpty {
+                        LabeledContent(NSLocalizedString("fiction.plot.element.section.locations", comment: "Locations")) {
+                            Text(locations.compactMap { $0.name }.joined(separator: ", "))
+                                .font(.caption)
+                        }
+                    }
+                } header: {
+                    Text(NSLocalizedString("fiction.scene.inheritedFromPlot", comment: "From Plot Element"))
+                } footer: {
+                    Text(NSLocalizedString("fiction.scene.inheritedFromPlot.footer", comment: "Characters and location will be copied from the plot element"))
+                }
+            }
+            .navigationTitle(NSLocalizedString("fiction.plot.element.createScene", comment: "Create Scene"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(NSLocalizedString("button.cancel", comment: "Cancel")) {
+                        dismiss()
+                    }
+                }
+                
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(NSLocalizedString("button.create", comment: "Create")) {
+                        createScene()
+                    }
+                    .disabled(!isValid)
+                }
+            }
+            .alert(NSLocalizedString("error.title", comment: "Error"), isPresented: $showErrorAlert) {
+                Button(NSLocalizedString("button.ok", comment: "OK"), role: .cancel) { }
+            } message: {
+                Text(errorMessage)
+            }
+        }
+    }
+    
+    private func createScene() {
+        let trimmedName = sceneName.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        guard !trimmedName.isEmpty else {
+            errorMessage = NSLocalizedString("fiction.scene.error.titleRequired", comment: "Title required")
+            showErrorAlert = true
+            return
+        }
+        
+        // Find Draft folder
+        let scenesFolder = project.folders?.first { $0.name == "Scenes" }
+        
+        let scene = FictionScene(
+            name: trimmedName,
+            synopsis: summary.isEmpty ? nil : summary,
+            userOrder: nextSceneOrderIndex
+        )
+        scene.project = project
+        
+        // Also add to project.scenes to ensure relationship is synced
+        if project.scenes == nil {
+            project.scenes = []
+        }
+        project.scenes?.append(scene)
+        
+        scene.monomythStage = plotElement.monomythStage
+        scene.characters = plotElement.characters
+        scene.location = plotElement.locations?.first
+        
+        // Link scene to plot element (set both sides of relationship)
+        scene.plotElements = [plotElement]
+        plotElement.linkedScenes = (plotElement.linkedScenes ?? []) + [scene]
+        
+        // Create TextFile for scene content in Draft folder
+        let textFile = TextFile(name: trimmedName, initialContent: "", parentFolder: scenesFolder)
+        textFile.workflowStatus = .draft  // New scenes start as drafts
+        textFile.scene = scene
+        scene.textFile = textFile
+        
+        modelContext.insert(scene)
+        modelContext.insert(textFile)
+        
+        do {
+            try modelContext.save()
+            dismiss()
+        } catch {
+            errorMessage = error.localizedDescription
+            showErrorAlert = true
+        }
     }
 }

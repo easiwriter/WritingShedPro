@@ -35,6 +35,7 @@ struct FolderListView: View {
     }
     
     // Define the display order for each project type
+    // Updated: Workflow status is now on files, not folders
     private func folderOrderForProjectType(_ type: ProjectType) -> [String] {
         switch type {
         case .generalPurpose:
@@ -42,8 +43,10 @@ struct FolderListView: View {
             
         case .poetry:
             return [
-                // Workflow folders
-                "All", "Draft", "Ready", "Submissions", "Set Aside", "Published", "Collections", "Manuscript",
+                // Content folder (workflow is on files)
+                "Poems",
+                // Organization
+                "Collections", "Submissions", "Manuscript",
                 // Support
                 "Research",
                 // Publications
@@ -54,13 +57,14 @@ struct FolderListView: View {
             
         case .fiction:
             // Fiction folder order - Feature 022
-            // Order: Workflow → Entity → Research → Publications → Trash
-            // Publications vary by fiction class (Novel vs Short Fiction)
+            // Updated: Scenes folder replaces Draft/Ready/etc
             return [
-                // Workflow folders
-                "All", "Draft", "Ready", "Submissions", "Set Aside",
+                // Content folder (workflow is on files)
+                "Scenes",
                 // Entity folders
                 "Characters", "Locations", "Chapters", "Plot",
+                // Organization
+                "Collections", "Submissions",
                 // Support
                 "Research",
                 // Publications (all possible - some may not exist based on fiction class)
@@ -70,10 +74,13 @@ struct FolderListView: View {
             ]
             
         case .drama:
-            // Drama folder order - to be defined in spec 023
+            // Drama folder order
+            // Updated: Scripts folder replaces Draft/Ready/etc
             return [
-                // Workflow folders
-                "All", "Draft", "Ready", "Set Aside",
+                // Content folder (workflow is on files)
+                "Scripts",
+                // Organization
+                "Collections", "Submissions",
                 // Support
                 "Research",
                 // Publications
@@ -358,6 +365,18 @@ struct FolderRowView: View {
         return name == "Trash"
     }
     
+    // Check if this is the Plot folder (fiction projects)
+    private var isPlotFolder: Bool {
+        let name = folder.name ?? ""
+        return name == "Plot" && folder.project?.type == .fiction
+    }
+    
+    // Get plot element count for Plot folder
+    private var plotElementCount: Int {
+        guard isPlotFolder, let project = folder.project else { return 0 }
+        return project.plotElements?.count ?? 0
+    }
+    
     // Get collection count for Collections folder
     private var collectionCount: Int {
         guard isCollectionsFolder, let project = folder.project else { return 0 }
@@ -412,6 +431,8 @@ struct FolderRowView: View {
             count = collectionCount
         } else if isSubmissionsFolder {
             count = submissionCount
+        } else if isPlotFolder {
+            count = plotElementCount
         } else if isAllFolder {
             // All folder shows computed count from multiple folders
             count = fileCount  // Will be computed in .task
@@ -489,22 +510,18 @@ struct FolderRowView: View {
         
         // Type-specific subfolder icons
         switch name {
-        case "All":
-            return "globe"
         case "Files":
             return "globe"
-        case "Draft":
-            return "doc.badge.ellipsis"
-        case "Ready":
-            return "checkmark.circle"
+        case "Poems":
+            return "text.book.closed"
+        case "Scenes":
+            return "film.stack"
+        case "Scripts":
+            return "theatermasks"
         case "Collections":
             return "tray.2"
-        case "Submissions":
-            return "paperplane"
-        case "Set Aside":
-            return "archivebox"
-        case "Published":
-            return "book.circle"
+        case "Manuscript":
+            return "doc.richtext"
         case "Research":
             return "magnifyingglass"
         case "Magazines":
@@ -515,22 +532,20 @@ struct FolderRowView: View {
             return "person.2"
         case "Other":
             return "tray"
-        // Novel-specific folders
-        case "Novel":
-            return "book.closed.fill"
+        // Fiction-specific folders
         case "Chapters":
             return "document.on.document"
-        case "Scenes":
-            return "document.badge.plus"
         case "Characters":
             return "person.circle"
         case "Locations":
             return "mountain.2"
-        // Script-specific folders  
-        case "Script":
-            return "book.closed.fill"
-        case "Acts":
-            return "document.on.document"
+        case "Plot":
+            return "chart.line.uptrend.xyaxis"
+        // Publication-specific folders
+        case "Publishers":
+            return "building.2"
+        case "Agents":
+            return "person.fill.badge.plus"
         default:
             if fileCount > 0 {
                 return "folder.fill"
