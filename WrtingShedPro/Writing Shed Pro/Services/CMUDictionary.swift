@@ -9,6 +9,18 @@
 
 import Foundation
 
+/// Result of rhyme comparison between two words
+enum RhymeResult: Equatable {
+    case perfect      // Full rhyme: same vowel and consonants from stressed vowel to end
+    case slant        // Slant/half rhyme: similar but not identical sounds
+    case none         // No rhyme detected
+    
+    /// Whether this counts as some form of rhyme
+    var isRhyme: Bool {
+        self == .perfect || self == .slant
+    }
+}
+
 /// Represents a phoneme from the CMU dictionary
 struct Phoneme: Equatable, Hashable {
     let symbol: String      // The phoneme (e.g., "AW", "N", "D", "Z")
@@ -198,6 +210,97 @@ final class CMUDictionary {
         guard startIndex >= 0 else { return nil }
         
         return Array(phonemes.suffix(from: startIndex))
+    }
+    
+    /// Check the rhyme relationship between two words
+    /// - Parameters:
+    ///   - word1: First word
+    ///   - word2: Second word
+    /// - Returns: RhymeResult indicating perfect, slant, or no rhyme
+    func checkRhyme(_ word1: String, _ word2: String) -> RhymeResult {
+        let w1 = word1.lowercased().trimmingCharacters(in: .punctuationCharacters)
+        let w2 = word2.lowercased().trimmingCharacters(in: .punctuationCharacters)
+        
+        // Same word always rhymes
+        if w1 == w2 { return .perfect }
+        
+        // Get rhyme endings
+        guard let ending1 = rhymeEnding(for: w1),
+              let ending2 = rhymeEnding(for: w2),
+              !ending1.isEmpty, !ending2.isEmpty else {
+            return .none
+        }
+        
+        // Check for perfect rhyme first
+        if rhymeEndingsMatch(ending1, ending2) {
+            return .perfect
+        }
+        
+        // Check for slant rhyme
+        if isSlantRhyme(ending1, ending2) {
+            return .slant
+        }
+        
+        return .none
+    }
+    
+    /// Check if two endings form a slant rhyme
+    /// Slant rhymes share either:
+    /// - Same final consonants but different vowels (consonance): "bat" / "bit"
+    /// - Same vowel but different final consonants (assonance): "lake" / "fate"
+    private func isSlantRhyme(_ ending1: [Phoneme], _ ending2: [Phoneme]) -> Bool {
+        // Extract vowels and consonants from each ending
+        let vowels1 = ending1.filter { $0.isVowel }.map { $0.base }
+        let vowels2 = ending2.filter { $0.isVowel }.map { $0.base }
+        let consonants1 = ending1.filter { !$0.isVowel }.map { $0.base }
+        let consonants2 = ending2.filter { !$0.isVowel }.map { $0.base }
+        
+        // Must have at least a vowel in each
+        guard !vowels1.isEmpty && !vowels2.isEmpty else { return false }
+        
+        // Consonance: same final consonants, different vowels
+        // The last consonant(s) must match
+        if !consonants1.isEmpty && consonants1 == consonants2 && vowels1 != vowels2 {
+            return true
+        }
+        
+        // Assonance: same vowel sound, different consonants
+        // The main vowel should match
+        if let lastVowel1 = vowels1.last, let lastVowel2 = vowels2.last {
+            if lastVowel1 == lastVowel2 && consonants1 != consonants2 {
+                return true
+            }
+        }
+        
+        // Near-consonance: similar consonant sounds (voiced/unvoiced pairs)
+        // E.g., "bed" / "bet" (D vs T are voiced/unvoiced pair)
+        if vowels1 == vowels2 && areSimilarConsonants(consonants1, consonants2) {
+            return true
+        }
+        
+        return false
+    }
+    
+    /// Check if two consonant sequences are similar (voiced/unvoiced pairs)
+    private func areSimilarConsonants(_ c1: [String], _ c2: [String]) -> Bool {
+        guard c1.count == c2.count && !c1.isEmpty else { return false }
+        
+        // Voiced/unvoiced consonant pairs
+        let pairs: Set<Set<String>> = [
+            ["B", "P"], ["D", "T"], ["G", "K"],
+            ["V", "F"], ["Z", "S"], ["ZH", "SH"],
+            ["JH", "CH"], ["DH", "TH"]
+        ]
+        
+        for (p1, p2) in zip(c1, c2) {
+            if p1 == p2 { continue }
+            // Check if they form a voiced/unvoiced pair
+            let pair = Set([p1, p2])
+            if !pairs.contains(pair) {
+                return false
+            }
+        }
+        return true
     }
     
     /// Check if two words rhyme based on CMU pronunciations

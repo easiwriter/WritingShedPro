@@ -260,6 +260,32 @@ The system migrates predefined forms from the bundled JSON file to the database 
 - **FR-030**: Form editor MUST validate syllable pattern format (comma-separated integers or hyphenated)
 - **FR-031**: System MUST support "Duplicate as Custom" action for predefined forms to enable user modifications
 
+### Poetry Project Folder Structure
+
+Poetry projects have the following folder structure:
+
+**Workflow Folders** (for organizing poems by status):
+- **All**: Contains all poems in the project
+- **Draft**: Poems that are work in progress
+- **Ready**: Poems that are complete and ready for submission
+- **Submissions**: Collections of poems for submission tracking
+- **Set Aside**: Poems on hold or for later consideration
+- **Published**: Successfully published poems
+- **Collections**: User-organized groupings of poems
+
+**Manuscript Folder**:
+- **Manuscript**: For collecting poems into a cohesive work (chapbook, collection, anthology). Contains text files and supporting matter for assembled works.
+
+**Publications Folders** (for tracking submission targets):
+- **Magazines**: Literary magazines and journals
+- **Competitions**: Poetry competitions and contests
+- **Commissions**: Commissioned work
+- **Other**: Other publication opportunities
+
+**Support Folders**:
+- **Research**: Reference materials, notes, and inspiration
+- **Trash**: Deleted items awaiting permanent removal
+
 ### Key Entities
 
 - **PoetryFormModel** (NEW - SwiftData @Model): Database-stored poetry form for both predefined and custom forms. Key attributes: id (UUID), name, category, lineCount (optional), syllablePattern (optional, stored as JSON array), rhymeScheme (optional), meterPattern (optional), description, templateContent, isCustom (Bool), isPredefined (Bool), createdDate, modifiedDate. Relationships: none (standalone entity, referenced by TextFile.poetryFormId).
@@ -310,5 +336,18 @@ The system migrates predefined forms from the bundled JSON file to the database 
 - CloudKit sync handles custom forms using the same patterns as other user data (Project, Folder, TextFile)
 - The form editor UI follows existing patterns in the app (modal sheet with form fields)
 - Forms with unusual structures (e.g., pantoum's repeating lines) can be described in templateContent and description rather than requiring special parsing logic
+
+## Migration Requirements
+
+### Existing Poetry Projects
+
+When the folder structure is updated (e.g., adding Manuscript folder), existing Poetry projects require migration:
+
+- **ProjectFolderMigrationService**: Versioned migration service that runs on app launch
+- **Version 1**: Adds Manuscript folder to existing Poetry projects that don't have one
+- Migration is idempotent - folders are only added if missing
+- Migration runs automatically via `ContentView.initializeUserOrderIfNeeded()`
+
+**Implementation**: See `ProjectFolderMigrationService.swift`
 
 

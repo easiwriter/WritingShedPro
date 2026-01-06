@@ -283,7 +283,27 @@ final class PoetryValidator {
                 guard otherIndex < endWords.count else { continue }
                 let otherWord = endWords[otherIndex]
                 
-                if !wordsRhyme(firstWord, otherWord) {
+                let rhymeResult = checkRhyme(firstWord, otherWord)
+                
+                switch rhymeResult {
+                case .perfect:
+                    // Perfect rhyme - no issue
+                    break
+                    
+                case .slant:
+                    // Slant rhyme - warning (not error)
+                    let line = lines[otherIndex]
+                    issues.append(LineValidationIssue(
+                        lineNumber: line.lineNumber,
+                        lineText: line.text,
+                        issueType: .rhymeScheme,
+                        message: String(format: NSLocalizedString("poetryValidator.slantRhyme", comment: "Slant rhyme detected"), String(letter), firstWord),
+                        expected: "Perfect rhyme with '\(firstWord)' (\(letter))",
+                        actual: "Slant rhyme: '\(otherWord)'"
+                    ))
+                    
+                case .none:
+                    // No rhyme - error
                     let line = lines[otherIndex]
                     issues.append(LineValidationIssue(
                         lineNumber: line.lineNumber,
@@ -462,6 +482,74 @@ final class PoetryValidator {
             .map { $0.trimmingCharacters(in: .punctuationCharacters) }
             .filter { !$0.isEmpty }
         return words.last ?? ""
+    }
+    
+    /// Check if two words rhyme (uses CMU dictionary with heuristic fallback)
+    /// Returns RhymeResult indicating perfect, slant, or no rhyme
+    private func checkRhyme(_ word1: String, _ word2: String) -> RhymeResult {
+        let w1 = word1.lowercased().trimmingCharacters(in: .punctuationCharacters)
+        let w2 = word2.lowercased().trimmingCharacters(in: .punctuationCharacters)
+        
+        // Same word always rhymes perfectly
+        if w1 == w2 { return .perfect }
+        
+        // Try CMU dictionary first for accurate phonetic rhyme detection
+        let cmu = CMUDictionary.shared
+        if cmu.contains(w1) && cmu.contains(w2) {
+            return cmu.checkRhyme(w1, w2)
+        }
+        
+        // Fallback to heuristic method if words not in dictionary
+        return heuristicCheckRhyme(w1, w2)
+    }
+    
+    /// Heuristic rhyme check (fallback when words not in CMU dictionary)
+    /// Returns RhymeResult instead of just Bool
+    private func heuristicCheckRhyme(_ w1: String, _ w2: String) -> RhymeResult {
+        // Get phonetic endings from the last vowel sound
+        let ending1 = getPhoneticEnding(w1)
+        let ending2 = getPhoneticEnding(w2)
+        
+        // Exact match = perfect rhyme
+        if ending1 == ending2 { return .perfect }
+        
+        // Near-rhyme: normalize consonant clusters and compare
+        let normalized1 = normalizeConsonantClusters(ending1)
+        let normalized2 = normalizeConsonantClusters(ending2)
+        
+        if normalized1 == normalized2 { return .perfect }
+        
+        // Check for slant rhyme using heuristics
+        if isHeuristicSlantRhyme(ending1, ending2) {
+            return .slant
+        }
+        
+        return .none
+    }
+    
+    /// Check for slant rhyme using string-based heuristics
+    private func isHeuristicSlantRhyme(_ ending1: String, _ ending2: String) -> Bool {
+        guard !ending1.isEmpty && !ending2.isEmpty else { return false }
+        
+        // Extract vowels and consonants
+        let vowels = CharacterSet(charactersIn: "aeiouAEIOU")
+        
+        let vowels1 = ending1.unicodeScalars.filter { vowels.contains($0) }.map { String($0) }.joined()
+        let vowels2 = ending2.unicodeScalars.filter { vowels.contains($0) }.map { String($0) }.joined()
+        let consonants1 = ending1.unicodeScalars.filter { !vowels.contains($0) }.map { String($0) }.joined()
+        let consonants2 = ending2.unicodeScalars.filter { !vowels.contains($0) }.map { String($0) }.joined()
+        
+        // Consonance: same consonants, different vowels
+        if !consonants1.isEmpty && consonants1 == consonants2 && vowels1 != vowels2 {
+            return true
+        }
+        
+        // Assonance: same vowels, different consonants
+        if !vowels1.isEmpty && vowels1 == vowels2 && consonants1 != consonants2 {
+            return true
+        }
+        
+        return false
     }
     
     /// Check if two words rhyme (uses CMU dictionary with heuristic fallback)

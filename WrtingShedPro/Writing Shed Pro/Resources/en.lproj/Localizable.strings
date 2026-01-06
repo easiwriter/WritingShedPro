@@ -400,7 +400,7 @@
 "poetryForms.delete.confirm" = "Delete";
 
 /* Poetry Form Picker (Phase 2) */
-"poetryForms.picker.manageButton" = "Manage";
+"poetryForms.picker.manageButton" = "Manage Forms";
 "poetryForms.reference.unknownForm" = "Unknown Form";
 "poetryForms.reference.unknownFormMessage" = "This form is no longer available. Tap to select a different form.";
 
@@ -529,6 +529,8 @@
 "folder.magazines" = "Magazines";
 "folder.competitions" = "Competitions";
 "folder.commissions" = "Commissions";
+"folder.publishers" = "Publishers";
+"folder.agents" = "Agents";
 "folder.other" = "Other";
 "folder.trash" = "Trash";
 "folder.novel" = "Novel";
@@ -1413,4 +1415,5 @@
 /* Poem Section Marking */
 "poemSection.markSection" = "Mark Section";
 "poemSection.addToMarked" = "Add Marked Section";
+"poemSection.unmarkSelection" = "Unmark Selection";
 "poemSection.clearAllMarks" = "Clear All Marks";

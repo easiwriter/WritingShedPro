@@ -797,6 +797,26 @@ struct FormattedTextEditor: UIViewRepresentable {
                     }
                     textStorage.addAttribute(.textStyle, value: styleToApply, range: NSRange(location: checkPos, length: 1))
                 }
+                
+                // DARK MODE FIX: Ensure foreground color is set to adaptive .label color
+                // When UITextView has no foregroundColor or has black (from setAttributedString reset),
+                // text appears wrong in dark mode. Always ensure .label is applied for body text.
+                if let existingColor = textStorage.attribute(.foregroundColor, at: checkPos, effectiveRange: nil) as? UIColor {
+                    // Check if it's pure black (not intentionally colored) - replace with .label
+                    if let hex = existingColor.toHex()?.uppercased(), 
+                       (hex == "#000000" || hex == "#000000FF") {
+                        textStorage.addAttribute(.foregroundColor, value: UIColor.label, range: NSRange(location: checkPos, length: 1))
+                        #if DEBUG
+                        print("⚠️ Text had black color at {\(checkPos), 1} - replaced with .label for dark mode")
+                        #endif
+                    }
+                } else {
+                    // No color attribute - add .label for proper dark mode support
+                    textStorage.addAttribute(.foregroundColor, value: UIColor.label, range: NSRange(location: checkPos, length: 1))
+                    #if DEBUG
+                    print("⚠️ Text missing foregroundColor at {\(checkPos), 1} - added .label")
+                    #endif
+                }
             }
             
             // Update the binding so SwiftUI state stays in sync

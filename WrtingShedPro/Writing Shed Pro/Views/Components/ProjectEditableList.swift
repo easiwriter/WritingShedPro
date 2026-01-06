@@ -9,6 +9,7 @@ struct ProjectEditableList: View {
     @Binding var isEditMode: Bool
     @State private var selectedProjectForInfo: Project?
     @State private var selectedProjectForPageSetup: Project?
+    @State private var showingManageForms = false
     @State private var showDeleteConfirmation = false
     @State private var projectsToDelete: IndexSet?
     @State private var deleteInfo: (count: Int, firstName: String)?
@@ -29,7 +30,10 @@ struct ProjectEditableList: View {
                         },
                         onPageSetupTapped: {
                             selectedProjectForPageSetup = project
-                        }
+                        },
+                        onManageFormsTapped: project.type == .poetry ? {
+                            showingManageForms = true
+                        } : nil
                     )
                 }
                 .buttonStyle(.plain)
@@ -68,6 +72,9 @@ struct ProjectEditableList: View {
         }
         .sheet(item: $selectedProjectForPageSetup) { project in
             PageSetupForm(project: project)
+        }
+        .sheet(isPresented: $showingManageForms) {
+            PoetryFormManagementView()
         }
         .confirmationDialog(
             Text("projectEditableList.deleteTitle"),

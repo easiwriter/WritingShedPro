@@ -697,6 +697,15 @@ struct FileEditView: View {
                 Label(NSLocalizedString("poemSection.addToMarked", comment: "Add Marked Section"), systemImage: "plus.circle")
             }
             
+            // Unmark selection button
+            Button(action: {
+                unmarkSelection()
+            }) {
+                Label(NSLocalizedString("poemSection.unmarkSelection", comment: "Unmark Selection"), systemImage: "minus.circle")
+            }
+            
+            Divider()
+            
             // Clear all marks button
             Button(action: {
                 clearAllSectionMarks()
@@ -718,7 +727,7 @@ struct FileEditView: View {
         
         // Extend to line boundaries for cleaner marking
         // This works even when selection length is 0 (just a cursor)
-        let mutableContent = NSMutableAttributedString(attributedString: attributedContent)
+        let mutableContent = NSMutableAttributedString(attributedString: textView.attributedText ?? NSAttributedString())
         let lineRange = mutableContent.extendToLinesBoundaries(selectedRange)
         
         // Don't mark empty ranges
@@ -730,16 +739,66 @@ struct FileEditView: View {
         // Apply grey text styling
         mutableContent.addAttribute(.foregroundColor, value: UIColor.systemGray, range: lineRange)
         
-        // Update content
+        // Update text view storage (source of truth)
+        textView.textStorage.setAttributedString(mutableContent)
+        
+        // Update content binding
         attributedContent = mutableContent
         
-        // Keep selection
+        // Save changes to persist the section marker
+        saveChanges()
+        
+        // Move cursor to end of marked section, then reset typing attributes
+        // Order matters: set selection first, THEN override typing attributes
+        let endOfMarkedSection = NSRange(location: lineRange.location + lineRange.length, length: 0)
+        textView.selectedRange = endOfMarkedSection
+        
+        // Reset typing attributes to use adaptive color for subsequent typing
+        // This must happen AFTER setting selectedRange to override UITextView's auto-inherited attrs
+        var typingAttrs = textView.typingAttributes
+        typingAttrs[.foregroundColor] = UIColor.label
+        textView.typingAttributes = typingAttrs
+    }
+    
+    /// Unmark the current selection, restoring it to normal poem text
+    /// If no text is selected, unmarks the entire line at cursor position
+    private func unmarkSelection() {
+        guard let textView = textViewCoordinator.textView,
+              let selectedRange = textView.selectedRange as NSRange? else {
+            return
+        }
+        
+        // Extend to line boundaries for cleaner unmarking
+        let mutableContent = NSMutableAttributedString(attributedString: textView.attributedText ?? NSAttributedString())
+        let lineRange = mutableContent.extendToLinesBoundaries(selectedRange)
+        
+        // Don't process empty ranges
+        guard lineRange.length > 0 else { return }
+        
+        // Remove section type attribute (restores to default poem type)
+        mutableContent.removeAttribute(.poemSectionType, range: lineRange)
+        
+        // Restore normal text color
+        mutableContent.addAttribute(.foregroundColor, value: UIColor.label, range: lineRange)
+        
+        // Update text view storage (source of truth)
+        textView.textStorage.setAttributedString(mutableContent)
+        
+        // Update content binding
+        attributedContent = mutableContent
+        
+        // Save changes to persist the unmarking
+        saveChanges()
+        
+        // Keep selection on the unmarked text
         textView.selectedRange = lineRange
     }
     
     /// Clear all section marks from the document, resetting everything to poem type
     private func clearAllSectionMarks() {
-        let mutableContent = NSMutableAttributedString(attributedString: attributedContent)
+        guard let textView = textViewCoordinator.textView else { return }
+        
+        let mutableContent = NSMutableAttributedString(attributedString: textView.attributedText ?? NSAttributedString())
         let fullRange = NSRange(location: 0, length: mutableContent.length)
         
         // Remove section type attribute
@@ -748,8 +807,14 @@ struct FileEditView: View {
         // Remove grey text styling - restore to label color
         mutableContent.addAttribute(.foregroundColor, value: UIColor.label, range: fullRange)
         
-        // Update content
+        // Update text view storage (source of truth)
+        textView.textStorage.setAttributedString(mutableContent)
+        
+        // Update content binding
         attributedContent = mutableContent
+        
+        // Save changes to persist the cleared markers
+        saveChanges()
     }
     
     /// Whether this file belongs to a Poetry project

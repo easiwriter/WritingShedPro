@@ -22,11 +22,17 @@ This choice is stored as a property on the project and cannot be changed after c
 
 **Scene**: A scene is a place where something happens. There should be a clear outcome. Scenes are the fundamental unit of storytelling in fiction projects.
 
-**Chapter** (Novel only): A mandatory container for scenes in novels. Chapters organize scenes into logical groupings.
+**Workflow Folders** (for organizing scenes by status):
+- **All**: Contains all scenes in the project (automatic aggregation)
+- **Draft**: Scenes that are work in progress
+- **Ready**: Scenes that are complete and polished
+- **Set Aside**: Scenes that are on hold or may be used later
 
-**Manuscript**: A place for collecting the work:
-- In Novels: collects Chapters (which contain Scenes)
-- In Short Fiction: collects Scenes directly
+**Submissions**: Collections of chapters/scenes organized for submission to publishers or agents. Analogous to Poetry's submission collections.
+
+**Chapter** (Novel only): A container for scenes in novels. Chapters organize scenes into logical groupings and are stored in the Chapters folder.
+
+**Manuscript**: Automatically assembles the complete work from Chapters (Novel) or Scenes (Short Fiction) for preview and export.
 
 **Character**: A character definition with attributes. Attributes vary based on whether the monomyth structure is used:
 - Without monomyth: user-defined custom fields (key-value pairs)
@@ -232,9 +238,18 @@ Plot outline elements can link to scenes, allowing the writer to track which sce
 - **FR8.7:** System MUST allow reordering outline elements (freeform mode only)
 
 ### FR9: Folder Structure
-- **FR9.1:** Fiction projects MUST create these folders: Scenes, Characters, Locations, Plot, Manuscript, Research, Trash
-- **FR9.2:** Novel projects MUST additionally create: Chapters
-- **FR9.3:** Folder display order MUST follow logical workflow
+- **FR9.1:** Fiction projects MUST create these workflow folders: All, Draft, Ready, Submissions, Set Aside
+- **FR9.2:** Fiction projects MUST create these entity folders: Characters, Locations, Chapters, Plot
+- **FR9.3:** Fiction projects MUST create these support folders: Research
+- **FR9.4:** Fiction projects MUST create Trash folder as the last folder
+- **FR9.5:** Folder display order MUST be: All → Draft → Ready → Submissions → Set Aside → Characters → Locations → Chapters → Plot → Research → [Publications] → Trash
+- **FR9.6:** The All folder aggregates all scenes; Draft, Ready, Set Aside contain scenes by status
+- **FR9.7:** Submissions folder contains collections of chapters (analogous to Poetry submissions)
+
+### FR10: Publications Folders
+- **FR10.1:** Novel projects MUST create Publications folders: Publishers, Agents, Other (in that order)
+- **FR10.2:** Short Fiction projects MUST create Publications folders: Magazines, Competitions, Agents, Publishers, Other (in that order)
+- **FR10.3:** Publications folders track submission targets and opportunities
 
 ## Non-Functional Requirements
 

@@ -5,6 +5,7 @@ struct ProjectItemView: View {
     let project: Project
     let onInfoTapped: () -> Void
     let onPageSetupTapped: () -> Void
+    var onManageFormsTapped: (() -> Void)? = nil
     
     @Environment(\.modelContext) var modelContext
     @Query(sort: \StyleSheet.name) private var allStyleSheets: [StyleSheet]
@@ -34,6 +35,12 @@ struct ProjectItemView: View {
                 
                 Button(action: onPageSetupTapped) {
                     Label("Page Setup", systemImage: "doc.richtext")
+                }
+                
+                if project.type == .poetry, let onManageFormsTapped = onManageFormsTapped {
+                    Button(action: onManageFormsTapped) {
+                        Label(NSLocalizedString("poetryForms.picker.manageButton", comment: "Manage Forms"), systemImage: "slider.horizontal.3")
+                    }
                 }
                 
                 Menu {

@@ -158,6 +158,9 @@ struct ContentView: View {
     }
     
     private func initializeUserOrderIfNeeded() {
+        // Run folder migrations for existing projects
+        ProjectFolderMigrationService.migrateIfNeeded(modelContext: modelContext)
+        
         // Ensure all existing projects have a userOrder
         let projectsNeedingOrder = projects.filter { $0.userOrder == nil }
         if !projectsNeedingOrder.isEmpty {

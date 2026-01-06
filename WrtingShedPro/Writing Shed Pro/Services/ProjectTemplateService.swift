@@ -8,30 +8,18 @@ struct ProjectTemplateService {
     // MARK: - Public Interface
     
     /// Creates the complete default folder structure for a project.
+    /// Folders are created with userOrder to ensure consistent display ordering.
     /// - Parameters:
     ///   - project: The project to create folders for
     ///   - modelContext: The SwiftData model context for persistence
     static func createDefaultFolders(for project: Project, in modelContext: ModelContext) {
-        var foldersToAdd: [Folder] = []
+        // Get all folder keys in the correct order for this project type
+        let orderedFolderKeys = getOrderedFolderKeys(for: project)
         
-        // Create all folders as direct children of the project (flat structure)
-        
-        // 1. Create type-specific folders
-        let typeFolders = createTypeFolders(for: project, in: modelContext)
-        foldersToAdd.append(contentsOf: typeFolders)
-        
-        // 2. Create Publications folders (only for non-generalPurpose projects)
-        if project.type != .generalPurpose {
-            let publicationsFolders = createPublicationsFolders(for: project, in: modelContext)
-            foldersToAdd.append(contentsOf: publicationsFolders)
-        }
-        
-        // 3. Create Trash folder
-        let trashFolder = createTrashFolder(for: project, in: modelContext)
-        foldersToAdd.append(trashFolder)
-        
-        // Insert all folders into context
-        for folder in foldersToAdd {
+        // Create folders with sequential userOrder
+        for (index, key) in orderedFolderKeys.enumerated() {
+            let name = NSLocalizedString(key, comment: "Folder name")
+            let folder = Folder(name: name, project: project, userOrder: index)
             modelContext.insert(folder)
         }
         
@@ -40,9 +28,7 @@ struct ProjectTemplateService {
             try modelContext.save()
             #if DEBUG
             print("✅ Successfully created folder structure for project: \(project.name ?? "Unknown")")
-            #endif
-            #if DEBUG
-            print("📁 Total folders created: \(foldersToAdd.count)")
+            print("📁 Total folders created: \(orderedFolderKeys.count)")
             #endif
         } catch {
             #if DEBUG
@@ -51,102 +37,100 @@ struct ProjectTemplateService {
         }
     }
     
-    // MARK: - Folder Creation Methods
+    // MARK: - Folder Order Configuration
     
-    /// Creates all type-specific folders for a project (flat structure)
-    private static func createTypeFolders(for project: Project, in modelContext: ModelContext) -> [Folder] {
-        let folderKeys: [String]
-        
+    /// Returns all folder keys in the correct display order for a project type
+    private static func getOrderedFolderKeys(for project: Project) -> [String] {
         switch project.type {
         case .generalPurpose:
-            folderKeys = ["folder.folders"]
+            return [
+                "folder.folders",
+                "folder.trash"
+            ]
             
         case .poetry:
-            folderKeys = [
+            // Poetry: Workflow → Manuscript → Research → Publications → Trash
+            return [
+                // Workflow folders
                 "folder.all",
                 "folder.draft",
                 "folder.ready",
-                "folder.collections",
                 "folder.submissions",
-                "folder.setAside", 
+                "folder.setAside",
                 "folder.published",
-                "folder.research"
+                "folder.collections",
+                "folder.manuscript",
+                // Support
+                "folder.research",
+                // Publications
+                "folder.magazines",
+                "folder.competitions",
+                "folder.commissions",
+                "folder.other",
+                // System
+                "folder.trash"
             ]
             
         case .fiction:
-            // Fiction folder structure based on fiction class (Novel vs Short Fiction)
-            let baseFolders = [
-                "folder.manuscript",
+            // Fiction: Workflow + Entity → Research → Publications → Trash
+            var keys = [
+                // Workflow folders
+                "folder.all",
+                "folder.draft",
+                "folder.ready",
+                "folder.submissions",
+                "folder.setAside",
+                // Entity folders
                 "folder.characters",
                 "folder.locations",
+                "folder.chapters",
                 "folder.plot",
+                // Support
                 "folder.research"
             ]
             
-            // Add structure folder based on fiction class
+            // Publications based on fiction class
             if project.fictionClass == .novel {
-                // Novel uses chapters containing scenes
-                folderKeys = ["folder.chapters"] + baseFolders
+                // Novel: Publishers, Agents, Other
+                keys.append(contentsOf: [
+                    "folder.publishers",
+                    "folder.agents",
+                    "folder.other"
+                ])
             } else {
-                // Short Fiction uses scenes directly (no chapters)
-                folderKeys = ["folder.scenes"] + baseFolders
+                // Short Fiction: Magazines, Competitions, Agents, Publishers, Other
+                keys.append(contentsOf: [
+                    "folder.magazines",
+                    "folder.competitions",
+                    "folder.agents",
+                    "folder.publishers",
+                    "folder.other"
+                ])
             }
             
+            // System
+            keys.append("folder.trash")
+            return keys
+            
         case .drama:
-            // Drama folder structure - to be defined in spec 023
-            folderKeys = [
+            // Drama: Workflow → Research → Publications → Trash (to be refined in spec 023)
+            return [
+                // Workflow folders
                 "folder.all",
                 "folder.draft",
                 "folder.ready",
                 "folder.setAside",
-                "folder.research"
-            ]
-        }
-        
-        return folderKeys.map { key in
-            let name = NSLocalizedString(key, comment: "Default folder name")
-            return Folder(name: name, project: project)
-        }
-    }
-    
-    /// Creates all publications-related folders for a project (flat structure)
-    private static func createPublicationsFolders(for project: Project, in modelContext: ModelContext) -> [Folder] {
-        let folderKeys: [String]
-        
-        switch project.type {
-        case .generalPurpose:
-            folderKeys = [] // No publications for general purpose projects
-            
-        case .poetry:
-            folderKeys = [
-                "folder.magazines",
-                "folder.competitions", 
-                "folder.commissions",
-                "folder.other"
-            ]
-            
-        case .fiction, .drama:
-            // Publications structure - to be defined in specs 022/023
-            folderKeys = [
+                // Support
+                "folder.research",
+                // Publications
                 "folder.competitions",
-                "folder.commissions", 
-                "folder.other"
+                "folder.commissions",
+                "folder.other",
+                // System
+                "folder.trash"
             ]
         }
-        
-        return folderKeys.map { key in
-            let name = NSLocalizedString(key, comment: "Publications folder name")
-            return Folder(name: name, project: project)
-        }
     }
-    
-    /// Creates the Trash folder
-    private static func createTrashFolder(for project: Project, in modelContext: ModelContext) -> Folder {
-        let name = NSLocalizedString("folder.trash", comment: "Trash folder name")
-        return Folder(name: name, project: project)
-    }
-    
-
 }
 
 // MARK: - ProjectType Extension
@@ -165,6 +149,4 @@ extension ProjectType {
             return NSLocalizedString("projectType.drama", comment: "Drama project type")
         }
     }
-    
-
 }

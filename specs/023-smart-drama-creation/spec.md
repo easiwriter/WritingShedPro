@@ -8,7 +8,61 @@
 
 ## Overview
 
-<!-- USER TO COMPLETE THIS SECTION -->
+This type of project is fundamentally the same as Long Fiction, the main difference being the content of the scenes, which need to conform to the dialogue format described in this spec.
+
+## Script Dialogue Formatting Conventions
+
+### Standard Script Dialogue Format
+
+There are established conventions for script dialogue:
+
+- **Character Name**: Centered and in ALL CAPS above the dialogue
+- **Dialogue**: Centered below the character name, narrower margins than action
+- **Parentheticals**: Brief acting directions in parentheses between character name and dialogue (e.g., "(sarcastically)")
+
+```
+                         JOHN
+              (hesitantly)
+         I don't think we should go.
+
+                         MARY
+         We don't have a choice.
+```
+
+### Film Scripts vs Play Scripts - Key Differences
+
+| Aspect | Film/Screenplay | Stage Play |
+|--------|-----------------|------------|
+| **Scene Headings** | INT./EXT. LOCATION - TIME (e.g., `INT. COFFEE SHOP - DAY`) | Simple act/scene numbers (e.g., `ACT I, Scene 2`) |
+| **Action/Stage Directions** | Present tense, describes what camera sees | Italicized, describes stage movement and set |
+| **Margins** | Dialogue ~2.5" from left, action full width | Dialogue often indented, stage directions in brackets or italics |
+| **Page = Time** | 1 page ≈ 1 minute of screen time | Less precise relationship |
+| **Camera Directions** | Sometimes included (CLOSE ON, POV) | Never used |
+| **Set Descriptions** | Minimal, visual focus | More detailed (audience must imagine) |
+| **Transitions** | CUT TO:, FADE OUT, DISSOLVE | Typically just BLACKOUT or LIGHTS UP |
+
+### Example - Film/Screenplay Format
+
+```
+INT. LIVING ROOM - NIGHT
+
+JOHN paces near the window. Rain streaks the glass.
+
+                         JOHN
+         She's not coming, is she?
+```
+
+### Example - Stage Play Format
+
+```
+ACT I, Scene 1
+
+(A modest living room. JOHN stands by the window, 
+agitated. Sound of rain.)
+
+JOHN
+    She's not coming, is she?
+```
 
 
 

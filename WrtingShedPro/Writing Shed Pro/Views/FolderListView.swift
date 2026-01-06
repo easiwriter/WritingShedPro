@@ -42,29 +42,43 @@ struct FolderListView: View {
             
         case .poetry:
             return [
-                "All", "Draft", "Ready", "Collections", "Submissions", "Set Aside", "Published",
+                // Workflow folders
+                "All", "Draft", "Ready", "Submissions", "Set Aside", "Published", "Collections", "Manuscript",
+                // Support
                 "Research",
+                // Publications
                 "Magazines", "Competitions", "Commissions", "Other",
+                // System
                 "Trash"
             ]
             
         case .fiction:
             // Fiction folder order - Feature 022
+            // Order: Workflow → Entity → Research → Publications → Trash
+            // Publications vary by fiction class (Novel vs Short Fiction)
             return [
-                "Chapters", "Scenes",  // Structure (Novel has Chapters, Short Fiction has Scenes)
-                "Manuscript",
-                "Characters", "Locations", "Plot",
+                // Workflow folders
+                "All", "Draft", "Ready", "Submissions", "Set Aside",
+                // Entity folders
+                "Characters", "Locations", "Chapters", "Plot",
+                // Support
                 "Research",
-                "Competitions", "Commissions", "Other",
+                // Publications (all possible - some may not exist based on fiction class)
+                "Publishers", "Agents", "Magazines", "Competitions", "Other",
+                // System
                 "Trash"
             ]
             
         case .drama:
             // Drama folder order - to be defined in spec 023
             return [
+                // Workflow folders
                 "All", "Draft", "Ready", "Set Aside",
+                // Support
                 "Research",
+                // Publications
                 "Competitions", "Commissions", "Other",
+                // System
                 "Trash"
             ]
         }
@@ -77,9 +91,14 @@ struct FolderListView: View {
         
         let folderName = folder.name ?? ""
         
-        // Add spacing after "Research" (separates writing folders from organizational folders)
-        // and after "Other" (separates organizational folders from Trash)
-        // For fiction, also add spacing after "Plot" (separates planning from research)
+        // Add spacing after "Research" (separates support from publications)
+        // and after "Other" (separates publications from Trash)
+        // For poetry, add spacing after "Manuscript" (separates workflow from support)
+        // For fiction, add spacing after "Plot" (separates entity folders from support)
+        if project.type == .poetry {
+            return folderName == "Manuscript" || folderName == "Research" || folderName == "Other"
+        }
+        
         if project.type == .fiction {
             return folderName == "Plot" || folderName == "Research" || folderName == "Other"
         }

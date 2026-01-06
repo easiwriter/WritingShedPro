@@ -210,6 +210,8 @@ struct PoetryFormManagementView: View {
     // MARK: - Private Methods
     
     private func loadForms() {
+        // Ensure service has context (in case it wasn't set yet)
+        service.configureWithContext(modelContext)
         predefinedForms = service.loadPredefinedForms()
         customForms = service.loadCustomForms()
     }
