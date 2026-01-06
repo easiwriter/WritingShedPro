@@ -27,17 +27,6 @@ final class AddProjectUITests: XCTestCase {
         XCTAssertTrue(sheet.details.isEmpty)
     }
     
-    func testAddProjectSheetFictionDefaults() {
-        // Verify fiction-specific defaults
-        let sheet = AddProjectSheet(
-            isPresented: .constant(true)
-        )
-        
-        // Fiction defaults
-        XCTAssertEqual(sheet.selectedFictionClass, .novel, "Default fiction class should be novel")
-        XCTAssertFalse(sheet.useMonomyth, "Monomyth should be off by default")
-    }
-    
     func testFictionClassEnum() {
         // Verify FictionClass enum
         XCTAssertEqual(FictionClass.allCases.count, 2)

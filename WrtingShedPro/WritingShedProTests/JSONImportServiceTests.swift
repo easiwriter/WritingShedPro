@@ -283,32 +283,39 @@ final class JSONImportServiceTests: XCTestCase {
     // MARK: - Folder Name Mapping Tests
     
     func testFolderName_LegacyMapping() throws {
-        // Test mapping of legacy folder names
-        let testCases: [(input: String, expected: String)] = [
-            ("Accepted", "Published"),  // Old name mapped to new
-            ("Draft", "Draft"),         // Unchanged
-            ("Ready", "Ready"),         // Unchanged
-            ("Set Aside", "Set Aside"), // Unchanged
-            ("Collections", "Collections"), // Unchanged
-            ("Research", "Research"),   // Unchanged
-            ("Trash", "Trash"),         // Unchanged
-            ("Custom Folder", "Custom Folder") // Unknown folders preserved
+        // Test mapping of legacy folder names to workflow status
+        // Legacy folders now map to WorkflowStatus, not folder names
+        let workflowMappings: [(input: String, expected: WorkflowStatus?)] = [
+            ("Draft", .draft),
+            ("Ready", .ready),
+            ("Accepted", .published),    // Accepted maps to published
+            ("Published", .published),
+            ("Set Aside", .setAside),
+            ("Collections", nil),        // Not a workflow folder
+            ("Research", nil),           // Not a workflow folder
+            ("Trash", nil),              // Not a workflow folder
+            ("Submissions", nil),        // Not a workflow folder (it's a functional folder)
+            ("Custom Folder", nil)       // Unknown folders have no status
         ]
         
-        for testCase in testCases {
-            let mapped = mapLegacyFolderNameHelper(testCase.input)
+        for testCase in workflowMappings {
+            let mapped = mapFolderNameToWorkflowStatusHelper(testCase.input)
             XCTAssertEqual(mapped, testCase.expected, "Failed to map folder: \(testCase.input)")
         }
     }
     
-    private func mapLegacyFolderNameHelper(_ legacyName: String) -> String {
-        switch legacyName {
-        case "Accepted":
-            return "Published"
-        case "Draft", "Ready", "Set Aside", "Collections", "Research", "Trash":
-            return legacyName
+    private func mapFolderNameToWorkflowStatusHelper(_ folderName: String) -> WorkflowStatus? {
+        switch folderName.lowercased() {
+        case "draft":
+            return .draft
+        case "ready":
+            return .ready
+        case "accepted", "published":
+            return .published
+        case "set aside", "setaside":
+            return .setAside
         default:
-            return legacyName
+            return nil
         }
     }
     

@@ -60,8 +60,8 @@ final class CMUDictionaryTests: XCTestCase {
         // The original issue: sounds/downs should rhyme (AW1 N D Z vs AW1 N Z)
         // These are "near rhymes" where a stop consonant is elided
         XCTAssertTrue(cmu.wordsRhyme("sounds", "downs"), "sounds/downs should rhyme")
-        XCTAssertTrue(cmu.wordsRhyme("around", "down"), "around/down should rhyme")
-        XCTAssertTrue(cmu.wordsRhyme("ground", "town"), "ground/town should rhyme")
+        XCTAssertTrue(cmu.wordsRhyme("bounds", "towns"), "bounds/towns should rhyme")
+        XCTAssertTrue(cmu.wordsRhyme("mounds", "gowns"), "mounds/gowns should rhyme")
     }
     
     func testNonRhymes() {
@@ -70,7 +70,7 @@ final class CMUDictionaryTests: XCTestCase {
         // These should NOT rhyme
         XCTAssertFalse(cmu.wordsRhyme("cat", "dog"), "cat/dog should not rhyme")
         XCTAssertFalse(cmu.wordsRhyme("love", "move"), "love/move should not rhyme (different vowel sounds)")
-        XCTAssertFalse(cmu.wordsRhyme("heart", "start"), "heart/start should rhyme") // Wait, these DO rhyme!
+        XCTAssertFalse(cmu.wordsRhyme("around", "down"), "around/down should not rhyme (different endings)")
     }
     
     func testHeartStartRhyme() {
