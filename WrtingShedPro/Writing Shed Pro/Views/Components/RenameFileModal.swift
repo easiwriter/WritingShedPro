@@ -9,7 +9,8 @@
 import SwiftUI
 import SwiftData
 
-/// Modal for renaming a single file with duplicate name detection
+/// View that presents an alert for renaming a file
+/// This uses an alert with TextField which sizes correctly on all platforms
 struct RenameFileModal: View {
     // MARK: - Properties
     
@@ -29,57 +30,42 @@ struct RenameFileModal: View {
     
     @State private var newName: String = ""
     @State private var showDuplicateWarning = false
-    @FocusState private var isNameFieldFocused: Bool
     
     // MARK: - Body
     
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 20) {
-                // Instructions
-                Text("fileList.rename.prompt")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                
-                // Text input field
+        Color.clear
+            .alert("fileList.rename.title", isPresented: .constant(true)) {
                 TextField("fileList.rename.placeholder", text: $newName)
-                    .textFieldStyle(.roundedBorder)
-                    .focused($isNameFieldFocused)
                     .onAppear {
                         newName = file.name
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                            isNameFieldFocused = true
-                        }
                     }
                 
-                Spacer()
-            }
-            .padding()
-            .navigationTitle("fileList.rename.title")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("fileList.rename.confirm") {
-                        handleRename()
-                    }
-                    .disabled(newName.trimmingCharacters(in: .whitespaces).isEmpty || newName == file.name)
+                Button("fileList.rename.cancel", role: .cancel) {
+                    dismiss()
                 }
                 
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("fileList.rename.cancel") {
-                        dismiss()
-                    }
+                Button("fileList.rename.confirm") {
+                    handleRename()
                 }
+                .disabled(!canRename)
+            } message: {
+                Text("fileList.rename.prompt")
             }
-        }
-        .alert("fileList.rename.duplicateTitle", isPresented: $showDuplicateWarning) {
-            Button("fileList.rename.duplicateConfirm", role: .destructive) {
-                confirmRename()
+            .alert("fileList.rename.duplicateTitle", isPresented: $showDuplicateWarning) {
+                Button("fileList.rename.duplicateConfirm", role: .destructive) {
+                    confirmRename()
+                }
+                Button("fileList.rename.duplicateCancel", role: .cancel) { }
+            } message: {
+                Text("fileList.rename.duplicateMessage")
             }
-            Button("fileList.rename.duplicateCancel", role: .cancel) { }
-        } message: {
-            Text("fileList.rename.duplicateMessage")
-        }
+    }
+    
+    // MARK: - Computed Properties
+    
+    private var canRename: Bool {
+        !newName.trimmingCharacters(in: .whitespaces).isEmpty && newName != file.name
     }
     
     // MARK: - Private Methods

@@ -74,14 +74,14 @@ final class ProjectTemplateServiceTests: XCTestCase {
         ProjectTemplateService.createDefaultFolders(for: project, in: modelContext)
         
         // Then verify folders exist in flat structure
-        // Short Fiction: Scenes, Characters, Locations, Chapters, Plot, Collections, Submissions, Research, Magazines, Competitions, Agents, Publishers, Other, Trash
+        // Short Fiction: Scenes, Characters, Locations, Chapters, Plot, Manuscript, Collections, Submissions, Research, Magazines, Competitions, Agents, Publishers, Other, Trash
         let folders = project.folders ?? []
         
-        XCTAssertEqual(folders.count, 14, "Should have 14 folders for Short Fiction project")
+        XCTAssertEqual(folders.count, 15, "Should have 15 folders for Short Fiction project")
         
         let folderNames = Set(folders.compactMap { $0.name })
         let expectedNames: Set<String> = [
-            "Scenes", "Characters", "Locations", "Chapters", "Plot",
+            "Scenes", "Characters", "Locations", "Chapters", "Plot", "Manuscript",
             "Collections", "Submissions", "Research",
             "Magazines", "Competitions", "Agents", "Publishers", "Other", "Trash"
         ]
@@ -98,14 +98,14 @@ final class ProjectTemplateServiceTests: XCTestCase {
         ProjectTemplateService.createDefaultFolders(for: project, in: modelContext)
         
         // Then verify folders exist in flat structure
-        // Novel: Scenes, Characters, Locations, Chapters, Plot, Collections, Submissions, Research, Publishers, Agents, Other, Trash
+        // Novel: Scenes, Characters, Locations, Chapters, Plot, Manuscript, Collections, Submissions, Research, Publishers, Agents, Other, Trash
         let folders = project.folders ?? []
         
-        XCTAssertEqual(folders.count, 12, "Should have 12 folders for Novel project")
+        XCTAssertEqual(folders.count, 13, "Should have 13 folders for Novel project")
         
         let folderNames = Set(folders.compactMap { $0.name })
         let expectedNames: Set<String> = [
-            "Scenes", "Characters", "Locations", "Chapters", "Plot",
+            "Scenes", "Characters", "Locations", "Chapters", "Plot", "Manuscript",
             "Collections", "Submissions", "Research",
             "Publishers", "Agents", "Other", "Trash"
         ]
@@ -124,11 +124,11 @@ final class ProjectTemplateServiceTests: XCTestCase {
         // Then verify folders exist in flat structure
         let folders = project.folders ?? []
         
-        XCTAssertEqual(folders.count, 14, "Should have 14 folders for Short Fiction project")
+        XCTAssertEqual(folders.count, 15, "Should have 15 folders for Short Fiction project")
         
         let folderNames = Set(folders.compactMap { $0.name })
         let expectedNames: Set<String> = [
-            "Scenes", "Characters", "Locations", "Chapters", "Plot",
+            "Scenes", "Characters", "Locations", "Chapters", "Plot", "Manuscript",
             "Collections", "Submissions", "Research",
             "Magazines", "Competitions", "Agents", "Publishers", "Other", "Trash"
         ]
@@ -274,7 +274,7 @@ final class ProjectTemplateServiceTests: XCTestCase {
         }
         
         // Verify special fiction folders exist
-        let fictionFolders = ["Scenes", "Characters", "Locations", "Plot", "Collections", "Submissions"]
+        let fictionFolders = ["Scenes", "Characters", "Locations", "Plot", "Manuscript", "Collections", "Submissions"]
         for name in fictionFolders {
             XCTAssertNotNil(folders.first(where: { $0.name == name }),
                            "\(name) folder should exist")

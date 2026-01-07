@@ -529,6 +529,17 @@
 "fileDetail.cancel" = "Cancel";
 "fileDetail.deleteWarning" = "This file will be permanently deleted. This action cannot be undone.";
 
+/* File Details Sheet */
+"fileDetails.dates" = "Dates";
+"fileDetails.created" = "Created";
+"fileDetails.modified" = "Modified";
+"fileDetails.statistics" = "Statistics";
+"fileDetails.words" = "Words";
+"fileDetails.characters" = "Characters";
+"fileDetails.lines" = "Lines";
+"fileDetails.status" = "Status";
+"fileDetails.workflowStatus" = "Workflow Status";
+
 /* File list deletion */
 "fileList.deleteConfirmOne" = "Are you sure you want to delete \"%@\"? This will permanently delete the file. This action cannot be undone.";
 
@@ -792,6 +803,9 @@
 "submissions.status.accepted" = "Accepted";
 "submissions.status.rejected" = "Rejected";
 "submissions.status.mixed" = "Mixed";
+"submissions.unknownPublication" = "Unknown Publication";
+"submissions.collected.on" = "Collected on %@";
+"submissions.status.replied.on" = "status: %@ on: %@";
 "submissions.submitted.on" = "Submitted: %@";
 "submissions.new.title" = "New Submission";
 "submissions.detail.title" = "Submission Details";
@@ -1246,6 +1260,8 @@
 "collectionsView.untitledFile" = "Untitled File";
 "collectionsView.deleteCount" = "Delete %d";
 "collectionsView.deleteSelected.accessibility" = "Delete selected collections";
+"collectionsView.delete" = "Delete";
+"collectionsView.options" = "Collection options";
 "collectionsView.rename" = "Rename";
 "collectionsView.rename.accessibility" = "Rename selected collection";
 "collectionsView.rename.title" = "Rename Collection";
@@ -1360,6 +1376,8 @@
 "fileList.deleteFiles.title" = "Delete %d files?";
 "fileList.deletePermanently" = "Delete Forever";
 "fileList.rename" = "Rename";
+"fileList.details" = "Details";
+"fileList.options" = "File options";
 "fileList.rename.title" = "Rename File";
 "fileList.rename.prompt" = "Enter a new name for the file";
 "fileList.rename.placeholder" = "File name";

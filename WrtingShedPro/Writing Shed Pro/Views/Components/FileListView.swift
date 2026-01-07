@@ -14,7 +14,7 @@ import SwiftData
 /// **Key Features:**
 /// - Edit mode with selection circles (⚪/⚫)
 /// - Swipe actions for quick single-file operations (normal mode only)
-/// - Bottom toolbar with Move/Delete for multiple selections
+/// - Bottom toolbar with Delete for multiple selections
 /// - iOS-standard pattern following Mail/Files/Photos apps
 /// - **Mac Catalyst**: Cmd+Click multi-select, right-click context menu
 ///
@@ -24,9 +24,6 @@ import SwiftData
 ///     files: folder.textFiles ?? [],
 ///     onFileSelected: { file in
 ///         navigationPath.append(file)
-///     },
-///     onMove: { files in
-///         showMoveDestinationPicker = true
 ///     },
 ///     onDelete: { files in
 ///         deleteFiles(files)
@@ -42,8 +39,8 @@ struct FileListView: View {
     /// Called when user taps a file in normal mode
     let onFileSelected: (TextFile) -> Void
     
-    /// Called when user initiates move action (single or multiple files)
-    let onMove: ([TextFile]) -> Void
+    /// Called when user initiates move action (optional - only for General Purpose projects)
+    let onMove: (([TextFile]) -> Void)?
     
     /// Called when user initiates delete action (single or multiple files)
     let onDelete: ([TextFile]) -> Void
@@ -86,7 +83,9 @@ struct FileListView: View {
     
     /// Controls rename modal visibility
     @State private var showRenameModal = false
-    
+    @State private var renameText = ""
+    @State private var showRenameDuplicateWarning = false
+
     /// Tracks which alphabetical sections are expanded (collapsed by default)
     @State private var expandedSections: Set<String> = []
     
@@ -96,6 +95,10 @@ struct FileListView: View {
     /// Feature 021: Poetry form picker for changing form
     @State private var showPoetryFormPicker = false
     @State private var fileForFormChange: TextFile?
+    
+    /// File details sheet
+    @State private var showFileDetails = false
+    @State private var fileForDetails: TextFile?
     
     /// AppStorage key prefix for persisting last opened section per folder
     private var storageKey: String {
@@ -228,21 +231,35 @@ struct FileListView: View {
                 loadLastOpenedSection()
             }
         }
-        .sheet(isPresented: $showRenameModal) {
-            if let fileToRename = selectedFiles.first {
-                RenameFileModal(
-                    file: fileToRename,
-                    filesInFolder: files,
-                    onRename: { _ in
-                        onRename?([fileToRename])
-                        selectedFileIDs.removeAll()
-                    }
-                )
+        .alert("fileList.rename.title", isPresented: $showRenameModal) {
+            TextField("fileList.rename.placeholder", text: $renameText)
+            
+            Button("fileList.rename.cancel", role: .cancel) {
+                renameText = ""
             }
+            
+            Button("fileList.rename.confirm") {
+                handleRename()
+            }
+        } message: {
+            Text("fileList.rename.prompt")
+        }
+        .alert("fileList.rename.duplicateTitle", isPresented: $showRenameDuplicateWarning) {
+            Button("fileList.rename.duplicateConfirm", role: .destructive) {
+                confirmRename()
+            }
+            Button("fileList.rename.duplicateCancel", role: .cancel) { }
+        } message: {
+            Text("fileList.rename.duplicateMessage")
         }
         .sheet(isPresented: $showPoetryFormPicker) {
             if let file = fileForFormChange {
                 PoetryFormPickerSheet(file: file)
+            }
+        }
+        .sheet(isPresented: $showFileDetails) {
+            if let file = fileForDetails {
+                FileDetailsSheet(file: file)
             }
         }
     }
@@ -310,7 +327,7 @@ struct FileListView: View {
                 Text(file.name)
                     .foregroundColor(file.workflowStatus.map { Color($0.color) } ?? .primary)
                 
-                Spacer(minLength: 8)  // Ensure some spacing before the button
+                Spacer(minLength: 8)  // Ensure some spacing before the buttons
             }
             .contentShape(Rectangle())
             .onTapGesture {
@@ -326,22 +343,72 @@ struct FileListView: View {
                 contextMenuItems(for: file)
             }
             
-            // Submissions button (only in normal mode) - separate tap target
+            // Submissions button and ellipsis menu (only in normal mode) - separate tap targets
             if !isEditMode {
                 SubmissionsButton(file: file)
+                
+                // Ellipsis menu button
+                fileOptionsMenu(for: file)
             }
         }
+    }
+    
+    /// Options menu for a file (ellipsis button)
+    @ViewBuilder
+    private func fileOptionsMenu(for file: TextFile) -> some View {
+        Menu {
+            // File Details
+            Button {
+                fileForDetails = file
+                showFileDetails = true
+            } label: {
+                Label(NSLocalizedString("fileList.details", comment: "Details"), systemImage: "info.circle")
+            }
+            
+            Divider()
+            
+            // Rename (if callback provided)
+            if onRename != nil {
+                Button {
+                    selectedFileIDs = [file.id]
+                    renameText = file.name
+                    showRenameModal = true
+                } label: {
+                    Label(NSLocalizedString("fileList.rename", comment: "Rename"), systemImage: "pencil")
+                }
+            }
+            
+            // Export (if callback provided)
+            if let onExport = onExport {
+                Button {
+                    onExport([file])
+                } label: {
+                    Label(NSLocalizedString("fileList.export", comment: "Export"), systemImage: "square.and.arrow.up")
+                }
+            }
+        } label: {
+            Image(systemName: "ellipsis.circle")
+                .imageScale(.large)
+                .foregroundStyle(.secondary)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(NSLocalizedString("fileList.options", comment: "File options"))
     }
     
     /// Swipe action buttons (only shown in normal mode)
     @ViewBuilder
     private func swipeActionButtons(for file: TextFile) -> some View {
-        Button {
-            onMove([file])
-        } label: {
-            Label("fileList.move", systemImage: "folder")
+        // Move button only shown if onMove is provided (General Purpose projects)
+        if let onMove = onMove {
+            Button {
+                onMove([file])
+            } label: {
+                Label("fileList.move", systemImage: "folder")
+            }
+            .tint(.blue)
         }
-        .tint(.blue)
         
         Button {
             prepareDelete([file])
@@ -389,20 +456,6 @@ struct FileListView: View {
     /// Bottom toolbar content for edit mode
     @ViewBuilder
     private var bottomToolbarContent: some View {
-        Button {
-            onMove(selectedFiles)
-            exitEditMode()
-        } label: {
-            Label(
-                String(format: NSLocalizedString("fileList.moveCount", comment: "Move count"), selectedFiles.count),
-                systemImage: "folder"
-            )
-        }
-        .disabled(selectedFiles.isEmpty)
-        .accessibilityLabel("fileList.moveSelected.accessibility")
-        
-        Spacer()
-        
         // Change Status button (if onChangeStatus callback provided)
         if let onChangeStatus = onChangeStatus {
             Button {
@@ -451,8 +504,9 @@ struct FileListView: View {
         }
         
         // Rename button (only when exactly 1 file is selected)
-        if selectedFiles.count == 1, onRename != nil {
+        if selectedFiles.count == 1, let file = selectedFiles.first, onRename != nil {
             Button {
+                renameText = file.name
                 showRenameModal = true
             } label: {
                 Label(
@@ -518,20 +572,12 @@ struct FileListView: View {
         }
         
         // Workflow status change option (only if callback provided)
-        if onChangeStatus != nil {
+        if let onChangeStatus = onChangeStatus {
             Divider()
             
-            Menu {
-                ForEach(WorkflowStatus.allCases, id: \.self) { status in
-                    Button {
-                        file.workflowStatus = status
-                    } label: {
-                        HStack {
-                            Image(systemName: status.systemImage)
-                            Text(status.localizedName)
-                        }
-                    }
-                }
+            // Use callback to show status picker (parent handles status change and submission sync)
+            Button {
+                onChangeStatus([file])
             } label: {
                 Label(NSLocalizedString("fileList.contextMenu.changeStatus", comment: "Change Status"), systemImage: "arrow.triangle.2.circlepath")
             }
@@ -539,13 +585,14 @@ struct FileListView: View {
         
         Divider()
         
-        Button {
-            onMove([file])
-        } label: {
-            Label("fileList.contextMenu.moveTo", systemImage: "folder")
+        // Move option (only for General Purpose projects)
+        if let onMove = onMove {
+            Button {
+                onMove([file])
+            } label: {
+                Label("fileList.contextMenu.moveTo", systemImage: "folder")
+            }
         }
-        
-        Divider()
         
         Button(role: .destructive) {
             prepareDelete([file])
@@ -596,6 +643,40 @@ struct FileListView: View {
         }
     }
     
+    // MARK: - Rename Methods
+    
+    /// Handles rename - checks for duplicates
+    private func handleRename() {
+        guard let fileToRename = selectedFiles.first else { return }
+        let trimmedName = renameText.trimmingCharacters(in: .whitespaces)
+        
+        // Check if a file with this name already exists
+        let hasDuplicate = files.contains { otherFile in
+            otherFile.id != fileToRename.id &&
+            otherFile.name.lowercased() == trimmedName.lowercased()
+        }
+        
+        if hasDuplicate {
+            showRenameDuplicateWarning = true
+        } else {
+            confirmRename()
+        }
+    }
+    
+    /// Performs the actual rename
+    private func confirmRename() {
+        guard let fileToRename = selectedFiles.first else { return }
+        let trimmedName = renameText.trimmingCharacters(in: .whitespaces)
+        
+        if !trimmedName.isEmpty && trimmedName != fileToRename.name {
+            fileToRename.name = trimmedName
+            onRename?([fileToRename])
+        }
+        
+        renameText = ""
+        selectedFileIDs.removeAll()
+    }
+    
     // MARK: - Section Persistence
     
     /// Saves the last opened section to UserDefaults
@@ -623,13 +704,12 @@ struct FileListView: View {
 
 /// Button that shows submission icon and opens submission history for a file
 /// Only displayed if the file has at least one submission
-/// NOTE: Uses the file's submittedFiles relationship instead of a query for performance
 private struct SubmissionsButton: View {
     @State private var showSubmissions = false
     
     let file: TextFile
     
-    // Count submissions from the file's relationship (no separate query needed!)
+    // Count submissions from the file's relationship
     private var submissionCount: Int {
         file.submittedFiles?.count ?? 0
     }
@@ -642,6 +722,8 @@ private struct SubmissionsButton: View {
             } label: {
                 Image(systemName: "paperplane.circle")
                     .foregroundStyle(.blue)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel(Text(String(format: NSLocalizedString("accessibility.file.submissions", comment: "File submissions"), submissionCount)))

@@ -82,6 +82,7 @@ struct ProjectTemplateService {
                 "folder.locations",
                 "folder.chapters",
                 "folder.plot",
+                "folder.manuscript",
                 // Collections and Submissions
                 "folder.collections",
                 "folder.submissions",

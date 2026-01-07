@@ -168,50 +168,11 @@ struct SubmissionDetailView: View {
         submittedFile.status = status
         submittedFile.statusDate = Date()
         
-        // If accepted, move file to Published folder
+        // If accepted, update file's workflow status to published
         if status == .accepted, let file = submittedFile.textFile {
-            moveToPublishedFolder(file)
+            file.workflowStatus = .published
+            file.modifiedDate = Date()
         }
-    }
-    
-    private func moveToPublishedFolder(_ file: TextFile) {
-        // Get the project
-        guard let project = file.project else { return }
-        
-        // Find or create Published folder
-        let publishedFolder = findOrCreatePublishedFolder(in: project)
-        
-        // Move file to Published folder
-        file.parentFolder = publishedFolder
-        file.modifiedDate = Date()
-        
-        // Save context
-        do {
-            try modelContext.save()
-        } catch {
-            #if DEBUG
-            print("Error moving file to Published folder: \(error)")
-            #endif
-        }
-    }
-    
-    private func findOrCreatePublishedFolder(in project: Project) -> Folder {
-        // Try to find existing Published folder
-        if let folders = project.folders {
-            if let published = folders.first(where: { $0.name == "Published" }) {
-                return published
-            }
-        }
-        
-        // Create new Published folder if it doesn't exist
-        let publishedFolder = Folder(
-            name: "Published",
-            project: project,
-            parentFolder: nil
-        )
-        modelContext.insert(publishedFolder)
-        
-        return publishedFolder
     }
 }
 

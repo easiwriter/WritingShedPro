@@ -153,7 +153,8 @@ struct FormattedTextEditor: UIViewRepresentable {
         // Disable autocorrect and text suggestions to prevent unwanted text insertion
         // This prevents iOS from inserting spaces when dismissing autocomplete
         textView.autocorrectionType = .no
-        textView.autocapitalizationType = .sentences
+        // Disable auto-capitalization for poetry projects (poets often use lowercase intentionally)
+        textView.autocapitalizationType = (project?.type == .poetry) ? .none : .sentences
         textView.spellCheckingType = .yes  // Keep spell checking, just disable autocorrect
         
         // Configure text container for proper layout
@@ -228,6 +229,9 @@ struct FormattedTextEditor: UIViewRepresentable {
         
         // Set initial content - this should be done AFTER layout configuration
         textView.attributedText = attributedText
+        
+        // Initialize previousTextLength for paste detection
+        context.coordinator.previousTextLength = attributedText.length
         
         // Update caption numbers for image attachments (Feature 016)
         // This must be done after setting the attributed text
@@ -402,6 +406,9 @@ struct FormattedTextEditor: UIViewRepresentable {
             // Update text storage directly for better control
             // This ensures attributes are properly applied
             textView.textStorage.setAttributedString(attributedText)
+            
+            // Update previousTextLength after programmatic updates to avoid false paste detection
+            context.coordinator.previousTextLength = attributedText.length
             
             // Update caption numbers for image attachments (Feature 016)
             // This must be done after setting the attributed string
@@ -613,6 +620,7 @@ struct FormattedTextEditor: UIViewRepresentable {
         var isUpdatingFromSwiftUI = false
         weak var textView: UITextView?
         var previousSelection: NSRange = NSRange(location: 0, length: 0)
+        var previousTextLength: Int = 0  // Track text length to detect paste operations
         var currentZoomScale: CGFloat = 1.0
         
         init(_ parent: FormattedTextEditor) {
@@ -776,12 +784,53 @@ struct FormattedTextEditor: UIViewRepresentable {
             }
             #endif
             
-            // PERFORMANCE FIX: Only check .textStyle at cursor position, not the entire document
-            // UITextView sometimes strips this when typing, so reapply it
-            // The old approach enumerated the entire document twice per keystroke - very slow
+            // Detect paste operation: more than 1 character was inserted
             let textStorage = textView.textStorage
             let cursorPos = textView.selectedRange.location
-            if textStorage.length > 0 && cursorPos > 0 && cursorPos <= textStorage.length {
+            let currentLength = textStorage.length
+            let insertedLength = currentLength - previousTextLength
+            
+            // PASTE FIX: If multiple characters were inserted, normalize colors for the entire range
+            // This handles pasted text that may have hardcoded black color from external sources
+            if insertedLength > 1 && cursorPos >= insertedLength {
+                let pasteStartPos = cursorPos - insertedLength
+                let pasteRange = NSRange(location: pasteStartPos, length: insertedLength)
+                
+                #if DEBUG
+                print("📋 Paste detected: \(insertedLength) characters inserted at position \(pasteStartPos)")
+                #endif
+                
+                // Enumerate through the pasted range and fix colors
+                textStorage.enumerateAttribute(.foregroundColor, in: pasteRange, options: []) { value, range, _ in
+                    if let color = value as? UIColor {
+                        // Check if it's pure black - replace with .label for dark mode compatibility
+                        if let hex = color.toHex()?.uppercased(),
+                           (hex == "#000000" || hex == "#000000FF") {
+                            textStorage.addAttribute(.foregroundColor, value: UIColor.label, range: range)
+                            #if DEBUG
+                            print("📋 Fixed black color in pasted text at range \(range)")
+                            #endif
+                        }
+                    } else {
+                        // No color attribute - add .label
+                        textStorage.addAttribute(.foregroundColor, value: UIColor.label, range: range)
+                        #if DEBUG
+                        print("📋 Added .label color to pasted text at range \(range)")
+                        #endif
+                    }
+                }
+                
+                // Also ensure .textStyle is set for pasted content
+                textStorage.enumerateAttribute(.textStyle, in: pasteRange, options: []) { value, range, _ in
+                    if value == nil {
+                        textStorage.addAttribute(.textStyle, value: UIFont.TextStyle.body.rawValue, range: range)
+                    }
+                }
+            } else if currentLength > 0 && cursorPos > 0 && cursorPos <= currentLength {
+                // PERFORMANCE FIX: Only check .textStyle at cursor position, not the entire document
+                // UITextView sometimes strips this when typing, so reapply it
+                // The old approach enumerated the entire document twice per keystroke - very slow
+                
                 // Only check the character just typed (at cursor - 1)
                 let checkPos = cursorPos - 1
                 if textStorage.attribute(.textStyle, at: checkPos, effectiveRange: nil) == nil {
@@ -818,6 +867,9 @@ struct FormattedTextEditor: UIViewRepresentable {
                     #endif
                 }
             }
+            
+            // Update previous text length for next change detection
+            previousTextLength = currentLength
             
             // Update the binding so SwiftUI state stays in sync
             // Update if either content OR formatting changed

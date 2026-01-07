@@ -11,16 +11,76 @@ import SwiftData
 /// View showing all submissions for a specific file
 struct FileSubmissionsView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
     
     let file: TextFile
     
+    // Query all SubmittedFiles to ensure fresh data
     @Query private var allSubmittedFiles: [SubmittedFile]
+    
+    // Query all Submissions to ensure relationships are loaded
+    @Query private var allSubmissions: [Submission]
+    
+    // Query all Publications to ensure relationships are loaded
+    @Query private var allPublications: [Publication]
     
     // Filter to only submitted files for this specific file
     private var fileSubmissions: [SubmittedFile] {
         allSubmittedFiles
             .filter { $0.textFile?.id == file.id }
             .sorted { ($0.submission?.submittedDate ?? Date.distantPast) > ($1.submission?.submittedDate ?? Date.distantPast) }
+    }
+    
+    // Helper to find publication/collection name for a submittedFile
+    private func publicationName(for submittedFile: SubmittedFile) -> String {
+        guard let submission = submittedFile.submission else {
+            return NSLocalizedString("submissions.unknownPublication", comment: "Unknown")
+        }
+        
+        // Find the fully-loaded submission from our query
+        let matchedSubmission = allSubmissions.first(where: { $0.id == submission.id }) ?? submission
+        
+        // If it's a collection (no publication), use the collection name
+        if matchedSubmission.isCollection || matchedSubmission.publication == nil {
+            if let name = matchedSubmission.name, !name.isEmpty {
+                return name
+            }
+        }
+        
+        // It's a publication submission - get the publication name
+        if let publication = matchedSubmission.publication {
+            return publication.name
+        }
+        
+        // Try to find publication from our publications query
+        if let pubId = submission.publication?.id,
+           let matchedPub = allPublications.first(where: { $0.id == pubId }) {
+            return matchedPub.name
+        }
+        
+        // Last resort: use submission name if available
+        if let name = matchedSubmission.name, !name.isEmpty {
+            return name
+        }
+        
+        return NSLocalizedString("submissions.unknownPublication", comment: "Unknown")
+    }
+    
+    // Helper to check if a submittedFile is in a collection (vs publication submission)
+    private func isCollection(for submittedFile: SubmittedFile) -> Bool {
+        guard let submission = submittedFile.submission else { return false }
+        
+        // Find the fully-loaded submission from our query
+        let matchedSubmission = allSubmissions.first(where: { $0.id == submission.id }) ?? submission
+        
+        // Use only the explicit isCollection flag
+        return matchedSubmission.isCollection
+    }
+    
+    // Get the submission for a submittedFile (fully loaded from query)
+    private func submission(for submittedFile: SubmittedFile) -> Submission? {
+        guard let submission = submittedFile.submission else { return nil }
+        return allSubmissions.first(where: { $0.id == submission.id }) ?? submission
     }
     
     var body: some View {
@@ -35,7 +95,27 @@ struct FileSubmissionsView: View {
                 } else {
                     List {
                         ForEach(fileSubmissions) { submittedFile in
-                            SubmissionHistoryRow(submittedFile: submittedFile)
+                            if let submission = submission(for: submittedFile) {
+                                NavigationLink {
+                                    SubmissionFilesView(
+                                        submission: submission,
+                                        submissionName: publicationName(for: submittedFile),
+                                        isCollection: isCollection(for: submittedFile)
+                                    )
+                                } label: {
+                                    SubmissionHistoryRow(
+                                        submittedFile: submittedFile,
+                                        publicationName: publicationName(for: submittedFile),
+                                        isCollection: isCollection(for: submittedFile)
+                                    )
+                                }
+                            } else {
+                                SubmissionHistoryRow(
+                                    submittedFile: submittedFile,
+                                    publicationName: publicationName(for: submittedFile),
+                                    isCollection: isCollection(for: submittedFile)
+                                )
+                            }
                         }
                     }
                 }
@@ -53,85 +133,84 @@ struct FileSubmissionsView: View {
     }
 }
 
-/// Row showing a single submission entry for a file
-private struct SubmissionHistoryRow: View {
-    let submittedFile: SubmittedFile
+/// View showing all files in a submission
+private struct SubmissionFilesView: View {
+    let submission: Submission
+    let submissionName: String
+    let isCollection: Bool
     
-    private var statusColor: Color {
-        submittedFile.status?.color ?? .secondary
-    }
+    @Query private var allSubmittedFiles: [SubmittedFile]
     
-    private var statusIcon: String {
-        switch submittedFile.status {
-        case .pending:
-            return "⏳"
-        case .accepted:
-            return "✓"
-        case .rejected:
-            return "✗"
-        case .none:
-            return "⏳"
-        }
+    private var filesInSubmission: [SubmittedFile] {
+        allSubmittedFiles
+            .filter { $0.submission?.id == submission.id }
+            .sorted { ($0.textFile?.name ?? "") < ($1.textFile?.name ?? "") }
     }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            // Publication name and type
-            HStack {
-                if let publication = submittedFile.submission?.publication {
-                    Text(publication.type?.icon ?? "📄")
-                        .font(.title3)
-                    
-                    Text(publication.name)
-                        .font(.headline)
-                    
-                    Spacer()
-                    
-                    // Status badge
-                    HStack(spacing: 4) {
-                        Text(statusIcon)
-                        Text(submittedFile.status?.displayName ?? NSLocalizedString("submissions.status.pending", comment: "Pending"))
-                            .font(.caption)
+        List {
+            ForEach(filesInSubmission) { submittedFile in
+                if let textFile = submittedFile.textFile {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(textFile.name)
+                                .font(.headline)
+                            
+                            if let folderName = textFile.parentFolder?.name {
+                                Text(folderName)
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        
+                        Spacer()
+                        
+                        // For publication submissions, show status
+                        if !isCollection, let status = submittedFile.status {
+                            Text(status.displayName)
+                                .font(.caption)
+                                .foregroundStyle(status.color)
+                        }
                     }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(statusColor.opacity(0.2))
-                    .foregroundStyle(statusColor)
-                    .clipShape(Capsule())
+                }
+            }
+        }
+        .navigationTitle(submissionName)
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+/// Row showing a single submission entry for a file
+private struct SubmissionHistoryRow: View {
+    let submittedFile: SubmittedFile
+    let publicationName: String
+    let isCollection: Bool
+    
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(publicationName)
+                    .font(.headline)
+                
+                // Show submission date
+                if let submission = submittedFile.submission {
+                    Text(submission.submittedDate.formatted(date: .numeric, time: .omitted))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                 }
             }
             
-            // Submission date
-            if let submission = submittedFile.submission {
-                Text(String(format: NSLocalizedString("submissions.submitted.on", comment: "Submitted on"), 
-                           submission.submittedDate.formatted(date: .abbreviated, time: .omitted)))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+            Spacer()
             
-            // Status date if different from submission date
-            if let statusDate = submittedFile.statusDate,
-               submittedFile.status != .pending {
-                Text(String(format: NSLocalizedString("submissions.status.updated.on", comment: "Status updated on"),
-                           statusDate.formatted(date: .abbreviated, time: .omitted)))
+            // Indicate collection vs publication
+            if isCollection {
+                Label("Collection", systemImage: "folder")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-            }
-            
-            // Response time
-            if submittedFile.status != .pending {
-                Text(String(format: NSLocalizedString("submissions.response.time", comment: "Response time"),
-                           submittedFile.responseTime))
+            } else {
+                Label("Publication", systemImage: "newspaper")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-            }
-            
-            // Status notes if present
-            if let notes = submittedFile.statusNotes, !notes.isEmpty {
-                Text(notes)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(.top, 4)
             }
         }
         .padding(.vertical, 4)

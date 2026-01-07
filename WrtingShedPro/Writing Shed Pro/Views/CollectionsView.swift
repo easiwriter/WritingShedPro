@@ -45,7 +45,9 @@ struct CollectionsView: View {
     // State for rename
     @State private var showRenameSheet = false
     @State private var collectionToRename: Submission?
-    
+    @State private var renameText = ""
+    @State private var showRenameDuplicateWarning = false
+
     // Query all Submissions for this project
     @Query private var allSubmissions: [Submission]
     
@@ -202,9 +204,9 @@ struct CollectionsView: View {
                         project: project,
                         filesToSubmit: nil,
                         collectionToSubmit: selectedCollections.first,
-                        onPublicationSelected: { publication in
+                        onPublicationSelected: { publication, name in
                             // Handle submission to publication
-                            submitCollectionsToPublication(publication)
+                            submitCollectionsToPublication(publication, name: name)
                             showPublicationPicker = false
                         },
                         onCancel: {
@@ -214,19 +216,27 @@ struct CollectionsView: View {
                 }
             }
         }
-        .sheet(isPresented: $showRenameSheet) {
-            if let collection = collectionToRename {
-                RenameCollectionModal(
-                    collection: collection,
-                    collectionsInProject: sortedCollections,
-                    onRename: { _ in
-                        selectedCollectionIDs.removeAll()
-                        withAnimation {
-                            editMode = .inactive
-                        }
-                    }
-                )
+        .alert("collectionsView.rename.title", isPresented: $showRenameSheet) {
+            TextField("collectionsView.rename.placeholder", text: $renameText)
+            
+            Button("collectionsView.rename.cancel", role: .cancel) {
+                renameText = ""
+                collectionToRename = nil
             }
+            
+            Button("collectionsView.rename.confirm") {
+                handleCollectionRename()
+            }
+        } message: {
+            Text("collectionsView.rename.prompt")
+        }
+        .alert("collectionsView.rename.duplicateTitle", isPresented: $showRenameDuplicateWarning) {
+            Button("collectionsView.rename.duplicateConfirm", role: .destructive) {
+                confirmCollectionRename()
+            }
+            Button("collectionsView.rename.duplicateCancel", role: .cancel) { }
+        } message: {
+            Text("collectionsView.rename.duplicateMessage")
         }
         .confirmationDialog(
             String(format: NSLocalizedString("collectionsView.deleteConfirmation.title", comment: "Delete confirmation"), 
@@ -279,29 +289,56 @@ struct CollectionsView: View {
                 toggleSelection(for: collection)
             }
         } else {
-            // In normal mode, use NavigationLink
-            NavigationLink(destination: CollectionDetailView(submission: collection)) {
-                HStack {
-                    Image(systemName: "tray.2.fill")
-                        .foregroundStyle(.blue)
-                        .font(.title3)
-                        .accessibilityHidden(true)
-                    
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(collection.name ?? NSLocalizedString("collectionsView.untitled", comment: "Untitled Collection"))
-                            .font(.body)
+            // In normal mode, use HStack with NavigationLink and ellipsis menu
+            HStack {
+                NavigationLink(destination: CollectionDetailView(submission: collection)) {
+                    HStack {
+                        Image(systemName: "tray.2.fill")
+                            .foregroundStyle(.blue)
+                            .font(.title3)
+                            .accessibilityHidden(true)
                         
-                        // Show count of files in this collection
-                        let fileCount = collection.submittedFiles?.count ?? 0
-                        Text(String(format: NSLocalizedString("collections.files.count", comment: "Files in collection"), fileCount))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(collection.name ?? NSLocalizedString("collectionsView.untitled", comment: "Untitled Collection"))
+                                .font(.body)
+                            
+                            // Show count of files in this collection
+                            let fileCount = collection.submittedFiles?.count ?? 0
+                            Text(String(format: NSLocalizedString("collections.files.count", comment: "Files in collection"), fileCount))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        
+                        Spacer()
                     }
-                    
-                    Spacer()
                 }
+                
+                // Ellipsis menu for collection options
+                collectionOptionsMenu(for: collection)
             }
         }
+    }
+    
+    /// Options menu for a collection (ellipsis button)
+    @ViewBuilder
+    private func collectionOptionsMenu(for collection: Submission) -> some View {
+        Menu {
+            Button {
+                collectionToRename = collection
+                renameText = collection.name ?? ""
+                showRenameSheet = true
+            } label: {
+                Label(NSLocalizedString("collectionsView.rename", comment: "Rename"), systemImage: "pencil")
+            }
+        } label: {
+            Image(systemName: "ellipsis.circle")
+                .imageScale(.large)
+                .foregroundStyle(.secondary)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(NSLocalizedString("collectionsView.options", comment: "Collection options"))
     }
     
     @ViewBuilder
@@ -359,6 +396,7 @@ struct CollectionsView: View {
     private func renameSelectedCollection() {
         guard let collection = selectedCollections.first else { return }
         collectionToRename = collection
+        renameText = collection.name ?? ""
         showRenameSheet = true
     }
     
@@ -376,6 +414,44 @@ struct CollectionsView: View {
         showDeleteConfirmation = true
     }
     
+    // MARK: - Rename Methods
+    
+    /// Handles rename - checks for duplicates
+    private func handleCollectionRename() {
+        guard let collection = collectionToRename else { return }
+        let trimmedName = renameText.trimmingCharacters(in: .whitespaces)
+        
+        // Check if a collection with this name already exists
+        let hasDuplicate = sortedCollections.contains { otherCollection in
+            otherCollection.id != collection.id &&
+            (otherCollection.name ?? "").lowercased() == trimmedName.lowercased()
+        }
+        
+        if hasDuplicate {
+            showRenameDuplicateWarning = true
+        } else {
+            confirmCollectionRename()
+        }
+    }
+    
+    /// Performs the actual rename
+    private func confirmCollectionRename() {
+        guard let collection = collectionToRename else { return }
+        let trimmedName = renameText.trimmingCharacters(in: .whitespaces)
+        
+        if !trimmedName.isEmpty && trimmedName != collection.name {
+            collection.name = trimmedName
+            collection.modifiedDate = Date()
+        }
+        
+        renameText = ""
+        collectionToRename = nil
+        selectedCollectionIDs.removeAll()
+        withAnimation {
+            editMode = .inactive
+        }
+    }
+
     private func confirmDelete() {
         for collection in collectionsToDelete {
             modelContext.delete(collection)
@@ -468,22 +544,24 @@ struct CollectionsView: View {
         }
     }
     
-    private func submitCollectionsToPublication(_ publication: Publication) {
-        // For each selected collection, create submitted file records for all its files to the publication
+    private func submitCollectionsToPublication(_ publication: Publication, name: String) {
+        // For each selected collection, create ONE submission with all its files
         for collection in selectedCollections {
+            // Create a single submission for this collection -> publication
+            let submission = Submission(
+                publication: publication,
+                project: project,
+                submittedDate: Date(),
+                notes: nil
+            )
+            submission.isCollection = false  // This is a submission to publication, not a collection
+            // Use provided name, or fall back to collection name
+            submission.name = name.isEmpty ? collection.name : name
+            modelContext.insert(submission)
+            
+            // Add all files from the collection to this single submission
             if let submittedFiles = collection.submittedFiles {
                 for submittedFile in submittedFiles {
-                    // Create a new submission for this publication
-                    let submission = Submission(
-                        publication: publication,
-                        project: project,
-                        submittedDate: Date(),
-                        notes: nil
-                    )
-                    submission.isCollection = false  // This is a submission to publication, not a collection
-                    modelContext.insert(submission)
-                    
-                    // Create submitted file record for the text file
                     if let textFile = submittedFile.textFile, let version = submittedFile.version {
                         let newSubmittedFile = SubmittedFile(
                             submission: submission,
@@ -720,8 +798,8 @@ struct CollectionDetailView: View {
                         project: project,
                         filesToSubmit: nil,
                         collectionToSubmit: submission,
-                        onPublicationSelected: { publication in
-                            createSubmissionFromCollection(to: publication)
+                        onPublicationSelected: { publication, name in
+                            createSubmissionFromCollection(to: publication, name: name)
                             showSubmissionPicker = false
                         },
                         onCancel: {
@@ -800,7 +878,7 @@ struct CollectionDetailView: View {
         }
     }
     
-    private func createSubmissionFromCollection(to publication: Publication) {
+    private func createSubmissionFromCollection(to publication: Publication, name: String) {
         guard let project = submission.project else { return }
         
         // Create new Submission as Publication Submission
@@ -808,7 +886,8 @@ struct CollectionDetailView: View {
             publication: publication,
             project: project
         )
-        pubSubmission.name = submission.name  // Preserve collection name in submission
+        // Use provided name, or fall back to collection name
+        pubSubmission.name = name.isEmpty ? submission.name : name
         pubSubmission.collectionDescription = submission.collectionDescription
         pubSubmission.isCollection = false  // This is a submission to publication, not a collection
         

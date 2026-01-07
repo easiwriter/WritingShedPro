@@ -20,12 +20,11 @@ struct FolderFilesView: View {
     // Query all folders to ensure we have fresh relationships
     @Query private var allFolders: [Folder]
     
+    // Query all files to ensure we have fresh data (relationships can be stale)
+    @Query private var allTextFiles: [TextFile]
+    
     // State for edit mode (shared with FileListView)
     @State private var editMode: EditMode = .inactive
-    
-    // State for move destination picker
-    @State private var showMoveDestinationPicker = false
-    @State private var filesToMove: [TextFile] = []
     
     // State for add file sheet
     @State private var showAddFileSheet = false
@@ -93,14 +92,24 @@ struct FolderFilesView: View {
     @State private var showStatusPicker = false
     @State private var filesToChangeStatus: [TextFile] = []
     
+    // State for file movement (General Purpose projects only)
+    @State private var showMoveDestinationPicker = false
+    @State private var filesToMove: [TextFile] = []
+    
     // Whether this is a content folder that uses workflow status
     private var isContentFolder: Bool {
         FolderCapabilityService.isContentFolder(folder)
     }
     
+    // Whether this is a General Purpose project (supports file movement)
+    private var isGeneralPurposeProject: Bool {
+        folder.project?.type == .generalPurpose
+    }
+    
     // All files in folder (unfiltered) for counting
+    // Uses query results filtered by folder ID for reliable data
     private var allFiles: [TextFile] {
-        folder.textFiles ?? []
+        allTextFiles.filter { $0.parentFolder?.id == folder.id }
     }
     
     // Count of files for a specific workflow status
@@ -114,7 +123,7 @@ struct FolderFilesView: View {
     
     // Files sorted alphabetically and filtered by workflow status if applicable
     private var sortedFiles: [TextFile] {
-        var files: [TextFile] = folder.textFiles ?? []
+        var files: [TextFile] = allFiles
         
         // Apply workflow status filter for content folders
         if isContentFolder, let filter = statusFilter {
@@ -125,13 +134,18 @@ struct FolderFilesView: View {
         return FileSortService.sort(files, by: .byName)
     }
     
-    // Check if this folder supports submissions (has files with Ready status)
+    // Check if this folder supports submissions (Ready filter active)
     private var supportsSubmissions: Bool {
         // Content folders support submissions when viewing Ready files
         if isContentFolder {
             return statusFilter == .ready
         }
         return false
+    }
+    
+    // Check if this folder supports adding to collections (any content folder)
+    private var supportsAddToCollection: Bool {
+        return isContentFolder
     }
     
     // Check if this folder supports mixed content (both files and subfolders)
@@ -188,10 +202,10 @@ struct FolderFilesView: View {
                             selectedFile = file
                             navigateToFile = true
                         },
-                        onMove: { files in
+                        onMove: isGeneralPurposeProject ? { files in
                             filesToMove = files
                             showMoveDestinationPicker = true
-                        },
+                        } : nil,
                         onDelete: { files in
                             deleteFiles(files)
                         },
@@ -353,8 +367,8 @@ struct FolderFilesView: View {
                         project: project,
                         filesToSubmit: filesToSubmit,
                         collectionToSubmit: nil,
-                        onPublicationSelected: { publication in
-                            createSubmission(for: publication)
+                        onPublicationSelected: { publication, name in
+                            createSubmission(for: publication, name: name)
                             showSubmissionPicker = false
                         },
                         onCancel: {
@@ -402,12 +416,10 @@ struct FolderFilesView: View {
                     project: project,
                     currentFolder: folder,
                     folderToMove: folderToMove,
-                    filesToMove: filesToMove,
+                    filesToMove: [],  // No longer used for file movement
                     onDestinationSelected: { destination in
                         if let folderMoving = folderToMove {
                             moveSubfolder(folderMoving, to: destination)
-                        } else {
-                            moveFilesToFolder(filesToMove, to: destination)
                         }
                         showFolderMoveDestinationPicker = false
                     },
@@ -545,7 +557,7 @@ struct FolderFilesView: View {
     }
     
     private var fileListOnAddToCollection: (([TextFile]) -> Void)? {
-        supportsSubmissions ? { files in
+        supportsAddToCollection ? { files in
             filesToAddToCollection = files
             showCollectionPicker = true
         } : nil
@@ -794,16 +806,6 @@ struct FolderFilesView: View {
             .foregroundStyle(.primary)
         }
         .contextMenu {
-            Button {
-                folderToMove = nil  // Moving files, not folder
-                filesToMove = [file]
-                showFolderMoveDestinationPicker = true
-            } label: {
-                Label(NSLocalizedString("folderFiles.moveToFolder", comment: "Move to Folder"), systemImage: "folder")
-            }
-            
-            Divider()
-            
             Button(role: .destructive) {
                 deleteFiles([file])
             } label: {
@@ -832,26 +834,7 @@ struct FolderFilesView: View {
     @ViewBuilder
     private var mixedContentBottomToolbar: some View {
         let totalSelected = selectedFileIDs.count + selectedFolderIDs.count
-        
-        // Move button with count
-        Button {
-            // Move selected files and folders
-            filesToMove = selectedFiles
-            if let firstFolder = selectedFolders.first {
-                folderToMove = firstFolder
-            }
-            showFolderMoveDestinationPicker = true
-        } label: {
-            HStack(spacing: 4) {
-                Image(systemName: "folder")
-                Text("(\(totalSelected))")
-                    .font(.caption)
-            }
-        }
-        .disabled(totalSelected == 0)
-        .accessibilityLabel(String(format: NSLocalizedString("fileList.moveCount", comment: "Move count"), totalSelected))
-        
-        Spacer()
+        let filesOnlySelected = !selectedFileIDs.isEmpty && selectedFolderIDs.isEmpty
         
         // Deselect all button
         Button {
@@ -864,6 +847,19 @@ struct FolderFilesView: View {
         .accessibilityLabel(NSLocalizedString("fileList.deselectAll", comment: "Deselect all"))
         
         Spacer()
+        
+        // Submit button (only when files selected, no folders)
+        if filesOnlySelected {
+            Button {
+                filesToSubmit = selectedFiles
+                showSubmissionPicker = true
+            } label: {
+                Image(systemName: "paperplane")
+            }
+            .accessibilityLabel(NSLocalizedString("fileList.submit", comment: "Submit files"))
+            
+            Spacer()
+        }
         
         // Trash button
         Button(role: .destructive) {
@@ -985,9 +981,16 @@ struct FolderFilesView: View {
     }
     
     /// Change the workflow status of files
+    /// Also resets submission status when changing away from published
     private func changeFilesStatus(_ files: [TextFile], to newStatus: WorkflowStatus) {
         for file in files {
+            let wasPublished = file.workflowStatus == .published
             file.workflowStatus = newStatus
+            
+            // If changing away from published, reset any accepted submission records to pending
+            if wasPublished && newStatus != .published {
+                resetSubmissionStatus(for: file)
+            }
         }
         
         do {
@@ -999,6 +1002,32 @@ struct FolderFilesView: View {
         }
     }
     
+    /// Reset submission status for a file when it's no longer published
+    private func resetSubmissionStatus(for file: TextFile) {
+        // Get all SubmittedFile records for this file
+        let fileId = file.id
+        let descriptor = FetchDescriptor<SubmittedFile>(
+            predicate: #Predicate { submittedFile in
+                submittedFile.textFile?.id == fileId
+            }
+        )
+        
+        do {
+            let submittedFiles = try modelContext.fetch(descriptor)
+            for submittedFile in submittedFiles {
+                if submittedFile.status == .accepted {
+                    submittedFile.status = .pending
+                    submittedFile.statusDate = Date()
+                }
+            }
+        } catch {
+            #if DEBUG
+            print("Error resetting submission status: \(error)")
+            #endif
+        }
+    }
+    
+    /// Move files to a destination folder (General Purpose projects only)
     private func moveFiles(to destination: Folder) {
         let service = FileMoveService(modelContext: modelContext)
         
@@ -1029,22 +1058,7 @@ struct FolderFilesView: View {
         }
     }
     
-    /// Move files to a destination folder (for General Purpose mixed content folders)
-    private func moveFilesToFolder(_ files: [TextFile], to destination: Folder) {
-        let service = FileMoveService(modelContext: modelContext)
-        
-        do {
-            try service.moveFiles(files, to: destination)
-            filesToMove = []
-        } catch {
-            #if DEBUG
-            print("Error moving files to folder: \(error)")
-            #endif
-            // TODO: Show error alert
-        }
-    }
-    
-    private func createSubmission(for publication: Publication) {
+    private func createSubmission(for publication: Publication, name: String) {
         guard let project = folder.project else { return }
         
         // Create submission
@@ -1054,6 +1068,8 @@ struct FolderFilesView: View {
             submittedDate: Date(),
             notes: nil
         )
+        submission.name = name
+        submission.isCollection = false  // This is a submission to a publication
         modelContext.insert(submission)
         
         // Create submitted file records for each selected file
@@ -1071,6 +1087,9 @@ struct FolderFilesView: View {
             }
         }
         
+        // Clear selection after submission
+        selectedFileIDs.removeAll()
+        editMode = .inactive
         filesToSubmit = []
     }
     

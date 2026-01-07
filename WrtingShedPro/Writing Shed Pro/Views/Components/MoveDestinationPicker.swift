@@ -57,20 +57,24 @@ struct MoveDestinationPicker: View {
     
     // MARK: - Computed Properties
     
-    /// Available destination folders (excluding current folder and Trash)
+    /// Available destination folders (excluding current folder and system folders)
     private var availableFolders: [Folder] {
         guard let allFolders = project.folders else { return [] }
+        
+        // Excluded folder names (system folders that shouldn't be move destinations)
+        let excludedFolders: Set<String> = [
+            "trash", "collections", "submissions", "publications", 
+            "research", "published", "manuscript"
+        ]
         
         return allFolders.filter { folder in
             // Exclude current folder
             guard folder.id != currentFolder.id else { return false }
             
-            // Only include source folders (Draft, Ready, Set Aside)
+            // Exclude system folders
             guard let folderName = folder.name?.lowercased() else { return false }
             
-            return folderName == "draft" || 
-                   folderName == "ready" || 
-                   folderName == "set aside"
+            return !excludedFolders.contains(folderName)
         }
         .sorted { ($0.name ?? "") < ($1.name ?? "") }
     }

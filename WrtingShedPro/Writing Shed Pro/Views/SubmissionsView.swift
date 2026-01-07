@@ -20,6 +20,17 @@ struct SubmissionsView: View {
     // State for sorting
     @State private var sortOrder: SubmissionSortOrder = .bySubmittedDate
     
+    // State for edit mode
+    @State private var editMode: EditMode = .inactive
+    @State private var selectedSubmissionIDs: Set<UUID> = []
+    
+    // State for delete confirmation
+    @State private var submissionsToDelete: [Submission] = []
+    @State private var showDeleteConfirmation = false
+    
+    // State for submitting to publication
+    @State private var showPublicationPicker = false
+    
     // Query all Submissions for this project where publication is not nil
     @Query private var allSubmissions: [Submission]
     
@@ -54,23 +65,70 @@ struct SubmissionsView: View {
         Group {
             if !sortedSubmissions.isEmpty {
                 // Show list of submissions
-                List {
+                List(selection: $selectedSubmissionIDs) {
                     ForEach(sortedSubmissions) { submission in
                         submissionRow(for: submission)
+                            .tag(submission.id)
                     }
                 }
                 .listStyle(.plain)
+                .environment(\.editMode, $editMode)
                 .toolbar {
                     ToolbarItem(placement: .navigationBarTrailing) {
-                        Menu {
-                            Picker("Sort by", selection: $sortOrder) {
-                                ForEach(SubmissionSortOrder.allCases, id: \.self) { order in
-                                    Text(order.displayName).tag(order)
+                        HStack {
+                            // Edit button
+                            Button {
+                                withAnimation {
+                                    if editMode == .active {
+                                        editMode = .inactive
+                                        selectedSubmissionIDs.removeAll()
+                                    } else {
+                                        editMode = .active
+                                    }
                                 }
+                            } label: {
+                                Text(editMode == .active ? "Done" : "Edit")
                             }
-                        } label: {
-                            Label("Sort", systemImage: "arrow.up.arrow.down")
+                            
+                            // Sort menu
+                            Menu {
+                                Picker("Sort by", selection: $sortOrder) {
+                                    ForEach(SubmissionSortOrder.allCases, id: \.self) { order in
+                                        Text(order.displayName).tag(order)
+                                    }
+                                }
+                            } label: {
+                                Label("Sort", systemImage: "arrow.up.arrow.down")
+                            }
                         }
+                    }
+                }
+                // Bottom toolbar when in edit mode with selections
+                .safeAreaInset(edge: .bottom) {
+                    if editMode == .active && !selectedSubmissionIDs.isEmpty {
+                        HStack {
+                            // Submit to publication button
+                            Button {
+                                showPublicationPicker = true
+                            } label: {
+                                Image(systemName: "paperplane")
+                            }
+                            .accessibilityLabel(NSLocalizedString("submissions.submit", comment: "Submit to publication"))
+                            
+                            Spacer()
+                            
+                            // Trash button
+                            Button(role: .destructive) {
+                                let selected = sortedSubmissions.filter { selectedSubmissionIDs.contains($0.id) }
+                                submissionsToDelete = selected
+                                showDeleteConfirmation = true
+                            } label: {
+                                Image(systemName: "trash")
+                            }
+                            .accessibilityLabel(String(format: NSLocalizedString("submissions.deleteCount", comment: "Delete count"), selectedSubmissionIDs.count))
+                        }
+                        .padding()
+                        .background(.bar)
                     }
                 }
             } else {
@@ -88,6 +146,102 @@ struct SubmissionsView: View {
             ToolbarItem(placement: .topBarLeading) {
                 PopToRootBackButton()
             }
+        }
+        .alert(submissionsToDelete.count == 1 ? "Delete Submission?" : "Delete \(submissionsToDelete.count) Submissions?", isPresented: $showDeleteConfirmation) {
+            Button("Cancel", role: .cancel) {
+                submissionsToDelete = []
+            }
+            Button("Delete", role: .destructive) {
+                deleteSubmissions(submissionsToDelete)
+                submissionsToDelete = []
+                selectedSubmissionIDs.removeAll()
+            }
+        } message: {
+            if submissionsToDelete.count == 1, let submission = submissionsToDelete.first {
+                Text("This will delete the submission record for \"\(submission.name ?? "Untitled")\". Your files will not be deleted.")
+            } else {
+                Text("This will delete \(submissionsToDelete.count) submission records. Your files will not be deleted.")
+            }
+        }
+        .sheet(isPresented: $showPublicationPicker) {
+            NavigationStack {
+                SubmissionPickerView(
+                    project: project,
+                    filesToSubmit: nil,
+                    collectionToSubmit: nil,
+                    onPublicationSelected: { publication, name in
+                        submitSelectedToPublication(publication, name: name)
+                        showPublicationPicker = false
+                    },
+                    onCancel: {
+                        showPublicationPicker = false
+                    }
+                )
+            }
+        }
+    }
+    
+    // MARK: - Submit to Publication
+    
+    private func submitSelectedToPublication(_ publication: Publication, name: String) {
+        let selectedSubmissions = sortedSubmissions.filter { selectedSubmissionIDs.contains($0.id) }
+        
+        for existingSubmission in selectedSubmissions {
+            // Create a new submission for this publication
+            let newSubmission = Submission(
+                publication: publication,
+                project: project,
+                submittedDate: Date(),
+                notes: nil
+            )
+            // Use the provided name, or fall back to existing submission name
+            newSubmission.name = name.isEmpty ? existingSubmission.name : name
+            newSubmission.isCollection = false
+            modelContext.insert(newSubmission)
+            
+            // Copy all files from the existing submission
+            if let submittedFiles = existingSubmission.submittedFiles {
+                for submittedFile in submittedFiles {
+                    if let textFile = submittedFile.textFile, let version = submittedFile.version {
+                        let newSubmittedFile = SubmittedFile(
+                            submission: newSubmission,
+                            textFile: textFile,
+                            version: version,
+                            status: .pending,
+                            statusDate: Date(),
+                            project: project
+                        )
+                        modelContext.insert(newSubmittedFile)
+                    }
+                }
+            }
+        }
+        
+        do {
+            try modelContext.save()
+            selectedSubmissionIDs.removeAll()
+            withAnimation {
+                editMode = .inactive
+            }
+        } catch {
+            #if DEBUG
+            print("Error submitting to publication: \(error)")
+            #endif
+        }
+    }
+    
+    // MARK: - Delete
+    
+    private func deleteSubmissions(_ submissions: [Submission]) {
+        for submission in submissions {
+            modelContext.delete(submission)
+        }
+        do {
+            try modelContext.save()
+        } catch {
+            #if DEBUG
+            print("Error deleting submissions: \(error)")
+            #endif
         }
     }
     
@@ -108,6 +262,22 @@ struct SubmissionsView: View {
                     .foregroundColor(.secondary)
             }
             .padding(.vertical, 4)
+        }
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            Button(role: .destructive) {
+                submissionsToDelete = [submission]
+                showDeleteConfirmation = true
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+        }
+        .contextMenu {
+            Button(role: .destructive) {
+                submissionsToDelete = [submission]
+                showDeleteConfirmation = true
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
         }
     }
     

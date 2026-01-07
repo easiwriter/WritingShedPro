@@ -9,7 +9,8 @@
 import SwiftUI
 import SwiftData
 
-/// Modal for renaming a single collection with duplicate name detection
+/// View that presents an alert for renaming a collection
+/// This uses an alert with TextField which sizes correctly on all platforms
 struct RenameCollectionModal: View {
     // MARK: - Properties
     
@@ -29,57 +30,42 @@ struct RenameCollectionModal: View {
     
     @State private var newName: String = ""
     @State private var showDuplicateWarning = false
-    @FocusState private var isNameFieldFocused: Bool
     
     // MARK: - Body
     
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 20) {
-                // Instructions
-                Text("collectionsView.rename.prompt")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                
-                // Text input field
+        Color.clear
+            .alert("collectionsView.rename.title", isPresented: .constant(true)) {
                 TextField("collectionsView.rename.placeholder", text: $newName)
-                    .textFieldStyle(.roundedBorder)
-                    .focused($isNameFieldFocused)
                     .onAppear {
                         newName = collection.name ?? ""
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                            isNameFieldFocused = true
-                        }
                     }
                 
-                Spacer()
-            }
-            .padding()
-            .navigationTitle("collectionsView.rename.title")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("collectionsView.rename.confirm") {
-                        handleRename()
-                    }
-                    .disabled(newName.trimmingCharacters(in: .whitespaces).isEmpty || newName == collection.name)
+                Button("collectionsView.rename.cancel", role: .cancel) {
+                    dismiss()
                 }
                 
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("collectionsView.rename.cancel") {
-                        dismiss()
-                    }
+                Button("collectionsView.rename.confirm") {
+                    handleRename()
                 }
+                .disabled(!canRename)
+            } message: {
+                Text("collectionsView.rename.prompt")
             }
-        }
-        .alert("collectionsView.rename.duplicateTitle", isPresented: $showDuplicateWarning) {
-            Button("collectionsView.rename.duplicateConfirm", role: .destructive) {
-                confirmRename()
+            .alert("collectionsView.rename.duplicateTitle", isPresented: $showDuplicateWarning) {
+                Button("collectionsView.rename.duplicateConfirm", role: .destructive) {
+                    confirmRename()
+                }
+                Button("collectionsView.rename.duplicateCancel", role: .cancel) { }
+            } message: {
+                Text("collectionsView.rename.duplicateMessage")
             }
-            Button("collectionsView.rename.duplicateCancel", role: .cancel) { }
-        } message: {
-            Text("collectionsView.rename.duplicateMessage")
-        }
+    }
+    
+    // MARK: - Computed Properties
+    
+    private var canRename: Bool {
+        !newName.trimmingCharacters(in: .whitespaces).isEmpty && newName != collection.name
     }
     
     // MARK: - Private Methods

@@ -14,16 +14,32 @@ struct SubmissionPickerView: View {
     let project: Project
     let filesToSubmit: [TextFile]?
     let collectionToSubmit: Submission?
-    let onPublicationSelected: (Publication) -> Void
+    let onPublicationSelected: (Publication, String) -> Void  // Now includes submission name
     let onCancel: () -> Void
     
     @Query private var allPublications: [Publication]
     @State private var showingNewPublicationSheet = false
+    @State private var submissionName: String = ""
+    @State private var selectedPublication: Publication? = nil
     
     // Filter publications for this project
     private var projectPublications: [Publication] {
         allPublications.filter { $0.project?.id == project.id }
             .sorted { $0.name < $1.name }
+    }
+    
+    // Generate a default name based on files
+    private var defaultSubmissionName: String {
+        if let collection = collectionToSubmit, let name = collection.name {
+            return name
+        } else if let files = filesToSubmit {
+            if files.count == 1 {
+                return files[0].name
+            } else if files.count > 1 {
+                return "\(files[0].name) + \(files.count - 1) more"
+            }
+        }
+        return "Submission"
     }
     
     private var submissionTitle: String {
@@ -38,6 +54,15 @@ struct SubmissionPickerView: View {
     
     var body: some View {
         List {
+            // Submission name section
+            Section {
+                TextField(NSLocalizedString("submissions.name.placeholder", comment: "Submission name placeholder"), text: $submissionName)
+                    .textInputAutocapitalization(.words)
+                    .accessibilityLabel(Text("submissions.name.label"))
+            } header: {
+                Text(NSLocalizedString("submissions.name.header", comment: "Submission Name"))
+            }
+            
             // New Publication button section
             Section {
                 Button(action: { showingNewPublicationSheet = true }) {
@@ -52,7 +77,8 @@ struct SubmissionPickerView: View {
                 Section {
                     ForEach(projectPublications) { publication in
                         Button(action: {
-                            onPublicationSelected(publication)
+                            let name = submissionName.trimmingCharacters(in: .whitespaces).isEmpty ? defaultSubmissionName : submissionName.trimmingCharacters(in: .whitespaces)
+                            onPublicationSelected(publication, name)
                         }) {
                             HStack {
                                 Text(publication.type?.icon ?? "")
@@ -102,6 +128,12 @@ struct SubmissionPickerView: View {
                 }
             }
         }
+        .onAppear {
+            // Set default name on appear
+            if submissionName.isEmpty {
+                submissionName = defaultSubmissionName
+            }
+        }
         .sheet(isPresented: $showingNewPublicationSheet) {
             NavigationStack {
                 NewPublicationForSubmissionView(
@@ -110,7 +142,8 @@ struct SubmissionPickerView: View {
                     collectionToSubmit: collectionToSubmit,
                     onPublicationCreated: { publication in
                         showingNewPublicationSheet = false
-                        onPublicationSelected(publication)
+                        let name = submissionName.trimmingCharacters(in: .whitespaces).isEmpty ? defaultSubmissionName : submissionName.trimmingCharacters(in: .whitespaces)
+                        onPublicationSelected(publication, name)
                     },
                     onCancel: {
                         showingNewPublicationSheet = false

@@ -218,6 +218,7 @@ struct NewCollectionForBulkOperationView: View {
             project: project
         )
         newCollection.name = trimmedName
+        newCollection.isCollection = true  // Mark as collection so it appears in Collections folder
         
         modelContext.insert(newCollection)
         
