@@ -598,7 +598,30 @@ class JSONImportService {
         print("[JSONImport] Total collectionComponentDatas: \(data.collectionComponentDatas.count)")
         #endif
         
-        // First, count how many are collections vs submissions
+        // First, build a GLOBAL map of all CollectionSubmissionData from ALL components
+        // The collectionSubmissionsDatas might be stored on WS_Submission_Entity or WS_Collection_Entity
+        var globalCollectionSubmissionMap: [String: CollectionSubmissionData] = [:]
+        for componentData in data.collectionComponentDatas {
+            if let submissionDatas = componentData.collectionSubmissionsDatas {
+                for submissionData in submissionDatas {
+                    // Store by both raw ID and stripped ID
+                    globalCollectionSubmissionMap[submissionData.id] = submissionData
+                    // Also strip project prefix if present
+                    if let lastParenIndex = submissionData.id.lastIndex(of: ")") {
+                        let cleanId = String(submissionData.id[submissionData.id.index(after: lastParenIndex)...])
+                        globalCollectionSubmissionMap[cleanId] = submissionData
+                    }
+                }
+            }
+        }
+        #if DEBUG
+        print("[JSONImport] Built global CollectionSubmission map with \(globalCollectionSubmissionMap.count) entries")
+        if !globalCollectionSubmissionMap.isEmpty {
+            print("[JSONImport]   Keys: \(globalCollectionSubmissionMap.keys.joined(separator: ", "))")
+        }
+        #endif
+        
+        // Count how many are collections vs submissions
         let collections = data.collectionComponentDatas.filter { $0.type == "WS_Collection_Entity" }
         let submissions = data.collectionComponentDatas.filter { $0.type == "WS_Submission_Entity" }
         #if DEBUG
@@ -656,8 +679,17 @@ class JSONImportService {
                     let submissionIds = try PropertyListDecoder().decode([String].self, from: collectionSubmissionIdsData)
                     hasSubmissionIds = !submissionIds.isEmpty
                     
-                    // If we have submission IDs, try to find the publication from collectionSubmissionsDatas
-                    if hasSubmissionIds, let collectionSubmissionsDatas = componentData.collectionSubmissionsDatas {
+                    #if DEBUG
+                    print("[JSONImport]   collectionSubmissionIds decoded: \(submissionIds)")
+                    #endif
+                    
+                    // If we have submission IDs, try to find the publication
+                    // First try the global map (built from ALL components), then fall back to local
+                    if hasSubmissionIds {
+                        #if DEBUG
+                        print("[JSONImport]   Looking for publication link using global map (\(globalCollectionSubmissionMap.count) entries)")
+                        #endif
+                        
                         // Find the first collectionSubmission that matches one of our IDs
                         for submissionId in submissionIds {
                             // Strip any project prefix from submissionId
@@ -668,14 +700,50 @@ class JSONImportService {
                                 cleanSubmissionId = submissionId
                             }
                             
-                            // Find matching collectionSubmissionData
-                            if let collectionSubmissionData = collectionSubmissionsDatas.first(where: { $0.id == cleanSubmissionId || $0.id == submissionId }) {
-                                linkedPublicationId = collectionSubmissionData.submissionId
+                            #if DEBUG
+                            print("[JSONImport]   Looking for collectionSubmission with ID: \(cleanSubmissionId) (original: \(submissionId))")
+                            #endif
+                            
+                            // Try global map first (checks both raw and clean ID)
+                            let collectionSubmissionData = globalCollectionSubmissionMap[submissionId] 
+                                ?? globalCollectionSubmissionMap[cleanSubmissionId]
+                                ?? componentData.collectionSubmissionsDatas?.first(where: { $0.id == cleanSubmissionId || $0.id == submissionId })
+                            
+                            if let collectionSubmissionData = collectionSubmissionData {
+                                // The submissionId in CollectionSubmissionData may also have a project prefix
+                                let rawPubId = collectionSubmissionData.submissionId
+                                let cleanPubId: String
+                                if let lastParenIndex = rawPubId.lastIndex(of: ")") {
+                                    cleanPubId = String(rawPubId[rawPubId.index(after: lastParenIndex)...])
+                                } else {
+                                    cleanPubId = rawPubId
+                                }
+                                
                                 #if DEBUG
-                                print("[JSONImport]   Found publication link: \(linkedPublicationId ?? "nil")")
+                                print("[JSONImport]   Found collectionSubmission, raw submissionId: \(rawPubId), cleaned: \(cleanPubId)")
+                                print("[JSONImport]   Available publicationMap keys: \(publicationMap.keys.joined(separator: ", "))")
+                                #endif
+                                
+                                // Try both original and cleaned ID
+                                if publicationMap[rawPubId] != nil {
+                                    linkedPublicationId = rawPubId
+                                } else if publicationMap[cleanPubId] != nil {
+                                    linkedPublicationId = cleanPubId
+                                } else {
+                                    linkedPublicationId = cleanPubId  // Will fail but at least we log it
+                                }
+                                
+                                #if DEBUG
+                                print("[JSONImport]   Using publication ID: \(linkedPublicationId ?? "nil")")
                                 #endif
                                 break
                             }
+                        }
+                        
+                        if linkedPublicationId == nil {
+                            #if DEBUG
+                            print("[JSONImport]   ⚠️ No matching collectionSubmission found in global map or local data")
+                            #endif
                         }
                     }
                 } catch {

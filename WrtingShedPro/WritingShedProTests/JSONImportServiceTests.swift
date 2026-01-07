@@ -152,6 +152,54 @@ final class JSONImportServiceTests: XCTestCase {
         XCTAssertFalse(isCollection, "Should be a Submission, not a Collection")
     }
     
+    func testCollectionComponentData_WithSubmissionAndPublicationLink() throws {
+        // Test that collections with collectionSubmissionsDatas can be linked to publications
+        
+        let publicationId = "pub-123"
+        let collectionSubmissionId = "cs-456"
+        
+        // Create submission IDs array with the collectionSubmission ID
+        let submissionIds = [collectionSubmissionId]
+        let submissionData = try PropertyListEncoder().encode(submissionIds)
+        
+        // Create the CollectionSubmissionData that links to the publication
+        let collectionSubmissionData = CollectionSubmissionData(
+            type: "WS_CollectionSubmission_Entity",
+            id: collectionSubmissionId,
+            submissionId: publicationId,  // This links to the WS_Submission_Entity (Publication)
+            collectionId: "collection-789",
+            collectionSubmission: "{}"
+        )
+        
+        let componentData = CollectionComponentData(
+            type: "WS_Collection_Entity",
+            id: "test-submission-1",
+            collectionComponent: "{\"name\":\"Test Submission\",\"groupName\":\"Submissions\"}",
+            notes: Data(),
+            notesText: "",
+            collectionSubmissionsDatas: [collectionSubmissionData],  // Include the link data
+            collectionSubmissionIds: submissionData,
+            submissionSubmissionIds: nil,
+            textCollectionData: nil,
+            collectedTextIds: nil
+        )
+        
+        // Verify has submission IDs
+        XCTAssertNotNil(componentData.collectionSubmissionIds)
+        XCTAssertNotNil(componentData.collectionSubmissionsDatas)
+        XCTAssertEqual(componentData.collectionSubmissionsDatas?.count, 1)
+        
+        // Decode and simulate the linking logic
+        let decoded = try PropertyListDecoder().decode([String].self, from: componentData.collectionSubmissionIds!)
+        XCTAssertEqual(decoded.count, 1)
+        XCTAssertEqual(decoded[0], collectionSubmissionId)
+        
+        // Simulate finding the collectionSubmissionData
+        let foundData = componentData.collectionSubmissionsDatas?.first(where: { $0.id == decoded[0] })
+        XCTAssertNotNil(foundData, "Should find matching CollectionSubmissionData")
+        XCTAssertEqual(foundData?.submissionId, publicationId, "Should have the publication ID")
+    }
+    
     // MARK: - Project Name Cleaning Tests
     
     func testProjectName_RemovesTimestamp() throws {
