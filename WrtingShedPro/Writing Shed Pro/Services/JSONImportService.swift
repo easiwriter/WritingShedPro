@@ -643,17 +643,41 @@ class JSONImportService {
             submission.name = collectionName  // Set the collection name!
             submission.submittedDate = submittedDate
             submission.project = project
-            submission.publication = nil  // Explicitly set to nil for collections
             
             // In legacy app, folder placement is determined by collectionSubmissions relationship:
             //   Collections folder: WS_Collection_Entity with no collectionSubmissionIds (not yet submitted)
             //   Submissions folder: WS_Collection_Entity with collectionSubmissionIds (has been submitted)
             // Check if this collection has collectionSubmissionIds - need to decode the plist to check if empty
             var hasSubmissionIds = false
+            var linkedPublicationId: String?
+            
             if let collectionSubmissionIdsData = componentData.collectionSubmissionIds {
                 do {
                     let submissionIds = try PropertyListDecoder().decode([String].self, from: collectionSubmissionIdsData)
                     hasSubmissionIds = !submissionIds.isEmpty
+                    
+                    // If we have submission IDs, try to find the publication from collectionSubmissionsDatas
+                    if hasSubmissionIds, let collectionSubmissionsDatas = componentData.collectionSubmissionsDatas {
+                        // Find the first collectionSubmission that matches one of our IDs
+                        for submissionId in submissionIds {
+                            // Strip any project prefix from submissionId
+                            let cleanSubmissionId: String
+                            if let lastParenIndex = submissionId.lastIndex(of: ")") {
+                                cleanSubmissionId = String(submissionId[submissionId.index(after: lastParenIndex)...])
+                            } else {
+                                cleanSubmissionId = submissionId
+                            }
+                            
+                            // Find matching collectionSubmissionData
+                            if let collectionSubmissionData = collectionSubmissionsDatas.first(where: { $0.id == cleanSubmissionId || $0.id == submissionId }) {
+                                linkedPublicationId = collectionSubmissionData.submissionId
+                                #if DEBUG
+                                print("[JSONImport]   Found publication link: \(linkedPublicationId ?? "nil")")
+                                #endif
+                                break
+                            }
+                        }
+                    }
                 } catch {
                     #if DEBUG
                     print("[JSONImport]   ⚠️ Could not decode collectionSubmissionIds: \(error)")
@@ -663,11 +687,24 @@ class JSONImportService {
             
             submission.isCollection = !hasSubmissionIds
             
+            // Link to publication if this is a submission (not a collection)
             if hasSubmissionIds {
+                if let pubId = linkedPublicationId, let publication = publicationMap[pubId] {
+                    submission.publication = publication
+                    #if DEBUG
+                    print("[JSONImport]   ✅ Linked to publication: \(publication.name)")
+                    #endif
+                } else {
+                    #if DEBUG
+                    print("[JSONImport]   ⚠️ Has collectionSubmissionIds but could not find publication. ID: \(linkedPublicationId ?? "nil")")
+                    #endif
+                    // Still mark as submission (not collection) so it appears in Submissions folder
+                }
                 #if DEBUG
                 print("[JSONImport]   ✅ Has collectionSubmissionIds - will appear in Submissions folder")
                 #endif
             } else {
+                submission.publication = nil  // Explicitly set to nil for collections
                 #if DEBUG
                 print("[JSONImport]   ✅ No collectionSubmissionIds - will appear in Collections folder")
                 #endif
