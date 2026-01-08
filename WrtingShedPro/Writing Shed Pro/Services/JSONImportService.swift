@@ -43,15 +43,13 @@ class JSONImportService {
     
     // MARK: - Main Import Method
     
-    /// Import a project from a Writing Shed v1 JSON export file
-    /// - Parameter fileURL: URL to the JSON file
+    /// Import a project from a JSON export file (detects format automatically)
+    /// - Parameter fileURL: URL to the JSON file (.wsd or .wsp)
     /// - Returns: The imported project
     /// - Throws: ImportError if import fails
     func importFromJSON(fileURL: URL) throws -> Project {
         #if DEBUG
         print("[JSONImport] ========== IMPORT START ==========")
-        #endif
-        #if DEBUG
         print("[JSONImport] File: \(fileURL.lastPathComponent)")
         #endif
         
@@ -61,7 +59,240 @@ class JSONImportService {
         print("[JSONImport] File size: \(jsonData.count) bytes")
         #endif
         
-        // Decode JSON
+        // Detect format by trying to decode WSP format first
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        
+        // Check file extension first for hint
+        let fileExtension = fileURL.pathExtension.lowercased()
+        
+        if fileExtension == "wsp" {
+            // Try WSP format
+            do {
+                let wspData = try decoder.decode(WSPExportData.self, from: jsonData)
+                #if DEBUG
+                print("[JSONImport] Detected WSP format (version \(wspData.formatVersion))")
+                #endif
+                return try importFromWSP(wspData)
+            } catch {
+                #if DEBUG
+                print("[JSONImport] WSP decode failed: \(error), trying legacy format")
+                #endif
+            }
+        }
+        
+        // Try legacy WSD format (also used for .json files)
+        return try importFromLegacyWSD(jsonData: jsonData)
+    }
+    
+    /// Import from Writing Shed Pro native format (.wsp)
+    private func importFromWSP(_ data: WSPExportData) throws -> Project {
+        #if DEBUG
+        print("[JSONImport] ===== WSP IMPORT =====")
+        print("[JSONImport] Project Name: \(data.project.name)")
+        print("[JSONImport] Format Version: \(data.formatVersion)")
+        print("[JSONImport] Folders: \(data.folders.count)")
+        #endif
+        
+        // Create project
+        let projectType = ProjectType(rawValue: data.project.type) ?? .generalPurpose
+        var projectName = data.project.name
+        projectName = ensureUniqueName(projectName)
+        
+        let project = Project(
+            name: projectName,
+            type: projectType,
+            creationDate: data.project.creationDate ?? Date(),
+            details: data.project.details,
+            notes: data.project.notes
+        )
+        project.modifiedDate = data.project.modifiedDate ?? Date()
+        project.statusRaw = data.project.status
+        project.fictionClassRaw = data.project.fictionClass
+        project.useMonomyth = data.project.useMonomyth
+        
+        modelContext.insert(project)
+        
+        // Create ID maps for linking
+        var textFileMap: [String: TextFile] = [:]
+        var versionMap: [String: Version] = [:]
+        var publicationMap: [String: Publication] = [:]
+        
+        // Import folders (includes text files and versions)
+        for folderData in data.folders {
+            let folder = importWSPFolder(folderData, project: project, parentFolder: nil, textFileMap: &textFileMap, versionMap: &versionMap)
+            modelContext.insert(folder)
+        }
+        
+        // Import publications
+        for pubData in data.publications {
+            let publication = Publication(
+                id: UUID(uuidString: pubData.id) ?? UUID(),
+                name: pubData.name,
+                type: pubData.type.flatMap { PublicationType(rawValue: $0) } ?? .magazine,
+                url: pubData.url,
+                notes: pubData.notes,
+                deadline: pubData.deadline,
+                project: project
+            )
+            publication.createdDate = pubData.createdDate
+            publication.modifiedDate = pubData.modifiedDate
+            publicationMap[pubData.id] = publication
+            modelContext.insert(publication)
+        }
+        
+        // Import submissions
+        for subData in data.submissions {
+            let submission = Submission(
+                id: UUID(uuidString: subData.id) ?? UUID(),
+                publication: subData.publicationId.flatMap { publicationMap[$0] },
+                project: project,
+                submittedDate: subData.submittedDate,
+                notes: subData.notes
+            )
+            submission.name = subData.name
+            submission.collectionDescription = subData.collectionDescription
+            submission.isCollection = subData.isCollection
+            submission.userOrder = subData.userOrder
+            submission.createdDate = subData.createdDate
+            submission.modifiedDate = subData.modifiedDate
+            
+            modelContext.insert(submission)
+            
+            // Import submitted files
+            for sfData in subData.submittedFiles {
+                let submittedFile = SubmittedFile(
+                    id: UUID(uuidString: sfData.id) ?? UUID(),
+                    submission: submission,
+                    textFile: sfData.textFileId.flatMap { textFileMap[$0] },
+                    version: sfData.versionId.flatMap { versionMap[$0] },
+                    status: sfData.status.flatMap { SubmissionStatus(rawValue: $0) } ?? .pending,
+                    statusDate: sfData.statusDate,
+                    statusNotes: sfData.statusNotes,
+                    project: project
+                )
+                submittedFile.createdDate = sfData.createdDate
+                submittedFile.modifiedDate = sfData.modifiedDate
+                modelContext.insert(submittedFile)
+            }
+        }
+        
+        // Save
+        try modelContext.save()
+        
+        #if DEBUG
+        print("[JSONImport] ===== WSP IMPORT COMPLETE =====")
+        #endif
+        
+        return project
+    }
+    
+    /// Import a folder from WSP format (recursive)
+    private func importWSPFolder(_ data: WSPFolderData, project: Project, parentFolder: Folder?, textFileMap: inout [String: TextFile], versionMap: inout [String: Version]) -> Folder {
+        let folder = Folder(
+            name: data.name,
+            project: parentFolder == nil ? project : nil,
+            parentFolder: parentFolder,
+            userOrder: data.userOrder
+        )
+        folder.id = UUID(uuidString: data.id) ?? UUID()
+        
+        // Import text files
+        for tfData in data.textFiles {
+            let textFile = importWSPTextFile(tfData, folder: folder, versionMap: &versionMap)
+            textFileMap[tfData.id] = textFile
+            modelContext.insert(textFile)
+        }
+        
+        // Import subfolders recursively
+        for subfolderData in data.subfolders {
+            let subfolder = importWSPFolder(subfolderData, project: project, parentFolder: folder, textFileMap: &textFileMap, versionMap: &versionMap)
+            modelContext.insert(subfolder)
+        }
+        
+        return folder
+    }
+    
+    /// Import a text file from WSP format
+    private func importWSPTextFile(_ data: WSPTextFileData, folder: Folder, versionMap: inout [String: Version]) -> TextFile {
+        let textFile = TextFile()
+        textFile.id = UUID(uuidString: data.id) ?? UUID()
+        textFile.name = data.name
+        textFile.createdDate = data.createdDate
+        textFile.modifiedDate = data.modifiedDate
+        textFile.currentVersionIndex = data.currentVersionIndex
+        textFile.userOrder = data.userOrder
+        textFile.workflowStatusRaw = data.workflowStatus
+        textFile.poetryFormId = data.poetryFormId.flatMap { UUID(uuidString: $0) }
+        textFile.poetryFormName = data.poetryFormName
+        textFile.parentFolder = folder
+        
+        // Clear auto-created version
+        textFile.versions = []
+        
+        // Import versions
+        for vData in data.versions {
+            let version = importWSPVersion(vData)
+            version.textFile = textFile
+            versionMap[vData.id] = version
+            modelContext.insert(version)
+        }
+        
+        return textFile
+    }
+    
+    /// Import a version from WSP format
+    private func importWSPVersion(_ data: WSPVersionData) -> Version {
+        let version = Version(
+            content: data.content,
+            versionNumber: data.versionNumber,
+            comment: data.comment
+        )
+        version.id = UUID(uuidString: data.id) ?? UUID()
+        version.createdDate = data.createdDate
+        version.notes = data.notes
+        
+        // Decode formatted content from base64
+        if let base64 = data.formattedContentBase64,
+           let rtfData = Data(base64Encoded: base64) {
+            version.formattedContent = rtfData
+        }
+        
+        // Import comments
+        for cData in data.comments {
+            let comment = CommentModel(
+                id: UUID(uuidString: cData.id) ?? UUID(),
+                version: version,
+                characterPosition: cData.characterPosition,
+                attachmentID: UUID(uuidString: cData.attachmentID) ?? UUID(),
+                text: cData.text,
+                author: cData.author,
+                createdAt: cData.createdAt,
+                resolvedAt: cData.resolvedAt
+            )
+            modelContext.insert(comment)
+        }
+        
+        // Import footnotes
+        for fData in data.footnotes {
+            let footnote = FootnoteModel(
+                id: UUID(uuidString: fData.id) ?? UUID(),
+                version: version,
+                characterPosition: fData.characterPosition,
+                attachmentID: UUID(uuidString: fData.attachmentID) ?? UUID(),
+                text: fData.text,
+                number: fData.number,
+                createdAt: fData.createdAt,
+                modifiedAt: fData.modifiedAt
+            )
+            modelContext.insert(footnote)
+        }
+        
+        return version
+    }
+    
+    /// Import from legacy Writing Shed format (.wsd/.json)
+    private func importFromLegacyWSD(jsonData: Data) throws -> Project {
         let decoder = JSONDecoder()
         let writingShedData = try decoder.decode(WritingShedData.self, from: jsonData)
         
@@ -320,10 +551,14 @@ class JSONImportService {
             #endif
             
             // Determine workflow status from original folder name
-            let workflowStatus = mapFolderNameToWorkflowStatus(textFileMetadata.folderName)
+            var workflowStatus = mapFolderNameToWorkflowStatus(textFileMetadata.folderName)
+            
+            // Check if the folder is a content folder (Poems, Scenes, Scripts, Files)
+            let isContentFolder = ["poems", "scenes", "scripts", "files"].contains(textFileMetadata.folderName.lowercased())
             
             // Determine target folder:
             // - Workflow folders (Draft, Ready, etc.) → content folder with status
+            // - Content folders (Poems, Scenes, Scripts, Files) → content folder with default .draft status
             // - Other folders (Research, Collections, etc.) → keep original folder
             let targetFolder: Folder
             if workflowStatus != nil {
@@ -331,6 +566,13 @@ class JSONImportService {
                 targetFolder = contentFolder
                 #if DEBUG
                 print("[JSONImport]   Mapped to content folder with status: \(workflowStatus?.rawValue ?? "nil")")
+                #endif
+            } else if isContentFolder {
+                // This is a content folder, put file there with default .draft status
+                targetFolder = contentFolder
+                workflowStatus = .draft
+                #if DEBUG
+                print("[JSONImport]   Content folder file, defaulting to .draft status")
                 #endif
             } else {
                 // Keep the original folder (Research, Collections, etc.)

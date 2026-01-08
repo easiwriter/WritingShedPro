@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
 
 /// A specialized EditableList for Project items
 struct ProjectEditableList: View {
@@ -13,6 +14,13 @@ struct ProjectEditableList: View {
     @State private var showDeleteConfirmation = false
     @State private var projectsToDelete: IndexSet?
     @State private var deleteInfo: (count: Int, firstName: String)?
+    
+    // Export state
+    @State private var projectToExport: Project?
+    @State private var exportData: Data?
+    @State private var exportFilename: String = ""
+    @State private var showExportError = false
+    @State private var exportErrorMessage = ""
     
     // Sort and display state
     private var sortedProjects: [Project] {
@@ -33,7 +41,10 @@ struct ProjectEditableList: View {
                         },
                         onManageFormsTapped: project.type == .poetry ? {
                             showingManageForms = true
-                        } : nil
+                        } : nil,
+                        onExportTapped: {
+                            exportProject(project)
+                        }
                     )
                 }
                 .buttonStyle(.plain)
@@ -76,6 +87,35 @@ struct ProjectEditableList: View {
         .sheet(isPresented: $showingManageForms) {
             PoetryFormManagementView()
         }
+        .fileExporter(
+            isPresented: Binding(
+                get: { exportData != nil },
+                set: { if !$0 { exportData = nil; projectToExport = nil } }
+            ),
+            document: exportData.map { ProjectExportDocument(data: $0) },
+            contentType: UTType("com.writing-shed.wsp") ?? .json,
+            defaultFilename: exportFilename
+        ) { result in
+            switch result {
+            case .success(let url):
+                #if DEBUG
+                print("[ProjectExport] ✅ Exported to: \(url.path)")
+                #endif
+            case .failure(let error):
+                #if DEBUG
+                print("[ProjectExport] ❌ Export failed: \(error)")
+                #endif
+                exportErrorMessage = error.localizedDescription
+                showExportError = true
+            }
+            exportData = nil
+            projectToExport = nil
+        }
+        .alert("Export Error", isPresented: $showExportError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(exportErrorMessage)
+        }
         .confirmationDialog(
             Text("projectEditableList.deleteTitle"),
             isPresented: $showDeleteConfirmation,
@@ -98,6 +138,32 @@ struct ProjectEditableList: View {
             }
         )
     }
+    
+    // MARK: - Export
+    
+    private func exportProject(_ project: Project) {
+        do {
+            let exportService = JSONExportService()
+            let data = try exportService.exportProject(project)
+            
+            // Set filename and trigger file exporter
+            exportFilename = "\(project.name ?? "Untitled").wsp"
+            projectToExport = project
+            exportData = data
+            
+            #if DEBUG
+            print("[ProjectExport] Prepared export for: \(project.name ?? "Untitled") (\(data.count) bytes)")
+            #endif
+        } catch {
+            #if DEBUG
+            print("[ProjectExport] ❌ Export preparation failed: \(error)")
+            #endif
+            exportErrorMessage = error.localizedDescription
+            showExportError = true
+        }
+    }
+    
+    // MARK: - Delete
     
     private func deleteProjects(at offsets: IndexSet) {
         // Safely capture project information before showing dialog

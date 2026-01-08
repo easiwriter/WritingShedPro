@@ -108,14 +108,29 @@ struct FileListView: View {
     
     // MARK: - Computed Properties
     
-    /// Selected files based on selectedFileIDs
+    /// Selected files based on selectedFileIDs (uses uniqueFiles to avoid duplicates)
     private var selectedFiles: [TextFile] {
-        files.filter { selectedFileIDs.contains($0.id) }
+        uniqueFiles.filter { selectedFileIDs.contains($0.id) }
     }
     
     /// Whether edit mode is currently active
     private var isEditMode: Bool {
         editMode?.wrappedValue == .active
+    }
+    
+    /// Deduplicated files - handles any database corruption where same file appears multiple times
+    private var uniqueFiles: [TextFile] {
+        var seenIDs = Set<UUID>()
+        return files.filter { file in
+            if seenIDs.contains(file.id) {
+                #if DEBUG
+                print("⚠️ [FileListView] Duplicate file detected: \(file.name) (ID: \(file.id))")
+                #endif
+                return false
+            }
+            seenIDs.insert(file.id)
+            return true
+        }
     }
     
     /// Whether toolbar should be visible (edit mode + items selected)
@@ -125,13 +140,13 @@ struct FileListView: View {
     
     /// Alphabetically grouped sections of files
     private var sections: [AlphabeticalSectionHelper.Section<TextFile>] {
-        AlphabeticalSectionHelper.groupFiles(files)
+        AlphabeticalSectionHelper.groupFiles(uniqueFiles)
     }
     
     /// Determines if alphabetical sections should be used
     /// Use sections when file count exceeds one screenful (~15 files)
     private var useSections: Bool {
-        files.count > 15
+        uniqueFiles.count > 15
     }
     
     // MARK: - Body
@@ -146,6 +161,7 @@ struct FileListView: View {
                         if expandedSections.contains(section.letter) {
                             ForEach(section.items) { file in
                                 fileRow(for: file)
+                                    .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                                         if !isEditMode {
                                             swipeActionButtons(for: file)
@@ -159,8 +175,9 @@ struct FileListView: View {
                 }
             } else {
                 // Show flat list for short lists
-                ForEach(files) { file in
+                ForEach(uniqueFiles) { file in
                     fileRow(for: file)
+                        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                             if !isEditMode {
                                 swipeActionButtons(for: file)
@@ -472,19 +489,22 @@ struct FileListView: View {
         }
         
         // Add to Collection button (if onAddToCollection callback provided)
+        // Only show for files with .ready status (not drafts)
         if let onAddToCollection = onAddToCollection {
-            Button {
-                onAddToCollection(selectedFiles)
-                exitEditMode()
-            } label: {
-                Label(
-                    NSLocalizedString("fileList.addToCollection", comment: "Add files to collection"),
-                    systemImage: "folder.badge.plus"
-                )
+            let readyFiles = selectedFiles.filter { $0.workflowStatus == .ready }
+            if !readyFiles.isEmpty {
+                Button {
+                    onAddToCollection(readyFiles)
+                    exitEditMode()
+                } label: {
+                    Label(
+                        NSLocalizedString("fileList.addToCollection", comment: "Add files to collection"),
+                        systemImage: "folder.badge.plus"
+                    )
+                }
+                
+                Spacer()
             }
-            .disabled(selectedFiles.isEmpty)
-            
-            Spacer()
         }
         
         // Submit button (if onSubmit callback provided)

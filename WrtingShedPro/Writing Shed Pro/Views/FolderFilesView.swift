@@ -108,8 +108,21 @@ struct FolderFilesView: View {
     
     // All files in folder (unfiltered) for counting
     // Uses query results filtered by folder ID for reliable data
+    // IMPORTANT: Deduplicate to handle any database corruption
     private var allFiles: [TextFile] {
-        allTextFiles.filter { $0.parentFolder?.id == folder.id }
+        let filtered = allTextFiles.filter { $0.parentFolder?.id == folder.id }
+        // Deduplicate by ID
+        var seenIDs = Set<UUID>()
+        return filtered.filter { file in
+            if seenIDs.contains(file.id) {
+                #if DEBUG
+                print("⚠️ [FolderFilesView] Duplicate file in query: \(file.name) (ID: \(file.id))")
+                #endif
+                return false
+            }
+            seenIDs.insert(file.id)
+            return true
+        }
     }
     
     // Count of files for a specific workflow status
@@ -143,7 +156,8 @@ struct FolderFilesView: View {
         return false
     }
     
-    // Check if this folder supports adding to collections (any content folder)
+    // Check if this folder supports adding to collections (content folders with Ready files only)
+    // Note: FileListView further filters to only show the button when Ready files are selected
     private var supportsAddToCollection: Bool {
         return isContentFolder
     }
@@ -159,8 +173,22 @@ struct FolderFilesView: View {
     }
     
     // Get files sorted by current sort order (for mixed content view)
+    // IMPORTANT: Deduplicate to handle any database corruption where the same file appears multiple times
     private var sortedMixedFiles: [TextFile] {
-        return FileSortService.sort(folder.textFiles ?? [], by: fileSortOrder)
+        let allFiles = folder.textFiles ?? []
+        // Deduplicate by ID, keeping only the first occurrence
+        var seenIDs = Set<UUID>()
+        let uniqueFiles = allFiles.filter { file in
+            if seenIDs.contains(file.id) {
+                #if DEBUG
+                print("⚠️ [FolderFilesView] Duplicate file detected: \(file.name) (ID: \(file.id))")
+                #endif
+                return false
+            }
+            seenIDs.insert(file.id)
+            return true
+        }
+        return FileSortService.sort(uniqueFiles, by: fileSortOrder)
     }
     
     // Whether edit mode is currently active

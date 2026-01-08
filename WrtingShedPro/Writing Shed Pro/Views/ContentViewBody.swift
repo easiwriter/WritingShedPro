@@ -91,7 +91,8 @@ struct ContentViewBody: View {
             .fileImporter(
                 isPresented: $state.showingJSONImportPicker,
                 allowedContentTypes: [
-                    UTType(filenameExtension: "wsd") ?? .data,
+                    UTType("com.writing-shed.wsd") ?? UTType(filenameExtension: "wsd") ?? .json,
+                    UTType("com.writing-shed.wsp") ?? UTType(filenameExtension: "wsp") ?? .json,
                     .json
                 ],
                 allowsMultipleSelection: false

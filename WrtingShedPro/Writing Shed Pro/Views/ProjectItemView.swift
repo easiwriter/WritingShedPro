@@ -6,6 +6,7 @@ struct ProjectItemView: View {
     let onInfoTapped: () -> Void
     let onPageSetupTapped: () -> Void
     var onManageFormsTapped: (() -> Void)? = nil
+    var onExportTapped: (() -> Void)? = nil
     
     @Environment(\.modelContext) var modelContext
     @Query(sort: \StyleSheet.name) private var allStyleSheets: [StyleSheet]
@@ -73,8 +74,10 @@ struct ProjectItemView: View {
                     Label("Select Stylesheet", systemImage: "textformat")
                 }
                 
-                Button(action: {}) {
-                    Label(NSLocalizedString("projectItem.exportProject", comment: "Export project"), systemImage: "arrow.up.doc")
+                if let onExportTapped = onExportTapped {
+                    Button(action: onExportTapped) {
+                        Label(NSLocalizedString("projectItem.exportProject", comment: "Export project"), systemImage: "arrow.up.doc")
+                    }
                 }
             } label: {
                 Image(systemName: "ellipsis.circle")
