@@ -4,15 +4,17 @@
 //
 //  Created on 2025-11-08.
 //  Feature: 008a-file-movement - Phase 4
+//  Updated: 2026-01-08 - Added Fiction scene trash support (Feature 022)
 //
 
 import SwiftUI
 import SwiftData
 
-/// View for displaying and managing trashed files with Put Back functionality.
+/// View for displaying and managing trashed files and scenes with Put Back functionality.
 ///
 /// **Key Features:**
 /// - Lists all trashed files for a project
+/// - Lists all trashed scenes for Fiction projects
 /// - Shows "From: {folder}" and deletion date
 /// - Edit mode with multi-select
 /// - Swipe actions for Put Back and Permanent Delete
@@ -38,8 +40,11 @@ struct TrashView: View {
     /// Edit mode state for multi-select (manual button instead of EditButton)
     @State private var editMode: EditMode = .inactive
     
-    /// Selected trash item IDs
+    /// Selected trash item IDs (for files)
     @State private var selectedItemIDs: Set<UUID> = []
+    
+    /// Selected scene IDs (for trashed scenes)
+    @State private var selectedSceneIDs: Set<UUID> = []
     
     /// Shows Put Back confirmation
     @State private var showPutBackConfirmation = false
@@ -50,14 +55,26 @@ struct TrashView: View {
     /// Items pending Put Back
     @State private var itemsToPutBack: [TrashItem] = []
     
+    /// Scenes pending restore
+    @State private var scenesToRestore: [FictionScene] = []
+    
     /// Items pending permanent deletion
     @State private var itemsToDelete: [TrashItem] = []
+    
+    /// Scenes pending permanent deletion
+    @State private var scenesToDelete: [FictionScene] = []
     
     /// Shows notification when restored to fallback folder
     @State private var showFallbackNotification = false
     
     /// Message for fallback notification
     @State private var fallbackMessage = ""
+    
+    /// Shows scene restore confirmation
+    @State private var showSceneRestoreConfirmation = false
+    
+    /// Shows scene delete confirmation
+    @State private var showSceneDeleteConfirmation = false
     
     // MARK: - Queries
     
@@ -80,9 +97,27 @@ struct TrashView: View {
     
     // MARK: - Computed Properties
     
+    /// Whether this is a fiction project
+    private var isFictionProject: Bool {
+        project.type == .fiction
+    }
+    
+    /// Trashed scenes for fiction projects
+    private var trashedScenes: [FictionScene] {
+        guard isFictionProject else { return [] }
+        return (project.scenes ?? [])
+            .filter { $0.isTrashed }
+            .sorted { ($0.trashedDate ?? Date.distantPast) > ($1.trashedDate ?? Date.distantPast) }
+    }
+    
     /// Selected trash items based on IDs
     private var selectedItems: [TrashItem] {
         allTrashItems.filter { selectedItemIDs.contains($0.id) }
+    }
+    
+    /// Selected scenes based on IDs
+    private var selectedScenes: [FictionScene] {
+        trashedScenes.filter { selectedSceneIDs.contains($0.id) }
     }
     
     /// Whether edit mode is active
@@ -92,14 +127,29 @@ struct TrashView: View {
     
     /// Whether toolbar should be visible
     private var showToolbar: Bool {
-        isEditMode && !selectedItemIDs.isEmpty
+        isEditMode && (!selectedItemIDs.isEmpty || !selectedSceneIDs.isEmpty)
+    }
+    
+    /// Total selected count for toolbar
+    private var totalSelectedCount: Int {
+        selectedItemIDs.count + selectedSceneIDs.count
+    }
+    
+    /// Whether trash is empty (no files or scenes)
+    private var isTrashEmpty: Bool {
+        allTrashItems.isEmpty && trashedScenes.isEmpty
+    }
+    
+    /// Whether there are any items that can be edited
+    private var hasAnyItems: Bool {
+        !allTrashItems.isEmpty || !trashedScenes.isEmpty
     }
     
     // MARK: - Body
     
     var body: some View {
         Group {
-            if allTrashItems.isEmpty {
+            if isTrashEmpty {
                 emptyStateView
             } else {
                 trashListView
@@ -117,7 +167,7 @@ struct TrashView: View {
             }
             ToolbarItemGroup(placement: .navigationBarTrailing) {
                 // Manual Edit/Done button (EditButton doesn't work with local @State)
-                if !allTrashItems.isEmpty {
+                if hasAnyItems {
                     Button {
                         #if DEBUG
                         print("🗑️ TrashView: Edit button tapped, current mode: \(editMode)")
@@ -169,9 +219,40 @@ struct TrashView: View {
         } message: {
             Text(fallbackMessage)
         }
+        // Scene restore confirmation
+        .confirmationDialog(
+            String(format: NSLocalizedString("trashView.restoreScenes.title", comment: "Restore scenes?"), scenesToRestore.count),
+            isPresented: $showSceneRestoreConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button(NSLocalizedString("trashView.restoreScene", comment: "Restore")) {
+                confirmRestoreScenes()
+            }
+            Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
+                scenesToRestore = []
+            }
+        } message: {
+            Text(NSLocalizedString("trashView.restoreScenes.message", comment: "Scenes will be restored to your project"))
+        }
+        // Scene delete confirmation
+        .confirmationDialog(
+            String(format: NSLocalizedString("trashView.deleteScenes.title", comment: "Delete scenes?"), scenesToDelete.count),
+            isPresented: $showSceneDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button(NSLocalizedString("trashView.deleteForever", comment: "Delete Forever"), role: .destructive) {
+                confirmDeleteScenes()
+            }
+            Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
+                scenesToDelete = []
+            }
+        } message: {
+            Text(NSLocalizedString("trashView.deleteScenes.message", comment: "This cannot be undone"))
+        }
         .onChange(of: editMode) { _, newValue in
             if newValue == .inactive {
                 selectedItemIDs.removeAll()
+                selectedSceneIDs.removeAll()
             }
         }
     }
@@ -188,43 +269,121 @@ struct TrashView: View {
         }
     }
     
-    /// List of trashed items
+    /// List of trashed items and scenes
     @ViewBuilder
     private var trashListView: some View {
         List {
-            ForEach(allTrashItems) { item in
-                HStack {
-                    // Selection indicator in edit mode
-                    if isEditMode {
-                        Image(systemName: selectedItemIDs.contains(item.id) ? "checkmark.circle.fill" : "circle")
-                            .foregroundStyle(selectedItemIDs.contains(item.id) ? .blue : .gray)
-                            .imageScale(.large)
+            // Trashed Scenes section (Fiction projects only)
+            if !trashedScenes.isEmpty {
+                Section {
+                    ForEach(trashedScenes) { scene in
+                        HStack {
+                            // Selection indicator in edit mode
+                            if isEditMode {
+                                Image(systemName: selectedSceneIDs.contains(scene.id) ? "checkmark.circle.fill" : "circle")
+                                    .foregroundStyle(selectedSceneIDs.contains(scene.id) ? .blue : .gray)
+                                    .imageScale(.large)
+                            }
+                            
+                            trashedSceneRow(for: scene)
+                            Spacer()
+                        }
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            if isEditMode {
+                                toggleSceneSelection(for: scene)
+                            }
+                        }
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            if !isEditMode {
+                                sceneSwipeActionButtons(for: scene)
+                            }
+                        }
                     }
-                    
-                    trashItemRow(for: item)
-                    Spacer()
+                } header: {
+                    Text(NSLocalizedString("trashView.scenes.header", comment: "Scenes"))
                 }
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    if isEditMode {
-                        // Edit mode: toggle selection
-                        toggleSelection(for: item)
+            }
+            
+            // Trashed Files section
+            if !allTrashItems.isEmpty {
+                Section {
+                    ForEach(allTrashItems) { item in
+                        HStack {
+                            // Selection indicator in edit mode
+                            if isEditMode {
+                                Image(systemName: selectedItemIDs.contains(item.id) ? "checkmark.circle.fill" : "circle")
+                                    .foregroundStyle(selectedItemIDs.contains(item.id) ? .blue : .gray)
+                                    .imageScale(.large)
+                            }
+                            
+                            trashItemRow(for: item)
+                            Spacer()
+                        }
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            if isEditMode {
+                                toggleSelection(for: item)
+                            }
+                        }
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            if !isEditMode {
+                                swipeActionButtons(for: item)
+                            }
+                        }
+                        .contextMenu {
+                            contextMenuItems(for: item)
+                        }
                     }
-                }
-                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                    if !isEditMode {
-                        swipeActionButtons(for: item)
+                } header: {
+                    if !trashedScenes.isEmpty {
+                        Text(NSLocalizedString("trashView.files.header", comment: "Files"))
                     }
-                }
-                .contextMenu {
-                    contextMenuItems(for: item)
                 }
             }
         }
         .listStyle(.insetGrouped)
     }
     
-    /// Row for a single trash item
+    /// Row for a trashed scene
+    @ViewBuilder
+    private func trashedSceneRow(for scene: FictionScene) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Image(systemName: "film")
+                    .foregroundStyle(.secondary)
+                Text(scene.name ?? NSLocalizedString("fiction.untitled", comment: "Untitled"))
+                    .font(.body)
+            }
+            
+            if let trashedDate = scene.trashedDate {
+                Text(trashedDate, style: .relative)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+    
+    /// Swipe actions for scenes
+    @ViewBuilder
+    private func sceneSwipeActionButtons(for scene: FictionScene) -> some View {
+        Button {
+            prepareRestoreScenes([scene])
+        } label: {
+            Label(NSLocalizedString("trashView.restoreScene", comment: "Restore"), systemImage: "arrow.uturn.backward")
+        }
+        .tint(.blue)
+        
+        Button(role: .destructive) {
+            prepareDeleteScenes([scene])
+        } label: {
+            Label(NSLocalizedString("trashView.delete", comment: "Delete"), systemImage: "trash")
+        }
+        .tint(.red)
+    }
+    
+    /// Row for a single trash item (file)
     @ViewBuilder
     private func trashItemRow(for item: TrashItem) -> some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -270,28 +429,44 @@ struct TrashView: View {
     /// Bottom toolbar for edit mode
     @ViewBuilder
     private var bottomToolbarContent: some View {
+        // Restore/Put Back button
         Button {
-            preparePutBack(selectedItems)
+            // Handle files
+            if !selectedItems.isEmpty {
+                preparePutBack(selectedItems)
+            }
+            // Handle scenes
+            if !selectedScenes.isEmpty {
+                prepareRestoreScenes(selectedScenes)
+            }
         } label: {
             Label(
-                String(format: NSLocalizedString("trashView.putBackCount", comment: ""), selectedItems.count),
+                String(format: NSLocalizedString("trashView.restoreCount", comment: ""), totalSelectedCount),
                 systemImage: "arrow.uturn.backward"
             )
         }
-        .disabled(selectedItems.isEmpty)
-        .accessibilityLabel("trashView.putBackSelected.accessibility")
+        .disabled(totalSelectedCount == 0)
+        .accessibilityLabel("trashView.restoreSelected.accessibility")
         
         Spacer()
         
+        // Delete button
         Button(role: .destructive) {
-            preparePermanentDelete(selectedItems)
+            // Handle files
+            if !selectedItems.isEmpty {
+                preparePermanentDelete(selectedItems)
+            }
+            // Handle scenes
+            if !selectedScenes.isEmpty {
+                prepareDeleteScenes(selectedScenes)
+            }
         } label: {
             Label(
-                String(format: NSLocalizedString("trashView.deleteCount", comment: ""), selectedItems.count),
+                String(format: NSLocalizedString("trashView.deleteCount", comment: ""), totalSelectedCount),
                 systemImage: "trash"
             )
         }
-        .disabled(selectedItems.isEmpty)
+        .disabled(totalSelectedCount == 0)
         .accessibilityLabel("trashView.deleteSelected.accessibility")
     }
     
@@ -327,6 +502,15 @@ struct TrashView: View {
             selectedItemIDs.remove(item.id)
         } else {
             selectedItemIDs.insert(item.id)
+        }
+    }
+    
+    /// Toggle selection for a scene in edit mode
+    private func toggleSceneSelection(for scene: FictionScene) {
+        if selectedSceneIDs.contains(scene.id) {
+            selectedSceneIDs.remove(scene.id)
+        } else {
+            selectedSceneIDs.insert(scene.id)
         }
     }
     
@@ -390,6 +574,47 @@ struct TrashView: View {
         
         try? modelContext.save()
         itemsToDelete = []
+        exitEditMode()
+    }
+    
+    // MARK: - Scene Actions
+    
+    /// Prepares scenes for restoration and shows confirmation
+    private func prepareRestoreScenes(_ scenes: [FictionScene]) {
+        scenesToRestore = scenes
+        showSceneRestoreConfirmation = true
+    }
+    
+    /// Confirms restoration of scenes from trash
+    private func confirmRestoreScenes() {
+        for scene in scenesToRestore {
+            scene.restore()
+        }
+        
+        try? modelContext.save()
+        scenesToRestore = []
+        exitEditMode()
+    }
+    
+    /// Prepares scenes for permanent deletion and shows confirmation
+    private func prepareDeleteScenes(_ scenes: [FictionScene]) {
+        scenesToDelete = scenes
+        showSceneDeleteConfirmation = true
+    }
+    
+    /// Confirms permanent deletion of scenes
+    private func confirmDeleteScenes() {
+        for scene in scenesToDelete {
+            // Delete associated TextFile if exists
+            if let textFile = scene.textFile {
+                modelContext.delete(textFile)
+            }
+            // Delete the scene
+            modelContext.delete(scene)
+        }
+        
+        try? modelContext.save()
+        scenesToDelete = []
         exitEditMode()
     }
     

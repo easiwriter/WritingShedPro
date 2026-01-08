@@ -1,10 +1,32 @@
 # Feature 022: Smart Fiction Creation
 
-**Status**: Draft  
+**Status**: Partially Implemented  
 **Priority**: High  
 **Estimated Effort**: TBD  
 **Dependencies**: 001-project-management-ios-macos  
-**Created**: 2026-01-01
+**Created**: 2026-01-01  
+**Last Updated**: 2026-01-08
+
+## Implementation Status
+
+### Completed
+- ✅ Fiction project creation with Novel/Short Fiction class selection
+- ✅ Scene creation and management (SceneDetailView)
+- ✅ Plot element creation and management (PlotElementDetailView, PlotOutlineView)
+- ✅ Many-to-many linking between scenes and plot elements (bidirectional)
+- ✅ Character creation and management (FictionCharacter model)
+- ✅ Location creation and management (FictionLocation model)
+- ✅ Monomyth stage support for plot elements
+- ✅ Create Scene from Plot Element action
+- ✅ Navigation between linked scenes and plot elements
+- ✅ Scenes list Edit button for deletion and manual reordering
+
+### In Progress / Not Started
+- ⏳ Chapter management (Novel only)
+- ⏳ Manuscript assembly and export
+- ⏳ Custom attributes for characters/locations
+- ⏳ Workflow folder filtering (Draft/Ready/Set Aside)
+- ⏳ Submissions folder functionality
 
 ## Overview
 
@@ -193,12 +215,13 @@ Plot outline elements can link to scenes, allowing the writer to track which sce
 - **FR1.6:** System MUST create appropriate folder structure based on fiction class
 
 ### FR2: Scene Management
-- **FR2.1:** System MUST allow creation of scenes with a name
-- **FR2.2:** Scenes MUST support rich text content (using existing Version/TextFile model)
-- **FR2.3:** System MUST allow editing scene name and content
-- **FR2.4:** System MUST allow deleting scenes with confirmation
-- **FR2.5:** Scenes MUST display in a sortable list view
-- **FR2.6:** System MUST allow reordering scenes via drag-and-drop
+- **FR2.1:** System MUST allow creation of scenes with a name ✅
+- **FR2.2:** Scenes MUST support rich text content (using existing Version/TextFile model) ✅
+- **FR2.3:** System MUST allow editing scene name and content ✅
+- **FR2.4:** System MUST allow deleting scenes with confirmation ✅
+- **FR2.5:** Scenes MUST display in a sortable list view ✅
+- **FR2.6:** System MUST allow reordering scenes via drag-and-drop ✅
+- **FR2.7:** Scenes list view MUST have an Edit button to enable deletion and manual reordering ✅
 
 ### FR3: Chapter Management (Novel Only)
 - **FR3.1:** Novel projects MUST have a Chapters container

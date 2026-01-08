@@ -9,6 +9,10 @@ import SwiftUI
 import SwiftData
 
 /// List view showing scenes - either for entire project (Short Fiction) or within a chapter (Novel)
+/// Matches FileListView pattern with:
+/// - Edit mode with selection circles
+/// - Bottom toolbar for multi-select actions
+/// - Confirmation dialog with Delete (to trash) and Delete Forever options
 struct SceneListView: View {
     
     // MARK: - Environment
@@ -27,8 +31,16 @@ struct SceneListView: View {
     
     @State private var showAddScene = false
     @State private var selectedScene: FictionScene?
+    
+    /// Edit mode binding
+    @State private var editMode: EditMode = .inactive
+    
+    /// Selected scene IDs for multi-select
+    @State private var selectedSceneIDs: Set<UUID> = []
+    
+    /// Delete confirmation dialog
     @State private var showDeleteConfirmation = false
-    @State private var sceneToDelete: FictionScene?
+    @State private var scenesToDelete: [FictionScene] = []
     
     // MARK: - Init
     
@@ -50,7 +62,10 @@ struct SceneListView: View {
             scenes = project.scenes ?? []
         }
         
-        return scenes.sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+        // Filter out trashed scenes and sort by order
+        return scenes
+            .filter { !$0.isTrashed }
+            .sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
     }
     
     private var title: String {
@@ -58,6 +73,21 @@ struct SceneListView: View {
             return chapter.name ?? NSLocalizedString("fiction.scenes.title", comment: "Scenes")
         }
         return NSLocalizedString("fiction.scenes.title", comment: "Scenes")
+    }
+    
+    /// Whether edit mode is currently active
+    private var isEditMode: Bool {
+        editMode == .active
+    }
+    
+    /// Selected scenes based on selectedSceneIDs
+    private var selectedScenes: [FictionScene] {
+        sortedScenes.filter { selectedSceneIDs.contains($0.id) }
+    }
+    
+    /// Whether bottom toolbar should show
+    private var showToolbar: Bool {
+        isEditMode && !selectedSceneIDs.isEmpty
     }
     
     // MARK: - Body
@@ -76,9 +106,27 @@ struct SceneListView: View {
         .onPopToRoot {
             dismiss()
         }
+        .environment(\.editMode, $editMode)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 PopToRootBackButton()
+            }
+            ToolbarItem(placement: .navigationBarTrailing) {
+                if !sortedScenes.isEmpty {
+                    Button {
+                        withAnimation {
+                            if editMode == .active {
+                                editMode = .inactive
+                                selectedSceneIDs.removeAll()
+                            } else {
+                                editMode = .active
+                            }
+                        }
+                    } label: {
+                        Text(isEditMode ? NSLocalizedString("button.done", comment: "Done") : NSLocalizedString("button.edit", comment: "Edit"))
+                    }
+                    .accessibilityLabel(isEditMode ? NSLocalizedString("button.done", comment: "Done") : NSLocalizedString("fiction.scenes.edit", comment: "Edit scenes"))
+                }
             }
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
@@ -88,6 +136,13 @@ struct SceneListView: View {
                 }
                 .accessibilityLabel(NSLocalizedString("fiction.scenes.add", comment: "Add scene"))
             }
+            
+            // Bottom toolbar for multi-select actions
+            ToolbarItemGroup(placement: .bottomBar) {
+                if showToolbar {
+                    bottomToolbarContent
+                }
+            }
         }
         .sheet(isPresented: $showAddScene) {
             AddSceneSheet(project: project, chapter: chapter)
@@ -95,18 +150,52 @@ struct SceneListView: View {
         .sheet(item: $selectedScene) { scene in
             SceneDetailView(scene: scene, project: project)
         }
-        .alert(
-            NSLocalizedString("fiction.scenes.deleteConfirm.title", comment: "Delete scene?"),
+        .confirmationDialog(
+            scenesToDelete.count == 1
+                ? NSLocalizedString("fiction.scenes.deleteConfirm.title", comment: "Delete scene?")
+                : String(format: NSLocalizedString("fiction.scenes.deleteMultiple.title", comment: "Delete scenes?"), scenesToDelete.count),
             isPresented: $showDeleteConfirmation,
-            presenting: sceneToDelete
-        ) { scene in
-            Button(NSLocalizedString("button.delete", comment: "Delete"), role: .destructive) {
-                deleteScene(scene)
+            titleVisibility: .visible
+        ) {
+            Button(NSLocalizedString("fiction.scenes.delete.toTrash", comment: "Move to Trash"), role: .destructive) {
+                moveScenesToTrash(scenesToDelete)
+                scenesToDelete = []
+                exitEditMode()
             }
-            Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) { }
-        } message: { scene in
-            Text(String(format: NSLocalizedString("fiction.scenes.deleteConfirm.message", comment: "Delete message"), scene.name ?? ""))
+            Button(NSLocalizedString("fiction.scenes.delete.permanently", comment: "Delete Forever"), role: .destructive) {
+                deleteScenesPermanently(scenesToDelete)
+                scenesToDelete = []
+                exitEditMode()
+            }
+            Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
+                scenesToDelete = []
+            }
+        } message: {
+            Text(NSLocalizedString("fiction.scenes.deleteConfirm.message.enhanced", comment: "Move to Trash keeps the scene's file, Delete Forever is permanent"))
         }
+        .onChange(of: editMode) { _, newValue in
+            if newValue == .inactive {
+                selectedSceneIDs.removeAll()
+            }
+        }
+    }
+    
+    // MARK: - Bottom Toolbar
+    
+    @ViewBuilder
+    private var bottomToolbarContent: some View {
+        Spacer()
+        
+        Button(role: .destructive) {
+            prepareDelete(selectedScenes)
+        } label: {
+            Label(
+                String(format: NSLocalizedString("fiction.scenes.deleteCount", comment: "Delete count"), selectedScenes.count),
+                systemImage: "trash"
+            )
+        }
+        .disabled(selectedScenes.isEmpty)
+        .accessibilityLabel(NSLocalizedString("fiction.scenes.deleteSelected", comment: "Delete selected scenes"))
     }
     
     // MARK: - Scene List
@@ -114,23 +203,47 @@ struct SceneListView: View {
     private var sceneList: some View {
         List {
             ForEach(sortedScenes) { scene in
-                SceneRowView(scene: scene)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        selectedScene = scene
-                    }
+                sceneRow(for: scene)
+                    .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        Button(role: .destructive) {
-                            sceneToDelete = scene
-                            showDeleteConfirmation = true
-                        } label: {
-                            Label(NSLocalizedString("button.delete", comment: "Delete"), systemImage: "trash")
+                        if !isEditMode {
+                            Button(role: .destructive) {
+                                prepareDelete([scene])
+                            } label: {
+                                Label(NSLocalizedString("button.delete", comment: "Delete"), systemImage: "trash")
+                            }
                         }
                     }
             }
             .onMove(perform: moveScenes)
         }
         .listStyle(.plain)
+    }
+    
+    // MARK: - Scene Row
+    
+    @ViewBuilder
+    private func sceneRow(for scene: FictionScene) -> some View {
+        HStack {
+            // Selection circle in edit mode
+            if isEditMode {
+                Image(systemName: selectedSceneIDs.contains(scene.id) ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(selectedSceneIDs.contains(scene.id) ? .blue : .gray)
+                    .imageScale(.large)
+            }
+            
+            SceneRowView(scene: scene)
+            
+            Spacer(minLength: 8)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if isEditMode {
+                toggleSelection(for: scene)
+            } else {
+                selectedScene = scene
+            }
+        }
     }
     
     // MARK: - Empty State
@@ -162,8 +275,39 @@ struct SceneListView: View {
     
     // MARK: - Actions
     
-    private func deleteScene(_ scene: FictionScene) {
-        modelContext.delete(scene)
+    private func toggleSelection(for scene: FictionScene) {
+        if selectedSceneIDs.contains(scene.id) {
+            selectedSceneIDs.remove(scene.id)
+        } else {
+            selectedSceneIDs.insert(scene.id)
+        }
+    }
+    
+    private func prepareDelete(_ scenes: [FictionScene]) {
+        scenesToDelete = scenes
+        showDeleteConfirmation = true
+    }
+    
+    private func moveScenesToTrash(_ scenes: [FictionScene]) {
+        for scene in scenes {
+            // Soft delete the scene (marks as trashed)
+            scene.moveToTrash()
+        }
+        
+        try? modelContext.save()
+        renumberScenes()
+    }
+    
+    private func deleteScenesPermanently(_ scenes: [FictionScene]) {
+        for scene in scenes {
+            // Delete associated TextFile if exists
+            if let textFile = scene.textFile {
+                modelContext.delete(textFile)
+            }
+            // Delete the scene
+            modelContext.delete(scene)
+        }
+        
         try? modelContext.save()
         renumberScenes()
     }
@@ -185,6 +329,12 @@ struct SceneListView: View {
             scene.userOrder = index
         }
         try? modelContext.save()
+    }
+    
+    private func exitEditMode() {
+        withAnimation {
+            editMode = .inactive
+        }
     }
 }
 

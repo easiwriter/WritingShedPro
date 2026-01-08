@@ -185,6 +185,10 @@ final class FictionScene {
     var createdDate: Date = Date()
     var modifiedDate: Date = Date()
     
+    /// Soft delete support - when true, scene is in trash
+    var isTrashed: Bool = false
+    var trashedDate: Date?
+    
     // Relationships
     @Relationship(inverse: \FictionChapter.scenes)
     var chapter: FictionChapter?  // nil for Short Fiction projects
@@ -212,6 +216,18 @@ final class FictionScene {
             return MonomythStage(rawValue: raw) 
         }
         set { monomythStageRaw = newValue?.rawValue }
+    }
+    
+    /// Moves scene to trash (soft delete)
+    func moveToTrash() {
+        isTrashed = true
+        trashedDate = Date()
+    }
+    
+    /// Restores scene from trash
+    func restore() {
+        isTrashed = false
+        trashedDate = nil
     }
     
     init(name: String? = nil, synopsis: String? = nil, userOrder: Int? = nil) {

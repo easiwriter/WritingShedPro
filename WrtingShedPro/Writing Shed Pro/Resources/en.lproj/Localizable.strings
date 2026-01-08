@@ -151,6 +151,13 @@
 "fiction.scenes.empty.message" = "Add scenes to structure your story.";
 "fiction.scenes.deleteConfirm.title" = "Delete Scene?";
 "fiction.scenes.deleteConfirm.message" = "Are you sure you want to delete \"%@\"?";
+"fiction.scenes.deleteConfirm.message.enhanced" = "Move to Trash keeps the scene's file for later recovery. Delete Forever is permanent.";
+"fiction.scenes.deleteMultiple.title" = "Delete %d Scenes?";
+"fiction.scenes.delete.toTrash" = "Move to Trash";
+"fiction.scenes.delete.permanently" = "Delete Forever";
+"fiction.scenes.deleteCount" = "Delete (%d)";
+"fiction.scenes.deleteSelected" = "Delete selected scenes";
+"fiction.scenes.edit" = "Edit scenes";
 "fiction.scene.title" = "Title";
 "fiction.scene.title.accessibility" = "Scene title";
 "fiction.scene.number" = "Scene #";
@@ -1209,8 +1216,8 @@
 "trashView.title" = "Trash";
 "trashView.editMode.accessibility" = "Enter edit mode";
 "trashView.doneEditing.accessibility" = "Exit edit mode";
-"trashView.empty.title" = "No Deleted Files";
-"trashView.empty.description" = "Files you delete will appear here and can be restored.";
+"trashView.empty.title" = "No Deleted Items";
+"trashView.empty.description" = "Items you delete will appear here and can be restored.";
 "trashView.from" = "From: %@";
 "trashView.file" = "file";
 "trashView.files" = "files";
@@ -1218,15 +1225,24 @@
 "trashView.delete" = "Delete";
 "trashView.deleteForever" = "Delete Forever";
 "trashView.putBackCount" = "Put Back %d";
-"trashView.deleteCount" = "Delete %d";
+"trashView.restoreCount" = "Restore (%d)";
+"trashView.deleteCount" = "Delete (%d)";
 "trashView.putBackSelected.accessibility" = "Put back selected files";
-"trashView.deleteSelected.accessibility" = "Delete selected files permanently";
+"trashView.restoreSelected.accessibility" = "Restore selected items";
+"trashView.deleteSelected.accessibility" = "Delete selected items permanently";
 "trashView.putBackAlert.title" = "Put Back %d %@?";
 "trashView.putBackAlert.message" = "Files will be restored to their original folders.";
 "trashView.deleteAlert.title" = "Permanently Delete %d %@?";
 "trashView.deleteAlert.message" = "This action cannot be undone.";
 "trashView.restoredToDraft.title" = "Restored to Draft";
 "trashView.restoredToDraft.message" = "The following files were restored to Draft because their original folders no longer exist: %@";
+"trashView.scenes.header" = "Scenes";
+"trashView.files.header" = "Files";
+"trashView.restoreScene" = "Restore";
+"trashView.restoreScenes.title" = "Restore %d Scene(s)?";
+"trashView.restoreScenes.message" = "Scenes will be restored to your project.";
+"trashView.deleteScenes.title" = "Permanently Delete %d Scene(s)?";
+"trashView.deleteScenes.message" = "This action cannot be undone.";
 
 /* FolderListView */
 "folderList.title" = "Folders";
