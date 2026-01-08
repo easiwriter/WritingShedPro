@@ -1,9 +1,9 @@
 //
-//  FictionModels.swift
+//  StoryModels.swift
 //  Writing Shed Pro
 //
-//  Feature 022: Smart Fiction Creation
-//  Models for fiction projects including scenes, chapters, characters, locations, and plot elements
+//  Feature 022/023: Smart Fiction & Drama Creation
+//  Shared models for fiction and drama projects including scenes, chapters/acts, characters, locations, and plot elements
 //
 
 import Foundation
@@ -22,6 +22,27 @@ enum FictionClass: String, Codable, CaseIterable {
             return NSLocalizedString("fictionClass.novel", comment: "Novel fiction class")
         case .shortFiction:
             return NSLocalizedString("fictionClass.shortFiction", comment: "Short Fiction class")
+        }
+    }
+}
+
+/// Plot structure options - monomyth or act-based
+enum PlotStructure: String, Codable, CaseIterable {
+    case monomyth    // 12-stage Hero's Journey
+    case threeAct    // 3-act structure (Setup, Confrontation, Resolution)
+    case fiveAct     // 5-act structure (Exposition, Rising Action, Climax, Falling Action, Denouement)
+    case freeform    // No predefined structure
+    
+    var localizedName: String {
+        switch self {
+        case .monomyth:
+            return NSLocalizedString("plotStructure.monomyth", comment: "Hero's Journey")
+        case .threeAct:
+            return NSLocalizedString("plotStructure.threeAct", comment: "3-Act Structure")
+        case .fiveAct:
+            return NSLocalizedString("plotStructure.fiveAct", comment: "5-Act Structure")
+        case .freeform:
+            return NSLocalizedString("plotStructure.freeform", comment: "Freeform")
         }
     }
 }
@@ -176,7 +197,7 @@ enum MonomythStage: String, Codable, CaseIterable {
 
 /// A scene is the fundamental unit of storytelling in fiction projects
 @Model
-final class FictionScene {
+final class StoryScene {
     var id: UUID = UUID()
     var name: String?
     var userOrder: Int?
@@ -190,8 +211,8 @@ final class FictionScene {
     var trashedDate: Date?
     
     // Relationships
-    @Relationship(inverse: \FictionChapter.scenes)
-    var chapter: FictionChapter?  // nil for Short Fiction projects
+    @Relationship(inverse: \Chapter.scenes)
+    var chapter: Chapter?  // nil for Short Fiction projects
     
     var project: Project?
     
@@ -203,12 +224,12 @@ final class FictionScene {
     var plotElements: [PlotElement]?
     
     // Scene can have multiple characters
-    @Relationship(inverse: \FictionCharacter.scenes)
-    var characters: [FictionCharacter]?
+    @Relationship(inverse: \Character.scenes)
+    var characters: [Character]?
     
     // Scene takes place at a location
-    @Relationship(inverse: \FictionLocation.scenes)
-    var location: FictionLocation?
+    @Relationship(inverse: \Location.scenes)
+    var location: Location?
     
     var monomythStage: MonomythStage? {
         get { 
@@ -239,7 +260,7 @@ final class FictionScene {
 
 /// A chapter is a container for scenes (Novel fiction class only)
 @Model
-final class FictionChapter {
+final class Chapter {
     var id: UUID = UUID()
     var name: String?
     var userOrder: Int?
@@ -251,7 +272,7 @@ final class FictionChapter {
     var project: Project?
     
     @Relationship(deleteRule: .nullify)
-    var scenes: [FictionScene]?
+    var scenes: [StoryScene]?
     
     init(name: String? = nil, synopsis: String? = nil, userOrder: Int? = nil) {
         self.name = name
@@ -262,7 +283,7 @@ final class FictionChapter {
 
 /// A character in the fiction project
 @Model
-final class FictionCharacter {
+final class Character {
     var id: UUID = UUID()
     var name: String?
     var role: String?  // Character's role in the story (protagonist, love interest, etc.)
@@ -278,7 +299,7 @@ final class FictionCharacter {
     var customAttributes: [CustomAttribute]?
     
     // Scenes this character appears in (many-to-many)
-    var scenes: [FictionScene]?
+    var scenes: [StoryScene]?
     
     // Plot elements this character is planned for (many-to-many)
     var plotElements: [PlotElement]?
@@ -301,7 +322,7 @@ final class FictionCharacter {
 
 /// A location where scenes take place
 @Model
-final class FictionLocation {
+final class Location {
     var id: UUID = UUID()
     var name: String?
     var locationDescription: String?  // Description of the location
@@ -315,7 +336,7 @@ final class FictionLocation {
     var customAttributes: [CustomAttribute]?
     
     // Scenes that take place at this location
-    var scenes: [FictionScene]?
+    var scenes: [StoryScene]?
     
     // Plot elements this location is planned for (many-to-many)
     var plotElements: [PlotElement]?
@@ -335,8 +356,8 @@ final class CustomAttribute {
     var userOrder: Int?
     
     // Relationships (one of these will be set)
-    var character: FictionCharacter?
-    var location: FictionLocation?
+    var character: Character?
+    var location: Location?
     
     init(key: String? = nil, value: String? = nil, userOrder: Int? = nil) {
         self.key = key
@@ -359,16 +380,16 @@ final class PlotElement {
     // Relationships
     var project: Project?
     
-    // Many-to-many with FictionScene (inverse defined on FictionScene.plotElements)
-    var linkedScenes: [FictionScene]?
+    // Many-to-many with Scene (inverse defined on Scene.plotElements)
+    var linkedScenes: [StoryScene]?
     
     // Characters involved in this plot beat (planned involvement)
-    @Relationship(inverse: \FictionCharacter.plotElements)
-    var characters: [FictionCharacter]?
+    @Relationship(inverse: \Character.plotElements)
+    var characters: [Character]?
     
     // Locations for this plot beat (planned involvement)
-    @Relationship(inverse: \FictionLocation.plotElements)
-    var locations: [FictionLocation]?
+    @Relationship(inverse: \Location.plotElements)
+    var locations: [Location]?
     
     var monomythStage: MonomythStage? {
         get { 

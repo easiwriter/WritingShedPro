@@ -19,15 +19,15 @@ struct AddSceneSheet: View {
     // MARK: - Properties
     
     let project: Project
-    let chapter: FictionChapter?
+    let chapter: Chapter?
     
     // MARK: - State
     
     @State private var title: String = ""
     @State private var summary: String = ""
     @State private var selectedMonomythStage: MonomythStage?
-    @State private var selectedLocation: FictionLocation?
-    @State private var selectedCharacters: Set<FictionCharacter> = []
+    @State private var selectedLocation: Location?
+    @State private var selectedCharacters: Set<Character> = []
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
     
@@ -37,20 +37,20 @@ struct AddSceneSheet: View {
         !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
     
-    private var availableLocations: [FictionLocation] {
+    private var availableLocations: [Location] {
         (project.locations ?? []).sorted { 
             ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending
         }
     }
     
-    private var availableCharacters: [FictionCharacter] {
+    private var availableCharacters: [Character] {
         (project.characters ?? []).sorted { 
             ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending
         }
     }
     
     private var nextOrderIndex: Int {
-        let scenes: [FictionScene]
+        let scenes: [StoryScene]
         if let chapter = chapter {
             scenes = chapter.scenes ?? []
         } else {
@@ -87,11 +87,11 @@ struct AddSceneSheet: View {
                 Section {
                     Picker(NSLocalizedString("fiction.scene.location", comment: "Location"), selection: $selectedLocation) {
                         Text(NSLocalizedString("fiction.scene.location.none", comment: "None"))
-                            .tag(nil as FictionLocation?)
+                            .tag(nil as Location?)
                         
                         ForEach(availableLocations) { location in
                             Text(location.name ?? "")
-                                .tag(location as FictionLocation?)
+                                .tag(location as Location?)
                         }
                     }
                 } header: {
@@ -172,7 +172,7 @@ struct AddSceneSheet: View {
     
     // MARK: - Actions
     
-    private func toggleCharacter(_ character: FictionCharacter) {
+    private func toggleCharacter(_ character: Character) {
         if selectedCharacters.contains(character) {
             selectedCharacters.remove(character)
         } else {
@@ -192,7 +192,7 @@ struct AddSceneSheet: View {
         // Find Draft folder
         let scenesFolder = project.folders?.first { $0.name == "Scenes" }
         
-        let scene = FictionScene(
+        let scene = StoryScene(
             name: trimmedTitle,
             synopsis: summary.isEmpty ? nil : summary,
             userOrder: nextOrderIndex

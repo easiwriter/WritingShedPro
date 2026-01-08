@@ -264,27 +264,26 @@ The system migrates predefined forms from the bundled JSON file to the database 
 
 Poetry projects have the following folder structure:
 
-**Workflow Folders** (for organizing poems by status):
-- **All**: Contains all poems in the project
-- **Draft**: Poems that are work in progress
-- **Ready**: Poems that are complete and ready for submission
-- **Submissions**: Collections of poems for submission tracking
-- **Set Aside**: Poems on hold or for later consideration
-- **Published**: Successfully published poems
+**Section 1 - Primary Content:**
+- **Manuscript**: For collecting poems into a cohesive work (chapbook, collection, anthology)
+- **Poems**: All poems in the project
+
+**Section 2 - Organization & Support:**
 - **Collections**: User-organized groupings of poems
+- **Submissions**: Collections of poems for submission tracking
+- **Research**: Reference materials, notes, and inspiration
 
-**Manuscript Folder**:
-- **Manuscript**: For collecting poems into a cohesive work (chapbook, collection, anthology). Contains text files and supporting matter for assembled works.
-
-**Publications Folders** (for tracking submission targets):
+**Section 3 - Publications:**
 - **Magazines**: Literary magazines and journals
 - **Competitions**: Poetry competitions and contests
-- **Commissions**: Commissioned work
 - **Other**: Other publication opportunities
 
-**Support Folders**:
-- **Research**: Reference materials, notes, and inspiration
+**Section 4 - System:**
 - **Trash**: Deleted items awaiting permanent removal
+
+**Display Order:** Manuscript, Poems // Collections, Submissions, Research // Magazines, Competitions, Other // Trash
+
+*Note: Workflow status (Draft, Ready, Set Aside, Published) is a property on individual files, not separate folders.*
 
 ### Key Entities
 

@@ -42,50 +42,42 @@ struct FolderListView: View {
             return ["Folders", "Trash"]
             
         case .poetry:
+            // Manuscript, Poems // Collections, Submissions, Research // Magazines, Competitions, Other // Trash
             return [
-                // Content folder (workflow is on files)
-                "Poems",
-                // Organization
-                "Collections", "Submissions", "Manuscript",
-                // Support
-                "Research",
-                // Publications
-                "Magazines", "Competitions", "Commissions", "Other",
-                // System
+                // Section 1: Primary Content
+                "Manuscript", "Poems",
+                // Section 2: Organization & Support
+                "Collections", "Submissions", "Research",
+                // Section 3: Publications
+                "Magazines", "Competitions", "Other",
+                // Section 4: System
                 "Trash"
             ]
             
         case .fiction:
-            // Fiction folder order - Feature 022
-            // Updated: Scenes folder replaces Draft/Ready/etc
+            // Novel: Manuscript, Chapters, Scenes, Characters, Locations, Plot // Collections, Submissions, Research // Publishers, Agents, Other // Trash
+            // Short: Manuscript, Scenes, Characters, Locations, Plot // Collections, Submissions, Research // Magazines, Competitions, Other // Trash
             return [
-                // Content folder (workflow is on files)
-                "Scenes",
-                // Entity folders
-                "Characters", "Locations", "Chapters", "Plot",
-                // Organization
-                "Collections", "Submissions",
-                // Support
-                "Research",
-                // Publications (all possible - some may not exist based on fiction class)
+                // Section 1: Story Structure
+                "Manuscript", "Chapters", "Scenes", "Characters", "Locations", "Plot",
+                // Section 2: Organization & Support
+                "Collections", "Submissions", "Research",
+                // Section 3: Publications (all possible - some may not exist based on fiction class)
                 "Publishers", "Agents", "Magazines", "Competitions", "Other",
-                // System
+                // Section 4: System
                 "Trash"
             ]
             
         case .drama:
-            // Drama folder order
-            // Updated: Scripts folder replaces Draft/Ready/etc
+            // Manuscript, Acts, Scenes, Characters, Locations, Plot // Collections, Submissions, Research // Publishers, Agents, Other // Trash
             return [
-                // Content folder (workflow is on files)
-                "Scripts",
-                // Organization
-                "Collections", "Submissions",
-                // Support
-                "Research",
-                // Publications
-                "Competitions", "Commissions", "Other",
-                // System
+                // Section 1: Story Structure
+                "Manuscript", "Acts", "Scenes", "Characters", "Locations", "Plot",
+                // Section 2: Organization & Support
+                "Collections", "Submissions", "Research",
+                // Section 3: Publications
+                "Publishers", "Agents", "Other",
+                // Section 4: System
                 "Trash"
             ]
         }
@@ -103,10 +95,17 @@ struct FolderListView: View {
         // For poetry, add spacing after "Manuscript" (separates workflow from support)
         // For fiction, add spacing after "Plot" (separates entity folders from support)
         if project.type == .poetry {
-            return folderName == "Manuscript" || folderName == "Research" || folderName == "Other"
+            // Section breaks after: Poems, Research, Other
+            return folderName == "Poems" || folderName == "Research" || folderName == "Other"
         }
         
         if project.type == .fiction {
+            // Section breaks after: Plot, Research, Other
+            return folderName == "Plot" || folderName == "Research" || folderName == "Other"
+        }
+        
+        if project.type == .drama {
+            // Section breaks after: Plot, Research, Other
             return folderName == "Plot" || folderName == "Research" || folderName == "Other"
         }
         

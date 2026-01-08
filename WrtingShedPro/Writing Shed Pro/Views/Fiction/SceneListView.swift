@@ -25,12 +25,12 @@ struct SceneListView: View {
     let project: Project
     
     /// Optional chapter - if provided, shows scenes for that chapter only (Novel mode)
-    let chapter: FictionChapter?
+    let chapter: Chapter?
     
     // MARK: - State
     
     @State private var showAddScene = false
-    @State private var selectedScene: FictionScene?
+    @State private var selectedScene: StoryScene?
     
     /// Edit mode binding
     @State private var editMode: EditMode = .inactive
@@ -40,19 +40,19 @@ struct SceneListView: View {
     
     /// Delete confirmation dialog
     @State private var showDeleteConfirmation = false
-    @State private var scenesToDelete: [FictionScene] = []
+    @State private var scenesToDelete: [StoryScene] = []
     
     // MARK: - Init
     
-    init(project: Project, chapter: FictionChapter? = nil) {
+    init(project: Project, chapter: Chapter? = nil) {
         self.project = project
         self.chapter = chapter
     }
     
     // MARK: - Computed
     
-    private var sortedScenes: [FictionScene] {
-        let scenes: [FictionScene]
+    private var sortedScenes: [StoryScene] {
+        let scenes: [StoryScene]
         
         if let chapter = chapter {
             // Novel mode: scenes within a specific chapter
@@ -81,7 +81,7 @@ struct SceneListView: View {
     }
     
     /// Selected scenes based on selectedSceneIDs
-    private var selectedScenes: [FictionScene] {
+    private var selectedScenes: [StoryScene] {
         sortedScenes.filter { selectedSceneIDs.contains($0.id) }
     }
     
@@ -223,7 +223,7 @@ struct SceneListView: View {
     // MARK: - Scene Row
     
     @ViewBuilder
-    private func sceneRow(for scene: FictionScene) -> some View {
+    private func sceneRow(for scene: StoryScene) -> some View {
         HStack {
             // Selection circle in edit mode
             if isEditMode {
@@ -275,7 +275,7 @@ struct SceneListView: View {
     
     // MARK: - Actions
     
-    private func toggleSelection(for scene: FictionScene) {
+    private func toggleSelection(for scene: StoryScene) {
         if selectedSceneIDs.contains(scene.id) {
             selectedSceneIDs.remove(scene.id)
         } else {
@@ -283,12 +283,12 @@ struct SceneListView: View {
         }
     }
     
-    private func prepareDelete(_ scenes: [FictionScene]) {
+    private func prepareDelete(_ scenes: [StoryScene]) {
         scenesToDelete = scenes
         showDeleteConfirmation = true
     }
     
-    private func moveScenesToTrash(_ scenes: [FictionScene]) {
+    private func moveScenesToTrash(_ scenes: [StoryScene]) {
         for scene in scenes {
             // Soft delete the scene (marks as trashed)
             scene.moveToTrash()
@@ -298,7 +298,7 @@ struct SceneListView: View {
         renumberScenes()
     }
     
-    private func deleteScenesPermanently(_ scenes: [FictionScene]) {
+    private func deleteScenesPermanently(_ scenes: [StoryScene]) {
         for scene in scenes {
             // Delete associated TextFile if exists
             if let textFile = scene.textFile {
@@ -341,7 +341,7 @@ struct SceneListView: View {
 // MARK: - Scene Row View
 
 struct SceneRowView: View {
-    let scene: FictionScene
+    let scene: StoryScene
     
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {

@@ -282,17 +282,28 @@ Plot outline elements can link to scenes, allowing the writer to track which sce
 - **FR8.16:** System MUST display linked scenes on the plot element detail view with navigation
 
 ### FR9: Folder Structure
-- **FR9.1:** Fiction projects MUST create these workflow folders: All, Draft, Ready, Submissions, Set Aside
-- **FR9.2:** Fiction projects MUST create these entity folders: Characters, Locations, Chapters, Plot
-- **FR9.3:** Fiction projects MUST create these support folders: Research
-- **FR9.4:** Fiction projects MUST create Trash folder as the last folder
-- **FR9.5:** Folder display order MUST be: All → Draft → Ready → Submissions → Set Aside → Characters → Locations → Chapters → Plot → Research → [Publications] → Trash
-- **FR9.6:** The All folder aggregates all scenes; Draft, Ready, Set Aside contain scenes by status
-- **FR9.7:** Submissions folder contains collections of chapters (analogous to Poetry submissions)
+
+**Novel Projects:**
+- Section 1 - Story Structure: Manuscript, Chapters, Scenes, Characters, Locations, Plot
+- Section 2 - Organization & Support: Collections, Submissions, Research
+- Section 3 - Publications: Publishers, Agents, Other
+- Section 4 - System: Trash
+
+**Display Order (Novel):** Manuscript, Chapters, Scenes, Characters, Locations, Plot // Collections, Submissions, Research // Publishers, Agents, Other // Trash
+
+**Short Fiction Projects:**
+- Section 1 - Story Structure: Manuscript, Scenes, Characters, Locations, Plot
+- Section 2 - Organization & Support: Collections, Submissions, Research
+- Section 3 - Publications: Magazines, Competitions, Other
+- Section 4 - System: Trash
+
+**Display Order (Short Fiction):** Manuscript, Scenes, Characters, Locations, Plot // Collections, Submissions, Research // Magazines, Competitions, Other // Trash
+
+*Note: Workflow status (Draft, Ready, Set Aside) is a property on individual files, not separate folders.*
 
 ### FR10: Publications Folders
-- **FR10.1:** Novel projects MUST create Publications folders: Publishers, Agents, Other (in that order)
-- **FR10.2:** Short Fiction projects MUST create Publications folders: Magazines, Competitions, Agents, Publishers, Other (in that order)
+- **FR10.1:** Novel projects MUST create Publications folders: Publishers, Agents, Other
+- **FR10.2:** Short Fiction projects MUST create Publications folders: Magazines, Competitions, Other
 - **FR10.3:** Publications folders track submission targets and opportunities
 
 ## Non-Functional Requirements

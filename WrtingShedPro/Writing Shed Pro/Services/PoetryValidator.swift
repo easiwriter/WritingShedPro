@@ -265,7 +265,7 @@ final class PoetryValidator {
         let endWords = lines.map { getLastWord(from: $0.text) }
         
         // Build expected rhyme groups
-        var rhymeGroups: [Character: [Int]] = [:]
+        var rhymeGroups: [Swift.Character: [Int]] = [:]
         for (index, letter) in schemeLetters.enumerated() {
             if index < lines.count {
                 rhymeGroups[letter, default: []].append(index)
@@ -654,7 +654,7 @@ final class PoetryValidator {
         
         // Find the rhyme portion: from the last stressed vowel to end
         // For simplicity, find the last vowel cluster and include trailing consonants
-        let vowels: Set<Character> = ["a", "e", "i", "o", "u", "y"]
+        let vowels: Set<Swift.Character> = ["a", "e", "i", "o", "u", "y"]
         let chars = Array(w)
         
         // Find position of last vowel

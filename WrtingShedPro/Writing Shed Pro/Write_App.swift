@@ -36,10 +36,10 @@ struct Write_App: App {
             // Feature 021 Phase 2: Custom Poetry Forms
             PoetryFormModel.self,
             // Feature 022: Smart Fiction Creation
-            FictionScene.self,
-            FictionChapter.self,
-            FictionCharacter.self,
-            FictionLocation.self,
+            StoryScene.self,
+            Chapter.self,
+            Character.self,
+            Location.self,
             CustomAttribute.self,
             PlotElement.self
         ])

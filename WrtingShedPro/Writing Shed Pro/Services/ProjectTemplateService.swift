@@ -54,41 +54,46 @@ struct ProjectTemplateService {
             ]
             
         case .poetry:
-            // Poetry: Content → Collections → Submissions → Manuscript → Research → Publications → Trash
+            // Manuscript, Poems // Collections, Submissions, Research // Magazines, Competitions, Other // Trash
             return [
-                // Content folder (replaces Draft/Ready/etc)
+                // Section 1: Primary Content
+                "folder.manuscript",
                 "folder.poems",
+                // Section 2: Organization & Support
                 "folder.collections",
                 "folder.submissions",
-                "folder.manuscript",
-                // Support
                 "folder.research",
-                // Publications
+                // Section 3: Publications
                 "folder.magazines",
                 "folder.competitions",
-                "folder.commissions",
                 "folder.other",
-                // System
+                // Section 4: System
                 "folder.trash"
             ]
             
         case .fiction:
-            // Fiction: Content + Entity → Collections → Submissions → Research → Publications → Trash
+            // Novel: Manuscript, Chapters, Scenes, Characters, Locations, Plot // Collections, Submissions, Research // Publishers, Agents, Other // Trash
+            // Short: Manuscript, Scenes, Characters, Locations, Plot // Collections, Submissions, Research // Magazines, Competitions, Other // Trash
             var keys = [
-                // Content folder (replaces Draft/Ready/etc)
+                // Section 1: Story Structure
+                "folder.manuscript"
+            ]
+            
+            // Chapters only for novels
+            if project.fictionClass == .novel {
+                keys.append("folder.chapters")
+            }
+            
+            keys.append(contentsOf: [
                 "folder.scenes",
-                // Entity folders
                 "folder.characters",
                 "folder.locations",
-                "folder.chapters",
                 "folder.plot",
-                "folder.manuscript",
-                // Collections and Submissions
+                // Section 2: Organization & Support
                 "folder.collections",
                 "folder.submissions",
-                // Support
                 "folder.research"
-            ]
+            ])
             
             // Publications based on fiction class
             if project.fictionClass == .novel {
@@ -99,12 +104,10 @@ struct ProjectTemplateService {
                     "folder.other"
                 ])
             } else {
-                // Short Fiction: Magazines, Competitions, Agents, Publishers, Other
+                // Short Fiction: Magazines, Competitions, Other
                 keys.append(contentsOf: [
                     "folder.magazines",
                     "folder.competitions",
-                    "folder.agents",
-                    "folder.publishers",
                     "folder.other"
                 ])
             }
@@ -114,20 +117,24 @@ struct ProjectTemplateService {
             return keys
             
         case .drama:
-            // Drama: Content → Collections → Submissions → Research → Publications → Trash
+            // Manuscript, Acts, Scenes, Characters, Locations, Plot // Collections, Submissions, Research // Publishers, Agents, Other // Trash
             return [
-                // Content folder (replaces Draft/Ready/etc)
-                "folder.scripts",
-                // Collections and Submissions
+                // Section 1: Story Structure
+                "folder.manuscript",
+                "folder.acts",
+                "folder.scenes",
+                "folder.characters",
+                "folder.locations",
+                "folder.plot",
+                // Section 2: Organization & Support
                 "folder.collections",
                 "folder.submissions",
-                // Support
                 "folder.research",
-                // Publications
-                "folder.competitions",
-                "folder.commissions",
+                // Section 3: Publications
+                "folder.publishers",
+                "folder.agents",
                 "folder.other",
-                // System
+                // Section 4: System
                 "folder.trash"
             ]
         }

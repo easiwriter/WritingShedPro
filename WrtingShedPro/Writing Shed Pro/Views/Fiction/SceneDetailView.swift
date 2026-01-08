@@ -18,7 +18,7 @@ struct SceneDetailView: View {
     
     // MARK: - Properties
     
-    @Bindable var scene: FictionScene
+    @Bindable var scene: StoryScene
     let project: Project
     
     // MARK: - State
@@ -27,20 +27,20 @@ struct SceneDetailView: View {
     @State private var editTitle: String = ""
     @State private var editSummary: String = ""
     @State private var editMonomythStage: MonomythStage?
-    @State private var editLocation: FictionLocation?
-    @State private var editCharacters: Set<FictionCharacter> = []
+    @State private var editLocation: Location?
+    @State private var editCharacters: Set<Character> = []
     @State private var editPlotElements: Set<PlotElement> = []
     @State private var showDeleteConfirmation = false
     
     // MARK: - Computed
     
-    private var availableLocations: [FictionLocation] {
+    private var availableLocations: [Location] {
         (project.locations ?? []).sorted { 
             ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending
         }
     }
     
-    private var availableCharacters: [FictionCharacter] {
+    private var availableCharacters: [Character] {
         (project.characters ?? []).sorted { 
             ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending
         }
@@ -260,11 +260,11 @@ struct SceneDetailView: View {
         Section {
             Picker(NSLocalizedString("fiction.scene.location", comment: "Location"), selection: $editLocation) {
                 Text(NSLocalizedString("fiction.scene.location.none", comment: "None"))
-                    .tag(nil as FictionLocation?)
+                    .tag(nil as Location?)
                 
                 ForEach(availableLocations) { location in
                     Text(location.name ?? "")
-                        .tag(location as FictionLocation?)
+                        .tag(location as Location?)
                 }
             }
         } header: {
@@ -369,7 +369,7 @@ struct SceneDetailView: View {
         isEditing = true
     }
     
-    private func toggleCharacter(_ character: FictionCharacter) {
+    private func toggleCharacter(_ character: Character) {
         if editCharacters.contains(character) {
             editCharacters.remove(character)
         } else {

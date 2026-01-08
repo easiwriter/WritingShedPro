@@ -90,17 +90,17 @@ final class Project {
     var useMonomyth: Bool = false
     
     // Fiction relationships
-    @Relationship(deleteRule: .cascade, inverse: \FictionScene.project)
-    var scenes: [FictionScene]? = []
+    @Relationship(deleteRule: .cascade, inverse: \StoryScene.project)
+    var scenes: [StoryScene]? = []
     
-    @Relationship(deleteRule: .cascade, inverse: \FictionChapter.project)
-    var chapters: [FictionChapter]? = []
+    @Relationship(deleteRule: .cascade, inverse: \Chapter.project)
+    var chapters: [Chapter]? = []
     
-    @Relationship(deleteRule: .cascade, inverse: \FictionCharacter.project)
-    var characters: [FictionCharacter]? = []
+    @Relationship(deleteRule: .cascade, inverse: \Character.project)
+    var characters: [Character]? = []
     
-    @Relationship(deleteRule: .cascade, inverse: \FictionLocation.project)
-    var locations: [FictionLocation]? = []
+    @Relationship(deleteRule: .cascade, inverse: \Location.project)
+    var locations: [Location]? = []
     
     @Relationship(deleteRule: .cascade, inverse: \PlotElement.project)
     var plotElements: [PlotElement]? = []
@@ -460,8 +460,8 @@ final class TextFile {
     var submittedFiles: [SubmittedFile]? = []
     
     // Feature 022: Smart Fiction Creation
-    // A TextFile can be the content of a FictionScene
-    var scene: FictionScene?
+    // A TextFile can be the content of a Scene
+    var scene: StoryScene?
     
     /// Workflow status for this file (Draft, Ready, Submitted, etc.)
     var workflowStatus: WorkflowStatus? {

@@ -27,35 +27,35 @@ struct PlotElementDetailView: View {
     @State private var editTitle: String = ""
     @State private var editDescription: String = ""
     @State private var editMonomythStage: MonomythStage?
-    @State private var editCharacters: Set<FictionCharacter> = []
-    @State private var editLocations: Set<FictionLocation> = []
-    @State private var editLinkedScenes: Set<FictionScene> = []
+    @State private var editCharacters: Set<Character> = []
+    @State private var editLocations: Set<Location> = []
+    @State private var editLinkedScenes: Set<StoryScene> = []
     @State private var showDeleteConfirmation = false
     @State private var showCreateSceneSheet = false
     
     // MARK: - Computed
     
-    private var availableCharacters: [FictionCharacter] {
+    private var availableCharacters: [Character] {
         (project.characters ?? []).sorted { 
             ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending
         }
     }
     
-    private var availableLocations: [FictionLocation] {
+    private var availableLocations: [Location] {
         (project.locations ?? []).sorted { 
             ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending
         }
     }
     
-    private var linkedScenes: [FictionScene] {
+    private var linkedScenes: [StoryScene] {
         (plotElement.linkedScenes ?? []).sorted {
             ($0.userOrder ?? 0) < ($1.userOrder ?? 0)
         }
     }
     
-    private var availableScenes: [FictionScene] {
+    private var availableScenes: [StoryScene] {
         // Scenes are attached to TextFiles in folders, not directly in project.scenes
-        var scenes: [FictionScene] = []
+        var scenes: [StoryScene] = []
         for folder in project.folders ?? [] {
             for textFile in folder.textFiles ?? [] {
                 if let scene = textFile.scene {
@@ -358,7 +358,7 @@ struct PlotElementDetailView: View {
     
     // MARK: - Actions
     
-    private func toggleCharacter(_ character: FictionCharacter) {
+    private func toggleCharacter(_ character: Character) {
         if editCharacters.contains(character) {
             editCharacters.remove(character)
         } else {
@@ -366,7 +366,7 @@ struct PlotElementDetailView: View {
         }
     }
     
-    private func toggleLocation(_ location: FictionLocation) {
+    private func toggleLocation(_ location: Location) {
         if editLocations.contains(location) {
             editLocations.remove(location)
         } else {
@@ -374,7 +374,7 @@ struct PlotElementDetailView: View {
         }
     }
     
-    private func toggleScene(_ scene: FictionScene) {
+    private func toggleScene(_ scene: StoryScene) {
         if editLinkedScenes.contains(scene) {
             editLinkedScenes.remove(scene)
         } else {
@@ -524,7 +524,7 @@ struct CreateSceneForPlotElementSheet: View {
         // Find Draft folder
         let scenesFolder = project.folders?.first { $0.name == "Scenes" }
         
-        let scene = FictionScene(
+        let scene = StoryScene(
             name: trimmedName,
             synopsis: summary.isEmpty ? nil : summary,
             userOrder: nextSceneOrderIndex

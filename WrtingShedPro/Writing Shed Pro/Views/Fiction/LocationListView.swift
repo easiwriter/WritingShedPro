@@ -23,13 +23,13 @@ struct LocationListView: View {
     // MARK: - State
     
     @State private var showAddLocation = false
-    @State private var selectedLocation: FictionLocation?
+    @State private var selectedLocation: Location?
     @State private var showDeleteConfirmation = false
-    @State private var locationToDelete: FictionLocation?
+    @State private var locationToDelete: Location?
     
     // MARK: - Computed
     
-    private var sortedLocations: [FictionLocation] {
+    private var sortedLocations: [Location] {
         (project.locations ?? []).sorted { 
             ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending
         }
@@ -136,7 +136,7 @@ struct LocationListView: View {
     
     // MARK: - Actions
     
-    private func deleteLocation(_ location: FictionLocation) {
+    private func deleteLocation(_ location: Location) {
         modelContext.delete(location)
         try? modelContext.save()
     }
@@ -145,7 +145,7 @@ struct LocationListView: View {
 // MARK: - Location Row View
 
 struct LocationRowView: View {
-    let location: FictionLocation
+    let location: Location
     
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {

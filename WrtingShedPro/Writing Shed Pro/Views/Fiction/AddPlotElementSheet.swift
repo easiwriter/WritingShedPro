@@ -25,9 +25,9 @@ struct AddPlotElementSheet: View {
     @State private var title: String = ""
     @State private var plotDescription: String = ""
     @State private var selectedMonomythStage: MonomythStage = .ordinaryWorld
-    @State private var selectedCharacters: Set<FictionCharacter> = []
-    @State private var selectedLocations: Set<FictionLocation> = []
-    @State private var selectedScenes: Set<FictionScene> = []
+    @State private var selectedCharacters: Set<Character> = []
+    @State private var selectedLocations: Set<Location> = []
+    @State private var selectedScenes: Set<StoryScene> = []
     @State private var sceneName: String = ""  // Optional scene to auto-create
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
@@ -48,22 +48,22 @@ struct AddPlotElementSheet: View {
         return (scenes.map { $0.userOrder ?? 0 }.max() ?? -1) + 1
     }
     
-    private var availableCharacters: [FictionCharacter] {
+    private var availableCharacters: [Character] {
         (project.characters ?? []).sorted { 
             ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending
         }
     }
     
-    private var availableLocations: [FictionLocation] {
+    private var availableLocations: [Location] {
         (project.locations ?? []).sorted { 
             ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending
         }
     }
     
-    private var availableScenes: [FictionScene] {
+    private var availableScenes: [StoryScene] {
         // Scenes are attached to TextFiles in folders, not directly in project.scenes
         // Find all scenes by looking at TextFiles in project folders that have a scene
-        var scenes: [FictionScene] = []
+        var scenes: [StoryScene] = []
         
         for folder in project.folders ?? [] {
             for textFile in folder.textFiles ?? [] {
@@ -248,7 +248,7 @@ struct AddPlotElementSheet: View {
     
     // MARK: - Actions
     
-    private func toggleCharacter(_ character: FictionCharacter) {
+    private func toggleCharacter(_ character: Character) {
         if selectedCharacters.contains(character) {
             selectedCharacters.remove(character)
         } else {
@@ -256,7 +256,7 @@ struct AddPlotElementSheet: View {
         }
     }
     
-    private func toggleLocation(_ location: FictionLocation) {
+    private func toggleLocation(_ location: Location) {
         if selectedLocations.contains(location) {
             selectedLocations.remove(location)
         } else {
@@ -264,7 +264,7 @@ struct AddPlotElementSheet: View {
         }
     }
     
-    private func toggleScene(_ scene: FictionScene) {
+    private func toggleScene(_ scene: StoryScene) {
         if selectedScenes.contains(scene) {
             selectedScenes.remove(scene)
         } else {
@@ -307,7 +307,7 @@ struct AddPlotElementSheet: View {
             // Find Draft folder
             let scenesFolder = project.folders?.first { $0.name == "Scenes" }
             
-            let scene = FictionScene(
+            let scene = StoryScene(
                 name: trimmedSceneName,
                 userOrder: nextSceneOrderIndex
             )

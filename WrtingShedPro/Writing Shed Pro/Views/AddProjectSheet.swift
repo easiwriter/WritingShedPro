@@ -44,9 +44,11 @@ struct AddProjectSheet: View {
                             }
                         }
                         .accessibilityLabel(NSLocalizedString("fictionClass.accessibilityLabel", comment: "Accessibility label for fiction class picker"))
-                        
-                        Toggle(NSLocalizedString("fiction.useMonomyth", comment: "Toggle label for monomyth structure"), isOn: $useMonomyth)
-                            .accessibilityLabel(NSLocalizedString("fiction.useMonomythAccessibility", comment: "Accessibility label for monomyth toggle"))
+                    }
+                    
+                    if selectedType == .fiction || selectedType == .drama {
+                        Toggle(NSLocalizedString("addProject.useMonomyth", comment: "Toggle label for monomyth structure"), isOn: $useMonomyth)
+                            .accessibilityLabel(NSLocalizedString("addProject.useMonomythAccessibility", comment: "Accessibility label for monomyth toggle"))
                     }
                 }
                 

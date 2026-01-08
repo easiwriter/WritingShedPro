@@ -92,7 +92,7 @@ struct AddLocationSheet: View {
             return
         }
         
-        let location = FictionLocation(
+        let location = Location(
             name: trimmedName,
             description: locationDescription.isEmpty ? nil : locationDescription
         )

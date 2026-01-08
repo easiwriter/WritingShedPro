@@ -20,6 +20,7 @@
 /* Fiction Folder Names (Feature 022) */
 "folder.manuscript" = "Manuscript";
 "folder.chapters" = "Chapters";
+"folder.acts" = "Acts";
 "folder.scenes" = "Scenes";
 "folder.characters" = "Characters";
 "folder.locations" = "Locations";

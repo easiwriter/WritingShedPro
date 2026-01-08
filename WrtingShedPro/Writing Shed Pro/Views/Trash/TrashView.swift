@@ -56,13 +56,13 @@ struct TrashView: View {
     @State private var itemsToPutBack: [TrashItem] = []
     
     /// Scenes pending restore
-    @State private var scenesToRestore: [FictionScene] = []
+    @State private var scenesToRestore: [StoryScene] = []
     
     /// Items pending permanent deletion
     @State private var itemsToDelete: [TrashItem] = []
     
     /// Scenes pending permanent deletion
-    @State private var scenesToDelete: [FictionScene] = []
+    @State private var scenesToDelete: [StoryScene] = []
     
     /// Shows notification when restored to fallback folder
     @State private var showFallbackNotification = false
@@ -103,7 +103,7 @@ struct TrashView: View {
     }
     
     /// Trashed scenes for fiction projects
-    private var trashedScenes: [FictionScene] {
+    private var trashedScenes: [StoryScene] {
         guard isFictionProject else { return [] }
         return (project.scenes ?? [])
             .filter { $0.isTrashed }
@@ -116,7 +116,7 @@ struct TrashView: View {
     }
     
     /// Selected scenes based on IDs
-    private var selectedScenes: [FictionScene] {
+    private var selectedScenes: [StoryScene] {
         trashedScenes.filter { selectedSceneIDs.contains($0.id) }
     }
     
@@ -347,7 +347,7 @@ struct TrashView: View {
     
     /// Row for a trashed scene
     @ViewBuilder
-    private func trashedSceneRow(for scene: FictionScene) -> some View {
+    private func trashedSceneRow(for scene: StoryScene) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Image(systemName: "film")
@@ -367,7 +367,7 @@ struct TrashView: View {
     
     /// Swipe actions for scenes
     @ViewBuilder
-    private func sceneSwipeActionButtons(for scene: FictionScene) -> some View {
+    private func sceneSwipeActionButtons(for scene: StoryScene) -> some View {
         Button {
             prepareRestoreScenes([scene])
         } label: {
@@ -506,7 +506,7 @@ struct TrashView: View {
     }
     
     /// Toggle selection for a scene in edit mode
-    private func toggleSceneSelection(for scene: FictionScene) {
+    private func toggleSceneSelection(for scene: StoryScene) {
         if selectedSceneIDs.contains(scene.id) {
             selectedSceneIDs.remove(scene.id)
         } else {
@@ -580,7 +580,7 @@ struct TrashView: View {
     // MARK: - Scene Actions
     
     /// Prepares scenes for restoration and shows confirmation
-    private func prepareRestoreScenes(_ scenes: [FictionScene]) {
+    private func prepareRestoreScenes(_ scenes: [StoryScene]) {
         scenesToRestore = scenes
         showSceneRestoreConfirmation = true
     }
@@ -597,7 +597,7 @@ struct TrashView: View {
     }
     
     /// Prepares scenes for permanent deletion and shows confirmation
-    private func prepareDeleteScenes(_ scenes: [FictionScene]) {
+    private func prepareDeleteScenes(_ scenes: [StoryScene]) {
         scenesToDelete = scenes
         showSceneDeleteConfirmation = true
     }

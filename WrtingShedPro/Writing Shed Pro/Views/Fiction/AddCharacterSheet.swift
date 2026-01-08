@@ -118,7 +118,7 @@ struct AddCharacterSheet: View {
             return
         }
         
-        let character = FictionCharacter(
+        let character = Character(
             name: trimmedName,
             role: role.isEmpty ? nil : role,
             archetype: selectedArchetype,

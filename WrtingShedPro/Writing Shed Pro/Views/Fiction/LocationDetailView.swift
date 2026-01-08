@@ -18,7 +18,7 @@ struct LocationDetailView: View {
     
     // MARK: - Properties
     
-    @Bindable var location: FictionLocation
+    @Bindable var location: Location
     
     // MARK: - State
     

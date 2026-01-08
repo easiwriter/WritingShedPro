@@ -173,7 +173,7 @@ final class SyllableCounter {
     private func countSyllablesWithRules(_ word: String) -> Int {
         var count = 0
         var previousWasVowel = false
-        let vowels: Set<Character> = ["a", "e", "i", "o", "u", "y"]
+        let vowels: Set<Swift.Character> = ["a", "e", "i", "o", "u", "y"]
         let characters = Array(word)
         
         for (index, char) in characters.enumerated() {
@@ -208,7 +208,7 @@ final class SyllableCounter {
     // MARK: - Diphthong Detection
     
     /// Common diphthongs that count as single syllables
-    private func isDiphthong(first: Character, second: Character) -> Bool {
+    private func isDiphthong(first: Swift.Character, second: Swift.Character) -> Bool {
         let pair = String([first, second])
         let diphthongs: Set<String> = [
             "ai", "au", "aw", "ay",
@@ -259,7 +259,7 @@ final class SyllableCounter {
         guard word.hasSuffix("le") && word.count > 2 else { return count }
         
         let beforeLe = word.dropLast(2).last
-        let vowels: Set<Character> = ["a", "e", "i", "o", "u"]
+        let vowels: Set<Swift.Character> = ["a", "e", "i", "o", "u"]
         
         // '-le' after a consonant adds a syllable (table, bottle)
         // '-le' after a vowel doesn't (ale, pile - already counted)

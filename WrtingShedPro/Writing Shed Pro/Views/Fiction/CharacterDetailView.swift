@@ -18,7 +18,7 @@ struct CharacterDetailView: View {
     
     // MARK: - Properties
     
-    @Bindable var character: FictionCharacter
+    @Bindable var character: Character
     
     // MARK: - State
     

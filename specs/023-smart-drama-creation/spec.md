@@ -72,7 +72,19 @@ JOHN
 
 ## Functional Requirements
 
-<!-- To be completed after overview -->
+### FR1: Folder Structure
+
+**Drama Projects:**
+- Section 1 - Story Structure: Manuscript, Acts, Scenes, Characters, Locations, Plot
+- Section 2 - Organization & Support: Collections, Submissions, Research
+- Section 3 - Publications: Publishers, Agents, Other
+- Section 4 - System: Trash
+
+**Display Order:** Manuscript, Acts, Scenes, Characters, Locations, Plot // Collections, Submissions, Research // Publishers, Agents, Other // Trash
+
+*Note: Workflow status (Draft, Ready, Set Aside) is a property on individual files, not separate folders.*
+
+<!-- Additional requirements to be completed after overview -->
 
 ## Non-Functional Requirements
 

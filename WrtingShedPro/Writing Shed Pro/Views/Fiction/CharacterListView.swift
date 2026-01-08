@@ -23,21 +23,21 @@ struct CharacterListView: View {
     // MARK: - State
     
     @State private var showAddCharacter = false
-    @State private var selectedCharacter: FictionCharacter?
+    @State private var selectedCharacter: Character?
     @State private var showDeleteConfirmation = false
-    @State private var characterToDelete: FictionCharacter?
+    @State private var characterToDelete: Character?
     
     // MARK: - Computed
     
-    private var sortedCharacters: [FictionCharacter] {
+    private var sortedCharacters: [Character] {
         (project.characters ?? []).sorted { 
             ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending
         }
     }
     
     // Group characters by archetype
-    private var charactersByArchetype: [(archetype: CharacterArchetype?, characters: [FictionCharacter])] {
-        var grouped: [CharacterArchetype?: [FictionCharacter]] = [:]
+    private var charactersByArchetype: [(archetype: CharacterArchetype?, characters: [Character])] {
+        var grouped: [CharacterArchetype?: [Character]] = [:]
         
         for character in sortedCharacters {
             let archetype = character.archetype
@@ -45,7 +45,7 @@ struct CharacterListView: View {
         }
         
         // Sort: archetypes first (in order), then nil (unassigned) last
-        var result: [(CharacterArchetype?, [FictionCharacter])] = []
+        var result: [(CharacterArchetype?, [Character])] = []
         
         for archetype in CharacterArchetype.allCases {
             if let chars = grouped[archetype], !chars.isEmpty {
@@ -171,7 +171,7 @@ struct CharacterListView: View {
     
     // MARK: - Actions
     
-    private func deleteCharacter(_ character: FictionCharacter) {
+    private func deleteCharacter(_ character: Character) {
         modelContext.delete(character)
         try? modelContext.save()
     }
@@ -180,7 +180,7 @@ struct CharacterListView: View {
 // MARK: - Character Row View
 
 struct CharacterRowView: View {
-    let character: FictionCharacter
+    let character: Character
     
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {

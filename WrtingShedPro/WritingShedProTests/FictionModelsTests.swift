@@ -10,8 +10,8 @@ final class FictionModelsTests: XCTestCase {
         super.setUp()
         let schema = Schema([
             Project.self, Folder.self, TextFile.self, Version.self,
-            FictionScene.self, FictionChapter.self, FictionCharacter.self,
-            FictionLocation.self, PlotElement.self, CustomAttribute.self
+            StoryScene.self, Chapter.self, Character.self,
+            Location.self, PlotElement.self, CustomAttribute.self
         ])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         modelContainer = try! ModelContainer(for: schema, configurations: config)
@@ -114,10 +114,10 @@ final class FictionModelsTests: XCTestCase {
         XCTAssertEqual(orders, Array(1...12))
     }
     
-    // MARK: - FictionScene Tests
+    // MARK: - Scene Tests
     
-    func testFictionSceneCreation() {
-        let scene = FictionScene(name: "Opening Scene", synopsis: "The hero wakes up", userOrder: 1)
+    func testSceneCreation() {
+        let scene = Scene(name: "Opening Scene", synopsis: "The hero wakes up", userOrder: 1)
         modelContext.insert(scene)
         
         XCTAssertNotNil(scene.id)
@@ -127,8 +127,8 @@ final class FictionModelsTests: XCTestCase {
         XCTAssertNil(scene.monomythStage)
     }
     
-    func testFictionSceneWithMonomythStage() {
-        let scene = FictionScene(name: "Call Scene")
+    func testSceneWithMonomythStage() {
+        let scene = Scene(name: "Call Scene")
         scene.monomythStage = .callToAdventure
         modelContext.insert(scene)
         
@@ -136,20 +136,20 @@ final class FictionModelsTests: XCTestCase {
         XCTAssertEqual(scene.monomythStageRaw, "callToAdventure")
     }
     
-    func testFictionSceneMonomythStageRoundTrip() {
+    func testSceneMonomythStageRoundTrip() {
         for stage in MonomythStage.allCases {
-            let scene = FictionScene()
+            let scene = Scene()
             scene.monomythStage = stage
             XCTAssertEqual(scene.monomythStage, stage)
         }
     }
     
-    func testFictionSceneProjectRelationship() throws {
+    func testSceneProjectRelationship() throws {
         let project = Project(name: "My Novel", type: .fiction)
         project.fictionClass = .novel
         modelContext.insert(project)
         
-        let scene = FictionScene(name: "Scene 1")
+        let scene = Scene(name: "Scene 1")
         scene.project = project
         project.scenes?.append(scene)
         modelContext.insert(scene)
@@ -160,11 +160,11 @@ final class FictionModelsTests: XCTestCase {
         XCTAssertEqual(project.scenes?.count, 1)
     }
     
-    func testFictionSceneChapterRelationship() throws {
-        let chapter = FictionChapter(name: "Chapter 1")
+    func testSceneChapterRelationship() throws {
+        let chapter = Chapter(name: "Chapter 1")
         modelContext.insert(chapter)
         
-        let scene = FictionScene(name: "Scene 1")
+        let scene = Scene(name: "Scene 1")
         scene.chapter = chapter
         chapter.scenes?.append(scene)
         modelContext.insert(scene)
@@ -175,8 +175,8 @@ final class FictionModelsTests: XCTestCase {
         XCTAssertEqual(chapter.scenes?.count, 1)
     }
     
-    func testFictionSceneTextFileRelationship() throws {
-        let scene = FictionScene(name: "Scene 1")
+    func testSceneTextFileRelationship() throws {
+        let scene = Scene(name: "Scene 1")
         modelContext.insert(scene)
         
         let textFile = TextFile(name: "Scene 1.txt", initialContent: "It was a dark and stormy night...")
@@ -190,11 +190,11 @@ final class FictionModelsTests: XCTestCase {
         XCTAssertEqual(textFile.scene?.id, scene.id)
     }
     
-    func testFictionSceneCharacterRelationship() throws {
-        let scene = FictionScene(name: "Scene 1")
+    func testSceneCharacterRelationship() throws {
+        let scene = Scene(name: "Scene 1")
         modelContext.insert(scene)
         
-        let character = FictionCharacter(name: "Hero")
+        let character = Character(name: "Hero")
         modelContext.insert(character)
         
         scene.characters = [character]
@@ -207,11 +207,11 @@ final class FictionModelsTests: XCTestCase {
         XCTAssertEqual(character.scenes?.count, 1)
     }
     
-    func testFictionSceneLocationRelationship() throws {
-        let scene = FictionScene(name: "Scene 1")
+    func testSceneLocationRelationship() throws {
+        let scene = Scene(name: "Scene 1")
         modelContext.insert(scene)
         
-        let location = FictionLocation(name: "Castle", description: "A medieval castle")
+        let location = Location(name: "Castle", description: "A medieval castle")
         modelContext.insert(location)
         
         scene.location = location
@@ -223,10 +223,10 @@ final class FictionModelsTests: XCTestCase {
         XCTAssertEqual(location.scenes?.count, 1)
     }
     
-    // MARK: - FictionChapter Tests
+    // MARK: - Chapter Tests
     
-    func testFictionChapterCreation() {
-        let chapter = FictionChapter(name: "Chapter 1", synopsis: "The beginning", userOrder: 1)
+    func testChapterCreation() {
+        let chapter = Chapter(name: "Chapter 1", synopsis: "The beginning", userOrder: 1)
         modelContext.insert(chapter)
         
         XCTAssertNotNil(chapter.id)
@@ -235,15 +235,15 @@ final class FictionModelsTests: XCTestCase {
         XCTAssertEqual(chapter.userOrder, 1)
     }
     
-    func testFictionChapterWithMultipleScenes() throws {
-        let chapter = FictionChapter(name: "Chapter 1")
+    func testChapterWithMultipleScenes() throws {
+        let chapter = Chapter(name: "Chapter 1")
         modelContext.insert(chapter)
         
-        let scene1 = FictionScene(name: "Scene 1", userOrder: 1)
+        let scene1 = Scene(name: "Scene 1", userOrder: 1)
         scene1.chapter = chapter
         modelContext.insert(scene1)
         
-        let scene2 = FictionScene(name: "Scene 2", userOrder: 2)
+        let scene2 = Scene(name: "Scene 2", userOrder: 2)
         scene2.chapter = chapter
         modelContext.insert(scene2)
         
@@ -258,12 +258,12 @@ final class FictionModelsTests: XCTestCase {
         XCTAssertEqual(sortedScenes.last?.name, "Scene 2")
     }
     
-    func testFictionChapterProjectRelationship() throws {
+    func testChapterProjectRelationship() throws {
         let project = Project(name: "My Novel", type: .fiction)
         project.fictionClass = .novel
         modelContext.insert(project)
         
-        let chapter = FictionChapter(name: "Chapter 1")
+        let chapter = Chapter(name: "Chapter 1")
         chapter.project = project
         project.chapters?.append(chapter)
         modelContext.insert(chapter)
@@ -274,10 +274,10 @@ final class FictionModelsTests: XCTestCase {
         XCTAssertEqual(project.chapters?.count, 1)
     }
     
-    // MARK: - FictionCharacter Tests
+    // MARK: - Character Tests
     
-    func testFictionCharacterCreation() {
-        let character = FictionCharacter(name: "Frodo", role: "Protagonist", archetype: .hero, biography: "A hobbit from the Shire")
+    func testCharacterCreation() {
+        let character = Character(name: "Frodo", role: "Protagonist", archetype: .hero, biography: "A hobbit from the Shire")
         modelContext.insert(character)
         
         XCTAssertNotNil(character.id)
@@ -287,27 +287,27 @@ final class FictionModelsTests: XCTestCase {
         XCTAssertEqual(character.biography, "A hobbit from the Shire")
     }
     
-    func testFictionCharacterArchetypeRoundTrip() {
+    func testCharacterArchetypeRoundTrip() {
         for archetype in CharacterArchetype.allCases {
-            let character = FictionCharacter(name: "Test", archetype: archetype)
+            let character = Character(name: "Test", archetype: archetype)
             XCTAssertEqual(character.archetype, archetype)
             XCTAssertEqual(character.archetypeRaw, archetype.rawValue)
         }
     }
     
-    func testFictionCharacterWithoutArchetype() {
-        let character = FictionCharacter(name: "Minor Character")
+    func testCharacterWithoutArchetype() {
+        let character = Character(name: "Minor Character")
         modelContext.insert(character)
         
         XCTAssertNil(character.archetype)
         XCTAssertNil(character.archetypeRaw)
     }
     
-    func testFictionCharacterProjectRelationship() throws {
+    func testCharacterProjectRelationship() throws {
         let project = Project(name: "My Novel", type: .fiction)
         modelContext.insert(project)
         
-        let character = FictionCharacter(name: "Hero")
+        let character = Character(name: "Hero")
         character.project = project
         project.characters?.append(character)
         modelContext.insert(character)
@@ -318,8 +318,8 @@ final class FictionModelsTests: XCTestCase {
         XCTAssertEqual(project.characters?.count, 1)
     }
     
-    func testFictionCharacterCustomAttributes() throws {
-        let character = FictionCharacter(name: "Hero")
+    func testCharacterCustomAttributes() throws {
+        let character = Character(name: "Hero")
         modelContext.insert(character)
         
         let attr1 = CustomAttribute(key: "Eye Color", value: "Blue", userOrder: 1)
@@ -337,10 +337,10 @@ final class FictionModelsTests: XCTestCase {
         XCTAssertEqual(character.customAttributes?.count, 2)
     }
     
-    // MARK: - FictionLocation Tests
+    // MARK: - Location Tests
     
-    func testFictionLocationCreation() {
-        let location = FictionLocation(name: "The Shire", description: "A peaceful land of rolling hills")
+    func testLocationCreation() {
+        let location = Location(name: "The Shire", description: "A peaceful land of rolling hills")
         modelContext.insert(location)
         
         XCTAssertNotNil(location.id)
@@ -348,11 +348,11 @@ final class FictionModelsTests: XCTestCase {
         XCTAssertEqual(location.locationDescription, "A peaceful land of rolling hills")
     }
     
-    func testFictionLocationProjectRelationship() throws {
+    func testLocationProjectRelationship() throws {
         let project = Project(name: "My Novel", type: .fiction)
         modelContext.insert(project)
         
-        let location = FictionLocation(name: "Castle")
+        let location = Location(name: "Castle")
         location.project = project
         project.locations?.append(location)
         modelContext.insert(location)
@@ -363,8 +363,8 @@ final class FictionModelsTests: XCTestCase {
         XCTAssertEqual(project.locations?.count, 1)
     }
     
-    func testFictionLocationCustomAttributes() throws {
-        let location = FictionLocation(name: "Castle")
+    func testLocationCustomAttributes() throws {
+        let location = Location(name: "Castle")
         modelContext.insert(location)
         
         let attr = CustomAttribute(key: "Built", value: "1066 AD", userOrder: 1)
@@ -379,15 +379,15 @@ final class FictionModelsTests: XCTestCase {
         XCTAssertEqual(location.customAttributes?.first?.key, "Built")
     }
     
-    func testFictionLocationWithMultipleScenes() throws {
-        let location = FictionLocation(name: "Castle")
+    func testLocationWithMultipleScenes() throws {
+        let location = Location(name: "Castle")
         modelContext.insert(location)
         
-        let scene1 = FictionScene(name: "Scene 1")
+        let scene1 = Scene(name: "Scene 1")
         scene1.location = location
         modelContext.insert(scene1)
         
-        let scene2 = FictionScene(name: "Scene 2")
+        let scene2 = Scene(name: "Scene 2")
         scene2.location = location
         modelContext.insert(scene2)
         
@@ -448,10 +448,10 @@ final class FictionModelsTests: XCTestCase {
         let element = PlotElement(name: "Crossing")
         modelContext.insert(element)
         
-        let scene1 = FictionScene(name: "Scene 1")
+        let scene1 = Scene(name: "Scene 1")
         modelContext.insert(scene1)
         
-        let scene2 = FictionScene(name: "Scene 2")
+        let scene2 = Scene(name: "Scene 2")
         modelContext.insert(scene2)
         
         element.linkedScenes = [scene1, scene2]
@@ -478,10 +478,10 @@ final class FictionModelsTests: XCTestCase {
     }
     
     func testCustomAttributeCharacterVsLocation() throws {
-        let character = FictionCharacter(name: "Hero")
+        let character = Character(name: "Hero")
         modelContext.insert(character)
         
-        let location = FictionLocation(name: "Castle")
+        let location = Location(name: "Castle")
         modelContext.insert(location)
         
         let charAttr = CustomAttribute(key: "Age", value: "25")
@@ -525,16 +525,16 @@ final class FictionModelsTests: XCTestCase {
         modelContext.insert(project)
         
         // Add chapter with scenes
-        let chapter = FictionChapter(name: "Chapter 1", userOrder: 1)
+        let chapter = Chapter(name: "Chapter 1", userOrder: 1)
         chapter.project = project
         modelContext.insert(chapter)
         
-        let scene1 = FictionScene(name: "Scene 1", userOrder: 1)
+        let scene1 = Scene(name: "Scene 1", userOrder: 1)
         scene1.chapter = chapter
         scene1.project = project
         modelContext.insert(scene1)
         
-        let scene2 = FictionScene(name: "Scene 2", userOrder: 2)
+        let scene2 = Scene(name: "Scene 2", userOrder: 2)
         scene2.chapter = chapter
         scene2.project = project
         modelContext.insert(scene2)
@@ -556,11 +556,11 @@ final class FictionModelsTests: XCTestCase {
         modelContext.insert(project)
         
         // Add scenes directly (no chapters)
-        let scene1 = FictionScene(name: "Scene 1", userOrder: 1)
+        let scene1 = Scene(name: "Scene 1", userOrder: 1)
         scene1.project = project
         modelContext.insert(scene1)
         
-        let scene2 = FictionScene(name: "Scene 2", userOrder: 2)
+        let scene2 = Scene(name: "Scene 2", userOrder: 2)
         scene2.project = project
         modelContext.insert(scene2)
         
@@ -603,20 +603,20 @@ final class FictionModelsTests: XCTestCase {
         let project = Project(name: "Test Project", type: .fiction)
         modelContext.insert(project)
         
-        let scene = FictionScene(name: "Scene 1")
+        let scene = Scene(name: "Scene 1")
         scene.project = project
         project.scenes = [scene]
         modelContext.insert(scene)
         
         try modelContext.save()
         
-        let scenesBefore = try modelContext.fetch(FetchDescriptor<FictionScene>())
+        let scenesBefore = try modelContext.fetch(FetchDescriptor<Scene>())
         XCTAssertEqual(scenesBefore.count, 1)
         
         modelContext.delete(project)
         try modelContext.save()
         
-        let scenesAfter = try modelContext.fetch(FetchDescriptor<FictionScene>())
+        let scenesAfter = try modelContext.fetch(FetchDescriptor<Scene>())
         XCTAssertEqual(scenesAfter.count, 0)
     }
     
@@ -624,20 +624,20 @@ final class FictionModelsTests: XCTestCase {
         let project = Project(name: "Test Project", type: .fiction)
         modelContext.insert(project)
         
-        let chapter = FictionChapter(name: "Chapter 1")
+        let chapter = Chapter(name: "Chapter 1")
         chapter.project = project
         project.chapters = [chapter]
         modelContext.insert(chapter)
         
         try modelContext.save()
         
-        let chaptersBefore = try modelContext.fetch(FetchDescriptor<FictionChapter>())
+        let chaptersBefore = try modelContext.fetch(FetchDescriptor<Chapter>())
         XCTAssertEqual(chaptersBefore.count, 1)
         
         modelContext.delete(project)
         try modelContext.save()
         
-        let chaptersAfter = try modelContext.fetch(FetchDescriptor<FictionChapter>())
+        let chaptersAfter = try modelContext.fetch(FetchDescriptor<Chapter>())
         XCTAssertEqual(chaptersAfter.count, 0)
     }
     
@@ -645,7 +645,7 @@ final class FictionModelsTests: XCTestCase {
         let project = Project(name: "Test Project", type: .fiction)
         modelContext.insert(project)
         
-        let character = FictionCharacter(name: "Hero")
+        let character = Character(name: "Hero")
         character.project = project
         project.characters = [character]
         modelContext.insert(character)
@@ -655,7 +655,7 @@ final class FictionModelsTests: XCTestCase {
         modelContext.delete(project)
         try modelContext.save()
         
-        let charactersAfter = try modelContext.fetch(FetchDescriptor<FictionCharacter>())
+        let charactersAfter = try modelContext.fetch(FetchDescriptor<Character>())
         XCTAssertEqual(charactersAfter.count, 0)
     }
     
@@ -663,7 +663,7 @@ final class FictionModelsTests: XCTestCase {
         let project = Project(name: "Test Project", type: .fiction)
         modelContext.insert(project)
         
-        let location = FictionLocation(name: "Castle")
+        let location = Location(name: "Castle")
         location.project = project
         project.locations = [location]
         modelContext.insert(location)
@@ -673,7 +673,7 @@ final class FictionModelsTests: XCTestCase {
         modelContext.delete(project)
         try modelContext.save()
         
-        let locationsAfter = try modelContext.fetch(FetchDescriptor<FictionLocation>())
+        let locationsAfter = try modelContext.fetch(FetchDescriptor<Location>())
         XCTAssertEqual(locationsAfter.count, 0)
     }
     
@@ -696,7 +696,7 @@ final class FictionModelsTests: XCTestCase {
     }
     
     func testDeletingCharacterCascadesDeletesCustomAttributes() throws {
-        let character = FictionCharacter(name: "Hero")
+        let character = Character(name: "Hero")
         modelContext.insert(character)
         
         let attr = CustomAttribute(key: "Age", value: "25")
@@ -717,7 +717,7 @@ final class FictionModelsTests: XCTestCase {
     }
     
     func testDeletingLocationCascadesDeletesCustomAttributes() throws {
-        let location = FictionLocation(name: "Castle")
+        let location = Location(name: "Castle")
         modelContext.insert(location)
         
         let attr = CustomAttribute(key: "Built", value: "1066")

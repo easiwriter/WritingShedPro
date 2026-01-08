@@ -108,7 +108,7 @@ struct AddChapterSheet: View {
             return
         }
         
-        let chapter = FictionChapter(
+        let chapter = Chapter(
             name: trimmedTitle,
             synopsis: summary.isEmpty ? nil : summary,
             userOrder: nextOrderIndex

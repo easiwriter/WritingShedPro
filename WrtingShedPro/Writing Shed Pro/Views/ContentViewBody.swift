@@ -8,6 +8,19 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
+// MARK: - Custom UTTypes for Writing Shed files
+extension UTType {
+    /// Writing Shed legacy export format (.wsd)
+    static var writingShedLegacy: UTType {
+        UTType(importedAs: "com.writing-shed.wsd")
+    }
+    
+    /// Writing Shed Pro project format (.wsp)
+    static var writingShedPro: UTType {
+        UTType(exportedAs: "com.writing-shed.wsp")
+    }
+}
+
 struct ContentViewBody: View {
     let projects: [Project]
     @Bindable var state: ContentViewState
@@ -91,8 +104,8 @@ struct ContentViewBody: View {
             .fileImporter(
                 isPresented: $state.showingJSONImportPicker,
                 allowedContentTypes: [
-                    UTType("com.writing-shed.wsd") ?? UTType(filenameExtension: "wsd") ?? .json,
-                    UTType("com.writing-shed.wsp") ?? UTType(filenameExtension: "wsp") ?? .json,
+                    .writingShedLegacy,
+                    .writingShedPro,
                     .json
                 ],
                 allowsMultipleSelection: false

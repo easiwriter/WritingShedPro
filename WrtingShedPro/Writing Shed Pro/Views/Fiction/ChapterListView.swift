@@ -23,13 +23,13 @@ struct ChapterListView: View {
     // MARK: - State
     
     @State private var showAddChapter = false
-    @State private var selectedChapter: FictionChapter?
+    @State private var selectedChapter: Chapter?
     @State private var showDeleteConfirmation = false
-    @State private var chapterToDelete: FictionChapter?
+    @State private var chapterToDelete: Chapter?
     
     // MARK: - Computed
     
-    private var sortedChapters: [FictionChapter] {
+    private var sortedChapters: [Chapter] {
         (project.chapters ?? []).sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
     }
     
@@ -132,7 +132,7 @@ struct ChapterListView: View {
     
     // MARK: - Actions
     
-    private func deleteChapter(_ chapter: FictionChapter) {
+    private func deleteChapter(_ chapter: Chapter) {
         // Also delete all scenes in the chapter
         if let scenes = chapter.scenes {
             for scene in scenes {
@@ -168,7 +168,7 @@ struct ChapterListView: View {
 // MARK: - Chapter Row View
 
 struct ChapterRowView: View {
-    let chapter: FictionChapter
+    let chapter: Chapter
     
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
