@@ -443,6 +443,30 @@ struct FormattedTextEditor: UIViewRepresentable {
                 } else {
                     print("⚠️ After setAttributedString, NO paragraph style at 0!")
                 }
+                
+                // Log font information for diagnostics
+                print("🔤 Font diagnostics for document:")
+                var index = 0
+                var uniqueFonts: [String: (font: UIFont, firstLine: Int)] = [:]
+                let nsString = textView.textStorage.string as NSString
+                while index < textView.textStorage.length {
+                    var effectiveRange = NSRange()
+                    if let font = textView.textStorage.attribute(.font, at: index, effectiveRange: &effectiveRange) as? UIFont {
+                        let lineNumber = nsString.substring(to: index).components(separatedBy: "\n").count
+                        let key = "\(font.fontName)@\(font.pointSize)"
+                        if uniqueFonts[key] == nil {
+                            uniqueFonts[key] = (font, lineNumber)
+                        }
+                    }
+                    index = NSMaxRange(effectiveRange)
+                }
+                for (_, value) in uniqueFonts.sorted(by: { $0.value.firstLine < $1.value.firstLine }) {
+                    let font = value.font
+                    let traits = font.fontDescriptor.symbolicTraits
+                    let isBold = traits.contains(.traitBold)
+                    let isItalic = traits.contains(.traitItalic)
+                    print("   Line \(value.firstLine): \(font.fontName) @ \(font.pointSize)pt (bold:\(isBold), italic:\(isItalic))")
+                }
             }
             #endif
             

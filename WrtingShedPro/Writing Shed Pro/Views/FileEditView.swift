@@ -783,6 +783,18 @@ struct FileEditView: View {
         // Mark as excluded section (using .title as the marker type - any non-.poem type works)
         mutableContent.markSection(.title, in: lineRange)
         
+        #if DEBUG
+        // Verify the attribute was added
+        var markedCount = 0
+        mutableContent.enumerateAttribute(.poemSectionType, in: lineRange) { value, range, _ in
+            if value != nil {
+                markedCount += 1
+                print("📌 Marked section at \(range): \(value!)")
+            }
+        }
+        print("📌 addMarkedSection: Applied poemSectionType to \(markedCount) ranges in lineRange \(lineRange)")
+        #endif
+        
         // Apply grey text styling
         mutableContent.addAttribute(.foregroundColor, value: UIColor.systemGray, range: lineRange)
         
@@ -1398,8 +1410,9 @@ struct FileEditView: View {
                 // CRITICAL: Don't reapply styles to legacy RTF documents!
                 // Legacy imports have direct formatting (bold/italic) baked in, not stylesheet styles
                 // Reapplying styles would destroy all the bold/italic formatting
+                // Modern JSON format documents SHOULD have styles reapplied
                 let isLegacyRTF = file.currentVersion?.formattedContent != nil && 
-                                  file.currentVersion?.formattedContent?.count ?? 0 > 0
+                                  !AttributedStringSerializer.isJSONFormat(file.currentVersion?.formattedContent)
                 
                 if !isLegacyRTF {
                     #if DEBUG
@@ -2965,7 +2978,26 @@ struct FileEditView: View {
                 }
             } else {
                 // No attachment - apply all attributes including paragraph style normally
+                // BUT preserve ALL poemSectionType attributes within this range (for marked sections)
+                // A single style range can contain multiple marked sections, so we enumerate all of them
+                var markedSections: [(range: NSRange, type: Any)] = []
+                mutableText.enumerateAttribute(.poemSectionType, in: range, options: []) { value, attrRange, _ in
+                    if let sectionType = value {
+                        markedSections.append((range: attrRange, type: sectionType))
+                    }
+                }
+                
                 mutableText.setAttributes(newAttributes, range: range)
+                
+                // Restore all poemSectionType attributes that were present
+                for section in markedSections {
+                    mutableText.addAttribute(.poemSectionType, value: section.type, range: section.range)
+                    // Also restore grey color for marked sections
+                    mutableText.addAttribute(.foregroundColor, value: UIColor.systemGray, range: section.range)
+                    #if DEBUG
+                    print("   📌 Preserved poemSectionType '\(section.type)' at range {\(section.range.location), \(section.range.length)}")
+                    #endif
+                }
             }
             
             // Log what color is ACTUALLY in the text after we set it
@@ -3792,6 +3824,7 @@ struct FileEditView: View {
             var commentCount = 0
             var imageCount = 0
             var footnoteCount = 0
+            var poemSectionCount = 0
             currentContent.enumerateAttribute(.attachment, in: NSRange(location: 0, length: currentContent.length)) { value, range, _ in
                 if value is CommentAttachment {
                     commentCount += 1
@@ -3801,8 +3834,16 @@ struct FileEditView: View {
                     footnoteCount += 1
                 }
             }
+            currentContent.enumerateAttribute(.poemSectionType, in: NSRange(location: 0, length: currentContent.length)) { value, range, _ in
+                if value != nil {
+                    poemSectionCount += 1
+                    #if DEBUG
+                    print("💾 Found poemSectionType '\(value!)' at range \(range)")
+                    #endif
+                }
+            }
             #if DEBUG
-            print("💾 Saving attributed content with \(commentCount) comments, \(imageCount) images, and \(footnoteCount) footnotes")
+            print("💾 Saving attributed content with \(commentCount) comments, \(imageCount) images, \(footnoteCount) footnotes, and \(poemSectionCount) marked sections")
             #endif
         } else {
             var contentToSave = attributedContent

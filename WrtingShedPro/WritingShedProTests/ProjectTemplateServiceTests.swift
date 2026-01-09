@@ -32,15 +32,15 @@ final class ProjectTemplateServiceTests: XCTestCase {
         ProjectTemplateService.createDefaultFolders(for: project, in: modelContext)
         
         // Then verify folders exist in flat structure
-        // Poetry: Poems, Collections, Submissions, Manuscript, Research, Magazines, Competitions, Commissions, Other, Trash
+        // Poetry: Manuscript, Poems // Collections, Submissions, Research // Magazines, Competitions, Other // Trash
         let folders = project.folders ?? []
         
-        XCTAssertEqual(folders.count, 10, "Should have 10 folders for poetry project")
+        XCTAssertEqual(folders.count, 9, "Should have 9 folders for poetry project")
         
         let folderNames = Set(folders.compactMap { $0.name })
         let expectedNames: Set<String> = [
             "Poems", "Collections", "Submissions", "Manuscript",
-            "Research", "Magazines", "Competitions", "Commissions",
+            "Research", "Magazines", "Competitions",
             "Other", "Trash"
         ]
         XCTAssertEqual(folderNames, expectedNames, "Should have correct folder names")
@@ -74,16 +74,16 @@ final class ProjectTemplateServiceTests: XCTestCase {
         ProjectTemplateService.createDefaultFolders(for: project, in: modelContext)
         
         // Then verify folders exist in flat structure
-        // Short Fiction: Scenes, Characters, Locations, Chapters, Plot, Manuscript, Collections, Submissions, Research, Magazines, Competitions, Agents, Publishers, Other, Trash
+        // Short Fiction (fictionClass nil defaults to no chapters): Manuscript, Scenes, Characters, Locations, Plot, Collections, Submissions, Research, Magazines, Competitions, Other, Trash
         let folders = project.folders ?? []
         
-        XCTAssertEqual(folders.count, 15, "Should have 15 folders for Short Fiction project")
+        XCTAssertEqual(folders.count, 12, "Should have 12 folders for Short Fiction project")
         
         let folderNames = Set(folders.compactMap { $0.name })
         let expectedNames: Set<String> = [
-            "Scenes", "Characters", "Locations", "Chapters", "Plot", "Manuscript",
+            "Scenes", "Characters", "Locations", "Plot", "Manuscript",
             "Collections", "Submissions", "Research",
-            "Magazines", "Competitions", "Agents", "Publishers", "Other", "Trash"
+            "Magazines", "Competitions", "Other", "Trash"
         ]
         XCTAssertEqual(folderNames, expectedNames, "Should have correct folder names for Short Fiction")
     }
@@ -122,15 +122,16 @@ final class ProjectTemplateServiceTests: XCTestCase {
         ProjectTemplateService.createDefaultFolders(for: project, in: modelContext)
         
         // Then verify folders exist in flat structure
+        // Short Fiction: Manuscript, Scenes, Characters, Locations, Plot, Collections, Submissions, Research, Magazines, Competitions, Other, Trash
         let folders = project.folders ?? []
         
-        XCTAssertEqual(folders.count, 15, "Should have 15 folders for Short Fiction project")
+        XCTAssertEqual(folders.count, 12, "Should have 12 folders for Short Fiction project")
         
         let folderNames = Set(folders.compactMap { $0.name })
         let expectedNames: Set<String> = [
-            "Scenes", "Characters", "Locations", "Chapters", "Plot", "Manuscript",
+            "Scenes", "Characters", "Locations", "Plot", "Manuscript",
             "Collections", "Submissions", "Research",
-            "Magazines", "Competitions", "Agents", "Publishers", "Other", "Trash"
+            "Magazines", "Competitions", "Other", "Trash"
         ]
         XCTAssertEqual(folderNames, expectedNames, "Should have correct folder names for Short Fiction")
     }
@@ -144,15 +145,16 @@ final class ProjectTemplateServiceTests: XCTestCase {
         ProjectTemplateService.createDefaultFolders(for: project, in: modelContext)
         
         // Then verify folders exist in flat structure
-        // Drama: Scripts, Collections, Submissions, Research, Competitions, Commissions, Other, Trash
+        // Drama: Manuscript, Acts, Scenes, Characters, Locations, Plot, Collections, Submissions, Research, Publishers, Agents, Other, Trash
         let folders = project.folders ?? []
         
-        XCTAssertEqual(folders.count, 8, "Should have 8 folders for drama project")
+        XCTAssertEqual(folders.count, 13, "Should have 13 folders for drama project")
         
         let folderNames = Set(folders.compactMap { $0.name })
         let expectedNames: Set<String> = [
-            "Scripts", "Collections", "Submissions",
-            "Research", "Competitions", "Commissions", "Other", "Trash"
+            "Manuscript", "Acts", "Scenes", "Characters", "Locations", "Plot",
+            "Collections", "Submissions", "Research",
+            "Publishers", "Agents", "Other", "Trash"
         ]
         XCTAssertEqual(folderNames, expectedNames, "Should have correct folder names")
     }
@@ -312,11 +314,11 @@ final class ProjectTemplateServiceTests: XCTestCase {
         
         let folders = project.folders ?? []
         
-        // Short Fiction should have both Scenes and Chapters folders
+        // Short Fiction should have Scenes folder but NOT Chapters (only novels have Chapters)
         XCTAssertNotNil(folders.first(where: { $0.name == "Scenes" }),
                        "Short Fiction should have Scenes folder")
-        XCTAssertNotNil(folders.first(where: { $0.name == "Chapters" }),
-                       "Short Fiction should have Chapters folder")
+        XCTAssertNil(folders.first(where: { $0.name == "Chapters" }),
+                       "Short Fiction should NOT have Chapters folder")
     }
     
     func testDramaProjectFolderCapabilities() throws {
@@ -372,7 +374,7 @@ final class ProjectTemplateServiceTests: XCTestCase {
         let folders1 = project1.folders ?? []
         let folders2 = project2.folders ?? []
         
-        XCTAssertEqual(folders1.count, 10, "Project 1 (Poetry) should have 10 folders")
+        XCTAssertEqual(folders1.count, 9, "Project 1 (Poetry) should have 9 folders")
         XCTAssertEqual(folders2.count, 2, "Project 2 (General) should have 2 folders")
         
         // Verify no overlap in folder IDs

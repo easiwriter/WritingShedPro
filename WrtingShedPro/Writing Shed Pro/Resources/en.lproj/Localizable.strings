@@ -1504,3 +1504,39 @@
 "poemSection.addToMarked" = "Add Marked Section";
 "poemSection.unmarkSelection" = "Unmark Selection";
 "poemSection.clearAllMarks" = "Clear All Marks";
+
+/* Feature 023: Smart Drama Creation - DML */
+"drama.scriptType" = "Script Type";
+"drama.scriptType.film" = "Film/Screenplay";
+"drama.scriptType.stage" = "Stage Play";
+
+"drama.viewMode" = "View Mode";
+"drama.viewMode.source" = "Source";
+"drama.viewMode.formatted" = "Formatted";
+"drama.viewMode.print" = "Print Preview";
+
+"drama.validate" = "Validate Script";
+"drama.validation.title" = "Validation Issues";
+"drama.validation.line" = "Line";
+"drama.validation.noIssues" = "No Issues Found";
+"drama.validation.scriptValid" = "Your script is valid.";
+"drama.validation.orphanedParenthetical" = "Parenthetical must follow a character name";
+"drama.validation.unclosedNote" = "Note bracket [[ is not closed with ]]";
+
+"drama.characters.title" = "Characters in Scene";
+"drama.characters.count" = "Characters (%d)";
+
+"drama.toolbar.sceneHeading" = "Scene";
+"drama.toolbar.action" = "Action";
+"drama.toolbar.character" = "Character";
+"drama.toolbar.parenthetical" = "Paren";
+"drama.toolbar.transition" = "Transition";
+"drama.toolbar.note" = "Note";
+"drama.toolbar.location" = "Location";
+"drama.toolbar.time" = "Time";
+"drama.toolbar.characterName" = "Character Name";
+"drama.toolbar.characterNamePlaceholder" = "Enter name";
+"drama.toolbar.characterNameMessage" = "Enter character name in ALL CAPS";
+"drama.toolbar.selectTransition" = "Select Transition";
+
+"button.insert" = "Insert";

@@ -372,6 +372,21 @@ struct AttributedStringSerializer {
         }
     }
     
+    /// Check if the data is in the modern JSON/plist format (vs legacy RTF)
+    /// - Parameter data: The formattedContent data to check
+    /// - Returns: True if the data is in JSON/plist format, false if RTF or unknown
+    static func isJSONFormat(_ data: Data?) -> Bool {
+        guard let data = data, !data.isEmpty else { return false }
+        
+        // Try to decode as our JSON/plist format
+        do {
+            _ = try PropertyListDecoder().decode([AttributeValues].self, from: data)
+            return true
+        } catch {
+            return false
+        }
+    }
+    
     /// Decode Data to NSAttributedString using plain text and attribute data
     /// - Parameters:
     ///   - data: The encoded attribute data

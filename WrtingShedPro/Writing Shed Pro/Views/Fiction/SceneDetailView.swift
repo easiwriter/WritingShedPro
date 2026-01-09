@@ -210,8 +210,12 @@ struct SceneDetailView: View {
         if let textFile = scene.textFile {
             Section {
                 NavigationLink {
-                    // Navigate to file
-                    FileDetailView(file: textFile)
+                    // Navigate to file - use drama editor for drama projects
+                    if project.type == .drama {
+                        DramaSceneEditorView(file: textFile, project: project)
+                    } else {
+                        FileDetailView(file: textFile)
+                    }
                 } label: {
                     HStack {
                         Image(systemName: "doc.text")

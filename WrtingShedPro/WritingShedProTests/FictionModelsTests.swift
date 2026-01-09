@@ -117,7 +117,7 @@ final class FictionModelsTests: XCTestCase {
     // MARK: - Scene Tests
     
     func testSceneCreation() {
-        let scene = Scene(name: "Opening Scene", synopsis: "The hero wakes up", userOrder: 1)
+        let scene = StoryScene(name: "Opening Scene", synopsis: "The hero wakes up", userOrder: 1)
         modelContext.insert(scene)
         
         XCTAssertNotNil(scene.id)
@@ -128,7 +128,7 @@ final class FictionModelsTests: XCTestCase {
     }
     
     func testSceneWithMonomythStage() {
-        let scene = Scene(name: "Call Scene")
+        let scene = StoryScene(name: "Call Scene")
         scene.monomythStage = .callToAdventure
         modelContext.insert(scene)
         
@@ -138,7 +138,7 @@ final class FictionModelsTests: XCTestCase {
     
     func testSceneMonomythStageRoundTrip() {
         for stage in MonomythStage.allCases {
-            let scene = Scene()
+            let scene = StoryScene()
             scene.monomythStage = stage
             XCTAssertEqual(scene.monomythStage, stage)
         }
@@ -149,7 +149,7 @@ final class FictionModelsTests: XCTestCase {
         project.fictionClass = .novel
         modelContext.insert(project)
         
-        let scene = Scene(name: "Scene 1")
+        let scene = StoryScene(name: "Scene 1")
         scene.project = project
         project.scenes?.append(scene)
         modelContext.insert(scene)
@@ -164,7 +164,7 @@ final class FictionModelsTests: XCTestCase {
         let chapter = Chapter(name: "Chapter 1")
         modelContext.insert(chapter)
         
-        let scene = Scene(name: "Scene 1")
+        let scene = StoryScene(name: "Scene 1")
         scene.chapter = chapter
         chapter.scenes?.append(scene)
         modelContext.insert(scene)
@@ -176,7 +176,7 @@ final class FictionModelsTests: XCTestCase {
     }
     
     func testSceneTextFileRelationship() throws {
-        let scene = Scene(name: "Scene 1")
+        let scene = StoryScene(name: "Scene 1")
         modelContext.insert(scene)
         
         let textFile = TextFile(name: "Scene 1.txt", initialContent: "It was a dark and stormy night...")
@@ -191,7 +191,7 @@ final class FictionModelsTests: XCTestCase {
     }
     
     func testSceneCharacterRelationship() throws {
-        let scene = Scene(name: "Scene 1")
+        let scene = StoryScene(name: "Scene 1")
         modelContext.insert(scene)
         
         let character = Character(name: "Hero")
@@ -208,7 +208,7 @@ final class FictionModelsTests: XCTestCase {
     }
     
     func testSceneLocationRelationship() throws {
-        let scene = Scene(name: "Scene 1")
+        let scene = StoryScene(name: "Scene 1")
         modelContext.insert(scene)
         
         let location = Location(name: "Castle", description: "A medieval castle")
@@ -239,11 +239,11 @@ final class FictionModelsTests: XCTestCase {
         let chapter = Chapter(name: "Chapter 1")
         modelContext.insert(chapter)
         
-        let scene1 = Scene(name: "Scene 1", userOrder: 1)
+        let scene1 = StoryScene(name: "Scene 1", userOrder: 1)
         scene1.chapter = chapter
         modelContext.insert(scene1)
         
-        let scene2 = Scene(name: "Scene 2", userOrder: 2)
+        let scene2 = StoryScene(name: "Scene 2", userOrder: 2)
         scene2.chapter = chapter
         modelContext.insert(scene2)
         
@@ -383,11 +383,11 @@ final class FictionModelsTests: XCTestCase {
         let location = Location(name: "Castle")
         modelContext.insert(location)
         
-        let scene1 = Scene(name: "Scene 1")
+        let scene1 = StoryScene(name: "Scene 1")
         scene1.location = location
         modelContext.insert(scene1)
         
-        let scene2 = Scene(name: "Scene 2")
+        let scene2 = StoryScene(name: "Scene 2")
         scene2.location = location
         modelContext.insert(scene2)
         
@@ -448,10 +448,10 @@ final class FictionModelsTests: XCTestCase {
         let element = PlotElement(name: "Crossing")
         modelContext.insert(element)
         
-        let scene1 = Scene(name: "Scene 1")
+        let scene1 = StoryScene(name: "Scene 1")
         modelContext.insert(scene1)
         
-        let scene2 = Scene(name: "Scene 2")
+        let scene2 = StoryScene(name: "Scene 2")
         modelContext.insert(scene2)
         
         element.linkedScenes = [scene1, scene2]
@@ -529,12 +529,12 @@ final class FictionModelsTests: XCTestCase {
         chapter.project = project
         modelContext.insert(chapter)
         
-        let scene1 = Scene(name: "Scene 1", userOrder: 1)
+        let scene1 = StoryScene(name: "Scene 1", userOrder: 1)
         scene1.chapter = chapter
         scene1.project = project
         modelContext.insert(scene1)
         
-        let scene2 = Scene(name: "Scene 2", userOrder: 2)
+        let scene2 = StoryScene(name: "Scene 2", userOrder: 2)
         scene2.chapter = chapter
         scene2.project = project
         modelContext.insert(scene2)
@@ -556,11 +556,11 @@ final class FictionModelsTests: XCTestCase {
         modelContext.insert(project)
         
         // Add scenes directly (no chapters)
-        let scene1 = Scene(name: "Scene 1", userOrder: 1)
+        let scene1 = StoryScene(name: "Scene 1", userOrder: 1)
         scene1.project = project
         modelContext.insert(scene1)
         
-        let scene2 = Scene(name: "Scene 2", userOrder: 2)
+        let scene2 = StoryScene(name: "Scene 2", userOrder: 2)
         scene2.project = project
         modelContext.insert(scene2)
         
@@ -603,20 +603,20 @@ final class FictionModelsTests: XCTestCase {
         let project = Project(name: "Test Project", type: .fiction)
         modelContext.insert(project)
         
-        let scene = Scene(name: "Scene 1")
+        let scene = StoryScene(name: "Scene 1")
         scene.project = project
         project.scenes = [scene]
         modelContext.insert(scene)
         
         try modelContext.save()
         
-        let scenesBefore = try modelContext.fetch(FetchDescriptor<Scene>())
+        let scenesBefore = try modelContext.fetch(FetchDescriptor<StoryScene>())
         XCTAssertEqual(scenesBefore.count, 1)
         
         modelContext.delete(project)
         try modelContext.save()
         
-        let scenesAfter = try modelContext.fetch(FetchDescriptor<Scene>())
+        let scenesAfter = try modelContext.fetch(FetchDescriptor<StoryScene>())
         XCTAssertEqual(scenesAfter.count, 0)
     }
     

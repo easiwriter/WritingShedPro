@@ -118,7 +118,7 @@ final class CMUDictionaryTests: XCTestCase {
         
         // Create a simple rhyme scheme that should pass with CMU
         // Using sounds/downs which only works with the improved rhyme detection
-        let poem = """
+        _ = """
         I hear the forest sounds
         As darkness slowly downs
         """

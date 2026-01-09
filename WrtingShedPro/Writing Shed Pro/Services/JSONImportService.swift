@@ -1582,12 +1582,40 @@ class JSONImportService {
         var createdDate: Date?
         var modifiedDate: Date?
         
+        // dateCreated - could be String or Number (Core Data timestamp)
         if let dateString = dict["dateCreated"] as? String {
-            createdDate = ISO8601DateFormatter().date(from: dateString)
+            createdDate = parseLegacyDate(dateString)
+            #if DEBUG
+            if createdDate == nil {
+                print("[JSONImport] ⚠️ Failed to parse dateCreated string: '\(dateString)'")
+            } else {
+                print("[JSONImport] ✅ Parsed dateCreated from string: \(createdDate!)")
+            }
+            #endif
+        } else if let dateNumber = dict["dateCreated"] as? Double {
+            // Core Data stores dates as TimeInterval since reference date (Jan 1, 2001)
+            createdDate = Date(timeIntervalSinceReferenceDate: dateNumber)
+            #if DEBUG
+            print("[JSONImport] ✅ Parsed dateCreated from number: \(createdDate!)")
+            #endif
         }
         
+        // dateLastUpdated - could be String or Number (Core Data timestamp)
         if let dateString = dict["dateLastUpdated"] as? String {
-            modifiedDate = ISO8601DateFormatter().date(from: dateString)
+            modifiedDate = parseLegacyDate(dateString)
+            #if DEBUG
+            if modifiedDate == nil {
+                print("[JSONImport] ⚠️ Failed to parse dateLastUpdated string: '\(dateString)'")
+            } else {
+                print("[JSONImport] ✅ Parsed dateLastUpdated from string: \(modifiedDate!)")
+            }
+            #endif
+        } else if let dateNumber = dict["dateLastUpdated"] as? Double {
+            // Core Data stores dates as TimeInterval since reference date (Jan 1, 2001)
+            modifiedDate = Date(timeIntervalSinceReferenceDate: dateNumber)
+            #if DEBUG
+            print("[JSONImport] ✅ Parsed dateLastUpdated from number: \(modifiedDate!)")
+            #endif
         }
         
         // Map old folder names to new folder names
@@ -1600,6 +1628,58 @@ class JSONImportService {
             createdDate: createdDate,
             modifiedDate: modifiedDate
         )
+    }
+    
+    /// Parse dates from legacy Writing Shed v1 format
+    /// Handles multiple possible date formats
+    private func parseLegacyDate(_ dateString: String) -> Date? {
+        // Try ISO8601 first (standard format)
+        let iso8601 = ISO8601DateFormatter()
+        if let date = iso8601.date(from: dateString) {
+            return date
+        }
+        
+        // Try ISO8601 with fractional seconds
+        iso8601.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = iso8601.date(from: dateString) {
+            return date
+        }
+        
+        // Try common date formats
+        let dateFormatter = DateFormatter()
+        dateFormatter.locale = Locale(identifier: "en_US_POSIX")
+        
+        // Format: "2024-12-10 14:30:00 +0000"
+        dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss Z"
+        if let date = dateFormatter.date(from: dateString) {
+            return date
+        }
+        
+        // Format: "2024-12-10T14:30:00Z"
+        dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss'Z'"
+        if let date = dateFormatter.date(from: dateString) {
+            return date
+        }
+        
+        // Format: "2024-12-10T14:30:00.000Z"
+        dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
+        if let date = dateFormatter.date(from: dateString) {
+            return date
+        }
+        
+        // Format: "Dec 10, 2024 at 2:30 PM"
+        dateFormatter.dateFormat = "MMM d, yyyy 'at' h:mm a"
+        if let date = dateFormatter.date(from: dateString) {
+            return date
+        }
+        
+        // Format: "12/10/2024"
+        dateFormatter.dateFormat = "MM/dd/yyyy"
+        if let date = dateFormatter.date(from: dateString) {
+            return date
+        }
+        
+        return nil
     }
     
     /// Map legacy Writing Shed v1 folder names to Writing Shed Pro folder names

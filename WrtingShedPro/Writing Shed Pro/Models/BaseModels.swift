@@ -89,6 +89,9 @@ final class Project {
     var fictionClassRaw: String?  // "novel" or "shortFiction"
     var useMonomyth: Bool = false
     
+    // Feature 023: Smart Drama Creation
+    var dramaScriptTypeRaw: String?  // "film" or "stage"
+    
     // Fiction relationships
     @Relationship(deleteRule: .cascade, inverse: \StoryScene.project)
     var scenes: [StoryScene]? = []

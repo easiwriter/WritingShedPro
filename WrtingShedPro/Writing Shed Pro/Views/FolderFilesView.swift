@@ -271,7 +271,13 @@ struct FolderFilesView: View {
         .navigationBarBackButtonHidden(true)
         .navigationDestination(isPresented: $navigateToFile) {
             if let file = selectedFile {
-                FileEditView(file: file)
+                // Use DramaSceneEditorView for drama project scenes
+                if let project = folder.project, project.type == .drama,
+                   FolderCapabilityService.isContentFolder(folder) {
+                    DramaSceneEditorView(file: file, project: project)
+                } else {
+                    FileEditView(file: file)
+                }
             }
         }
         .environment(\.editMode, $editMode)
@@ -1161,6 +1167,9 @@ struct FolderFilesView: View {
                 
                 // Create new text file with initial empty content
                 let file = TextFile(name: filename, initialContent: "", parentFolder: folder)
+                
+                // Set default workflow status for imported files
+                file.workflowStatus = .draft
                 
                 // Update the first version with imported content
                 if let firstVersion = file.versions?.first {

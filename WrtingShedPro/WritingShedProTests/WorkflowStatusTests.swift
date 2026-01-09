@@ -159,11 +159,11 @@ final class WorkflowStatusTests: XCTestCase {
         ProjectTemplateService.createDefaultFolders(for: fictionProject, in: modelContext)
         XCTAssertNotNil((fictionProject.folders ?? []).first(where: { $0.name == "Scenes" }), "Fiction should have Scenes folder")
         
-        // Test Drama -> Scripts
+        // Test Drama -> Scenes (drama uses Scenes folder for scene content)
         let dramaProject = Project(name: "Drama", type: .drama)
         modelContext.insert(dramaProject)
         ProjectTemplateService.createDefaultFolders(for: dramaProject, in: modelContext)
-        XCTAssertNotNil((dramaProject.folders ?? []).first(where: { $0.name == "Scripts" }), "Drama should have Scripts folder")
+        XCTAssertNotNil((dramaProject.folders ?? []).first(where: { $0.name == "Scenes" }), "Drama should have Scenes folder")
     }
     
     // MARK: - Workflow Filtering Tests
