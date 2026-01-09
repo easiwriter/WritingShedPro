@@ -63,6 +63,15 @@ struct FileEditView: View {
     // Feature 022: Smart Fiction Creation
     @State private var selectedPlotElement: PlotElement?
     
+    // Feature 022/023: Character and Location Autocomplete
+    @State private var showCharacterPicker = false
+    @State private var showLocationPicker = false
+    
+    // Feature 022/023: View project details from editor
+    @State private var showProjectCharacters = false
+    @State private var showProjectLocations = false
+    @State private var showProjectPlot = false
+    
     // Feature 017: Search and Replace
     @State private var showSearchBar = false
     @State private var searchManager = InEditorSearchManager()
@@ -439,6 +448,12 @@ struct FileEditView: View {
                 plotElementsButton(plotElements: plotElements)
             }
             
+            // Character and Location insert buttons (for Fiction and Drama projects)
+            if let project = file.project,
+               (project.type == .fiction || project.type == .drama) {
+                characterLocationInsertMenu(project: project)
+            }
+            
             // On iPhone, group paginate/insert/print into a menu to save space
             // Undo/redo are more commonly used, so they're visible buttons
             if isCompact {
@@ -652,6 +667,147 @@ struct FileEditView: View {
             }
             .accessibilityLabel(NSLocalizedString("fiction.viewPlotElements", comment: "View Plot Elements"))
         }
+    }
+    
+    /// Menu for inserting character or location names (Fiction and Drama projects)
+    /// Also provides access to view project Characters, Locations, and Plot
+    @ViewBuilder
+    private func characterLocationInsertMenu(project: Project) -> some View {
+        let characters = (project.characters ?? []).compactMap { $0.name }.sorted()
+        let locations = (project.locations ?? []).compactMap { $0.name }.sorted()
+        
+        Menu {
+            // Insert character names section
+            if !characters.isEmpty {
+                Section(NSLocalizedString("autocomplete.characters", comment: "Characters")) {
+                    ForEach(characters, id: \.self) { name in
+                        Button {
+                            insertTextAtCursor(name)
+                        } label: {
+                            Label(name, systemImage: "person.fill")
+                        }
+                    }
+                }
+            }
+            
+            // Insert location names section
+            if !locations.isEmpty {
+                Section(NSLocalizedString("autocomplete.locations", comment: "Locations")) {
+                    ForEach(locations, id: \.self) { name in
+                        Button {
+                            insertTextAtCursor(name)
+                        } label: {
+                            Label(name, systemImage: "mappin.circle.fill")
+                        }
+                    }
+                }
+            }
+            
+            Divider()
+            
+            // View project details section
+            Section(NSLocalizedString("editor.viewProject", comment: "View Project")) {
+                Button {
+                    showProjectCharacters = true
+                } label: {
+                    Label(NSLocalizedString("fiction.characters", comment: "Characters"), systemImage: "person.2")
+                }
+                
+                Button {
+                    showProjectLocations = true
+                } label: {
+                    Label(NSLocalizedString("fiction.locations", comment: "Locations"), systemImage: "mappin.and.ellipse")
+                }
+                
+                // Plot: Show linked plot elements if scene has any, otherwise just view all
+                plotMenuItems
+            }
+        } label: {
+            Image(systemName: "person.text.rectangle")
+        }
+        .accessibilityLabel(NSLocalizedString("fiction.insertCharacterLocation", comment: "Insert Character or Location"))
+    }
+    
+    /// Plot menu items - shows linked plot elements if scene has any
+    @ViewBuilder
+    private var plotMenuItems: some View {
+        // Get plot elements linked to this scene
+        let linkedPlotElements = file.scene?.plotElements ?? []
+        
+        if linkedPlotElements.isEmpty {
+            // No linked plot elements - just show view all
+            Button {
+                showProjectPlot = true
+            } label: {
+                Label(NSLocalizedString("fiction.plot", comment: "Plot"), systemImage: "list.bullet.clipboard")
+            }
+        } else if linkedPlotElements.count == 1 {
+            // Single linked plot element - show it directly
+            let element = linkedPlotElements[0]
+            Button {
+                selectedPlotElement = element
+            } label: {
+                Label(element.name ?? NSLocalizedString("fiction.untitled", comment: "Untitled"), systemImage: "list.bullet.clipboard")
+            }
+            
+            // Also allow viewing all plots
+            Button {
+                showProjectPlot = true
+            } label: {
+                Label(NSLocalizedString("fiction.plot.viewAll", comment: "View All Plots"), systemImage: "list.bullet.clipboard.fill")
+            }
+        } else {
+            // Multiple linked plot elements - show as submenu
+            Menu {
+                ForEach(linkedPlotElements.sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }, id: \.id) { element in
+                    Button {
+                        selectedPlotElement = element
+                    } label: {
+                        if let stage = element.monomythStage {
+                            Label("\(stage.order). \(element.name ?? stage.localizedName)", systemImage: "bookmark")
+                        } else {
+                            Label(element.name ?? NSLocalizedString("fiction.untitled", comment: "Untitled"), systemImage: "bookmark")
+                        }
+                    }
+                }
+                
+                Divider()
+                
+                Button {
+                    showProjectPlot = true
+                } label: {
+                    Label(NSLocalizedString("fiction.plot.viewAll", comment: "View All Plots"), systemImage: "list.bullet.clipboard.fill")
+                }
+            } label: {
+                Label(NSLocalizedString("fiction.plot", comment: "Plot"), systemImage: "list.bullet.clipboard")
+            }
+        }
+    }
+    
+    /// Insert text at the current cursor position
+    private func insertTextAtCursor(_ text: String) {
+        // Get the current attributed content
+        let mutableContent = NSMutableAttributedString(attributedString: attributedContent)
+        
+        // Determine insertion point (use selection location)
+        let insertionPoint = min(selectedRange.location, mutableContent.length)
+        
+        // Create attributed string with current paragraph style
+        let style: UIFont.TextStyle = currentParagraphStyle ?? .body
+        let font = UIFont.preferredFont(forTextStyle: style)
+        let insertString = NSAttributedString(string: text, attributes: [.font: font])
+        
+        // Insert at cursor
+        mutableContent.insert(insertString, at: insertionPoint)
+        
+        // Update content
+        attributedContent = mutableContent
+        
+        // Move cursor to end of inserted text
+        selectedRange = NSRange(location: insertionPoint + text.count, length: 0)
+        
+        // Restore keyboard focus
+        restoreKeyboardFocus()
     }
     
     /// Insert menu for adding images, comments, footnotes, etc.
@@ -1162,6 +1318,48 @@ struct FileEditView: View {
             }
             .sheet(isPresented: $showPoetryFormPicker) {
                 PoetryFormPickerSheet(file: file)
+            }
+            .sheet(isPresented: $showProjectCharacters) {
+                NavigationStack {
+                    if let project = file.project {
+                        CharacterListView(project: project)
+                            .toolbar {
+                                ToolbarItem(placement: .confirmationAction) {
+                                    Button(NSLocalizedString("button.done", comment: "Done")) {
+                                        showProjectCharacters = false
+                                    }
+                                }
+                            }
+                    }
+                }
+            }
+            .sheet(isPresented: $showProjectLocations) {
+                NavigationStack {
+                    if let project = file.project {
+                        LocationListView(project: project)
+                            .toolbar {
+                                ToolbarItem(placement: .confirmationAction) {
+                                    Button(NSLocalizedString("button.done", comment: "Done")) {
+                                        showProjectLocations = false
+                                    }
+                                }
+                            }
+                    }
+                }
+            }
+            .sheet(isPresented: $showProjectPlot) {
+                NavigationStack {
+                    if let project = file.project {
+                        PlotOutlineView(project: project)
+                            .toolbar {
+                                ToolbarItem(placement: .confirmationAction) {
+                                    Button(NSLocalizedString("button.done", comment: "Done")) {
+                                        showProjectPlot = false
+                                    }
+                                }
+                            }
+                    }
+                }
             }
             .onDisappear {
                 // Unregister stylesheet from provider

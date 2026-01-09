@@ -15,7 +15,7 @@ struct WorkflowStatusPickerSheet: View {
     let onCancel: () -> Void
     
     var body: some View {
-        NavigationStack {
+        NavigationView {
             List {
                 Section {
                     ForEach(WorkflowStatus.allCases, id: \.self) { status in
@@ -60,6 +60,7 @@ struct WorkflowStatusPickerSheet: View {
                 }
             }
         }
+        .navigationViewStyle(.stack)
         .presentationDetents([.medium])
     }
     

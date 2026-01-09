@@ -201,6 +201,7 @@
 /* Fiction Plot View (Feature 022) */
 "fiction.plot.title" = "Plot Outline";
 "fiction.plot.add" = "Add Plot Element";
+"fiction.plot.viewAll" = "View All Plots";
 "fiction.plot.empty.title" = "No Plot Elements Yet";
 "fiction.plot.empty.message" = "Add plot elements to structure your story.";
 "fiction.plot.empty.monomyth.message" = "Add plot elements and assign them to stages of the Hero's Journey.";
@@ -289,6 +290,8 @@
 "projectDetail.created" = "Created:";
 "projectDetail.stylesheet" = "Stylesheet:";
 "projectDetail.stylesheetAccessibility" = "Select stylesheet for text formatting";
+"projectDetail.useMonomyth" = "Use Hero's Journey";
+"projectDetail.useMonomyth.hint" = "Structure your story using the 12 stages of the monomyth";
 "projectDetail.details" = "Details";
 "projectDetail.notes" = "Notes";
 "projectDetail.notesAccessibility" = "Edit project notes";
@@ -1525,6 +1528,14 @@
 
 "drama.characters.title" = "Characters in Scene";
 "drama.characters.count" = "Characters (%d)";
+
+// Autocomplete
+"autocomplete.characters" = "Characters";
+"autocomplete.locations" = "Locations";
+"autocomplete.noMatches" = "No matches";
+
+// Fiction/Drama Insert
+"fiction.insertCharacterLocation" = "Insert Character or Location";
 
 "drama.toolbar.sceneHeading" = "Scene";
 "drama.toolbar.action" = "Action";

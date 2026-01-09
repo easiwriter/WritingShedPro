@@ -90,7 +90,7 @@ struct AddPlotElementSheet: View {
     // MARK: - Body
     
     var body: some View {
-        NavigationStack {
+        NavigationView {
             Form {
                 // Basic Info
                 Section {
@@ -244,6 +244,7 @@ struct AddPlotElementSheet: View {
                 Text(errorMessage)
             }
         }
+        .navigationViewStyle(.stack)
     }
     
     // MARK: - Actions

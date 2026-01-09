@@ -37,7 +37,7 @@ struct FileDetailsSheet: View {
     }
     
     var body: some View {
-        NavigationStack {
+        NavigationView {
             List {
                 Section(header: Text(NSLocalizedString("fileDetails.dates", comment: "Dates section header"))) {
                     HStack {
@@ -103,6 +103,7 @@ struct FileDetailsSheet: View {
                 }
             }
         }
+        .navigationViewStyle(.stack)
         .presentationDetents([.medium])
     }
 }

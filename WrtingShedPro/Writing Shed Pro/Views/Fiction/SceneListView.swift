@@ -32,6 +32,9 @@ struct SceneListView: View {
     @State private var showAddScene = false
     @State private var selectedScene: StoryScene?
     
+    /// Scene to navigate to for editing
+    @State private var navigateToScene: StoryScene?
+    
     /// Edit mode binding
     @State private var editMode: EditMode = .inactive
     
@@ -150,6 +153,19 @@ struct SceneListView: View {
         .sheet(item: $selectedScene) { scene in
             SceneDetailView(scene: scene, project: project)
         }
+        .navigationDestination(item: $navigateToScene) { scene in
+            // Navigate to file editor for the scene's associated text file
+            if let textFile = scene.textFile {
+                if project.type == .drama {
+                    DramaSceneEditorView(file: textFile, project: project)
+                } else {
+                    FileEditView(file: textFile)
+                }
+            } else {
+                // Scene has no file - show detail view to create one
+                SceneDetailView(scene: scene, project: project)
+            }
+        }
         .confirmationDialog(
             scenesToDelete.count == 1
                 ? NSLocalizedString("fiction.scenes.deleteConfirm.title", comment: "Delete scene?")
@@ -235,13 +251,25 @@ struct SceneListView: View {
             SceneRowView(scene: scene)
             
             Spacer(minLength: 8)
+            
+            // Info button to show scene details
+            if !isEditMode {
+                Button {
+                    selectedScene = scene
+                } label: {
+                    Image(systemName: "info.circle")
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
         }
         .contentShape(Rectangle())
         .onTapGesture {
             if isEditMode {
                 toggleSelection(for: scene)
             } else {
-                selectedScene = scene
+                // Navigate directly to file editor
+                navigateToScene = scene
             }
         }
     }

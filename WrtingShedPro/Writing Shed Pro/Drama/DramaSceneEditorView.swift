@@ -8,6 +8,7 @@
 
 import SwiftUI
 import SwiftData
+import ToolbarSUI
 
 /// Editor view for drama scene content with DML support
 /// Provides Source, Formatted, and Print Preview modes
@@ -56,6 +57,58 @@ struct DramaSceneEditorView: View {
     /// Debounce timer for re-parsing
     @State private var parseDebounceTimer: Timer?
     
+    /// Show version delete confirmation
+    @State private var showDeleteVersionAlert = false
+    
+    /// Current selection/cursor position in the text editor
+    @State private var selectedRange: NSRange = NSRange(location: 0, length: 0)
+    
+    /// The actual undo manager from the UITextView
+    @State private var textViewUndoManager: UndoManager?
+    
+    /// Reference to the UITextView for search
+    @State private var textView: UITextView?
+    
+    /// Search manager for find/replace
+    @State private var searchManager = InEditorSearchManager()
+    
+    /// Whether the search bar is visible
+    @State private var showSearchBar = false
+    
+    /// Print error message
+    @State private var printErrorMessage: String?
+    
+    /// Show print error alert
+    @State private var showPrintError = false
+    
+    /// Show project characters list
+    @State private var showProjectCharacters = false
+    
+    /// Show project locations list
+    @State private var showProjectLocations = false
+    
+    /// Show project plot outline
+    @State private var showProjectPlot = false
+    
+    /// Selected plot element to show in detail sheet
+    @State private var selectedPlotElement: PlotElement?
+    
+    // MARK: - Computed Properties
+    
+    /// Characters from project for insert menu
+    private var projectCharacters: [String] {
+        (project.characters ?? [])
+            .compactMap { $0.name }
+            .sorted()
+    }
+    
+    /// Locations from project for insert menu
+    private var projectLocations: [String] {
+        (project.locations ?? [])
+            .compactMap { $0.name }
+            .sorted()
+    }
+    
     // MARK: - Initialization
     
     init(file: TextFile, project: Project) {
@@ -70,6 +123,9 @@ struct DramaSceneEditorView: View {
     
     var body: some View {
         VStack(spacing: 0) {
+            // Version toolbar
+            versionToolbar
+            
             // Toolbar with view mode toggle
             editorToolbar
             
@@ -81,39 +137,7 @@ struct DramaSceneEditorView: View {
         .navigationTitle(file.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    // Script type selection
-                    Section {
-                        Picker(NSLocalizedString("drama.scriptType", comment: "Script Type"), selection: $scriptType) {
-                            ForEach(DramaScriptType.allCases, id: \.self) { type in
-                                Text(type.localizedName).tag(type)
-                            }
-                        }
-                    }
-                    
-                    // Validation
-                    Button {
-                        validateAndShowErrors()
-                    } label: {
-                        Label(NSLocalizedString("drama.validate", comment: "Validate Script"), 
-                              systemImage: "checkmark.circle")
-                    }
-                    
-                    // Character list
-                    if let doc = parsedDocument, !doc.characters.isEmpty {
-                        Button {
-                            showCharacterList = true
-                        } label: {
-                            Label(String(format: NSLocalizedString("drama.characters.count", comment: "Characters (%d)"), doc.characters.count), 
-                                  systemImage: "person.2")
-                        }
-                    }
-                    
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                }
-            }
+            navigationToolbarContent
         }
         .onAppear {
             loadContent()
@@ -136,6 +160,186 @@ struct DramaSceneEditorView: View {
         .sheet(isPresented: $showCharacterList) {
             characterListSheet
         }
+        .sheet(isPresented: $showProjectCharacters) {
+            NavigationStack {
+                CharacterListView(project: project)
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button(NSLocalizedString("button.done", comment: "Done")) {
+                                showProjectCharacters = false
+                            }
+                        }
+                    }
+            }
+        }
+        .sheet(isPresented: $showProjectLocations) {
+            NavigationStack {
+                LocationListView(project: project)
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button(NSLocalizedString("button.done", comment: "Done")) {
+                                showProjectLocations = false
+                            }
+                        }
+                    }
+            }
+        }
+        .sheet(isPresented: $showProjectPlot) {
+            NavigationStack {
+                PlotOutlineView(project: project)
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button(NSLocalizedString("button.done", comment: "Done")) {
+                                showProjectPlot = false
+                            }
+                        }
+                    }
+            }
+        }
+        .sheet(item: $selectedPlotElement) { plotElement in
+            NavigationStack {
+                PlotElementDetailView(plotElement: plotElement, project: project)
+            }
+        }
+        .alert(
+            NSLocalizedString("fileEdit.deleteVersionTitle", comment: "Delete Version?"),
+            isPresented: $showDeleteVersionAlert
+        ) {
+            Button(NSLocalizedString("contentView.delete", comment: "Delete"), role: .destructive) {
+                file.deleteVersion()
+                loadContent()
+            }
+            Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) { }
+        } message: {
+            Text(NSLocalizedString("fileEdit.deleteVersionMessage", comment: "Please confirm"))
+        }
+        .alert(
+            NSLocalizedString("print.error.title", comment: "Print Error"),
+            isPresented: $showPrintError
+        ) {
+            Button(NSLocalizedString("button.ok", comment: "OK"), role: .cancel) { }
+        } message: {
+            Text(printErrorMessage ?? NSLocalizedString("print.error.unknown", comment: "Unknown error"))
+        }
+    }
+    
+    // MARK: - Navigation Toolbar Content
+    
+    @ToolbarContentBuilder
+    private var navigationToolbarContent: some ToolbarContent {
+        // Search button (only in source mode)
+        if viewMode == .source {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        showSearchBar.toggle()
+                        if showSearchBar, let tv = textView {
+                            searchManager.connect(to: tv)
+                        } else if !showSearchBar {
+                            searchManager.disconnect()
+                        }
+                    }
+                } label: {
+                    Image(systemName: showSearchBar ? "magnifyingglass.circle.fill" : "magnifyingglass")
+                }
+                .accessibilityLabel(NSLocalizedString("fileEdit.findReplace.accessibility", comment: "Find and Replace"))
+            }
+        }
+        
+        // Character/Location insert menu (only in source mode)
+        if viewMode == .source {
+            ToolbarItem(placement: .topBarTrailing) {
+                characterLocationInsertMenu
+            }
+        }
+        
+        // Undo/Redo buttons (only in source mode)
+        if viewMode == .source {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    textViewUndoManager?.undo()
+                } label: {
+                    Image(systemName: "arrow.uturn.backward")
+                }
+                .disabled(!(textViewUndoManager?.canUndo ?? false))
+                .accessibilityLabel(NSLocalizedString("fileEdit.undo.accessibility", comment: "Undo"))
+            }
+            
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    textViewUndoManager?.redo()
+                } label: {
+                    Image(systemName: "arrow.uturn.forward")
+                }
+                .disabled(!(textViewUndoManager?.canRedo ?? false))
+                .accessibilityLabel(NSLocalizedString("fileEdit.redo.accessibility", comment: "Redo"))
+            }
+        }
+        
+        // Print button
+        ToolbarItem(placement: .topBarTrailing) {
+            Button {
+                printScript()
+            } label: {
+                Image(systemName: "printer")
+            }
+            .accessibilityLabel(NSLocalizedString("fileEdit.print.accessibility", comment: "Print"))
+        }
+    }
+    
+    // MARK: - Version Toolbar
+    
+    private var versionToolbar: some View {
+        let versionItems: [SUIToolbarItem] = [
+            SUIToolbarItem(
+                icon: "chevron.left.circle",
+                title: NSLocalizedString("version.previous", comment: "Previous version"),
+                disabled: file.atFirstVersion()
+            ),
+            SUIToolbarItem(
+                icon: "chevron.right.circle",
+                title: NSLocalizedString("version.next", comment: "Next version"),
+                disabled: file.atLastVersion()
+            ),
+            SUIToolbarItem(
+                icon: "plus.circle",
+                title: NSLocalizedString("version.duplicate", comment: "Duplicate version"),
+                disabled: false
+            ),
+            SUIToolbarItem(
+                icon: "trash.circle",
+                title: NSLocalizedString("version.delete", comment: "Delete version"),
+                disabled: (file.versions?.count ?? 0) <= 1
+            )
+        ]
+        
+        return ToolbarView(
+            label: file.versionLabel(),
+            items: versionItems
+        ) { action in
+            handleVersionAction(action)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 8)
+    }
+    
+    private func handleVersionAction(_ action: Int) {
+        switch action {
+        case 0: // Previous
+            file.changeVersion(by: -1)
+            loadContent()
+        case 1: // Next
+            file.changeVersion(by: 1)
+            loadContent()
+        case 2: // Duplicate
+            file.addVersion()
+            loadContent()
+            try? modelContext.save()
+        case 3: // Delete
+            showDeleteVersionAlert = true
+        default:
+            break
+        }
     }
     
     // MARK: - Editor Toolbar
@@ -154,29 +358,22 @@ struct DramaSceneEditorView: View {
             
             Spacer()
             
-            // Script type indicator
-            Text(scriptType.localizedName)
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(Color.secondary.opacity(0.1))
-                .cornerRadius(4)
-            
-            // Validation status indicator
-            if !validationErrors.isEmpty {
-                Button {
-                    showValidationErrors = true
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundColor(.yellow)
-                        Text("\(validationErrors.count)")
-                            .font(.caption)
-                    }
+            // Script type picker
+            Picker(NSLocalizedString("drama.scriptType", comment: "Script Type"), selection: $scriptType) {
+                ForEach(DramaScriptType.allCases, id: \.self) { type in
+                    Text(type.localizedName).tag(type)
                 }
-                .buttonStyle(.plain)
             }
+            .pickerStyle(.menu)
+            
+            // Validate button
+            Button {
+                validateAndShowErrors()
+            } label: {
+                Image(systemName: validationErrors.isEmpty ? "checkmark.circle" : "exclamationmark.triangle.fill")
+                    .foregroundColor(validationErrors.isEmpty ? .secondary : .yellow)
+            }
+            .accessibilityLabel(NSLocalizedString("drama.validate", comment: "Validate Script"))
         }
         .padding(.horizontal)
         .padding(.vertical, 8)
@@ -187,25 +384,207 @@ struct DramaSceneEditorView: View {
     
     @ViewBuilder
     private var editorContent: some View {
-        switch viewMode {
-        case .source:
-            sourceEditor
-        case .formatted:
-            formattedPreview
-        case .print:
-            printPreview
+        VStack(spacing: 0) {
+            // Search bar (only shown in source mode when active)
+            if viewMode == .source {
+                InEditorSearchBar(
+                    manager: searchManager,
+                    isVisible: $showSearchBar
+                )
+            }
+            
+            switch viewMode {
+            case .source:
+                sourceEditor
+            case .formatted:
+                formattedPreview
+            case .print:
+                printPreview
+            }
         }
     }
     
-    /// Source mode: editable text with syntax highlighting
+    /// Source mode: plain text editor for DML
     private var sourceEditor: some View {
-        TextEditor(text: $sourceText)
-            .font(.custom("Courier", size: 14))
-            .scrollContentBackground(.hidden)
-            .background(colorScheme == .dark ? Color(UIColor.systemBackground) : Color.white)
-            .onChange(of: sourceText) { _, newValue in
-                saveContent(newValue)
+        DMLTextEditor(
+            text: $sourceText,
+            selectedRange: $selectedRange,
+            onUndoManagerReady: { undoManager in
+                textViewUndoManager = undoManager
+            },
+            onTextViewReady: { tv in
+                textView = tv
             }
+        )
+        .background(colorScheme == .dark ? Color(UIColor.systemBackground) : Color.white)
+        .onChange(of: sourceText) { _, newValue in
+            saveContent(newValue)
+        }
+    }
+    
+    // MARK: - Character/Location Insert Menu
+    
+    /// Menu for inserting character or location names and viewing project details
+    private var characterLocationInsertMenu: some View {
+        Menu {
+            // Insert character names section
+            if !projectCharacters.isEmpty {
+                Section(NSLocalizedString("autocomplete.characters", comment: "Characters")) {
+                    ForEach(projectCharacters, id: \.self) { name in
+                        Button {
+                            insertCharacterName(name)
+                        } label: {
+                            Label(name, systemImage: "person.fill")
+                        }
+                    }
+                }
+            }
+            
+            // Insert location names section
+            if !projectLocations.isEmpty {
+                Section(NSLocalizedString("autocomplete.locations", comment: "Locations")) {
+                    ForEach(projectLocations, id: \.self) { name in
+                        Button {
+                            insertLocationName(name)
+                        } label: {
+                            Label(name, systemImage: "mappin.circle.fill")
+                        }
+                    }
+                }
+            }
+            
+            Divider()
+            
+            // View project details section
+            Section(NSLocalizedString("editor.viewProject", comment: "View Project")) {
+                Button {
+                    showProjectCharacters = true
+                } label: {
+                    Label(NSLocalizedString("fiction.characters", comment: "Characters"), systemImage: "person.2")
+                }
+                
+                Button {
+                    showProjectLocations = true
+                } label: {
+                    Label(NSLocalizedString("fiction.locations", comment: "Locations"), systemImage: "mappin.and.ellipse")
+                }
+                
+                // Plot: Show linked plot elements if scene has any
+                plotMenuItems
+            }
+        } label: {
+            Image(systemName: "person.text.rectangle")
+        }
+        .accessibilityLabel(NSLocalizedString("drama.insertCharacterLocation", comment: "Insert Character or Location"))
+    }
+    
+    /// Plot menu items - shows linked plot elements if scene has any
+    @ViewBuilder
+    private var plotMenuItems: some View {
+        // Get plot elements linked to this scene
+        let linkedPlotElements = file.scene?.plotElements ?? []
+        
+        if linkedPlotElements.isEmpty {
+            // No linked plot elements - just show view all
+            Button {
+                showProjectPlot = true
+            } label: {
+                Label(NSLocalizedString("fiction.plot", comment: "Plot"), systemImage: "list.bullet.clipboard")
+            }
+        } else if linkedPlotElements.count == 1 {
+            // Single linked plot element - show it directly
+            let element = linkedPlotElements[0]
+            Button {
+                selectedPlotElement = element
+            } label: {
+                Label(element.name ?? NSLocalizedString("fiction.untitled", comment: "Untitled"), systemImage: "list.bullet.clipboard")
+            }
+            
+            // Also allow viewing all plots
+            Button {
+                showProjectPlot = true
+            } label: {
+                Label(NSLocalizedString("fiction.plot.viewAll", comment: "View All Plots"), systemImage: "list.bullet.clipboard.fill")
+            }
+        } else {
+            // Multiple linked plot elements - show as submenu
+            Menu {
+                ForEach(linkedPlotElements.sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }, id: \.id) { element in
+                    Button {
+                        selectedPlotElement = element
+                    } label: {
+                        if let stage = element.monomythStage {
+                            Label("\(stage.order). \(element.name ?? stage.localizedName)", systemImage: "bookmark")
+                        } else {
+                            Label(element.name ?? NSLocalizedString("fiction.untitled", comment: "Untitled"), systemImage: "bookmark")
+                        }
+                    }
+                }
+                
+                Divider()
+                
+                Button {
+                    showProjectPlot = true
+                } label: {
+                    Label(NSLocalizedString("fiction.plot.viewAll", comment: "View All Plots"), systemImage: "list.bullet.clipboard.fill")
+                }
+            } label: {
+                Label(NSLocalizedString("fiction.plot", comment: "Plot"), systemImage: "list.bullet.clipboard")
+            }
+        }
+    }
+    
+    /// Insert text at the current cursor position
+    private func insertTextAtCursor(_ text: String) {
+        let insertionPoint = min(selectedRange.location, sourceText.count)
+        let index = sourceText.index(sourceText.startIndex, offsetBy: insertionPoint)
+        sourceText.insert(contentsOf: text, at: index)
+        
+        // Move cursor to end of inserted text
+        selectedRange = NSRange(location: insertionPoint + text.count, length: 0)
+    }
+    
+    /// Insert a character name at cursor position
+    private func insertCharacterName(_ name: String) {
+        // For drama, character names are uppercase
+        let uppercaseName = name.uppercased()
+        insertTextAtCursor(uppercaseName)
+    }
+    
+    /// Insert a location name formatted as DML scene heading
+    private func insertLocationName(_ name: String) {
+        // Insert as a scene heading
+        let heading = "@ LOCATION: " + name
+        insertTextAtCursor(heading)
+    }
+    
+    // MARK: - Print
+    
+    /// Print the script
+    private func printScript() {
+        // Check if printing is available
+        guard UIPrintInteractionController.isPrintingAvailable else {
+            printErrorMessage = NSLocalizedString("print.error.notAvailable", comment: "Printing is not available on this device")
+            showPrintError = true
+            return
+        }
+        
+        // Use the rendered content for printing
+        renderContent()
+        
+        let printInfo = UIPrintInfo(dictionary: nil)
+        printInfo.jobName = file.name
+        printInfo.outputType = .general
+        
+        let printController = UIPrintInteractionController.shared
+        printController.printInfo = printInfo
+        
+        // Create a simple print formatter from the rendered content
+        let formatter = UISimpleTextPrintFormatter(attributedText: renderedContent)
+        formatter.perPageContentInsets = UIEdgeInsets(top: 72, left: 72, bottom: 72, right: 72)
+        printController.printFormatter = formatter
+        
+        printController.present(animated: true)
     }
     
     /// Formatted preview: read-only rendered content

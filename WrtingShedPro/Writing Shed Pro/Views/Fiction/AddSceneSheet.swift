@@ -62,7 +62,7 @@ struct AddSceneSheet: View {
     // MARK: - Body
     
     var body: some View {
-        NavigationStack {
+        NavigationView {
             Form {
                 // Basic Info
                 Section {
@@ -168,6 +168,7 @@ struct AddSceneSheet: View {
                 Text(errorMessage)
             }
         }
+        .navigationViewStyle(.stack)
     }
     
     // MARK: - Actions

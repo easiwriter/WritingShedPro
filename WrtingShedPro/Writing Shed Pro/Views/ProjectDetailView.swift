@@ -193,6 +193,24 @@ struct ProjectInfoSheet: View {
                         .accessibilityHint(NSLocalizedString("projectDetail.stylesheetAccessibility", comment: "Stylesheet picker hint"))
                     }
                     
+                    // Monomyth toggle for Fiction and Drama projects
+                    if project.type == .fiction || project.type == .drama {
+                        Divider()
+                        
+                        Toggle(isOn: Binding(
+                            get: { project.useMonomyth },
+                            set: { project.useMonomyth = $0 }
+                        )) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(NSLocalizedString("projectDetail.useMonomyth", comment: "Use Hero's Journey"))
+                                Text(NSLocalizedString("projectDetail.useMonomyth.hint", comment: "Structure your story using the 12 stages"))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .accessibilityLabel(NSLocalizedString("projectDetail.useMonomyth", comment: "Use Hero's Journey toggle"))
+                    }
+                    
                     Divider()
                     
                     Text(NSLocalizedString("projectDetail.notes", comment: "Notes label"))

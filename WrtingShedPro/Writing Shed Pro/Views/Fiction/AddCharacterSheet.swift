@@ -38,7 +38,7 @@ struct AddCharacterSheet: View {
     // MARK: - Body
     
     var body: some View {
-        NavigationStack {
+        NavigationView {
             Form {
                 // Basic Info
                 Section {
@@ -105,6 +105,7 @@ struct AddCharacterSheet: View {
                 Text(errorMessage)
             }
         }
+        .navigationViewStyle(.stack)
     }
     
     // MARK: - Actions

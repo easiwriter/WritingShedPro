@@ -19,7 +19,7 @@ struct AddProjectSheet: View {
     @Query private var allProjects: [Project]
     
     var body: some View {
-        NavigationStack {
+        NavigationView {
             Form {
                 Section(NSLocalizedString("addProject.projectInfo", comment: "Section header for project information")) {
                     TextField(NSLocalizedString("addProject.projectName", comment: "Field label for project name"), text: $projectName)
@@ -92,6 +92,7 @@ struct AddProjectSheet: View {
                 Text(errorMessage)
             }
         }
+        .navigationViewStyle(.stack)
     }
     
     private func addProject() {
@@ -122,6 +123,10 @@ struct AddProjectSheet: View {
         // Set fiction-specific properties if applicable
         if selectedType == .fiction {
             newProject.fictionClassRaw = selectedFictionClass.rawValue
+        }
+        
+        // Set monomyth property for fiction and drama projects
+        if selectedType == .fiction || selectedType == .drama {
             newProject.useMonomyth = useMonomyth
         }
         

@@ -183,13 +183,28 @@ struct FolderListView: View {
                             NavigationLink(destination: CharacterListView(project: project)) {
                                 FolderRowView(folder: folder)
                             }
+                        } else if folderName == "Characters" && project.type == .drama {
+                            // Drama: Characters folder navigates to CharacterListView
+                            NavigationLink(destination: CharacterListView(project: project)) {
+                                FolderRowView(folder: folder)
+                            }
                         } else if folderName == "Locations" && project.type == .fiction {
                             // Fiction: Locations folder navigates to LocationListView
                             NavigationLink(destination: LocationListView(project: project)) {
                                 FolderRowView(folder: folder)
                             }
+                        } else if folderName == "Locations" && project.type == .drama {
+                            // Drama: Locations folder navigates to LocationListView
+                            NavigationLink(destination: LocationListView(project: project)) {
+                                FolderRowView(folder: folder)
+                            }
                         } else if folderName == "Plot" && project.type == .fiction {
                             // Fiction: Plot folder navigates to PlotOutlineView
+                            NavigationLink(destination: PlotOutlineView(project: project)) {
+                                FolderRowView(folder: folder)
+                            }
+                        } else if folderName == "Plot" && project.type == .drama {
+                            // Drama: Plot folder navigates to PlotOutlineView
                             NavigationLink(destination: PlotOutlineView(project: project)) {
                                 FolderRowView(folder: folder)
                             }
@@ -200,6 +215,11 @@ struct FolderListView: View {
                             }
                         } else if folderName == "Scenes" && project.type == .fiction {
                             // Fiction (Short Fiction): Scenes folder navigates to SceneListView
+                            NavigationLink(destination: SceneListView(project: project)) {
+                                FolderRowView(folder: folder)
+                            }
+                        } else if folderName == "Scenes" && project.type == .drama {
+                            // Drama: Scenes folder navigates to SceneListView
                             NavigationLink(destination: SceneListView(project: project)) {
                                 FolderRowView(folder: folder)
                             }
@@ -364,16 +384,52 @@ struct FolderRowView: View {
         return name == "Trash"
     }
     
-    // Check if this is the Plot folder (fiction projects)
+    // Check if this is the Plot folder (fiction/drama projects)
     private var isPlotFolder: Bool {
         let name = folder.name ?? ""
-        return name == "Plot" && folder.project?.type == .fiction
+        return name == "Plot" && (folder.project?.type == .fiction || folder.project?.type == .drama)
+    }
+    
+    // Check if this is the Characters folder (fiction/drama projects)
+    private var isCharactersFolder: Bool {
+        let name = folder.name ?? ""
+        return name == "Characters" && (folder.project?.type == .fiction || folder.project?.type == .drama)
+    }
+    
+    // Check if this is the Locations folder (fiction/drama projects)
+    private var isLocationsFolder: Bool {
+        let name = folder.name ?? ""
+        return name == "Locations" && (folder.project?.type == .fiction || folder.project?.type == .drama)
+    }
+    
+    // Check if this is the Scenes folder (fiction/drama projects)
+    private var isScenesFolder: Bool {
+        let name = folder.name ?? ""
+        return name == "Scenes" && (folder.project?.type == .fiction || folder.project?.type == .drama)
     }
     
     // Get plot element count for Plot folder
     private var plotElementCount: Int {
         guard isPlotFolder, let project = folder.project else { return 0 }
         return project.plotElements?.count ?? 0
+    }
+    
+    // Get character count for Characters folder
+    private var characterCount: Int {
+        guard isCharactersFolder, let project = folder.project else { return 0 }
+        return project.characters?.count ?? 0
+    }
+    
+    // Get location count for Locations folder
+    private var locationCount: Int {
+        guard isLocationsFolder, let project = folder.project else { return 0 }
+        return project.locations?.count ?? 0
+    }
+    
+    // Get scene count for Scenes folder
+    private var sceneCount: Int {
+        guard isScenesFolder, let project = folder.project else { return 0 }
+        return project.scenes?.count ?? 0
     }
     
     // Get collection count for Collections folder
@@ -432,6 +488,12 @@ struct FolderRowView: View {
             count = submissionCount
         } else if isPlotFolder {
             count = plotElementCount
+        } else if isCharactersFolder {
+            count = characterCount
+        } else if isLocationsFolder {
+            count = locationCount
+        } else if isScenesFolder {
+            count = sceneCount
         } else if isAllFolder {
             // All folder shows computed count from multiple folders
             count = fileCount  // Will be computed in .task

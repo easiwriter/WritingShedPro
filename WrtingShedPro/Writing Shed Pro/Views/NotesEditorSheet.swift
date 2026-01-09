@@ -13,7 +13,7 @@ struct NotesEditorSheet: View {
     @Environment(\.dismiss) var dismiss
     
     var body: some View {
-        NavigationStack {
+        NavigationView {
             VStack(spacing: 0) {
                 TextEditor(text: Binding(
                     get: { version.notes ?? "" },
@@ -33,5 +33,6 @@ struct NotesEditorSheet: View {
                 }
             }
         }
+        .navigationViewStyle(.stack)
     }
 }

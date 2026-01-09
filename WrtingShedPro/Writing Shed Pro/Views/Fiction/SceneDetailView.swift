@@ -214,7 +214,7 @@ struct SceneDetailView: View {
                     if project.type == .drama {
                         DramaSceneEditorView(file: textFile, project: project)
                     } else {
-                        FileDetailView(file: textFile)
+                        FileEditView(file: textFile)
                     }
                 } label: {
                     HStack {

@@ -24,7 +24,7 @@ struct AddFileSheet: View {
     }
     
     var body: some View {
-        NavigationStack {
+        NavigationView {
             Form {
                 Section {
                     TextField(NSLocalizedString("addFile.fileName", comment: "File name field"), text: $fileName)
@@ -69,6 +69,7 @@ struct AddFileSheet: View {
                 Text(errorMessage)
             }
         }
+        .navigationViewStyle(.stack)
     }
     
     private func addFile() {

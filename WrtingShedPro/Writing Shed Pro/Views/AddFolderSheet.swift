@@ -13,7 +13,7 @@ struct AddFolderSheet: View {
     @Environment(\.modelContext) var modelContext
     
     var body: some View {
-        NavigationStack {
+        NavigationView {
             Form {
                 Section {
                     TextField(NSLocalizedString("addFolder.folderName", comment: "Folder name field"), text: $folderName)
@@ -47,6 +47,7 @@ struct AddFolderSheet: View {
                 Text(errorMessage)
             }
         }
+        .navigationViewStyle(.stack)
     }
     
     private func addFolder() {

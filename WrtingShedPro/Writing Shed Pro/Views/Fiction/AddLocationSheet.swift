@@ -36,7 +36,7 @@ struct AddLocationSheet: View {
     // MARK: - Body
     
     var body: some View {
-        NavigationStack {
+        NavigationView {
             Form {
                 // Basic Info
                 Section {
@@ -79,6 +79,7 @@ struct AddLocationSheet: View {
                 Text(errorMessage)
             }
         }
+        .navigationViewStyle(.stack)
     }
     
     // MARK: - Actions

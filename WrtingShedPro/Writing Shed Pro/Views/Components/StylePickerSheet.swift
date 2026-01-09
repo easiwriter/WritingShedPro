@@ -132,7 +132,7 @@ struct StylePickerSheet: View {
                 }
             }
             .sheet(item: $styleToEdit) { style in
-                NavigationStack {
+                NavigationView {
                     TextStyleEditorView(
                         style: style,
                         isNewStyle: false,
@@ -142,8 +142,10 @@ struct StylePickerSheet: View {
                         }
                     )
                 }
+                .navigationViewStyle(.stack)
             }
         }
+        .navigationViewStyle(.stack)
         .presentationDetents([.medium])
         .presentationDragIndicator(.visible)
     }
