@@ -627,6 +627,40 @@ class PrintService {
         )
     }
     
+    /// Generate a PDF from manuscript content (Feature 029)
+    /// - Parameters:
+    ///   - content: The assembled manuscript content
+    ///   - project: The project
+    ///   - pageSetup: Optional page setup (defaults to preferences)
+    ///   - context: Model context (for footnotes)
+    /// - Returns: PDF data or nil if generation fails
+    static func generatePDF(from content: ManuscriptContent, project: Project, pageSetup: PageSetup? = nil, context: ModelContext) -> Data? {
+        #if DEBUG
+        print("📄 [PrintService] Generating PDF for manuscript: \(project.name ?? "Untitled")")
+        #endif
+        
+        guard content.attributedString.length > 0 else {
+            #if DEBUG
+            print("❌ [PrintService] Manuscript content is empty")
+            #endif
+            return nil
+        }
+        
+        let setup = pageSetup ?? PageSetupPreferences.shared.createPageSetup()
+        
+        // Remove platform scaling from content
+        let printSizeContent = removePlatformScaling(from: content.attributedString)
+        
+        return createPDF(
+            from: printSizeContent,
+            pageSetup: setup,
+            title: project.name ?? "Manuscript",
+            version: nil,
+            project: project,
+            context: context
+        )
+    }
+    
     /// Save a PDF file to the app's Documents directory
     /// - Parameters:
     ///   - data: The PDF data to save

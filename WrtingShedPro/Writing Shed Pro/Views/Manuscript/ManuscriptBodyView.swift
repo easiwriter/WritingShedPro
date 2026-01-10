@@ -12,6 +12,11 @@ struct ManuscriptBodyView: View {
     @State private var sections: [ManuscriptSection] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
+    @State private var isExporting = false
+    @State private var showExportError = false
+    @State private var exportErrorMessage = ""
+    @State private var pdfDataToShare: Data?
+    @State private var showShareSheet = false
     
     var body: some View {
         Group {
@@ -49,6 +54,11 @@ struct ManuscriptBodyView: View {
         }
         .onAppear {
             loadBodySections()
+        }
+        .alert(NSLocalizedString("manuscript.error.exportFailed", comment: "Export Failed"), isPresented: $showExportError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(exportErrorMessage)
         }
     }
     
@@ -120,25 +130,43 @@ struct ManuscriptBodyView: View {
     
     @ViewBuilder
     private var bodyToolbarContent: some View {
-        Menu {
-            // Info about source folder
-            if let sourceFolder = assemblyService?.getBodySourceFolder(for: project) {
-                Label(
-                    String(format: NSLocalizedString("manuscript.body.sourceFolder", comment: "Source: %@"), sourceFolder.name ?? ""),
-                    systemImage: "folder"
-                )
+        HStack(spacing: 16) {
+            // Export button
+            if !sections.isEmpty {
+                Button {
+                    exportAsPDF()
+                } label: {
+                    if isExporting {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                }
+                .disabled(isExporting)
             }
             
-            Divider()
-            
-            // File count
-            let fileCount = sections.reduce(0) { $0 + $1.files.count }
-            Label(
-                String(format: NSLocalizedString("manuscript.body.fileCount", comment: "%d files"), fileCount),
-                systemImage: "doc.on.doc"
-            )
-        } label: {
-            Image(systemName: "info.circle")
+            // Info menu
+            Menu {
+                // Info about source folder
+                if let sourceFolder = assemblyService?.getBodySourceFolder(for: project) {
+                    Label(
+                        String(format: NSLocalizedString("manuscript.body.sourceFolder", comment: "Source: %@"), sourceFolder.name ?? ""),
+                        systemImage: "folder"
+                    )
+                }
+                
+                Divider()
+                
+                // File count
+                let fileCount = sections.reduce(0) { $0 + $1.files.count }
+                Label(
+                    String(format: NSLocalizedString("manuscript.body.fileCount", comment: "%d files"), fileCount),
+                    systemImage: "doc.on.doc"
+                )
+            } label: {
+                Image(systemName: "info.circle")
+            }
         }
     }
     
@@ -153,6 +181,43 @@ struct ManuscriptBodyView: View {
         sections = service.getBodySections(for: project)
         
         isLoading = false
+    }
+    
+    private func exportAsPDF() {
+        guard let service = assemblyService else { return }
+        
+        isExporting = true
+        
+        // Assemble the full content asynchronously
+        Task {
+            do {
+                let content = try await service.assembleContent(for: project)
+                
+                // Generate PDF on main thread
+                await MainActor.run {
+                    if let pdfData = PrintService.generatePDF(from: content, project: project, context: context) {
+                        pdfDataToShare = pdfData
+                        
+                        // Share using UIKit
+                        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                           let rootViewController = windowScene.windows.first?.rootViewController {
+                            let filename = "\(project.name ?? "Manuscript")_body"
+                            PrintService.sharePDF(pdfData, filename: filename, from: rootViewController)
+                        }
+                    } else {
+                        exportErrorMessage = NSLocalizedString("manuscript.error.exportFailed", comment: "Export failed")
+                        showExportError = true
+                    }
+                    isExporting = false
+                }
+            } catch {
+                await MainActor.run {
+                    exportErrorMessage = error.localizedDescription
+                    showExportError = true
+                    isExporting = false
+                }
+            }
+        }
     }
 }
 
