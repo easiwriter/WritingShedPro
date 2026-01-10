@@ -33,6 +33,11 @@
 "folder.backMatter" = "Back Matter";
 "manuscript.body.comingSoon" = "Manuscript Assembly";
 "manuscript.body.comingSoonDescription" = "Content from your project will be assembled here for preview and export.";
+"manuscript.body.empty" = "No Body Content";
+"manuscript.body.emptyDescription" = "Add content to your source folder to see it assembled here.";
+"manuscript.body.sourceFolder" = "Source: %@";
+"manuscript.body.fileCount" = "%d files";
+"manuscript.error.assemblyFailed" = "Assembly Failed";
 "manuscript.section.frontMatter" = "Front Matter";
 "manuscript.section.body" = "Body";
 "manuscript.section.backMatter" = "Back Matter";
@@ -1421,6 +1426,8 @@
 "fileList.contextMenu.moveTo" = "Move To...";
 "fileList.contextMenu.delete" = "Delete";
 "fileList.contextMenu.changeForm" = "Change Poetry Form";
+"fileList.contextMenu.includeInManuscript" = "Include in Manuscript";
+"fileList.contextMenu.excludeFromManuscript" = "Exclude from Manuscript";
 "fileList.deleteConfirmation.message" = "Deleted files can be restored from Trash.";
 "fileList.deleteConfirmation.messageEnhanced" = "Delete moves files to Trash where they can be restored. Delete Forever permanently removes files.";
 "fileList.deleteFiles.title" = "Delete %d files?";

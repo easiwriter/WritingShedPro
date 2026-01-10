@@ -87,7 +87,7 @@ final class ManuscriptAssemblyService {
     }
     
     /// Get body sections based on project type
-    private func getBodySections(for project: Project) -> [ManuscriptSection] {
+    func getBodySections(for project: Project) -> [ManuscriptSection] {
         switch project.type {
         case .poetry:
             return getPoetryBodySections(for: project)

@@ -343,6 +343,14 @@ struct FileListView: View {
                 
                 Text(file.name)
                     .foregroundColor(file.workflowStatus.map { Color($0.color) } ?? .primary)
+                    .opacity(file.includedInManuscript ? 1.0 : 0.5)
+                
+                // Manuscript exclusion indicator (Feature 029)
+                if !file.includedInManuscript && file.project?.folders?.contains(where: { $0.name == "Manuscript" }) == true {
+                    Image(systemName: "eye.slash")
+                        .foregroundStyle(.secondary)
+                        .font(.caption)
+                }
                 
                 Spacer(minLength: 8)  // Ensure some spacing before the buttons
             }
@@ -600,6 +608,22 @@ struct FileListView: View {
                 onChangeStatus([file])
             } label: {
                 Label(NSLocalizedString("fileList.contextMenu.changeStatus", comment: "Change Status"), systemImage: "arrow.triangle.2.circlepath")
+            }
+        }
+        
+        // Manuscript include/exclude toggle (Feature 029)
+        // Show for projects that have a Manuscript folder
+        if file.project?.folders?.contains(where: { $0.name == "Manuscript" }) == true {
+            Divider()
+            
+            Button {
+                file.includedInManuscript.toggle()
+            } label: {
+                if file.includedInManuscript {
+                    Label(NSLocalizedString("fileList.contextMenu.excludeFromManuscript", comment: "Exclude from Manuscript"), systemImage: "doc.badge.minus")
+                } else {
+                    Label(NSLocalizedString("fileList.contextMenu.includeInManuscript", comment: "Include in Manuscript"), systemImage: "doc.badge.plus")
+                }
             }
         }
         
