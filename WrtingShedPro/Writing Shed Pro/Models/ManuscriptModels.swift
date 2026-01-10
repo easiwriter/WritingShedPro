@@ -1,0 +1,277 @@
+import Foundation
+import SwiftData
+
+// MARK: - ManuscriptSection
+
+/// Represents a section in the assembled manuscript (Feature 029)
+struct ManuscriptSection: Identifiable, Equatable {
+    let id: UUID
+    let title: String
+    let sectionType: SectionType
+    let sourceFolder: Folder?
+    var files: [TextFile]
+    let level: Int
+    var startingPage: Int?
+    
+    enum SectionType: String, CaseIterable {
+        case frontMatter
+        case body
+        case backMatter
+        
+        var localizedName: String {
+            switch self {
+            case .frontMatter:
+                return NSLocalizedString("manuscript.section.frontMatter", comment: "Front Matter")
+            case .body:
+                return NSLocalizedString("manuscript.section.body", comment: "Body")
+            case .backMatter:
+                return NSLocalizedString("manuscript.section.backMatter", comment: "Back Matter")
+            }
+        }
+        
+        var sortOrder: Int {
+            switch self {
+            case .frontMatter: return 0
+            case .body: return 1
+            case .backMatter: return 2
+            }
+        }
+    }
+    
+    init(
+        id: UUID = UUID(),
+        title: String,
+        sectionType: SectionType,
+        sourceFolder: Folder? = nil,
+        files: [TextFile] = [],
+        level: Int = 1,
+        startingPage: Int? = nil
+    ) {
+        self.id = id
+        self.title = title
+        self.sectionType = sectionType
+        self.sourceFolder = sourceFolder
+        self.files = files
+        self.level = level
+        self.startingPage = startingPage
+    }
+    
+    static func == (lhs: ManuscriptSection, rhs: ManuscriptSection) -> Bool {
+        lhs.id == rhs.id
+    }
+}
+
+// MARK: - ManuscriptContent
+
+/// Complete assembled manuscript content
+struct ManuscriptContent {
+    let attributedString: NSAttributedString
+    let sections: [ManuscriptSection]
+    var pageMap: [UUID: Int]
+    let fileOffsets: [UUID: Int]
+    var pageCount: Int
+    
+    var wordCount: Int {
+        let text = attributedString.string
+        let words = text.components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+        return words.count
+    }
+    
+    var characterCount: Int {
+        let text = attributedString.string
+        return text.filter { !$0.isWhitespace }.count
+    }
+    
+    init(
+        attributedString: NSAttributedString = NSAttributedString(),
+        sections: [ManuscriptSection] = [],
+        pageMap: [UUID: Int] = [:],
+        fileOffsets: [UUID: Int] = [:],
+        pageCount: Int = 0
+    ) {
+        self.attributedString = attributedString
+        self.sections = sections
+        self.pageMap = pageMap
+        self.fileOffsets = fileOffsets
+        self.pageCount = pageCount
+    }
+}
+
+// MARK: - ManuscriptSettings
+
+/// Configuration for manuscript assembly
+struct ManuscriptSettings: Codable, Equatable {
+    var sectionBreakStyle: SectionBreakStyle = .pageBreak
+    var includeSectionHeadings: Bool = true
+    var includeFileTitles: Bool = true
+    var footnoteNumbering: FootnoteNumberingStyle = .perFile
+    
+    enum SectionBreakStyle: String, Codable, CaseIterable {
+        case pageBreak
+        case sectionMark
+        case doubleSpace
+        case none
+        
+        var localizedName: String {
+            switch self {
+            case .pageBreak:
+                return NSLocalizedString("manuscript.break.pageBreak", comment: "Page Break")
+            case .sectionMark:
+                return NSLocalizedString("manuscript.break.sectionMark", comment: "Section Mark")
+            case .doubleSpace:
+                return NSLocalizedString("manuscript.break.doubleSpace", comment: "Double Space")
+            case .none:
+                return NSLocalizedString("manuscript.break.none", comment: "None")
+            }
+        }
+    }
+    
+    enum FootnoteNumberingStyle: String, Codable, CaseIterable {
+        case perFile
+        case continuous
+        case perSection
+        
+        var localizedName: String {
+            switch self {
+            case .perFile:
+                return NSLocalizedString("manuscript.footnotes.perFile", comment: "Per File")
+            case .continuous:
+                return NSLocalizedString("manuscript.footnotes.continuous", comment: "Continuous")
+            case .perSection:
+                return NSLocalizedString("manuscript.footnotes.perSection", comment: "Per Section")
+            }
+        }
+    }
+}
+
+// MARK: - AssemblyProgress
+
+/// Progress tracking for manuscript assembly
+struct AssemblyProgress {
+    let totalFiles: Int
+    var processedFiles: Int
+    var phase: AssemblyPhase
+    
+    var progress: Double {
+        guard totalFiles > 0 else { return 0 }
+        return Double(processedFiles) / Double(totalFiles)
+    }
+    
+    enum AssemblyPhase: String {
+        case loading
+        case assembling
+        case calculating
+        case complete
+        
+        var localizedDescription: String {
+            switch self {
+            case .loading:
+                return NSLocalizedString("manuscript.progress.loading", comment: "Loading files...")
+            case .assembling:
+                return NSLocalizedString("manuscript.progress.assembling", comment: "Assembling content...")
+            case .calculating:
+                return NSLocalizedString("manuscript.progress.calculating", comment: "Calculating layout...")
+            case .complete:
+                return NSLocalizedString("manuscript.progress.complete", comment: "Complete")
+            }
+        }
+    }
+    
+    init(totalFiles: Int = 0, processedFiles: Int = 0, phase: AssemblyPhase = .loading) {
+        self.totalFiles = totalFiles
+        self.processedFiles = processedFiles
+        self.phase = phase
+    }
+}
+
+// MARK: - AssemblyError
+
+/// Errors that can occur during manuscript assembly
+enum AssemblyError: LocalizedError {
+    case noFilesFound
+    case fileLoadFailed(String)
+    case layoutCalculationFailed
+    case exportFailed(String)
+    case noPageSetup
+    
+    var errorDescription: String? {
+        switch self {
+        case .noFilesFound:
+            return NSLocalizedString("manuscript.error.noFiles", comment: "No files found")
+        case .fileLoadFailed(let filename):
+            return String(format: NSLocalizedString("manuscript.error.loadFailed", comment: "Load failed"), filename)
+        case .layoutCalculationFailed:
+            return NSLocalizedString("manuscript.error.layoutFailed", comment: "Layout failed")
+        case .exportFailed(let format):
+            return String(format: NSLocalizedString("manuscript.error.exportFailed", comment: "Export failed"), format)
+        case .noPageSetup:
+            return NSLocalizedString("manuscript.error.noPageSetup", comment: "No page setup")
+        }
+    }
+}
+
+// MARK: - ExportFormat
+
+/// Available export formats for manuscripts
+enum ExportFormat: String, CaseIterable, Identifiable {
+    case pdf
+    case rtf
+    case plainText
+    case word
+    
+    var id: String { rawValue }
+    
+    var fileExtension: String {
+        switch self {
+        case .pdf: return "pdf"
+        case .rtf: return "rtf"
+        case .plainText: return "txt"
+        case .word: return "docx"
+        }
+    }
+    
+    var localizedName: String {
+        switch self {
+        case .pdf:
+            return NSLocalizedString("export.format.pdf", comment: "PDF Document")
+        case .rtf:
+            return NSLocalizedString("export.format.rtf", comment: "Rich Text Format")
+        case .plainText:
+            return NSLocalizedString("export.format.plainText", comment: "Plain Text")
+        case .word:
+            return NSLocalizedString("export.format.word", comment: "Word Document")
+        }
+    }
+    
+    var mimeType: String {
+        switch self {
+        case .pdf: return "application/pdf"
+        case .rtf: return "application/rtf"
+        case .plainText: return "text/plain"
+        case .word: return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        }
+    }
+    
+    var icon: String {
+        switch self {
+        case .pdf: return "doc.fill"
+        case .rtf: return "doc.richtext"
+        case .plainText: return "doc.text"
+        case .word: return "doc"
+        }
+    }
+}
+
+// MARK: - ExportOptions
+
+/// Options for manuscript export
+struct ExportOptions: Equatable {
+    var format: ExportFormat = .pdf
+    var includeFrontMatter: Bool = true
+    var includeBody: Bool = true
+    var includeBackMatter: Bool = true
+    var includeTableOfContents: Bool = true
+    var includeTitlePage: Bool = true
+    var filename: String = "Manuscript"
+}

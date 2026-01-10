@@ -24,6 +24,11 @@ struct ProjectTemplateService {
             let name = NSLocalizedString(key, comment: "Folder name")
             let folder = Folder(name: name, project: project, userOrder: index)
             modelContext.insert(folder)
+            
+            // Create Manuscript subfolders (Feature 029)
+            if key == "folder.manuscript" {
+                createManuscriptSubfolders(in: folder, context: modelContext)
+            }
         }
         
         // Explicitly save the context to ensure all relationships are persisted
@@ -38,6 +43,30 @@ struct ProjectTemplateService {
             print("❌ Error saving folder structure: \(error)")
             #endif
         }
+    }
+    
+    // MARK: - Manuscript Subfolders (Feature 029)
+    
+    /// Creates the standard subfolders within the Manuscript folder.
+    /// - Parameters:
+    ///   - manuscriptFolder: The parent Manuscript folder
+    ///   - context: SwiftData model context for persistence
+    private static func createManuscriptSubfolders(in manuscriptFolder: Folder, context: ModelContext) {
+        let subfolderKeys = ["folder.frontMatter", "folder.body", "folder.backMatter"]
+        
+        for (index, nameKey) in subfolderKeys.enumerated() {
+            let subfolder = Folder(
+                name: NSLocalizedString(nameKey, comment: "Manuscript subfolder"),
+                project: manuscriptFolder.project,
+                userOrder: index
+            )
+            subfolder.parentFolder = manuscriptFolder
+            context.insert(subfolder)
+        }
+        
+        #if DEBUG
+        print("📁 Created Manuscript subfolders: Front Matter, Body, Back Matter")
+        #endif
     }
     
     // MARK: - Folder Order Configuration

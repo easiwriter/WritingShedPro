@@ -28,7 +28,9 @@ struct FolderCapabilityService {
     private static let fileOnlyFolders: Set<String> = [
         "Files", "Research",
         // New content folders (workflow status is now on TextFile)
-        "Poems", "Scenes", "Scripts"
+        "Poems", "Scenes", "Scripts",
+        // Manuscript subfolders (Feature 029) - Front/Back Matter allow files
+        "Front Matter", "Back Matter"
     ]
     
     /// Folders that receive content from elsewhere (no manual additions)
@@ -37,7 +39,9 @@ struct FolderCapabilityService {
     private static let readOnlyFolders: Set<String> = [
         "Collections", "Trash", "Manuscript",
         // Entity folders for Fiction (managed via their own views)
-        "Characters", "Locations", "Chapters", "Plot"
+        "Characters", "Locations", "Chapters", "Plot",
+        // Manuscript subfolder (Feature 029) - Body is virtual, shows assembled content
+        "Body"
     ]
     
     // MARK: - Capability Checks

@@ -27,6 +27,36 @@
 "folder.plot" = "Plot";
 "addProject.useMonomythFooter" = "Structure your plot using the 12-stage Hero's Journey.";
 
+/* Manuscript Subfolders (Feature 029) */
+"folder.frontMatter" = "Front Matter";
+"folder.body" = "Body";
+"folder.backMatter" = "Back Matter";
+"manuscript.body.comingSoon" = "Manuscript Assembly";
+"manuscript.body.comingSoonDescription" = "Content from your project will be assembled here for preview and export.";
+"manuscript.section.frontMatter" = "Front Matter";
+"manuscript.section.body" = "Body";
+"manuscript.section.backMatter" = "Back Matter";
+"manuscript.break.pageBreak" = "Page Break";
+"manuscript.break.sectionMark" = "Section Mark";
+"manuscript.break.doubleSpace" = "Double Space";
+"manuscript.break.none" = "None";
+"manuscript.footnotes.perFile" = "Per File";
+"manuscript.footnotes.continuous" = "Continuous";
+"manuscript.footnotes.perSection" = "Per Section";
+"manuscript.progress.loading" = "Loading files...";
+"manuscript.progress.assembling" = "Assembling content...";
+"manuscript.progress.calculating" = "Calculating layout...";
+"manuscript.progress.complete" = "Complete";
+"manuscript.error.noFiles" = "No files found for manuscript assembly";
+"manuscript.error.loadFailed" = "Failed to load file: %@";
+"manuscript.error.layoutFailed" = "Failed to calculate page layout";
+"manuscript.error.exportFailed" = "Failed to export as %@";
+"manuscript.error.noPageSetup" = "Page setup required for manuscript preview";
+"export.format.pdf" = "PDF Document";
+"export.format.rtf" = "Rich Text Format";
+"export.format.plainText" = "Plain Text";
+"export.format.word" = "Word Document";
+
 /* Character Archetypes (Feature 022) */
 "archetype.hero" = "Hero";
 "archetype.mentor" = "Mentor";

@@ -223,6 +223,11 @@ struct FolderListView: View {
                             NavigationLink(destination: SceneListView(project: project)) {
                                 FolderRowView(folder: folder)
                             }
+                        } else if folderName == "Manuscript" {
+                            // Manuscript folder (Feature 029): Navigate to show subfolders (Front Matter, Body, Back Matter)
+                            NavigationLink(destination: FolderListView(project: project, selectedFolder: folder)) {
+                                FolderRowView(folder: folder)
+                            }
                         } else {
                             // Navigate based on folder capabilities
                             let canAddSubfolder = FolderCapabilityService.canAddSubfolder(to: folder)
@@ -258,24 +263,33 @@ struct FolderListView: View {
                 if !currentSubfolders.isEmpty {
                     Section {
                         ForEach(currentSubfolders) { subfolder in
-                            // Navigate based on folder capabilities
-                            let canAddSubfolder = FolderCapabilityService.canAddSubfolder(to: subfolder)
-                            let canAddFile = FolderCapabilityService.canAddFile(to: subfolder)
+                            let subfolderName = subfolder.name ?? ""
                             
-                            if canAddFile {
-                                // Mixed content or file-only folders - navigate to FolderFilesView
-                                NavigationLink(destination: FolderFilesView(folder: subfolder)) {
-                                    FolderRowView(folder: subfolder)
-                                }
-                            } else if canAddSubfolder {
-                                // Subfolder-only folders - navigate to FolderListView
-                                NavigationLink(destination: FolderListView(project: project, selectedFolder: subfolder)) {
+                            // Special handling for Manuscript Body subfolder (Feature 029)
+                            if subfolderName == "Body" && selectedFolder?.name == "Manuscript" {
+                                NavigationLink(destination: ManuscriptBodyView(project: project)) {
                                     FolderRowView(folder: subfolder)
                                 }
                             } else {
-                                // Read-only folders - navigate to FolderFilesView
-                                NavigationLink(destination: FolderFilesView(folder: subfolder)) {
-                                    FolderRowView(folder: subfolder)
+                                // Navigate based on folder capabilities
+                                let canAddSubfolder = FolderCapabilityService.canAddSubfolder(to: subfolder)
+                                let canAddFile = FolderCapabilityService.canAddFile(to: subfolder)
+                                
+                                if canAddFile {
+                                    // Mixed content or file-only folders - navigate to FolderFilesView
+                                    NavigationLink(destination: FolderFilesView(folder: subfolder)) {
+                                        FolderRowView(folder: subfolder)
+                                    }
+                                } else if canAddSubfolder {
+                                    // Subfolder-only folders - navigate to FolderListView
+                                    NavigationLink(destination: FolderListView(project: project, selectedFolder: subfolder)) {
+                                        FolderRowView(folder: subfolder)
+                                    }
+                                } else {
+                                    // Read-only folders - navigate to FolderFilesView
+                                    NavigationLink(destination: FolderFilesView(folder: subfolder)) {
+                                        FolderRowView(folder: subfolder)
+                                    }
                                 }
                             }
                         }
@@ -583,6 +597,12 @@ struct FolderRowView: View {
             return "tray.2"
         case "Manuscript":
             return "doc.richtext"
+        case "Front Matter":
+            return "text.badge.star"
+        case "Body":
+            return "doc.on.doc"
+        case "Back Matter":
+            return "text.append"
         case "Research":
             return "magnifyingglass"
         case "Magazines":

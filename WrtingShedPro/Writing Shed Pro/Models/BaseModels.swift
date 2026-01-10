@@ -92,6 +92,10 @@ final class Project {
     // Feature 023: Smart Drama Creation
     var dramaScriptTypeRaw: String?  // "film" or "stage"
     
+    // Feature 029: Manuscript Assembly
+    var manuscriptSettingsData: Data?
+    var tocSettingsData: Data?
+    
     // Fiction relationships
     @Relationship(deleteRule: .cascade, inverse: \StoryScene.project)
     var scenes: [StoryScene]? = []
@@ -157,6 +161,19 @@ final class Project {
         self.userOrder = userOrder
         
         // Note: Page setup is now global (stored in UserDefaults), not per-project
+    }
+    
+    // MARK: - Manuscript Settings (Feature 029)
+    
+    /// Decoded manuscript settings for assembly configuration
+    var manuscriptSettings: ManuscriptSettings {
+        get {
+            guard let data = manuscriptSettingsData else { return ManuscriptSettings() }
+            return (try? JSONDecoder().decode(ManuscriptSettings.self, from: data)) ?? ManuscriptSettings()
+        }
+        set {
+            manuscriptSettingsData = try? JSONEncoder().encode(newValue)
+        }
     }
 }
 
@@ -465,6 +482,10 @@ final class TextFile {
     // Feature 022: Smart Fiction Creation
     // A TextFile can be the content of a Scene
     var scene: StoryScene?
+    
+    // Feature 029: Manuscript Assembly
+    // Whether this file is included in manuscript assembly (default: true)
+    var includedInManuscript: Bool = true
     
     /// Workflow status for this file (Draft, Ready, Submitted, etc.)
     var workflowStatus: WorkflowStatus? {
