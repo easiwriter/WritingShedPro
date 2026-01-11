@@ -26,6 +26,8 @@ struct AddSceneSheet: View {
     @State private var title: String = ""
     @State private var summary: String = ""
     @State private var selectedMonomythStage: MonomythStage?
+    @State private var selectedCampbellStage: CampbellMonomythStage?
+    @State private var selectedThreeActStage: ThreeActStage?
     @State private var selectedLocation: Location?
     @State private var selectedCharacters: Set<Character> = []
     @State private var showErrorAlert = false
@@ -123,26 +125,75 @@ struct AddSceneSheet: View {
                     }
                 }
                 
-                // Monomyth Stage (if project uses monomyth)
-                if project.useMonomyth {
+                // Stage picker based on story structure
+                if project.storyStructure == .monomythVogler {
                     Section {
                         Picker(NSLocalizedString("fiction.scene.monomythStage", comment: "Story Stage"), selection: $selectedMonomythStage) {
                             Text(NSLocalizedString("fiction.scene.monomythStage.none", comment: "None"))
                                 .tag(nil as MonomythStage?)
                             
                             ForEach(MonomythStage.allCases, id: \.self) { stage in
-                                Text(NSLocalizedString("monomyth.\(stage.rawValue)", comment: "Stage name"))
-                                    .tag(stage as MonomythStage?)
+                                HStack {
+                                    Text("\(stage.order).")
+                                    Text(stage.localizedName)
+                                }
+                                .tag(stage as MonomythStage?)
                             }
                         }
                         
                         if let stage = selectedMonomythStage {
-                            Text(NSLocalizedString("monomyth.\(stage.rawValue).description", comment: "Stage description"))
+                            Text(stage.description)
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
                     } header: {
                         Text(NSLocalizedString("fiction.scene.section.monomyth", comment: "Hero's Journey"))
+                    }
+                } else if project.storyStructure == .monomythCampbell {
+                    Section {
+                        Picker(NSLocalizedString("fiction.scene.monomythStage", comment: "Story Stage"), selection: $selectedCampbellStage) {
+                            Text(NSLocalizedString("fiction.scene.monomythStage.none", comment: "None"))
+                                .tag(nil as CampbellMonomythStage?)
+                            
+                            ForEach(CampbellMonomythStage.allCases, id: \.self) { stage in
+                                HStack {
+                                    Text("\(stage.order).")
+                                    Text(stage.localizedName)
+                                }
+                                .tag(stage as CampbellMonomythStage?)
+                            }
+                        }
+                        
+                        if let stage = selectedCampbellStage {
+                            Text(stage.description)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    } header: {
+                        Text(NSLocalizedString("fiction.scene.section.monomyth", comment: "Hero's Journey"))
+                    }
+                } else if project.storyStructure == .threeAct {
+                    Section {
+                        Picker(NSLocalizedString("fiction.scene.storyStage", comment: "Act"), selection: $selectedThreeActStage) {
+                            Text(NSLocalizedString("fiction.scene.monomythStage.none", comment: "None"))
+                                .tag(nil as ThreeActStage?)
+                            
+                            ForEach(ThreeActStage.allCases, id: \.self) { stage in
+                                HStack {
+                                    Text("\(stage.order).")
+                                    Text(stage.localizedName)
+                                }
+                                .tag(stage as ThreeActStage?)
+                            }
+                        }
+                        
+                        if let stage = selectedThreeActStage {
+                            Text(stage.description)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    } header: {
+                        Text(NSLocalizedString("fiction.scene.section.threeAct", comment: "Three-Act Structure"))
                     }
                 }
             }
@@ -209,8 +260,19 @@ struct AddSceneSheet: View {
         
         // Set relationships
         scene.location = selectedLocation
-        scene.monomythStage = selectedMonomythStage
         scene.characters = Array(selectedCharacters)
+        
+        // Set stage based on story structure
+        switch project.storyStructure {
+        case .monomythVogler:
+            scene.monomythStage = selectedMonomythStage
+        case .monomythCampbell:
+            scene.campbellStage = selectedCampbellStage
+        case .threeAct:
+            scene.threeActStage = selectedThreeActStage
+        case .freeform:
+            break
+        }
         
         // Create TextFile for scene content in Draft folder
         let textFile = TextFile(name: trimmedTitle, initialContent: "", parentFolder: scenesFolder)

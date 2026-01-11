@@ -394,17 +394,6 @@ struct SceneRowView: View {
                     .lineLimit(2)
             }
             
-            // Monomyth stage if applicable
-            if let stage = scene.monomythStage {
-                HStack(spacing: 4) {
-                    Image(systemName: "circle.grid.3x3")
-                        .font(.caption)
-                    Text(NSLocalizedString("monomyth.\(stage.rawValue)", comment: "Stage name"))
-                        .font(.caption)
-                }
-                .foregroundColor(.purple)
-            }
-            
             // Character and location indicators
             HStack(spacing: 12) {
                 if let characters = scene.characters, !characters.isEmpty {

@@ -16,8 +16,16 @@ struct ContentView: View {
             onHandleImportMenu: handleImportMenu,
             onHandleJSONImport: handleJSONImport,
             onDeleteAllProjects: deleteAllProjects,
-            onPrefetchProjectData: prefetchProjectData
+            onPrefetchProjectData: prefetchProjectData,
+            onRunMigrations: runMigrations
         )
+    }
+    
+    /// Run data migrations for new features
+    private func runMigrations() {
+        Task(priority: .utility) {
+            MigrationService.runMigrations(context: modelContext)
+        }
     }
     
     /// Prefetch project relationships async to warm up Swift type system
@@ -131,7 +139,12 @@ struct ContentView: View {
                         #endif
                         errorHandler.warnings.forEach { print("  - \($0)") }
                     }
-                    
+
+                    // Run migration after import to ensure manuscript subfolders are present
+                    MigrationService.runMigrations(context: modelContext)
+                    #if DEBUG
+                    print("[ContentView] Ran MigrationService after import")
+                    #endif
                 } catch ImportError.missingContent {
                     await MainActor.run {
                         state.importErrorMessage = NSLocalizedString("contentView.importError.emptyFile", comment: "The selected file is empty or corrupt")

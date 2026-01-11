@@ -159,6 +159,8 @@
 "fiction.character.attributes" = "Custom Attributes";
 "fiction.character.scenes" = "Appears In";
 "fiction.character.delete" = "Delete Character";
+"fiction.character.noDetails.title" = "No Details";
+"fiction.character.noDetails.message" = "No biography or archetype has been added for this character.";
 
 /* Fiction Locations View (Feature 022) */
 "fiction.locations.title" = "Locations";
@@ -179,6 +181,8 @@
 "fiction.location.scenes" = "Scenes Here";
 "fiction.location.sceneCount" = "%d scenes";
 "fiction.location.delete" = "Delete Location";
+"fiction.location.noDetails.title" = "No Details";
+"fiction.location.noDetails.message" = "No description has been added for this location.";
 
 /* Fiction Scenes View (Feature 022) */
 "fiction.scenes.title" = "Scenes";
@@ -209,6 +213,9 @@
 "fiction.scene.monomythStage" = "Story Stage";
 "fiction.scene.monomythStage.none" = "None";
 "fiction.scene.section.monomyth" = "Hero's Journey";
+"fiction.scene.section.threeAct" = "Three-Act Structure";
+"fiction.scene.section.campbellMonomyth" = "Campbell's Monomyth";
+"fiction.scene.storyStage" = "Act";
 "fiction.scene.add.title" = "Add Scene";
 "fiction.scene.error.titleRequired" = "Scene title is required.";
 "fiction.scene.file" = "Scene File";
@@ -253,6 +260,8 @@
 "fiction.plot.element.stage.none" = "None";
 "fiction.plot.element.stage.footer" = "Assign this element to a stage of the Hero's Journey.";
 "fiction.plot.element.section.monomyth" = "Hero's Journey";
+"fiction.plot.element.section.threeAct" = "Three-Act Structure";
+"fiction.plot.element.section.campbellMonomyth" = "Campbell's Monomyth";
 "fiction.plot.element.section.characters" = "Characters";
 "fiction.plot.element.section.locations" = "Locations";
 "fiction.plot.element.section.scenes" = "Scenes";
@@ -263,6 +272,8 @@
 "fiction.plot.element.linkedScenes.footer" = "Scenes that implement this plot beat.";
 "fiction.plot.element.section.linkScenes" = "Link Existing Scenes";
 "fiction.plot.element.linkScenes.footer" = "Select scenes to associate with this plot beat.";
+"fiction.plot.noDetails.title" = "No Details";
+"fiction.plot.noDetails.message" = "No description, characters, or locations have been added for this plot element.";
 "fiction.plot.element.add.title" = "Add Plot Element";
 "fiction.plot.element.error.titleRequired" = "Plot element title is required.";
 "fiction.plot.element.delete" = "Delete Plot Element";
@@ -1588,3 +1599,73 @@
 "drama.toolbar.selectTransition" = "Select Transition";
 
 "button.insert" = "Insert";
+
+
+// Story Structure (Feature 022/023 - expanded)
+"storyStructure.freeform" = "Freeform";
+"storyStructure.threeAct" = "Three-Act Structure";
+"storyStructure.monomythVogler" = "Heros Journey (Vogler)";
+"storyStructure.monomythCampbell" = "Heros Journey (Campbell)";
+"storyStructure.freeform.description" = "No predefined structure - organize your story freely";
+"storyStructure.threeAct.description" = "Classic 3-act structure: Setup, Confrontation, Resolution";
+"storyStructure.monomythVogler.description" = "12 stages from The Writers Journey by Christopher Vogler";
+"storyStructure.monomythCampbell.description" = "17 stages from The Hero with a Thousand Faces by Joseph Campbell";
+
+// Three-Act Structure stages
+"threeAct.actOne" = "Act I: Setup";
+"threeAct.actTwo" = "Act II: Confrontation";
+"threeAct.actThree" = "Act III: Resolution";
+"threeAct.actOne.description" = "Introduce characters, setting, and conflict";
+"threeAct.actTwo.description" = "Develop conflict, raise stakes, build tension";
+"threeAct.actThree.description" = "Resolve conflict and conclude the story";
+
+// Campbells Monomyth stages (17 stages)
+"campbell.theOrdinaryWorld" = "The Ordinary World";
+"campbell.theCallToAdventure" = "The Call to Adventure";
+"campbell.refusalOfTheCall" = "Refusal of the Call";
+"campbell.supernaturalAid" = "Supernatural Aid";
+"campbell.crossingTheFirstThreshold" = "Crossing the First Threshold";
+"campbell.bellyOfTheWhale" = "Belly of the Whale";
+"campbell.theRoadOfTrials" = "The Road of Trials";
+"campbell.meetingWithTheGoddess" = "Meeting with the Goddess";
+"campbell.womanAsTemptress" = "Woman as Temptress";
+"campbell.atonementWithTheFather" = "Atonement with the Father";
+"campbell.apotheosis" = "Apotheosis";
+"campbell.theUltimateBoon" = "The Ultimate Boon";
+"campbell.refusalOfTheReturn" = "Refusal of the Return";
+"campbell.theMagicFlight" = "The Magic Flight";
+"campbell.rescueFromWithout" = "Rescue from Without";
+"campbell.crossingTheReturnThreshold" = "Crossing the Return Threshold";
+"campbell.masterOfTwoWorlds" = "Master of Two Worlds";
+
+// Campbells Monomyth stage descriptions
+"campbell.theOrdinaryWorld.description" = "The heros normal world before the adventure begins";
+"campbell.theCallToAdventure.description" = "The hero receives a call to action or adventure";
+"campbell.refusalOfTheCall.description" = "The hero initially refuses the call due to fear or obligation";
+"campbell.supernaturalAid.description" = "The hero receives help from a mentor or magical guide";
+"campbell.crossingTheFirstThreshold.description" = "The hero commits to the adventure and enters the special world";
+"campbell.bellyOfTheWhale.description" = "The hero is swallowed into the unknown, representing final separation";
+"campbell.theRoadOfTrials.description" = "The hero faces a series of tests and obstacles";
+"campbell.meetingWithTheGoddess.description" = "The hero experiences unconditional love or encounters the divine feminine";
+"campbell.womanAsTemptress.description" = "The hero faces temptation that may lead them astray";
+"campbell.atonementWithTheFather.description" = "The hero confronts the ultimate power in their life";
+"campbell.apotheosis.description" = "The hero achieves a higher state of being or understanding";
+"campbell.theUltimateBoon.description" = "The hero receives the goal of the quest";
+"campbell.refusalOfTheReturn.description" = "The hero may not want to return to the ordinary world";
+"campbell.theMagicFlight.description" = "The hero escapes with the boon, possibly pursued";
+"campbell.rescueFromWithout.description" = "The hero needs help from the ordinary world to return";
+"campbell.crossingTheReturnThreshold.description" = "The hero returns to the ordinary world transformed";
+"campbell.masterOfTwoWorlds.description" = "The hero achieves balance between inner and outer worlds";
+
+// Add Project / Project Detail - Story Structure
+"addProject.storyStructure" = "Story Structure";
+"addProject.storyStructureAccessibility" = "Select the story structure for your project";
+"projectDetail.storyStructure" = "Story Structure";
+
+
+// Editor Scene Details
+"editor.sceneCharacters" = "Characters in Scene";
+"editor.sceneLocations" = "Locations in Scene";
+"editor.scenePlotElements" = "Plot Elements";
+"editor.noSceneLinks" = "No characters, locations, or plot elements linked to this scene";
+"editor.sceneLocation" = "Scene Location";

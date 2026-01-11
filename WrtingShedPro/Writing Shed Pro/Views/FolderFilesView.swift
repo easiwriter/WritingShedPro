@@ -20,8 +20,8 @@ struct FolderFilesView: View {
     // Query all folders to ensure we have fresh relationships
     @Query private var allFolders: [Folder]
     
-    // Query all files to ensure we have fresh data (relationships can be stale)
-    @Query private var allTextFiles: [TextFile]
+    // Query all files (lazily loaded by SwiftData)
+    @Query(sort: [SortDescriptor(\TextFile.name, order: .forward)]) private var allTextFiles: [TextFile]
     
     // State for edit mode (shared with FileListView)
     @State private var editMode: EditMode = .inactive
@@ -106,23 +106,9 @@ struct FolderFilesView: View {
         folder.project?.type == .generalPurpose
     }
     
-    // All files in folder (unfiltered) for counting
-    // Uses query results filtered by folder ID for reliable data
-    // IMPORTANT: Deduplicate to handle any database corruption
+    // All files in folder (filtered from query, still lazy)
     private var allFiles: [TextFile] {
-        let filtered = allTextFiles.filter { $0.parentFolder?.id == folder.id }
-        // Deduplicate by ID
-        var seenIDs = Set<UUID>()
-        return filtered.filter { file in
-            if seenIDs.contains(file.id) {
-                #if DEBUG
-                print("⚠️ [FolderFilesView] Duplicate file in query: \(file.name) (ID: \(file.id))")
-                #endif
-                return false
-            }
-            seenIDs.insert(file.id)
-            return true
-        }
+        allTextFiles.filter { $0.parentFolder?.id == folder.id }
     }
     
     // Count of files for a specific workflow status
@@ -134,17 +120,12 @@ struct FolderFilesView: View {
         }
     }
     
-    // Files sorted alphabetically and filtered by workflow status if applicable
+    // Files filtered by workflow status if applicable (already sorted by query)
     private var sortedFiles: [TextFile] {
-        var files: [TextFile] = allFiles
-        
-        // Apply workflow status filter for content folders
         if isContentFolder, let filter = statusFilter {
-            files = files.filter { $0.workflowStatus == filter }
+            return allFiles.filter { $0.workflowStatus == filter }
         }
-        
-        // Always sort alphabetically by name
-        return FileSortService.sort(files, by: .byName)
+        return allFiles
     }
     
     // Check if this folder supports submissions (Ready filter active)

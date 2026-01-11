@@ -87,7 +87,8 @@ final class Project {
     
     // Feature 022: Smart Fiction Creation
     var fictionClassRaw: String?  // "novel" or "shortFiction"
-    var useMonomyth: Bool = false
+    var useMonomyth: Bool = false  // Legacy - use storyStructureRaw instead
+    var storyStructureRaw: String?  // StoryStructure raw value
     
     // Feature 023: Smart Drama Creation
     var dramaScriptTypeRaw: String?  // "film" or "stage"
@@ -119,6 +120,27 @@ final class Project {
         }
         set {
             fictionClassRaw = newValue?.rawValue
+        }
+    }
+    
+    /// Story structure for fiction/drama projects
+    /// Migrates legacy useMonomyth property to new StoryStructure
+    var storyStructure: StoryStructure {
+        get {
+            // If we have a stored value, use it
+            if let raw = storyStructureRaw, let structure = StoryStructure(rawValue: raw) {
+                return structure
+            }
+            // Migrate from legacy useMonomyth
+            if useMonomyth {
+                return .monomythVogler
+            }
+            return .freeform
+        }
+        set {
+            storyStructureRaw = newValue.rawValue
+            // Keep useMonomyth in sync for backward compatibility
+            useMonomyth = newValue.usesMonomyth
         }
     }
     

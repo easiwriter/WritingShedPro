@@ -33,28 +33,45 @@ struct PlotOutlineView: View {
         (project.plotElements ?? []).sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
     }
     
-    // Group by monomyth stage if project uses monomyth
-    private var plotElementsByStage: [(stage: MonomythStage?, elements: [PlotElement])] {
-        guard project.useMonomyth else { return [] }
+    // Group by stage based on story structure
+    private var plotElementsByStage: [(stageOrder: Int?, stageName: String?, elements: [PlotElement])] {
+        guard project.storyStructure != .freeform else { return [] }
         
-        var grouped: [MonomythStage?: [PlotElement]] = [:]
+        var grouped: [Int?: [PlotElement]] = [:]
         
         for element in sortedPlotElements {
-            let stage = element.monomythStage
-            grouped[stage, default: []].append(element)
+            let stageOrder = element.stageOrder
+            grouped[stageOrder, default: []].append(element)
         }
         
         // Sort: stages in order, then nil (unassigned) last
-        var result: [(MonomythStage?, [PlotElement])] = []
+        var result: [(Int?, String?, [PlotElement])] = []
         
-        for stage in MonomythStage.allCases {
-            if let elements = grouped[stage], !elements.isEmpty {
-                result.append((stage, elements))
+        switch project.storyStructure {
+        case .monomythVogler:
+            for stage in MonomythStage.allCases {
+                if let elements = grouped[stage.order], !elements.isEmpty {
+                    result.append((stage.order, stage.localizedName, elements))
+                }
             }
+        case .monomythCampbell:
+            for stage in CampbellMonomythStage.allCases {
+                if let elements = grouped[stage.order], !elements.isEmpty {
+                    result.append((stage.order, stage.localizedName, elements))
+                }
+            }
+        case .threeAct:
+            for stage in ThreeActStage.allCases {
+                if let elements = grouped[stage.order], !elements.isEmpty {
+                    result.append((stage.order, stage.localizedName, elements))
+                }
+            }
+        case .freeform:
+            break
         }
         
         if let unassigned = grouped[nil], !unassigned.isEmpty {
-            result.append((nil, unassigned))
+            result.append((nil, nil, unassigned))
         }
         
         return result
@@ -66,8 +83,8 @@ struct PlotOutlineView: View {
         Group {
             if sortedPlotElements.isEmpty {
                 emptyState
-            } else if project.useMonomyth {
-                monomythList
+            } else if project.storyStructure != .freeform {
+                structuredList
             } else {
                 simpleList
             }
@@ -111,11 +128,11 @@ struct PlotOutlineView: View {
         }
     }
     
-    // MARK: - Monomyth Grouped List
+    // MARK: - Structured List (grouped by stage)
     
-    private var monomythList: some View {
+    private var structuredList: some View {
         List {
-            ForEach(plotElementsByStage, id: \.stage) { group in
+            ForEach(plotElementsByStage, id: \.stageOrder) { group in
                 Section {
                     ForEach(group.elements) { element in
                         PlotElementRowView(element: element, showStage: false)
@@ -133,16 +150,13 @@ struct PlotOutlineView: View {
                             }
                     }
                 } header: {
-                    if let stage = group.stage {
+                    if let stageOrder = group.stageOrder, let stageName = group.stageName {
                         VStack(alignment: .leading, spacing: 2) {
                             HStack {
-                                Text("\(stage.order).")
+                                Text("\(stageOrder).")
                                     .fontWeight(.bold)
-                                Text(NSLocalizedString("monomyth.\(stage.rawValue)", comment: "Stage name"))
+                                Text(stageName)
                             }
-                            Text(NSLocalizedString("monomyth.\(stage.rawValue).description", comment: "Stage description"))
-                                .font(.caption)
-                                .foregroundColor(.secondary)
                         }
                     } else {
                         Text(NSLocalizedString("fiction.plot.unassigned", comment: "Unassigned"))
@@ -153,7 +167,7 @@ struct PlotOutlineView: View {
         .listStyle(.insetGrouped)
     }
     
-    // MARK: - Simple List (no monomyth)
+    // MARK: - Simple List (freeform)
     
     private var simpleList: some View {
         List {
@@ -188,7 +202,7 @@ struct PlotOutlineView: View {
             Text(NSLocalizedString("fiction.plot.empty.title", comment: "No plot elements"))
                 .font(.headline)
             
-            Text(project.useMonomyth 
+            Text(project.storyStructure.usesMonomyth 
                 ? NSLocalizedString("fiction.plot.empty.monomyth.message", comment: "Empty monomyth message")
                 : NSLocalizedString("fiction.plot.empty.message", comment: "Empty message"))
                 .font(.subheadline)
@@ -264,5 +278,6 @@ struct PlotElementRowView: View {
             }
         }
         .padding(.vertical, 4)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

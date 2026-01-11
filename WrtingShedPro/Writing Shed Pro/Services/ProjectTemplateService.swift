@@ -51,7 +51,7 @@ struct ProjectTemplateService {
     /// - Parameters:
     ///   - manuscriptFolder: The parent Manuscript folder
     ///   - context: SwiftData model context for persistence
-    private static func createManuscriptSubfolders(in manuscriptFolder: Folder, context: ModelContext) {
+    static func createManuscriptSubfolders(in manuscriptFolder: Folder, context: ModelContext) {
         let subfolderKeys = ["folder.frontMatter", "folder.body", "folder.backMatter"]
         
         for (index, nameKey) in subfolderKeys.enumerated() {

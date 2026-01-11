@@ -5,7 +5,7 @@
 **Estimated Effort**: TBD  
 **Dependencies**: 001-project-management-ios-macos  
 **Created**: 2026-01-01  
-**Last Updated**: 2026-01-08
+**Last Updated**: 2026-01-11
 
 ## Implementation Status
 
@@ -20,6 +20,7 @@
 - ✅ Create Scene from Plot Element action
 - ✅ Navigation between linked scenes and plot elements
 - ✅ Scenes list Edit button for deletion and manual reordering
+- ✅ **Story structure selection** (Freeform, Three-Act, Monomyth Vogler, Monomyth Campbell)
 
 ### In Progress / Not Started
 - ⏳ Chapter management (Novel only)
@@ -62,13 +63,60 @@ This choice is stored as a property on the project and cannot be changed after c
 
 **Location**: A location definition where actions take place. Uses user-defined custom fields for flexible attribute specification.
 
-### Plot Structure
+### Story Structure
 
-Fiction projects can optionally be structured according to Joseph Campbell's monomyth as exemplified in *The Writer's Journey* by Christopher Vogler.
+Fiction and Drama projects can choose from four story structure options at project creation:
+
+| Structure | Description | Stages |
+|-----------|-------------|--------|
+| **Freeform** | No predefined structure - organize your story freely | 0 |
+| **Three-Act** | Classic structure: Setup, Confrontation, Resolution | 3 |
+| **Monomyth (Vogler)** | 12 stages from *The Writer's Journey* by Christopher Vogler | 12 |
+| **Monomyth (Campbell)** | 17 stages from *The Hero with a Thousand Faces* by Joseph Campbell | 17 |
+
+The structure can be changed after project creation via Project Details.
+
+#### Vogler's 12 Stages (The Writer's Journey)
+1. Ordinary World
+2. Call to Adventure
+3. Refusal of the Call
+4. Meeting the Mentor
+5. Crossing the Threshold
+6. Tests, Allies, Enemies
+7. Approach to the Inmost Cave
+8. Ordeal
+9. Reward
+10. The Road Back
+11. Resurrection
+12. Return with the Elixir
+
+#### Campbell's 17 Stages (The Hero with a Thousand Faces)
+1. The Ordinary World
+2. The Call to Adventure
+3. Refusal of the Call
+4. Supernatural Aid
+5. Crossing the First Threshold
+6. Belly of the Whale
+7. The Road of Trials
+8. Meeting with the Goddess
+9. Woman as Temptress
+10. Atonement with the Father
+11. Apotheosis
+12. The Ultimate Boon
+13. Refusal of the Return
+14. The Magic Flight
+15. Rescue from Without
+16. Crossing the Return Threshold
+17. Master of Two Worlds
+
+#### Three-Act Structure
+- **Act I: Setup** - Introduce characters, setting, and conflict
+- **Act II: Confrontation** - Develop conflict, raise stakes, build tension
+- **Act III: Resolution** - Resolve conflict and conclude the story
 
 **Plot Outline**: A way for the writer to plan their story structure.
-- If monomyth is selected: the plot outline follows the 12 stages (Ordinary World, Call to Adventure, Refusal of the Call, Meeting the Mentor, Crossing the Threshold, Tests/Allies/Enemies, Approach to the Inmost Cave, Ordeal, Reward, The Road Back, Resurrection, Return with the Elixir)
-- If monomyth is not selected: freeform plot outline structure
+- If a monomyth structure is selected: the plot outline follows the corresponding stages
+- If freeform or three-act is selected: freeform plot outline structure
 
 **Plot Element Relationships (Hybrid Approach)**:
 - Plot elements can link to characters and locations to describe *planned* involvement ("Hero meets Mentor at Temple")

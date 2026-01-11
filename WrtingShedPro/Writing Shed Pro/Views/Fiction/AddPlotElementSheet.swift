@@ -25,6 +25,8 @@ struct AddPlotElementSheet: View {
     @State private var title: String = ""
     @State private var plotDescription: String = ""
     @State private var selectedMonomythStage: MonomythStage = .ordinaryWorld
+    @State private var selectedCampbellStage: CampbellMonomythStage = .theOrdinaryWorld
+    @State private var selectedThreeActStage: ThreeActStage = .actOne
     @State private var selectedCharacters: Set<Character> = []
     @State private var selectedLocations: Set<Location> = []
     @State private var selectedScenes: Set<StoryScene> = []
@@ -122,21 +124,51 @@ struct AddPlotElementSheet: View {
                 }
                 
                 // Monomyth Stage (if project uses monomyth)
-                if project.useMonomyth {
+                if project.storyStructure.usesMonomyth {
                     Section {
-                        Picker(NSLocalizedString("monomyth.\(selectedMonomythStage.rawValue).description", comment: "Stage description"), selection: $selectedMonomythStage) {
-                            ForEach(MonomythStage.allCases, id: \.self) { stage in
-                                HStack {
-                                    Text("\(stage.order).")
-                                    Text(NSLocalizedString("monomyth.\(stage.rawValue)", comment: "Stage name"))
+                        if project.storyStructure == .monomythCampbell {
+                            // Campbell's 17 stages
+                            Picker(selectedCampbellStage.description, selection: $selectedCampbellStage) {
+                                ForEach(CampbellMonomythStage.allCases, id: \.self) { stage in
+                                    HStack {
+                                        Text("\(stage.order).")
+                                        Text(stage.localizedName)
+                                    }
+                                    .tag(stage)
                                 }
-                                .tag(stage)
+                            }
+                        } else {
+                            // Vogler's 12 stages (default)
+                            Picker(selectedMonomythStage.description, selection: $selectedMonomythStage) {
+                                ForEach(MonomythStage.allCases, id: \.self) { stage in
+                                    HStack {
+                                        Text("\(stage.order).")
+                                        Text(stage.localizedName)
+                                    }
+                                    .tag(stage)
+                                }
                             }
                         }
                     } header: {
                         Text(NSLocalizedString("fiction.plot.element.section.monomyth", comment: "Hero's Journey"))
                     } footer: {
                         Text(NSLocalizedString("fiction.plot.element.stage.footer", comment: "Assign to a stage of the Hero's Journey"))
+                    }
+                } else if project.storyStructure == .threeAct {
+                    Section {
+                        Picker(selectedThreeActStage.description, selection: $selectedThreeActStage) {
+                            ForEach(ThreeActStage.allCases, id: \.self) { stage in
+                                HStack {
+                                    Text("\(stage.order).")
+                                    Text(stage.localizedName)
+                                }
+                                .tag(stage)
+                            }
+                        }
+                    } header: {
+                        Text(NSLocalizedString("fiction.plot.element.section.threeAct", comment: "Three-Act Structure"))
+                    } footer: {
+                        Text(NSLocalizedString("fiction.plot.element.stage.threeAct.footer", comment: "Assign to an act"))
                     }
                 }
                 
@@ -282,12 +314,37 @@ struct AddPlotElementSheet: View {
             return
         }
         
-        let element = PlotElement(
-            name: trimmedTitle,
-            notes: plotDescription.isEmpty ? nil : plotDescription,
-            monomythStage: project.useMonomyth ? selectedMonomythStage : nil,
-            userOrder: nextOrderIndex
-        )
+        // Create element with appropriate stage based on story structure
+        let element: PlotElement
+        switch project.storyStructure {
+        case .monomythVogler:
+            element = PlotElement(
+                name: trimmedTitle,
+                notes: plotDescription.isEmpty ? nil : plotDescription,
+                monomythStage: selectedMonomythStage,
+                userOrder: nextOrderIndex
+            )
+        case .monomythCampbell:
+            element = PlotElement(
+                name: trimmedTitle,
+                notes: plotDescription.isEmpty ? nil : plotDescription,
+                campbellStage: selectedCampbellStage,
+                userOrder: nextOrderIndex
+            )
+        case .threeAct:
+            element = PlotElement(
+                name: trimmedTitle,
+                notes: plotDescription.isEmpty ? nil : plotDescription,
+                threeActStage: selectedThreeActStage,
+                userOrder: nextOrderIndex
+            )
+        case .freeform:
+            element = PlotElement(
+                name: trimmedTitle,
+                notes: plotDescription.isEmpty ? nil : plotDescription,
+                userOrder: nextOrderIndex
+            )
+        }
         element.project = project
         element.characters = Array(selectedCharacters)
         element.locations = Array(selectedLocations)
@@ -320,7 +377,17 @@ struct AddPlotElementSheet: View {
             }
             project.scenes?.append(scene)
             
-            scene.monomythStage = project.useMonomyth ? selectedMonomythStage : nil
+            // Set stage based on story structure
+            switch project.storyStructure {
+            case .monomythVogler:
+                scene.monomythStage = selectedMonomythStage
+            case .monomythCampbell:
+                scene.campbellStage = selectedCampbellStage
+            case .threeAct:
+                scene.threeActStage = selectedThreeActStage
+            case .freeform:
+                break
+            }
             scene.characters = Array(selectedCharacters)
             // Set first location if any selected
             scene.location = selectedLocations.first

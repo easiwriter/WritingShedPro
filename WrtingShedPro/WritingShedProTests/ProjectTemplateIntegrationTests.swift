@@ -31,13 +31,14 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
         ProjectTemplateService.createDefaultFolders(for: newProject, in: modelContext)
         try modelContext.save()
         
-        // Then: Verify folders are created (flat structure)
+        // Then: Verify root folders are created (Manuscript has 3 subfolders)
         // Poetry: Poems, Collections, Submissions, Manuscript, Research, Magazines, Competitions, Other, Trash
-        let projectFolders = newProject.folders ?? []
-        XCTAssertEqual(projectFolders.count, 9, "Should create 9 folders for poetry project")
+        let allFolders = newProject.folders ?? []
+        let rootFolders = allFolders.filter { $0.parentFolder == nil }
+        XCTAssertEqual(rootFolders.count, 9, "Should create 9 root folders for poetry project")
         
         // Verify expected folder names exist
-        let folderNames = Set(projectFolders.compactMap { $0.name })
+        let folderNames = Set(rootFolders.compactMap { $0.name })
         let expectedFolders: Set<String> = [
             "Poems", "Collections", "Submissions", "Manuscript",
             "Research", "Magazines", "Competitions", 
@@ -73,13 +74,14 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
         modelContext.insert(project)
         ProjectTemplateService.createDefaultFolders(for: project, in: modelContext)
         
-        // When: Accessing all project folders
-        let projectFolders = project.folders ?? []
+        // When: Accessing root project folders (excludes Manuscript subfolders)
+        let allFolders = project.folders ?? []
+        let rootFolders = allFolders.filter { $0.parentFolder == nil }
         
-        // Then: Can access all folders
-        XCTAssertEqual(projectFolders.count, 9, "Should find 9 folders for poetry project")
+        // Then: Can access all root folders
+        XCTAssertEqual(rootFolders.count, 9, "Should find 9 root folders for poetry project")
         
-        let folderNames = Set(projectFolders.compactMap { $0.name })
+        let folderNames = Set(rootFolders.compactMap { $0.name })
         XCTAssert(folderNames.contains("Poems"), "Should contain Poems folder")
         XCTAssert(folderNames.contains("Collections"), "Should contain Collections folder")
         XCTAssert(folderNames.contains("Submissions"), "Should contain Submissions folder")
@@ -98,17 +100,19 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
         ProjectTemplateService.createDefaultFolders(for: poetryProject, in: modelContext)
         ProjectTemplateService.createDefaultFolders(for: proseProject, in: modelContext)
         
-        // When: Accessing folders for each project
-        let poetryFolders = poetryProject.folders ?? []
-        let proseFolders = proseProject.folders ?? []
+        // When: Accessing root folders for each project
+        let allPoetryFolders = poetryProject.folders ?? []
+        let poetryRootFolders = allPoetryFolders.filter { $0.parentFolder == nil }
+        let allProseFolders = proseProject.folders ?? []
+        let proseRootFolders = allProseFolders.filter { $0.parentFolder == nil }
         
         // Then: Each has its own folder structure
-        XCTAssertEqual(poetryFolders.count, 9, "Poetry project should have 9 folders")
-        XCTAssertEqual(proseFolders.count, 2, "Blank project should have 2 folders")
+        XCTAssertEqual(poetryRootFolders.count, 9, "Poetry project should have 9 root folders")
+        XCTAssertEqual(proseRootFolders.count, 2, "Blank project should have 2 root folders")
         
         // Verify type-specific folders
-        let poetryFolderNames = Set(poetryFolders.compactMap { $0.name })
-        let proseFolderNames = Set(proseFolders.compactMap { $0.name })
+        let poetryFolderNames = Set(poetryRootFolders.compactMap { $0.name })
+        let proseFolderNames = Set(proseRootFolders.compactMap { $0.name })
         
         XCTAssert(poetryFolderNames.contains("Magazines"), "Poetry project should have Magazines folder")
         XCTAssert(poetryFolderNames.contains("Poems"), "Poetry project should have Poems folder")
@@ -143,12 +147,13 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
         ProjectTemplateService.createDefaultFolders(for: project, in: modelContext)
         
         // When: Analyzing the created structure
-        let folders = project.folders ?? []
+        let allFolders = project.folders ?? []
+        let rootFolders = allFolders.filter { $0.parentFolder == nil }
         
-        // Then: Verify flat structure matches spec (all folders at root level)
-        XCTAssertEqual(folders.count, 9, "Should have 9 folders total for poetry project")
+        // Then: Verify structure matches spec (9 root folders, Manuscript has 3 subfolders)
+        XCTAssertEqual(rootFolders.count, 9, "Should have 9 root folders total for poetry project")
         
-        let folderNames = Set(folders.compactMap { $0.name })
+        let folderNames = Set(rootFolders.compactMap { $0.name })
         let expectedNames = Set([
             "Poems", "Collections", "Submissions", "Manuscript",
             "Research", 
@@ -157,9 +162,15 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
         ])
         XCTAssertEqual(folderNames, expectedNames, "Folder names should match spec")
         
-        // Verify all folders have no subfolders (flat structure)
-        for folder in folders {
-            XCTAssertEqual(folder.folders?.count ?? 0, 0, "\(folder.name ?? "unknown") should have no subfolders in flat structure")
+        // Verify Manuscript has 3 subfolders (Front Matter, Body, Back Matter)
+        for folder in rootFolders {
+            if folder.name == "Manuscript" {
+                XCTAssertEqual(folder.folders?.count ?? 0, 3, "Manuscript should have 3 subfolders")
+                let subfolderNames = Set(folder.folders?.compactMap { $0.name } ?? [])
+                XCTAssertEqual(subfolderNames, ["Front Matter", "Body", "Back Matter"], "Manuscript subfolders should match spec")
+            } else {
+                XCTAssertEqual(folder.folders?.count ?? 0, 0, "\(folder.name ?? "unknown") should have no subfolders")
+            }
         }
     }
     

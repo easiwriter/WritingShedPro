@@ -33,17 +33,24 @@ final class ProjectTemplateServiceTests: XCTestCase {
         
         // Then verify folders exist in flat structure
         // Poetry: Manuscript, Poems // Collections, Submissions, Research // Magazines, Competitions, Other // Trash
-        let folders = project.folders ?? []
+        // Note: project.folders includes subfolders, so we filter for root level only
+        let allFolders = project.folders ?? []
+        let rootFolders = allFolders.filter { $0.parentFolder == nil }
         
-        XCTAssertEqual(folders.count, 9, "Should have 9 folders for poetry project")
+        XCTAssertEqual(rootFolders.count, 9, "Should have 9 root folders for poetry project")
         
-        let folderNames = Set(folders.compactMap { $0.name })
+        let folderNames = Set(rootFolders.compactMap { $0.name })
         let expectedNames: Set<String> = [
             "Poems", "Collections", "Submissions", "Manuscript",
             "Research", "Magazines", "Competitions",
             "Other", "Trash"
         ]
         XCTAssertEqual(folderNames, expectedNames, "Should have correct folder names")
+        
+        // Verify Manuscript has 3 subfolders (Feature 029)
+        let manuscriptFolder = rootFolders.first { $0.name == "Manuscript" }
+        XCTAssertNotNil(manuscriptFolder)
+        XCTAssertEqual(manuscriptFolder?.folders?.count, 3, "Manuscript should have 3 subfolders")
     }
     
     func testCreateDefaultFoldersForBlankProject() throws {
@@ -75,11 +82,12 @@ final class ProjectTemplateServiceTests: XCTestCase {
         
         // Then verify folders exist in flat structure
         // Short Fiction (fictionClass nil defaults to no chapters): Manuscript, Scenes, Characters, Locations, Plot, Collections, Submissions, Research, Magazines, Competitions, Other, Trash
-        let folders = project.folders ?? []
+        let allFolders = project.folders ?? []
+        let rootFolders = allFolders.filter { $0.parentFolder == nil }
         
-        XCTAssertEqual(folders.count, 12, "Should have 12 folders for Short Fiction project")
+        XCTAssertEqual(rootFolders.count, 12, "Should have 12 root folders for Short Fiction project")
         
-        let folderNames = Set(folders.compactMap { $0.name })
+        let folderNames = Set(rootFolders.compactMap { $0.name })
         let expectedNames: Set<String> = [
             "Scenes", "Characters", "Locations", "Plot", "Manuscript",
             "Collections", "Submissions", "Research",
@@ -99,11 +107,12 @@ final class ProjectTemplateServiceTests: XCTestCase {
         
         // Then verify folders exist in flat structure
         // Novel: Scenes, Characters, Locations, Chapters, Plot, Manuscript, Collections, Submissions, Research, Publishers, Agents, Other, Trash
-        let folders = project.folders ?? []
+        let allFolders = project.folders ?? []
+        let rootFolders = allFolders.filter { $0.parentFolder == nil }
         
-        XCTAssertEqual(folders.count, 13, "Should have 13 folders for Novel project")
+        XCTAssertEqual(rootFolders.count, 13, "Should have 13 root folders for Novel project")
         
-        let folderNames = Set(folders.compactMap { $0.name })
+        let folderNames = Set(rootFolders.compactMap { $0.name })
         let expectedNames: Set<String> = [
             "Scenes", "Characters", "Locations", "Chapters", "Plot", "Manuscript",
             "Collections", "Submissions", "Research",
@@ -123,11 +132,12 @@ final class ProjectTemplateServiceTests: XCTestCase {
         
         // Then verify folders exist in flat structure
         // Short Fiction: Manuscript, Scenes, Characters, Locations, Plot, Collections, Submissions, Research, Magazines, Competitions, Other, Trash
-        let folders = project.folders ?? []
+        let allFolders = project.folders ?? []
+        let rootFolders = allFolders.filter { $0.parentFolder == nil }
         
-        XCTAssertEqual(folders.count, 12, "Should have 12 folders for Short Fiction project")
+        XCTAssertEqual(rootFolders.count, 12, "Should have 12 root folders for Short Fiction project")
         
-        let folderNames = Set(folders.compactMap { $0.name })
+        let folderNames = Set(rootFolders.compactMap { $0.name })
         let expectedNames: Set<String> = [
             "Scenes", "Characters", "Locations", "Plot", "Manuscript",
             "Collections", "Submissions", "Research",
@@ -135,6 +145,7 @@ final class ProjectTemplateServiceTests: XCTestCase {
         ]
         XCTAssertEqual(folderNames, expectedNames, "Should have correct folder names for Short Fiction")
     }
+
     
     func testCreateDefaultFoldersForDramaProject() throws {
         // Given a drama project
@@ -146,11 +157,12 @@ final class ProjectTemplateServiceTests: XCTestCase {
         
         // Then verify folders exist in flat structure
         // Drama: Manuscript, Acts, Scenes, Characters, Locations, Plot, Collections, Submissions, Research, Publishers, Agents, Other, Trash
-        let folders = project.folders ?? []
+        let allFolders = project.folders ?? []
+        let rootFolders = allFolders.filter { $0.parentFolder == nil }
         
-        XCTAssertEqual(folders.count, 13, "Should have 13 folders for drama project")
+        XCTAssertEqual(rootFolders.count, 13, "Should have 13 root folders for drama project")
         
-        let folderNames = Set(folders.compactMap { $0.name })
+        let folderNames = Set(rootFolders.compactMap { $0.name })
         let expectedNames: Set<String> = [
             "Manuscript", "Acts", "Scenes", "Characters", "Locations", "Plot",
             "Collections", "Submissions", "Research",
@@ -169,13 +181,30 @@ final class ProjectTemplateServiceTests: XCTestCase {
         // When creating default folders
         ProjectTemplateService.createDefaultFolders(for: project, in: modelContext)
         
-        // Then verify all folders are at root level (no nesting initially)
-        let folders = project.folders ?? []
+        // Then verify root folders are at root level
+        // Exception: Manuscript now has 3 subfolders (Front Matter, Body, Back Matter)
+        let allFolders = project.folders ?? []
+        let rootFolders = allFolders.filter { $0.parentFolder == nil }
         
-        for folder in folders {
-            XCTAssertEqual(folder.folders?.count ?? 0, 0, "\(folder.name ?? "unknown") should have no initial subfolders")
+        for folder in rootFolders {
+            if folder.name == "Manuscript" {
+                // Manuscript should have 3 subfolders
+                XCTAssertEqual(folder.folders?.count ?? 0, 3, "Manuscript should have 3 subfolders (Front Matter, Body, Back Matter)")
+            } else {
+                XCTAssertEqual(folder.folders?.count ?? 0, 0, "\(folder.name ?? "unknown") should have no initial subfolders")
+            }
             XCTAssertNil(folder.parentFolder, "\(folder.name ?? "unknown") should have no parent folder")
             XCTAssertEqual(folder.project?.id, project.id, "\(folder.name ?? "unknown") should reference project")
+        }
+        
+        // Verify Manuscript subfolders have correct parent
+        if let manuscriptFolder = rootFolders.first(where: { $0.name == "Manuscript" }) {
+            let subfolders = manuscriptFolder.folders ?? []
+            let subfolderNames = Set(subfolders.compactMap { $0.name })
+            XCTAssertEqual(subfolderNames, ["Front Matter", "Body", "Back Matter"], "Manuscript should have correct subfolders")
+            for subfolder in subfolders {
+                XCTAssertEqual(subfolder.parentFolder?.id, manuscriptFolder.id, "\(subfolder.name ?? "unknown") should have Manuscript as parent")
+            }
         }
     }
     
@@ -370,16 +399,18 @@ final class ProjectTemplateServiceTests: XCTestCase {
         ProjectTemplateService.createDefaultFolders(for: project1, in: modelContext)
         ProjectTemplateService.createDefaultFolders(for: project2, in: modelContext)
         
-        // Then verify each has independent folder sets
-        let folders1 = project1.folders ?? []
-        let folders2 = project2.folders ?? []
+        // Then verify each has independent folder sets (filter for root folders only)
+        let allFolders1 = project1.folders ?? []
+        let rootFolders1 = allFolders1.filter { $0.parentFolder == nil }
+        let allFolders2 = project2.folders ?? []
+        let rootFolders2 = allFolders2.filter { $0.parentFolder == nil }
         
-        XCTAssertEqual(folders1.count, 9, "Project 1 (Poetry) should have 9 folders")
-        XCTAssertEqual(folders2.count, 2, "Project 2 (General) should have 2 folders")
+        XCTAssertEqual(rootFolders1.count, 9, "Project 1 (Poetry) should have 9 root folders")
+        XCTAssertEqual(rootFolders2.count, 2, "Project 2 (General) should have 2 root folders")
         
         // Verify no overlap in folder IDs
-        let ids1 = Set(folders1.map { $0.id })
-        let ids2 = Set(folders2.map { $0.id })
+        let ids1 = Set(allFolders1.map { $0.id })
+        let ids2 = Set(allFolders2.map { $0.id })
         XCTAssertTrue(ids1.isDisjoint(with: ids2), "Folder IDs should be unique across projects")
     }
     

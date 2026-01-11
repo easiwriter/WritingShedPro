@@ -27,6 +27,8 @@ struct SceneDetailView: View {
     @State private var editTitle: String = ""
     @State private var editSummary: String = ""
     @State private var editMonomythStage: MonomythStage?
+    @State private var editCampbellStage: CampbellMonomythStage?
+    @State private var editThreeActStage: ThreeActStage?
     @State private var editLocation: Location?
     @State private var editCharacters: Set<Character> = []
     @State private var editPlotElements: Set<PlotElement> = []
@@ -298,26 +300,75 @@ struct SceneDetailView: View {
             }
         }
         
-        // Monomyth Stage
-        if project.useMonomyth {
+        // Stage picker based on story structure
+        if project.storyStructure == .monomythVogler {
             Section {
                 Picker(NSLocalizedString("fiction.scene.monomythStage", comment: "Stage"), selection: $editMonomythStage) {
                     Text(NSLocalizedString("fiction.scene.monomythStage.none", comment: "None"))
                         .tag(nil as MonomythStage?)
                     
                     ForEach(MonomythStage.allCases, id: \.self) { stage in
-                        Text(NSLocalizedString("monomyth.\(stage.rawValue)", comment: "Stage"))
-                            .tag(stage as MonomythStage?)
+                        HStack {
+                            Text("\(stage.order).")
+                            Text(stage.localizedName)
+                        }
+                        .tag(stage as MonomythStage?)
                     }
                 }
                 
                 if let stage = editMonomythStage {
-                    Text(NSLocalizedString("monomyth.\(stage.rawValue).description", comment: "Description"))
+                    Text(stage.description)
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
             } header: {
                 Text(NSLocalizedString("fiction.scene.section.monomyth", comment: "Hero's Journey"))
+            }
+        } else if project.storyStructure == .monomythCampbell {
+            Section {
+                Picker(NSLocalizedString("fiction.scene.monomythStage", comment: "Stage"), selection: $editCampbellStage) {
+                    Text(NSLocalizedString("fiction.scene.monomythStage.none", comment: "None"))
+                        .tag(nil as CampbellMonomythStage?)
+                    
+                    ForEach(CampbellMonomythStage.allCases, id: \.self) { stage in
+                        HStack {
+                            Text("\(stage.order).")
+                            Text(stage.localizedName)
+                        }
+                        .tag(stage as CampbellMonomythStage?)
+                    }
+                }
+                
+                if let stage = editCampbellStage {
+                    Text(stage.description)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            } header: {
+                Text(NSLocalizedString("fiction.scene.section.monomyth", comment: "Hero's Journey"))
+            }
+        } else if project.storyStructure == .threeAct {
+            Section {
+                Picker(NSLocalizedString("fiction.scene.storyStage", comment: "Act"), selection: $editThreeActStage) {
+                    Text(NSLocalizedString("fiction.scene.monomythStage.none", comment: "None"))
+                        .tag(nil as ThreeActStage?)
+                    
+                    ForEach(ThreeActStage.allCases, id: \.self) { stage in
+                        HStack {
+                            Text("\(stage.order).")
+                            Text(stage.localizedName)
+                        }
+                        .tag(stage as ThreeActStage?)
+                    }
+                }
+                
+                if let stage = editThreeActStage {
+                    Text(stage.description)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            } header: {
+                Text(NSLocalizedString("fiction.scene.section.threeAct", comment: "Three-Act Structure"))
             }
         }
         
@@ -331,16 +382,16 @@ struct SceneDetailView: View {
                         HStack {
                             VStack(alignment: .leading) {
                                 HStack {
-                                    if let stage = element.monomythStage {
-                                        Text("\(stage.order).")
+                                    if let stageOrder = element.stageOrder {
+                                        Text("\(stageOrder).")
                                             .font(.caption)
                                             .foregroundColor(.secondary)
                                     }
                                     Text(element.name ?? NSLocalizedString("fiction.untitled", comment: "Untitled"))
                                         .foregroundColor(.primary)
                                 }
-                                if let stage = element.monomythStage {
-                                    Text(NSLocalizedString("monomyth.\(stage.rawValue)", comment: "Stage name"))
+                                if let stageName = element.stageLocalizedName {
+                                    Text(stageName)
                                         .font(.caption)
                                         .foregroundColor(.secondary)
                                 }
@@ -367,6 +418,8 @@ struct SceneDetailView: View {
         editTitle = scene.name ?? ""
         editSummary = scene.synopsis ?? ""
         editMonomythStage = scene.monomythStage
+        editCampbellStage = scene.campbellStage
+        editThreeActStage = scene.threeActStage
         editLocation = scene.location
         editCharacters = Set(scene.characters ?? [])
         editPlotElements = Set(scene.plotElements ?? [])
@@ -392,7 +445,32 @@ struct SceneDetailView: View {
     private func saveChanges() {
         scene.name = editTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         scene.synopsis = editSummary.isEmpty ? nil : editSummary
-        scene.monomythStage = editMonomythStage
+        
+        // Save the appropriate stage based on story structure
+        if let project = scene.project {
+            switch project.storyStructure {
+            case .freeform:
+                // Clear all stages for freeform
+                scene.monomythStageRaw = nil
+                scene.campbellStageRaw = nil
+                scene.threeActStageRaw = nil
+            case .threeAct:
+                scene.threeActStage = editThreeActStage
+                scene.monomythStageRaw = nil
+                scene.campbellStageRaw = nil
+            case .monomythVogler:
+                scene.monomythStage = editMonomythStage
+                scene.campbellStageRaw = nil
+                scene.threeActStageRaw = nil
+            case .monomythCampbell:
+                scene.campbellStage = editCampbellStage
+                scene.monomythStageRaw = nil
+                scene.threeActStageRaw = nil
+            }
+        } else {
+            scene.monomythStage = editMonomythStage
+        }
+        
         scene.location = editLocation
         scene.characters = Array(editCharacters)
         scene.plotElements = Array(editPlotElements)

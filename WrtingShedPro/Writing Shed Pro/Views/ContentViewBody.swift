@@ -31,6 +31,7 @@ struct ContentViewBody: View {
     let onHandleJSONImport: (Result<[URL], Error>) -> Void
     let onDeleteAllProjects: () -> Void
     let onPrefetchProjectData: () -> Void
+    let onRunMigrations: () -> Void
     
     @Environment(\.requestReview) var requestReview
     
@@ -58,6 +59,9 @@ struct ContentViewBody: View {
                 
                 // Prefetch project data in background to prevent UI freeze
                 onPrefetchProjectData()
+                
+                // Run data migrations for new features
+                onRunMigrations()
                 
                 // Track app launch and check review in background to avoid blocking UI
                 Task.detached(priority: .utility) {

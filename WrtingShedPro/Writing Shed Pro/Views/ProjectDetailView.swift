@@ -193,22 +193,25 @@ struct ProjectInfoSheet: View {
                         .accessibilityHint(NSLocalizedString("projectDetail.stylesheetAccessibility", comment: "Stylesheet picker hint"))
                     }
                     
-                    // Monomyth toggle for Fiction and Drama projects
+                    // Story structure picker for Fiction and Drama projects
                     if project.type == .fiction || project.type == .drama {
                         Divider()
                         
-                        Toggle(isOn: Binding(
-                            get: { project.useMonomyth },
-                            set: { project.useMonomyth = $0 }
+                        Picker(NSLocalizedString("projectDetail.storyStructure", comment: "Story structure picker"), selection: Binding(
+                            get: { project.storyStructure },
+                            set: { project.storyStructure = $0 }
                         )) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(NSLocalizedString("projectDetail.useMonomyth", comment: "Use Hero's Journey"))
-                                Text(NSLocalizedString("projectDetail.useMonomyth.hint", comment: "Structure your story using the 12 stages"))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                            ForEach(StoryStructure.allCases, id: \.self) { structure in
+                                Text(structure.localizedName).tag(structure)
                             }
                         }
-                        .accessibilityLabel(NSLocalizedString("projectDetail.useMonomyth", comment: "Use Hero's Journey toggle"))
+                        .accessibilityLabel(NSLocalizedString("projectDetail.storyStructure", comment: "Story structure picker"))
+                        
+                        if project.storyStructure != .freeform {
+                            Text(project.storyStructure.description)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                     
                     Divider()

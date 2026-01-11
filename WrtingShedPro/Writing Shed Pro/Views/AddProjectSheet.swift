@@ -13,7 +13,7 @@ struct AddProjectSheet: View {
     
     // Fiction-specific state
     @State private var selectedFictionClass: FictionClass = .novel
-    @State private var useMonomyth: Bool = false
+    @State private var selectedStoryStructure: StoryStructure = .freeform
     
     @Environment(\.modelContext) var modelContext
     @Query private var allProjects: [Project]
@@ -47,8 +47,18 @@ struct AddProjectSheet: View {
                     }
                     
                     if selectedType == .fiction || selectedType == .drama {
-                        Toggle(NSLocalizedString("addProject.useMonomyth", comment: "Toggle label for monomyth structure"), isOn: $useMonomyth)
-                            .accessibilityLabel(NSLocalizedString("addProject.useMonomythAccessibility", comment: "Accessibility label for monomyth toggle"))
+                        Picker(NSLocalizedString("addProject.storyStructure", comment: "Story structure picker label"), selection: $selectedStoryStructure) {
+                            ForEach(StoryStructure.allCases, id: \.self) { structure in
+                                Text(structure.localizedName).tag(structure)
+                            }
+                        }
+                        .accessibilityLabel(NSLocalizedString("addProject.storyStructureAccessibility", comment: "Accessibility label for story structure picker"))
+                        
+                        if selectedStoryStructure != .freeform {
+                            Text(selectedStoryStructure.description)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
                     }
                 }
                 
@@ -127,7 +137,7 @@ struct AddProjectSheet: View {
         
         // Set monomyth property for fiction and drama projects
         if selectedType == .fiction || selectedType == .drama {
-            newProject.useMonomyth = useMonomyth
+            newProject.storyStructure = selectedStoryStructure
         }
         
         // Assign selected stylesheet

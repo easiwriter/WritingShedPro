@@ -26,7 +26,226 @@ enum FictionClass: String, Codable, CaseIterable {
     }
 }
 
+/// Story structure options for fiction and drama projects
+/// Determines how plot elements are organized and what stages are available
+enum StoryStructure: String, Codable, CaseIterable {
+    case freeform           // No predefined structure
+    case threeAct           // 3-act structure (Setup, Confrontation, Resolution)
+    case monomythVogler     // 12-stage Hero's Journey (Christopher Vogler)
+    case monomythCampbell   // 17-stage Hero's Journey (Joseph Campbell)
+    
+    var localizedName: String {
+        switch self {
+        case .freeform:
+            return NSLocalizedString("storyStructure.freeform", comment: "Freeform")
+        case .threeAct:
+            return NSLocalizedString("storyStructure.threeAct", comment: "3-Act Structure")
+        case .monomythVogler:
+            return NSLocalizedString("storyStructure.monomythVogler", comment: "Hero's Journey (Vogler)")
+        case .monomythCampbell:
+            return NSLocalizedString("storyStructure.monomythCampbell", comment: "Hero's Journey (Campbell)")
+        }
+    }
+    
+    var description: String {
+        switch self {
+        case .freeform:
+            return NSLocalizedString("storyStructure.freeform.description", comment: "No predefined structure - organize your story freely")
+        case .threeAct:
+            return NSLocalizedString("storyStructure.threeAct.description", comment: "Classic 3-act structure: Setup, Confrontation, Resolution")
+        case .monomythVogler:
+            return NSLocalizedString("storyStructure.monomythVogler.description", comment: "12 stages from The Writer's Journey by Christopher Vogler")
+        case .monomythCampbell:
+            return NSLocalizedString("storyStructure.monomythCampbell.description", comment: "17 stages from The Hero with a Thousand Faces by Joseph Campbell")
+        }
+    }
+    
+    /// Whether this structure uses monomyth stages
+    var usesMonomyth: Bool {
+        switch self {
+        case .monomythVogler, .monomythCampbell:
+            return true
+        case .freeform, .threeAct:
+            return false
+        }
+    }
+    
+    /// Number of stages/acts in this structure
+    var stageCount: Int {
+        switch self {
+        case .freeform:
+            return 0
+        case .threeAct:
+            return 3
+        case .monomythVogler:
+            return 12
+        case .monomythCampbell:
+            return 17
+        }
+    }
+}
+
+/// The 17 stages of Joseph Campbell's monomyth from "The Hero with a Thousand Faces"
+enum CampbellMonomythStage: String, Codable, CaseIterable {
+    case theOrdinaryWorld
+    case theCallToAdventure
+    case refusalOfTheCall
+    case supernaturalAid
+    case crossingTheFirstThreshold
+    case bellyOfTheWhale
+    case theRoadOfTrials
+    case meetingWithTheGoddess
+    case womanAsTemptress
+    case atonementWithTheFather
+    case apotheosis
+    case theUltimateBoon
+    case refusalOfTheReturn
+    case theMagicFlight
+    case rescueFromWithout
+    case crossingTheReturnThreshold
+    case masterOfTwoWorlds
+    
+    var localizedName: String {
+        switch self {
+        case .theOrdinaryWorld:
+            return NSLocalizedString("campbell.theOrdinaryWorld", comment: "The Ordinary World")
+        case .theCallToAdventure:
+            return NSLocalizedString("campbell.theCallToAdventure", comment: "The Call to Adventure")
+        case .refusalOfTheCall:
+            return NSLocalizedString("campbell.refusalOfTheCall", comment: "Refusal of the Call")
+        case .supernaturalAid:
+            return NSLocalizedString("campbell.supernaturalAid", comment: "Supernatural Aid")
+        case .crossingTheFirstThreshold:
+            return NSLocalizedString("campbell.crossingTheFirstThreshold", comment: "Crossing the First Threshold")
+        case .bellyOfTheWhale:
+            return NSLocalizedString("campbell.bellyOfTheWhale", comment: "Belly of the Whale")
+        case .theRoadOfTrials:
+            return NSLocalizedString("campbell.theRoadOfTrials", comment: "The Road of Trials")
+        case .meetingWithTheGoddess:
+            return NSLocalizedString("campbell.meetingWithTheGoddess", comment: "Meeting with the Goddess")
+        case .womanAsTemptress:
+            return NSLocalizedString("campbell.womanAsTemptress", comment: "Woman as Temptress")
+        case .atonementWithTheFather:
+            return NSLocalizedString("campbell.atonementWithTheFather", comment: "Atonement with the Father")
+        case .apotheosis:
+            return NSLocalizedString("campbell.apotheosis", comment: "Apotheosis")
+        case .theUltimateBoon:
+            return NSLocalizedString("campbell.theUltimateBoon", comment: "The Ultimate Boon")
+        case .refusalOfTheReturn:
+            return NSLocalizedString("campbell.refusalOfTheReturn", comment: "Refusal of the Return")
+        case .theMagicFlight:
+            return NSLocalizedString("campbell.theMagicFlight", comment: "The Magic Flight")
+        case .rescueFromWithout:
+            return NSLocalizedString("campbell.rescueFromWithout", comment: "Rescue from Without")
+        case .crossingTheReturnThreshold:
+            return NSLocalizedString("campbell.crossingTheReturnThreshold", comment: "Crossing the Return Threshold")
+        case .masterOfTwoWorlds:
+            return NSLocalizedString("campbell.masterOfTwoWorlds", comment: "Master of Two Worlds")
+        }
+    }
+    
+    var description: String {
+        switch self {
+        case .theOrdinaryWorld:
+            return NSLocalizedString("campbell.theOrdinaryWorld.description", comment: "The hero's normal world before the adventure begins")
+        case .theCallToAdventure:
+            return NSLocalizedString("campbell.theCallToAdventure.description", comment: "The hero receives a call to action or adventure")
+        case .refusalOfTheCall:
+            return NSLocalizedString("campbell.refusalOfTheCall.description", comment: "The hero initially refuses the call due to fear or obligation")
+        case .supernaturalAid:
+            return NSLocalizedString("campbell.supernaturalAid.description", comment: "The hero receives help from a mentor or magical guide")
+        case .crossingTheFirstThreshold:
+            return NSLocalizedString("campbell.crossingTheFirstThreshold.description", comment: "The hero commits to the adventure and enters the special world")
+        case .bellyOfTheWhale:
+            return NSLocalizedString("campbell.bellyOfTheWhale.description", comment: "The hero is swallowed into the unknown, representing final separation")
+        case .theRoadOfTrials:
+            return NSLocalizedString("campbell.theRoadOfTrials.description", comment: "The hero faces a series of tests and obstacles")
+        case .meetingWithTheGoddess:
+            return NSLocalizedString("campbell.meetingWithTheGoddess.description", comment: "The hero experiences unconditional love or encounters the divine feminine")
+        case .womanAsTemptress:
+            return NSLocalizedString("campbell.womanAsTemptress.description", comment: "The hero faces temptation that may lead them astray")
+        case .atonementWithTheFather:
+            return NSLocalizedString("campbell.atonementWithTheFather.description", comment: "The hero confronts the ultimate power in their life")
+        case .apotheosis:
+            return NSLocalizedString("campbell.apotheosis.description", comment: "The hero achieves a higher state of being or understanding")
+        case .theUltimateBoon:
+            return NSLocalizedString("campbell.theUltimateBoon.description", comment: "The hero receives the goal of the quest")
+        case .refusalOfTheReturn:
+            return NSLocalizedString("campbell.refusalOfTheReturn.description", comment: "The hero may not want to return to the ordinary world")
+        case .theMagicFlight:
+            return NSLocalizedString("campbell.theMagicFlight.description", comment: "The hero escapes with the boon, possibly pursued")
+        case .rescueFromWithout:
+            return NSLocalizedString("campbell.rescueFromWithout.description", comment: "The hero needs help from the ordinary world to return")
+        case .crossingTheReturnThreshold:
+            return NSLocalizedString("campbell.crossingTheReturnThreshold.description", comment: "The hero returns to the ordinary world transformed")
+        case .masterOfTwoWorlds:
+            return NSLocalizedString("campbell.masterOfTwoWorlds.description", comment: "The hero achieves balance between inner and outer worlds")
+        }
+    }
+    
+    /// Order in the hero's journey (1-17)
+    var order: Int {
+        switch self {
+        case .theOrdinaryWorld: return 1
+        case .theCallToAdventure: return 2
+        case .refusalOfTheCall: return 3
+        case .supernaturalAid: return 4
+        case .crossingTheFirstThreshold: return 5
+        case .bellyOfTheWhale: return 6
+        case .theRoadOfTrials: return 7
+        case .meetingWithTheGoddess: return 8
+        case .womanAsTemptress: return 9
+        case .atonementWithTheFather: return 10
+        case .apotheosis: return 11
+        case .theUltimateBoon: return 12
+        case .refusalOfTheReturn: return 13
+        case .theMagicFlight: return 14
+        case .rescueFromWithout: return 15
+        case .crossingTheReturnThreshold: return 16
+        case .masterOfTwoWorlds: return 17
+        }
+    }
+}
+
+/// Three-act structure stages
+enum ThreeActStage: String, Codable, CaseIterable {
+    case actOne     // Setup
+    case actTwo     // Confrontation
+    case actThree   // Resolution
+    
+    var localizedName: String {
+        switch self {
+        case .actOne:
+            return NSLocalizedString("threeAct.actOne", comment: "Act I: Setup")
+        case .actTwo:
+            return NSLocalizedString("threeAct.actTwo", comment: "Act II: Confrontation")
+        case .actThree:
+            return NSLocalizedString("threeAct.actThree", comment: "Act III: Resolution")
+        }
+    }
+    
+    var description: String {
+        switch self {
+        case .actOne:
+            return NSLocalizedString("threeAct.actOne.description", comment: "Introduce characters, setting, and conflict")
+        case .actTwo:
+            return NSLocalizedString("threeAct.actTwo.description", comment: "Develop conflict, raise stakes, build tension")
+        case .actThree:
+            return NSLocalizedString("threeAct.actThree.description", comment: "Resolve conflict and conclude the story")
+        }
+    }
+    
+    var order: Int {
+        switch self {
+        case .actOne: return 1
+        case .actTwo: return 2
+        case .actThree: return 3
+        }
+    }
+}
+
 /// Plot structure options - monomyth or act-based
+/// @available(*, deprecated, message: "Use StoryStructure instead")
 enum PlotStructure: String, Codable, CaseIterable {
     case monomyth    // 12-stage Hero's Journey
     case threeAct    // 3-act structure (Setup, Confrontation, Resolution)
@@ -202,7 +421,9 @@ final class StoryScene {
     var name: String?
     var userOrder: Int?
     var synopsis: String?  // Brief description of what happens
-    var monomythStageRaw: String?  // Optional monomyth stage assignment
+    var monomythStageRaw: String?  // Vogler's 12 stages
+    var campbellStageRaw: String?  // Campbell's 17 stages
+    var threeActStageRaw: String?  // Three-act structure
     var createdDate: Date = Date()
     var modifiedDate: Date = Date()
     
@@ -237,6 +458,38 @@ final class StoryScene {
             return MonomythStage(rawValue: raw) 
         }
         set { monomythStageRaw = newValue?.rawValue }
+    }
+    
+    var campbellStage: CampbellMonomythStage? {
+        get {
+            guard let raw = campbellStageRaw else { return nil }
+            return CampbellMonomythStage(rawValue: raw)
+        }
+        set { campbellStageRaw = newValue?.rawValue }
+    }
+    
+    var threeActStage: ThreeActStage? {
+        get {
+            guard let raw = threeActStageRaw else { return nil }
+            return ThreeActStage(rawValue: raw)
+        }
+        set { threeActStageRaw = newValue?.rawValue }
+    }
+    
+    /// Returns the stage order based on whichever stage type is set
+    var stageOrder: Int? {
+        if let stage = monomythStage { return stage.order }
+        if let stage = campbellStage { return stage.order }
+        if let stage = threeActStage { return stage.order }
+        return nil
+    }
+    
+    /// Returns the localized stage name based on whichever stage type is set
+    var stageLocalizedName: String? {
+        if let stage = monomythStage { return stage.localizedName }
+        if let stage = campbellStage { return stage.localizedName }
+        if let stage = threeActStage { return stage.localizedName }
+        return nil
     }
     
     /// Moves scene to trash (soft delete)
@@ -373,7 +626,9 @@ final class PlotElement {
     var name: String?
     var notes: String?
     var userOrder: Int?
-    var monomythStageRaw: String?  // Only for monomyth projects
+    var monomythStageRaw: String?  // Vogler's 12 stages
+    var campbellStageRaw: String?  // Campbell's 17 stages
+    var threeActStageRaw: String?  // Three-act structure
     var createdDate: Date = Date()
     var modifiedDate: Date = Date()
     
@@ -399,10 +654,46 @@ final class PlotElement {
         set { monomythStageRaw = newValue?.rawValue }
     }
     
-    init(name: String? = nil, notes: String? = nil, monomythStage: MonomythStage? = nil, userOrder: Int? = nil) {
-        self.name = name ?? monomythStage?.localizedName
+    var campbellStage: CampbellMonomythStage? {
+        get {
+            guard let raw = campbellStageRaw else { return nil }
+            return CampbellMonomythStage(rawValue: raw)
+        }
+        set { campbellStageRaw = newValue?.rawValue }
+    }
+    
+    var threeActStage: ThreeActStage? {
+        get {
+            guard let raw = threeActStageRaw else { return nil }
+            return ThreeActStage(rawValue: raw)
+        }
+        set { threeActStageRaw = newValue?.rawValue }
+    }
+    
+    /// Returns the stage order based on whichever stage type is set
+    var stageOrder: Int? {
+        if let stage = monomythStage { return stage.order }
+        if let stage = campbellStage { return stage.order }
+        if let stage = threeActStage { return stage.order }
+        return nil
+    }
+    
+    /// Returns the localized stage name based on whichever stage type is set
+    var stageLocalizedName: String? {
+        if let stage = monomythStage { return stage.localizedName }
+        if let stage = campbellStage { return stage.localizedName }
+        if let stage = threeActStage { return stage.localizedName }
+        return nil
+    }
+    
+    init(name: String? = nil, notes: String? = nil, monomythStage: MonomythStage? = nil, campbellStage: CampbellMonomythStage? = nil, threeActStage: ThreeActStage? = nil, userOrder: Int? = nil) {
+        // Set name from provided name or from stage
+        self.name = name ?? monomythStage?.localizedName ?? campbellStage?.localizedName ?? threeActStage?.localizedName
         self.notes = notes
         self.monomythStageRaw = monomythStage?.rawValue
-        self.userOrder = userOrder ?? monomythStage?.order
+        self.campbellStageRaw = campbellStage?.rawValue
+        self.threeActStageRaw = threeActStage?.rawValue
+        // Use provided order or derive from stage
+        self.userOrder = userOrder ?? monomythStage?.order ?? campbellStage?.order ?? threeActStage?.order
     }
 }

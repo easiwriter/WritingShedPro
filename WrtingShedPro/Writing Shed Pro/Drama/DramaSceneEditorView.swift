@@ -93,21 +93,11 @@ struct DramaSceneEditorView: View {
     /// Selected plot element to show in detail sheet
     @State private var selectedPlotElement: PlotElement?
     
-    // MARK: - Computed Properties
+    /// Selected character to show in quick view
+    @State private var selectedCharacter: Character?
     
-    /// Characters from project for insert menu
-    private var projectCharacters: [String] {
-        (project.characters ?? [])
-            .compactMap { $0.name }
-            .sorted()
-    }
-    
-    /// Locations from project for insert menu
-    private var projectLocations: [String] {
-        (project.locations ?? [])
-            .compactMap { $0.name }
-            .sorted()
-    }
+    /// Selected location to show in quick view
+    @State private var selectedLocation: Location?
     
     // MARK: - Initialization
     
@@ -197,9 +187,13 @@ struct DramaSceneEditorView: View {
             }
         }
         .sheet(item: $selectedPlotElement) { plotElement in
-            NavigationStack {
-                PlotElementDetailView(plotElement: plotElement, project: project)
-            }
+            PlotElementQuickView(plotElement: plotElement)
+        }
+        .sheet(item: $selectedCharacter) { character in
+            CharacterQuickView(character: character)
+        }
+        .sheet(item: $selectedLocation) { location in
+            LocationQuickView(location: location)
         }
         .alert(
             NSLocalizedString("fileEdit.deleteVersionTitle", comment: "Delete Version?"),
@@ -424,138 +418,64 @@ struct DramaSceneEditorView: View {
     
     // MARK: - Character/Location Insert Menu
     
-    /// Menu for inserting character or location names and viewing project details
+    /// Menu for inserting character or location names
     private var characterLocationInsertMenu: some View {
         Menu {
-            // Insert character names section
-            if !projectCharacters.isEmpty {
-                Section(NSLocalizedString("autocomplete.characters", comment: "Characters")) {
-                    ForEach(projectCharacters, id: \.self) { name in
-                        Button {
-                            insertCharacterName(name)
-                        } label: {
-                            Label(name, systemImage: "person.fill")
-                        }
-                    }
-                }
-            }
-            
-            // Insert location names section
-            if !projectLocations.isEmpty {
-                Section(NSLocalizedString("autocomplete.locations", comment: "Locations")) {
-                    ForEach(projectLocations, id: \.self) { name in
-                        Button {
-                            insertLocationName(name)
-                        } label: {
-                            Label(name, systemImage: "mappin.circle.fill")
-                        }
-                    }
-                }
-            }
-            
-            Divider()
-            
-            // View project details section
-            Section(NSLocalizedString("editor.viewProject", comment: "View Project")) {
-                Button {
-                    showProjectCharacters = true
-                } label: {
-                    Label(NSLocalizedString("fiction.characters", comment: "Characters"), systemImage: "person.2")
-                }
-                
-                Button {
-                    showProjectLocations = true
-                } label: {
-                    Label(NSLocalizedString("fiction.locations", comment: "Locations"), systemImage: "mappin.and.ellipse")
-                }
-                
-                // Plot: Show linked plot elements if scene has any
-                plotMenuItems
-            }
+            characterInsertSection
+            locationInsertSection
+            scenePlotElementsSection
         } label: {
             Image(systemName: "person.text.rectangle")
         }
         .accessibilityLabel(NSLocalizedString("drama.insertCharacterLocation", comment: "Insert Character or Location"))
     }
     
-    /// Plot menu items - shows linked plot elements if scene has any
     @ViewBuilder
-    private var plotMenuItems: some View {
-        // Get plot elements linked to this scene
-        let linkedPlotElements = file.scene?.plotElements ?? []
-        
-        if linkedPlotElements.isEmpty {
-            // No linked plot elements - just show view all
-            Button {
-                showProjectPlot = true
-            } label: {
-                Label(NSLocalizedString("fiction.plot", comment: "Plot"), systemImage: "list.bullet.clipboard")
-            }
-        } else if linkedPlotElements.count == 1 {
-            // Single linked plot element - show it directly
-            let element = linkedPlotElements[0]
-            Button {
-                selectedPlotElement = element
-            } label: {
-                Label(element.name ?? NSLocalizedString("fiction.untitled", comment: "Untitled"), systemImage: "list.bullet.clipboard")
-            }
-            
-            // Also allow viewing all plots
-            Button {
-                showProjectPlot = true
-            } label: {
-                Label(NSLocalizedString("fiction.plot.viewAll", comment: "View All Plots"), systemImage: "list.bullet.clipboard.fill")
-            }
-        } else {
-            // Multiple linked plot elements - show as submenu
-            Menu {
-                ForEach(linkedPlotElements.sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }, id: \.id) { element in
+    private var characterInsertSection: some View {
+        let characters = (project.characters ?? []).sorted { ($0.name ?? "") < ($1.name ?? "") }
+        if !characters.isEmpty {
+            Section(NSLocalizedString("autocomplete.characters", comment: "Characters")) {
+                ForEach(characters, id: \.id) { character in
                     Button {
-                        selectedPlotElement = element
+                        selectedCharacter = character
                     } label: {
-                        if let stage = element.monomythStage {
-                            Label("\(stage.order). \(element.name ?? stage.localizedName)", systemImage: "bookmark")
-                        } else {
-                            Label(element.name ?? NSLocalizedString("fiction.untitled", comment: "Untitled"), systemImage: "bookmark")
-                        }
+                        Label(character.name ?? NSLocalizedString("fiction.untitled", comment: "Untitled"), systemImage: "person.fill")
                     }
                 }
-                
-                Divider()
-                
-                Button {
-                    showProjectPlot = true
-                } label: {
-                    Label(NSLocalizedString("fiction.plot.viewAll", comment: "View All Plots"), systemImage: "list.bullet.clipboard.fill")
-                }
-            } label: {
-                Label(NSLocalizedString("fiction.plot", comment: "Plot"), systemImage: "list.bullet.clipboard")
             }
         }
     }
     
-    /// Insert text at the current cursor position
-    private func insertTextAtCursor(_ text: String) {
-        let insertionPoint = min(selectedRange.location, sourceText.count)
-        let index = sourceText.index(sourceText.startIndex, offsetBy: insertionPoint)
-        sourceText.insert(contentsOf: text, at: index)
-        
-        // Move cursor to end of inserted text
-        selectedRange = NSRange(location: insertionPoint + text.count, length: 0)
+    @ViewBuilder
+    private var locationInsertSection: some View {
+        let locations = (project.locations ?? []).sorted { ($0.name ?? "") < ($1.name ?? "") }
+        if !locations.isEmpty {
+            Section(NSLocalizedString("autocomplete.locations", comment: "Locations")) {
+                ForEach(locations, id: \.id) { location in
+                    Button {
+                        selectedLocation = location
+                    } label: {
+                        Label(location.name ?? NSLocalizedString("fiction.untitled", comment: "Untitled"), systemImage: "mappin.circle.fill")
+                    }
+                }
+            }
+        }
     }
     
-    /// Insert a character name at cursor position
-    private func insertCharacterName(_ name: String) {
-        // For drama, character names are uppercase
-        let uppercaseName = name.uppercased()
-        insertTextAtCursor(uppercaseName)
-    }
-    
-    /// Insert a location name formatted as DML scene heading
-    private func insertLocationName(_ name: String) {
-        // Insert as a scene heading
-        let heading = "@ LOCATION: " + name
-        insertTextAtCursor(heading)
+    @ViewBuilder
+    private var scenePlotElementsSection: some View {
+        let elements = file.scene?.plotElements ?? []
+        if !elements.isEmpty {
+            Section(NSLocalizedString("editor.scenePlotElements", comment: "Scene Plot Elements")) {
+                ForEach(elements.sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }, id: \.id) { element in
+                    Button {
+                        selectedPlotElement = element
+                    } label: {
+                        Label(element.name ?? NSLocalizedString("fiction.untitled", comment: "Untitled"), systemImage: "bookmark")
+                    }
+                }
+            }
+        }
     }
     
     // MARK: - Print

@@ -184,7 +184,7 @@ struct CharacterRowView: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(character.name ?? NSLocalizedString("fiction.untitled", comment: "Untitled"))
+                Text(character.name ?? NSLocalizedString("fiction.untitled", comment: "Untitled"))
                 .font(.headline)
             
             if let role = character.role, !role.isEmpty {
@@ -203,7 +203,8 @@ struct CharacterRowView: View {
                 .foregroundColor(.blue)
             }
         }
-        .padding(.vertical, 4)
+            .padding(.vertical, 4)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
     
     private func archetypeIcon(for archetype: CharacterArchetype) -> String {

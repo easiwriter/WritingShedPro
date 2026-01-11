@@ -159,7 +159,8 @@ class JSONExportService {
             details: project.details,
             notes: project.notes,
             fictionClass: project.fictionClassRaw,
-            useMonomyth: project.useMonomyth
+            useMonomyth: project.useMonomyth,
+            storyStructure: project.storyStructureRaw
         )
     }
     
@@ -347,7 +348,8 @@ struct WSPProjectData: Codable {
     var details: String?
     var notes: String?
     var fictionClass: String?
-    var useMonomyth: Bool = false
+    var useMonomyth: Bool = false  // Legacy, kept for backward compatibility
+    var storyStructure: String?    // New: StoryStructure raw value
 }
 
 struct WSPFolderData: Codable {
