@@ -21,47 +21,47 @@ struct FolderFilesView: View {
     @Query private var allFolders: [Folder]
     
     // Query all files (lazily loaded by SwiftData)
-    @Query(sort: [SortDescriptor(\TextFile.name, order: .forward)]) private var allTextFiles: [TextFile]
+    @Query(sort: [SortDescriptor(\TextFile.name, order: .forward)]) var allTextFiles: [TextFile]
     
     // State for edit mode (shared with FileListView)
-    @State private var editMode: EditMode = .inactive
+    @State var editMode: EditMode = .inactive
     
     // State for add file sheet
-    @State private var showAddFileSheet = false
+    @State var showAddFileSheet = false
     
     // State for add folder sheet (for mixed-content folders)
-    @State private var showAddFolderSheet = false
+    @State var showAddFolderSheet = false
     
     // State for navigation
     @State private var selectedFile: TextFile?
     @State private var navigateToFile = false
     
     // State for submission picker
-    @State private var showSubmissionPicker = false
-    @State private var filesToSubmit: [TextFile] = []
+    @State var showSubmissionPicker = false
+    @State var filesToSubmit: [TextFile] = []
     
     // State for collection picker
-    @State private var showCollectionPicker = false
-    @State private var filesToAddToCollection: [TextFile] = []
+    @State var showCollectionPicker = false
+    @State var filesToAddToCollection: [TextFile] = []
     
     // State for rename
-    @State private var showRenamePicker = false
-    @State private var filesToRename: [TextFile] = []
+    @State var showRenamePicker = false
+    @State var filesToRename: [TextFile] = []
     
     // State for folder movement (for mixed-content folders)
-    @State private var showFolderMoveDestinationPicker = false
-    @State private var folderToMove: Folder?
+    @State var showFolderMoveDestinationPicker = false
+    @State var folderToMove: Folder?
     
     // State for multi-select in mixed content view
-    @State private var selectedFileIDs: Set<UUID> = []
-    @State private var selectedFolderIDs: Set<UUID> = []
+    @State var selectedFileIDs: Set<UUID> = []
+    @State var selectedFolderIDs: Set<UUID> = []
     
     // State for sorting in mixed content view
-    @State private var fileSortOrder: FileSortOrder = .byName
-    @State private var folderSortOrder: FolderSortOrder = .byName
+    @State var fileSortOrder: FileSortOrder = .byName
+    @State var folderSortOrder: FolderSortOrder = .byName
     
     // State for Word document import
-    @State private var showImportPicker = false
+    @State var showImportPicker = false
     @State private var showImportError = false
     @State private var importErrorMessage = ""
     
@@ -79,117 +79,96 @@ struct FolderFilesView: View {
     @State private var imageWarningMessage = ""
     
     // State for search
-    @State private var showSearchView = false
+    @State var showSearchView = false
+    
+    // State for header/footer editor
+    @State var showHeaderFooterEditor = false
+    @State private var headerLeft: String = ""
+    @State private var headerCenter: String = ""
+    @State private var headerRight: String = ""
+    @State private var footerLeft: String = ""
+    @State private var footerCenter: String = ""
+    @State private var footerRight: String = ""
+    @State private var headerInsertTarget: HeaderFooterField = .none
+    @State private var footerInsertTarget: HeaderFooterField = .none
+    @State private var showHeaderElementPicker = false
+    @State private var showFooterElementPicker = false
+    
+    // Available elements for header/footer insertion
+    private var headerFooterElements: [String] {
+        ["Page Number", "Total Pages", "Date", "Time", "Title", "Author"]
+    }
     
     // State for permanent delete confirmation
     @State private var showPermanentDeleteConfirmation = false
     @State private var filesToPermanentlyDelete: [TextFile] = []
     
     // State for workflow status filtering (for Poems, Scenes, Scripts folders)
-    @State private var statusFilter: WorkflowStatus? = nil  // nil = show all
+    @State var statusFilter: WorkflowStatus? = nil  // nil = show all
     
     // State for status change sheet
-    @State private var showStatusPicker = false
-    @State private var filesToChangeStatus: [TextFile] = []
+    @State var showStatusPicker = false
+    @State var filesToChangeStatus: [TextFile] = []
     
     // State for file movement (General Purpose projects only)
-    @State private var showMoveDestinationPicker = false
-    @State private var filesToMove: [TextFile] = []
+    @State var showMoveDestinationPicker = false
+    @State var filesToMove: [TextFile] = []
     
-    // Whether this is a content folder that uses workflow status
-    private var isContentFolder: Bool {
-        FolderCapabilityService.isContentFolder(folder)
+    // Computed properties moved to FolderFilesView+Helpers.swift
+    
+    // MARK: - File List View (extracted to reduce body complexity)
+    @ViewBuilder
+    private var fileListSection: some View {
+        FileListView(
+            files: sortedFiles,
+            onFileSelected: handleFileSelected,
+            onMove: isGeneralPurposeProject ? handleMove : nil,
+            onDelete: deleteFiles,
+            onExport: handleExport,
+            onSubmit: fileListOnSubmit,
+            onAddToCollection: fileListOnAddToCollection,
+            onReorder: nil,
+            onRename: handleRename,
+            onDeletePermanently: deleteFilesPermanently,
+            onChangeStatus: isContentFolder ? handleChangeStatus : nil
+        )
     }
     
-    // Whether this is a General Purpose project (supports file movement)
-    private var isGeneralPurposeProject: Bool {
-        folder.project?.type == .generalPurpose
+    private func handleFileSelected(_ file: TextFile) {
+        selectedFile = file
+        navigateToFile = true
     }
     
-    // All files in folder (filtered from query, still lazy)
-    private var allFiles: [TextFile] {
-        allTextFiles.filter { $0.parentFolder?.id == folder.id }
+    private func handleMove(_ files: [TextFile]) {
+        filesToMove = files
+        showMoveDestinationPicker = true
     }
     
-    // Count of files for a specific workflow status
-    private func fileCount(for status: WorkflowStatus?) -> Int {
-        if let status = status {
-            return allFiles.filter { $0.workflowStatus == status }.count
-        } else {
-            return allFiles.count
-        }
+    private func handleExport(_ files: [TextFile]) {
+        filesToExport = files
+        showExportMenu = true
     }
     
-    // Files filtered by workflow status if applicable (already sorted by query)
-    private var sortedFiles: [TextFile] {
-        if isContentFolder, let filter = statusFilter {
-            return allFiles.filter { $0.workflowStatus == filter }
-        }
-        return allFiles
+    private func handleRename(_ files: [TextFile]) {
+        filesToRename = files
+        showRenamePicker = true
     }
     
-    // Check if this folder supports submissions (Ready filter active)
-    private var supportsSubmissions: Bool {
-        // Content folders support submissions when viewing Ready files
-        if isContentFolder {
-            return statusFilter == .ready
-        }
-        return false
+    private func handleChangeStatus(_ files: [TextFile]) {
+        filesToChangeStatus = files
+        showStatusPicker = true
     }
     
-    // Check if this folder supports adding to collections (content folders with Ready files only)
-    // Note: FileListView further filters to only show the button when Ready files are selected
-    private var supportsAddToCollection: Bool {
-        return isContentFolder
-    }
-    
-    // Check if this folder supports mixed content (both files and subfolders)
-    private var isMixedContentFolder: Bool {
-        return FolderCapabilityService.canAddSubfolder(to: folder) && FolderCapabilityService.canAddFile(to: folder)
-    }
-    
-    // Get subfolders sorted by current sort order
-    private var sortedSubfolders: [Folder] {
-        return FolderSortService.sort(folder.folders ?? [], by: folderSortOrder)
-    }
-    
-    // Get files sorted by current sort order (for mixed content view)
-    // IMPORTANT: Deduplicate to handle any database corruption where the same file appears multiple times
-    private var sortedMixedFiles: [TextFile] {
-        let allFiles = folder.textFiles ?? []
-        // Deduplicate by ID, keeping only the first occurrence
-        var seenIDs = Set<UUID>()
-        let uniqueFiles = allFiles.filter { file in
-            if seenIDs.contains(file.id) {
-                #if DEBUG
-                print("⚠️ [FolderFilesView] Duplicate file detected: \(file.name) (ID: \(file.id))")
-                #endif
-                return false
+    @ViewBuilder
+    private var navigationDestinationContent: some View {
+        if let file = selectedFile {
+            if let project = folder.project, project.type == .drama,
+               FolderCapabilityService.isContentFolder(folder) {
+                DramaSceneEditorView(file: file, project: project)
+            } else {
+                FileEditView(file: file)
             }
-            seenIDs.insert(file.id)
-            return true
         }
-        return FileSortService.sort(uniqueFiles, by: fileSortOrder)
-    }
-    
-    // Whether edit mode is currently active
-    private var isEditMode: Bool {
-        editMode == .active
-    }
-    
-    // Selected files based on selectedFileIDs
-    private var selectedFiles: [TextFile] {
-        sortedFiles.filter { selectedFileIDs.contains($0.id) }
-    }
-    
-    // Selected folders based on selectedFolderIDs
-    private var selectedFolders: [Folder] {
-        sortedSubfolders.filter { selectedFolderIDs.contains($0.id) }
-    }
-    
-    // Whether bottom toolbar should be visible (edit mode + items selected)
-    private var showMixedContentToolbar: Bool {
-        isEditMode && (!selectedFileIDs.isEmpty || !selectedFolderIDs.isEmpty)
     }
     
     var body: some View {
@@ -205,38 +184,7 @@ struct FolderFilesView: View {
                     mixedContentBody
                 } else if !sortedFiles.isEmpty {
                     // Show FileListView with sorted files
-                    FileListView(
-                        files: sortedFiles,
-                        onFileSelected: { file in
-                            selectedFile = file
-                            navigateToFile = true
-                        },
-                        onMove: isGeneralPurposeProject ? { files in
-                            filesToMove = files
-                            showMoveDestinationPicker = true
-                        } : nil,
-                        onDelete: { files in
-                            deleteFiles(files)
-                        },
-                        onExport: { files in
-                            filesToExport = files
-                            showExportMenu = true
-                        },
-                        onSubmit: fileListOnSubmit,
-                        onAddToCollection: fileListOnAddToCollection,
-                        onReorder: nil,
-                        onRename: { files in
-                            filesToRename = files
-                            showRenamePicker = true
-                        },
-                        onDeletePermanently: { files in
-                            deleteFilesPermanently(files)
-                        },
-                        onChangeStatus: isContentFolder ? { files in
-                            filesToChangeStatus = files
-                            showStatusPicker = true
-                        } : nil
-                    )
+                    fileListSection
                 } else {
                     // Empty state
                     ContentUnavailableView {
@@ -251,92 +199,14 @@ struct FolderFilesView: View {
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
         .navigationDestination(isPresented: $navigateToFile) {
-            if let file = selectedFile {
-                // Use DramaSceneEditorView for drama project scenes
-                if let project = folder.project, project.type == .drama,
-                   FolderCapabilityService.isContentFolder(folder) {
-                    DramaSceneEditorView(file: file, project: project)
-                } else {
-                    FileEditView(file: file)
-                }
-            }
+            navigationDestinationContent
         }
         .environment(\.editMode, $editMode)
         .onPopToRoot {
             dismiss()
         }
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                PopToRootBackButton()
-            }
-            ToolbarItemGroup(placement: .topBarTrailing) {
-                // Search button
-                if !sortedFiles.isEmpty {
-                    Button {
-                        showSearchView = true
-                    } label: {
-                        Image(systemName: "magnifyingglass")
-                    }
-                    .accessibilityLabel("Search files in folder")
-                    .help("Search and replace across all files")
-                    .disabled(editMode == .active)
-                }
-                
-                // Import Word document button
-                if FolderCapabilityService.canAddFile(to: folder) {
-                    Button {
-                        showImportPicker = true
-                    } label: {
-                        Image(systemName: "square.and.arrow.down")
-                    }
-                    .accessibilityLabel("Import Word document")
-                    .help("Import Word document")
-                    .disabled(editMode == .active)
-                }
-                
-                // Add file button
-                if FolderCapabilityService.canAddFile(to: folder) {
-                    if isMixedContentFolder {
-                        // Show menu with options for both file and folder
-                        Menu {
-                            Button {
-                                showAddFileSheet = true
-                            } label: {
-                                Label(NSLocalizedString("folderFiles.addFile", comment: "Add File"), systemImage: "doc.badge.plus")
-                            }
-                            
-                            Button {
-                                showAddFolderSheet = true
-                            } label: {
-                                Label(NSLocalizedString("folderFiles.addFolder", comment: "Add Folder"), systemImage: "folder.badge.plus")
-                            }
-                        } label: {
-                            Image(systemName: "plus")
-                        }
-                        .accessibilityLabel("folderFiles.add.accessibility")
-                        .disabled(editMode == .active)
-                    } else {
-                        Button {
-                            showAddFileSheet = true
-                        } label: {
-                            Image(systemName: "plus")
-                        }
-                        .accessibilityLabel("folderFiles.addFile.accessibility")
-                        .disabled(editMode == .active)
-                    }
-                }
-                
-                // Manual Edit/Done button on far right (replaces SwiftUI's EditButton which isn't working)
-                if !sortedFiles.isEmpty || (isMixedContentFolder && !sortedSubfolders.isEmpty) {
-                    Button {
-                        withAnimation {
-                            editMode = editMode == .inactive ? .active : .inactive
-                        }
-                    } label: {
-                        Text(editMode == .inactive ? "button.edit" : "button.done")
-                    }
-                }
-            }
+            folderToolbar
         }
         .sheet(isPresented: $showMoveDestinationPicker) {
             if let project = folder.project {
@@ -488,20 +358,20 @@ struct FolderFilesView: View {
             }
         }
         .confirmationDialog(NSLocalizedString("export.dialog.title", comment: "Export Format"), isPresented: $showExportMenu) {
-            Button(ExportFormat.rtf.displayName) {
+            Button(ExportFormat.rtf.localizedName) {
                 exportFiles(format: .rtf)
             }
             
-            Button(ExportFormat.html.displayName) {
+            Button(ExportFormat.html.localizedName) {
                 exportFiles(format: .html)
             }
             
-            Button(ExportFormat.epub.displayName) {
+            Button(ExportFormat.epub.localizedName) {
                 exportFiles(format: .epub)
             }
             
-            Button(ExportFormat.docx.displayName) {
-                exportFiles(format: .docx)
+            Button(ExportFormat.word.localizedName) {
+                exportFiles(format: .word)
             }
             
             Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
@@ -511,20 +381,20 @@ struct FolderFilesView: View {
             Text(String(format: NSLocalizedString("export.dialog.message", comment: "Choose export format"), filesToExport.count))
         }
         .confirmationDialog(NSLocalizedString("export.folder.dialog.title", comment: "Export Folder"), isPresented: $showExportFolderMenu) {
-            Button(ExportFormat.rtf.displayName) {
+            Button(ExportFormat.rtf.localizedName) {
                 exportCombinedFolder(format: .rtf)
             }
             
-            Button(ExportFormat.html.displayName) {
+            Button(ExportFormat.html.localizedName) {
                 exportCombinedFolder(format: .html)
             }
             
-            Button(ExportFormat.epub.displayName) {
+            Button(ExportFormat.epub.localizedName) {
                 exportCombinedFolder(format: .epub)
             }
             
-            Button(ExportFormat.docx.displayName) {
-                exportCombinedFolder(format: .docx)
+            Button(ExportFormat.word.localizedName) {
+                exportCombinedFolder(format: .word)
             }
             
             Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
@@ -559,6 +429,46 @@ struct FolderFilesView: View {
             Button("Cancel", role: .cancel) { }
         } message: {
             Text(imageWarningMessage)
+        }
+        .dialog(isPresented: $showHeaderFooterEditor) {
+            HeaderFooterDialog(
+                headerEnabled: folder.project?.pageSetup?.hasHeaders ?? false,
+                footerEnabled: folder.project?.pageSetup?.hasFooters ?? false,
+                headerLeft: $headerLeft,
+                headerCenter: $headerCenter,
+                headerRight: $headerRight,
+                footerLeft: $footerLeft,
+                footerCenter: $footerCenter,
+                footerRight: $footerRight,
+                headerInsertTarget: $headerInsertTarget,
+                footerInsertTarget: $footerInsertTarget,
+                showHeaderElementPicker: $showHeaderElementPicker,
+                showFooterElementPicker: $showFooterElementPicker,
+                headerFooterElements: headerFooterElements,
+                onCancel: { showHeaderFooterEditor = false },
+                onSave: {
+                    if let pageSetup = folder.project?.pageSetup {
+                        pageSetup.headerLeft = headerLeft
+                        pageSetup.headerCenter = headerCenter
+                        pageSetup.headerRight = headerRight
+                        pageSetup.footerLeft = footerLeft
+                        pageSetup.footerCenter = footerCenter
+                        pageSetup.footerRight = footerRight
+                    }
+                    showHeaderFooterEditor = false
+                }
+            )
+        }
+        .onAppear {
+            // Initialize header/footer fields from project page setup
+            if let pageSetup = folder.project?.pageSetup {
+                headerLeft = pageSetup.headerLeft ?? ""
+                headerCenter = pageSetup.headerCenter ?? ""
+                headerRight = pageSetup.headerRight ?? ""
+                footerLeft = pageSetup.footerLeft ?? ""
+                footerCenter = pageSetup.footerCenter ?? ""
+                footerRight = pageSetup.footerRight ?? ""
+            }
         }
     }
     
@@ -997,7 +907,7 @@ struct FolderFilesView: View {
     
     /// Change the workflow status of files
     /// Also resets submission status when changing away from published
-    private func changeFilesStatus(_ files: [TextFile], to newStatus: WorkflowStatus) {
+    func changeFilesStatus(_ files: [TextFile], to newStatus: WorkflowStatus) {
         for file in files {
             let wasPublished = file.workflowStatus == .published
             file.workflowStatus = newStatus
@@ -1043,7 +953,7 @@ struct FolderFilesView: View {
     }
     
     /// Move files to a destination folder (General Purpose projects only)
-    private func moveFiles(to destination: Folder) {
+    func moveFiles(to destination: Folder) {
         let service = FileMoveService(modelContext: modelContext)
         
         do {
@@ -1059,7 +969,7 @@ struct FolderFilesView: View {
     }
     
     /// Move a subfolder to a new destination folder
-    private func moveSubfolder(_ subfolder: Folder, to destination: Folder) {
+    func moveSubfolder(_ subfolder: Folder, to destination: Folder) {
         let service = FileMoveService(modelContext: modelContext)
         
         do {
@@ -1073,7 +983,7 @@ struct FolderFilesView: View {
         }
     }
     
-    private func createSubmission(for publication: Publication, name: String) {
+    func createSubmission(for publication: Publication, name: String) {
         guard let project = folder.project else { return }
         
         // Create submission
@@ -1108,7 +1018,7 @@ struct FolderFilesView: View {
         filesToSubmit = []
     }
     
-    private func addFilesToCollection(_ collection: Submission) {
+    func addFilesToCollection(_ collection: Submission) {
         guard let project = folder.project else { return }
         
         // Create submitted file records for each selected file in the collection
@@ -1199,30 +1109,7 @@ struct FolderFilesView: View {
         }
     }
     
-    private enum ExportFormat {
-        case rtf
-        case html
-        case epub
-        case docx
-        
-        var fileExtension: String {
-            switch self {
-            case .rtf: return "rtf"
-            case .html: return "html"
-            case .epub: return "epub"
-            case .docx: return "docx"
-            }
-        }
-        
-        var displayName: String {
-            switch self {
-            case .rtf: return NSLocalizedString("export.format.rtf", comment: "RTF (Word-compatible)")
-            case .html: return NSLocalizedString("export.format.html", comment: "HTML (Web page)")
-            case .epub: return NSLocalizedString("export.format.epub", comment: "EPUB (eBook)")
-            case .docx: return NSLocalizedString("export.format.docx", comment: "DOCX (Word format)")
-            }
-        }
-    }
+    // Uses ExportFormat from ManuscriptModels.swift
     
     private func exportCompleteFolder() {
         // Collect all file contents as separate attributed strings (for HTML)
@@ -1339,7 +1226,7 @@ struct FolderFilesView: View {
                     data = try await Task.detached {
                         try EPUBExportService.exportMultipleToEPUB(attributedStrings, filename: filename)
                     }.value
-                case .docx:
+                case .word:
                     // Export to DOCX using DOCXExportService - use array version for page breaks
                     data = try await Task.detached { [weak modelContext] in
                         guard let modelContext = modelContext else {
@@ -1348,6 +1235,9 @@ struct FolderFilesView: View {
                         let exportService = DOCXExportService(modelContext: modelContext)
                         return try exportService.exportMultipleToDOCX(attributedStrings, filename: filename)
                     }.value
+                case .pdf, .plainText:
+                    // Not supported for combined folder export
+                    return
                 }
                 
                 await MainActor.run {
@@ -1398,10 +1288,13 @@ struct FolderFilesView: View {
                 exportData = try HTMLExportService.exportToHTMLData(content, filename: filename)
             case .epub:
                 exportData = try EPUBExportService.exportToEPUB(content, filename: filename)
-            case .docx:
+            case .word:
                 // Export to DOCX using DOCXExportService
                 let exportService = DOCXExportService(modelContext: modelContext)
                 exportData = try exportService.exportToDOCX(content, filename: filename)
+            case .pdf, .plainText:
+                // Not supported for single file export from this view
+                return
             }
             
             exportFilename = filename
@@ -1445,13 +1338,17 @@ struct FolderFilesView: View {
         case .epub:
             // EPUB uses a custom UTType
             return UTType(filenameExtension: "epub") ?? .data
-        case .docx:
+        case .word:
             // DOCX uses the official UTType identifier
             return UTType("org.openxmlformats.wordprocessingml.document") ?? .data
+        case .pdf:
+            return .pdf
+        case .plainText:
+            return .plainText
         }
     }
     
-    private func renameFile(newName: String) {
+    func renameFile(newName: String) {
         guard let file = filesToRename.first else { return }
         
         file.name = newName

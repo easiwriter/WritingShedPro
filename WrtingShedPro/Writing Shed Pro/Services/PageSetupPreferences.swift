@@ -225,7 +225,6 @@ class PageSetupPreferences {
             orientation: orientation,
             headers: headers,
             footers: footers,
-            facingPages: facingPages,
             marginTop: marginTop,
             marginBottom: marginBottom,
             marginLeft: marginLeft,
@@ -242,7 +241,6 @@ class PageSetupPreferences {
         setOrientation(pageSetup.orientationEnum)
         setHeaders(pageSetup.headers == 1)
         setFooters(pageSetup.footers == 1)
-        setFacingPages(pageSetup.facingPages == 1)
         setHideFirstSection(pageSetup.hideFirstSection == 1)
         setMatchPreviousSection(pageSetup.matchPreviousSection == 1)
         setMarginTop(pageSetup.marginTop)

@@ -19,7 +19,6 @@ struct PageSetupForm: View {
     @State private var orientation: Int16
     @State private var headers: Bool
     @State private var footers: Bool
-    @State private var facingPages: Bool
     @State private var leftMargin: Double
     @State private var rightMargin: Double
     @State private var topMargin: Double
@@ -35,7 +34,6 @@ struct PageSetupForm: View {
     @State private var originalOrientation: Int16 = 0
     @State private var originalHeaders: Bool = false
     @State private var originalFooters: Bool = false
-    @State private var originalFacingPages: Bool = false
     @State private var originalTopMargin: Double = 0
     @State private var originalLeftMargin: Double = 0
     @State private var originalBottomMargin: Double = 0
@@ -53,7 +51,6 @@ struct PageSetupForm: View {
         _orientation = State(initialValue: Orientation.portrait.rawValue)
         _headers = State(initialValue: false)
         _footers = State(initialValue: false)
-        _facingPages = State(initialValue: false)
         _leftMargin = State(initialValue: 0)
         _rightMargin = State(initialValue: 0)
         _topMargin = State(initialValue: 0)
@@ -82,7 +79,6 @@ struct PageSetupForm: View {
         orientation = pageSetup.orientation
         headers = pageSetup.headers == 1
         footers = pageSetup.footers == 1
-        facingPages = pageSetup.facingPages == 1
         leftMargin = pageSetup.marginLeft
         rightMargin = pageSetup.marginRight
         topMargin = pageSetup.marginTop
@@ -90,7 +86,7 @@ struct PageSetupForm: View {
         headerDepth = pageSetup.headerDepth
         footerDepth = pageSetup.footerDepth
         scaleFactor = pageSetup.scaleFactor
-        pageBreakBetweenFiles = PageSetupPreferences.shared.pageBreakBetweenFiles // Still global
+        pageBreakBetweenFiles = pageSetup.hasPageBreakBetweenFiles
         
         #if DEBUG
         print("[PageSetupForm] Loaded paperName: '\(paperName)'")
@@ -104,7 +100,6 @@ struct PageSetupForm: View {
         originalOrientation = orientation
         originalHeaders = headers
         originalFooters = footers
-        originalFacingPages = facingPages
         originalTopMargin = topMargin
         originalLeftMargin = leftMargin
         originalBottomMargin = bottomMargin
@@ -211,9 +206,7 @@ struct PageSetupForm: View {
                     }
                 }
                 
-                Section {
-                    Toggle(NSLocalizedString("pageSetup.facingPages", comment: "Facing pages toggle"), isOn: $facingPages)
-                }
+
                 
                 Section(header: Text("Multi-File Printing")) {
                     Toggle("Page break between files", isOn: $pageBreakBetweenFiles)
@@ -298,13 +291,6 @@ struct PageSetupForm: View {
             pageSetup.footers = footers ? 1 : 0
         }
         
-        if facingPages != originalFacingPages {
-            #if DEBUG
-            print("[PageSetupForm] Facing pages changed")
-            #endif
-            pageSetup.facingPages = facingPages ? 1 : 0
-        }
-        
         if abs(topMargin - originalTopMargin) > 0.001 {
             #if DEBUG
             print("[PageSetupForm] Top margin changed")
@@ -356,9 +342,9 @@ struct PageSetupForm: View {
         
         if pageBreakBetweenFiles != originalPageBreakBetweenFiles {
             #if DEBUG
-            print("[PageSetupForm] Page break between files changed (global setting)")
+            print("[PageSetupForm] Page break between files changed (per-project setting)")
             #endif
-            PageSetupPreferences.shared.setPageBreakBetweenFiles(pageBreakBetweenFiles)
+            pageSetup.hasPageBreakBetweenFiles = pageBreakBetweenFiles
         }
         
         #if DEBUG

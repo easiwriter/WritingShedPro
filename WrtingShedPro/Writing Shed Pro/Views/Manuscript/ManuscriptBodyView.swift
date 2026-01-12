@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 
+
 /// View displaying the assembled manuscript body content (Feature 029)
 /// This shows a virtual view of content assembled from source folders (Poems, Scenes, Scripts, Sections)
 struct ManuscriptBodyView: View {
@@ -18,6 +19,10 @@ struct ManuscriptBodyView: View {
     @State private var pdfDataToShare: Data?
     @State private var showShareSheet = false
     
+    var allFiles: [TextFile] {
+        sections.flatMap { $0.files }
+    }
+
     var body: some View {
         Group {
             if isLoading {
@@ -64,14 +69,82 @@ struct ManuscriptBodyView: View {
     
     @ViewBuilder
     private var bodyContent: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 0) {
-                ForEach(sections) { section in
-                    sectionView(for: section)
+        // Flatten all files from all sections in order
+        let allFiles: [TextFile] = sections.flatMap { $0.files }
+        if !allFiles.isEmpty {
+            let assembledTextFile = makeAssembledTextFileWithPageBreaks(from: allFiles, name: project.name ?? "Manuscript")
+            PaginatedDocumentView(
+                textFile: assembledTextFile,
+                project: project
+            )
+        } else {
+            ContentUnavailableView {
+                Label("manuscript.body.empty", systemImage: "doc.on.doc")
+            } description: {
+                Text("manuscript.body.emptyDescription")
+            }
+        }
+    }
+
+    private func loadBodySections() {
+        errorMessage = nil
+        let service = ManuscriptAssemblyService(context: context)
+        assemblyService = service
+        // Get only body sections for this view
+        sections = service.getBodySections(for: project)
+        isLoading = false
+    }
+
+    private func makeAssembledTextFileWithPageBreaks(from files: [TextFile], name: String) -> TextFile {
+        let attributed = NSMutableAttributedString()
+        let isDrama = project.type == .drama
+        let scriptType: DramaScriptType = {
+            if let raw = project.dramaScriptTypeRaw, let t = DramaScriptType(rawValue: raw) { return t }
+            return .stage
+        }()
+        let usePageBreak = project.pageSetup?.hasPageBreakBetweenFiles ?? true
+    #if DEBUG
+        print("[ManuscriptBodyView] makeAssembledTextFileWithPageBreaks: usePageBreak=", usePageBreak)
+    #endif
+        let breakStyle = project.manuscriptSettings.sectionBreakStyle
+        for (idx, file) in files.enumerated() {
+            if isDrama, let plain = file.currentVersion?.content {
+                // Render DML source using DramaMarkupRenderer
+                let document = DramaMarkupParser.shared.parse(plain)
+                let rendered = DramaMarkupRenderer.shared.render(
+                    document,
+                    scriptType: scriptType,
+                    viewMode: .formatted,
+                    showNotes: false
+                )
+                attributed.append(rendered)
+            } else if let attr = file.currentVersion?.attributedContent {
+                attributed.append(attr)
+            } else if let plain = file.currentVersion?.content {
+                attributed.append(NSAttributedString(string: plain))
+            }
+            // Insert break between files according to user setting
+            if idx < files.count - 1 {
+                if usePageBreak {
+                    attributed.append(NSAttributedString(string: "\u{000C}")) // Unicode FORM FEED (page break)
+                } else {
+                    // Always add at least two blank lines between files for clarity
+                    switch breakStyle {
+                    case .sectionMark:
+                        attributed.append(NSAttributedString(string: "\n\n\u{00A7}\n\n\n"))
+                    case .doubleSpace:
+                        attributed.append(NSAttributedString(string: "\n\n\n"))
+                    case .pageBreak, .none:
+                        attributed.append(NSAttributedString(string: "\n\n\n"))
+                    }
                 }
             }
-            .padding()
         }
+        let tf = TextFile(name: name)
+        if let version = tf.versions?.first {
+            version.attributedContent = attributed
+        }
+        return tf
     }
     
     @ViewBuilder
@@ -131,56 +204,11 @@ struct ManuscriptBodyView: View {
     @ViewBuilder
     private var bodyToolbarContent: some View {
         HStack(spacing: 16) {
-            // Export button
-            if !sections.isEmpty {
-                Button {
-                    exportAsPDF()
-                } label: {
-                    if isExporting {
-                        ProgressView()
-                            .controlSize(.small)
-                    } else {
-                        Image(systemName: "square.and.arrow.up")
-                    }
-                }
-                .disabled(isExporting)
+            Button(action: exportAsPDF) {
+                Label("Export PDF", systemImage: "square.and.arrow.up")
             }
-            
-            // Info menu
-            Menu {
-                // Info about source folder
-                if let sourceFolder = assemblyService?.getBodySourceFolder(for: project) {
-                    Label(
-                        String(format: NSLocalizedString("manuscript.body.sourceFolder", comment: "Source: %@"), sourceFolder.name ?? ""),
-                        systemImage: "folder"
-                    )
-                }
-                
-                Divider()
-                
-                // File count
-                let fileCount = sections.reduce(0) { $0 + $1.files.count }
-                Label(
-                    String(format: NSLocalizedString("manuscript.body.fileCount", comment: "%d files"), fileCount),
-                    systemImage: "doc.on.doc"
-                )
-            } label: {
-                Image(systemName: "info.circle")
-            }
+            .disabled(isExporting || allFiles.isEmpty)
         }
-    }
-    
-    private func loadBodySections() {
-        isLoading = true
-        errorMessage = nil
-        
-        let service = ManuscriptAssemblyService(context: context)
-        assemblyService = service
-        
-        // Get only body sections for this view
-        sections = service.getBodySections(for: project)
-        
-        isLoading = false
     }
     
     private func exportAsPDF() {

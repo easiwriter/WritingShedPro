@@ -12,12 +12,24 @@ import SwiftData
 
 @Model
 final class PageSetup {
+        // Header/Footer text fields
+        var headerLeft: String? = nil
+        var headerCenter: String? = nil
+        var headerRight: String? = nil
+        var footerLeft: String? = nil
+        var footerCenter: String? = nil
+        var footerRight: String? = nil
     var id: UUID = UUID()
     var paperName: String?
     var orientation: Int16 = 0  // 0 = portrait, 1 = landscape
     var headers: Int16 = 0      // 0 = false, 1 = true
     var footers: Int16 = 0      // 0 = false, 1 = true
-    var facingPages: Int16 = 0  // 0 = false, 1 = true
+    // var facingPages: Int16 = 0  // REMOVED: No longer used
+    var pageBreakBetweenFiles: Int16 = 1  // 0 = false, 1 = true (default true)
+        var hasPageBreakBetweenFiles: Bool {
+            get { pageBreakBetweenFiles == 1 }
+            set { pageBreakBetweenFiles = newValue ? 1 : 0 }
+        }
     var hideFirstSection: Int16 = 0
     var matchPreviousSection: Int16 = 0
     
@@ -46,7 +58,6 @@ final class PageSetup {
         orientation: Orientation = .portrait,
         headers: Bool = false,
         footers: Bool = false,
-        facingPages: Bool = false,
         marginTop: Double = PageSetupDefaults.marginTop,
         marginBottom: Double = PageSetupDefaults.marginBottom,
         marginLeft: Double = PageSetupDefaults.marginLeft,
@@ -60,7 +71,6 @@ final class PageSetup {
         self.orientation = orientation.rawValue
         self.headers = headers ? 1 : 0
         self.footers = footers ? 1 : 0
-        self.facingPages = facingPages ? 1 : 0
         self.marginTop = marginTop
         self.marginBottom = marginBottom
         self.marginLeft = marginLeft
@@ -88,10 +98,10 @@ final class PageSetup {
         set { footers = newValue ? 1 : 0 }
     }
     
-    var hasFacingPages: Bool {
-        get { facingPages == 1 }
-        set { facingPages = newValue ? 1 : 0 }
-    }
+    // var hasFacingPages: Bool { // REMOVED: No longer used
+    //     get { facingPages == 1 }
+    //     set { facingPages = newValue ? 1 : 0 }
+    // }
     
     var paperSize: PaperSizes {
         get {
@@ -115,7 +125,6 @@ final class PageSetup {
             orientation: .portrait,
             headers: false,
             footers: false,
-            facingPages: false,
             marginTop: PageSetupDefaults.marginTop,
             marginBottom: PageSetupDefaults.marginBottom,
             marginLeft: PageSetupDefaults.marginLeft,

@@ -219,6 +219,8 @@ enum ExportFormat: String, CaseIterable, Identifiable {
     case rtf
     case plainText
     case word
+    case html
+    case epub
     
     var id: String { rawValue }
     
@@ -228,6 +230,8 @@ enum ExportFormat: String, CaseIterable, Identifiable {
         case .rtf: return "rtf"
         case .plainText: return "txt"
         case .word: return "docx"
+        case .html: return "html"
+        case .epub: return "epub"
         }
     }
     
@@ -241,6 +245,10 @@ enum ExportFormat: String, CaseIterable, Identifiable {
             return NSLocalizedString("export.format.plainText", comment: "Plain Text")
         case .word:
             return NSLocalizedString("export.format.word", comment: "Word Document")
+        case .html:
+            return NSLocalizedString("export.format.html", comment: "HTML (Web page)")
+        case .epub:
+            return NSLocalizedString("export.format.epub", comment: "EPUB (eBook)")
         }
     }
     
@@ -250,6 +258,8 @@ enum ExportFormat: String, CaseIterable, Identifiable {
         case .rtf: return "application/rtf"
         case .plainText: return "text/plain"
         case .word: return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        case .html: return "text/html"
+        case .epub: return "application/epub+zip"
         }
     }
     
@@ -259,6 +269,8 @@ enum ExportFormat: String, CaseIterable, Identifiable {
         case .rtf: return "doc.richtext"
         case .plainText: return "doc.text"
         case .word: return "doc"
+        case .html: return "chevron.left.slash.chevron.right"
+        case .epub: return "book"
         }
     }
 }

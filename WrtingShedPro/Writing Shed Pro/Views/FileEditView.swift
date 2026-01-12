@@ -312,6 +312,7 @@ struct FileEditView: View {
     @ViewBuilder
     private func formattingToolbar() -> some View {
         // Pure SwiftUI toolbar that respects iOS 26.2+ button styling
+        let notesExist = file.currentVersion?.notes?.isEmpty == false
         SwiftUIFormattingToolbar(
             onFormatAction: { action in
                 switch action {
@@ -348,7 +349,8 @@ struct FileEditView: View {
                     insertTab()
                 }
             },
-            hasSelectedImage: selectedImage != nil
+            hasSelectedImage: selectedImage != nil,
+            notesExist: notesExist
         )
     }
     

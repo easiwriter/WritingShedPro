@@ -25,11 +25,14 @@
 - Added `includedInManuscript` property to TextFile model
 - Added `manuscriptSettingsData` to Project model
 
-### Phase 3: ManuscriptBodyView
-- Displays assembled body content in read-only scrollable view
-- Shows section headers (chapters, etc.)
+### Phase 3: ManuscriptBodyView (Dynamic Page View)
+- Displays assembled body content in a dynamic, paginated, read-only view
+- **Poetry/Fiction:** Shows a page view of the files/scenes folder (each file/scene starts on a new page)
+- **Drama:** Shows a page view of formatted script scenes (each scene is rendered using the drama script formatter, not as raw text)
+- Section headers (chapters, etc.)
 - File titles with edit navigation links
 - Source folder info in toolbar menu
+- **Static text container is no longer used.**
 
 ### Phase 4: PDF Export
 - Added `generatePDF(from: ManuscriptContent)` to PrintService

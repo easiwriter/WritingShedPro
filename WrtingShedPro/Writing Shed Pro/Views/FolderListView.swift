@@ -492,8 +492,11 @@ struct FolderRowView: View {
     // Folder display name with count in brackets
     private var folderDisplayName: String {
         let baseName = folder.name ?? NSLocalizedString("folderList.untitledFolder", comment: "Untitled folder")
+        // Remove count for Body and Manuscript folders
+        if baseName == "Body" || baseName == "Manuscript" {
+            return baseName
+        }
         let count: Int
-        
         if isPublicationFolder {
             count = publicationCount
         } else if isCollectionsFolder {
@@ -509,13 +512,10 @@ struct FolderRowView: View {
         } else if isScenesFolder {
             count = sceneCount
         } else if isAllFolder {
-            // All folder shows computed count from multiple folders
-            count = fileCount  // Will be computed in .task
+            count = fileCount
         } else if isTrashFolder {
-            // Trash folder shows count of TrashItem objects
-            count = fileCount  // Will be computed in .task
+            count = fileCount
         } else if isMixedContentFolder {
-            // For mixed-content folders (like "Folders"), show subfolder count only at project level
             count = subfolderCount
         } else if subfolderCount > 0 && fileCount > 0 {
             count = subfolderCount + fileCount
@@ -524,7 +524,6 @@ struct FolderRowView: View {
         } else {
             count = fileCount
         }
-        
         return "\(baseName) (\(count))"
     }
     

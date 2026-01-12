@@ -58,6 +58,37 @@ struct VirtualPageScrollView: UIViewRepresentable {
 
 /// UIScrollView subclass that implements virtual page scrolling
 class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
+        // Helper to create header/footer label view
+        private func makeHeaderFooterLabel(left: String?, center: String?, right: String?, frame: CGRect, isHeader: Bool) -> UIView {
+            let labelHeight: CGFloat = 24
+            let yPos: CGFloat = isHeader ? frame.origin.y + 4 : frame.origin.y + frame.height - labelHeight - 4
+            let labelFrame = CGRect(x: frame.origin.x, y: yPos, width: frame.width, height: labelHeight)
+            let container = UIView(frame: labelFrame)
+            container.backgroundColor = .clear
+
+            let leftLabel = UILabel()
+            leftLabel.text = left ?? ""
+            leftLabel.font = UIFont.systemFont(ofSize: 14)
+            leftLabel.textAlignment = .left
+            leftLabel.frame = CGRect(x: 0, y: 0, width: frame.width/3, height: labelHeight)
+
+            let centerLabel = UILabel()
+            centerLabel.text = center ?? ""
+            centerLabel.font = UIFont.systemFont(ofSize: 14)
+            centerLabel.textAlignment = .center
+            centerLabel.frame = CGRect(x: frame.width/3, y: 0, width: frame.width/3, height: labelHeight)
+
+            let rightLabel = UILabel()
+            rightLabel.text = right ?? ""
+            rightLabel.font = UIFont.systemFont(ofSize: 14)
+            rightLabel.textAlignment = .right
+            rightLabel.frame = CGRect(x: 2*frame.width/3, y: 0, width: frame.width/3, height: labelHeight)
+
+            container.addSubview(leftLabel)
+            container.addSubview(centerLabel)
+            container.addSubview(rightLabel)
+            return container
+        }
     
     // MARK: - Types
     
@@ -371,9 +402,29 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
     
     private func createPage(at pageIndex: Int) {
         guard let pageInfo = layoutManager.pageInfo(forPage: pageIndex) else { return }
-        
         // Get page frame
         let pageFrame = frameForPage(pageIndex)
+        // Render header/footer views if enabled
+        if pageSetup.hasHeaders {
+            let headerView = makeHeaderFooterLabel(
+                left: pageSetup.headerLeft,
+                center: pageSetup.headerCenter,
+                right: pageSetup.headerRight,
+                frame: pageFrame,
+                isHeader: true
+            )
+            zoomContainerView.addSubview(headerView)
+        }
+        if pageSetup.hasFooters {
+            let footerView = makeHeaderFooterLabel(
+                left: pageSetup.footerLeft,
+                center: pageSetup.footerCenter,
+                right: pageSetup.footerRight,
+                frame: pageFrame,
+                isHeader: false
+            )
+            zoomContainerView.addSubview(footerView)
+        }
         
         // Query footnotes for this page FIRST (needed to calculate text area)
         var footnoteController: UIHostingController<FootnoteRenderer>? = nil
@@ -601,8 +652,8 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         
         // Pass project reference to layout manager for paragraph numbering
         numberingLayoutManager.project = project
-        // Enable poetry line numbers (only in paginated view)
-        numberingLayoutManager.isPaginatedView = true
+        // Disable poetry line numbers in paginated manuscript view
+        numberingLayoutManager.isPaginatedView = false
         
         textStorage.addLayoutManager(numberingLayoutManager)
         numberingLayoutManager.addTextContainer(textContainer)

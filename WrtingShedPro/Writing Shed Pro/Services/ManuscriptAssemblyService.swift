@@ -246,6 +246,14 @@ final class ManuscriptAssemblyService {
         var fileOffsets: [UUID: Int] = [:]
         var isFirstFile = true
         
+        // Determine if this is a drama project
+        let isDrama = project.type == .drama
+        // Get script type for drama (default to .stage if missing)
+        let scriptType: DramaScriptType = {
+            if let raw = project.dramaScriptTypeRaw, let t = DramaScriptType(rawValue: raw) { return t }
+            return .stage
+        }()
+        print("[ManuscriptAssemblyService] Drama project: \(isDrama), Script type: \(scriptType)")
         for section in sections {
             for file in section.files {
                 // Add section break between files (not before first)
@@ -253,17 +261,29 @@ final class ManuscriptAssemblyService {
                     assembled.append(sectionBreak(for: settings))
                 }
                 isFirstFile = false
-                
                 // Record offset before adding
                 fileOffsets[file.id] = assembled.length
-                
                 // Add file content
-                if let version = file.currentVersion, let content = version.attributedContent {
+                if isDrama, let version = file.currentVersion {
+                    print("[ManuscriptAssemblyService] Rendering drama file: \(file.name)")
+                    let dmlSource = version.content
+                    print("[ManuscriptAssemblyService] DML source:\n\(dmlSource)")
+                    let document = DramaMarkupParser.shared.parse(dmlSource)
+                    let rendered = DramaMarkupRenderer.shared.render(
+                        document,
+                        scriptType: scriptType,
+                        viewMode: .formatted,
+                        showNotes: false
+                    )
+                    print("[ManuscriptAssemblyService] Rendered attributed string: \(rendered.string)")
+                    assembled.append(rendered)
+                } else if let version = file.currentVersion, let content = version.attributedContent {
+                    print("[ManuscriptAssemblyService] Appending attributedContent for file: \(file.name)")
                     assembled.append(content)
                 }
             }
         }
-        
+
         return ManuscriptContent(
             attributedString: assembled,
             sections: sections,

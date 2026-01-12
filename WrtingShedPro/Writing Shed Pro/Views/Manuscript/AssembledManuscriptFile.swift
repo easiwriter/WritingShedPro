@@ -1,0 +1,1 @@
+// No longer needed; logic moved to ManuscriptBodyView

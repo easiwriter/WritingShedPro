@@ -27,8 +27,7 @@ struct PaginatedDocumentView: View {
     @State private var showPrintError = false
     @State private var printErrorMessage = ""
     
-    // Global page setup (from UserDefaults)
-    private let pageSetupPrefs = PageSetupPreferences.shared
+    // No longer using global page setup; use per-project pageSetup
     
     // MARK: - Body
     
@@ -40,8 +39,8 @@ struct PaginatedDocumentView: View {
             
             // Main content layer
             if let layoutManager = layoutManager, layoutManager.isLayoutValid {
-                // Virtual page scroll view using global page setup
-                let pageSetup = pageSetupPrefs.createPageSetup()
+                // Use per-project page setup
+                let pageSetup = project.pageSetup ?? PageSetup.createWithDefaults()
                 VirtualPageScrollView(
                     layoutManager: layoutManager,
                     pageSetup: pageSetup,
@@ -56,6 +55,7 @@ struct PaginatedDocumentView: View {
                         }
                     }
                 )
+                // ...existing code...
                 .accessibilityLabel("paginatedDocument.pages.accessibility")
                 .accessibilityHint("paginatedDocument.pages.hint")
                 .accessibilityAddTraits(.allowsDirectInteraction)
@@ -225,6 +225,7 @@ struct PaginatedDocumentView: View {
             }
             .disabled(!PrintService.isPrintingAvailable())
             .accessibilityLabel("paginatedDocument.print.accessibility")
+
         }
         .fixedSize()
         .accessibilityElement(children: .contain)
@@ -258,8 +259,9 @@ struct PaginatedDocumentView: View {
             return
         }
         
-        // Use global page setup from UserDefaults
-        let pageSetup = pageSetupPrefs.createPageSetup()
+        // Use per-project page setup
+        let pageSetup = project.pageSetup ?? PageSetup.createWithDefaults()
+        // ...existing code...
         
         #if DEBUG
         print("   - content length: \(content.count)")
@@ -317,8 +319,9 @@ struct PaginatedDocumentView: View {
         print("   - content length: \(textFile.currentVersion?.content.count ?? 0)")
         #endif
         
-        // Use global page setup from UserDefaults
-        let pageSetup = pageSetupPrefs.createPageSetup()
+        // Use per-project page setup
+        let pageSetup = project.pageSetup ?? PageSetup.createWithDefaults()
+        // ...existing code...
         
         if let existingManager = layoutManager {
             #if DEBUG

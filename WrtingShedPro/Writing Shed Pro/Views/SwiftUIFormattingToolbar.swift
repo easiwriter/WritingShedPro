@@ -5,6 +5,7 @@ import GameController
 struct SwiftUIFormattingToolbar: View {
     let onFormatAction: (FormattingAction) -> Void
     let hasSelectedImage: Bool
+    let notesExist: Bool
     @State private var hasHardwareKeyboard = false
     @State private var isKeyboardVisible = false
     
@@ -48,7 +49,7 @@ struct SwiftUIFormattingToolbar: View {
                     .disabled(!hasSelectedImage)
                 
                 // Notes (disabled when image selected)
-                toolbarButton(systemName: "list.clipboard", action: .notes)
+                toolbarButton(systemName: "list.clipboard", action: .notes, tint: notesExist ? Color.accentColor : nil)
                     .opacity(hasSelectedImage ? 0.3 : 1.0)
                     .disabled(hasSelectedImage)
                 
@@ -96,13 +97,14 @@ struct SwiftUIFormattingToolbar: View {
         }
     }
     
-    private func toolbarButton(systemName: String, action: FormattingAction) -> some View {
+    private func toolbarButton(systemName: String, action: FormattingAction, tint: Color? = nil) -> some View {
         Button {
             onFormatAction(action)
         } label: {
             Image(systemName: systemName)
                 .font(.system(size: 17))
                 .frame(width: 32, height: 44)
+                .foregroundColor(tint)
         }
         .buttonStyle(.plain)
         .controlSize(.small)
