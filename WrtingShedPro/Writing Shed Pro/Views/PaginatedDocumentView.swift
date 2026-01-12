@@ -68,12 +68,10 @@ struct PaginatedDocumentView: View {
             } else {
                 emptyStateView
             }
-            
-            // Toolbar overlay - stays on top regardless of content scale
-            VStack {
-                pageIndicatorToolbar
-                Spacer()
-            }
+        }
+        .safeAreaInset(edge: .top) {
+            // Page indicator toolbar - uses safeAreaInset so content scrolls underneath properly
+            pageIndicatorToolbar
         }
         .onAppear {
             #if DEBUG
