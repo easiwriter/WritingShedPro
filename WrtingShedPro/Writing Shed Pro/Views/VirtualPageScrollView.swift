@@ -21,6 +21,8 @@ struct VirtualPageScrollView: UIViewRepresentable {
     let version: Version?
     let modelContext: ModelContext
     let project: Project?
+    /// Starting page number for display (default 1). Use for page number offsets in headers/footers.
+    var startPageNumber: Int = 1
     @Binding var currentPage: Int
     var onPageChange: ((Int) -> Void)?
     var onZoomChange: ((CGFloat) -> Void)?
@@ -33,7 +35,8 @@ struct VirtualPageScrollView: UIViewRepresentable {
             pageSetup: pageSetup,
             version: version,
             modelContext: modelContext,
-            project: project
+            project: project,
+            startPageNumber: startPageNumber
         )
         scrollView.pageChangeHandler = { page in
             DispatchQueue.main.async {
@@ -50,7 +53,7 @@ struct VirtualPageScrollView: UIViewRepresentable {
     
     func updateUIView(_ uiView: VirtualPageScrollViewImpl, context: Context) {
         // Update if layout manager or page setup changed
-        uiView.updateLayout(layoutManager: layoutManager, pageSetup: pageSetup, version: version, modelContext: modelContext, project: project)
+        uiView.updateLayout(layoutManager: layoutManager, pageSetup: pageSetup, version: version, modelContext: modelContext, project: project, startPageNumber: startPageNumber)
         // Update zoom scale to adjust content insets
         uiView.updateZoomScale(zoomScale)
     }
@@ -213,15 +216,19 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
     /// Zoom change callback
     var zoomChangeHandler: ((CGFloat) -> Void)?
     
+    /// Starting page number for display (default 1)
+    private var startPageNumber: Int = 1
+    
     // MARK: - Initialization
     
-    init(layoutManager: PaginatedTextLayoutManager, pageSetup: PageSetup, version: Version?, modelContext: ModelContext, project: Project?) {
+    init(layoutManager: PaginatedTextLayoutManager, pageSetup: PageSetup, version: Version?, modelContext: ModelContext, project: Project?, startPageNumber: Int = 1) {
         self.layoutManager = layoutManager
         self.pageSetup = pageSetup
         self.pageLayout = PageLayoutCalculator.calculateLayout(from: pageSetup)
         self.version = version
         self.modelContext = modelContext
         self.project = project
+        self.startPageNumber = startPageNumber
         
         super.init(frame: .zero)
         
@@ -339,7 +346,7 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
     
     // MARK: - Layout Updates
     
-    func updateLayout(layoutManager: PaginatedTextLayoutManager, pageSetup: PageSetup, version: Version?, modelContext: ModelContext, project: Project?) {
+    func updateLayout(layoutManager: PaginatedTextLayoutManager, pageSetup: PageSetup, version: Version?, modelContext: ModelContext, project: Project?, startPageNumber: Int = 1) {
         // Always update - PageSetup properties may have changed even if same object
         self.layoutManager = layoutManager
         self.pageSetup = pageSetup
@@ -347,6 +354,7 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         self.version = version
         self.modelContext = modelContext
         self.project = project
+        self.startPageNumber = startPageNumber
         
         // Clear all rendered pages (they have old dimensions/positions)
         clearAllPages()
@@ -473,7 +481,8 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         // Get page frame
         let pageFrame = frameForPage(pageIndex)
         let totalPages = layoutManager.pageCount
-        let displayPageNumber = pageIndex + 1  // 1-based for display
+        // Use startPageNumber offset for display (e.g., startPageNumber=5 means first page shows "5")
+        let displayPageNumber = pageIndex + startPageNumber
         
         #if DEBUG
         if pageIndex == 0 {
@@ -482,6 +491,7 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
             print("   headerLeft: '\(pageSetup.headerLeft ?? "nil")', headerCenter: '\(pageSetup.headerCenter ?? "nil")', headerRight: '\(pageSetup.headerRight ?? "nil")'")
             print("   footerLeft: '\(pageSetup.footerLeft ?? "nil")', footerCenter: '\(pageSetup.footerCenter ?? "nil")', footerRight: '\(pageSetup.footerRight ?? "nil")'")
             print("   project name: '\(project?.name ?? "nil")'")
+            print("   startPageNumber: \(startPageNumber), displayPageNumber: \(displayPageNumber)")
         }
         #endif
         
