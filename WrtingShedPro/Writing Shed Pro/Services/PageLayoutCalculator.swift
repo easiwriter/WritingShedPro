@@ -100,26 +100,17 @@ struct PageLayoutCalculator {
         )
     }
     
-    /// Calculate the content area (text area minus header/footer space)
+    /// Calculate the content area (text area for main content)
     /// - Parameters:
-    ///   - textRect: The text area rectangle
+    ///   - textRect: The text area rectangle (page minus margins)
     ///   - pageSetup: Page setup with header/footer configuration
     /// - Returns: Rectangle representing the actual content area
+    /// - Note: Headers/footers are rendered in the margin areas, so we don't subtract
+    ///         their depths from the content area. The full textRect is available for content.
     static func calculateContentRect(textRect: CGRect, pageSetup: PageSetup) -> CGRect {
-        var contentRect = textRect
-        
-        // Reduce height for header if enabled
-        if pageSetup.hasHeaders {
-            contentRect.origin.y += pageSetup.headerDepth
-            contentRect.size.height -= pageSetup.headerDepth
-        }
-        
-        // Reduce height for footer if enabled
-        if pageSetup.hasFooters {
-            contentRect.size.height -= pageSetup.footerDepth
-        }
-        
-        return contentRect
+        // Since headers and footers are now positioned in the margin areas (not the text area),
+        // the full text rect is available for content. No need to reserve space.
+        return textRect
     }
     
     /// Calculate the header area

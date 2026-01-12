@@ -607,14 +607,13 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         }
         
         // Calculate frame and insets
-        let topInset = pageSetup.marginTop + (pageSetup.hasHeaders ? pageSetup.headerDepth : 0)
+        // Headers/footers are rendered in the margin areas, so we only use page margins for insets
+        let topInset = pageSetup.marginTop
         let leftInset = pageSetup.marginLeft
         let rightInset = pageSetup.marginRight
-        let bottomInset = pageSetup.marginBottom + (pageSetup.hasFooters ? pageSetup.footerDepth : 0)
+        let bottomInset = pageSetup.marginBottom
         
-        // For pages with footnotes, we need to limit the text view's visible height
-        // The text view frame should only cover the content area, not the footnote area
-        // Calculate height as: page height - top inset - bottom inset (footer area)
+        // Text view covers from top of page to bottom margin
         let textViewHeight = pageFrame.height - bottomInset
         
         textView.frame = CGRect(
