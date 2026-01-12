@@ -1,44 +1,108 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-extension FolderFilesView {
+// MARK: - View Modifier for All Sheets, Dialogs, and Alerts
+
+/// Custom view modifier that applies all FolderFilesView modifiers
+struct FolderFilesViewModifiers: ViewModifier {
+    @Bindable var view: FolderFilesViewState
     
-    /// Apply all sheet and alert modifiers to the view
-    @ViewBuilder
-    func applySheets<Content: View>(_ content: Content) -> some View {
+    func body(content: Content) -> some View {
         content
-            .sheet(isPresented: $showMoveDestinationPicker) {
-                moveDestinationSheet
+            // Sheets
+            .sheet(isPresented: view.$showMoveDestinationPicker) {
+                view.moveDestinationSheet
             }
-            .sheet(isPresented: $showSearchView) {
-                MultiFileSearchView(folder: folder, files: sortedFiles)
+            .sheet(isPresented: view.$showSearchView) {
+                view.searchSheet
             }
-            .sheet(isPresented: $showAddFileSheet) {
-                AddFileSheet(
-                    isPresented: $showAddFileSheet,
-                    parentFolder: folder,
-                    existingFiles: folder.textFiles ?? []
-                )
+            .sheet(isPresented: view.$showAddFileSheet) {
+                view.addFileSheet
             }
-            .sheet(isPresented: $showAddFolderSheet) {
-                addFolderSheet
+            .sheet(isPresented: view.$showAddFolderSheet) {
+                view.addFolderSheet
             }
-            .sheet(isPresented: $showSubmissionPicker) {
-                submissionPickerSheet
+            .sheet(isPresented: view.$showSubmissionPicker) {
+                view.submissionPickerSheet
             }
-            .sheet(isPresented: $showCollectionPicker) {
-                collectionPickerSheet
+            .sheet(isPresented: view.$showCollectionPicker) {
+                view.collectionPickerSheet
             }
-            .sheet(isPresented: $showRenamePicker) {
-                renamePickerSheet
+            .sheet(isPresented: view.$showRenamePicker) {
+                view.renamePickerSheet
             }
-            .sheet(isPresented: $showFolderMoveDestinationPicker) {
-                folderMoveDestinationSheet
+            .sheet(isPresented: view.$showFolderMoveDestinationPicker) {
+                view.folderMoveDestinationSheet
             }
-            .sheet(isPresented: $showStatusPicker) {
-                statusPickerSheet
+            .sheet(isPresented: view.$showStatusPicker) {
+                view.statusPickerSheet
+            }
+            // File Importer
+            .fileImporter(
+                isPresented: view.$showImportPicker,
+                allowedContentTypes: [.rtf, UTType("org.openxmlformats.wordprocessingml.document") ?? .data],
+                allowsMultipleSelection: false
+            ) { result in
+                view.handleImport(result: result)
+            }
+            // File Exporter
+            .fileExporter(
+                isPresented: view.$showExportSaveDialog,
+                document: view.exportDocument,
+                contentType: view.exportContentType,
+                defaultFilename: view.exportFilename
+            ) { result in
+                view.handleExportResult(result: result)
+            }
+            // Alerts
+            .alert("Import Failed", isPresented: view.$showImportError) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(view.importErrorMessage)
+            }
+            .alert("Images Not Supported", isPresented: view.$showImageWarning) {
+                Button("Continue Export", role: nil) {
+                    view.continueExportAfterImageWarning()
+                }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text(view.imageWarningMessage)
+            }
+            // Confirmation Dialogs
+            .confirmationDialog(
+                NSLocalizedString("folderFiles.deletePermanently.title", comment: "Delete Permanently"),
+                isPresented: view.$showPermanentDeleteConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button(NSLocalizedString("folderFiles.deletePermanently.confirm", comment: "Delete Permanently"), role: .destructive) {
+                    view.confirmPermanentDelete()
+                }
+                Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
+                    view.cancelPermanentDelete()
+                }
+            } message: {
+                Text(view.permanentDeleteMessage)
+            }
+            .confirmationDialog(NSLocalizedString("export.dialog.title", comment: "Export Format"), isPresented: view.$showExportMenu) {
+                view.exportMenuButtons
+            } message: {
+                Text(view.exportMenuMessage)
+            }
+            .confirmationDialog(NSLocalizedString("export.folder.dialog.title", comment: "Export Folder"), isPresented: view.$showExportFolderMenu) {
+                view.exportFolderMenuButtons
+            } message: {
+                Text(view.exportFolderMenuMessage)
+            }
+            // Header/Footer Dialog
+            .dialog(isPresented: view.$showHeaderFooterEditor) {
+                view.headerFooterDialog
             }
     }
+}
+
+extension FolderFilesView {
+    
+    // MARK: - Sheet Content Views
     
     @ViewBuilder
     var moveDestinationSheet: some View {
@@ -57,6 +121,20 @@ extension FolderFilesView {
                 )
             }
         }
+    }
+    
+    @ViewBuilder
+    var searchSheet: some View {
+        MultiFileSearchView(folder: folder, files: sortedFiles)
+    }
+    
+    @ViewBuilder
+    var addFileSheetContent: some View {
+        AddFileSheet(
+            isPresented: $showAddFileSheet,
+            parentFolder: folder,
+            existingFiles: folder.textFiles ?? []
+        )
     }
     
     @ViewBuilder
@@ -160,5 +238,130 @@ extension FolderFilesView {
                 showStatusPicker = false
             }
         )
+    }
+    
+    // MARK: - Export Menu Buttons
+    
+    @ViewBuilder
+    var exportMenuButtons: some View {
+        Button(ExportFormat.rtf.localizedName) {
+            exportFiles(format: .rtf)
+        }
+        Button(ExportFormat.html.localizedName) {
+            exportFiles(format: .html)
+        }
+        Button(ExportFormat.epub.localizedName) {
+            exportFiles(format: .epub)
+        }
+        Button(ExportFormat.word.localizedName) {
+            exportFiles(format: .word)
+        }
+        Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
+            filesToExport = []
+        }
+    }
+    
+    var exportMenuMessage: String {
+        String(format: NSLocalizedString("export.dialog.message", comment: "Choose export format"), filesToExport.count)
+    }
+    
+    @ViewBuilder
+    var exportFolderMenuButtons: some View {
+        Button(ExportFormat.rtf.localizedName) {
+            exportCombinedFolder(format: .rtf)
+        }
+        Button(ExportFormat.html.localizedName) {
+            exportCombinedFolder(format: .html)
+        }
+        Button(ExportFormat.epub.localizedName) {
+            exportCombinedFolder(format: .epub)
+        }
+        Button(ExportFormat.word.localizedName) {
+            exportCombinedFolder(format: .word)
+        }
+        Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
+            exportCombinedContent = nil
+        }
+    }
+    
+    var exportFolderMenuMessage: String {
+        String(format: NSLocalizedString("export.folder.dialog.message", comment: "Export all files combined"), sortedFiles.count)
+    }
+    
+    // MARK: - Permanent Delete
+    
+    var permanentDeleteMessage: String {
+        if filesToPermanentlyDelete.count == 1 {
+            return String(format: NSLocalizedString("folderFiles.deletePermanently.message.single", comment: "This will permanently delete the file"), filesToPermanentlyDelete.first?.name ?? "")
+        } else {
+            return String(format: NSLocalizedString("folderFiles.deletePermanently.message.multiple", comment: "This will permanently delete files"), filesToPermanentlyDelete.count)
+        }
+    }
+    
+    func confirmPermanentDelete() {
+        deleteFilesPermanently(filesToPermanentlyDelete)
+        filesToPermanentlyDelete = []
+    }
+    
+    func cancelPermanentDelete() {
+        filesToPermanentlyDelete = []
+    }
+    
+    // MARK: - Image Warning Continue
+    
+    func continueExportAfterImageWarning() {
+        if let content = exportCombinedContent {
+            performCombinedExport(format: exportFormat, content: content)
+        } else if let firstFile = filesToExport.first,
+                  let version = firstFile.currentVersion,
+                  let attributedString = version.attributedContent {
+            performSingleFileExport(format: exportFormat, content: attributedString, filename: firstFile.name)
+        }
+    }
+    
+    // MARK: - Header/Footer Dialog
+    
+    @ViewBuilder
+    var headerFooterDialog: some View {
+        HeaderFooterDialog(
+            headerEnabled: folder.project?.pageSetup?.hasHeaders ?? false,
+            footerEnabled: folder.project?.pageSetup?.hasFooters ?? false,
+            headerLeft: $headerLeft,
+            headerCenter: $headerCenter,
+            headerRight: $headerRight,
+            footerLeft: $footerLeft,
+            footerCenter: $footerCenter,
+            footerRight: $footerRight,
+            headerInsertTarget: $headerInsertTarget,
+            footerInsertTarget: $footerInsertTarget,
+            showHeaderElementPicker: $showHeaderElementPicker,
+            showFooterElementPicker: $showFooterElementPicker,
+            headerFooterElements: headerFooterElements,
+            onCancel: { showHeaderFooterEditor = false },
+            onSave: {
+                if let pageSetup = folder.project?.pageSetup {
+                    pageSetup.headerLeft = headerLeft
+                    pageSetup.headerCenter = headerCenter
+                    pageSetup.headerRight = headerRight
+                    pageSetup.footerLeft = footerLeft
+                    pageSetup.footerCenter = footerCenter
+                    pageSetup.footerRight = footerRight
+                }
+                showHeaderFooterEditor = false
+            }
+        )
+    }
+    
+    // MARK: - Initialize Header/Footer Fields
+    
+    func initializeHeaderFooterFields() {
+        if let pageSetup = folder.project?.pageSetup {
+            headerLeft = pageSetup.headerLeft ?? ""
+            headerCenter = pageSetup.headerCenter ?? ""
+            headerRight = pageSetup.headerRight ?? ""
+            footerLeft = pageSetup.footerLeft ?? ""
+            footerCenter = pageSetup.footerCenter ?? ""
+            footerRight = pageSetup.footerRight ?? ""
+        }
     }
 }

@@ -172,302 +172,83 @@ struct FolderFilesView: View {
     }
     
     var body: some View {
+        mainContent
+            .navigationTitle(folder.name ?? "Files")
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarBackButtonHidden(true)
+            .navigationDestination(isPresented: $navigateToFile) {
+                navigationDestinationContent
+            }
+            .environment(\.editMode, $editMode)
+            .onPopToRoot { dismiss() }
+            .toolbar { folderToolbar }
+            .sheet(isPresented: $showMoveDestinationPicker) { moveDestinationSheet }
+            .sheet(isPresented: $showSearchView) { searchSheet }
+            .sheet(isPresented: $showAddFileSheet) { addFileSheetContent }
+            .sheet(isPresented: $showAddFolderSheet) { addFolderSheet }
+            .sheet(isPresented: $showSubmissionPicker) { submissionPickerSheet }
+            .sheet(isPresented: $showCollectionPicker) { collectionPickerSheet }
+            .sheet(isPresented: $showRenamePicker) { renamePickerSheet }
+            .sheet(isPresented: $showFolderMoveDestinationPicker) { folderMoveDestinationSheet }
+            .sheet(isPresented: $showStatusPicker) { statusPickerSheet }
+            .fileImporter(
+                isPresented: $showImportPicker,
+                allowedContentTypes: [.rtf, UTType("org.openxmlformats.wordprocessingml.document") ?? .data],
+                allowsMultipleSelection: false,
+                onCompletion: handleImport
+            )
+            .fileExporter(
+                isPresented: $showExportSaveDialog,
+                document: ExportDocument(data: exportData ?? Data(), filename: exportFilename, contentType: contentTypeForFormat(exportFormat)),
+                contentType: contentTypeForFormat(exportFormat),
+                defaultFilename: exportFilename,
+                onCompletion: handleExportResult
+            )
+            .alert("Import Failed", isPresented: $showImportError) {
+                Button("OK", role: .cancel) {}
+            } message: { Text(importErrorMessage) }
+            .alert("Images Not Supported", isPresented: $showImageWarning) {
+                Button("Continue Export") { continueExportAfterImageWarning() }
+                Button("Cancel", role: .cancel) { }
+            } message: { Text(imageWarningMessage) }
+            .confirmationDialog(
+                NSLocalizedString("folderFiles.deletePermanently.title", comment: "Delete Permanently"),
+                isPresented: $showPermanentDeleteConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button(NSLocalizedString("folderFiles.deletePermanently.confirm", comment: ""), role: .destructive) { confirmPermanentDelete() }
+                Button(NSLocalizedString("button.cancel", comment: ""), role: .cancel) { cancelPermanentDelete() }
+            } message: { Text(permanentDeleteMessage) }
+            .confirmationDialog(NSLocalizedString("export.dialog.title", comment: ""), isPresented: $showExportMenu) {
+                exportMenuButtons
+            } message: { Text(exportMenuMessage) }
+            .confirmationDialog(NSLocalizedString("export.folder.dialog.title", comment: ""), isPresented: $showExportFolderMenu) {
+                exportFolderMenuButtons
+            } message: { Text(exportFolderMenuMessage) }
+            .dialog(isPresented: $showHeaderFooterEditor) { headerFooterDialog }
+            .onAppear { initializeHeaderFooterFields() }
+    }
+    
+    // MARK: - Main Content (extracted to reduce body complexity)
+    
+    @ViewBuilder
+    private var mainContent: some View {
         VStack(spacing: 0) {
-            // Workflow status filter for content folders (Poems, Scenes, Scripts)
             if isContentFolder {
                 workflowStatusFilter
             }
-            
             Group {
                 if isMixedContentFolder {
-                    // Mixed content folder - show both subfolders and files
                     mixedContentBody
                 } else if !sortedFiles.isEmpty {
-                    // Show FileListView with sorted files
                     fileListSection
                 } else {
-                    // Empty state
                     ContentUnavailableView {
                         Label("folderFiles.noFiles", systemImage: "doc.text")
                     } description: {
                         Text("folderFiles.noFiles.hint")
                     }
                 }
-            }  // End Group
-        }  // End VStack
-        .navigationTitle(folder.name ?? "Files")
-        .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(true)
-        .navigationDestination(isPresented: $navigateToFile) {
-            navigationDestinationContent
-        }
-        .environment(\.editMode, $editMode)
-        .onPopToRoot {
-            dismiss()
-        }
-        .toolbar {
-            folderToolbar
-        }
-        .sheet(isPresented: $showMoveDestinationPicker) {
-            if let project = folder.project {
-                NavigationStack {
-                    MoveDestinationPicker(
-                        project: project,
-                        currentFolder: folder,
-                        filesToMove: filesToMove,
-                        onDestinationSelected: { destination in
-                            moveFiles(to: destination)
-                        },
-                        onCancel: {
-                            showMoveDestinationPicker = false
-                        }
-                    )
-                }
-            }
-        }
-        .sheet(isPresented: $showSearchView) {
-            MultiFileSearchView(folder: folder, files: sortedFiles)
-        }
-        .sheet(isPresented: $showAddFileSheet) {
-            AddFileSheet(
-                isPresented: $showAddFileSheet,
-                parentFolder: folder,
-                existingFiles: folder.textFiles ?? []
-            )
-        }
-        .sheet(isPresented: $showAddFolderSheet) {
-            if let project = folder.project {
-                AddFolderSheet(
-                    isPresented: $showAddFolderSheet,
-                    project: project,
-                    parentFolder: folder,
-                    existingFolders: sortedSubfolders
-                )
-            }
-        }
-        .sheet(isPresented: $showSubmissionPicker) {
-            if let project = folder.project {
-                NavigationStack {
-                    SubmissionPickerView(
-                        project: project,
-                        filesToSubmit: filesToSubmit,
-                        collectionToSubmit: nil,
-                        onPublicationSelected: { publication, name in
-                            createSubmission(for: publication, name: name)
-                            showSubmissionPicker = false
-                        },
-                        onCancel: {
-                            showSubmissionPicker = false
-                        }
-                    )
-                }
-            }
-        }
-        .sheet(isPresented: $showCollectionPicker) {
-            if let project = folder.project {
-                NavigationStack {
-                    CollectionPickerView(
-                        project: project,
-                        filesToAddToCollection: filesToAddToCollection,
-                        collectionsToAddToPublication: nil,
-                        mode: .addFilesToCollection,
-                        onCollectionSelected: { collection in
-                            addFilesToCollection(collection)
-                            showCollectionPicker = false
-                        },
-                        onCancel: {
-                            showCollectionPicker = false
-                        }
-                    )
-                }
-            }
-        }
-        .sheet(isPresented: $showRenamePicker) {
-            if let file = filesToRename.first {
-                NavigationStack {
-                    RenameFileModal(
-                        file: file,
-                        filesInFolder: sortedFiles,
-                        onRename: { newName in
-                            renameFile(newName: newName)
-                        }
-                    )
-                }
-            }
-        }
-        .sheet(isPresented: $showFolderMoveDestinationPicker) {
-            if let project = folder.project {
-                FolderMoveDestinationPicker(
-                    project: project,
-                    currentFolder: folder,
-                    folderToMove: folderToMove,
-                    filesToMove: [],  // No longer used for file movement
-                    onDestinationSelected: { destination in
-                        if let folderMoving = folderToMove {
-                            moveSubfolder(folderMoving, to: destination)
-                        }
-                        showFolderMoveDestinationPicker = false
-                    },
-                    onCancel: {
-                        showFolderMoveDestinationPicker = false
-                    }
-                )
-            }
-        }
-        .sheet(isPresented: $showStatusPicker) {
-            WorkflowStatusPickerSheet(
-                files: filesToChangeStatus,
-                onStatusSelected: { newStatus in
-                    changeFilesStatus(filesToChangeStatus, to: newStatus)
-                    showStatusPicker = false
-                },
-                onCancel: {
-                    showStatusPicker = false
-                }
-            )
-        }
-        .fileImporter(
-            isPresented: $showImportPicker,
-            allowedContentTypes: [.rtf, UTType("org.openxmlformats.wordprocessingml.document") ?? .data],
-            allowsMultipleSelection: false
-        ) { result in
-            handleImport(result: result)
-        }
-        .alert("Import Failed", isPresented: $showImportError) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(importErrorMessage)
-        }
-        .confirmationDialog(
-            NSLocalizedString("folderFiles.deletePermanently.title", comment: "Delete Permanently"),
-            isPresented: $showPermanentDeleteConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button(NSLocalizedString("folderFiles.deletePermanently.confirm", comment: "Delete Permanently"), role: .destructive) {
-                deleteFilesPermanently(filesToPermanentlyDelete)
-                filesToPermanentlyDelete = []
-            }
-            Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
-                filesToPermanentlyDelete = []
-            }
-        } message: {
-            if filesToPermanentlyDelete.count == 1 {
-                Text(String(format: NSLocalizedString("folderFiles.deletePermanently.message.single", comment: "This will permanently delete the file"), filesToPermanentlyDelete.first?.name ?? ""))
-            } else {
-                Text(String(format: NSLocalizedString("folderFiles.deletePermanently.message.multiple", comment: "This will permanently delete files"), filesToPermanentlyDelete.count))
-            }
-        }
-        .confirmationDialog(NSLocalizedString("export.dialog.title", comment: "Export Format"), isPresented: $showExportMenu) {
-            Button(ExportFormat.rtf.localizedName) {
-                exportFiles(format: .rtf)
-            }
-            
-            Button(ExportFormat.html.localizedName) {
-                exportFiles(format: .html)
-            }
-            
-            Button(ExportFormat.epub.localizedName) {
-                exportFiles(format: .epub)
-            }
-            
-            Button(ExportFormat.word.localizedName) {
-                exportFiles(format: .word)
-            }
-            
-            Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
-                filesToExport = []
-            }
-        } message: {
-            Text(String(format: NSLocalizedString("export.dialog.message", comment: "Choose export format"), filesToExport.count))
-        }
-        .confirmationDialog(NSLocalizedString("export.folder.dialog.title", comment: "Export Folder"), isPresented: $showExportFolderMenu) {
-            Button(ExportFormat.rtf.localizedName) {
-                exportCombinedFolder(format: .rtf)
-            }
-            
-            Button(ExportFormat.html.localizedName) {
-                exportCombinedFolder(format: .html)
-            }
-            
-            Button(ExportFormat.epub.localizedName) {
-                exportCombinedFolder(format: .epub)
-            }
-            
-            Button(ExportFormat.word.localizedName) {
-                exportCombinedFolder(format: .word)
-            }
-            
-            Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
-                exportCombinedContent = nil
-            }
-        } message: {
-            Text(String(format: NSLocalizedString("export.folder.dialog.message", comment: "Export all files combined"), sortedFiles.count))
-        }
-        .fileExporter(
-            isPresented: $showExportSaveDialog,
-            document: ExportDocument(
-                data: exportData ?? Data(),
-                filename: exportFilename,
-                contentType: contentTypeForFormat(exportFormat)
-            ),
-            contentType: contentTypeForFormat(exportFormat),
-            defaultFilename: exportFilename
-        ) { result in
-            handleExportResult(result: result)
-        }
-        .alert("Images Not Supported", isPresented: $showImageWarning) {
-            Button("Continue Export", role: nil) {
-                // Continue with export after user acknowledges the warning
-                if let content = exportCombinedContent {
-                    performCombinedExport(format: exportFormat, content: content)
-                } else if let firstFile = filesToExport.first,
-                          let version = firstFile.currentVersion,
-                          let attributedString = version.attributedContent {
-                    performSingleFileExport(format: exportFormat, content: attributedString, filename: firstFile.name)
-                }
-            }
-            Button("Cancel", role: .cancel) { }
-        } message: {
-            Text(imageWarningMessage)
-        }
-        .dialog(isPresented: $showHeaderFooterEditor) {
-            HeaderFooterDialog(
-                headerEnabled: folder.project?.pageSetup?.hasHeaders ?? false,
-                footerEnabled: folder.project?.pageSetup?.hasFooters ?? false,
-                headerLeft: $headerLeft,
-                headerCenter: $headerCenter,
-                headerRight: $headerRight,
-                footerLeft: $footerLeft,
-                footerCenter: $footerCenter,
-                footerRight: $footerRight,
-                headerInsertTarget: $headerInsertTarget,
-                footerInsertTarget: $footerInsertTarget,
-                showHeaderElementPicker: $showHeaderElementPicker,
-                showFooterElementPicker: $showFooterElementPicker,
-                headerFooterElements: headerFooterElements,
-                onCancel: { showHeaderFooterEditor = false },
-                onSave: {
-                    if let pageSetup = folder.project?.pageSetup {
-                        pageSetup.headerLeft = headerLeft
-                        pageSetup.headerCenter = headerCenter
-                        pageSetup.headerRight = headerRight
-                        pageSetup.footerLeft = footerLeft
-                        pageSetup.footerCenter = footerCenter
-                        pageSetup.footerRight = footerRight
-                    }
-                    showHeaderFooterEditor = false
-                }
-            )
-        }
-        .onAppear {
-            // Initialize header/footer fields from project page setup
-            if let pageSetup = folder.project?.pageSetup {
-                headerLeft = pageSetup.headerLeft ?? ""
-                headerCenter = pageSetup.headerCenter ?? ""
-                headerRight = pageSetup.headerRight ?? ""
-                footerLeft = pageSetup.footerLeft ?? ""
-                footerCenter = pageSetup.footerCenter ?? ""
-                footerRight = pageSetup.footerRight ?? ""
             }
         }
     }
