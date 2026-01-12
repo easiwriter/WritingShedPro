@@ -610,10 +610,12 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         let topInset = pageSetup.marginTop + (pageSetup.hasHeaders ? pageSetup.headerDepth : 0)
         let leftInset = pageSetup.marginLeft
         let rightInset = pageSetup.marginRight
+        let bottomInset = pageSetup.marginBottom + (pageSetup.hasFooters ? pageSetup.footerDepth : 0)
         
         // For pages with footnotes, we need to limit the text view's visible height
         // The text view frame should only cover the content area, not the footnote area
-        let textViewHeight = topInset + contentHeight
+        // Calculate height as: page height - top inset - bottom inset (footer area)
+        let textViewHeight = pageFrame.height - bottomInset
         
         textView.frame = CGRect(
             x: pageFrame.origin.x,
@@ -862,9 +864,8 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         textView.layer.shadowRadius = 6
         textView.layer.masksToBounds = false
         
-        // Add subtle border for page definition
-        textView.layer.borderColor = UIColor.systemGray4.cgColor
-        textView.layer.borderWidth = 0.5
+        // No border - clean page appearance
+        textView.layer.borderWidth = 0
         
         return textView
     }
