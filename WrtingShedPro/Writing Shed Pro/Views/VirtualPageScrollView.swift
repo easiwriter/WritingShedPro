@@ -21,8 +21,8 @@ struct VirtualPageScrollView: UIViewRepresentable {
     let version: Version?
     let modelContext: ModelContext
     let project: Project?
-    /// Starting page number for display (default 1). Use for page number offsets in headers/footers.
-    var startPageNumber: Int = 1
+    /// When true, show actual page numbers in headers/footers. When false (default), show "#" as placeholder.
+    var showActualPageNumbers: Bool = false
     @Binding var currentPage: Int
     var onPageChange: ((Int) -> Void)?
     var onZoomChange: ((CGFloat) -> Void)?
@@ -36,7 +36,7 @@ struct VirtualPageScrollView: UIViewRepresentable {
             version: version,
             modelContext: modelContext,
             project: project,
-            startPageNumber: startPageNumber
+            showActualPageNumbers: showActualPageNumbers
         )
         scrollView.pageChangeHandler = { page in
             DispatchQueue.main.async {
@@ -53,7 +53,7 @@ struct VirtualPageScrollView: UIViewRepresentable {
     
     func updateUIView(_ uiView: VirtualPageScrollViewImpl, context: Context) {
         // Update if layout manager or page setup changed
-        uiView.updateLayout(layoutManager: layoutManager, pageSetup: pageSetup, version: version, modelContext: modelContext, project: project, startPageNumber: startPageNumber)
+        uiView.updateLayout(layoutManager: layoutManager, pageSetup: pageSetup, version: version, modelContext: modelContext, project: project, showActualPageNumbers: showActualPageNumbers)
         // Update zoom scale to adjust content insets
         uiView.updateZoomScale(zoomScale)
     }
@@ -68,7 +68,7 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
     
     /// Resolve placeholder tokens in header/footer text
     /// Supported placeholders: {{Date}}, {{Page Number}}, {{Folder}}, {{Project Name}}, {{Author}}
-    private func resolvePlaceholders(_ text: String?, pageNumber: Int, totalPages: Int) -> String {
+    private func resolvePlaceholders(_ text: String?, pageNumber: Int, totalPages: Int, showActualPageNumbers: Bool) -> String {
         guard let text = text, !text.isEmpty else { return "" }
         
         var result = text
@@ -81,9 +81,10 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
             result = result.replacingOccurrences(of: "{{Date}}", with: formatter.string(from: Date()))
         }
         
-        // {{Page Number}} - Current page
+        // {{Page Number}} - Current page (or "#" placeholder if not showing actual numbers)
         if result.contains("{{Page Number}}") {
-            result = result.replacingOccurrences(of: "{{Page Number}}", with: "\(pageNumber)")
+            let pageDisplay = showActualPageNumbers ? "\(pageNumber)" : "#"
+            result = result.replacingOccurrences(of: "{{Page Number}}", with: pageDisplay)
         }
         
         // {{Folder}} - Source folder name (use project type folder name)
@@ -118,15 +119,16 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         right: String?,
         rect: CGRect,
         pageNumber: Int,
-        totalPages: Int
+        totalPages: Int,
+        showActualPageNumbers: Bool
     ) -> UIView {
         let container = UIView(frame: rect)
         container.backgroundColor = .clear
         
         // Resolve placeholders in each field
-        let leftText = resolvePlaceholders(left, pageNumber: pageNumber, totalPages: totalPages)
-        let centerText = resolvePlaceholders(center, pageNumber: pageNumber, totalPages: totalPages)
-        let rightText = resolvePlaceholders(right, pageNumber: pageNumber, totalPages: totalPages)
+        let leftText = resolvePlaceholders(left, pageNumber: pageNumber, totalPages: totalPages, showActualPageNumbers: showActualPageNumbers)
+        let centerText = resolvePlaceholders(center, pageNumber: pageNumber, totalPages: totalPages, showActualPageNumbers: showActualPageNumbers)
+        let rightText = resolvePlaceholders(right, pageNumber: pageNumber, totalPages: totalPages, showActualPageNumbers: showActualPageNumbers)
         
         let labelHeight: CGFloat = min(rect.height, 24)
         let verticalCenter = (rect.height - labelHeight) / 2
@@ -216,19 +218,19 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
     /// Zoom change callback
     var zoomChangeHandler: ((CGFloat) -> Void)?
     
-    /// Starting page number for display (default 1)
-    private var startPageNumber: Int = 1
+    /// Whether to show actual page numbers (true) or "#" placeholder (false)
+    private var showActualPageNumbers: Bool = false
     
     // MARK: - Initialization
     
-    init(layoutManager: PaginatedTextLayoutManager, pageSetup: PageSetup, version: Version?, modelContext: ModelContext, project: Project?, startPageNumber: Int = 1) {
+    init(layoutManager: PaginatedTextLayoutManager, pageSetup: PageSetup, version: Version?, modelContext: ModelContext, project: Project?, showActualPageNumbers: Bool = false) {
         self.layoutManager = layoutManager
         self.pageSetup = pageSetup
         self.pageLayout = PageLayoutCalculator.calculateLayout(from: pageSetup)
         self.version = version
         self.modelContext = modelContext
         self.project = project
-        self.startPageNumber = startPageNumber
+        self.showActualPageNumbers = showActualPageNumbers
         
         super.init(frame: .zero)
         
@@ -346,7 +348,7 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
     
     // MARK: - Layout Updates
     
-    func updateLayout(layoutManager: PaginatedTextLayoutManager, pageSetup: PageSetup, version: Version?, modelContext: ModelContext, project: Project?, startPageNumber: Int = 1) {
+    func updateLayout(layoutManager: PaginatedTextLayoutManager, pageSetup: PageSetup, version: Version?, modelContext: ModelContext, project: Project?, showActualPageNumbers: Bool = false) {
         // Always update - PageSetup properties may have changed even if same object
         self.layoutManager = layoutManager
         self.pageSetup = pageSetup
@@ -354,7 +356,7 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         self.version = version
         self.modelContext = modelContext
         self.project = project
-        self.startPageNumber = startPageNumber
+        self.showActualPageNumbers = showActualPageNumbers
         
         // Clear all rendered pages (they have old dimensions/positions)
         clearAllPages()
@@ -481,8 +483,8 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         // Get page frame
         let pageFrame = frameForPage(pageIndex)
         let totalPages = layoutManager.pageCount
-        // Use startPageNumber offset for display (e.g., startPageNumber=5 means first page shows "5")
-        let displayPageNumber = pageIndex + startPageNumber
+        // Display page number is 1-based
+        let displayPageNumber = pageIndex + 1
         
         #if DEBUG
         if pageIndex == 0 {
@@ -491,7 +493,7 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
             print("   headerLeft: '\(pageSetup.headerLeft ?? "nil")', headerCenter: '\(pageSetup.headerCenter ?? "nil")', headerRight: '\(pageSetup.headerRight ?? "nil")'")
             print("   footerLeft: '\(pageSetup.footerLeft ?? "nil")', footerCenter: '\(pageSetup.footerCenter ?? "nil")', footerRight: '\(pageSetup.footerRight ?? "nil")'")
             print("   project name: '\(project?.name ?? "nil")'")
-            print("   startPageNumber: \(startPageNumber), displayPageNumber: \(displayPageNumber)")
+            print("   showActualPageNumbers: \(showActualPageNumbers)")
         }
         #endif
         
@@ -523,7 +525,8 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
                 right: pageSetup.headerRight,
                 rect: adjustedHeaderRect,
                 pageNumber: displayPageNumber,
-                totalPages: totalPages
+                totalPages: totalPages,
+                showActualPageNumbers: showActualPageNumbers
             )
             zoomContainerView.addSubview(headerView!)
         }
@@ -543,7 +546,8 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
                 right: pageSetup.footerRight,
                 rect: adjustedFooterRect,
                 pageNumber: displayPageNumber,
-                totalPages: totalPages
+                totalPages: totalPages,
+                showActualPageNumbers: showActualPageNumbers
             )
             zoomContainerView.addSubview(footerView!)
         }

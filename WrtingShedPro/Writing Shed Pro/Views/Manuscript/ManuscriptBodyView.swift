@@ -75,7 +75,8 @@ struct ManuscriptBodyView: View {
             let assembledTextFile = makeAssembledTextFileWithPageBreaks(from: allFiles, name: project.name ?? "Manuscript")
             PaginatedDocumentView(
                 textFile: assembledTextFile,
-                project: project
+                project: project,
+                showActualPageNumbers: true
             )
         } else {
             ContentUnavailableView {

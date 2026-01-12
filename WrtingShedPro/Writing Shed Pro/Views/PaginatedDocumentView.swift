@@ -16,6 +16,8 @@ struct PaginatedDocumentView: View {
     
     let textFile: TextFile
     let project: Project
+    /// When true, show actual page numbers in headers/footers. When false (default), show "#" as placeholder.
+    var showActualPageNumbers: Bool = false
     
     @Environment(\.modelContext) private var modelContext
     
@@ -48,6 +50,7 @@ struct PaginatedDocumentView: View {
                     version: textFile.currentVersion,
                     modelContext: modelContext,
                     project: project,
+                    showActualPageNumbers: showActualPageNumbers,
                     currentPage: $currentPage,
                     onZoomChange: { newZoom in
                         DispatchQueue.main.async {
