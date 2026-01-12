@@ -36,7 +36,9 @@ struct VirtualPageScrollView: UIViewRepresentable {
             project: project
         )
         scrollView.pageChangeHandler = { page in
-            currentPage = page
+            DispatchQueue.main.async {
+                currentPage = page
+            }
             onPageChange?(page)
         }
         scrollView.zoomChangeHandler = { zoom in
@@ -58,37 +60,100 @@ struct VirtualPageScrollView: UIViewRepresentable {
 
 /// UIScrollView subclass that implements virtual page scrolling
 class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
-        // Helper to create header/footer label view
-        private func makeHeaderFooterLabel(left: String?, center: String?, right: String?, frame: CGRect, isHeader: Bool) -> UIView {
-            let labelHeight: CGFloat = 24
-            let yPos: CGFloat = isHeader ? frame.origin.y + 4 : frame.origin.y + frame.height - labelHeight - 4
-            let labelFrame = CGRect(x: frame.origin.x, y: yPos, width: frame.width, height: labelHeight)
-            let container = UIView(frame: labelFrame)
-            container.backgroundColor = .clear
-
-            let leftLabel = UILabel()
-            leftLabel.text = left ?? ""
-            leftLabel.font = UIFont.systemFont(ofSize: 14)
-            leftLabel.textAlignment = .left
-            leftLabel.frame = CGRect(x: 0, y: 0, width: frame.width/3, height: labelHeight)
-
-            let centerLabel = UILabel()
-            centerLabel.text = center ?? ""
-            centerLabel.font = UIFont.systemFont(ofSize: 14)
-            centerLabel.textAlignment = .center
-            centerLabel.frame = CGRect(x: frame.width/3, y: 0, width: frame.width/3, height: labelHeight)
-
-            let rightLabel = UILabel()
-            rightLabel.text = right ?? ""
-            rightLabel.font = UIFont.systemFont(ofSize: 14)
-            rightLabel.textAlignment = .right
-            rightLabel.frame = CGRect(x: 2*frame.width/3, y: 0, width: frame.width/3, height: labelHeight)
-
-            container.addSubview(leftLabel)
-            container.addSubview(centerLabel)
-            container.addSubview(rightLabel)
-            return container
+    
+    // MARK: - Header/Footer Rendering
+    
+    /// Resolve placeholder tokens in header/footer text
+    /// Supported placeholders: {{Date}}, {{Page Number}}, {{Folder}}, {{Project Name}}, {{Author}}
+    private func resolvePlaceholders(_ text: String?, pageNumber: Int, totalPages: Int) -> String {
+        guard let text = text, !text.isEmpty else { return "" }
+        
+        var result = text
+        
+        // {{Date}} - Current date
+        if result.contains("{{Date}}") {
+            let formatter = DateFormatter()
+            formatter.dateStyle = .medium
+            formatter.timeStyle = .none
+            result = result.replacingOccurrences(of: "{{Date}}", with: formatter.string(from: Date()))
         }
+        
+        // {{Page Number}} - Current page
+        if result.contains("{{Page Number}}") {
+            result = result.replacingOccurrences(of: "{{Page Number}}", with: "\(pageNumber)")
+        }
+        
+        // {{Folder}} - Source folder name (use project type folder name)
+        if result.contains("{{Folder}}") {
+            let folderName: String
+            switch project?.type {
+            case .poetry:
+                folderName = NSLocalizedString("folder.poems", comment: "Poems")
+            case .fiction:
+                folderName = NSLocalizedString("folder.scenes", comment: "Scenes")
+            case .drama:
+                folderName = NSLocalizedString("folder.scripts", comment: "Scripts")
+            default:
+                folderName = NSLocalizedString("folder.sections", comment: "Sections")
+            }
+            result = result.replacingOccurrences(of: "{{Folder}}", with: folderName)
+        }
+        
+        // {{Project Name}} - Project title
+        if result.contains("{{Project Name}}") {
+            let projectName = project?.name ?? ""
+            result = result.replacingOccurrences(of: "{{Project Name}}", with: projectName)
+        }
+        
+        return result
+    }
+    
+    /// Create header or footer view using proper layout rect and resolved placeholders
+    private func makeHeaderFooterView(
+        left: String?,
+        center: String?,
+        right: String?,
+        rect: CGRect,
+        pageNumber: Int,
+        totalPages: Int
+    ) -> UIView {
+        let container = UIView(frame: rect)
+        container.backgroundColor = .clear
+        
+        // Resolve placeholders in each field
+        let leftText = resolvePlaceholders(left, pageNumber: pageNumber, totalPages: totalPages)
+        let centerText = resolvePlaceholders(center, pageNumber: pageNumber, totalPages: totalPages)
+        let rightText = resolvePlaceholders(right, pageNumber: pageNumber, totalPages: totalPages)
+        
+        let labelHeight: CGFloat = min(rect.height, 24)
+        let verticalCenter = (rect.height - labelHeight) / 2
+        
+        let leftLabel = UILabel()
+        leftLabel.text = leftText
+        leftLabel.font = UIFont.systemFont(ofSize: 12)
+        leftLabel.textColor = .secondaryLabel
+        leftLabel.textAlignment = .left
+        leftLabel.frame = CGRect(x: 0, y: verticalCenter, width: rect.width / 3, height: labelHeight)
+        
+        let centerLabel = UILabel()
+        centerLabel.text = centerText
+        centerLabel.font = UIFont.systemFont(ofSize: 12)
+        centerLabel.textColor = .secondaryLabel
+        centerLabel.textAlignment = .center
+        centerLabel.frame = CGRect(x: rect.width / 3, y: verticalCenter, width: rect.width / 3, height: labelHeight)
+        
+        let rightLabel = UILabel()
+        rightLabel.text = rightText
+        rightLabel.font = UIFont.systemFont(ofSize: 12)
+        rightLabel.textColor = .secondaryLabel
+        rightLabel.textAlignment = .right
+        rightLabel.frame = CGRect(x: 2 * rect.width / 3, y: verticalCenter, width: rect.width / 3, height: labelHeight)
+        
+        container.addSubview(leftLabel)
+        container.addSubview(centerLabel)
+        container.addSubview(rightLabel)
+        return container
+    }
     
     // MARK: - Types
     
@@ -96,6 +161,9 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         let pageIndex: Int
         let textView: UITextView
         let footnoteHostingController: UIHostingController<FootnoteRenderer>?
+        let headerView: UIView?
+        let footerView: UIView?
+        let pageBackgroundView: UIView
         let frame: CGRect
     }
     
@@ -404,26 +472,70 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         guard let pageInfo = layoutManager.pageInfo(forPage: pageIndex) else { return }
         // Get page frame
         let pageFrame = frameForPage(pageIndex)
-        // Render header/footer views if enabled
-        if pageSetup.hasHeaders {
-            let headerView = makeHeaderFooterLabel(
+        let totalPages = layoutManager.pageCount
+        let displayPageNumber = pageIndex + 1  // 1-based for display
+        
+        #if DEBUG
+        if pageIndex == 0 {
+            print("📄 Header/Footer Debug:")
+            print("   hasHeaders: \(pageSetup.hasHeaders), hasFooters: \(pageSetup.hasFooters)")
+            print("   headerLeft: '\(pageSetup.headerLeft ?? "nil")', headerCenter: '\(pageSetup.headerCenter ?? "nil")', headerRight: '\(pageSetup.headerRight ?? "nil")'")
+            print("   footerLeft: '\(pageSetup.footerLeft ?? "nil")', footerCenter: '\(pageSetup.footerCenter ?? "nil")', footerRight: '\(pageSetup.footerRight ?? "nil")'")
+            print("   project name: '\(project?.name ?? "nil")'")
+        }
+        #endif
+        
+        // Create page background view to cover full page (white paper appearance)
+        let pageBackgroundView = UIView(frame: pageFrame)
+        pageBackgroundView.backgroundColor = .systemBackground
+        pageBackgroundView.layer.shadowColor = UIColor.black.cgColor
+        pageBackgroundView.layer.shadowOffset = CGSize(width: 0, height: 2)
+        pageBackgroundView.layer.shadowOpacity = 0.1
+        pageBackgroundView.layer.shadowRadius = 4
+        zoomContainerView.addSubview(pageBackgroundView)
+        
+        // Track header/footer views for cleanup
+        var headerView: UIView? = nil
+        var footerView: UIView? = nil
+        
+        // Render header view if enabled, using proper layout rect
+        if pageSetup.hasHeaders, let headerRect = pageLayout.headerRect {
+            // Offset headerRect to page position
+            let adjustedHeaderRect = CGRect(
+                x: pageFrame.origin.x + headerRect.origin.x,
+                y: pageFrame.origin.y + headerRect.origin.y,
+                width: headerRect.width,
+                height: headerRect.height
+            )
+            headerView = makeHeaderFooterView(
                 left: pageSetup.headerLeft,
                 center: pageSetup.headerCenter,
                 right: pageSetup.headerRight,
-                frame: pageFrame,
-                isHeader: true
+                rect: adjustedHeaderRect,
+                pageNumber: displayPageNumber,
+                totalPages: totalPages
             )
-            zoomContainerView.addSubview(headerView)
+            zoomContainerView.addSubview(headerView!)
         }
-        if pageSetup.hasFooters {
-            let footerView = makeHeaderFooterLabel(
+        
+        // Render footer view if enabled, using proper layout rect
+        if pageSetup.hasFooters, let footerRect = pageLayout.footerRect {
+            // Offset footerRect to page position
+            let adjustedFooterRect = CGRect(
+                x: pageFrame.origin.x + footerRect.origin.x,
+                y: pageFrame.origin.y + footerRect.origin.y,
+                width: footerRect.width,
+                height: footerRect.height
+            )
+            footerView = makeHeaderFooterView(
                 left: pageSetup.footerLeft,
                 center: pageSetup.footerCenter,
                 right: pageSetup.footerRight,
-                frame: pageFrame,
-                isHeader: false
+                rect: adjustedFooterRect,
+                pageNumber: displayPageNumber,
+                totalPages: totalPages
             )
-            zoomContainerView.addSubview(footerView)
+            zoomContainerView.addSubview(footerView!)
         }
         
         // Query footnotes for this page FIRST (needed to calculate text area)
@@ -559,6 +671,9 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
             pageIndex: pageIndex,
             textView: textView,
             footnoteHostingController: footnoteController,
+            headerView: headerView,
+            footerView: footerView,
+            pageBackgroundView: pageBackgroundView,
             frame: pageFrame
         )
         renderedPages[pageIndex] = pageViewInfo
@@ -567,12 +682,25 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
     private func removePage(at pageIndex: Int) {
         guard let pageViewInfo = renderedPages[pageIndex] else { return }
         
-        // Remove from view hierarchy
+        // Remove page background from view hierarchy
+        pageViewInfo.pageBackgroundView.removeFromSuperview()
+        
+        // Remove text view from view hierarchy
         pageViewInfo.textView.removeFromSuperview()
         
         // Clean up footnote hosting controller if present
         if let footnoteController = pageViewInfo.footnoteHostingController {
             footnoteController.view.removeFromSuperview()
+        }
+        
+        // Clean up header view if present
+        if let headerView = pageViewInfo.headerView {
+            headerView.removeFromSuperview()
+        }
+        
+        // Clean up footer view if present
+        if let footerView = pageViewInfo.footerView {
+            footerView.removeFromSuperview()
         }
         
         // Return to cache
@@ -632,11 +760,37 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
                 right: pageSetup.marginRight
             )
             
+            // Reposition page background view
+            pageViewInfo.pageBackgroundView.frame = newFrame
+            
+            // Reposition header view if present
+            if let headerView = pageViewInfo.headerView, let headerRect = pageLayout.headerRect {
+                headerView.frame = CGRect(
+                    x: newFrame.origin.x + headerRect.origin.x,
+                    y: newFrame.origin.y + headerRect.origin.y,
+                    width: headerRect.width,
+                    height: headerRect.height
+                )
+            }
+            
+            // Reposition footer view if present
+            if let footerView = pageViewInfo.footerView, let footerRect = pageLayout.footerRect {
+                footerView.frame = CGRect(
+                    x: newFrame.origin.x + footerRect.origin.x,
+                    y: newFrame.origin.y + footerRect.origin.y,
+                    width: footerRect.width,
+                    height: footerRect.height
+                )
+            }
+            
             // Update stored frame
             renderedPages[pageIndex] = PageViewInfo(
                 pageIndex: pageIndex,
                 textView: pageViewInfo.textView,
                 footnoteHostingController: pageViewInfo.footnoteHostingController,
+                headerView: pageViewInfo.headerView,
+                footerView: pageViewInfo.footerView,
+                pageBackgroundView: pageViewInfo.pageBackgroundView,
                 frame: newFrame
             )
         }
@@ -663,7 +817,7 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         textView.isScrollEnabled = false
         textView.isEditable = false
         textView.isSelectable = true
-        textView.backgroundColor = .systemBackground
+        textView.backgroundColor = .clear  // Page background is now a separate view
         
         // Remove default text container padding (5pt on each side)
         textView.textContainer.lineFragmentPadding = 0

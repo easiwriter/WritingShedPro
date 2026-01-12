@@ -115,7 +115,22 @@ struct FolderListView: View {
     // Get subfolders for the selected folder
     var currentSubfolders: [Folder] {
         guard let selectedFolder = selectedFolder else { return [] }
-        return (selectedFolder.folders ?? []).sorted(by: { ($0.name ?? "") < ($1.name ?? "") })
+        let subfolders = selectedFolder.folders ?? []
+        
+        // Special ordering for Manuscript subfolders: Front Matter, Body, Back Matter
+        if selectedFolder.name == "Manuscript" {
+            let manuscriptOrder = ["Front Matter", "Body", "Back Matter"]
+            return subfolders.sorted { folder1, folder2 in
+                let name1 = folder1.name ?? ""
+                let name2 = folder2.name ?? ""
+                let index1 = manuscriptOrder.firstIndex(of: name1) ?? Int.max
+                let index2 = manuscriptOrder.firstIndex(of: name2) ?? Int.max
+                return index1 < index2
+            }
+        }
+        
+        // Default: alphabetical order
+        return subfolders.sorted(by: { ($0.name ?? "") < ($1.name ?? "") })
     }
     
     var body: some View {
@@ -492,8 +507,8 @@ struct FolderRowView: View {
     // Folder display name with count in brackets
     private var folderDisplayName: String {
         let baseName = folder.name ?? NSLocalizedString("folderList.untitledFolder", comment: "Untitled folder")
-        // Remove count for Body and Manuscript folders
-        if baseName == "Body" || baseName == "Manuscript" {
+        // Remove count for Body, Manuscript, Front Matter, and Back Matter folders
+        if baseName == "Body" || baseName == "Manuscript" || baseName == "Front Matter" || baseName == "Back Matter" {
             return baseName
         }
         let count: Int

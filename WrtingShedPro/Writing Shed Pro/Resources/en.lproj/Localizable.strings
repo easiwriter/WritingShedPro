@@ -704,6 +704,7 @@
 /* Folder names - Content folders */
 "folder.scripts" = "Scripts";
 "folder.plot" = "Plot";
+"folder.sections" = "Sections";
 
 /* FileEditView */
 "fileEdit.untitledFile" = "Untitled File";
@@ -1669,3 +1670,19 @@
 "editor.scenePlotElements" = "Plot Elements";
 "editor.noSceneLinks" = "No characters, locations, or plot elements linked to this scene";
 "editor.sceneLocation" = "Scene Location";
+
+/* Header/Footer Dialog */
+"headerfooter.title.both" = "Page Header and Footer";
+"headerfooter.title.header" = "Page Header";
+"headerfooter.title.footer" = "Page Footer";
+"headerfooter.title.setup" = "Page Setup";
+"headerfooter.section.header" = "Header Fields";
+"headerfooter.section.footer" = "Footer Fields";
+"headerfooter.field.left" = "Left Field:";
+"headerfooter.field.centre" = "Centre Field:";
+"headerfooter.field.right" = "Right Field:";
+"headerfooter.button.add" = "Add";
+"headerfooter.to" = "To:";
+"headerfooter.target.left" = "Left Field";
+"headerfooter.target.centre" = "Centre Field";
+"headerfooter.target.right" = "Right Field";

@@ -9,6 +9,17 @@ enum HeaderFooterField: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+enum HeaderFooterElement: String, CaseIterable, Identifiable {
+    case date = "Date"
+    case pageNumber = "Page Number"
+    case folder = "Folder"
+    case projectName = "Project Name"
+    
+    var id: String { rawValue }
+    var displayName: String { rawValue }
+    var placeholder: String { "{{\(rawValue)}}" }
+}
+
 struct HeaderFooterDialog: View {
     let headerEnabled: Bool
     let footerEnabled: Bool
@@ -25,111 +36,151 @@ struct HeaderFooterDialog: View {
     let headerFooterElements: [String]
     let onCancel: () -> Void
     let onSave: () -> Void
+    
+    @State private var headerSelectedElement: HeaderFooterElement = .date
+    @State private var footerSelectedElement: HeaderFooterElement = .pageNumber
 
     var dialogTitle: String {
-        if headerEnabled && footerEnabled { return "Page Header and Footer" }
-        if headerEnabled { return "Page Header" }
-        if footerEnabled { return "Page Footer" }
-        return "Page Setup"
+        if headerEnabled && footerEnabled { return NSLocalizedString("headerfooter.title.both", comment: "Page Header and Footer") }
+        if headerEnabled { return NSLocalizedString("headerfooter.title.header", comment: "Page Header") }
+        if footerEnabled { return NSLocalizedString("headerfooter.title.footer", comment: "Page Footer") }
+        return NSLocalizedString("headerfooter.title.setup", comment: "Page Setup")
     }
 
     var body: some View {
-        VStack(spacing: 24) {
-            Text(dialogTitle).font(.headline)
-            if headerEnabled {
-                VStack(spacing: 12) {
-                    Text("Header Fields").font(.subheadline)
-                    HStack {
-                        VStack(alignment: .leading) {
-                            Text("Left Field:")
-                            TextField("", text: $headerLeft)
-                        }
-                        VStack(alignment: .leading) {
-                            Text("Centre Field:")
-                            TextField("", text: $headerCenter)
-                        }
-                        VStack(alignment: .leading) {
-                            Text("Right Field:")
-                            TextField("", text: $headerRight)
-                        }
-                    }
-                    HStack {
-                        Button("Add") { showHeaderElementPicker = true }
-                        Picker("To:", selection: $headerInsertTarget) {
-                            Text("Left Field").tag(HeaderFooterField.left)
-                            Text("Centre Field").tag(HeaderFooterField.center)
-                            Text("Right Field").tag(HeaderFooterField.right)
-                        }
-                        .pickerStyle(MenuPickerStyle())
-                    }
-                    if showHeaderElementPicker {
-                        Picker("Insert Element", selection: .constant("")) {
-                            ForEach(headerFooterElements, id: \ .self) { el in
-                                Button(el) {
-                                    switch headerInsertTarget {
-                                    case .left: headerLeft += "{{" + el + "}}"
-                                    case .center: headerCenter += "{{" + el + "}}"
-                                    case .right: headerRight += "{{" + el + "}}"
-                                    default: break
-                                    }
-                                    showHeaderElementPicker = false
-                                }
-                            }
-                        }
-                    }
+        NavigationStack {
+            Form {
+                if headerEnabled {
+                    headerSection
                 }
-                Divider()
-            }
-            if footerEnabled {
-                VStack(spacing: 12) {
-                    Text("Footer Fields").font(.subheadline)
-                    HStack {
-                        VStack(alignment: .leading) {
-                            Text("Left Field:")
-                            TextField("", text: $footerLeft)
-                        }
-                        VStack(alignment: .leading) {
-                            Text("Centre Field:")
-                            TextField("", text: $footerCenter)
-                        }
-                        VStack(alignment: .leading) {
-                            Text("Right Field:")
-                            TextField("", text: $footerRight)
-                        }
-                    }
-                    HStack {
-                        Button("Add") { showFooterElementPicker = true }
-                        Picker("To:", selection: $footerInsertTarget) {
-                            Text("Left Field").tag(HeaderFooterField.left)
-                            Text("Centre Field").tag(HeaderFooterField.center)
-                            Text("Right Field").tag(HeaderFooterField.right)
-                        }
-                        .pickerStyle(MenuPickerStyle())
-                    }
-                    if showFooterElementPicker {
-                        Picker("Insert Element", selection: .constant("")) {
-                            ForEach(headerFooterElements, id: \ .self) { el in
-                                Button(el) {
-                                    switch footerInsertTarget {
-                                    case .left: footerLeft += "{{" + el + "}}"
-                                    case .center: footerCenter += "{{" + el + "}}"
-                                    case .right: footerRight += "{{" + el + "}}"
-                                    default: break
-                                    }
-                                    showFooterElementPicker = false
-                                }
-                            }
-                        }
-                    }
+                if footerEnabled {
+                    footerSection
                 }
             }
-            HStack {
-                Spacer()
-                Button("Cancel") { onCancel() }
-                Button("Save") { onSave() }
+            .formStyle(.grouped)
+            .navigationTitle(dialogTitle)
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(NSLocalizedString("button.cancel", comment: "Cancel")) { onCancel() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(NSLocalizedString("button.save", comment: "Save")) { onSave() }
+                }
             }
         }
-        .padding()
-        .frame(minWidth: 420)
+        #if os(macOS)
+        .frame(minWidth: 500, minHeight: headerEnabled && footerEnabled ? 340 : 200)
+        #endif
+    }
+    
+    // MARK: - Header Section
+    
+    private var headerSection: some View {
+        Section {
+            LabeledContent(NSLocalizedString("headerfooter.field.left", comment: "Left Field:")) {
+                TextField("", text: $headerLeft)
+                    .textFieldStyle(.roundedBorder)
+            }
+            LabeledContent(NSLocalizedString("headerfooter.field.centre", comment: "Centre Field:")) {
+                TextField("", text: $headerCenter)
+                    .textFieldStyle(.roundedBorder)
+            }
+            LabeledContent(NSLocalizedString("headerfooter.field.right", comment: "Right Field:")) {
+                TextField("", text: $headerRight)
+                    .textFieldStyle(.roundedBorder)
+            }
+            
+            HStack {
+                Button(NSLocalizedString("headerfooter.button.add", comment: "Add")) {
+                    insertElement(headerSelectedElement, isHeader: true)
+                }
+                
+                Picker("", selection: $headerSelectedElement) {
+                    ForEach(HeaderFooterElement.allCases) { element in
+                        Text(element.displayName).tag(element)
+                    }
+                }
+                .labelsHidden()
+                .fixedSize()
+                
+                Text(NSLocalizedString("headerfooter.to", comment: "To:"))
+                
+                Picker("", selection: $headerInsertTarget) {
+                    Text(NSLocalizedString("headerfooter.target.left", comment: "Left Field")).tag(HeaderFooterField.left)
+                    Text(NSLocalizedString("headerfooter.target.centre", comment: "Centre Field")).tag(HeaderFooterField.center)
+                    Text(NSLocalizedString("headerfooter.target.right", comment: "Right Field")).tag(HeaderFooterField.right)
+                }
+                .labelsHidden()
+                .fixedSize()
+            }
+        } header: {
+            Text(NSLocalizedString("headerfooter.section.header", comment: "Header Fields"))
+        }
+    }
+    
+    // MARK: - Footer Section
+    
+    private var footerSection: some View {
+        Section {
+            LabeledContent(NSLocalizedString("headerfooter.field.left", comment: "Left Field:")) {
+                TextField("", text: $footerLeft)
+                    .textFieldStyle(.roundedBorder)
+            }
+            LabeledContent(NSLocalizedString("headerfooter.field.centre", comment: "Centre Field:")) {
+                TextField("", text: $footerCenter)
+                    .textFieldStyle(.roundedBorder)
+            }
+            LabeledContent(NSLocalizedString("headerfooter.field.right", comment: "Right Field:")) {
+                TextField("", text: $footerRight)
+                    .textFieldStyle(.roundedBorder)
+            }
+            
+            HStack {
+                Button(NSLocalizedString("headerfooter.button.add", comment: "Add")) {
+                    insertElement(footerSelectedElement, isHeader: false)
+                }
+                
+                Picker("", selection: $footerSelectedElement) {
+                    ForEach(HeaderFooterElement.allCases) { element in
+                        Text(element.displayName).tag(element)
+                    }
+                }
+                .labelsHidden()
+                .fixedSize()
+                
+                Text(NSLocalizedString("headerfooter.to", comment: "To:"))
+                
+                Picker("", selection: $footerInsertTarget) {
+                    Text(NSLocalizedString("headerfooter.target.left", comment: "Left Field")).tag(HeaderFooterField.left)
+                    Text(NSLocalizedString("headerfooter.target.centre", comment: "Centre Field")).tag(HeaderFooterField.center)
+                    Text(NSLocalizedString("headerfooter.target.right", comment: "Right Field")).tag(HeaderFooterField.right)
+                }
+                .labelsHidden()
+                .fixedSize()
+            }
+        } header: {
+            Text(NSLocalizedString("headerfooter.section.footer", comment: "Footer Fields"))
+        }
+    }
+    
+    // MARK: - Helper Methods
+    
+    private func insertElement(_ element: HeaderFooterElement, isHeader: Bool) {
+        let placeholder = element.placeholder
+        let target = isHeader ? headerInsertTarget : footerInsertTarget
+        
+        switch target {
+        case .left:
+            if isHeader { headerLeft += placeholder } else { footerLeft += placeholder }
+        case .center:
+            if isHeader { headerCenter += placeholder } else { footerCenter += placeholder }
+        case .right:
+            if isHeader { headerRight += placeholder } else { footerRight += placeholder }
+        case .none:
+            break
+        }
     }
 }

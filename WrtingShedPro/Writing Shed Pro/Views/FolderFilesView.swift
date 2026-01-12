@@ -33,8 +33,8 @@ struct FolderFilesView: View {
     @State var showAddFolderSheet = false
     
     // State for navigation
-    @State private var selectedFile: TextFile?
-    @State private var navigateToFile = false
+    @State var selectedFile: TextFile?
+    @State var navigateToFile = false
     
     // State for submission picker
     @State var showSubmissionPicker = false
@@ -62,21 +62,21 @@ struct FolderFilesView: View {
     
     // State for Word document import
     @State var showImportPicker = false
-    @State private var showImportError = false
-    @State private var importErrorMessage = ""
+    @State var showImportError = false
+    @State var importErrorMessage = ""
     
     // State for export
-    @State private var showExportMenu = false
-    @State private var showExportFolderMenu = false
-    @State private var showExportSaveDialog = false
+    @State var showExportMenu = false
+    @State var showExportFolderMenu = false
+    @State var showExportSaveDialog = false
     @State var filesToExport: [TextFile] = []
     @State var exportFormat: ExportFormat = .rtf
-    @State private var exportData: Data?
-    @State private var exportFilename: String = ""
+    @State var exportData: Data?
+    @State var exportFilename: String = ""
     @State var exportCombinedContent: NSAttributedString?
-    @State private var exportAttributedStrings: [NSAttributedString] = []  // For HTML multi-file export
-    @State private var showImageWarning = false  // Show warning for RTF with images
-    @State private var imageWarningMessage = ""
+    @State var exportAttributedStrings: [NSAttributedString] = []  // For HTML multi-file export
+    @State var showImageWarning = false  // Show warning for RTF with images
+    @State var imageWarningMessage = ""
     
     // State for search
     @State var showSearchView = false
@@ -100,7 +100,7 @@ struct FolderFilesView: View {
     }
     
     // State for permanent delete confirmation
-    @State private var showPermanentDeleteConfirmation = false
+    @State var showPermanentDeleteConfirmation = false
     @State var filesToPermanentlyDelete: [TextFile] = []
     
     // State for workflow status filtering (for Poems, Scenes, Scripts folders)
@@ -160,7 +160,7 @@ struct FolderFilesView: View {
     }
     
     @ViewBuilder
-    private var navigationDestinationContent: some View {
+    var navigationDestinationContent: some View {
         if let file = selectedFile {
             if let project = folder.project, project.type == .drama,
                FolderCapabilityService.isContentFolder(folder) {
@@ -172,61 +172,12 @@ struct FolderFilesView: View {
     }
     
     var body: some View {
-        mainContent
-            .navigationTitle(folder.name ?? "Files")
-            .navigationBarTitleDisplayMode(.inline)
-            .navigationBarBackButtonHidden(true)
-            .navigationDestination(isPresented: $navigateToFile) {
-                navigationDestinationContent
-            }
-            .environment(\.editMode, $editMode)
-            .onPopToRoot { dismiss() }
-            .toolbar { folderToolbar }
-            .sheet(isPresented: $showMoveDestinationPicker) { moveDestinationSheet }
-            .sheet(isPresented: $showSearchView) { searchSheet }
-            .sheet(isPresented: $showAddFileSheet) { addFileSheetContent }
-            .sheet(isPresented: $showAddFolderSheet) { addFolderSheet }
-            .sheet(isPresented: $showSubmissionPicker) { submissionPickerSheet }
-            .sheet(isPresented: $showCollectionPicker) { collectionPickerSheet }
-            .sheet(isPresented: $showRenamePicker) { renamePickerSheet }
-            .sheet(isPresented: $showFolderMoveDestinationPicker) { folderMoveDestinationSheet }
-            .sheet(isPresented: $showStatusPicker) { statusPickerSheet }
-            .fileImporter(
-                isPresented: $showImportPicker,
-                allowedContentTypes: [.rtf, UTType("org.openxmlformats.wordprocessingml.document") ?? .data],
-                allowsMultipleSelection: false,
-                onCompletion: handleImport
-            )
-            .fileExporter(
-                isPresented: $showExportSaveDialog,
-                document: ExportDocument(data: exportData ?? Data(), filename: exportFilename, contentType: contentTypeForFormat(exportFormat)),
-                contentType: contentTypeForFormat(exportFormat),
-                defaultFilename: exportFilename,
-                onCompletion: handleExportResult
-            )
-            .alert("Import Failed", isPresented: $showImportError) {
-                Button("OK", role: .cancel) {}
-            } message: { Text(importErrorMessage) }
-            .alert("Images Not Supported", isPresented: $showImageWarning) {
-                Button("Continue Export") { continueExportAfterImageWarning() }
-                Button("Cancel", role: .cancel) { }
-            } message: { Text(imageWarningMessage) }
-            .confirmationDialog(
-                NSLocalizedString("folderFiles.deletePermanently.title", comment: "Delete Permanently"),
-                isPresented: $showPermanentDeleteConfirmation,
-                titleVisibility: .visible
-            ) {
-                Button(NSLocalizedString("folderFiles.deletePermanently.confirm", comment: ""), role: .destructive) { confirmPermanentDelete() }
-                Button(NSLocalizedString("button.cancel", comment: ""), role: .cancel) { cancelPermanentDelete() }
-            } message: { Text(permanentDeleteMessage) }
-            .confirmationDialog(NSLocalizedString("export.dialog.title", comment: ""), isPresented: $showExportMenu) {
-                exportMenuButtons
-            } message: { Text(exportMenuMessage) }
-            .confirmationDialog(NSLocalizedString("export.folder.dialog.title", comment: ""), isPresented: $showExportFolderMenu) {
-                exportFolderMenuButtons
-            } message: { Text(exportFolderMenuMessage) }
-            .dialog(isPresented: $showHeaderFooterEditor) { headerFooterDialog }
-            .onAppear { initializeHeaderFooterFields() }
+        let nav = applyNavigationModifiers(mainContent)
+        let sheets = applySheetModifiers(nav)
+        let files = applyFileModifiers(sheets)
+        let alerts = applyAlertModifiers(files)
+        let dialogs = applyDialogModifiers(alerts)
+        return dialogs.onAppear { initializeHeaderFooterFields() }
     }
     
     // MARK: - Main Content (extracted to reduce body complexity)
@@ -829,7 +780,7 @@ struct FolderFilesView: View {
         filesToAddToCollection = []
     }
     
-    private func handleImport(result: Result<[URL], Error>) {
+    func handleImport(result: Result<[URL], Error>) {
         switch result {
         case .success(let urls):
             guard let url = urls.first else { return }
@@ -1088,7 +1039,7 @@ struct FolderFilesView: View {
         }
     }
     
-    private func handleExportResult(result: Result<URL, Error>) {
+    func handleExportResult(result: Result<URL, Error>) {
         switch result {
         case .success(let url):
             #if DEBUG
@@ -1110,7 +1061,7 @@ struct FolderFilesView: View {
         }
     }
     
-    private func contentTypeForFormat(_ format: ExportFormat) -> UTType {
+    func contentTypeForFormat(_ format: ExportFormat) -> UTType {
         switch format {
         case .rtf:
             return .rtf
