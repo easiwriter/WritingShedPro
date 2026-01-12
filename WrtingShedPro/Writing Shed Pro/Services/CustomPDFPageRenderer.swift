@@ -122,9 +122,35 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
             containerHeight = contentRect.height
         }
         
-        // Calculate insets
-        let topInset = pageSetup.marginTop + (pageSetup.hasHeaders ? pageSetup.headerDepth : 0)
+        // Calculate insets - headers/footers are in margin areas, so just use margins
+        let topInset = pageSetup.marginTop
         let leftInset = pageSetup.marginLeft
+        
+        // Draw header if enabled
+        if pageSetup.hasHeaders, let headerRect = pageLayout.headerRect {
+            drawHeaderFooter(
+                left: pageSetup.headerLeft,
+                center: pageSetup.headerCenter,
+                right: pageSetup.headerRight,
+                rect: headerRect,
+                pageNumber: pageIndex + 1,
+                totalPages: numberOfPages,
+                context: context
+            )
+        }
+        
+        // Draw footer if enabled
+        if pageSetup.hasFooters, let footerRect = pageLayout.footerRect {
+            drawHeaderFooter(
+                left: pageSetup.footerLeft,
+                center: pageSetup.footerCenter,
+                right: pageSetup.footerRight,
+                rect: footerRect,
+                pageNumber: pageIndex + 1,
+                totalPages: numberOfPages,
+                context: context
+            )
+        }
         
         // Draw text content
         drawTextContent(
@@ -153,6 +179,102 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
     }
     
     // MARK: - Drawing Helpers
+    
+    /// Resolve placeholder tokens in header/footer text
+    private func resolvePlaceholders(_ text: String?, pageNumber: Int, totalPages: Int) -> String {
+        guard let text = text, !text.isEmpty else { return "" }
+        
+        var result = text
+        
+        // {{Date}} - Current date
+        if result.contains("{{Date}}") {
+            let formatter = DateFormatter()
+            formatter.dateStyle = .medium
+            formatter.timeStyle = .none
+            result = result.replacingOccurrences(of: "{{Date}}", with: formatter.string(from: Date()))
+        }
+        
+        // {{Page Number}} - Current page (always actual numbers for printing)
+        if result.contains("{{Page Number}}") {
+            result = result.replacingOccurrences(of: "{{Page Number}}", with: "\(pageNumber)")
+        }
+        
+        // {{Folder}} - Source folder name
+        if result.contains("{{Folder}}") {
+            let folderName: String
+            switch project.type {
+            case .poetry:
+                folderName = NSLocalizedString("folder.poems", comment: "Poems")
+            case .fiction:
+                folderName = NSLocalizedString("folder.scenes", comment: "Scenes")
+            case .drama:
+                folderName = NSLocalizedString("folder.scripts", comment: "Scripts")
+            default:
+                folderName = NSLocalizedString("folder.sections", comment: "Sections")
+            }
+            result = result.replacingOccurrences(of: "{{Folder}}", with: folderName)
+        }
+        
+        // {{Project Name}} - Project title
+        if result.contains("{{Project Name}}") {
+            let projectName = project.name ?? ""
+            result = result.replacingOccurrences(of: "{{Project Name}}", with: projectName)
+        }
+        
+        return result
+    }
+    
+    /// Draw header or footer text
+    private func drawHeaderFooter(
+        left: String?,
+        center: String?,
+        right: String?,
+        rect: CGRect,
+        pageNumber: Int,
+        totalPages: Int,
+        context: CGContext
+    ) {
+        // Resolve placeholders
+        let leftText = resolvePlaceholders(left, pageNumber: pageNumber, totalPages: totalPages)
+        let centerText = resolvePlaceholders(center, pageNumber: pageNumber, totalPages: totalPages)
+        let rightText = resolvePlaceholders(right, pageNumber: pageNumber, totalPages: totalPages)
+        
+        // Text attributes for header/footer
+        let font = UIFont.systemFont(ofSize: 12)
+        let textColor = UIColor.darkGray
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: textColor
+        ]
+        
+        let paragraphStyle = NSMutableParagraphStyle()
+        let labelHeight: CGFloat = min(rect.height, 20)
+        let verticalCenter = rect.origin.y + (rect.height - labelHeight) / 2
+        
+        // Draw left text
+        if !leftText.isEmpty {
+            paragraphStyle.alignment = .left
+            let leftAttributes = attributes.merging([.paragraphStyle: paragraphStyle]) { _, new in new }
+            let leftRect = CGRect(x: rect.origin.x, y: verticalCenter, width: rect.width / 3, height: labelHeight)
+            leftText.draw(in: leftRect, withAttributes: leftAttributes)
+        }
+        
+        // Draw center text
+        if !centerText.isEmpty {
+            paragraphStyle.alignment = .center
+            let centerAttributes = attributes.merging([.paragraphStyle: paragraphStyle]) { _, new in new }
+            let centerRect = CGRect(x: rect.origin.x + rect.width / 3, y: verticalCenter, width: rect.width / 3, height: labelHeight)
+            centerText.draw(in: centerRect, withAttributes: centerAttributes)
+        }
+        
+        // Draw right text
+        if !rightText.isEmpty {
+            paragraphStyle.alignment = .right
+            let rightAttributes = attributes.merging([.paragraphStyle: paragraphStyle]) { _, new in new }
+            let rightRect = CGRect(x: rect.origin.x + 2 * rect.width / 3, y: verticalCenter, width: rect.width / 3, height: labelHeight)
+            rightText.draw(in: rightRect, withAttributes: rightAttributes)
+        }
+    }
     
     private func drawTextContent(pageInfo: PaginatedTextLayoutManager.PageInfo,
                                  containerHeight: CGFloat,
