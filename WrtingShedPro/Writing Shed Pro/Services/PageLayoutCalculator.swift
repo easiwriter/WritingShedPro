@@ -51,8 +51,8 @@ struct PageLayoutCalculator {
         let textRect = calculateTextRect(pageRect: pageRect, pageSetup: pageSetup)
         let contentRect = calculateContentRect(textRect: textRect, pageSetup: pageSetup)
         
-        let headerRect = pageSetup.hasHeaders ? calculateHeaderRect(textRect: textRect, pageSetup: pageSetup) : nil
-        let footerRect = pageSetup.hasFooters ? calculateFooterRect(textRect: textRect, pageSetup: pageSetup) : nil
+        let headerRect = pageSetup.hasHeaders ? calculateHeaderRect(pageRect: pageRect, textRect: textRect, pageSetup: pageSetup) : nil
+        let footerRect = pageSetup.hasFooters ? calculateFooterRect(pageRect: pageRect, textRect: textRect, pageSetup: pageSetup) : nil
         
         return PageLayout(
             pageRect: pageRect,
@@ -124,13 +124,17 @@ struct PageLayoutCalculator {
     
     /// Calculate the header area
     /// - Parameters:
+    ///   - pageRect: The full page rectangle
     ///   - textRect: The text area rectangle
     ///   - pageSetup: Page setup with header configuration
-    /// - Returns: Rectangle representing the header area
-    static func calculateHeaderRect(textRect: CGRect, pageSetup: PageSetup) -> CGRect {
+    /// - Returns: Rectangle representing the header area (positioned in top margin)
+    static func calculateHeaderRect(pageRect: CGRect, textRect: CGRect, pageSetup: PageSetup) -> CGRect {
+        // Header is positioned in the top margin, above the text area
+        // Place it with a small gap from the page top edge
+        let topGap = min(pageSetup.marginTop / 3, 18.0)  // ~1/4 inch max from top
         return CGRect(
             x: textRect.origin.x,
-            y: textRect.origin.y,
+            y: topGap,
             width: textRect.width,
             height: pageSetup.headerDepth
         )
@@ -138,13 +142,17 @@ struct PageLayoutCalculator {
     
     /// Calculate the footer area
     /// - Parameters:
+    ///   - pageRect: The full page rectangle
     ///   - textRect: The text area rectangle
     ///   - pageSetup: Page setup with footer configuration
-    /// - Returns: Rectangle representing the footer area
-    static func calculateFooterRect(textRect: CGRect, pageSetup: PageSetup) -> CGRect {
+    /// - Returns: Rectangle representing the footer area (positioned in bottom margin)
+    static func calculateFooterRect(pageRect: CGRect, textRect: CGRect, pageSetup: PageSetup) -> CGRect {
+        // Footer is positioned in the bottom margin, below the text area
+        // Place it with a small gap from the page bottom edge
+        let bottomGap = min(pageSetup.marginBottom / 3, 18.0)  // ~1/4 inch max from bottom
         return CGRect(
             x: textRect.origin.x,
-            y: textRect.maxY - pageSetup.footerDepth,
+            y: pageRect.height - pageSetup.footerDepth - bottomGap,
             width: textRect.width,
             height: pageSetup.footerDepth
         )
