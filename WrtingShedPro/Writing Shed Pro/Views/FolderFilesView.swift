@@ -69,11 +69,11 @@ struct FolderFilesView: View {
     @State private var showExportMenu = false
     @State private var showExportFolderMenu = false
     @State private var showExportSaveDialog = false
-    @State private var filesToExport: [TextFile] = []
-    @State private var exportFormat: ExportFormat = .rtf
+    @State var filesToExport: [TextFile] = []
+    @State var exportFormat: ExportFormat = .rtf
     @State private var exportData: Data?
     @State private var exportFilename: String = ""
-    @State private var exportCombinedContent: NSAttributedString?
+    @State var exportCombinedContent: NSAttributedString?
     @State private var exportAttributedStrings: [NSAttributedString] = []  // For HTML multi-file export
     @State private var showImageWarning = false  // Show warning for RTF with images
     @State private var imageWarningMessage = ""
@@ -83,25 +83,25 @@ struct FolderFilesView: View {
     
     // State for header/footer editor
     @State var showHeaderFooterEditor = false
-    @State private var headerLeft: String = ""
-    @State private var headerCenter: String = ""
-    @State private var headerRight: String = ""
-    @State private var footerLeft: String = ""
-    @State private var footerCenter: String = ""
-    @State private var footerRight: String = ""
-    @State private var headerInsertTarget: HeaderFooterField = .none
-    @State private var footerInsertTarget: HeaderFooterField = .none
-    @State private var showHeaderElementPicker = false
-    @State private var showFooterElementPicker = false
+    @State var headerLeft: String = ""
+    @State var headerCenter: String = ""
+    @State var headerRight: String = ""
+    @State var footerLeft: String = ""
+    @State var footerCenter: String = ""
+    @State var footerRight: String = ""
+    @State var headerInsertTarget: HeaderFooterField = .none
+    @State var footerInsertTarget: HeaderFooterField = .none
+    @State var showHeaderElementPicker = false
+    @State var showFooterElementPicker = false
     
     // Available elements for header/footer insertion
-    private var headerFooterElements: [String] {
+    var headerFooterElements: [String] {
         ["Page Number", "Total Pages", "Date", "Time", "Title", "Author"]
     }
     
     // State for permanent delete confirmation
     @State private var showPermanentDeleteConfirmation = false
-    @State private var filesToPermanentlyDelete: [TextFile] = []
+    @State var filesToPermanentlyDelete: [TextFile] = []
     
     // State for workflow status filtering (for Poems, Scenes, Scripts folders)
     @State var statusFilter: WorkflowStatus? = nil  // nil = show all
@@ -673,7 +673,7 @@ struct FolderFilesView: View {
         }
     }
     
-    private func deleteFilesPermanently(_ files: [TextFile]) {
+    func deleteFilesPermanently(_ files: [TextFile]) {
         let service = FileMoveService(modelContext: modelContext)
         
         do {
@@ -940,7 +940,7 @@ struct FolderFilesView: View {
         showExportFolderMenu = true
     }
     
-    private func exportCombinedFolder(format: ExportFormat) {
+    func exportCombinedFolder(format: ExportFormat) {
         // ALWAYS print, not just in DEBUG
         #if DEBUG
         print("📁 exportCombinedFolder() called with format: \(format)")
@@ -974,7 +974,7 @@ struct FolderFilesView: View {
         performCombinedExport(format: format, content: combinedContent)
     }
     
-    private func performCombinedExport(format: ExportFormat, content: NSAttributedString) {
+    func performCombinedExport(format: ExportFormat, content: NSAttributedString) {
         // Run export in background to keep UI responsive
         Task {
             do {
@@ -1035,7 +1035,7 @@ struct FolderFilesView: View {
         }
     }
     
-    private func exportFiles(format: ExportFormat) {
+    func exportFiles(format: ExportFormat) {
         // Set the export format
         self.exportFormat = format
         
@@ -1059,7 +1059,7 @@ struct FolderFilesView: View {
         performSingleFileExport(format: format, content: attributedString, filename: firstFile.name)
     }
     
-    private func performSingleFileExport(format: ExportFormat, content: NSAttributedString, filename: String) {
+    func performSingleFileExport(format: ExportFormat, content: NSAttributedString, filename: String) {
         // Prepare export data based on format
         do {
             switch format {
