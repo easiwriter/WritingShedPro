@@ -45,6 +45,25 @@ struct SceneListView: View {
     @State private var showDeleteConfirmation = false
     @State private var scenesToDelete: [StoryScene] = []
     
+    /// Show multi-file search view
+    @State private var showSearchView = false
+    
+    /// Show import picker
+    @State private var showImportPicker = false
+    
+    /// Show header/footer editor
+    @State private var showHeaderFooterEditor = false
+    
+    /// Header/footer editor fields
+    @State private var headerLeft: String = ""
+    @State private var headerCenter: String = ""
+    @State private var headerRight: String = ""
+    @State private var footerLeft: String = ""
+    @State private var footerCenter: String = ""
+    @State private var footerRight: String = ""
+    @State private var headerInsertTarget: HeaderFooterField = .left
+    @State private var footerInsertTarget: HeaderFooterField = .left
+    
     // MARK: - Init
     
     init(project: Project, chapter: Chapter? = nil) {
@@ -93,6 +112,22 @@ struct SceneListView: View {
         isEditMode && !selectedSceneIDs.isEmpty
     }
     
+    /// Whether headers or footers are enabled
+    private var headersOrFootersEnabled: Bool {
+        guard let pageSetup = project.pageSetup else { return false }
+        return pageSetup.hasHeaders || pageSetup.hasFooters
+    }
+    
+    /// Get the scenes folder at project level
+    private var scenesFolder: Folder? {
+        project.folders?.first { $0.name == "Scenes" }
+    }
+    
+    /// Get scene files for search
+    private var sceneFiles: [TextFile] {
+        sortedScenes.compactMap { $0.textFile }
+    }
+    
     // MARK: - Body
     
     var body: some View {
@@ -114,7 +149,48 @@ struct SceneListView: View {
             ToolbarItem(placement: .topBarLeading) {
                 PopToRootBackButton()
             }
-            ToolbarItem(placement: .navigationBarTrailing) {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                // Search button
+                if !sortedScenes.isEmpty {
+                    Button {
+                        showSearchView = true
+                    } label: {
+                        Image(systemName: "magnifyingglass")
+                    }
+                    .accessibilityLabel(NSLocalizedString("sceneList.search.accessibility", comment: "Search scenes"))
+                    .disabled(editMode == .active)
+                }
+                
+                // Import button
+                Button {
+                    showImportPicker = true
+                } label: {
+                    Image(systemName: "square.and.arrow.down")
+                }
+                .accessibilityLabel(NSLocalizedString("sceneList.import.accessibility", comment: "Import document"))
+                .disabled(editMode == .active)
+                
+                // Header/Footer button
+                Button {
+                    initializeHeaderFooterFields()
+                    showHeaderFooterEditor = true
+                } label: {
+                    Image(systemName: "rectangle.and.pencil.and.ellipsis")
+                }
+                .accessibilityLabel(NSLocalizedString("sceneList.headerFooter.accessibility", comment: "Edit headers and footers"))
+                .disabled(!headersOrFootersEnabled)
+                .foregroundStyle(headersOrFootersEnabled ? Color.accentColor : Color.secondary)
+                
+                // Add scene button
+                Button {
+                    showAddScene = true
+                } label: {
+                    Image(systemName: "plus")
+                }
+                .accessibilityLabel(NSLocalizedString("fiction.scenes.add", comment: "Add scene"))
+                .disabled(editMode == .active)
+                
+                // Edit/Done button
                 if !sortedScenes.isEmpty {
                     Button {
                         withAnimation {
@@ -131,14 +207,6 @@ struct SceneListView: View {
                     .accessibilityLabel(isEditMode ? NSLocalizedString("button.done", comment: "Done") : NSLocalizedString("fiction.scenes.edit", comment: "Edit scenes"))
                 }
             }
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Button {
-                    showAddScene = true
-                } label: {
-                    Image(systemName: "plus")
-                }
-                .accessibilityLabel(NSLocalizedString("fiction.scenes.add", comment: "Add scene"))
-            }
             
             // Bottom toolbar for multi-select actions
             ToolbarItemGroup(placement: .bottomBar) {
@@ -153,6 +221,48 @@ struct SceneListView: View {
         .sheet(item: $selectedScene) { scene in
             SceneDetailView(scene: scene, project: project)
         }
+        .sheet(isPresented: $showSearchView) {
+            // Multi-file search across all scene files
+            if let folder = scenesFolder {
+                MultiFileSearchView(folder: folder, files: sceneFiles)
+            }
+        }
+        .sheet(isPresented: $showHeaderFooterEditor) {
+            HeaderFooterDialog(
+                headerEnabled: project.pageSetup?.hasHeaders ?? false,
+                footerEnabled: project.pageSetup?.hasFooters ?? false,
+                headerLeft: $headerLeft,
+                headerCenter: $headerCenter,
+                headerRight: $headerRight,
+                footerLeft: $footerLeft,
+                footerCenter: $footerCenter,
+                footerRight: $footerRight,
+                headerInsertTarget: $headerInsertTarget,
+                footerInsertTarget: $footerInsertTarget,
+                showHeaderElementPicker: .constant(false),
+                showFooterElementPicker: .constant(false),
+                headerFooterElements: [],
+                onCancel: { showHeaderFooterEditor = false },
+                onSave: {
+                    if let pageSetup = project.pageSetup {
+                        pageSetup.headerLeft = headerLeft
+                        pageSetup.headerCenter = headerCenter
+                        pageSetup.headerRight = headerRight
+                        pageSetup.footerLeft = footerLeft
+                        pageSetup.footerCenter = footerCenter
+                        pageSetup.footerRight = footerRight
+                        try? modelContext.save()
+                    }
+                    showHeaderFooterEditor = false
+                }
+            )
+        }
+        .fileImporter(
+            isPresented: $showImportPicker,
+            allowedContentTypes: [.rtf, .init("org.openxmlformats.wordprocessingml.document") ?? .data],
+            allowsMultipleSelection: false,
+            onCompletion: handleImport
+        )
         .navigationDestination(item: $navigateToScene) { scene in
             // Navigate to file editor for the scene's associated text file
             if let textFile = scene.textFile {
@@ -193,6 +303,9 @@ struct SceneListView: View {
             if newValue == .inactive {
                 selectedSceneIDs.removeAll()
             }
+        }
+        .onAppear {
+            initializeHeaderFooterFields()
         }
     }
     
@@ -362,6 +475,63 @@ struct SceneListView: View {
     private func exitEditMode() {
         withAnimation {
             editMode = .inactive
+        }
+    }
+    
+    private func initializeHeaderFooterFields() {
+        if let pageSetup = project.pageSetup {
+            headerLeft = pageSetup.headerLeft ?? ""
+            headerCenter = pageSetup.headerCenter ?? ""
+            headerRight = pageSetup.headerRight ?? ""
+            footerLeft = pageSetup.footerLeft ?? ""
+            footerCenter = pageSetup.footerCenter ?? ""
+            footerRight = pageSetup.footerRight ?? ""
+        }
+    }
+    
+    private func handleImport(_ result: Result<[URL], Error>) {
+        switch result {
+        case .success(let urls):
+            guard let url = urls.first else { return }
+            
+            do {
+                // Use WordDocumentService to import RTF or DOCX
+                let (plainText, rtfData, fileName) = try WordDocumentService.importWordDocument(from: url)
+                
+                // Create a new scene
+                let newScene = StoryScene(name: fileName)
+                newScene.project = project
+                newScene.chapter = chapter
+                newScene.userOrder = sortedScenes.count
+                
+                // Also add to project.scenes to ensure relationship is synced
+                if project.scenes == nil {
+                    project.scenes = []
+                }
+                project.scenes?.append(newScene)
+                
+                // Create TextFile for scene content
+                let textFile = TextFile(name: fileName, initialContent: "", parentFolder: scenesFolder)
+                textFile.workflowStatus = .draft
+                textFile.scene = newScene
+                newScene.textFile = textFile
+                
+                // Update the first version with imported content
+                if let firstVersion = textFile.versions?.first {
+                    firstVersion.content = plainText
+                    firstVersion.formattedContent = rtfData
+                }
+                
+                modelContext.insert(newScene)
+                modelContext.insert(textFile)
+                try modelContext.save()
+                
+            } catch {
+                print("Failed to import file: \(error)")
+            }
+            
+        case .failure(let error):
+            print("Import failed: \(error)")
         }
     }
 }

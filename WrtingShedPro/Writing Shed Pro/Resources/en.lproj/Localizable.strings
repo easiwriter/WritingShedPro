@@ -1028,6 +1028,8 @@
 "paginatedDocument.resetZoom.hint" = "Resets zoom to 100%";
 "paginatedDocument.noPageSetup.title" = "No Page Setup";
 "paginatedDocument.noPageSetup.description" = "Configure page setup in project settings to enable pagination view.";
+"paginatedDocument.calculatingPages" = "Calculating pages...";
+"paginatedDocument.print.accessibility" = "Print document";
 
 /* ImportProgressView & Banner - New Keys */
 "importProgress.title" = "Importing Data";
@@ -1686,3 +1688,42 @@
 "headerfooter.target.left" = "Left Field";
 "headerfooter.target.centre" = "Centre Field";
 "headerfooter.target.right" = "Right Field";
+
+/* Front Matter Settings */
+"frontMatter.settings.title" = "Front Matter";
+"frontMatter.settings.header" = "Select items to include";
+"frontMatter.settings.footer" = "Enabled items will appear as files in your Front Matter folder.";
+"frontMatter.settings.accessibility" = "Front Matter settings";
+"frontMatter.settings.help" = "Configure front matter items";
+"frontMatter.halfTitle" = "Half Title";
+"frontMatter.titlePage" = "Title Page";
+"frontMatter.copyright" = "Copyright";
+"frontMatter.dedication" = "Dedication";
+"frontMatter.epigraph" = "Epigraph";
+"frontMatter.tableOfContents" = "Table of Contents";
+"frontMatter.foreword" = "Foreword";
+"frontMatter.preface" = "Preface";
+"frontMatter.acknowledgements" = "Acknowledgements";
+
+/* Back Matter Settings */
+"backMatter.settings.title" = "Back Matter";
+"backMatter.settings.header" = "Select items to include";
+"backMatter.settings.footer" = "Enabled items will appear as files in your Back Matter folder.";
+"backMatter.settings.accessibility" = "Back Matter settings";
+"backMatter.settings.help" = "Configure back matter items";
+"backMatter.notes" = "Notes";
+"backMatter.glossary" = "Glossary";
+"backMatter.bibliography" = "Bibliography";
+"backMatter.index" = "Index";
+
+/* Drama Front Matter Settings */
+"drama.frontMatter.titlePage" = "Title Page";
+"drama.frontMatter.castList" = "Cast List";
+"drama.frontMatter.settingsAndTime" = "Settings & Time";
+"drama.frontMatter.productionNote" = "Production Note";
+"drama.frontMatter.acknowledgements" = "Acknowledgements";
+
+/* Drama Back Matter Settings */
+"drama.backMatter.productionHistory" = "Production History";
+"drama.backMatter.afterword" = "Afterword";
+"drama.backMatter.rightsAndPermissions" = "Rights & Permissions";

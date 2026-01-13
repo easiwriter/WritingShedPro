@@ -27,6 +27,11 @@ struct VirtualPageScrollView: UIViewRepresentable {
     var onPageChange: ((Int) -> Void)?
     var onZoomChange: ((CGFloat) -> Void)?
     
+    /// Read from layoutResult to trigger SwiftUI updates when pages are calculated
+    private var calculatedPageCount: Int {
+        layoutManager.layoutResult?.pageInfos.count ?? 0
+    }
+    
     // MARK: - UIViewRepresentable
     
     func makeUIView(context: Context) -> VirtualPageScrollViewImpl {
@@ -52,6 +57,9 @@ struct VirtualPageScrollView: UIViewRepresentable {
     }
     
     func updateUIView(_ uiView: VirtualPageScrollViewImpl, context: Context) {
+        // Access calculatedPageCount to ensure SwiftUI observes layoutResult changes
+        _ = calculatedPageCount
+        
         // Update if layout manager or page setup changed
         uiView.updateLayout(layoutManager: layoutManager, pageSetup: pageSetup, version: version, modelContext: modelContext, project: project, showActualPageNumbers: showActualPageNumbers)
         // Update zoom scale to adjust content insets
@@ -170,6 +178,18 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         let footerView: UIView?
         let pageBackgroundView: UIView
         let frame: CGRect
+        let isLoadingPlaceholder: Bool
+        
+        init(pageIndex: Int, textView: UITextView, footnoteHostingController: UIHostingController<FootnoteRenderer>?, headerView: UIView?, footerView: UIView?, pageBackgroundView: UIView, frame: CGRect, isLoadingPlaceholder: Bool = false) {
+            self.pageIndex = pageIndex
+            self.textView = textView
+            self.footnoteHostingController = footnoteHostingController
+            self.headerView = headerView
+            self.footerView = footerView
+            self.pageBackgroundView = pageBackgroundView
+            self.frame = frame
+            self.isLoadingPlaceholder = isLoadingPlaceholder
+        }
     }
     
     // MARK: - Properties
@@ -184,6 +204,9 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
     /// Currently rendered page views (pageIndex -> PageViewInfo)
     private var renderedPages: [Int: PageViewInfo] = [:]
     
+    /// Loading placeholder views (pageIndex -> view)
+    private var loadingPlaceholders: [Int: UIView] = [:]
+    
     /// Current visible page range
     private var visiblePageRange: Range<Int> = 0..<0
     
@@ -192,7 +215,7 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
     
     /// Page change callback
     var pageChangeHandler: ((Int) -> Void)?
-    
+
     /// Current page being viewed
     private var currentPageIndex: Int = 0 {
         didSet {
@@ -201,23 +224,23 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
             }
         }
     }
-    
+
     /// Page view cache for recycling
     private var pageViewCache: [UITextView] = []
     private let maxCacheSize: Int = 10
-    
+
     /// Current zoom scale for content inset adjustment
     private var currentZoomScale: CGFloat = 1.0
-    
+
     /// Base content size (at 100% zoom)
     private var baseContentSize: CGSize = .zero
-    
+
     /// Container view for zooming (required by UIScrollView zoom)
     private var zoomContainerView: UIView!
-    
+
     /// Zoom change callback
     var zoomChangeHandler: ((CGFloat) -> Void)?
-    
+
     /// Whether to show actual page numbers (true) or "#" placeholder (false)
     private var showActualPageNumbers: Bool = false
     
@@ -348,8 +371,14 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
     
     // MARK: - Layout Updates
     
+    /// Track the last seen page count to detect when more pages become available
+    private var lastSeenPageCount: Int = 0
+    
     func updateLayout(layoutManager: PaginatedTextLayoutManager, pageSetup: PageSetup, version: Version?, modelContext: ModelContext, project: Project?, showActualPageNumbers: Bool = false) {
-        // Always update - PageSetup properties may have changed even if same object
+        let isNewLayoutManager = self.layoutManager !== layoutManager
+        let pageSetupChanged = self.pageSetup != pageSetup
+        
+        // Update references
         self.layoutManager = layoutManager
         self.pageSetup = pageSetup
         self.pageLayout = PageLayoutCalculator.calculateLayout(from: pageSetup)
@@ -358,22 +387,37 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         self.project = project
         self.showActualPageNumbers = showActualPageNumbers
         
-        // Clear all rendered pages (they have old dimensions/positions)
-        clearAllPages()
-        
-        // Recalculate layout with new page setup (pass version and context for footnote-aware layout)
-        if !layoutManager.isLayoutValid {
-            layoutManager.calculateLayout(version: version, context: modelContext)
+        // If layout manager or page setup changed, clear all pages and recalculate
+        if isNewLayoutManager || pageSetupChanged {
+            clearAllPages()
+            
+            // Recalculate layout with new page setup (pass version and context for footnote-aware layout)
+            if !layoutManager.isLayoutValid {
+                layoutManager.calculateLayout(version: version, context: modelContext)
+            }
         }
         
         // Update scroll view content size
         if let result = layoutManager.layoutResult {
-            baseContentSize = result.contentSize
-            // Update content size with current zoom
-            updateZoomScale(currentZoomScale)
+            // Check if content size changed (more pages calculated)
+            if result.contentSize != baseContentSize {
+                baseContentSize = result.contentSize
+                // Update content size with current zoom
+                zoomContainerView.frame = CGRect(origin: .zero, size: baseContentSize)
+                contentSize = CGSize(
+                    width: baseContentSize.width * currentZoomScale,
+                    height: baseContentSize.height * currentZoomScale
+                )
+            }
+            
+            // Check if more pages are now available
+            let currentPageCount = result.pageInfos.count
+            if currentPageCount > lastSeenPageCount {
+                lastSeenPageCount = currentPageCount
+            }
         }
         
-        // Re-render visible pages with new layout
+        // Update visible pages (this will replace loading placeholders with real content)
         updateVisiblePages()
     }
     
@@ -461,17 +505,29 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         let midY = visibleRect.midY
         currentPageIndex = pageIndex(at: midY)
         
-        // Check if range changed
-        guard newRange != visiblePageRange else { return }
-        
         // Remove pages outside new range
         let pagesToRemove = Set(renderedPages.keys).subtracting(Set(newRange))
         for pageIndex in pagesToRemove {
             removePage(at: pageIndex)
         }
         
-        // Add pages in new range
-        for pageIndex in newRange where renderedPages[pageIndex] == nil {
+        // Also remove loading placeholders outside new range
+        let placeholdersToRemove = Set(loadingPlaceholders.keys).subtracting(Set(newRange))
+        for pageIndex in placeholdersToRemove {
+            removeLoadingPlaceholder(at: pageIndex)
+        }
+        
+        // Check if any loading placeholders can now be replaced with actual content
+        for pageIndex in loadingPlaceholders.keys {
+            if layoutManager.pageInfo(forPage: pageIndex) != nil {
+                // Page is now available - remove placeholder and create real page
+                removeLoadingPlaceholder(at: pageIndex)
+                createPage(at: pageIndex)
+            }
+        }
+        
+        // Add pages in new range (either real content or loading placeholder)
+        for pageIndex in newRange where renderedPages[pageIndex] == nil && loadingPlaceholders[pageIndex] == nil {
             createPage(at: pageIndex)
         }
         
@@ -479,9 +535,16 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
     }
     
     private func createPage(at pageIndex: Int) {
-        guard let pageInfo = layoutManager.pageInfo(forPage: pageIndex) else { return }
-        // Get page frame
+        // Get page frame for this page index
         let pageFrame = frameForPage(pageIndex)
+        
+        // Check if this page has been calculated yet
+        guard let pageInfo = layoutManager.pageInfo(forPage: pageIndex) else {
+            // Page not calculated yet - show a loading placeholder
+            createLoadingPlaceholder(at: pageIndex, frame: pageFrame)
+            return
+        }
+        
         let totalPages = layoutManager.pageCount
         // Display page number is 1-based
         let displayPageNumber = pageIndex + 1
@@ -694,7 +757,41 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         renderedPages[pageIndex] = pageViewInfo
     }
     
+    /// Create a loading placeholder for a page that hasn't been calculated yet
+    private func createLoadingPlaceholder(at pageIndex: Int, frame: CGRect) {
+        // Don't create duplicate placeholders
+        guard loadingPlaceholders[pageIndex] == nil else { return }
+        
+        // Create page background with loading indicator
+        let placeholderView = UIView(frame: frame)
+        placeholderView.backgroundColor = .systemBackground
+        placeholderView.layer.shadowColor = UIColor.black.cgColor
+        placeholderView.layer.shadowOffset = CGSize(width: 0, height: 2)
+        placeholderView.layer.shadowOpacity = 0.1
+        placeholderView.layer.shadowRadius = 4
+        
+        // Add activity indicator centered on the page
+        let activityIndicator = UIActivityIndicatorView(style: .medium)
+        activityIndicator.center = CGPoint(x: frame.width / 2, y: frame.height / 2)
+        activityIndicator.startAnimating()
+        placeholderView.addSubview(activityIndicator)
+        
+        zoomContainerView.addSubview(placeholderView)
+        loadingPlaceholders[pageIndex] = placeholderView
+    }
+    
+    /// Remove a loading placeholder and replace with actual content if available
+    private func removeLoadingPlaceholder(at pageIndex: Int) {
+        if let placeholder = loadingPlaceholders[pageIndex] {
+            placeholder.removeFromSuperview()
+            loadingPlaceholders.removeValue(forKey: pageIndex)
+        }
+    }
+    
     private func removePage(at pageIndex: Int) {
+        // Remove loading placeholder if it exists
+        removeLoadingPlaceholder(at: pageIndex)
+        
         guard let pageViewInfo = renderedPages[pageIndex] else { return }
         
         // Remove page background from view hierarchy
@@ -728,6 +825,10 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
     private func clearAllPages() {
         for pageIndex in renderedPages.keys {
             removePage(at: pageIndex)
+        }
+        // Also clear any loading placeholders
+        for pageIndex in loadingPlaceholders.keys {
+            removeLoadingPlaceholder(at: pageIndex)
         }
         visiblePageRange = 0..<0
     }

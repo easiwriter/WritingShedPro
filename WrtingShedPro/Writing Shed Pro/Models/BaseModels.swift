@@ -230,6 +230,73 @@ final class Folder {
     var project: Project?
     var trashedItems: [TrashItem]? // Inverse for TrashItem.originalFolder
     
+    // Front Matter and Back Matter settings (stored as JSON Data)
+    var frontMatterSettingsData: Data?
+    var backMatterSettingsData: Data?
+    
+    // Drama-specific Front Matter and Back Matter settings
+    var dramaFrontMatterSettingsData: Data?
+    var dramaBackMatterSettingsData: Data?
+    
+    /// Front matter settings - which items are enabled (for Fiction projects)
+    var frontMatterSettings: FrontMatterSettings {
+        get {
+            guard let data = frontMatterSettingsData else { return FrontMatterSettings() }
+            return (try? JSONDecoder().decode(FrontMatterSettings.self, from: data)) ?? FrontMatterSettings()
+        }
+        set {
+            frontMatterSettingsData = try? JSONEncoder().encode(newValue)
+        }
+    }
+    
+    /// Back matter settings - which items are enabled (for Fiction projects)
+    var backMatterSettings: BackMatterSettings {
+        get {
+            guard let data = backMatterSettingsData else { return BackMatterSettings() }
+            return (try? JSONDecoder().decode(BackMatterSettings.self, from: data)) ?? BackMatterSettings()
+        }
+        set {
+            backMatterSettingsData = try? JSONEncoder().encode(newValue)
+        }
+    }
+    
+    /// Drama front matter settings - which items are enabled
+    var dramaFrontMatterSettings: DramaFrontMatterSettings {
+        get {
+            guard let data = dramaFrontMatterSettingsData else { return DramaFrontMatterSettings() }
+            return (try? JSONDecoder().decode(DramaFrontMatterSettings.self, from: data)) ?? DramaFrontMatterSettings()
+        }
+        set {
+            dramaFrontMatterSettingsData = try? JSONEncoder().encode(newValue)
+        }
+    }
+    
+    /// Drama back matter settings - which items are enabled
+    var dramaBackMatterSettings: DramaBackMatterSettings {
+        get {
+            guard let data = dramaBackMatterSettingsData else { return DramaBackMatterSettings() }
+            return (try? JSONDecoder().decode(DramaBackMatterSettings.self, from: data)) ?? DramaBackMatterSettings()
+        }
+        set {
+            dramaBackMatterSettingsData = try? JSONEncoder().encode(newValue)
+        }
+    }
+    
+    /// Check if this folder belongs to a Drama project
+    var isDramaProject: Bool {
+        project?.type == .drama
+    }
+    
+    /// Check if this is a Front Matter folder
+    var isFrontMatterFolder: Bool {
+        name == "Front Matter" || name == NSLocalizedString("folder.frontMatter", comment: "Front Matter")
+    }
+    
+    /// Check if this is a Back Matter folder
+    var isBackMatterFolder: Bool {
+        name == "Back Matter" || name == NSLocalizedString("folder.backMatter", comment: "Back Matter")
+    }
+    
     init(name: String?, project: Project? = nil, parentFolder: Folder? = nil, userOrder: Int? = nil) {
         self.name = name
         self.project = project

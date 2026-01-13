@@ -7,6 +7,27 @@ extension FolderFilesView {
             PopToRootBackButton()
         }
         ToolbarItemGroup(placement: .topBarTrailing) {
+            // Settings gear for Front Matter / Back Matter folders
+            if folder.isFrontMatterFolder {
+                Button {
+                    showFrontMatterSettings = true
+                } label: {
+                    Image(systemName: "gearshape")
+                }
+                .accessibilityLabel(NSLocalizedString("frontMatter.settings.accessibility", comment: "Front Matter settings"))
+                .help(NSLocalizedString("frontMatter.settings.help", comment: "Configure front matter items"))
+                .disabled(editMode == .active)
+            } else if folder.isBackMatterFolder {
+                Button {
+                    showBackMatterSettings = true
+                } label: {
+                    Image(systemName: "gearshape")
+                }
+                .accessibilityLabel(NSLocalizedString("backMatter.settings.accessibility", comment: "Back Matter settings"))
+                .help(NSLocalizedString("backMatter.settings.help", comment: "Configure back matter items"))
+                .disabled(editMode == .active)
+            }
+            
             if !sortedFiles.isEmpty {
                 Button {
                     showSearchView = true

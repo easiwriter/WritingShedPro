@@ -247,6 +247,7 @@ extension FolderFilesView {
                     pageSetup.footerLeft = footerLeft
                     pageSetup.footerCenter = footerCenter
                     pageSetup.footerRight = footerRight
+                    try? modelContext.save()
                 }
                 showHeaderFooterEditor = false
             }

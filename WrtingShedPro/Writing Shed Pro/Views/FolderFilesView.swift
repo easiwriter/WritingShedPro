@@ -89,10 +89,14 @@ struct FolderFilesView: View {
     @State var footerLeft: String = ""
     @State var footerCenter: String = ""
     @State var footerRight: String = ""
-    @State var headerInsertTarget: HeaderFooterField = .none
-    @State var footerInsertTarget: HeaderFooterField = .none
+    @State var headerInsertTarget: HeaderFooterField = .left
+    @State var footerInsertTarget: HeaderFooterField = .left
     @State var showHeaderElementPicker = false
     @State var showFooterElementPicker = false
+    
+    // State for Front Matter / Back Matter settings dialogs
+    @State var showFrontMatterSettings = false
+    @State var showBackMatterSettings = false
     
     // Available elements for header/footer insertion
     var headerFooterElements: [String] {

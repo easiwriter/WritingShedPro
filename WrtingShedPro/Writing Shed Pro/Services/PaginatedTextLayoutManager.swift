@@ -47,11 +47,34 @@ class PaginatedTextLayoutManager {
     /// Cached layout result
     private(set) var layoutResult: LayoutResult?
     
-    /// Whether the current layout is valid
+    /// Whether the current layout is valid (at least some pages calculated)
     private(set) var isLayoutValid: Bool = false
+    
+    /// Whether layout calculation is complete (all pages calculated)
+    private(set) var isLayoutComplete: Bool = false
+    
+    /// Whether layout calculation is currently in progress
+    private(set) var isCalculating: Bool = false
     
     /// Page spacing between pages in scroll view
     let pageSpacing: CGFloat = 20.0
+    
+    /// Estimated total page count (used before calculation completes)
+    var estimatedPageCount: Int {
+        guard textStorage.length > 0 else { return 1 }
+        let pageLayout = PageLayoutCalculator.calculateLayout(from: pageSetup)
+        let charsPerPage = estimateCharactersPerPage(containerSize: pageLayout.contentRect.size)
+        return max(1, Int(ceil(Double(textStorage.length) / Double(charsPerPage))))
+    }
+    
+    /// Estimate characters per page based on container size and average character width
+    private func estimateCharactersPerPage(containerSize: CGSize) -> Int {
+        // Rough estimate: average 60 chars per line, lines based on 14pt line height
+        let avgCharsPerLine = 60
+        let lineHeight: CGFloat = 20  // Approximate line height
+        let linesPerPage = Int(containerSize.height / lineHeight)
+        return max(100, avgCharsPerLine * linesPerPage)
+    }
     
     // MARK: - Initialization
     
@@ -128,17 +151,30 @@ class PaginatedTextLayoutManager {
     private func calculateSimpleLayout(containerSize: CGSize, pageLayout: PageLayoutCalculator.PageLayout, startTime: Date) -> LayoutResult {
         #if DEBUG
         print("📄 Pagination Layout Setup:")
-        #endif
-        #if DEBUG
         print("   - Container size: \(containerSize.width) x \(containerSize.height)")
-        #endif
-        #if DEBUG
         print("   - lineFragmentPadding: 0")
         #endif
         
+        // Mark as calculating and create initial estimated layout
+        let estimatedPages = self.estimatedPageCount
+        let pageHeight = pageLayout.pageRect.height
+        let estimatedHeight = CGFloat(estimatedPages) * (pageHeight + pageSpacing) - pageSpacing
+        let estimatedContentSize = CGSize(width: pageLayout.pageRect.width, height: max(estimatedHeight, pageHeight))
+        
+        DispatchQueue.main.async {
+            self.isCalculating = true
+            self.isLayoutComplete = false
+            // Create initial layout so view can display immediately
+            self.layoutResult = LayoutResult(
+                totalPages: estimatedPages,
+                pageInfos: [],
+                contentSize: estimatedContentSize,
+                calculationTime: 0
+            )
+            self.isLayoutValid = true
+        }
+        
         // Calculate pages by measuring how much text fits in each page container
-        // Note: Form feed characters (\u{000C}) in the text will naturally cause page breaks
-        // as NSLayoutManager treats them as paragraph separators that end the current container
         var pageInfos: [PageInfo] = []
         var characterIndex = 0
         let totalCharacters = textStorage.length
@@ -190,6 +226,26 @@ class PaginatedTextLayoutManager {
             )
             pageInfos.append(pageInfo)
             
+            // Periodically update layoutResult so pages can be displayed incrementally
+            // Update after first page, every 5 pages initially, then every 10 pages
+            // Do this BEFORE break checks so first page is always published
+            if pageInfos.count == 1 || pageInfos.count <= 5 || pageInfos.count % 10 == 0 {
+                let currentHeight = CGFloat(pageInfos.count) * (pageLayout.pageRect.height + pageSpacing) - pageSpacing
+                let currentContentSize = CGSize(
+                    width: pageLayout.pageRect.width,
+                    height: max(currentHeight, estimatedHeight)
+                )
+                let intermediateResult = LayoutResult(
+                    totalPages: max(pageInfos.count, estimatedPages),
+                    pageInfos: pageInfos,
+                    contentSize: currentContentSize,
+                    calculationTime: Date().timeIntervalSince(startTime)
+                )
+                DispatchQueue.main.async {
+                    self.layoutResult = intermediateResult
+                }
+            }
+            
             // Move to next page
             // If we truncated at a form feed, skip past it
             if characterRange.length > 0 {
@@ -240,7 +296,6 @@ class PaginatedTextLayoutManager {
         }
         
         // Calculate total content size for scroll view
-        let pageHeight = pageLayout.pageRect.height
         let totalHeight = CGFloat(pageInfos.count) * (pageHeight + pageSpacing) - pageSpacing
         let contentSize = CGSize(
             width: pageLayout.pageRect.width,
@@ -256,8 +311,13 @@ class PaginatedTextLayoutManager {
             calculationTime: calculationTime
         )
         
-        self.layoutResult = result
-        self.isLayoutValid = true
+        // Update on main thread to ensure UI sees the final result
+        DispatchQueue.main.async {
+            self.layoutResult = result
+            self.isLayoutValid = true
+            self.isLayoutComplete = true
+            self.isCalculating = false
+        }
         
         return result
     }
@@ -271,6 +331,25 @@ class PaginatedTextLayoutManager {
         context: ModelContext,
         startTime: Date
     ) -> LayoutResult {
+        // Mark as calculating and create initial estimated layout
+        let estimatedPages = self.estimatedPageCount
+        let pageHeight = pageLayout.pageRect.height
+        let estimatedHeight = CGFloat(estimatedPages) * (pageHeight + pageSpacing) - pageSpacing
+        let estimatedContentSize = CGSize(width: pageLayout.pageRect.width, height: max(estimatedHeight, pageHeight))
+        
+        DispatchQueue.main.async {
+            self.isCalculating = true
+            self.isLayoutComplete = false
+            // Create initial layout so view can display immediately
+            self.layoutResult = LayoutResult(
+                totalPages: estimatedPages,
+                pageInfos: [],
+                contentSize: estimatedContentSize,
+                calculationTime: 0
+            )
+            self.isLayoutValid = true
+        }
+        
         // Get all footnotes for this version
         let allFootnotes = FootnoteManager.shared.getActiveFootnotes(forVersion: version, context: context)
         let maxIterations = 5  // Prevent infinite loops
@@ -347,6 +426,25 @@ class PaginatedTextLayoutManager {
                     usedRect: usedRect
                 )
                 pageInfos.append(pageInfo)
+                
+                // Update layoutResult incrementally during first iteration so pages can display
+                // Do this BEFORE break checks so first page is always published
+                if iteration == 1 && (pageInfos.count == 1 || pageInfos.count <= 5 || pageInfos.count % 10 == 0) {
+                    let currentHeight = CGFloat(pageInfos.count) * (pageHeight + pageSpacing) - pageSpacing
+                    let currentContentSize = CGSize(
+                        width: pageLayout.pageRect.width,
+                        height: max(currentHeight, estimatedHeight)
+                    )
+                    let intermediateResult = LayoutResult(
+                        totalPages: max(pageInfos.count, estimatedPages),
+                        pageInfos: pageInfos,
+                        contentSize: currentContentSize,
+                        calculationTime: Date().timeIntervalSince(startTime)
+                    )
+                    DispatchQueue.main.async {
+                        self.layoutResult = intermediateResult
+                    }
+                }
                 
                 characterIndex = NSMaxRange(characterRange)
                 
@@ -434,7 +532,6 @@ class PaginatedTextLayoutManager {
         }
         
         // Calculate total content size
-        let pageHeight = pageLayout.pageRect.height
         let totalHeight = CGFloat(finalPageInfos.count) * (pageHeight + pageSpacing) - pageSpacing
         let contentSize = CGSize(
             width: pageLayout.pageRect.width,
@@ -450,8 +547,13 @@ class PaginatedTextLayoutManager {
             calculationTime: calculationTime
         )
         
-        self.layoutResult = result
-        self.isLayoutValid = true
+        // Update on main thread to ensure UI sees the final result
+        DispatchQueue.main.async {
+            self.layoutResult = result
+            self.isLayoutValid = true
+            self.isLayoutComplete = true
+            self.isCalculating = false
+        }
         
         return result
     }

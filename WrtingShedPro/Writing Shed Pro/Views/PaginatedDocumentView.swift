@@ -25,7 +25,6 @@ struct PaginatedDocumentView: View {
     @State private var currentPage: Int = 0
     @State private var zoomScale: CGFloat = 1.0
     @State private var lastZoomScale: CGFloat = 1.0
-    @State private var isCalculatingLayout: Bool = false
     @State private var showPrintError = false
     @State private var printErrorMessage = ""
     
@@ -39,7 +38,8 @@ struct PaginatedDocumentView: View {
             Color(uiColor: .systemGray6)
                 .ignoresSafeArea()
             
-            // Main content layer
+            // Main content layer - show immediately when layout manager exists
+            // Pages are loaded progressively as they're calculated
             if let layoutManager = layoutManager, layoutManager.isLayoutValid {
                 // Use per-project page setup
                 let pageSetup = project.pageSetup ?? PageSetup.createWithDefaults()
@@ -58,15 +58,13 @@ struct PaginatedDocumentView: View {
                         }
                     }
                 )
-                // ...existing code...
                 .accessibilityLabel("paginatedDocument.pages.accessibility")
                 .accessibilityHint("paginatedDocument.pages.hint")
                 .accessibilityAddTraits(.allowsDirectInteraction)
-            } else if isCalculatingLayout {
-                ProgressView("Calculating pages...")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                emptyStateView
+                // Show brief loading indicator only before layout manager is created
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .safeAreaInset(edge: .top) {
@@ -268,8 +266,6 @@ struct PaginatedDocumentView: View {
         print("   - content length: \(content.count)")
         #endif
         
-        isCalculatingLayout = true
-        
         // Create text storage from attributed content to preserve formatting
         // On Mac Catalyst, scale down fonts to actual print size (undo 1.3x editor scaling)
         let attributedContent = textFile.currentVersion?.attributedContent ?? NSAttributedString(string: content)
@@ -285,8 +281,13 @@ struct PaginatedDocumentView: View {
             pageSetup: pageSetup
         )
         
+        // Store manager immediately - it will set isLayoutValid=true as soon as
+        // initial pages are calculated, allowing the view to display immediately
+        self.layoutManager = manager
+        
         // Calculate layout (async to avoid blocking UI)
         // Pass version and context for footnote-aware pagination
+        // Pages are calculated incrementally and become available as calculated
         let version = textFile.currentVersion
         let context = modelContext
         
@@ -295,14 +296,6 @@ struct PaginatedDocumentView: View {
             #if DEBUG
             print("   ✅ Layout calculated: \(manager.pageCount) pages")
             #endif
-            
-            DispatchQueue.main.async {
-                self.layoutManager = manager
-                self.isCalculatingLayout = false
-                #if DEBUG
-                print("   ✅ Layout manager assigned")
-                #endif
-            }
         }
     }
     
@@ -351,19 +344,11 @@ struct PaginatedDocumentView: View {
             let version = textFile.currentVersion
             let context = modelContext
             
-            isCalculatingLayout = true
             DispatchQueue.global(qos: .userInitiated).async {
                 let _ = existingManager.calculateLayout(version: version, context: context)
                 #if DEBUG
                 print("   ✅ Recalculated: \(existingManager.pageCount) pages")
                 #endif
-                
-                DispatchQueue.main.async {
-                    self.isCalculatingLayout = false
-                    #if DEBUG
-                    print("   ✅ Recalculation complete")
-                    #endif
-                }
             }
         } else {
             #if DEBUG

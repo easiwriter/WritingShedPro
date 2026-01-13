@@ -31,6 +31,12 @@ extension FolderFilesView {
             .sheet(isPresented: $showRenamePicker) { renamePickerSheet }
             .sheet(isPresented: $showFolderMoveDestinationPicker) { folderMoveDestinationSheet }
             .sheet(isPresented: $showStatusPicker) { statusPickerSheet }
+            .sheet(isPresented: $showFrontMatterSettings) {
+                FrontMatterSettingsDialog(folder: folder)
+            }
+            .sheet(isPresented: $showBackMatterSettings) {
+                BackMatterSettingsDialog(folder: folder)
+            }
     }
     
     // MARK: - File Import/Export Modifiers
