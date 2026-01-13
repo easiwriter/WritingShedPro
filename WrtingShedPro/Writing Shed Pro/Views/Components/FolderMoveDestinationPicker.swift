@@ -3,13 +3,13 @@
 //  Writing Shed Pro
 //
 //  Created on 2026-01-01.
-//  Feature: General Purpose project folder movement
+//  Feature: Prose project folder movement
 //
 
 import SwiftUI
 import SwiftData
 
-/// Sheet for selecting destination folder when moving a folder or files in General Purpose projects.
+/// Sheet for selecting destination folder when moving a folder or files in Prose projects.
 /// Shows the full folder hierarchy and allows moving to any valid destination.
 struct FolderMoveDestinationPicker: View {
     // MARK: - Properties

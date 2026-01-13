@@ -9,31 +9,31 @@ final class UniquenessCheckerTests: XCTestCase {
     }
     
     func testIsProjectNameUniqueWithDifferentNameReturnsTrue() {
-        let project = Project(name: "Existing Project", type: .generalPurpose)
+        let project = Project(name: "Existing Project", type: .prose)
         let projects = [project]
         XCTAssertTrue(UniquenessChecker.isProjectNameUnique("New Project", in: projects))
     }
     
     func testIsProjectNameUniqueDuplicateReturnsFalse() {
-        let project = Project(name: "My Project", type: .generalPurpose)
+        let project = Project(name: "My Project", type: .prose)
         let projects = [project]
         XCTAssertFalse(UniquenessChecker.isProjectNameUnique("My Project", in: projects))
     }
     
     func testIsProjectNameUniqueCaseInsensitive() {
-        let project = Project(name: "My Project", type: .generalPurpose)
+        let project = Project(name: "My Project", type: .prose)
         let projects = [project]
         XCTAssertFalse(UniquenessChecker.isProjectNameUnique("my project", in: projects))
         XCTAssertFalse(UniquenessChecker.isProjectNameUnique("MY PROJECT", in: projects))
     }
     
     func testIsFolderNameUniqueMissingReturnsTrue() {
-        let project = Project(name: "Project", type: .generalPurpose)
+        let project = Project(name: "Project", type: .prose)
         XCTAssertTrue(UniquenessChecker.isFolderNameUnique("New Folder", in: project))
     }
     
     func testIsFolderNameUniqueDuplicateReturnsFalse() {
-        let project = Project(name: "Project", type: .generalPurpose)
+        let project = Project(name: "Project", type: .prose)
         let existingFolder = Folder(name: "Existing Folder", project: project)
         project.folders = [existingFolder]
         
@@ -41,7 +41,7 @@ final class UniquenessCheckerTests: XCTestCase {
     }
     
     func testIsFolderNameUniqueInParentFolder() {
-        let project = Project(name: "Project", type: .generalPurpose)
+        let project = Project(name: "Project", type: .prose)
         let parentFolder = Folder(name: "Parent", project: project)
         let childFolder = Folder(name: "Child", project: project, parentFolder: parentFolder)
         parentFolder.folders = [childFolder]
@@ -58,7 +58,7 @@ final class UniquenessCheckerTests: XCTestCase {
     }
     
     func testIsFolderNameUniqueExcludingFolder() {
-        let project = Project(name: "Project", type: .generalPurpose)
+        let project = Project(name: "Project", type: .prose)
         let folder1 = Folder(name: "Folder One", project: project)
         let folder2 = Folder(name: "Folder Two", project: project)
         project.folders = [folder1, folder2]
@@ -74,13 +74,13 @@ final class UniquenessCheckerTests: XCTestCase {
     }
     
     func testIsFileNameUniqueMissingReturnsTrue() {
-        let project = Project(name: "Project", type: .generalPurpose)
+        let project = Project(name: "Project", type: .prose)
         let folder = Folder(name: "Folder", project: project)
         XCTAssertTrue(UniquenessChecker.isFileNameUnique("newfile.txt", in: folder))
     }
     
     func testIsFileNameUniqueDuplicateReturnsFalse() {
-        let project = Project(name: "Project", type: .generalPurpose)
+        let project = Project(name: "Project", type: .prose)
         let folder = Folder(name: "Folder", project: project)
         let file = TextFile(name: "chapter.txt")
         file.parentFolder = folder

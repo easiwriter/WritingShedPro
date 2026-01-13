@@ -12,8 +12,8 @@ extension FolderFilesView {
         FolderCapabilityService.isContentFolder(folder)
     }
 
-    var isGeneralPurposeProject: Bool {
-        folder.project?.type == .generalPurpose
+    var isProseProject: Bool {
+        folder.project?.type == .prose
     }
 
     var allFiles: [TextFile] {

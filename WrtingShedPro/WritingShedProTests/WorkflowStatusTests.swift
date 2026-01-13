@@ -164,6 +164,21 @@ final class WorkflowStatusTests: XCTestCase {
         modelContext.insert(dramaProject)
         ProjectTemplateService.createDefaultFolders(for: dramaProject, in: modelContext)
         XCTAssertNotNil((dramaProject.folders ?? []).first(where: { $0.name == "Scenes" }), "Drama should have Scenes folder")
+        
+        // Test Prose -> Sections and Prose folders
+        let proseProject = Project(name: "Prose", type: .prose)
+        modelContext.insert(proseProject)
+        ProjectTemplateService.createDefaultFolders(for: proseProject, in: modelContext)
+        XCTAssertNotNil((proseProject.folders ?? []).first(where: { $0.name == "Sections" }), "Prose should have Sections folder")
+        XCTAssertNotNil((proseProject.folders ?? []).first(where: { $0.name == "Prose" }), "Prose should have Prose folder")
+        
+        // Verify all content folders support workflow
+        if let sectionsFolder = (proseProject.folders ?? []).first(where: { $0.name == "Sections" }) {
+            XCTAssertTrue(FolderCapabilityService.isContentFolder(sectionsFolder), "Sections should be a content folder")
+        }
+        if let proseFolder = (proseProject.folders ?? []).first(where: { $0.name == "Prose" }) {
+            XCTAssertTrue(FolderCapabilityService.isContentFolder(proseFolder), "Prose should be a content folder")
+        }
     }
     
     // MARK: - Workflow Filtering Tests

@@ -49,7 +49,7 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
     
     func testCanNavigateToCreatedFolders() throws {
         // Given: A project with template folders
-        let project = Project(name: "Test Project", type: .generalPurpose)
+        let project = Project(name: "Test Project", type: .prose)
         modelContext.insert(project)
         ProjectTemplateService.createDefaultFolders(for: project, in: modelContext)
         
@@ -57,14 +57,11 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
         let projectFolders = project.folders ?? []
         
         // Then: Can access each folder
-        XCTAssertEqual(projectFolders.count, 2, "Blank project should have 2 folders")
+        XCTAssertEqual(projectFolders.count, 10, "Prose project should have 10 folders")
         
         for folder in projectFolders {
             XCTAssertNotNil(folder.name, "Folder should have name")
             XCTAssertEqual(folder.project, project, "Folder should reference project")
-            
-            // Verify blank project has expected folders
-            XCTAssertTrue(["Folders", "Trash"].contains(folder.name), "Should be expected folder name")
         }
     }
     
@@ -92,7 +89,7 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
     func testMultipleProjectsHaveIsolatedFolderStructures() throws {
         // Given: Two projects with different types
         let poetryProject = Project(name: "Poetry Project", type: .poetry)
-        let proseProject = Project(name: "Prose Project", type: .generalPurpose)
+        let proseProject = Project(name: "Prose Project", type: .prose)
         
         modelContext.insert(poetryProject)
         modelContext.insert(proseProject)
@@ -108,7 +105,7 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
         
         // Then: Each has its own folder structure
         XCTAssertEqual(poetryRootFolders.count, 9, "Poetry project should have 9 root folders")
-        XCTAssertEqual(proseRootFolders.count, 2, "Blank project should have 2 root folders")
+        XCTAssertEqual(proseRootFolders.count, 10, "Prose project should have 10 root folders")
         
         // Verify type-specific folders
         let poetryFolderNames = Set(poetryRootFolders.compactMap { $0.name })
@@ -117,8 +114,9 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
         XCTAssert(poetryFolderNames.contains("Magazines"), "Poetry project should have Magazines folder")
         XCTAssert(poetryFolderNames.contains("Poems"), "Poetry project should have Poems folder")
         
-        XCTAssertFalse(proseFolderNames.contains("Magazines"), "General Purpose project should not have Magazines folder")
-        XCTAssertEqual(proseFolderNames, ["Folders", "Trash"], "General Purpose project should only have Folders and Trash")
+        XCTAssert(proseFolderNames.contains("Sections"), "Prose project should have Sections folder")
+        XCTAssert(proseFolderNames.contains("Prose"), "Prose project should have Prose folder")
+        XCTAssertFalse(proseFolderNames.contains("Characters"), "Prose project should not have Characters folder")
     }
     
     func testDeletingProjectCascadeDeletesFolders() throws {

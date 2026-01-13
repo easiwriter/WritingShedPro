@@ -119,12 +119,14 @@ struct ContentViewToolbar: ToolbarContent {
                     Label("contentView.deleteAll", systemImage: "trash")
                 }
                 .accessibilityLabel("contentView.deleteAll.accessibility")
+                .disabled(state.editMode == .active)
                 #endif
                 
                 Button(action: { state.showAddProject = true }) {
                     Label(NSLocalizedString("contentView.addProject", comment: "Button to add new project"), systemImage: "plus")
                 }
                 .accessibilityLabel(NSLocalizedString("contentView.addProjectAccessibility", comment: "Accessibility label for add project button"))
+                .disabled(state.editMode == .active)
                 
                 // Sort Menu
                 Menu {
@@ -143,6 +145,7 @@ struct ContentViewToolbar: ToolbarContent {
                 } label: {
                     Image(systemName: "arrow.up.arrow.down")
                 }
+                .disabled(state.editMode == .active)
                 
                 // Edit/Done button
                 if !projects.isEmpty {

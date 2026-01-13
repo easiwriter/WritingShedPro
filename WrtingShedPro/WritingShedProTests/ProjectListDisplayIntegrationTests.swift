@@ -6,7 +6,7 @@ final class ProjectListDisplayIntegrationTests: XCTestCase {
     func testProjectListDisplaysMultipleProjects() {
         // Arrange
         let projects = [
-            Project(name: "Novel", type: .generalPurpose),
+            Project(name: "Novel", type: .prose),
             Project(name: "Sonnet", type: .poetry),
             Project(name: "Play", type: .drama)
         ]
@@ -24,7 +24,7 @@ final class ProjectListDisplayIntegrationTests: XCTestCase {
     func testProjectListSortsByNameCorrectly() {
         // Arrange
         let projects = [
-            Project(name: "Zebra Project", type: .generalPurpose),
+            Project(name: "Zebra Project", type: .prose),
             Project(name: "Alpha Project", type: .poetry),
             Project(name: "Beta Project", type: .drama)
         ]
@@ -45,7 +45,7 @@ final class ProjectListDisplayIntegrationTests: XCTestCase {
         let futureDate = Date(timeIntervalSinceNow: 3600)
         
         let projects = [
-            Project(name: "Future", type: .generalPurpose, creationDate: futureDate),
+            Project(name: "Future", type: .prose, creationDate: futureDate),
             Project(name: "Old", type: .poetry, creationDate: oldDate),
             Project(name: "Recent", type: .drama, creationDate: recentDate)
         ]
@@ -73,13 +73,13 @@ final class ProjectListDisplayIntegrationTests: XCTestCase {
     func testProjectListDisplaysProjectTypes() {
         // Arrange
         let projects = [
-            Project(name: "Novel", type: .generalPurpose),
+            Project(name: "Novel", type: .prose),
             Project(name: "Haiku", type: .poetry),
             Project(name: "Screenplay", type: .drama)
         ]
         
         // Assert
-        XCTAssertEqual(projects[0].type, .generalPurpose)
+        XCTAssertEqual(projects[0].type, .prose)
         XCTAssertEqual(projects[1].type, .poetry)
         XCTAssertEqual(projects[2].type, .drama)
     }
@@ -87,7 +87,7 @@ final class ProjectListDisplayIntegrationTests: XCTestCase {
     func testProjectListHandlesMixedCaseNames() {
         // Arrange
         let projects = [
-            Project(name: "UPPERCASE", type: .generalPurpose),
+            Project(name: "UPPERCASE", type: .prose),
             Project(name: "lowercase", type: .poetry),
             Project(name: "MixedCase", type: .drama)
         ]
@@ -104,7 +104,7 @@ final class ProjectListDisplayIntegrationTests: XCTestCase {
     func testProjectListPreservesProjectDetails() {
         // Arrange
         let details = "A detailed description of my project"
-        let project = Project(name: "My Project", type: .generalPurpose, details: details)
+        let project = Project(name: "My Project", type: .prose, details: details)
         
         // Assert
         XCTAssertEqual(project.details, details)

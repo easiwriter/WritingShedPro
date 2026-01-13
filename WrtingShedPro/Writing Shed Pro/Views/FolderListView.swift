@@ -38,8 +38,17 @@ struct FolderListView: View {
     // Updated: Workflow status is now on files, not folders
     private func folderOrderForProjectType(_ type: ProjectType) -> [String] {
         switch type {
-        case .generalPurpose:
-            return ["Folders", "Trash"]
+        case .prose:
+            return [
+                // Section 1: Story Structure
+                "Manuscript", "Sections", "Prose",
+                // Section 2: Organization & Support
+                "Collections", "Submissions", "Research",
+                // Section 3: Publications
+                "Publishers", "Agents", "Other",
+                // Section 4: System
+                "Trash"
+            ]
             
         case .poetry:
             // Manuscript, Poems // Collections, Submissions, Research // Magazines, Competitions, Other // Trash
@@ -85,8 +94,12 @@ struct FolderListView: View {
     
     // Determines if spacing should be added after this folder
     private func shouldAddSpacingAfter(folder: Folder) -> Bool {
-        // Don't add spacing for general purpose projects
-        guard project.type != .generalPurpose else { return false }
+        // Don't add spacing for prose projects (they have sections like fiction)
+        guard project.type != .prose else {
+            let folderName = folder.name ?? ""
+            // Section breaks after: Prose, Research, Other
+            return folderName == "Prose" || folderName == "Research" || folderName == "Other"
+        }
         
         let folderName = folder.name ?? ""
         
@@ -223,9 +236,24 @@ struct FolderListView: View {
                             NavigationLink(destination: PlotOutlineView(project: project)) {
                                 FolderRowView(folder: folder)
                             }
+                        } else if folderName == "Acts" && project.type == .drama {
+                            // Drama: Acts folder navigates to ActListView
+                            NavigationLink(destination: ActListView(project: project)) {
+                                FolderRowView(folder: folder)
+                            }
                         } else if folderName == "Chapters" && project.type == .fiction {
                             // Fiction (Novel): Chapters folder navigates to ChapterListView
                             NavigationLink(destination: ChapterListView(project: project)) {
+                                FolderRowView(folder: folder)
+                            }
+                        } else if folderName == "Sections" && project.type == .prose {
+                            // Prose: Sections folder navigates to SectionListView
+                            NavigationLink(destination: SectionListView(project: project)) {
+                                FolderRowView(folder: folder)
+                            }
+                        } else if folderName == "Prose" && project.type == .prose {
+                            // Prose: Prose folder navigates to ProseListView
+                            NavigationLink(destination: ProseListView(project: project)) {
                                 FolderRowView(folder: folder)
                             }
                         } else if folderName == "Scenes" && project.type == .fiction {
@@ -437,6 +465,24 @@ struct FolderRowView: View {
         return name == "Scenes" && (folder.project?.type == .fiction || folder.project?.type == .drama)
     }
     
+    // Check if this is the Acts folder (drama projects only)
+    private var isActsFolder: Bool {
+        let name = folder.name ?? ""
+        return name == "Acts" && folder.project?.type == .drama
+    }
+    
+    // Check if this is the Chapters folder (fiction/novel projects only)
+    private var isChaptersFolder: Bool {
+        let name = folder.name ?? ""
+        return name == "Chapters" && folder.project?.type == .fiction
+    }
+    
+    // Check if this is the Sections folder (prose projects only)
+    private var isSectionsFolder: Bool {
+        let name = folder.name ?? ""
+        return name == "Sections" && folder.project?.type == .prose
+    }
+    
     // Get plot element count for Plot folder
     private var plotElementCount: Int {
         guard isPlotFolder, let project = folder.project else { return 0 }
@@ -459,6 +505,24 @@ struct FolderRowView: View {
     private var sceneCount: Int {
         guard isScenesFolder, let project = folder.project else { return 0 }
         return project.scenes?.count ?? 0
+    }
+    
+    // Get act count for Acts folder
+    private var actCount: Int {
+        guard isActsFolder, let project = folder.project else { return 0 }
+        return project.acts?.count ?? 0
+    }
+    
+    // Get chapter count for Chapters folder
+    private var chapterCount: Int {
+        guard isChaptersFolder, let project = folder.project else { return 0 }
+        return project.chapters?.count ?? 0
+    }
+    
+    // Get section count for Sections folder
+    private var sectionCount: Int {
+        guard isSectionsFolder, let project = folder.project else { return 0 }
+        return project.sections?.count ?? 0
     }
     
     // Get collection count for Collections folder
@@ -526,6 +590,12 @@ struct FolderRowView: View {
             count = locationCount
         } else if isScenesFolder {
             count = sceneCount
+        } else if isActsFolder {
+            count = actCount
+        } else if isChaptersFolder {
+            count = chapterCount
+        } else if isSectionsFolder {
+            count = sectionCount
         } else if isAllFolder {
             count = fileCount
         } else if isTrashFolder {
@@ -627,6 +697,11 @@ struct FolderRowView: View {
             return "person.2"
         case "Other":
             return "tray"
+        // Prose-specific folders
+        case "Prose":
+            return "doc.text"
+        case "Sections":
+            return "folder"
         // Fiction-specific folders
         case "Chapters":
             return "document.on.document"

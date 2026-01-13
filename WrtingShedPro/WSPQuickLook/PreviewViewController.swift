@@ -159,7 +159,7 @@ class PreviewViewController: UIViewController, QLPreviewingController {
     
     private func formatProjectType(_ type: String) -> String {
         switch type {
-        case "generalPurpose": return "General Purpose Project"
+        case "prose", "generalPurpose": return "Prose Project"
         case "poetry": return "Poetry Project"
         case "fiction": return "Fiction Project"
         case "drama": return "Drama Project"

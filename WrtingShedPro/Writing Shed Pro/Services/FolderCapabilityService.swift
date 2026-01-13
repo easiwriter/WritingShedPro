@@ -10,7 +10,7 @@ struct FolderCapabilityService {
     ]
     
     /// Folders that can contain BOTH subfolders AND files
-    /// These are flexible containers for General Purpose projects
+    /// These are flexible containers for Prose projects
     private static let mixedContentFolders: Set<String> = [
         "Folders"
     ]
@@ -24,11 +24,11 @@ struct FolderCapabilityService {
     
     /// Folders that can ONLY contain files (no subfolders)
     /// Users can manually add files to these folders
-    /// Updated: Poems, Scenes, Scripts are the new content folders (replacing Draft)
+    /// Updated: Poems, Scenes, Scripts, Sections, Prose are the new content folders (replacing Draft)
     private static let fileOnlyFolders: Set<String> = [
         "Files", "Research",
         // New content folders (workflow status is now on TextFile)
-        "Poems", "Scenes", "Scripts",
+        "Poems", "Scenes", "Scripts", "Sections", "Prose",
         // Manuscript subfolders (Feature 029) - Front/Back Matter allow files
         "Front Matter", "Back Matter"
     ]
@@ -104,11 +104,11 @@ struct FolderCapabilityService {
         return true
     }
     
-    /// Determines if this is a content folder (Poems, Scenes, Scripts)
+    /// Determines if this is a content folder (Poems, Scenes, Scripts, Sections, Prose)
     /// These folders use workflow status filtering
     static func isContentFolder(_ folder: Folder) -> Bool {
         guard let folderName = folder.name else { return false }
-        return ["Poems", "Scenes", "Scripts"].contains(folderName)
+        return ["Poems", "Scenes", "Scripts", "Sections", "Prose"].contains(folderName)
     }
     
     /// Determines if a folder is a root-level template folder (not user-created)

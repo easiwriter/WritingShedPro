@@ -63,12 +63,12 @@ final class ManuscriptAssemblyServiceTests: XCTestCase {
         XCTAssertEqual(folderName, "Scenes")
     }
     
-    func testGetBodySourceFolderNameForGeneralPurpose() {
-        let project = Project(name: "Test General", type: .generalPurpose)
+    func testGetBodySourceFolderNameForProse() {
+        let project = Project(name: "Test Prose", type: .prose)
         modelContext.insert(project)
         
         let folderName = assemblyService.getBodySourceFolderName(for: project)
-        XCTAssertEqual(folderName, "Folders")
+        XCTAssertEqual(folderName, "Prose")
     }
     
     // MARK: - Section Tests

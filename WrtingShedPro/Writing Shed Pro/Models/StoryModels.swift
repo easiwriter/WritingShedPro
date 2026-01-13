@@ -435,6 +435,9 @@ final class StoryScene {
     @Relationship(inverse: \Chapter.scenes)
     var chapter: Chapter?  // nil for Short Fiction projects
     
+    @Relationship(inverse: \Act.scenes)
+    var act: Act?  // nil for Fiction projects, used for Drama projects
+    
     var project: Project?
     
     @Relationship(deleteRule: .cascade, inverse: \TextFile.scene)
@@ -526,6 +529,54 @@ final class Chapter {
     
     @Relationship(deleteRule: .nullify)
     var scenes: [StoryScene]?
+    
+    init(name: String? = nil, synopsis: String? = nil, userOrder: Int? = nil) {
+        self.name = name
+        self.synopsis = synopsis
+        self.userOrder = userOrder
+    }
+}
+
+/// An act is a container for scenes (Drama projects only)
+/// Similar to Chapter in Fiction Novel projects
+@Model
+final class Act {
+    var id: UUID = UUID()
+    var name: String?
+    var userOrder: Int?
+    var synopsis: String?
+    var createdDate: Date = Date()
+    var modifiedDate: Date = Date()
+    
+    // Relationships
+    var project: Project?
+    
+    @Relationship(deleteRule: .nullify)
+    var scenes: [StoryScene]?
+    
+    init(name: String? = nil, synopsis: String? = nil, userOrder: Int? = nil) {
+        self.name = name
+        self.synopsis = synopsis
+        self.userOrder = userOrder
+    }
+}
+
+/// A section is a container for text files (Prose projects only)
+/// Similar to Chapter in Fiction Novel projects and Act in Drama projects
+@Model
+final class ProseSection {
+    var id: UUID = UUID()
+    var name: String?
+    var userOrder: Int?
+    var synopsis: String?
+    var createdDate: Date = Date()
+    var modifiedDate: Date = Date()
+    
+    // Relationships
+    var project: Project?
+    
+    @Relationship(deleteRule: .nullify, inverse: \TextFile.section)
+    var textFiles: [TextFile]?
     
     init(name: String? = nil, synopsis: String? = nil, userOrder: Int? = nil) {
         self.name = name

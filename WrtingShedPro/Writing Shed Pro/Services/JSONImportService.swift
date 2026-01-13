@@ -95,7 +95,7 @@ class JSONImportService {
         #endif
         
         // Create project
-        let projectType = ProjectType(rawValue: data.project.type) ?? .generalPurpose
+        let projectType = ProjectType(rawValue: data.project.type) ?? .prose
         var projectName = data.project.name
         projectName = ensureUniqueName(projectName)
         
@@ -501,12 +501,13 @@ class JSONImportService {
             "poetry": .poetry,
             "script": .drama,
             "drama": .drama,
-            "generalpurpose": .generalPurpose,
-            "general purpose": .generalPurpose,
-            "blank": .generalPurpose  // Legacy support
+            "prose": .prose,
+            "generalpurpose": .prose,
+            "general purpose": .prose,
+            "blank": .prose  // Legacy support
         ]
         
-        return typeMapping[modelString.lowercased()] ?? .generalPurpose
+        return typeMapping[modelString.lowercased()] ?? .prose
     }
     
     // MARK: - Text Files Import
@@ -553,8 +554,8 @@ class JSONImportService {
             // Determine workflow status from original folder name
             var workflowStatus = mapFolderNameToWorkflowStatus(textFileMetadata.folderName)
             
-            // Check if the folder is a content folder (Poems, Scenes, Scripts, Files)
-            let isContentFolder = ["poems", "scenes", "scripts", "files"].contains(textFileMetadata.folderName.lowercased())
+            // Check if the folder is a content folder (Poems, Scenes, Scripts, Sections, Prose, Files)
+            let isContentFolder = ["poems", "scenes", "scripts", "sections", "prose", "files"].contains(textFileMetadata.folderName.lowercased())
             
             // Determine target folder:
             // - Workflow folders (Draft, Ready, etc.) → content folder with status
@@ -1348,8 +1349,8 @@ class JSONImportService {
             return "Scenes"
         case .drama:
             return "Scripts"
-        case .generalPurpose:
-            return "Files"
+        case .prose:
+            return "Prose"
         }
     }
     
@@ -1359,8 +1360,19 @@ class JSONImportService {
         let folderNames: [String]
         
         switch project.type {
-        case .generalPurpose:
-            folderNames = ["Folders", "Trash"]
+        case .prose:
+            folderNames = [
+                "Manuscript",
+                "Sections",
+                "Prose",
+                "Collections",
+                "Submissions",
+                "Research",
+                "Publishers",
+                "Agents",
+                "Other",
+                "Trash"
+            ]
             
         case .poetry:
             // New Poetry structure: single Poems folder (workflow is on files)

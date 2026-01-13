@@ -34,7 +34,7 @@ final class TextFormatterStyleSheetTests: XCTestCase {
         StyleSheetService.initializeStyleSheetsIfNeeded(context: context)
         
         // Create test project
-        project = Project(name: "Test Project", type: .generalPurpose)
+        project = Project(name: "Test Project", type: .prose)
         context.insert(project)
         try context.save()
     }

@@ -53,21 +53,22 @@ final class ProjectTemplateServiceTests: XCTestCase {
         XCTAssertEqual(manuscriptFolder?.folders?.count, 3, "Manuscript should have 3 subfolders")
     }
     
-    func testCreateDefaultFoldersForBlankProject() throws {
-        // Given a blank project
-        let project = Project(name: "Test Blank", type: .generalPurpose)
+    func testCreateDefaultFoldersForProseProject() throws {
+        // Given a prose project
+        let project = Project(name: "Test Prose", type: .prose)
         modelContext.insert(project)
         
         // When creating default folders
         ProjectTemplateService.createDefaultFolders(for: project, in: modelContext)
         
-        // Then verify 2 folders exist in flat structure
-        let folders = project.folders ?? []
+        // Then verify 10 folders exist in flat structure (plus 3 Manuscript subfolders)
+        let allFolders = project.folders ?? []
+        let rootFolders = allFolders.filter { $0.parentFolder == nil }
         
-        XCTAssertEqual(folders.count, 2, "Should have 2 folders for blank project")
+        XCTAssertEqual(rootFolders.count, 10, "Should have 10 root folders for prose project")
         
-        let folderNames = Set(folders.compactMap { $0.name })
-        let expectedNames: Set<String> = ["Folders", "Trash"]
+        let folderNames = Set(rootFolders.compactMap { $0.name })
+        let expectedNames: Set<String> = ["Manuscript", "Sections", "Prose", "Collections", "Submissions", "Research", "Publishers", "Agents", "Other", "Trash"]
         XCTAssertEqual(folderNames, expectedNames, "Should have correct folder names")
     }
     
@@ -391,7 +392,7 @@ final class ProjectTemplateServiceTests: XCTestCase {
     func testMultipleProjectsHaveIndependentFolders() throws {
         // Given two projects
         let project1 = Project(name: "Project 1", type: .poetry)
-        let project2 = Project(name: "Project 2", type: .generalPurpose)
+        let project2 = Project(name: "Project 2", type: .prose)
         modelContext.insert(project1)
         modelContext.insert(project2)
         

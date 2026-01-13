@@ -39,7 +39,7 @@ struct FileListView: View {
     /// Called when user taps a file in normal mode
     let onFileSelected: (TextFile) -> Void
     
-    /// Called when user initiates move action (optional - only for General Purpose projects)
+    /// Called when user initiates move action (optional - only for Prose projects)
     let onMove: (([TextFile]) -> Void)?
     
     /// Called when user initiates delete action (single or multiple files)
@@ -425,7 +425,7 @@ struct FileListView: View {
     /// Swipe action buttons (only shown in normal mode)
     @ViewBuilder
     private func swipeActionButtons(for file: TextFile) -> some View {
-        // Move button only shown if onMove is provided (General Purpose projects)
+        // Move button only shown if onMove is provided (Prose projects)
         if let onMove = onMove {
             Button {
                 onMove([file])
@@ -629,7 +629,7 @@ struct FileListView: View {
         
         Divider()
         
-        // Move option (only for General Purpose projects)
+        // Move option (only for Prose projects)
         if let onMove = onMove {
             Button {
                 onMove([file])

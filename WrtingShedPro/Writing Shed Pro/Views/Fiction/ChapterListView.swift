@@ -85,7 +85,7 @@ struct ChapterListView: View {
         List {
             ForEach(sortedChapters) { chapter in
                 NavigationLink {
-                    SceneListView(project: project, chapter: chapter)
+                    SceneListView(project: project, chapter: chapter, act: nil)
                 } label: {
                     ChapterRowView(chapter: chapter)
                 }

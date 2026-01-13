@@ -114,7 +114,7 @@ struct FolderFilesView: View {
     @State var showStatusPicker = false
     @State var filesToChangeStatus: [TextFile] = []
     
-    // State for file movement (General Purpose projects only)
+    // State for file movement (Prose projects only)
     @State var showMoveDestinationPicker = false
     @State var filesToMove: [TextFile] = []
     
@@ -126,7 +126,7 @@ struct FolderFilesView: View {
         FileListView(
             files: sortedFiles,
             onFileSelected: handleFileSelected,
-            onMove: isGeneralPurposeProject ? handleMove : nil,
+            onMove: isProseProject ? handleMove : nil,
             onDelete: deleteFiles,
             onExport: handleExport,
             onSubmit: fileListOnSubmit,
@@ -688,7 +688,7 @@ struct FolderFilesView: View {
         }
     }
     
-    /// Move files to a destination folder (General Purpose projects only)
+    /// Move files to a destination folder (Prose projects only)
     func moveFiles(to destination: Folder) {
         let service = FileMoveService(modelContext: modelContext)
         

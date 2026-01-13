@@ -20,6 +20,7 @@ struct AddSceneSheet: View {
     
     let project: Project
     let chapter: Chapter?
+    let act: Act?
     
     // MARK: - State
     
@@ -55,6 +56,8 @@ struct AddSceneSheet: View {
         let scenes: [StoryScene]
         if let chapter = chapter {
             scenes = chapter.scenes ?? []
+        } else if let act = act {
+            scenes = act.scenes ?? []
         } else {
             scenes = project.scenes ?? []
         }
@@ -251,6 +254,7 @@ struct AddSceneSheet: View {
         )
         scene.project = project
         scene.chapter = chapter
+        scene.act = act
         
         // Also add to project.scenes to ensure relationship is synced
         if project.scenes == nil {

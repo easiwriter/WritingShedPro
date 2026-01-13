@@ -76,9 +76,21 @@ struct ProjectTemplateService {
     /// a property on TextFile, not separate folders.
     private static func getOrderedFolderKeys(for project: Project) -> [String] {
         switch project.type {
-        case .generalPurpose:
+        case .prose:
             return [
-                "folder.folders",
+                // Section 1: Story Structure
+                "folder.manuscript",
+                "folder.sections",
+                "folder.prose",
+                // Section 2: Organization & Support
+                "folder.collections",
+                "folder.submissions",
+                "folder.research",
+                // Section 3: Publications
+                "folder.publishers",
+                "folder.agents",
+                "folder.other",
+                // Section 4: System
                 "folder.trash"
             ]
             
@@ -176,8 +188,8 @@ extension ProjectType {
     /// Returns the localized display name for this project type
     var localizedName: String {
         switch self {
-        case .generalPurpose:
-            return NSLocalizedString("projectType.generalPurpose", comment: "General Purpose project type")
+        case .prose:
+            return NSLocalizedString("projectType.prose", comment: "Prose project type")
         case .poetry:
             return NSLocalizedString("projectType.poetry", comment: "Poetry project type")
         case .fiction:

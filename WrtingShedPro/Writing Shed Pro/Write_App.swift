@@ -41,7 +41,11 @@ struct Write_App: App {
             Character.self,
             Location.self,
             CustomAttribute.self,
-            PlotElement.self
+            PlotElement.self,
+            // Drama
+            Act.self,
+            // Prose
+            ProseSection.self
         ])
         
         #if DEBUG

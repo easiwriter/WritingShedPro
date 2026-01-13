@@ -1,7 +1,7 @@
 /* Localization strings for Write! app */
 
 /* Project types */
-"projectType.generalPurpose" = "General Purpose";
+"projectType.prose" = "Prose";
 "projectType.poetry" = "Poetry";
 "projectType.fiction" = "Fiction";
 "projectType.drama" = "Drama";
@@ -634,7 +634,7 @@
 "folder.acts" = "Acts";
 
 /* Project type folder names */
-"projectFolder.generalPurpose" = "GENERAL PURPOSE";
+"projectFolder.prose" = "YOUR PROSE";
 "projectFolder.yourPoetry" = "YOUR POETRY";
 "projectFolder.yourStories" = "YOUR STORIES";
 "projectFolder.yourNovel" = "YOUR NOVEL";
@@ -693,6 +693,8 @@
 "workflow.status.setAside" = "Set Aside";
 "workflow.status.published" = "Published";
 "workflow.filter.all" = "All";
+"workflow.filter.noResults" = "No Files";
+"workflow.filter.noResultsHint" = "No files have this workflow status";
 "workflow.picker.title" = "Change Status";
 "workflow.picker.header" = "Select the new status for the selected files";
 "workflow.picker.footer" = "The status will be applied to all selected files";
@@ -705,6 +707,7 @@
 "folder.scripts" = "Scripts";
 "folder.plot" = "Plot";
 "folder.sections" = "Sections";
+"folder.prose" = "Prose";
 
 /* FileEditView */
 "fileEdit.untitledFile" = "Untitled File";
@@ -1603,6 +1606,96 @@
 
 "button.insert" = "Insert";
 
+/* Drama Acts (Act management for drama projects) */
+"drama.acts.title" = "Acts";
+"drama.acts.add" = "Add Act";
+"drama.acts.empty.title" = "No Acts Yet";
+"drama.acts.empty.message" = "Add acts to organize your drama's structure.";
+"drama.acts.deleteConfirm.title" = "Delete Act?";
+"drama.acts.deleteConfirm.message" = "Are you sure you want to delete \"%@\"? All scenes in this act will also be deleted.";
+"drama.act" = "Act";
+"drama.act.title" = "Title";
+"drama.act.title.accessibility" = "Act title";
+"drama.act.number" = "Act %d";
+"drama.act.section.basic" = "Basic Info";
+"drama.act.synopsis" = "Synopsis";
+"drama.act.synopsis.accessibility" = "Act synopsis";
+"drama.act.synopsis.footer" = "Brief overview of what happens in this act.";
+"drama.act.add.title" = "Add Act";
+"drama.act.defaultTitle" = "Act %d";
+"drama.act.error.titleRequired" = "Act title is required.";
+"drama.act.sceneCount" = "%d scenes";
+"drama.untitled" = "Untitled";
+
+/* Drama Scene Assignment */
+"drama.scenes.addToAct" = "Add to Act";
+"drama.scenes.actAssignment" = "Act Assignment";
+"drama.scenes.removeFromAct" = "Remove from Act";
+"drama.scenes.removeFromActNamed" = "Remove from %@";
+"drama.scenes.unassign" = "Unassign";
+"drama.scenes.currentAssignment" = "Current Assignment";
+"drama.scenes.assignedToAct" = "Currently assigned to %@";
+"drama.scenes.assignCount" = "Assigning %d scene(s)";
+
+/* Drama Acts Management */
+"drama.acts.deleteMultiple.title" = "Delete %d Acts?";
+"drama.acts.deleteMultiple.message" = "All scenes in these acts will also be deleted.";
+"drama.acts.deleteCount" = "Delete (%d)";
+"drama.act.rename.title" = "Rename Act";
+"drama.acts.picker.createHint" = "Create acts in the Acts folder first.";
+
+/* Prose Sections Management */
+"prose.sections.title" = "Sections";
+"prose.sections.add" = "Add Section";
+"prose.sections.empty.title" = "No Sections Yet";
+"prose.sections.empty.message" = "Add sections to organize your prose work.";
+"prose.sections.deleteConfirm.title" = "Delete Section?";
+"prose.sections.deleteConfirm.message" = "Are you sure you want to delete \"%@\"? Files in this section will be unassigned but not deleted.";
+"prose.sections.deleteMultiple.title" = "Delete %d Sections?";
+"prose.sections.deleteMultiple.message" = "Files in these sections will be unassigned but not deleted.";
+"prose.sections.deleteCount" = "Delete (%d)";
+"prose.section" = "Section";
+"prose.section.title" = "Title";
+"prose.section.title.accessibility" = "Section title";
+"prose.section.number" = "Section %d";
+"prose.section.section.basic" = "Basic Info";
+"prose.section.synopsis" = "Synopsis";
+"prose.section.synopsis.accessibility" = "Section synopsis";
+"prose.section.synopsis.footer" = "Brief overview of what this section covers.";
+"prose.section.add.title" = "Add Section";
+"prose.section.defaultTitle" = "Section %d";
+"prose.section.error.titleRequired" = "Section title is required.";
+"prose.section.fileCount" = "%d files";
+"prose.section.rename.title" = "Rename Section";
+"prose.untitled" = "Untitled";
+"prose.folder.title" = "Prose";
+"prose.files.title" = "Files";
+"prose.files.add" = "Add File";
+"prose.files.add.title" = "Add File";
+"prose.files.empty.title" = "No Files Yet";
+"prose.files.empty.message" = "Add files to start writing.";
+"prose.files.removeConfirm.title" = "Remove from Section?";
+"prose.files.removeMultiple.title" = "Remove %d Files?";
+"prose.files.removeConfirm.message" = "Files will be unassigned from this section but not deleted.";
+"prose.files.removeFromSection" = "Remove from Section";
+
+/* Prose File Assignment */
+"prose.files.addToSection" = "Add to Section";
+"prose.files.sectionAssignment" = "Section Assignment";
+"prose.files.removeFromSectionNamed" = "Remove from %@";
+"prose.files.currentAssignment" = "Current Assignment";
+"prose.files.assignedToSection" = "Currently assigned to %@";
+"prose.files.assignCount" = "Assigning %d file(s)";
+"prose.sections.picker.createHint" = "Create sections in the Sections folder first.";
+
+/* Fiction Chapter Assignment */
+"fiction.scenes.addToChapter" = "Add to Chapter";
+"fiction.scenes.chapterAssignment" = "Chapter Assignment";
+"fiction.scenes.removeFromChapterNamed" = "Remove from %@";
+"fiction.scenes.currentAssignment" = "Current Assignment";
+"fiction.scenes.assignedToChapter" = "Currently assigned to %@";
+"fiction.scenes.assignCount" = "Assigning %d scene(s)";
+"fiction.chapters.picker.createHint" = "Create chapters in the Chapters folder first.";
 
 // Story Structure (Feature 022/023 - expanded)
 "storyStructure.freeform" = "Freeform";

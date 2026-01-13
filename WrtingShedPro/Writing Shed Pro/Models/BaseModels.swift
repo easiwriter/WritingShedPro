@@ -104,6 +104,14 @@ final class Project {
     @Relationship(deleteRule: .cascade, inverse: \Chapter.project)
     var chapters: [Chapter]? = []
     
+    // Drama relationships
+    @Relationship(deleteRule: .cascade, inverse: \Act.project)
+    var acts: [Act]? = []
+    
+    // Prose relationships
+    @Relationship(deleteRule: .cascade, inverse: \ProseSection.project)
+    var sections: [ProseSection]? = []
+    
     @Relationship(deleteRule: .cascade, inverse: \Character.project)
     var characters: [Character]? = []
     
@@ -147,11 +155,11 @@ final class Project {
     var type: ProjectType {
         get {
             guard let typeRaw = typeRaw, let projectType = ProjectType(rawValue: typeRaw) else {
-                // Handle legacy "blank" value
-                if typeRaw == "blank" {
-                    return .generalPurpose
+                // Handle legacy "blank" and "generalPurpose" values
+                if typeRaw == "blank" || typeRaw == "generalPurpose" {
+                    return .prose
                 }
-                return .generalPurpose
+                return .prose
             }
             return projectType
         }
@@ -172,7 +180,7 @@ final class Project {
         }
     }
     
-    init(name: String?, type: ProjectType = ProjectType.generalPurpose, creationDate: Date? = Date(), details: String? = nil, notes: String? = nil, userOrder: Int? = nil, styleSheet: StyleSheet? = nil) {
+    init(name: String?, type: ProjectType = ProjectType.prose, creationDate: Date? = Date(), details: String? = nil, notes: String? = nil, userOrder: Int? = nil, styleSheet: StyleSheet? = nil) {
         self.name = name
         self.typeRaw = type.rawValue
         self.statusRaw = ProjectStatus.pro.rawValue // Default to .pro
@@ -200,21 +208,21 @@ final class Project {
 }
 
 enum ProjectType: String, Codable, CaseIterable {
-    case generalPurpose, poetry, fiction, drama
+    case prose, poetry, fiction, drama
     
     // Backward compatibility: decode legacy values
     init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         let rawValue = try container.decode(String.self)
         switch rawValue {
-        case "blank":
-            self = .generalPurpose
+        case "blank", "generalPurpose":
+            self = .prose
         case "novel", "shortStory":
             self = .fiction
         case "script":
             self = .drama
         default:
-            self = ProjectType(rawValue: rawValue) ?? .generalPurpose
+            self = ProjectType(rawValue: rawValue) ?? .prose
         }
     }
 }
@@ -223,7 +231,7 @@ enum ProjectType: String, Codable, CaseIterable {
 final class Folder {
     var id: UUID = UUID()
     var name: String?
-    var userOrder: Int?  // For user-defined ordering in General Purpose projects
+    var userOrder: Int?  // For user-defined ordering in Prose projects
     @Relationship(deleteRule: .cascade) var folders: [Folder]?  // Inverse is parentFolder
     @Relationship(deleteRule: .cascade) var textFiles: [TextFile]?  // Inverse is TextFile.parentFolder
     @Relationship(inverse: \Folder.folders) var parentFolder: Folder?  // Inverse is folders
@@ -541,7 +549,7 @@ final class TextFile {
     var userOrder: Int?
     
     // Workflow status (replaces folder-based workflow)
-    // Only used for Poetry, Fiction, Drama projects - nil for General Purpose
+    // Only used for Poetry, Fiction, Drama projects - nil for Prose
     var workflowStatusRaw: String?
     
     // Undo/Redo support (for TextFileUndoManager)
@@ -571,6 +579,9 @@ final class TextFile {
     // Feature 022: Smart Fiction Creation
     // A TextFile can be the content of a Scene
     var scene: StoryScene?
+    
+    // Prose: A TextFile can belong to a ProseSection
+    var section: ProseSection?
     
     // Feature 029: Manuscript Assembly
     // Whether this file is included in manuscript assembly (default: true)

@@ -152,7 +152,7 @@ class JSONExportService {
         WSPProjectData(
             id: project.id.uuidString,
             name: project.name ?? "Untitled",
-            type: project.typeRaw ?? "generalPurpose",
+            type: project.typeRaw ?? "prose",
             status: project.statusRaw ?? "pro",
             creationDate: project.creationDate,
             modifiedDate: project.modifiedDate,
@@ -341,7 +341,7 @@ struct WSPExportData: Codable {
 struct WSPProjectData: Codable {
     var id: String = ""
     var name: String = ""
-    var type: String = "generalPurpose"
+    var type: String = "prose"
     var status: String = "pro"
     var creationDate: Date?
     var modifiedDate: Date?

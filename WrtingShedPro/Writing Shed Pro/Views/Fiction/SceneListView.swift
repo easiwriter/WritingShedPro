@@ -27,6 +27,9 @@ struct SceneListView: View {
     /// Optional chapter - if provided, shows scenes for that chapter only (Novel mode)
     let chapter: Chapter?
     
+    /// Optional act - if provided, shows scenes for that act only (Drama mode)
+    let act: Act?
+    
     // MARK: - State
     
     @State private var showAddScene = false
@@ -54,6 +57,18 @@ struct SceneListView: View {
     /// Show header/footer editor
     @State private var showHeaderFooterEditor = false
     
+    /// Show act picker for assigning scenes to acts (Drama only)
+    @State private var showActPicker = false
+    
+    /// Show chapter picker for assigning scenes to chapters (Fiction only)
+    @State private var showChapterPicker = false
+
+    /// Show workflow status picker
+    @State private var showStatusPicker = false
+
+    /// Workflow status filter (nil = show all)
+    @State private var statusFilter: WorkflowStatus? = nil
+    
     /// Header/footer editor fields
     @State private var headerLeft: String = ""
     @State private var headerCenter: String = ""
@@ -66,9 +81,10 @@ struct SceneListView: View {
     
     // MARK: - Init
     
-    init(project: Project, chapter: Chapter? = nil) {
+    init(project: Project, chapter: Chapter? = nil, act: Act? = nil) {
         self.project = project
         self.chapter = chapter
+        self.act = act
     }
     
     // MARK: - Computed
@@ -79,20 +95,61 @@ struct SceneListView: View {
         if let chapter = chapter {
             // Novel mode: scenes within a specific chapter
             scenes = chapter.scenes ?? []
+        } else if let act = act {
+            // Drama mode: scenes within a specific act
+            scenes = act.scenes ?? []
         } else {
-            // Short Fiction mode: all scenes at project level
+            // Short Fiction / standalone mode: all scenes at project level
             scenes = project.scenes ?? []
         }
         
-        // Filter out trashed scenes and sort by order
-        return scenes
-            .filter { !$0.isTrashed }
-            .sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+        // Filter out trashed scenes
+        var result = scenes.filter { !$0.isTrashed }
+        
+        // Sort: by userOrder when in an act (supports reordering), alphabetically otherwise
+        if act != nil {
+            result = result.sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+        } else {
+            result = result.sorted { ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending }
+        }
+        
+        // Apply workflow status filter if set
+        if let filter = statusFilter {
+            result = result.filter { $0.textFile?.workflowStatus == filter }
+        }
+        
+        return result
+    }
+    
+    /// All scenes (unfiltered) for counting purposes
+    private var allScenes: [StoryScene] {
+        let scenes: [StoryScene]
+        
+        if let chapter = chapter {
+            scenes = chapter.scenes ?? []
+        } else if let act = act {
+            scenes = act.scenes ?? []
+        } else {
+            scenes = project.scenes ?? []
+        }
+        
+        return scenes.filter { !$0.isTrashed }
+    }
+    
+    /// Count scenes by workflow status
+    private func sceneCount(for status: WorkflowStatus?) -> Int {
+        if let status = status {
+            return allScenes.filter { $0.textFile?.workflowStatus == status }.count
+        }
+        return allScenes.count
     }
     
     private var title: String {
         if let chapter = chapter {
             return chapter.name ?? NSLocalizedString("fiction.scenes.title", comment: "Scenes")
+        }
+        if let act = act {
+            return act.name ?? NSLocalizedString("fiction.scenes.title", comment: "Scenes")
         }
         return NSLocalizedString("fiction.scenes.title", comment: "Scenes")
     }
@@ -131,11 +188,22 @@ struct SceneListView: View {
     // MARK: - Body
     
     var body: some View {
-        Group {
-            if sortedScenes.isEmpty {
-                emptyState
-            } else {
-                sceneList
+        VStack(spacing: 0) {
+            workflowStatusFilter
+            
+            Group {
+                if sortedScenes.isEmpty && statusFilter == nil {
+                    emptyState
+                } else if sortedScenes.isEmpty {
+                    // Filtered but no results
+                    ContentUnavailableView {
+                        Label(NSLocalizedString("workflow.filter.noResults", comment: "No files"), systemImage: "doc.text")
+                    } description: {
+                        Text(NSLocalizedString("workflow.filter.noResultsHint", comment: "No files with this status"))
+                    }
+                } else {
+                    sceneList
+                }
             }
         }
         .navigationTitle(title)
@@ -181,14 +249,16 @@ struct SceneListView: View {
                 .disabled(!headersOrFootersEnabled)
                 .foregroundStyle(headersOrFootersEnabled ? Color.accentColor : Color.secondary)
                 
-                // Add scene button
-                Button {
-                    showAddScene = true
-                } label: {
-                    Image(systemName: "plus")
+                // Add scene button (hidden when viewing an act's or chapter's scenes)
+                if act == nil && chapter == nil {
+                    Button {
+                        showAddScene = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                    .accessibilityLabel(NSLocalizedString("fiction.scenes.add", comment: "Add scene"))
+                    .disabled(editMode == .active)
                 }
-                .accessibilityLabel(NSLocalizedString("fiction.scenes.add", comment: "Add scene"))
-                .disabled(editMode == .active)
                 
                 // Edit/Done button
                 if !sortedScenes.isEmpty {
@@ -216,7 +286,7 @@ struct SceneListView: View {
             }
         }
         .sheet(isPresented: $showAddScene) {
-            AddSceneSheet(project: project, chapter: chapter)
+            AddSceneSheet(project: project, chapter: chapter, act: act)
         }
         .sheet(item: $selectedScene) { scene in
             SceneDetailView(scene: scene, project: project)
@@ -304,15 +374,142 @@ struct SceneListView: View {
                 selectedSceneIDs.removeAll()
             }
         }
+        .sheet(isPresented: $showActPicker) {
+            ActPickerSheet(
+                project: project,
+                selectedScenes: selectedScenes.filter { $0.textFile?.workflowStatus == .ready },
+                onAssign: { act in
+                    let readyScenes = selectedScenes.filter { $0.textFile?.workflowStatus == .ready }
+                    assignScenesToAct(readyScenes, act: act)
+                    showActPicker = false
+                    exitEditMode()
+                },
+                onCancel: {
+                    showActPicker = false
+                }
+            )
+        }
+        .sheet(isPresented: $showChapterPicker) {
+            ChapterPickerSheet(
+                project: project,
+                selectedScenes: selectedScenes.filter { $0.textFile?.workflowStatus == .ready },
+                onAssign: { chapter in
+                    let readyScenes = selectedScenes.filter { $0.textFile?.workflowStatus == .ready }
+                    assignScenesToChapter(readyScenes, chapter: chapter)
+                    showChapterPicker = false
+                    exitEditMode()
+                },
+                onCancel: {
+                    showChapterPicker = false
+                }
+            )
+        }
+        .sheet(isPresented: $showStatusPicker) {
+            let sceneFiles = selectedScenes.compactMap { $0.textFile }
+            WorkflowStatusPickerSheet(
+                files: sceneFiles,
+                onStatusSelected: { newStatus in
+                    changeScenesStatus(selectedScenes, to: newStatus)
+                    showStatusPicker = false
+                    exitEditMode()
+                },
+                onCancel: {
+                    showStatusPicker = false
+                }
+            )
+        }
         .onAppear {
             initializeHeaderFooterFields()
         }
+    }
+    
+    // MARK: - Workflow Status Filter
+    
+    @ViewBuilder
+    private var workflowStatusFilter: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                // "All" option with count
+                workflowStatusButton(nil, label: NSLocalizedString("workflow.filter.all", comment: "All"), count: sceneCount(for: nil))
+                
+                // Individual status options with counts
+                ForEach(WorkflowStatus.allCases, id: \.self) { status in
+                    workflowStatusButton(status, label: status.localizedName, count: sceneCount(for: status))
+                }
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 8)
+        }
+        .background(Color(.systemGroupedBackground))
+    }
+    
+    @ViewBuilder
+    private func workflowStatusButton(_ status: WorkflowStatus?, label: String, count: Int) -> some View {
+        let isSelected = statusFilter == status
+        let statusColor: Color = status.map { Color($0.color) } ?? .primary
+        
+        Button {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                statusFilter = status
+            }
+        } label: {
+            Text("\(label) (\(count))")
+                .font(.subheadline)
+                .fontWeight(isSelected ? .semibold : .regular)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(isSelected ? statusColor.opacity(0.2) : Color(.secondarySystemBackground))
+                )
+                .foregroundColor(isSelected ? statusColor : .secondary)
+        }
+        .buttonStyle(.plain)
     }
     
     // MARK: - Bottom Toolbar
     
     @ViewBuilder
     private var bottomToolbarContent: some View {
+        // Change Status button
+        Button {
+            showStatusPicker = true
+        } label: {
+            Label(
+                NSLocalizedString("fileList.changeStatus", comment: "Change status"),
+                systemImage: "arrow.triangle.2.circlepath"
+            )
+        }
+        .disabled(selectedScenes.isEmpty)
+        
+        // Add to Act button (Drama projects, main scene list only, ready scenes only)
+        if project.type == .drama && act == nil && chapter == nil {
+            let readyScenes = selectedScenes.filter { $0.textFile?.workflowStatus == .ready }
+            Button {
+                showActPicker = true
+            } label: {
+                Label(
+                    NSLocalizedString("drama.scenes.addToAct", comment: "Add to Act"),
+                    systemImage: "theatermasks"
+                )
+            }
+            .disabled(readyScenes.isEmpty)
+        }
+        
+        // Add to Chapter button (Fiction projects, main scene list only, ready scenes only)
+        if project.type == .fiction && act == nil && chapter == nil {
+            let readyScenes = selectedScenes.filter { $0.textFile?.workflowStatus == .ready }
+            Button {
+                showChapterPicker = true
+            } label: {
+                Label(
+                    NSLocalizedString("fiction.scenes.addToChapter", comment: "Add to Chapter"),
+                    systemImage: "book"
+                )
+            }
+            .disabled(readyScenes.isEmpty)
+        }
+        
         Spacer()
         
         Button(role: .destructive) {
@@ -344,7 +541,8 @@ struct SceneListView: View {
                         }
                     }
             }
-            .onMove(perform: moveScenes)
+            // Only enable drag-to-reorder when viewing scenes within an act
+            .onMove(perform: act != nil ? moveScenes : nil)
         }
         .listStyle(.plain)
     }
@@ -478,6 +676,29 @@ struct SceneListView: View {
         }
     }
     
+    private func assignScenesToAct(_ scenes: [StoryScene], act: Act?) {
+        for scene in scenes {
+            scene.act = act
+        }
+        try? modelContext.save()
+    }
+    
+    private func assignScenesToChapter(_ scenes: [StoryScene], chapter: Chapter?) {
+        for scene in scenes {
+            scene.chapter = chapter
+        }
+        try? modelContext.save()
+    }
+
+    private func changeScenesStatus(_ scenes: [StoryScene], to newStatus: WorkflowStatus) {
+        for scene in scenes {
+            if let textFile = scene.textFile {
+                textFile.workflowStatus = newStatus
+            }
+        }
+        try? modelContext.save()
+    }
+    
     private func initializeHeaderFooterFields() {
         if let pageSetup = project.pageSetup {
             headerLeft = pageSetup.headerLeft ?? ""
@@ -502,6 +723,7 @@ struct SceneListView: View {
                 let newScene = StoryScene(name: fileName)
                 newScene.project = project
                 newScene.chapter = chapter
+                newScene.act = act
                 newScene.userOrder = sortedScenes.count
                 
                 // Also add to project.scenes to ensure relationship is synced

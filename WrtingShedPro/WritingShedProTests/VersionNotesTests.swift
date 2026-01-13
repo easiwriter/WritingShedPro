@@ -43,7 +43,7 @@ final class VersionNotesTests: XCTestCase {
         modelContext = ModelContext(modelContainer)
         
         // Create test project and text file
-        project = Project(name: "Test Project", type: .generalPurpose, creationDate: Date())
+        project = Project(name: "Test Project", type: .prose, creationDate: Date())
         modelContext.insert(project)
         
         textFile = TextFile()

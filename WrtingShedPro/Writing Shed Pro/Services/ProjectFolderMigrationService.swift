@@ -16,7 +16,7 @@ struct ProjectFolderMigrationService {
     // MARK: - Migration Version
     
     private static let migrationVersionKey = "projectFolderMigrationVersion"
-    private static let currentMigrationVersion = 2  // Version 2: Fix folder ordering for all projects
+    private static let currentMigrationVersion = 3  // Version 3: Add new folder structure to Prose projects
     
     // MARK: - Public Methods
     
@@ -61,8 +61,13 @@ struct ProjectFolderMigrationService {
             fixFolderOrderingForAllProjects(modelContext: modelContext)
         }
         
+        // Version 3: Add new folder structure to Prose projects (formerly General Purpose)
+        if oldVersion < 3 {
+            migrateProseProjectFolders(modelContext: modelContext)
+        }
+        
         // Future migrations go here:
-        // if oldVersion < 3 { ... }
+        // if oldVersion < 4 { ... }
         
         do {
             try modelContext.save()
@@ -142,6 +147,73 @@ struct ProjectFolderMigrationService {
         }
     }
     
+    /// Version 3 Migration: Add new folder structure to Prose projects (formerly General Purpose)
+    /// Old structure: Folders, Trash
+    /// New structure: Manuscript, Sections, Prose, Collections, Submissions, Research, Publishers, Agents, Other, Trash
+    private static func migrateProseProjectFolders(modelContext: ModelContext) {
+        #if DEBUG
+        print("[ProjectFolderMigration] V3: Adding new folder structure to Prose projects...")
+        #endif
+        
+        // Fetch all Prose projects (includes legacy "generalPurpose" type)
+        let descriptor = FetchDescriptor<Project>(
+            predicate: #Predicate { $0.typeRaw == "prose" || $0.typeRaw == "generalPurpose" }
+        )
+        
+        do {
+            let proseProjects = try modelContext.fetch(descriptor)
+            
+            #if DEBUG
+            print("[ProjectFolderMigration] Found \(proseProjects.count) Prose projects to migrate")
+            #endif
+            
+            // Folders to add (localization keys)
+            let foldersToAdd = [
+                "folder.manuscript",
+                "folder.sections",
+                "folder.prose",
+                "folder.collections",
+                "folder.submissions",
+                "folder.research",
+                "folder.publishers",
+                "folder.agents",
+                "folder.other"
+                // Note: Trash should already exist
+            ]
+            
+            for project in proseProjects {
+                var addedCount = 0
+                
+                for folderKey in foldersToAdd {
+                    if addFolderIfMissing(folderKey: folderKey, to: project, modelContext: modelContext) {
+                        addedCount += 1
+                    }
+                }
+                
+                // Create Manuscript subfolders if Manuscript was added
+                let manuscriptName = NSLocalizedString("folder.manuscript", comment: "Manuscript")
+                if let manuscriptFolder = project.folders?.first(where: { $0.name == manuscriptName }) {
+                    // Check if subfolders exist
+                    let existingSubfolders = manuscriptFolder.folders ?? []
+                    if existingSubfolders.isEmpty {
+                        ProjectTemplateService.createManuscriptSubfolders(in: manuscriptFolder, context: modelContext)
+                    }
+                }
+                
+                // Fix folder ordering after adding new folders
+                fixFolderOrdering(for: project)
+                
+                #if DEBUG
+                print("[ProjectFolderMigration] Added \(addedCount) folders to Prose project: \(project.name ?? "Untitled")")
+                #endif
+            }
+        } catch {
+            #if DEBUG
+            print("[ProjectFolderMigration] ❌ Failed to fetch Prose projects: \(error)")
+            #endif
+        }
+    }
+    
     /// Fix folder ordering for a single project based on the expected order
     private static func fixFolderOrdering(for project: Project) {
         guard let folders = project.folders else { return }
@@ -174,8 +246,13 @@ struct ProjectFolderMigrationService {
     /// Returns the expected folder order keys for a project type
     private static func getExpectedFolderOrder(for project: Project) -> [String] {
         switch project.type {
-        case .generalPurpose:
-            return ["folder.folders", "folder.trash"]
+        case .prose:
+            return [
+                "folder.manuscript", "folder.sections", "folder.prose",
+                "folder.collections", "folder.submissions", "folder.research",
+                "folder.publishers", "folder.agents", "folder.other",
+                "folder.trash"
+            ]
             
         case .poetry:
             return [
