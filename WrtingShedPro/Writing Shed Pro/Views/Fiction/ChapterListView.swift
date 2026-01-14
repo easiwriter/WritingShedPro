@@ -2,13 +2,13 @@
 //  ChapterListView.swift
 //  Writing Shed Pro
 //
-//  Feature 022: Smart Fiction Creation - Chapter management (Novel only)
+//  Feature 022: Smart Fiction Creation - Chapter/Story management
 //
 
 import SwiftUI
 import SwiftData
 
-/// List view showing all chapters for a Novel fiction project
+/// List view showing all chapters (Novel) or stories (Short Fiction) for a fiction project
 struct ChapterListView: View {
     
     // MARK: - Environment
@@ -29,6 +29,10 @@ struct ChapterListView: View {
     
     // MARK: - Computed
     
+    private var isShortFiction: Bool {
+        project.fictionClass == .shortFiction
+    }
+    
     private var sortedChapters: [Chapter] {
         (project.chapters ?? []).sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
     }
@@ -43,7 +47,9 @@ struct ChapterListView: View {
                 chapterList
             }
         }
-        .navigationTitle(NSLocalizedString("fiction.chapters.title", comment: "Chapters"))
+        .navigationTitle(isShortFiction 
+            ? NSLocalizedString("fiction.stories.title", comment: "Stories")
+            : NSLocalizedString("fiction.chapters.title", comment: "Chapters"))
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
         .onPopToRoot {
@@ -59,14 +65,18 @@ struct ChapterListView: View {
                 } label: {
                     Image(systemName: "plus")
                 }
-                .accessibilityLabel(NSLocalizedString("fiction.chapters.add", comment: "Add chapter"))
+                .accessibilityLabel(isShortFiction
+                    ? NSLocalizedString("fiction.stories.add", comment: "Add story")
+                    : NSLocalizedString("fiction.chapters.add", comment: "Add chapter"))
             }
         }
         .sheet(isPresented: $showAddChapter) {
             AddChapterSheet(project: project)
         }
         .alert(
-            NSLocalizedString("fiction.chapters.deleteConfirm.title", comment: "Delete chapter?"),
+            isShortFiction
+                ? NSLocalizedString("fiction.stories.deleteConfirm.title", comment: "Delete story?")
+                : NSLocalizedString("fiction.chapters.deleteConfirm.title", comment: "Delete chapter?"),
             isPresented: $showDeleteConfirmation,
             presenting: chapterToDelete
         ) { chapter in
@@ -75,7 +85,9 @@ struct ChapterListView: View {
             }
             Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) { }
         } message: { chapter in
-            Text(String(format: NSLocalizedString("fiction.chapters.deleteConfirm.message", comment: "Delete message"), chapter.name ?? ""))
+            Text(String(format: isShortFiction
+                ? NSLocalizedString("fiction.stories.deleteConfirm.message", comment: "Delete message")
+                : NSLocalizedString("fiction.chapters.deleteConfirm.message", comment: "Delete message"), chapter.name ?? ""))
         }
     }
     
@@ -87,7 +99,7 @@ struct ChapterListView: View {
                 NavigationLink {
                     SceneListView(project: project, chapter: chapter, act: nil)
                 } label: {
-                    ChapterRowView(chapter: chapter)
+                    ChapterRowView(chapter: chapter, isShortFiction: isShortFiction)
                 }
                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                     Button(role: .destructive) {
@@ -107,14 +119,18 @@ struct ChapterListView: View {
     
     private var emptyState: some View {
         VStack(spacing: 16) {
-            Image(systemName: "book")
+            Image(systemName: isShortFiction ? "books.vertical" : "book")
                 .font(.system(size: 60))
                 .foregroundColor(.secondary)
             
-            Text(NSLocalizedString("fiction.chapters.empty.title", comment: "No chapters"))
+            Text(isShortFiction
+                ? NSLocalizedString("fiction.stories.empty.title", comment: "No stories")
+                : NSLocalizedString("fiction.chapters.empty.title", comment: "No chapters"))
                 .font(.headline)
             
-            Text(NSLocalizedString("fiction.chapters.empty.message", comment: "Empty message"))
+            Text(isShortFiction
+                ? NSLocalizedString("fiction.stories.empty.message", comment: "Empty message")
+                : NSLocalizedString("fiction.chapters.empty.message", comment: "Empty message"))
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
@@ -123,7 +139,9 @@ struct ChapterListView: View {
             Button {
                 showAddChapter = true
             } label: {
-                Label(NSLocalizedString("fiction.chapters.add", comment: "Add chapter"), systemImage: "plus")
+                Label(isShortFiction
+                    ? NSLocalizedString("fiction.stories.add", comment: "Add story")
+                    : NSLocalizedString("fiction.chapters.add", comment: "Add chapter"), systemImage: "plus")
             }
             .buttonStyle(.borderedProminent)
         }
@@ -133,10 +151,19 @@ struct ChapterListView: View {
     // MARK: - Actions
     
     private func deleteChapter(_ chapter: Chapter) {
-        // Also delete all scenes in the chapter
-        if let scenes = chapter.scenes {
-            for scene in scenes {
-                modelContext.delete(scene)
+        // Unassign scenes from the chapter (don't delete for short fiction)
+        if isShortFiction {
+            if let scenes = chapter.scenes {
+                for scene in scenes {
+                    scene.chapter = nil
+                }
+            }
+        } else {
+            // For novels, delete all scenes in the chapter
+            if let scenes = chapter.scenes {
+                for scene in scenes {
+                    modelContext.delete(scene)
+                }
             }
         }
         
@@ -169,13 +196,16 @@ struct ChapterListView: View {
 
 struct ChapterRowView: View {
     let chapter: Chapter
+    var isShortFiction: Bool = false
     
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
-                // Chapter number
+                // Chapter/Story number
                 if let userOrder = chapter.userOrder {
-                    Text(String(format: NSLocalizedString("fiction.chapter.number", comment: "Chapter X"), userOrder + 1))
+                    Text(String(format: isShortFiction 
+                        ? NSLocalizedString("fiction.story.number", comment: "Story X")
+                        : NSLocalizedString("fiction.chapter.number", comment: "Chapter X"), userOrder + 1))
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                 }
@@ -197,7 +227,9 @@ struct ChapterRowView: View {
             HStack(spacing: 4) {
                 Image(systemName: "film")
                     .font(.caption)
-                Text(String(format: NSLocalizedString("fiction.chapter.sceneCount", comment: "Scene count"), sceneCount))
+                Text(String(format: isShortFiction
+                    ? NSLocalizedString("fiction.story.sceneCount", comment: "Scene count")
+                    : NSLocalizedString("fiction.chapter.sceneCount", comment: "Scene count"), sceneCount))
                     .font(.caption)
             }
             .foregroundColor(.secondary)

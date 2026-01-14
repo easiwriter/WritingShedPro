@@ -16,7 +16,8 @@ struct ProjectFolderMigrationService {
     // MARK: - Migration Version
     
     private static let migrationVersionKey = "projectFolderMigrationVersion"
-    private static let currentMigrationVersion = 3  // Version 3: Add new folder structure to Prose projects
+    // Version 9: Safe migration - only renames Manuscript body folders, NO deletions
+    private static let currentMigrationVersion = 9
     
     // MARK: - Public Methods
     
@@ -66,8 +67,34 @@ struct ProjectFolderMigrationService {
             migrateProseProjectFolders(modelContext: modelContext)
         }
         
+        // Version 4/5: Fix Manuscript Body folders - rename Body to correct name and delete duplicates
+        // Combined into version 5 to run the comprehensive fix
+        if oldVersion < 5 {
+            renameManuscriptBodyFolders(modelContext: modelContext)
+        }
+        
+        // Version 6: Delete orphan body folders at root level (runs same fix as V5)
+        if oldVersion < 6 {
+            renameManuscriptBodyFolders(modelContext: modelContext)
+        }
+        
+        // Version 7: Rename body folders to use "All" prefix (All Poems, All Chapters, etc.)
+        if oldVersion < 7 {
+            renameManuscriptBodyFolders(modelContext: modelContext)
+        }
+        
+        // Version 8: Restore deleted root-level content folders (Poems, Chapters, Sections, Acts, Stories)
+        if oldVersion < 8 {
+            restoreRootLevelContentFolders(modelContext: modelContext)
+        }
+        
+        // Version 9: Safe migration - only rename Body to "All X" inside Manuscript, NO deletions
+        if oldVersion < 9 {
+            safeRenameManuscriptBodyFolder(modelContext: modelContext)
+        }
+        
         // Future migrations go here:
-        // if oldVersion < 4 { ... }
+        // if oldVersion < 10 { ... }
         
         do {
             try modelContext.save()
@@ -306,5 +333,402 @@ struct ProjectFolderMigrationService {
         }
         
         return false
+    }
+    
+    // MARK: - Version 5 Migration: Fix Manuscript Body folders
+    
+    /// Version 5 Migration: Fix Manuscript subfolders
+    /// - Renames "Body" folders to project-type-specific names (Acts, Poems, Sections, Chapters, Stories)
+    /// - Removes duplicate folders inside Manuscript
+    /// - Removes root-level folders that should only exist inside Manuscript
+    /// - Ensures only Front Matter, [Body Type], and Back Matter exist inside Manuscript
+    private static func renameManuscriptBodyFolders(modelContext: ModelContext) {
+        #if DEBUG
+        print("[ProjectFolderMigration] V5: Fixing Manuscript Body folders...")
+        #endif
+        
+        let descriptor = FetchDescriptor<Project>()
+        
+        do {
+            let allProjects = try modelContext.fetch(descriptor)
+            #if DEBUG
+            print("[ProjectFolderMigration] Found \(allProjects.count) projects to check")
+            #endif
+            var fixedCount = 0
+            
+            for project in allProjects {
+                #if DEBUG
+                print("[ProjectFolderMigration] Checking project: \(project.name ?? "Untitled") (type: \(project.type.rawValue))")
+                #endif
+                
+                let allFolders = project.folders ?? []
+                #if DEBUG
+                print("[ProjectFolderMigration]   Project has \(allFolders.count) folders")
+                for f in allFolders {
+                    print("[ProjectFolderMigration]     - '\(f.name ?? "nil")' parentFolder=\(f.parentFolder?.name ?? "nil")")
+                }
+                #endif
+                
+                // Determine the correct body folder name based on project type
+                // Uses "All" prefix to distinguish from root-level content folders
+                let correctBodyName: String
+                switch project.type {
+                case .drama:
+                    correctBodyName = "All Acts"
+                case .poetry:
+                    correctBodyName = "All Poems"
+                case .prose:
+                    correctBodyName = "All Sections"
+                case .fiction:
+                    if project.fictionClass == .shortFiction {
+                        correctBodyName = "All Stories"
+                    } else {
+                        correctBodyName = "All Chapters"
+                    }
+                }
+                
+                #if DEBUG
+                print("[ProjectFolderMigration]   Correct body name for this project: '\(correctBodyName)'")
+                #endif
+                
+                // Folder names that should ONLY exist inside Manuscript (not at root level)
+                // Only includes Body, Front Matter, Back Matter - NOT the content folders like Poems, Chapters
+                let manuscriptOnlyNames = ["Body", "Front Matter", "Back Matter"]
+                
+                // Old body folder names (without "All" prefix) that should be renamed inside Manuscript
+                let oldBodyFolderNames: Set<String> = ["Acts", "Poems", "Sections", "Chapters", "Stories"]
+                
+                // All valid "All X" body folder names
+                let allBodyFolderNames: Set<String> = ["All Acts", "All Poems", "All Sections", "All Chapters", "All Stories"]
+                
+                var madeChanges = false
+                var foldersToDelete: [Folder] = []
+                
+                // Step 1: Delete root-level folders that shouldn't exist at root
+                // ONLY delete Body, Front Matter, Back Matter at root - NOT content folders like Poems, Chapters
+                for folder in allFolders {
+                    let name = folder.name ?? ""
+                    if folder.parentFolder == nil && manuscriptOnlyNames.contains(name) {
+                        #if DEBUG
+                        print("[ProjectFolderMigration]   Marking root-level '\(name)' for deletion (should only be in Manuscript)")
+                        #endif
+                        foldersToDelete.append(folder)
+                    }
+                }
+                
+                // Find the Manuscript folder
+                guard let manuscriptFolder = allFolders.first(where: { $0.name == "Manuscript" && $0.parentFolder == nil }) else {
+                    #if DEBUG
+                    print("[ProjectFolderMigration]   No Manuscript folder found")
+                    #endif
+                    // Still delete root-level manuscript-only folders if found
+                    for folder in foldersToDelete {
+                        #if DEBUG
+                        print("[ProjectFolderMigration]   Deleting: '\(folder.name ?? "nil")'")
+                        #endif
+                        modelContext.delete(folder)
+                        madeChanges = true
+                    }
+                    if madeChanges { fixedCount += 1 }
+                    continue
+                }
+                
+                let subfolders = manuscriptFolder.folders ?? []
+                #if DEBUG
+                print("[ProjectFolderMigration]   Manuscript has \(subfolders.count) subfolders:")
+                for sf in subfolders {
+                    print("[ProjectFolderMigration]     - '\(sf.name ?? "nil")'")
+                }
+                #endif
+                
+                // Track which valid folders we've seen (to detect duplicates)
+                var seenFrontMatter = false
+                var seenBackMatter = false
+                
+                // Step 2: First pass - check if correct body folder already exists
+                var hasCorrectBodyFolder = false
+                for subfolder in subfolders {
+                    let name = subfolder.name ?? ""
+                    if name == correctBodyName {
+                        hasCorrectBodyFolder = true
+                        #if DEBUG
+                        print("[ProjectFolderMigration]   Found existing '\(correctBodyName)' folder")
+                        #endif
+                        break
+                    }
+                }
+                
+                _ = hasCorrectBodyFolder // Silence unused variable warning
+                // Step 3: Process Manuscript subfolders
+                for subfolder in subfolders {
+                    let name = subfolder.name ?? ""
+                    
+                    if name == "Front Matter" {
+                        if seenFrontMatter {
+                            #if DEBUG
+                            print("[ProjectFolderMigration]   Marking duplicate 'Front Matter' for deletion")
+                            #endif
+                            foldersToDelete.append(subfolder)
+                        } else {
+                            seenFrontMatter = true
+                            #if DEBUG
+                            print("[ProjectFolderMigration]   Keeping 'Front Matter'")
+                            #endif
+                        }
+                    } else if name == "Back Matter" {
+                        if seenBackMatter {
+                            #if DEBUG
+                            print("[ProjectFolderMigration]   Marking duplicate 'Back Matter' for deletion")
+                            #endif
+                            foldersToDelete.append(subfolder)
+                        } else {
+                            seenBackMatter = true
+                            #if DEBUG
+                            print("[ProjectFolderMigration]   Keeping 'Back Matter'")
+                            #endif
+                        }
+                    } else if name == "Body" {
+                        // Rename "Body" to the correct project-type-specific name
+                        #if DEBUG
+                        print("[ProjectFolderMigration]   Renaming 'Body' to '\(correctBodyName)'")
+                        #endif
+                        subfolder.name = correctBodyName
+                        subfolder.userOrder = 1
+                        madeChanges = true
+                    } else if oldBodyFolderNames.contains(name) {
+                        // Old body folder name without "All" prefix - rename to correct name
+                        #if DEBUG
+                        print("[ProjectFolderMigration]   Renaming '\(name)' to '\(correctBodyName)'")
+                        #endif
+                        subfolder.name = correctBodyName
+                        subfolder.userOrder = 1
+                        madeChanges = true
+                    } else if name == correctBodyName {
+                        // This is the correct body type for this project
+                        // Skip - we already found and will keep this one in the first pass
+                        #if DEBUG
+                        print("[ProjectFolderMigration]   Keeping '\(correctBodyName)'")
+                        #endif
+                    } else if allBodyFolderNames.contains(name) && name != correctBodyName {
+                        // This is an "All X" body folder that's WRONG for this project - delete it
+                        #if DEBUG
+                        print("[ProjectFolderMigration]   Marking '\(name)' for deletion (wrong body type for \(project.type.rawValue))")
+                        #endif
+                        foldersToDelete.append(subfolder)
+                    }
+                    // Other folders (not manuscript-related) are left alone
+                }
+                
+                // Step 4: Delete all marked folders
+                for folder in foldersToDelete {
+                    #if DEBUG
+                    print("[ProjectFolderMigration]   Deleting folder: '\(folder.name ?? "nil")'")
+                    #endif
+                    modelContext.delete(folder)
+                    madeChanges = true
+                }
+                
+                // Step 5: Fix userOrder for remaining Manuscript subfolders
+                // Assign correct order: Front Matter=0, Body=1, Back Matter=2
+                let remainingFolders = manuscriptFolder.folders ?? []
+                for folder in remainingFolders {
+                    let correctOrder: Int
+                    if folder.name == "Front Matter" {
+                        correctOrder = 0
+                    } else if folder.name == correctBodyName {
+                        correctOrder = 1
+                    } else if folder.name == "Back Matter" {
+                        correctOrder = 2
+                    } else {
+                        // Other folders (shouldn't exist, but just in case)
+                        correctOrder = 3
+                    }
+                    if folder.userOrder != correctOrder {
+                        folder.userOrder = correctOrder
+                        madeChanges = true
+                    }
+                }
+                
+                if madeChanges {
+                    fixedCount += 1
+                    #if DEBUG
+                    print("[ProjectFolderMigration]   ✅ Fixed project: \(project.name ?? "Untitled")")
+                    #endif
+                }
+            }
+            
+            #if DEBUG
+            print("[ProjectFolderMigration] V5: Fixed \(fixedCount) projects")
+            #endif
+        } catch {
+            #if DEBUG
+            print("[ProjectFolderMigration] ❌ Failed to fetch projects: \(error)")
+            #endif
+        }
+    }
+    
+    // MARK: - Version 8: Restore deleted root-level content folders
+    
+    /// Restore root-level content folders that were accidentally deleted in V6
+    /// These are: Poems (poetry), Sections/Prose (prose), Chapters/Stories (fiction), Acts (drama)
+    private static func restoreRootLevelContentFolders(modelContext: ModelContext) {
+        #if DEBUG
+        print("[ProjectFolderMigration] V8: Restoring root-level content folders...")
+        #endif
+        
+        do {
+            let descriptor = FetchDescriptor<Project>()
+            let projects = try modelContext.fetch(descriptor)
+            
+            var restoredCount = 0
+            
+            for project in projects {
+                let existingFolders = project.folders ?? []
+                let existingNames = Set(existingFolders.filter { $0.parentFolder == nil }.compactMap { $0.name })
+                
+                // Determine which content folders should exist at root level for this project type
+                var requiredFolders: [(name: String, order: Int)] = []
+                
+                switch project.type {
+                case .poetry:
+                    // Poetry needs: Poems folder after Manuscript
+                    requiredFolders = [("Poems", 1)]
+                    
+                case .prose:
+                    // Prose needs: Sections, Prose folders after Manuscript
+                    requiredFolders = [("Sections", 1), ("Prose", 2)]
+                    
+                case .fiction:
+                    // Fiction needs: Chapters or Stories (based on fictionClass), Scenes, Characters, Locations, Plot
+                    if project.fictionClass == .shortFiction {
+                        requiredFolders = [
+                            ("Stories", 1),
+                            ("Scenes", 2),
+                            ("Characters", 3),
+                            ("Locations", 4),
+                            ("Plot", 5)
+                        ]
+                    } else {
+                        requiredFolders = [
+                            ("Chapters", 1),
+                            ("Scenes", 2),
+                            ("Characters", 3),
+                            ("Locations", 4),
+                            ("Plot", 5)
+                        ]
+                    }
+                    
+                case .drama:
+                    // Drama needs: Acts, Scenes, Characters, Locations, Plot
+                    requiredFolders = [
+                        ("Acts", 1),
+                        ("Scenes", 2),
+                        ("Characters", 3),
+                        ("Locations", 4),
+                        ("Plot", 5)
+                    ]
+                }
+                
+                var madeChanges = false
+                
+                for (name, order) in requiredFolders {
+                    if !existingNames.contains(name) {
+                        #if DEBUG
+                        print("[ProjectFolderMigration]   Creating missing '\(name)' folder for \(project.name ?? "Untitled")")
+                        #endif
+                        
+                        let folder = Folder(name: name, project: project, userOrder: order)
+                        folder.parentFolder = nil  // Root level
+                        modelContext.insert(folder)
+                        madeChanges = true
+                    }
+                }
+                
+                if madeChanges {
+                    restoredCount += 1
+                }
+            }
+            
+            #if DEBUG
+            print("[ProjectFolderMigration] V8: Restored folders for \(restoredCount) projects")
+            #endif
+        } catch {
+            #if DEBUG
+            print("[ProjectFolderMigration] ❌ Failed to restore folders: \(error)")
+            #endif
+        }
+    }
+    
+    // MARK: - Version 9: Safe rename (NO deletions)
+    
+    /// Safely rename Body folder inside Manuscript to project-type-specific name with "All" prefix
+    /// This function ONLY renames, it does NOT delete any folders
+    private static func safeRenameManuscriptBodyFolder(modelContext: ModelContext) {
+        #if DEBUG
+        print("[ProjectFolderMigration] V9: Safe rename of Manuscript Body folders...")
+        #endif
+        
+        do {
+            let descriptor = FetchDescriptor<Project>()
+            let projects = try modelContext.fetch(descriptor)
+            
+            var renamedCount = 0
+            
+            for project in projects {
+                // Determine the correct body folder name for this project type
+                let correctBodyName: String
+                switch project.type {
+                case .drama:
+                    correctBodyName = "All Acts"
+                case .poetry:
+                    correctBodyName = "All Poems"
+                case .prose:
+                    correctBodyName = "All Sections"
+                case .fiction:
+                    if project.fictionClass == .shortFiction {
+                        correctBodyName = "All Stories"
+                    } else {
+                        correctBodyName = "All Chapters"
+                    }
+                }
+                
+                // Find Manuscript folder
+                guard let manuscriptFolder = project.folders?.first(where: { 
+                    $0.name == "Manuscript" && $0.parentFolder == nil 
+                }) else {
+                    continue
+                }
+                
+                // Look for Body folder to rename (ONLY rename, never delete)
+                let subfolders = manuscriptFolder.folders ?? []
+                var madeChanges = false
+                
+                for subfolder in subfolders {
+                    let name = subfolder.name ?? ""
+                    
+                    if name == "Body" {
+                        // Rename Body to the correct name
+                        #if DEBUG
+                        print("[ProjectFolderMigration]   Renaming 'Body' to '\(correctBodyName)' in \(project.name ?? "Untitled")")
+                        #endif
+                        subfolder.name = correctBodyName
+                        subfolder.userOrder = 1
+                        madeChanges = true
+                    }
+                }
+                
+                if madeChanges {
+                    renamedCount += 1
+                }
+            }
+            
+            #if DEBUG
+            print("[ProjectFolderMigration] V9: Renamed Body folders in \(renamedCount) projects")
+            #endif
+        } catch {
+            #if DEBUG
+            print("[ProjectFolderMigration] ❌ Failed to rename folders: \(error)")
+            #endif
+        }
     }
 }

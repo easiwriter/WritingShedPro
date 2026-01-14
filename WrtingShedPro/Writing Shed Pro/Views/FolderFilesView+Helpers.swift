@@ -16,6 +16,10 @@ extension FolderFilesView {
         folder.project?.type == .prose
     }
 
+    var isMatterFolder: Bool {
+        folder.isFrontMatterFolder || folder.isBackMatterFolder
+    }
+
     var allFiles: [TextFile] {
         allTextFiles.filter { $0.parentFolder?.id == folder.id }
     }
@@ -31,6 +35,10 @@ extension FolderFilesView {
     var sortedFiles: [TextFile] {
         if isContentFolder, let filter = statusFilter {
             return allFiles.filter { $0.workflowStatus == filter }
+        }
+        // Sort Matter folders by userOrder to maintain standard manuscript order
+        if isMatterFolder {
+            return allFiles.sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
         }
         return allFiles
     }

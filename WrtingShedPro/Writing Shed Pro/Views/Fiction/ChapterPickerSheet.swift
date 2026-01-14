@@ -2,13 +2,13 @@
 //  ChapterPickerSheet.swift
 //  Writing Shed Pro
 //
-//  Sheet for selecting a chapter to assign scenes to (Fiction/Novel projects)
+//  Sheet for selecting a chapter/story to assign scenes to (Fiction projects)
 //
 
 import SwiftUI
 import SwiftData
 
-/// Sheet for picking a chapter to assign selected scenes to
+/// Sheet for picking a chapter (Novel) or story (Short Fiction) to assign selected scenes to
 struct ChapterPickerSheet: View {
     
     // MARK: - Environment
@@ -23,6 +23,10 @@ struct ChapterPickerSheet: View {
     let onCancel: () -> Void
     
     // MARK: - Computed
+    
+    private var isShortFiction: Bool {
+        project.fictionClass == .shortFiction
+    }
     
     private var sortedChapters: [Chapter] {
         (project.chapters ?? []).sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
@@ -42,7 +46,7 @@ struct ChapterPickerSheet: View {
     var body: some View {
         NavigationView {
             List {
-                // If all scenes are assigned to the same chapter, only show remove option
+                // If all scenes are assigned to the same chapter/story, only show remove option
                 if let chapter = assignedChapter {
                     Section {
                         Button {
@@ -51,29 +55,37 @@ struct ChapterPickerSheet: View {
                             HStack {
                                 Image(systemName: "minus.circle")
                                     .foregroundColor(.red)
-                                Text(String(format: NSLocalizedString("fiction.scenes.removeFromChapterNamed", comment: "Remove from Chapter X"), chapter.name ?? NSLocalizedString("fiction.untitled", comment: "Untitled")))
+                                Text(String(format: isShortFiction
+                                    ? NSLocalizedString("fiction.scenes.removeFromStoryNamed", comment: "Remove from Story X")
+                                    : NSLocalizedString("fiction.scenes.removeFromChapterNamed", comment: "Remove from Chapter X"), chapter.name ?? NSLocalizedString("fiction.untitled", comment: "Untitled")))
                                     .foregroundColor(.primary)
                             }
                         }
                     } header: {
                         Text(NSLocalizedString("fiction.scenes.currentAssignment", comment: "Current Assignment"))
                     } footer: {
-                        Text(String(format: NSLocalizedString("fiction.scenes.assignedToChapter", comment: "Assigned to chapter"), chapter.name ?? NSLocalizedString("fiction.untitled", comment: "Untitled")))
+                        Text(String(format: isShortFiction
+                            ? NSLocalizedString("fiction.scenes.assignedToStory", comment: "Assigned to story")
+                            : NSLocalizedString("fiction.scenes.assignedToChapter", comment: "Assigned to chapter"), chapter.name ?? NSLocalizedString("fiction.untitled", comment: "Untitled")))
                     }
                 } else {
-                    // Scenes are unassigned - show list of chapters to assign to
+                    // Scenes are unassigned - show list of chapters/stories to assign to
                     Section {
                         if sortedChapters.isEmpty {
                             VStack(spacing: 12) {
-                                Image(systemName: "book")
+                                Image(systemName: isShortFiction ? "doc.text" : "book")
                                     .font(.system(size: 40))
                                     .foregroundColor(.secondary)
                                 
-                                Text(NSLocalizedString("fiction.chapters.empty.title", comment: "No Chapters Yet"))
+                                Text(isShortFiction
+                                    ? NSLocalizedString("fiction.stories.empty.title", comment: "No Stories Yet")
+                                    : NSLocalizedString("fiction.chapters.empty.title", comment: "No Chapters Yet"))
                                     .font(.headline)
                                     .foregroundColor(.secondary)
                                 
-                                Text(NSLocalizedString("fiction.chapters.picker.createHint", comment: "Create chapters in the Chapters folder"))
+                                Text(isShortFiction
+                                    ? NSLocalizedString("fiction.stories.picker.createHint", comment: "Create stories in the Stories folder")
+                                    : NSLocalizedString("fiction.chapters.picker.createHint", comment: "Create chapters in the Chapters folder"))
                                     .font(.subheadline)
                                     .foregroundColor(.secondary)
                                     .multilineTextAlignment(.center)
@@ -88,7 +100,9 @@ struct ChapterPickerSheet: View {
                                     HStack {
                                         VStack(alignment: .leading, spacing: 4) {
                                             if let userOrder = chapter.userOrder {
-                                                Text(String(format: NSLocalizedString("fiction.chapter.number", comment: "Chapter X"), userOrder + 1))
+                                                Text(String(format: isShortFiction
+                                                    ? NSLocalizedString("fiction.story.number", comment: "Story X")
+                                                    : NSLocalizedString("fiction.chapter.number", comment: "Chapter X"), userOrder + 1))
                                                     .font(.caption)
                                                     .foregroundColor(.secondary)
                                             }
@@ -98,7 +112,7 @@ struct ChapterPickerSheet: View {
                                         
                                         Spacer()
                                         
-                                        // Show scene count in this chapter
+                                        // Show scene count in this chapter/story
                                         let sceneCount = chapter.scenes?.count ?? 0
                                         Text("\(sceneCount)")
                                             .font(.caption)
@@ -112,7 +126,9 @@ struct ChapterPickerSheet: View {
                             }
                         }
                     } header: {
-                        Text(NSLocalizedString("fiction.chapters.title", comment: "Chapters"))
+                        Text(isShortFiction
+                            ? NSLocalizedString("fiction.stories.title", comment: "Stories")
+                            : NSLocalizedString("fiction.chapters.title", comment: "Chapters"))
                     } footer: {
                         if !sortedChapters.isEmpty {
                             Text(String(format: NSLocalizedString("fiction.scenes.assignCount", comment: "Assign count"), selectedScenes.count))
@@ -120,7 +136,13 @@ struct ChapterPickerSheet: View {
                     }
                 }
             }
-            .navigationTitle(assignedChapter != nil ? NSLocalizedString("fiction.scenes.chapterAssignment", comment: "Chapter Assignment") : NSLocalizedString("fiction.scenes.addToChapter", comment: "Add to Chapter"))
+            .navigationTitle(assignedChapter != nil 
+                ? (isShortFiction 
+                    ? NSLocalizedString("fiction.scenes.storyAssignment", comment: "Story Assignment")
+                    : NSLocalizedString("fiction.scenes.chapterAssignment", comment: "Chapter Assignment"))
+                : (isShortFiction 
+                    ? NSLocalizedString("fiction.scenes.addToStory", comment: "Add to Story")
+                    : NSLocalizedString("fiction.scenes.addToChapter", comment: "Add to Chapter")))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

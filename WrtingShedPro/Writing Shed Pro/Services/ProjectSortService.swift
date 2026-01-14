@@ -1,6 +1,6 @@
 import Foundation
 
-enum SortOrder {
+enum SortOrder: String, CaseIterable {
     case byName
     case byCreationDate
     case byModifiedDate

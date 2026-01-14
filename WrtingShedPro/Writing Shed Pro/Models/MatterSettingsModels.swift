@@ -72,6 +72,7 @@ enum FrontMatterItem: String, CaseIterable, Codable, Identifiable {
 /// Enumeration of available back matter items
 /// Order defines display order in the folder
 enum BackMatterItem: String, CaseIterable, Codable, Identifiable {
+    case endnotes = "Endnotes"
     case notes = "Notes"
     case glossary = "Glossary"
     case bibliography = "Bibliography"
@@ -82,6 +83,8 @@ enum BackMatterItem: String, CaseIterable, Codable, Identifiable {
     /// Localized display name
     var localizedName: String {
         switch self {
+        case .endnotes:
+            return NSLocalizedString("backMatter.endnotes", comment: "Endnotes")
         case .notes:
             return NSLocalizedString("backMatter.notes", comment: "Notes")
         case .glossary:
@@ -99,10 +102,11 @@ enum BackMatterItem: String, CaseIterable, Codable, Identifiable {
     /// Sort order for display in folder
     var sortOrder: Int {
         switch self {
-        case .notes: return 0
-        case .glossary: return 1
-        case .bibliography: return 2
-        case .index: return 3
+        case .endnotes: return 0
+        case .notes: return 1
+        case .glossary: return 2
+        case .bibliography: return 3
+        case .index: return 4
         }
     }
 }

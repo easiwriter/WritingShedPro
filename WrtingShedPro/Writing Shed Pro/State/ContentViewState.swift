@@ -22,7 +22,15 @@ final class ContentViewState {
     var showImportError = false
     var importErrorMessage = ""
     var showDeleteAllConfirmation = false
-    var selectedSortOrder: SortOrder = .byName
+    
+    // Sort order - stored property that syncs with UserDefaults for persistence
+    private static let sortOrderKey = "projectSortOrder"
+    var selectedSortOrder: SortOrder {
+        didSet {
+            UserDefaults.standard.set(selectedSortOrder.rawValue, forKey: Self.sortOrderKey)
+        }
+    }
+    
     var editMode: EditMode = .inactive
     
     // Settings menu sheets
@@ -36,5 +44,13 @@ final class ContentViewState {
     // Appearance preferences
     var appearancePreferences = AppearancePreferences.shared
     
-    init() {}
+    init() {
+        // Load saved sort order from UserDefaults
+        if let rawValue = UserDefaults.standard.string(forKey: Self.sortOrderKey),
+           let order = SortOrder(rawValue: rawValue) {
+            self.selectedSortOrder = order
+        } else {
+            self.selectedSortOrder = .byName
+        }
+    }
 }

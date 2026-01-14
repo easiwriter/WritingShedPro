@@ -153,6 +153,45 @@ struct ProjectInfoSheet: View {
                         Text((project.type).rawValue.capitalized)
                     }
                     
+                    // Fiction class picker for Fiction projects (Novel vs Short Fiction)
+                    if project.type == .fiction {
+                        HStack {
+                            Text(NSLocalizedString("projectDetail.fictionClass", comment: "Field label for fiction class"))
+                            Spacer()
+                            Picker("", selection: Binding(
+                                get: { project.fictionClass },
+                                set: { newValue in
+                                    let oldValue = project.fictionClass
+                                    project.fictionClass = newValue
+                                    
+                                    // Rename folders to match the new fiction class
+                                    if oldValue != newValue, let folders = project.folders {
+                                        let oldFolderName = oldValue == .novel ? "Chapters" : "Stories"
+                                        let newFolderName = newValue == .novel ? "Chapters" : "Stories"
+                                        
+                                        // Rename root-level Chapters/Stories folder
+                                        if let folder = folders.first(where: { $0.name == oldFolderName && $0.parentFolder == nil }) {
+                                            folder.name = newFolderName
+                                        }
+                                        
+                                        // Rename Manuscript body subfolder (Chapters/Stories inside Manuscript)
+                                        if let manuscriptFolder = folders.first(where: { $0.name == "Manuscript" && $0.parentFolder == nil }),
+                                           let subfolders = manuscriptFolder.subfolders,
+                                           let bodyFolder = subfolders.first(where: { $0.name == oldFolderName }) {
+                                            bodyFolder.name = newFolderName
+                                        }
+                                    }
+                                }
+                            )) {
+                                ForEach(FictionClass.allCases, id: \.self) { fictionClass in
+                                    Text(fictionClass.localizedName).tag(fictionClass)
+                                }
+                            }
+                            .pickerStyle(.menu)
+                            .accessibilityLabel(NSLocalizedString("projectDetail.fictionClass", comment: "Fiction class picker"))
+                        }
+                    }
+                    
                     HStack {
                         Text(NSLocalizedString("projectDetail.created", comment: "Field label for creation date"))
                         Spacer()

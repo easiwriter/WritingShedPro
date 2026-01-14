@@ -48,16 +48,55 @@ struct ProjectTemplateService {
     // MARK: - Manuscript Subfolders (Feature 029)
     
     /// Creates the standard subfolders within the Manuscript folder.
+    /// The Body folder is named according to project type:
+    /// - Drama: Acts
+    /// - Poetry: Poems
+    /// - Prose: Sections
+    /// - Fiction (Novel): Chapters
+    /// - Fiction (Short Fiction): Stories
     /// - Parameters:
     ///   - manuscriptFolder: The parent Manuscript folder
     ///   - context: SwiftData model context for persistence
     static func createManuscriptSubfolders(in manuscriptFolder: Folder, context: ModelContext) {
-        let subfolderKeys = ["folder.frontMatter", "folder.body", "folder.backMatter"]
+        guard let project = manuscriptFolder.project else { return }
         
-        for (index, nameKey) in subfolderKeys.enumerated() {
+        // Check if subfolders already exist (avoid creating duplicates)
+        let existingSubfolders = manuscriptFolder.folders ?? []
+        if !existingSubfolders.isEmpty {
+            #if DEBUG
+            print("📁 Manuscript subfolders already exist, skipping creation")
+            #endif
+            return
+        }
+        
+        // Determine the body folder name based on project type
+        // Uses "All" prefix to distinguish from root-level content folders
+        let bodyFolderName: String
+        switch project.type {
+        case .drama:
+            bodyFolderName = "All Acts"
+        case .poetry:
+            bodyFolderName = "All Poems"
+        case .prose:
+            bodyFolderName = "All Sections"
+        case .fiction:
+            if project.fictionClass == .shortFiction {
+                bodyFolderName = "All Stories"
+            } else {
+                bodyFolderName = "All Chapters"
+            }
+        }
+        
+        let subfolderNames = [
+            NSLocalizedString("folder.frontMatter", comment: "Front Matter"),
+            bodyFolderName,
+            NSLocalizedString("folder.backMatter", comment: "Back Matter")
+        ]
+        
+        for (index, name) in subfolderNames.enumerated() {
             let subfolder = Folder(
-                name: NSLocalizedString(nameKey, comment: "Manuscript subfolder"),
-                project: manuscriptFolder.project,
+                name: name,
+                project: project,
                 userOrder: index
             )
             subfolder.parentFolder = manuscriptFolder
@@ -65,7 +104,7 @@ struct ProjectTemplateService {
         }
         
         #if DEBUG
-        print("📁 Created Manuscript subfolders: Front Matter, Body, Back Matter")
+        print("📁 Created Manuscript subfolders: Front Matter, \(bodyFolderName), Back Matter")
         #endif
     }
     
@@ -123,6 +162,11 @@ struct ProjectTemplateService {
             // Chapters only for novels
             if project.fictionClass == .novel {
                 keys.append("folder.chapters")
+            }
+            
+            // Stories only for short fiction
+            if project.fictionClass == .shortFiction {
+                keys.append("folder.stories")
             }
             
             keys.append(contentsOf: [

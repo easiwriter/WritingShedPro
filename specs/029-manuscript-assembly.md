@@ -4,6 +4,19 @@
 **Branch:** 021-smart-poetry-creation  
 **Date:** 2025-01-10
 
+## Additional Features
+The Manuscript feature supports Front and Back matter folders in addition to Body. The contents of the front & back matter folders is determined by settings. In the case of the back matter the following items require app support for Notes, Glossary, Citations, Index.
+
+- Notes are, as the name suggests, text notes that can be referenced in the document. The referencing mechanism is yet to be defined. They need to be referenced from the Project so there needs to be a DocumentNote entry created for each note. 
+
+- Glossary is a list of terms used in the document. The document should contain a reference to each use of the glossary item. Each glossary entry consists of the name of the term plus its definition plus an optional citation. As with Notes there needs to be a Glossarymodel with a link to the glossary from the project.
+
+- Citations are bibiography entries. There should be a CitationModel consisting of data that conforms to a citation style. Initially the app should use the APA style. Again, citations can be reference within the document using the technique TBD.
+
+- Index. The user can choose items to go in an index. Each entry in the index contains the index entry followed by page number(s). Index entries can be referenced from multiple locations in the document. When the user chooses to add an index entry they supply the key word/phase to go in the index. The app looks to see if this key already exists and creates it if not, otherwise it adds the page number to the set of pages.
+
+The way I see this working is that an entry is added to the Insert menu for each type of item supported.
+
 ## Completed Phases
 
 ### Phase 1: Folder Structure

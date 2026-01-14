@@ -24,7 +24,7 @@ struct SceneListView: View {
     
     let project: Project
     
-    /// Optional chapter - if provided, shows scenes for that chapter only (Novel mode)
+    /// Optional chapter - if provided, shows scenes for that chapter only (Novel/Short Fiction mode)
     let chapter: Chapter?
     
     /// Optional act - if provided, shows scenes for that act only (Drama mode)
@@ -60,7 +60,7 @@ struct SceneListView: View {
     /// Show act picker for assigning scenes to acts (Drama only)
     @State private var showActPicker = false
     
-    /// Show chapter picker for assigning scenes to chapters (Fiction only)
+    /// Show chapter picker for assigning scenes to chapters/stories (Fiction only)
     @State private var showChapterPicker = false
 
     /// Show workflow status picker
@@ -93,21 +93,21 @@ struct SceneListView: View {
         let scenes: [StoryScene]
         
         if let chapter = chapter {
-            // Novel mode: scenes within a specific chapter
+            // Fiction mode: scenes within a specific chapter/story
             scenes = chapter.scenes ?? []
         } else if let act = act {
             // Drama mode: scenes within a specific act
             scenes = act.scenes ?? []
         } else {
-            // Short Fiction / standalone mode: all scenes at project level
+            // Standalone mode: all scenes at project level
             scenes = project.scenes ?? []
         }
         
         // Filter out trashed scenes
         var result = scenes.filter { !$0.isTrashed }
         
-        // Sort: by userOrder when in an act (supports reordering), alphabetically otherwise
-        if act != nil {
+        // Sort: by userOrder when in a chapter/act (supports reordering), alphabetically otherwise
+        if chapter != nil || act != nil {
             result = result.sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
         } else {
             result = result.sorted { ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending }
@@ -377,10 +377,9 @@ struct SceneListView: View {
         .sheet(isPresented: $showActPicker) {
             ActPickerSheet(
                 project: project,
-                selectedScenes: selectedScenes.filter { $0.textFile?.workflowStatus == .ready },
+                selectedScenes: selectedScenes,
                 onAssign: { act in
-                    let readyScenes = selectedScenes.filter { $0.textFile?.workflowStatus == .ready }
-                    assignScenesToAct(readyScenes, act: act)
+                    assignScenesToAct(selectedScenes, act: act)
                     showActPicker = false
                     exitEditMode()
                 },
@@ -392,10 +391,9 @@ struct SceneListView: View {
         .sheet(isPresented: $showChapterPicker) {
             ChapterPickerSheet(
                 project: project,
-                selectedScenes: selectedScenes.filter { $0.textFile?.workflowStatus == .ready },
+                selectedScenes: selectedScenes,
                 onAssign: { chapter in
-                    let readyScenes = selectedScenes.filter { $0.textFile?.workflowStatus == .ready }
-                    assignScenesToChapter(readyScenes, chapter: chapter)
+                    assignScenesToChapter(selectedScenes, chapter: chapter)
                     showChapterPicker = false
                     exitEditMode()
                 },
@@ -482,9 +480,9 @@ struct SceneListView: View {
         }
         .disabled(selectedScenes.isEmpty)
         
-        // Add to Act button (Drama projects, main scene list only, ready scenes only)
+        // Add to Act button (Drama projects, main scene list only)
+        // Assigning to an act automatically sets the scene's status to ready
         if project.type == .drama && act == nil && chapter == nil {
-            let readyScenes = selectedScenes.filter { $0.textFile?.workflowStatus == .ready }
             Button {
                 showActPicker = true
             } label: {
@@ -493,21 +491,24 @@ struct SceneListView: View {
                     systemImage: "theatermasks"
                 )
             }
-            .disabled(readyScenes.isEmpty)
+            .disabled(selectedScenes.isEmpty)
         }
         
-        // Add to Chapter button (Fiction projects, main scene list only, ready scenes only)
+        // Add to Chapter/Story button (Fiction projects, main scene list only)
+        // Assigning to a chapter/story automatically sets the scene's status to ready
         if project.type == .fiction && act == nil && chapter == nil {
-            let readyScenes = selectedScenes.filter { $0.textFile?.workflowStatus == .ready }
+            let isShortFiction = project.fictionClass == .shortFiction
             Button {
                 showChapterPicker = true
             } label: {
                 Label(
-                    NSLocalizedString("fiction.scenes.addToChapter", comment: "Add to Chapter"),
-                    systemImage: "book"
+                    isShortFiction 
+                        ? NSLocalizedString("fiction.scenes.addToStory", comment: "Add to Story")
+                        : NSLocalizedString("fiction.scenes.addToChapter", comment: "Add to Chapter"),
+                    systemImage: isShortFiction ? "books.vertical" : "book"
                 )
             }
-            .disabled(readyScenes.isEmpty)
+            .disabled(selectedScenes.isEmpty)
         }
         
         Spacer()
@@ -679,6 +680,10 @@ struct SceneListView: View {
     private func assignScenesToAct(_ scenes: [StoryScene], act: Act?) {
         for scene in scenes {
             scene.act = act
+            // Automatically set status to ready when assigning to an act
+            if act != nil, let textFile = scene.textFile {
+                textFile.workflowStatus = .ready
+            }
         }
         try? modelContext.save()
     }
@@ -686,6 +691,10 @@ struct SceneListView: View {
     private func assignScenesToChapter(_ scenes: [StoryScene], chapter: Chapter?) {
         for scene in scenes {
             scene.chapter = chapter
+            // Automatically set status to ready when assigning to a chapter/story
+            if chapter != nil, let textFile = scene.textFile {
+                textFile.workflowStatus = .ready
+            }
         }
         try? modelContext.save()
     }

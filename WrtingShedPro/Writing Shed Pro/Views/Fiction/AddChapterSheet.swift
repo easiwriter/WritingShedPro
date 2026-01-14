@@ -2,13 +2,13 @@
 //  AddChapterSheet.swift
 //  Writing Shed Pro
 //
-//  Feature 022: Smart Fiction Creation - Add chapter form (Novel only)
+//  Feature 022: Smart Fiction Creation - Add chapter/story form
 //
 
 import SwiftUI
 import SwiftData
 
-/// Sheet for adding a new chapter to a Novel fiction project
+/// Sheet for adding a new chapter (Novel) or story (Short Fiction) to a fiction project
 struct AddChapterSheet: View {
     
     // MARK: - Environment
@@ -29,6 +29,10 @@ struct AddChapterSheet: View {
     
     // MARK: - Computed
     
+    private var isShortFiction: Bool {
+        project.fictionClass == .shortFiction
+    }
+    
     private var isValid: Bool {
         !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
@@ -39,7 +43,9 @@ struct AddChapterSheet: View {
     }
     
     private var suggestedTitle: String {
-        String(format: NSLocalizedString("fiction.chapter.defaultTitle", comment: "Chapter X"), nextOrderIndex + 1)
+        String(format: isShortFiction 
+            ? NSLocalizedString("fiction.story.defaultTitle", comment: "Story X")
+            : NSLocalizedString("fiction.chapter.defaultTitle", comment: "Chapter X"), nextOrderIndex + 1)
     }
     
     // MARK: - Body
@@ -49,26 +55,42 @@ struct AddChapterSheet: View {
             Form {
                 // Basic Info
                 Section {
-                    TextField(NSLocalizedString("fiction.chapter.title", comment: "Title"), text: $title)
-                        .accessibilityLabel(NSLocalizedString("fiction.chapter.title.accessibility", comment: "Chapter title"))
+                    TextField(isShortFiction 
+                        ? NSLocalizedString("fiction.story.title", comment: "Title")
+                        : NSLocalizedString("fiction.chapter.title", comment: "Title"), text: $title)
+                        .accessibilityLabel(isShortFiction
+                            ? NSLocalizedString("fiction.story.title.accessibility", comment: "Story title")
+                            : NSLocalizedString("fiction.chapter.title.accessibility", comment: "Chapter title"))
                 } header: {
-                    Text(NSLocalizedString("fiction.chapter.section.basic", comment: "Basic Info"))
+                    Text(isShortFiction
+                        ? NSLocalizedString("fiction.story.section.basic", comment: "Basic Info")
+                        : NSLocalizedString("fiction.chapter.section.basic", comment: "Basic Info"))
                 } footer: {
-                    Text(String(format: NSLocalizedString("fiction.chapter.number", comment: "Chapter X"), nextOrderIndex + 1))
+                    Text(String(format: isShortFiction
+                        ? NSLocalizedString("fiction.story.number", comment: "Story X")
+                        : NSLocalizedString("fiction.chapter.number", comment: "Chapter X"), nextOrderIndex + 1))
                 }
                 
                 // Summary
                 Section {
                     TextEditor(text: $summary)
                         .frame(minHeight: 80)
-                        .accessibilityLabel(NSLocalizedString("fiction.chapter.summary.accessibility", comment: "Chapter summary"))
+                        .accessibilityLabel(isShortFiction
+                            ? NSLocalizedString("fiction.story.summary.accessibility", comment: "Story summary")
+                            : NSLocalizedString("fiction.chapter.summary.accessibility", comment: "Chapter summary"))
                 } header: {
-                    Text(NSLocalizedString("fiction.chapter.summary", comment: "Summary"))
+                    Text(isShortFiction
+                        ? NSLocalizedString("fiction.story.summary", comment: "Summary")
+                        : NSLocalizedString("fiction.chapter.summary", comment: "Summary"))
                 } footer: {
-                    Text(NSLocalizedString("fiction.chapter.summary.footer", comment: "Brief overview of the chapter"))
+                    Text(isShortFiction
+                        ? NSLocalizedString("fiction.story.summary.footer", comment: "Brief overview of the story")
+                        : NSLocalizedString("fiction.chapter.summary.footer", comment: "Brief overview of the chapter"))
                 }
             }
-            .navigationTitle(NSLocalizedString("fiction.chapter.add.title", comment: "Add Chapter"))
+            .navigationTitle(isShortFiction
+                ? NSLocalizedString("fiction.story.add.title", comment: "Add Story")
+                : NSLocalizedString("fiction.chapter.add.title", comment: "Add Chapter"))
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {
                 if title.isEmpty {
@@ -104,7 +126,9 @@ struct AddChapterSheet: View {
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         
         guard !trimmedTitle.isEmpty else {
-            errorMessage = NSLocalizedString("fiction.chapter.error.titleRequired", comment: "Title required")
+            errorMessage = isShortFiction
+                ? NSLocalizedString("fiction.story.error.titleRequired", comment: "Title required")
+                : NSLocalizedString("fiction.chapter.error.titleRequired", comment: "Title required")
             showErrorAlert = true
             return
         }

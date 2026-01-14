@@ -82,7 +82,7 @@ struct ProseListView: View {
         if section != nil {
             result = result.sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
         } else {
-            result = result.sorted { ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending }
+            result = result.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
         }
         
         // Apply workflow status filter if set
@@ -451,7 +451,7 @@ private struct FileRowView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
-                Text(file.name ?? NSLocalizedString("prose.untitled", comment: "Untitled"))
+                Text(file.name.isEmpty ? NSLocalizedString("prose.untitled", comment: "Untitled") : file.name)
                     .font(.headline)
                 
                 Spacer()

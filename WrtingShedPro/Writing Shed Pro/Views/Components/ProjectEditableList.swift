@@ -201,32 +201,8 @@ struct ProjectEditableList: View {
             selectedSortOrder = .byUserOrder
         }
         
-        guard let sourceIndex = source.first else { return }
-        let destIndex = destination
-        
-        // If dropping in same position, do nothing
-        if destIndex == sourceIndex {
-            return
-        }
-        
-        let currentProjects = sortedProjects
-        
-        if sourceIndex > destIndex { 
-            // Moving item up the list - shift items down to make room
-            let baseOrder = currentProjects[destIndex].userOrder ?? destIndex
-            for i in destIndex..<sourceIndex {
-                let currentOrder = currentProjects[i].userOrder ?? i
-                currentProjects[i].userOrder = currentOrder + 1
-            }
-            currentProjects[sourceIndex].userOrder = baseOrder
-        } else {
-            // Moving item down the list - shift items up to fill gap
-            for i in sourceIndex + 1..<destIndex {
-                let currentOrder = currentProjects[i].userOrder ?? i
-                currentProjects[i].userOrder = currentOrder - 1
-            }
-            currentProjects[sourceIndex].userOrder = destIndex - 1
-        }
+        // Use the service method which properly reindexes all userOrder values
+        _ = ProjectSortService.updateUserOrder(for: sortedProjects, movedFromOffsets: source, toOffset: destination)
         
         // Save the changes
         try? modelContext.save()

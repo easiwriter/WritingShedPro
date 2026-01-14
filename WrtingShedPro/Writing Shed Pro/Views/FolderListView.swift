@@ -65,10 +65,10 @@ struct FolderListView: View {
             
         case .fiction:
             // Novel: Manuscript, Chapters, Scenes, Characters, Locations, Plot // Collections, Submissions, Research // Publishers, Agents, Other // Trash
-            // Short: Manuscript, Scenes, Characters, Locations, Plot // Collections, Submissions, Research // Magazines, Competitions, Other // Trash
+            // Short: Manuscript, Stories, Scenes, Characters, Locations, Plot // Collections, Submissions, Research // Magazines, Competitions, Other // Trash
             return [
                 // Section 1: Story Structure
-                "Manuscript", "Chapters", "Scenes", "Characters", "Locations", "Plot",
+                "Manuscript", "Chapters", "Stories", "Scenes", "Characters", "Locations", "Plot",
                 // Section 2: Organization & Support
                 "Collections", "Submissions", "Research",
                 // Section 3: Publications (all possible - some may not exist based on fiction class)
@@ -132,13 +132,15 @@ struct FolderListView: View {
         
         // Special ordering for Manuscript subfolders: Front Matter, Body, Back Matter
         if selectedFolder.name == "Manuscript" {
-            let manuscriptOrder = ["Front Matter", "Body", "Back Matter"]
+            // All possible body folder names (project-type-specific with "All" prefix)
+            let bodyFolderNames: Set<String> = ["Body", "All Acts", "All Poems", "All Sections", "All Chapters", "All Stories"]
             return subfolders.sorted { folder1, folder2 in
                 let name1 = folder1.name ?? ""
                 let name2 = folder2.name ?? ""
-                let index1 = manuscriptOrder.firstIndex(of: name1) ?? Int.max
-                let index2 = manuscriptOrder.firstIndex(of: name2) ?? Int.max
-                return index1 < index2
+                // Front Matter = 0, any body folder = 1, Back Matter = 2, others = 3
+                let order1 = name1 == "Front Matter" ? 0 : (bodyFolderNames.contains(name1) ? 1 : (name1 == "Back Matter" ? 2 : 3))
+                let order2 = name2 == "Front Matter" ? 0 : (bodyFolderNames.contains(name2) ? 1 : (name2 == "Back Matter" ? 2 : 3))
+                return order1 < order2
             }
         }
         
@@ -246,6 +248,11 @@ struct FolderListView: View {
                             NavigationLink(destination: ChapterListView(project: project)) {
                                 FolderRowView(folder: folder)
                             }
+                        } else if folderName == "Stories" && project.type == .fiction && project.fictionClass == .shortFiction {
+                            // Fiction (Short Fiction): Stories folder navigates to ChapterListView (reuses same view)
+                            NavigationLink(destination: ChapterListView(project: project)) {
+                                FolderRowView(folder: folder)
+                            }
                         } else if folderName == "Sections" && project.type == .prose {
                             // Prose: Sections folder navigates to SectionListView
                             NavigationLink(destination: SectionListView(project: project)) {
@@ -309,7 +316,11 @@ struct FolderListView: View {
                             let subfolderName = subfolder.name ?? ""
                             
                             // Special handling for Manuscript Body subfolder (Feature 029)
-                            if subfolderName == "Body" && selectedFolder?.name == "Manuscript" {
+                            // Body folder is named with "All" prefix: All Acts, All Poems, All Sections, All Chapters, All Stories
+                            let isManuscriptBodyFolder = selectedFolder?.name == "Manuscript" && 
+                                ["Body", "All Acts", "All Poems", "All Sections", "All Chapters", "All Stories"].contains(subfolderName)
+                            
+                            if isManuscriptBodyFolder {
                                 NavigationLink(destination: ManuscriptBodyView(project: project)) {
                                     FolderRowView(folder: subfolder)
                                 }
@@ -472,9 +483,10 @@ struct FolderRowView: View {
     }
     
     // Check if this is the Chapters folder (fiction/novel projects only)
+    // Check if this is the Chapters or Stories folder (fiction projects)
     private var isChaptersFolder: Bool {
         let name = folder.name ?? ""
-        return name == "Chapters" && folder.project?.type == .fiction
+        return (name == "Chapters" || name == "Stories") && folder.project?.type == .fiction
     }
     
     // Check if this is the Sections folder (prose projects only)
@@ -513,7 +525,7 @@ struct FolderRowView: View {
         return project.acts?.count ?? 0
     }
     
-    // Get chapter count for Chapters folder
+    // Get chapter/story count for Chapters/Stories folder
     private var chapterCount: Int {
         guard isChaptersFolder, let project = folder.project else { return 0 }
         return project.chapters?.count ?? 0
@@ -571,8 +583,13 @@ struct FolderRowView: View {
     // Folder display name with count in brackets
     private var folderDisplayName: String {
         let baseName = folder.name ?? NSLocalizedString("folderList.untitledFolder", comment: "Untitled folder")
-        // Remove count for Body, Manuscript, Front Matter, and Back Matter folders
-        if baseName == "Body" || baseName == "Manuscript" || baseName == "Front Matter" || baseName == "Back Matter" {
+        
+        // Check if this is a Manuscript body folder (should not show count)
+        let isManuscriptBodyFolder = folder.parentFolder?.name == "Manuscript" &&
+            ["Body", "All Acts", "All Poems", "All Sections", "All Chapters", "All Stories"].contains(baseName)
+        
+        // Remove count for Manuscript subfolders (Body types, Front Matter, Back Matter) and Manuscript itself
+        if baseName == "Manuscript" || baseName == "Front Matter" || baseName == "Back Matter" || isManuscriptBodyFolder {
             return baseName
         }
         let count: Int
@@ -705,6 +722,8 @@ struct FolderRowView: View {
         // Fiction-specific folders
         case "Chapters":
             return "document.on.document"
+        case "Stories":
+            return "books.vertical"
         case "Characters":
             return "person.circle"
         case "Locations":

@@ -20,6 +20,7 @@
 /* Fiction Folder Names (Feature 022) */
 "folder.manuscript" = "Manuscript";
 "folder.chapters" = "Chapters";
+"folder.stories" = "Stories";
 "folder.acts" = "Acts";
 "folder.scenes" = "Scenes";
 "folder.characters" = "Characters";
@@ -240,6 +241,30 @@
 "fiction.chapter.error.titleRequired" = "Chapter title is required.";
 "fiction.chapter.sceneCount" = "%d scenes";
 
+/* Fiction Stories View (Short Fiction - Feature 022) */
+"fiction.stories.title" = "Stories";
+"fiction.stories.add" = "Add Story";
+"fiction.stories.empty.title" = "No Stories Yet";
+"fiction.stories.empty.message" = "Add stories to organize your short fiction collection.";
+"fiction.stories.deleteConfirm.title" = "Delete Story?";
+"fiction.stories.deleteConfirm.message" = "Are you sure you want to delete \"%@\"? Scenes will be unassigned but not deleted.";
+"fiction.stories.picker.createHint" = "Create stories in the Stories folder.";
+"fiction.story.title" = "Title";
+"fiction.story.title.accessibility" = "Story title";
+"fiction.story.number" = "Story %d";
+"fiction.story.section.basic" = "Basic Info";
+"fiction.story.summary" = "Summary";
+"fiction.story.summary.accessibility" = "Story summary";
+"fiction.story.summary.footer" = "Brief overview of this story.";
+"fiction.story.add.title" = "Add Story";
+"fiction.story.defaultTitle" = "Story %d";
+"fiction.story.error.titleRequired" = "Story title is required.";
+"fiction.story.sceneCount" = "%d scenes";
+"fiction.scenes.addToStory" = "Add to Story";
+"fiction.scenes.removeFromStoryNamed" = "Remove from \"%@\"";
+"fiction.scenes.assignedToStory" = "Currently assigned to \"%@\".";
+"fiction.scenes.storyAssignment" = "Story Assignment";
+
 /* Fiction Plot View (Feature 022) */
 "fiction.plot.title" = "Plot Outline";
 "fiction.plot.add" = "Add Plot Element";
@@ -333,6 +358,7 @@
 "projectDetail.projectInfo" = "Project Information:";
 "projectDetail.name" = "Name:";
 "projectDetail.type" = "Type:";
+"projectDetail.fictionClass" = "Fiction Type:";
 "projectDetail.created" = "Created:";
 "projectDetail.stylesheet" = "Stylesheet:";
 "projectDetail.stylesheetAccessibility" = "Select stylesheet for text formatting";
@@ -1804,6 +1830,7 @@
 "backMatter.settings.footer" = "Enabled items will appear as files in your Back Matter folder.";
 "backMatter.settings.accessibility" = "Back Matter settings";
 "backMatter.settings.help" = "Configure back matter items";
+"backMatter.endnotes" = "Endnotes";
 "backMatter.notes" = "Notes";
 "backMatter.glossary" = "Glossary";
 "backMatter.bibliography" = "Bibliography";

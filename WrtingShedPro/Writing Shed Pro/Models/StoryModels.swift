@@ -433,7 +433,7 @@ final class StoryScene {
     
     // Relationships
     @Relationship(inverse: \Chapter.scenes)
-    var chapter: Chapter?  // nil for Short Fiction projects
+    var chapter: Chapter?  // Used for both Novel and Short Fiction projects
     
     @Relationship(inverse: \Act.scenes)
     var act: Act?  // nil for Fiction projects, used for Drama projects
