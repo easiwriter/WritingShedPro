@@ -132,15 +132,15 @@ final class ProjectTemplateServiceTests: XCTestCase {
         ProjectTemplateService.createDefaultFolders(for: project, in: modelContext)
         
         // Then verify folders exist in flat structure
-        // Short Fiction: Manuscript, Scenes, Characters, Locations, Plot, Collections, Submissions, Research, Magazines, Competitions, Other, Trash
+        // Short Fiction: Manuscript, Stories, Scenes, Characters, Locations, Plot, Collections, Submissions, Research, Magazines, Competitions, Other, Trash
         let allFolders = project.folders ?? []
         let rootFolders = allFolders.filter { $0.parentFolder == nil }
         
-        XCTAssertEqual(rootFolders.count, 12, "Should have 12 root folders for Short Fiction project")
+        XCTAssertEqual(rootFolders.count, 13, "Should have 13 root folders for Short Fiction project")
         
         let folderNames = Set(rootFolders.compactMap { $0.name })
         let expectedNames: Set<String> = [
-            "Scenes", "Characters", "Locations", "Plot", "Manuscript",
+            "Stories", "Scenes", "Characters", "Locations", "Plot", "Manuscript",
             "Collections", "Submissions", "Research",
             "Magazines", "Competitions", "Other", "Trash"
         ]
@@ -202,7 +202,8 @@ final class ProjectTemplateServiceTests: XCTestCase {
         if let manuscriptFolder = rootFolders.first(where: { $0.name == "Manuscript" }) {
             let subfolders = manuscriptFolder.folders ?? []
             let subfolderNames = Set(subfolders.compactMap { $0.name })
-            XCTAssertEqual(subfolderNames, ["Front Matter", "Body", "Back Matter"], "Manuscript should have correct subfolders")
+            // Poetry uses "All Poems" as body folder
+            XCTAssertEqual(subfolderNames, ["Front Matter", "All Poems", "Back Matter"], "Manuscript should have correct subfolders for poetry project")
             for subfolder in subfolders {
                 XCTAssertEqual(subfolder.parentFolder?.id, manuscriptFolder.id, "\(subfolder.name ?? "unknown") should have Manuscript as parent")
             }
@@ -407,7 +408,7 @@ final class ProjectTemplateServiceTests: XCTestCase {
         let rootFolders2 = allFolders2.filter { $0.parentFolder == nil }
         
         XCTAssertEqual(rootFolders1.count, 9, "Project 1 (Poetry) should have 9 root folders")
-        XCTAssertEqual(rootFolders2.count, 2, "Project 2 (General) should have 2 root folders")
+        XCTAssertEqual(rootFolders2.count, 10, "Project 2 (Prose) should have 10 root folders")
         
         // Verify no overlap in folder IDs
         let ids1 = Set(allFolders1.map { $0.id })

@@ -97,6 +97,19 @@ final class Project {
     var manuscriptSettingsData: Data?
     var tocSettingsData: Data?
     
+    // Feature 029: Back Matter References
+    @Relationship(deleteRule: .cascade, inverse: \NoteEntry.project)
+    var noteEntries: [NoteEntry]? = []
+    
+    @Relationship(deleteRule: .cascade, inverse: \GlossaryEntry.project)
+    var glossaryEntries: [GlossaryEntry]? = []
+    
+    @Relationship(deleteRule: .cascade, inverse: \CitationEntry.project)
+    var citationEntries: [CitationEntry]? = []
+    
+    @Relationship(deleteRule: .cascade, inverse: \IndexEntry.project)
+    var indexEntries: [IndexEntry]? = []
+    
     // Fiction relationships
     @Relationship(deleteRule: .cascade, inverse: \StoryScene.project)
     var scenes: [StoryScene]? = []

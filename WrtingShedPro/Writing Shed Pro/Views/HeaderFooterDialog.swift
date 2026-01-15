@@ -93,10 +93,11 @@ struct HeaderFooterDialog: View {
                     .textFieldStyle(.roundedBorder)
             }
             
-            HStack {
+            HStack(spacing: 8) {
                 Button(NSLocalizedString("headerfooter.button.add", comment: "Add")) {
                     insertElement(headerSelectedElement, isHeader: true)
                 }
+                .buttonStyle(.bordered)
                 
                 Picker("", selection: $headerSelectedElement) {
                     ForEach(HeaderFooterElement.allCases) { element in
@@ -104,17 +105,17 @@ struct HeaderFooterDialog: View {
                     }
                 }
                 .labelsHidden()
-                .fixedSize()
+                .pickerStyle(.menu)
                 
-                Text(NSLocalizedString("headerfooter.to", comment: "To:"))
+                Text("→")
                 
                 Picker("", selection: $headerInsertTarget) {
-                    Text(NSLocalizedString("headerfooter.target.left", comment: "Left Field")).tag(HeaderFooterField.left)
-                    Text(NSLocalizedString("headerfooter.target.centre", comment: "Centre Field")).tag(HeaderFooterField.center)
-                    Text(NSLocalizedString("headerfooter.target.right", comment: "Right Field")).tag(HeaderFooterField.right)
+                    Text("Left").tag(HeaderFooterField.left)
+                    Text("Centre").tag(HeaderFooterField.center)
+                    Text("Right").tag(HeaderFooterField.right)
                 }
                 .labelsHidden()
-                .fixedSize()
+                .pickerStyle(.menu)
             }
         } header: {
             Text(NSLocalizedString("headerfooter.section.header", comment: "Header Fields"))
@@ -138,10 +139,11 @@ struct HeaderFooterDialog: View {
                     .textFieldStyle(.roundedBorder)
             }
             
-            HStack {
+            HStack(spacing: 8) {
                 Button(NSLocalizedString("headerfooter.button.add", comment: "Add")) {
                     insertElement(footerSelectedElement, isHeader: false)
                 }
+                .buttonStyle(.bordered)
                 
                 Picker("", selection: $footerSelectedElement) {
                     ForEach(HeaderFooterElement.allCases) { element in
@@ -149,17 +151,17 @@ struct HeaderFooterDialog: View {
                     }
                 }
                 .labelsHidden()
-                .fixedSize()
+                .pickerStyle(.menu)
                 
-                Text(NSLocalizedString("headerfooter.to", comment: "To:"))
+                Text("→")
                 
                 Picker("", selection: $footerInsertTarget) {
-                    Text(NSLocalizedString("headerfooter.target.left", comment: "Left Field")).tag(HeaderFooterField.left)
-                    Text(NSLocalizedString("headerfooter.target.centre", comment: "Centre Field")).tag(HeaderFooterField.center)
-                    Text(NSLocalizedString("headerfooter.target.right", comment: "Right Field")).tag(HeaderFooterField.right)
+                    Text("Left").tag(HeaderFooterField.left)
+                    Text("Centre").tag(HeaderFooterField.center)
+                    Text("Right").tag(HeaderFooterField.right)
                 }
                 .labelsHidden()
-                .fixedSize()
+                .pickerStyle(.menu)
             }
         } header: {
             Text(NSLocalizedString("headerfooter.section.footer", comment: "Footer Fields"))

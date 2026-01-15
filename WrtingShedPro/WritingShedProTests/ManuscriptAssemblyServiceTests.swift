@@ -157,12 +157,16 @@ final class ManuscriptAssemblyServiceTests: XCTestCase {
         // Create subfolders
         ProjectTemplateService.createManuscriptSubfolders(in: manuscriptFolder, context: modelContext)
         
+        // Save context to ensure relationships are populated
+        try? modelContext.save()
+        
         let subfolders = manuscriptFolder.folders ?? []
         let subfolderNames = Set(subfolders.compactMap { $0.name })
         
         XCTAssertEqual(subfolders.count, 3, "Should have 3 subfolders")
         XCTAssertTrue(subfolderNames.contains("Front Matter"))
-        XCTAssertTrue(subfolderNames.contains("Body"))
+        // Body folder name is now project-type specific (e.g., "All Poems" for poetry)
+        XCTAssertTrue(subfolderNames.contains("All Poems"), "Poetry project should have 'All Poems' body folder")
         XCTAssertTrue(subfolderNames.contains("Back Matter"))
     }
     
@@ -245,4 +249,72 @@ final class ManuscriptAssemblyServiceTests: XCTestCase {
         file.includedInManuscript = true
         XCTAssertTrue(file.includedInManuscript)
     }
-}
+    
+    // MARK: - Back Matter Integration Tests (Feature 029)
+    
+    func testAssembleContentWithBackMatterNoReferences() async throws {
+        // Create a project with basic content but no references
+        let project = Project(name: "Test Project", type: .prose)
+        modelContext.insert(project)
+        
+        // Create Prose folder with a file
+        let folder = Folder(name: "Prose", project: project)
+        modelContext.insert(folder)
+        project.folders = [folder]
+        
+        let file = TextFile(name: "Chapter 1", parentFolder: folder)
+        file.includedInManuscript = true
+        let version = Version(content: "Test content")
+        version.textFile = file
+        file.versions = [version]
+        modelContext.insert(file)
+        modelContext.insert(version)
+        folder.textFiles = [file]
+        
+        try modelContext.save()
+        
+        var options = ExportOptions()
+        options.includeNotes = true
+        options.includeGlossary = true
+        options.includeBibliography = true
+        options.includeIndex = true
+        
+        let content = try await assemblyService.assembleContentWithBackMatter(for: project, options: options)
+        
+        // Should have content but no back matter (no reference entries exist)
+        XCTAssertGreaterThan(content.attributedString.length, 0)
+    }
+    
+    func testAssembleContentWithBackMatterDisabled() async throws {
+        // Create a project
+        let project = Project(name: "Test Project", type: .prose)
+        modelContext.insert(project)
+        
+        // Create Prose folder with a file
+        let folder = Folder(name: "Prose", project: project)
+        modelContext.insert(folder)
+        project.folders = [folder]
+        
+        let file = TextFile(name: "Chapter 1", parentFolder: folder)
+        file.includedInManuscript = true
+        let version = Version(content: "Test content")
+        version.textFile = file
+        file.versions = [version]
+        modelContext.insert(file)
+        modelContext.insert(version)
+        folder.textFiles = [file]
+        
+        try modelContext.save()
+        
+        // Disable all back matter
+        var options = ExportOptions()
+        options.includeNotes = false
+        options.includeGlossary = false
+        options.includeBibliography = false
+        options.includeIndex = false
+        
+        let content = try await assemblyService.assembleContentWithBackMatter(for: project, options: options)
+        
+        // Should return content without back matter
+        XCTAssertGreaterThan(content.attributedString.length, 0)
+    }}

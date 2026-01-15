@@ -51,7 +51,6 @@ final class PageSetupModelsTests: XCTestCase {
         XCTAssertEqual(pageSetup.orientation, 0, "Should default to portrait (0)")
         XCTAssertEqual(pageSetup.headers, 0, "Should default to no headers")
         XCTAssertEqual(pageSetup.footers, 0, "Should default to no footers")
-        XCTAssertEqual(pageSetup.facingPages, 0, "Should default to no facing pages")
         XCTAssertEqual(pageSetup.marginTop, PageSetupDefaults.marginTop, "Should have default top margin")
         XCTAssertEqual(pageSetup.marginBottom, PageSetupDefaults.marginBottom, "Should have default bottom margin")
         XCTAssertEqual(pageSetup.marginLeft, PageSetupDefaults.marginLeft, "Should have default left margin")
@@ -88,7 +87,6 @@ final class PageSetupModelsTests: XCTestCase {
             orientation: .landscape,
             headers: true,
             footers: true,
-            facingPages: true,
             marginTop: customMarginTop,
             marginLeft: customMarginLeft,
             scaleFactor: Units.millimetres.scaleFactor
@@ -99,7 +97,6 @@ final class PageSetupModelsTests: XCTestCase {
         XCTAssertEqual(pageSetup.orientation, 1, "Landscape should be 1")
         XCTAssertEqual(pageSetup.headers, 1, "Headers enabled should be 1")
         XCTAssertEqual(pageSetup.footers, 1, "Footers enabled should be 1")
-        XCTAssertEqual(pageSetup.facingPages, 1, "Facing pages enabled should be 1")
         XCTAssertEqual(pageSetup.marginTop, customMarginTop)
         XCTAssertEqual(pageSetup.marginLeft, customMarginLeft)
         XCTAssertEqual(pageSetup.scaleFactor, Units.millimetres.scaleFactor)
@@ -164,24 +161,7 @@ final class PageSetupModelsTests: XCTestCase {
         XCTAssertFalse(pageSetup.hasFooters, "hasFooters should return false")
     }
     
-    func testFacingPagesComputedProperty() throws {
-        // Given
-        let pageSetup = PageSetup()
-        
-        // When
-        pageSetup.hasFacingPages = true
-        
-        // Then
-        XCTAssertEqual(pageSetup.facingPages, 1, "hasFacingPages=true should set facingPages to 1")
-        XCTAssertTrue(pageSetup.hasFacingPages, "hasFacingPages should return true")
-        
-        // When
-        pageSetup.hasFacingPages = false
-        
-        // Then
-        XCTAssertEqual(pageSetup.facingPages, 0, "hasFacingPages=false should set facingPages to 0")
-        XCTAssertFalse(pageSetup.hasFacingPages, "hasFacingPages should return false")
-    }
+    // Note: testFacingPagesComputedProperty removed - facingPages property no longer exists
     
     func testPaperSizeEnumConversion() throws {
         // Given

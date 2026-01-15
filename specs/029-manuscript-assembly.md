@@ -17,6 +17,388 @@ The Manuscript feature supports Front and Back matter folders in addition to Bod
 
 The way I see this working is that an entry is added to the Insert menu for each type of item supported.
 
+---
+
+## Back Matter Reference System (Design Decisions)
+
+### Reference Marker Formats
+
+Each reference type uses a distinct inline marker format, automatically numbered:
+
+| Type | Marker Format | Example | Notes |
+|------|---------------|---------|-------|
+| Endnote | `[n]` | `[1]`, `[2]` | Superscript styling, numbered continuously |
+| Note | `[Note n]` | `[Note 1]` | Distinct from endnotes, for general notes |
+| Citation | `[Author, Year]` | `[Smith, 2024]` | APA-style inline reference |
+| Figure | `[Fig n]` | `[Fig 1]` | For list of figures |
+| Table | `[Table n]` | `[Table 1]` | For list of tables (future) |
+| Glossary | *(term itself)* | `protagonist` | Styled inline (underline/color), no brackets |
+| Index | *(invisible marker)* | — | No visible marker; stored for page calculation at export |
+
+### Model Definitions
+
+All reference models follow consistent naming and conform to a shared protocol:
+
+```swift
+protocol ReferenceEntry: Identifiable {
+    var id: UUID { get }
+    var referenceCount: Int { get set }
+    var createdAt: Date { get }
+}
+```
+
+| Model | Key Properties |
+|-------|----------------|
+| `NoteEntry` | `id`, `content: String`, `referenceCount: Int = 0` |
+| `GlossaryEntry` | `id`, `term: String`, `definition: String`, `citation: CitationEntry?`, `referenceCount: Int = 0` |
+| `CitationEntry` | `id`, `authors: [String]`, `year: Int?`, `title: String`, `source: String?`, `url: String?`, `referenceCount: Int = 0` — format-agnostic storage for APA/MLA/Chicago |
+| `IndexEntry` | `id`, `keyword: String`, `parentEntry: IndexEntry?` (for sub-entries), `referenceCount: Int = 0` |
+
+**SwiftData/CloudKit Compliance:** All properties are optional or have default values. No `@Attribute(.unique)` constraints.
+
+### NSAttributedString Storage
+
+References are stored using custom attribute keys in the attributed string:
+
+```swift
+extension NSAttributedString.Key {
+    static let referenceType = NSAttributedString.Key("com.writingshed.referenceType")
+    static let referenceID = NSAttributedString.Key("com.writingshed.referenceID")
+}
+```
+
+Each reference marker in the text carries:
+- `referenceType`: String enum (`"note"`, `"endnote"`, `"citation"`, `"glossary"`, `"index"`, `"figure"`)
+- `referenceID`: UUID string pointing to the corresponding entry
+
+### Reference Lifecycle
+
+**Copy/Paste:**
+- Copying text containing a reference copies the attribute keys
+- Pasting increments `referenceCount` on the target entry
+
+**Cut/Delete:**
+- Removing text containing a reference decrements `referenceCount`
+- If `referenceCount` drops to 0, the entry becomes orphaned (warn user or mark for cleanup)
+
+**Undo/Redo:**
+- Reference count changes are tracked with undo/redo operations
+- Undoing a paste decrements the count; undoing a delete restores it
+
+**Deletion of Entry:**
+- If user deletes an entry with `referenceCount > 0`, warn: "This citation has 3 references. Delete anyway?"
+- If confirmed, remove all inline markers referencing that entry
+
+### Glossary Workflow
+
+1. User selects a term in the text
+2. Context menu shows "Add to Glossary"
+3. If term exists in `GlossaryEntry` list → link to existing entry
+4. If term is new → prompt for definition, create new `GlossaryEntry`
+5. Term is styled (underline/color) and tappable to show definition popover
+
+### Index Workflow
+
+1. User selects text → context menu "Add to Index"
+2. User enters keyword/phrase for the index entry
+3. App checks if keyword exists:
+   - Exists → add invisible marker at selection location
+   - New → create `IndexEntry`, add marker
+4. Sub-entries supported: user can specify parent entry (e.g., "Dogs" under "Animals")
+5. At export/manuscript view time, markers are resolved to actual page numbers
+
+### Export Behavior by Format
+
+| Format | Behavior |
+|--------|----------|
+| **PDF** | Full rendering: inline markers displayed, back matter sections generated with page numbers for index |
+| **RTF** | Markers preserved as styled text; back matter sections included as appendices |
+| **Plain Text** | Markers converted to readable text: `(see Note 1)`, `(Smith, 2024)`, `(see Glossary: protagonist)`. Index markers stripped (no pages in plain text). |
+| **Manuscript View** | Live preview with clickable references; index entries show calculated page numbers |
+
+---
+
+## Implementation Plan: Back Matter Reference System
+
+### Phase 10: Foundation — Models & Attributed String Keys ✅ COMPLETE
+**Priority:** High | **Estimated Effort:** 2-3 days | **Completed:** 15 January 2026
+
+**Tasks:**
+1. ✅ Create `Models/ReferenceModels.swift`:
+   - `ReferenceEntryProtocol` protocol
+   - `ReferenceType` enum with marker formats
+   - `NoteEntry` SwiftData model
+   - `GlossaryEntry` SwiftData model
+   - `CitationEntry` SwiftData model (format-agnostic fields)
+   - `IndexEntry` SwiftData model (with optional `parentEntry` for sub-entries)
+   
+2. ✅ Create `Extensions/NSAttributedString+References.swift`:
+   - Define custom attribute keys: `.referenceType`, `.referenceID`
+   - `ReferenceMarkerInfo` struct for query results
+   - Helper methods: `addReference(type:id:to range:)`, `insertReference()`, `removeReference(at range:)`
+   - Query methods: `references(in range:)`, `allReferences()`, `reference(at location:)`
+   - Style methods: `applyReferenceStyle(type:to range:)`
+   - Plain text conversion: `convertReferencesToPlainText(resolver:)`
+
+3. ✅ Create `Services/ReferenceTrackingService.swift`:
+   - `incrementReferenceCount(forEntryID:type:)` 
+   - `decrementReferenceCount(forEntryID:type:)`
+   - Orphan detection: `orphanedNotes()`, `orphanedGlossaryEntries()`, etc.
+   - `deleteEntry(_:force:)` — returns `.hasReferences(count:)` if not forced
+   - Entry lookup methods: `notes(for:)`, `glossaryEntries(for:)`, etc.
+   - Reference count validation: `recalculateReferenceCounts(for:documentContents:)`
+   - Undo/redo support: `registerUndoForIncrement()`, `registerUndoForDecrement()`
+
+4. ✅ Add relationships to `Project` model:
+   - `noteEntries: [NoteEntry]`
+   - `glossaryEntries: [GlossaryEntry]`
+   - `citationEntries: [CitationEntry]`
+   - `indexEntries: [IndexEntry]`
+
+**Files:**
+- New: `Models/ReferenceModels.swift`
+- New: `Extensions/NSAttributedString+References.swift`
+- New: `Services/ReferenceTrackingService.swift`
+- Modified: `Models/BaseModels.swift` (Project relationships)
+
+---
+
+### Phase 11: Reference Marker Rendering ✅ COMPLETE
+**Priority:** High | **Estimated Effort:** 2 days | **Completed:** 15 January 2026
+
+**Tasks:**
+1. ✅ Create `Helpers/ReferenceAttachment.swift` (NSTextAttachment subclass):
+   - Renders inline marker based on type (`[1]`, `[Note 1]`, `[Smith, 2024]`, etc.)
+   - Styled backgrounds for different reference types (blue for notes, indigo for citations, teal for glossary)
+   - Tappable for popover/navigation
+   - Supports secure coding for persistence
+
+2. ✅ Update `FormattedTextEditor.swift`:
+   - Added `onReferenceTapped` callback
+   - CustomTextView handles tap gestures on reference attachments
+   - Wired up callback to parent coordinator
+
+3. ✅ Create `Views/References/ReferencePopoverView.swift`:
+   - Shows content preview on tap (note text, glossary definition, citation details)
+   - Different content layouts for each reference type
+   - "Edit" and "Go to Entry" action buttons
+   - Handles missing/deleted entries gracefully
+
+4. ✅ Update `Services/AttributedStringSerializer.swift`:
+   - Added reference attachment properties to AttributeValues struct
+   - Encode/decode ReferenceAttachment for persistence
+   - Preserves referenceType and referenceID custom attributes
+
+**Files:**
+- New: `Helpers/ReferenceAttachment.swift`
+- New: `Views/References/ReferencePopoverView.swift`
+- Modified: `Views/Components/FormattedTextEditor.swift`
+- Modified: `Services/AttributedStringSerializer.swift`
+
+---
+
+### Phase 12: Notes & Endnotes
+**Priority:** High | **Estimated Effort:** 2 days
+
+**Tasks:**
+1. Add "Insert Note" / "Insert Endnote" to Insert menu
+2. Create `Views/Sheets/NoteEditorSheet.swift`:
+   - Text editor for note content
+   - Save creates `NoteEntry`, inserts marker at cursor
+3. Implement automatic numbering:
+   - Notes numbered per-document in order of appearance
+   - Endnotes numbered continuously across manuscript (configurable)
+4. Create `Views/BackMatter/NotesListView.swift`:
+   - Lists all notes for a project
+   - Edit/delete actions
+   - Shows reference count
+
+**Files:**
+- New: `Views/Sheets/NoteEditorSheet.swift`
+- New: `Views/BackMatter/NotesListView.swift`
+- Modified: Insert menu implementation
+
+---
+
+### Phase 13: Glossary
+**Priority:** High | **Estimated Effort:** 2-3 days
+
+**Tasks:**
+1. Add context menu item "Add to Glossary" when text is selected
+2. Create `Views/Sheets/GlossaryEntrySheet.swift`:
+   - Term field (pre-filled from selection)
+   - Definition text editor
+   - Optional citation picker (from existing citations)
+3. Implement term matching:
+   - On "Add to Glossary", check if term already exists
+   - If exists: link to existing entry
+   - If new: show entry sheet
+4. Apply glossary styling to attributed string:
+   - Underline or distinct color for glossary terms
+   - Tappable to show definition popover
+5. Create `Views/BackMatter/GlossaryListView.swift`:
+   - Alphabetically sorted list of terms
+   - Edit/delete actions
+   - Filter/search
+
+**Files:**
+- New: `Views/Sheets/GlossaryEntrySheet.swift`
+- New: `Views/BackMatter/GlossaryListView.swift`
+- Modified: Context menu in `TextEditView`
+
+---
+
+### Phase 14: Citations (Bibliography)
+**Priority:** Medium | **Estimated Effort:** 3-4 days
+
+**Tasks:**
+1. Create `Services/CitationFormatterService.swift`:
+   - `formatInline(citation:style:)` → `[Smith, 2024]`
+   - `formatFull(citation:style:)` → Full bibliography entry
+   - Support APA initially, architecture for MLA/Chicago later
+2. Add "Insert Citation" to Insert menu
+3. Create `Views/Sheets/CitationEntrySheet.swift`:
+   - Fields: authors (multiple), year, title, source/journal, URL, DOI, etc.
+   - Preview of formatted citation
+4. Create `Views/Sheets/CitationPickerSheet.swift`:
+   - Search/select from existing citations
+   - Or create new
+5. Create `Views/BackMatter/BibliographyListView.swift`:
+   - All citations formatted in selected style
+   - Sort by author/year/title
+   - Edit/delete actions
+
+**Files:**
+- New: `Services/CitationFormatterService.swift`
+- New: `Views/Sheets/CitationEntrySheet.swift`
+- New: `Views/Sheets/CitationPickerSheet.swift`
+- New: `Views/BackMatter/BibliographyListView.swift`
+
+---
+
+### Phase 15: Index
+**Priority:** Medium | **Estimated Effort:** 3-4 days
+
+**Tasks:**
+1. Add context menu item "Add to Index" when text is selected
+2. Create `Views/Sheets/IndexEntrySheet.swift`:
+   - Keyword field (can differ from selected text)
+   - Optional parent entry picker (for sub-entries like "Dogs" under "Animals")
+   - Shows existing entries for linking
+3. Insert invisible marker in attributed string:
+   - No visual change at edit time
+   - Marker stores entry ID for page calculation
+4. Create `Services/IndexPageCalculationService.swift`:
+   - At export time, iterate through manuscript pages
+   - Find markers, record page numbers per entry
+   - Handle sub-entries (indented under parent)
+5. Create `Views/BackMatter/IndexListView.swift`:
+   - Hierarchical list of index entries
+   - Edit keyword, reassign parent
+   - Delete with orphan warning
+6. Generate index section in manuscript:
+   - Alphabetical listing with page numbers
+   - Sub-entries indented
+
+**Files:**
+- New: `Views/Sheets/IndexEntrySheet.swift`
+- New: `Services/IndexPageCalculationService.swift`
+- New: `Views/BackMatter/IndexListView.swift`
+- Modified: Context menu in `TextEditView`
+
+---
+
+### Phase 16: Reference Lifecycle & Undo/Redo
+**Priority:** High | **Estimated Effort:** 2 days
+
+**Tasks:**
+1. Hook into text editing operations:
+   - On paste: scan for reference attributes, increment counts
+   - On delete/cut: scan removed range, decrement counts
+2. Integrate with UndoManager:
+   - Register inverse count operations with undo
+   - Ensure undo of delete restores reference counts
+3. Handle entry deletion:
+   - Show warning if `referenceCount > 0`
+   - On confirm, scan all documents and remove markers
+4. Orphan management:
+   - Background check for entries with `referenceCount = 0`
+   - Optional cleanup prompt in settings or project view
+
+**Files:**
+- Modified: `Services/ReferenceTrackingService.swift`
+- Modified: Text editing undo/redo handling
+- New: `Views/Sheets/OrphanedReferencesSheet.swift` (optional)
+
+---
+
+### Phase 17: Export Integration
+**Priority:** High | **Estimated Effort:** 2-3 days
+
+**Tasks:**
+1. Update `PrintService` / PDF export:
+   - Render reference markers with proper styling
+   - Generate Notes section with numbered entries
+   - Generate Glossary section (alphabetical)
+   - Generate Bibliography section (formatted per style)
+   - Generate Index section with calculated page numbers
+
+2. Update RTF export:
+   - Preserve markers as styled text
+   - Append back matter sections
+
+3. Update plain text export:
+   - Convert markers to readable text:
+     - `[1]` → `(see Note 1)`
+     - `[Smith, 2024]` → `(Smith, 2024)`
+     - Glossary term → `protagonist (see Glossary)`
+   - Strip index markers (no page numbers in plain text)
+   - Append simplified back matter
+
+4. Add back matter toggle in export options:
+   - Include/exclude each section type
+
+**Files:**
+- Modified: `Services/PrintService.swift`
+- Modified: `Services/ExportService.swift` (RTF, plain text)
+- Modified: `Models/ManuscriptModels.swift` (ExportOptions)
+
+---
+
+### Phase 18: Back Matter Management UI
+**Priority:** Medium | **Estimated Effort:** 1-2 days
+
+**Tasks:**
+1. Create `Views/BackMatter/BackMatterView.swift`:
+   - Tab or segmented view: Notes | Glossary | Citations | Index
+   - Each tab shows the corresponding list view
+2. Add navigation from Project view to Back Matter
+3. Add "Manage [Type]" menu items or toolbar buttons
+
+**Files:**
+- New: `Views/BackMatter/BackMatterView.swift`
+- Modified: Navigation/menu structure
+
+---
+
+### Implementation Order Summary
+
+| Order | Phase | Dependencies | Priority |
+|-------|-------|--------------|----------|
+| 1 | Phase 10: Foundation | None | High |
+| 2 | Phase 11: Marker Rendering | Phase 10 | High |
+| 3 | Phase 16: Lifecycle & Undo | Phase 10 | High |
+| 4 | Phase 12: Notes & Endnotes | Phases 10, 11 | High |
+| 5 | Phase 13: Glossary | Phases 10, 11 | High |
+| 6 | Phase 14: Citations | Phases 10, 11 | Medium |
+| 7 | Phase 15: Index | Phases 10, 11 | Medium |
+| 8 | Phase 17: Export Integration | Phases 12-15 | High |
+| 9 | Phase 18: Management UI | Phases 12-15 | Medium |
+
+**Total Estimated Effort:** 19-25 days
+
+---
+
 ## Completed Phases
 
 ### Phase 1: Folder Structure

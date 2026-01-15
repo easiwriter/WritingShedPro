@@ -346,6 +346,59 @@ final class ManuscriptAssemblyService {
         )
     }
     
+    /// Assemble complete manuscript content with back matter (Feature 029)
+    /// - Parameters:
+    ///   - project: The project to assemble
+    ///   - options: Export options including back matter settings
+    /// - Returns: ManuscriptContent with assembled attributed string including back matter
+    /// - Throws: AssemblyError if assembly fails
+    func assembleContentWithBackMatter(for project: Project, options: ExportOptions) async throws -> ManuscriptContent {
+        // First assemble the main content
+        var content = try await assembleContent(for: project)
+        
+        // Generate back matter if any options are enabled
+        let needsBackMatter = options.includeNotes || options.includeGlossary || 
+                              options.includeBibliography || options.includeIndex
+        
+        guard needsBackMatter else {
+            return content
+        }
+        
+        // Create back matter generator
+        let backMatterGenerator = BackMatterGenerator(context: context, project: project)
+        
+        // Note: For index, we need page numbers calculated after pagination
+        // This method provides the structure; actual page numbers are resolved in PrintService
+        let backMatter = backMatterGenerator.generateBackMatter(
+            includeNotes: options.includeNotes,
+            includeGlossary: options.includeGlossary,
+            includeBibliography: options.includeBibliography,
+            includeIndex: options.includeIndex,
+            pageMap: [:] // Page numbers will be calculated during PDF generation
+        )
+        
+        // Append back matter to content
+        if backMatter.length > 0 {
+            let mutableContent = NSMutableAttributedString(attributedString: content.attributedString)
+            
+            // Add page break before back matter
+            let pageBreak = NSAttributedString(string: "\u{0C}") // Form feed
+            mutableContent.append(pageBreak)
+            mutableContent.append(backMatter)
+            
+            // Create updated content with back matter
+            content = ManuscriptContent(
+                attributedString: mutableContent,
+                sections: content.sections,
+                pageMap: content.pageMap,
+                fileOffsets: content.fileOffsets,
+                pageCount: content.pageCount
+            )
+        }
+        
+        return content
+    }
+    
     // MARK: - Helper Methods
     
     /// Get a subfolder of the Manuscript folder by name

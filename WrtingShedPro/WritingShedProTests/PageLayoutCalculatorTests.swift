@@ -252,13 +252,12 @@ final class PageLayoutCalculatorTests: XCTestCase {
             pageSetup: pageSetup
         )
         
-        // With 36pt header, content should be:
-        // - Moved down 36pt
-        // - 36pt shorter
+        // NEW ARCHITECTURE: Headers are in margin area, so content rect = text rect
+        // Content is NOT reduced for header space
         XCTAssertEqual(contentRect.width, textRect.width, accuracy: 0.1)
-        XCTAssertEqual(contentRect.height, textRect.height - 36.0, accuracy: 0.1)
+        XCTAssertEqual(contentRect.height, textRect.height, accuracy: 0.1)
         XCTAssertEqual(contentRect.origin.x, textRect.origin.x, accuracy: 0.1)
-        XCTAssertEqual(contentRect.origin.y, textRect.origin.y + 36.0, accuracy: 0.1)
+        XCTAssertEqual(contentRect.origin.y, textRect.origin.y, accuracy: 0.1)
     }
     
     func testCalculateContentRect_WithFooters() throws {
@@ -288,11 +287,10 @@ final class PageLayoutCalculatorTests: XCTestCase {
             pageSetup: pageSetup
         )
         
-        // With 36pt footer, content should be:
-        // - Same origin
-        // - 36pt shorter
+        // NEW ARCHITECTURE: Footers are in margin area, so content rect = text rect
+        // Content is NOT reduced for footer space
         XCTAssertEqual(contentRect.width, textRect.width, accuracy: 0.1)
-        XCTAssertEqual(contentRect.height, textRect.height - 36.0, accuracy: 0.1)
+        XCTAssertEqual(contentRect.height, textRect.height, accuracy: 0.1)
         XCTAssertEqual(contentRect.origin.x, textRect.origin.x, accuracy: 0.1)
         XCTAssertEqual(contentRect.origin.y, textRect.origin.y, accuracy: 0.1)
     }
@@ -325,13 +323,12 @@ final class PageLayoutCalculatorTests: XCTestCase {
             pageSetup: pageSetup
         )
         
-        // With both 36pt header and footer, content should be:
-        // - Moved down 36pt
-        // - 72pt shorter total (36 + 36)
+        // NEW ARCHITECTURE: Headers/footers are in margin areas, so content rect = text rect
+        // Content is NOT reduced for header/footer space
         XCTAssertEqual(contentRect.width, textRect.width, accuracy: 0.1)
-        XCTAssertEqual(contentRect.height, textRect.height - 72.0, accuracy: 0.1)
+        XCTAssertEqual(contentRect.height, textRect.height, accuracy: 0.1)
         XCTAssertEqual(contentRect.origin.x, textRect.origin.x, accuracy: 0.1)
-        XCTAssertEqual(contentRect.origin.y, textRect.origin.y + 36.0, accuracy: 0.1)
+        XCTAssertEqual(contentRect.origin.y, textRect.origin.y, accuracy: 0.1)
     }
     
     // MARK: - Header/Footer Rect Tests
@@ -358,15 +355,17 @@ final class PageLayoutCalculatorTests: XCTestCase {
             pageSetup: pageSetup
         )
         let headerRect = PageLayoutCalculator.calculateHeaderRect(
+            pageRect: pageRect,
             textRect: textRect,
             pageSetup: pageSetup
         )
         
-        // Header should be at top of text rect, full width, 36pt high
+        // NEW ARCHITECTURE: Header is in top margin, not text area
+        // Position is: topGap = min(marginTop/3, 18) = 18 from top of page
         XCTAssertEqual(headerRect.width, textRect.width, accuracy: 0.1)
         XCTAssertEqual(headerRect.height, 36.0, accuracy: 0.1)
         XCTAssertEqual(headerRect.origin.x, textRect.origin.x, accuracy: 0.1)
-        XCTAssertEqual(headerRect.origin.y, textRect.origin.y, accuracy: 0.1)
+        XCTAssertEqual(headerRect.origin.y, 18.0, accuracy: 0.1)  // min(72/3, 18) = 18
     }
     
     func testCalculateFooterRect() throws {
@@ -391,15 +390,17 @@ final class PageLayoutCalculatorTests: XCTestCase {
             pageSetup: pageSetup
         )
         let footerRect = PageLayoutCalculator.calculateFooterRect(
+            pageRect: pageRect,
             textRect: textRect,
             pageSetup: pageSetup
         )
         
-        // Footer should be at bottom of text rect, full width, 36pt high
+        // NEW ARCHITECTURE: Footer is in bottom margin, not text area
+        // Position is: pageHeight - footerDepth - bottomGap = 792 - 36 - 18 = 738
         XCTAssertEqual(footerRect.width, textRect.width, accuracy: 0.1)
         XCTAssertEqual(footerRect.height, 36.0, accuracy: 0.1)
         XCTAssertEqual(footerRect.origin.x, textRect.origin.x, accuracy: 0.1)
-        XCTAssertEqual(footerRect.origin.y, textRect.maxY - 36.0, accuracy: 0.1)
+        XCTAssertEqual(footerRect.origin.y, 738.0, accuracy: 0.1)  // 792 - 36 - 18 = 738
     }
     
     // MARK: - Complete Layout Tests
@@ -426,10 +427,11 @@ final class PageLayoutCalculatorTests: XCTestCase {
         XCTAssertNotNil(layout.headerRect)
         XCTAssertNotNil(layout.footerRect)
         
-        // Verify the hierarchy: page > text > content
+        // Verify the hierarchy: page > text, content = text (new architecture)
         XCTAssertGreaterThan(layout.pageRect.width, layout.textRect.width)
         XCTAssertGreaterThan(layout.pageRect.height, layout.textRect.height)
-        XCTAssertGreaterThan(layout.textRect.height, layout.contentRect.height)
+        // NEW: contentRect equals textRect since headers/footers are in margins
+        XCTAssertEqual(layout.textRect.height, layout.contentRect.height, accuracy: 0.1)
     }
     
     func testCalculateLayout_MinimalSetup() throws {
@@ -489,8 +491,9 @@ final class PageLayoutCalculatorTests: XCTestCase {
         
         let height = PageLayoutCalculator.contentHeight(from: pageSetup)
         
-        // Letter height (792) - top margin (72) - bottom margin (72) - header (36) - footer (36) = 576
-        XCTAssertEqual(height, 576.0, accuracy: 0.1)
+        // NEW ARCHITECTURE: Letter height (792) - top margin (72) - bottom margin (72) = 648
+        // Headers/footers are in margins, not subtracted from content
+        XCTAssertEqual(height, 648.0, accuracy: 0.1)
     }
     
     func testContentSize() throws {

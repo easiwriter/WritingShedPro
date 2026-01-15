@@ -56,8 +56,8 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
         // When: Accessing folders directly from project
         let projectFolders = project.folders ?? []
         
-        // Then: Can access each folder
-        XCTAssertEqual(projectFolders.count, 10, "Prose project should have 10 folders")
+        // Then: Can access each folder (10 root + 3 Manuscript subfolders = 13 total)
+        XCTAssertEqual(projectFolders.count, 13, "Prose project should have 13 folders (10 root + 3 manuscript subfolders)")
         
         for folder in projectFolders {
             XCTAssertNotNil(folder.name, "Folder should have name")
@@ -160,12 +160,12 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
         ])
         XCTAssertEqual(folderNames, expectedNames, "Folder names should match spec")
         
-        // Verify Manuscript has 3 subfolders (Front Matter, Body, Back Matter)
+        // Verify Manuscript has 3 subfolders (Front Matter, All Poems, Back Matter for poetry)
         for folder in rootFolders {
             if folder.name == "Manuscript" {
                 XCTAssertEqual(folder.folders?.count ?? 0, 3, "Manuscript should have 3 subfolders")
                 let subfolderNames = Set(folder.folders?.compactMap { $0.name } ?? [])
-                XCTAssertEqual(subfolderNames, ["Front Matter", "Body", "Back Matter"], "Manuscript subfolders should match spec")
+                XCTAssertEqual(subfolderNames, ["Front Matter", "All Poems", "Back Matter"], "Manuscript subfolders should match spec for poetry project")
             } else {
                 XCTAssertEqual(folder.folders?.count ?? 0, 0, "\(folder.name ?? "unknown") should have no subfolders")
             }

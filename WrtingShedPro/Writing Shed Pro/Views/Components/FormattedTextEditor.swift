@@ -31,6 +31,9 @@ struct FormattedTextEditor: UIViewRepresentable {
     /// Optional callback when user taps on a footnote
     var onFootnoteTapped: ((FootnoteAttachment, Int) -> Void)?
     
+    /// Optional callback when user taps on a reference marker (Feature 029)
+    var onReferenceTapped: ((ReferenceAttachment, Int) -> Void)?
+    
     /// Coordinator for managing textView reference
     var textViewCoordinator: TextViewCoordinator?
     
@@ -75,7 +78,8 @@ struct FormattedTextEditor: UIViewRepresentable {
         onImageTapped: ((ImageAttachment, CGRect, Int) -> Void)? = nil,
         onClearImageSelection: (() -> Void)? = nil,
         onCommentTapped: ((CommentAttachment, Int) -> Void)? = nil,
-        onFootnoteTapped: ((FootnoteAttachment, Int) -> Void)? = nil
+        onFootnoteTapped: ((FootnoteAttachment, Int) -> Void)? = nil,
+        onReferenceTapped: ((ReferenceAttachment, Int) -> Void)? = nil
     ) {
         self._attributedText = attributedText
         self._selectedRange = selectedRange
@@ -93,6 +97,7 @@ struct FormattedTextEditor: UIViewRepresentable {
         self.onClearImageSelection = onClearImageSelection
         self.onCommentTapped = onCommentTapped
         self.onFootnoteTapped = onFootnoteTapped
+        self.onReferenceTapped = onReferenceTapped
     }
     
     // MARK: - UIViewRepresentable
@@ -125,6 +130,11 @@ struct FormattedTextEditor: UIViewRepresentable {
         // Wire up footnote tap callback
         textView.onFootnoteTapped = { [weak coordinator] attachment, position in
             coordinator?.parent.onFootnoteTapped?(attachment, position)
+        }
+        
+        // Wire up reference tap callback (Feature 029)
+        textView.onReferenceTapped = { [weak coordinator] attachment, position in
+            coordinator?.parent.onReferenceTapped?(attachment, position)
         }
         
         // Set input accessory view if provided
@@ -1453,6 +1463,7 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
     var shouldHideSystemFormattingMenu: Bool = false
     var onCommentTapped: ((CommentAttachment, Int) -> Void)?
     var onFootnoteTapped: ((FootnoteAttachment, Int) -> Void)?
+    var onReferenceTapped: ((ReferenceAttachment, Int) -> Void)?
     
     // Selection border view for images
     private let selectionBorderView: UIView = {
@@ -1540,6 +1551,16 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
             onCommentTapped?(commentAttachment, characterIndex)
             // Prevent default text selection
             gesture.cancelsTouchesInView = true
+            return
+        }
+        
+        // Check if tapped on a reference attachment (Feature 029)
+        if let referenceAttachment = textStorage.attribute(.attachment, at: characterIndex, effectiveRange: nil) as? ReferenceAttachment {
+            print("🔖 Reference attachment tapped! Type: \(referenceAttachment.referenceType), entryID: \(referenceAttachment.entryID)")
+            onReferenceTapped?(referenceAttachment, characterIndex)
+            // Prevent default text selection
+            gesture.cancelsTouchesInView = true
+            return
         }
     }
     

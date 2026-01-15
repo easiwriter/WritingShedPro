@@ -51,6 +51,28 @@ struct FileEditView: View {
     @State private var newFootnoteText: String = ""
     @State private var selectedFootnoteForDetail: FootnoteModel?
     
+    // Feature 029: Notes & Endnotes (Back Matter)
+    @State private var showNotesList = false
+    @State private var showNewNoteDialog = false
+    @State private var showNewEndnoteDialog = false
+    @State private var selectedNoteForDetail: NoteEntry?
+    @State private var pendingNoteInsertion: NoteEntry?  // Note to insert marker for after sheet closes
+    
+    // Feature 029: Glossary (Back Matter)
+    @State private var showGlossaryList = false
+    @State private var showNewGlossaryTermDialog = false
+    @State private var selectedGlossaryTerm: GlossaryEntry?
+    
+    // Feature 029: Citations (Back Matter)
+    @State private var showCitationsList = false
+    @State private var showNewCitationDialog = false
+    @State private var selectedCitation: CitationEntry?
+    
+    // Feature 029: Index (Back Matter)
+    @State private var showIndexList = false
+    @State private var showNewIndexEntryDialog = false
+    @State private var selectedIndexEntry: IndexEntry?
+    
     // Feature 020: Printing
     @State private var showPrintError = false
     @State private var printErrorMessage = ""
@@ -820,6 +842,96 @@ struct FileEditView: View {
                 Label("Footnote", systemImage: "number.circle")
             }
             
+            // Notes & Endnotes submenu (Feature 029: Back Matter)
+            Menu {
+                Button(action: {
+                    showNewNoteDialog = true
+                }) {
+                    Label(NSLocalizedString("insertMenu.addNote", comment: "Add Note"), systemImage: "note.text.badge.plus")
+                }
+                
+                Button(action: {
+                    showNewEndnoteDialog = true
+                }) {
+                    Label(NSLocalizedString("insertMenu.addEndnote", comment: "Add Endnote"), systemImage: "number.circle.fill")
+                }
+                
+                if let project = file.project, project.noteEntries?.isEmpty == false {
+                    Divider()
+                    
+                    Button(action: {
+                        showNotesList = true
+                    }) {
+                        Label(NSLocalizedString("insertMenu.showNotes", comment: "Show Notes"), systemImage: "list.bullet.rectangle")
+                    }
+                }
+            } label: {
+                Label(NSLocalizedString("insertMenu.notes", comment: "Notes"), systemImage: "note.text")
+            }
+            
+            // Glossary submenu (Feature 029: Back Matter)
+            Menu {
+                Button(action: {
+                    showNewGlossaryTermDialog = true
+                }) {
+                    Label(NSLocalizedString("insertMenu.addGlossaryTerm", comment: "Add Term"), systemImage: "text.book.closed.fill")
+                }
+                
+                if let project = file.project, project.glossaryEntries?.isEmpty == false {
+                    Divider()
+                    
+                    Button(action: {
+                        showGlossaryList = true
+                    }) {
+                        Label(NSLocalizedString("insertMenu.showGlossary", comment: "Show Glossary"), systemImage: "list.bullet.rectangle")
+                    }
+                }
+            } label: {
+                Label(NSLocalizedString("insertMenu.glossary", comment: "Glossary"), systemImage: "text.book.closed")
+            }
+            
+            // Citations submenu (Feature 029: Back Matter)
+            Menu {
+                Button(action: {
+                    showNewCitationDialog = true
+                }) {
+                    Label(NSLocalizedString("insertMenu.addCitation", comment: "Add Citation"), systemImage: "quote.opening")
+                }
+                
+                if let project = file.project, project.citationEntries?.isEmpty == false {
+                    Divider()
+                    
+                    Button(action: {
+                        showCitationsList = true
+                    }) {
+                        Label(NSLocalizedString("insertMenu.showCitations", comment: "Show Citations"), systemImage: "list.bullet.rectangle")
+                    }
+                }
+            } label: {
+                Label(NSLocalizedString("insertMenu.citations", comment: "Citations"), systemImage: "books.vertical")
+            }
+            
+            // Index submenu (Feature 029: Back Matter)
+            Menu {
+                Button(action: {
+                    showNewIndexEntryDialog = true
+                }) {
+                    Label(NSLocalizedString("insertMenu.addIndexEntry", comment: "Add Index Entry"), systemImage: "list.bullet.indent")
+                }
+                
+                if let project = file.project, project.indexEntries?.isEmpty == false {
+                    Divider()
+                    
+                    Button(action: {
+                        showIndexList = true
+                    }) {
+                        Label(NSLocalizedString("insertMenu.showIndex", comment: "Show Index"), systemImage: "list.bullet.rectangle")
+                    }
+                }
+            } label: {
+                Label(NSLocalizedString("insertMenu.index", comment: "Index"), systemImage: "list.bullet.indent")
+            }
+            
             // Section marking menu (poetry projects only)
             if isPoetryProject {
                 sectionMarkingMenu
@@ -1230,6 +1342,194 @@ struct FileEditView: View {
                     .navigationTitle(NSLocalizedString("fileEdit.footnoteSheet.title", comment: ""))
                 }
                 .presentationDetents([.medium, .large])
+            }
+            // Feature 029: Notes & Endnotes sheets
+            .sheet(isPresented: $showNotesList) {
+                if let project = file.project {
+                    NotesListView(
+                        project: project,
+                        onJumpToNote: { note in
+                            jumpToNoteMarker(note)
+                        },
+                        onDismiss: {
+                            showNotesList = false
+                        },
+                        onNoteChanged: {
+                            saveChanges()
+                        },
+                        onNoteDeleted: { note in
+                            removeNoteMarkers(for: note)
+                        }
+                    )
+                }
+            }
+            .sheet(isPresented: $showNewNoteDialog) {
+                if let project = file.project {
+                    NoteEditorSheet(
+                        project: project,
+                        isEndnote: false,
+                        onSave: { note in
+                            insertNoteMarker(for: note)
+                        }
+                    )
+                }
+            }
+            .sheet(isPresented: $showNewEndnoteDialog) {
+                if let project = file.project {
+                    NoteEditorSheet(
+                        project: project,
+                        isEndnote: true,
+                        onSave: { note in
+                            insertNoteMarker(for: note)
+                        }
+                    )
+                }
+            }
+            .sheet(item: $selectedNoteForDetail) { note in
+                if let project = file.project {
+                    NoteEditorSheet(
+                        project: project,
+                        existingNote: note,
+                        onSave: { _ in
+                            forceRefresh.toggle()
+                        },
+                        onCancel: {
+                            selectedNoteForDetail = nil
+                        }
+                    )
+                }
+            }
+            // Feature 029: Glossary sheets
+            .sheet(isPresented: $showGlossaryList) {
+                if let project = file.project {
+                    GlossaryListView(
+                        project: project,
+                        onJumpToTerm: { term in
+                            jumpToGlossaryMarker(term)
+                        },
+                        onDismiss: {
+                            showGlossaryList = false
+                        },
+                        onTermChanged: {
+                            saveChanges()
+                        },
+                        onTermDeleted: { term in
+                            removeGlossaryMarkers(for: term)
+                        }
+                    )
+                }
+            }
+            .sheet(isPresented: $showNewGlossaryTermDialog) {
+                if let project = file.project {
+                    GlossaryEditorSheet(
+                        project: project,
+                        onSave: { term in
+                            insertGlossaryMarker(for: term)
+                        }
+                    )
+                }
+            }
+            .sheet(item: $selectedGlossaryTerm) { term in
+                if let project = file.project {
+                    GlossaryEditorSheet(
+                        project: project,
+                        existingTerm: term,
+                        onSave: { _ in
+                            forceRefresh.toggle()
+                        },
+                        onCancel: {
+                            selectedGlossaryTerm = nil
+                        }
+                    )
+                }
+            }
+            // Feature 029: Citations sheets
+            .sheet(isPresented: $showCitationsList) {
+                if let project = file.project {
+                    CitationsListView(
+                        project: project,
+                        onJumpToCitation: { citation in
+                            jumpToCitationMarker(citation)
+                        },
+                        onDismiss: {
+                            showCitationsList = false
+                        },
+                        onCitationChanged: {
+                            saveChanges()
+                        },
+                        onCitationDeleted: { citation in
+                            removeCitationMarkers(for: citation)
+                        }
+                    )
+                }
+            }
+            .sheet(isPresented: $showNewCitationDialog) {
+                if let project = file.project {
+                    CitationEditorSheet(
+                        project: project,
+                        onSave: { citation in
+                            insertCitationMarker(for: citation)
+                        }
+                    )
+                }
+            }
+            .sheet(item: $selectedCitation) { citation in
+                if let project = file.project {
+                    CitationEditorSheet(
+                        project: project,
+                        existingCitation: citation,
+                        onSave: { _ in
+                            forceRefresh.toggle()
+                        },
+                        onCancel: {
+                            selectedCitation = nil
+                        }
+                    )
+                }
+            }
+            // Feature 029: Index sheets
+            .sheet(isPresented: $showIndexList) {
+                if let project = file.project {
+                    IndexListView(
+                        project: project,
+                        onJumpToEntry: { entry in
+                            jumpToIndexMarker(entry)
+                        },
+                        onDismiss: {
+                            showIndexList = false
+                        },
+                        onEntryChanged: {
+                            saveChanges()
+                        },
+                        onEntryDeleted: { entry in
+                            removeIndexMarkers(for: entry)
+                        }
+                    )
+                }
+            }
+            .sheet(isPresented: $showNewIndexEntryDialog) {
+                if let project = file.project {
+                    IndexEditorSheet(
+                        project: project,
+                        onSave: { entry in
+                            insertIndexMarker(for: entry)
+                        }
+                    )
+                }
+            }
+            .sheet(item: $selectedIndexEntry) { entry in
+                if let project = file.project {
+                    IndexEditorSheet(
+                        project: project,
+                        existingEntry: entry,
+                        onSave: { _ in
+                            forceRefresh.toggle()
+                        },
+                        onCancel: {
+                            selectedIndexEntry = nil
+                        }
+                    )
+                }
             }
             .sheet(isPresented: $showNotesEditor) {
                 if let currentVersion = file.currentVersion {
@@ -2294,7 +2594,633 @@ struct FileEditView: View {
         }
     }
     
+    // MARK: - Notes & Endnotes (Feature 029)
     
+    /// Insert a note marker at the current cursor position
+    private func insertNoteMarker(for note: NoteEntry) {
+        guard let textView = textViewCoordinator.textView else {
+            #if DEBUG
+            print("❌ Cannot insert note marker: no text view")
+            #endif
+            return
+        }
+        
+        #if DEBUG
+        print("📝 Inserting \(note.isEndnote ? "endnote" : "note") marker for note \(note.id)")
+        #endif
+        
+        // Get current cursor position
+        let currentRange = textView.selectedRange
+        
+        // Create the reference attachment using the convenience init for numbered refs
+        let attachment = ReferenceAttachment(
+            referenceType: .note,
+            entryID: note.id,
+            number: note.displayNumber
+        )
+        
+        // Create attributed string with the attachment
+        let attachmentString = NSAttributedString(attachment: attachment)
+        
+        // Insert at cursor
+        isPerformingUndoRedo = true
+        textView.textStorage.insert(attachmentString, at: currentRange.location)
+        
+        // Move cursor after the marker
+        let newLocation = currentRange.location + attachmentString.length
+        textView.selectedRange = NSRange(location: newLocation, length: 0)
+        
+        // Increment reference count
+        note.referenceCount += 1
+        
+        // Update the attributed content binding
+        attributedContent = textView.attributedText ?? NSAttributedString()
+        
+        // Save changes
+        saveChanges()
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            self.isPerformingUndoRedo = false
+        }
+        
+        #if DEBUG
+        print("✅ Note marker inserted at position \(currentRange.location)")
+        #endif
+    }
+    
+    /// Remove all markers for a deleted note from the text
+    private func removeNoteMarkers(for note: NoteEntry) {
+        guard let textView = textViewCoordinator.textView else {
+            #if DEBUG
+            print("❌ Cannot remove note markers: no text view")
+            #endif
+            return
+        }
+        
+        #if DEBUG
+        print("🗑️ Removing markers for note \(note.id)")
+        #endif
+        
+        isPerformingUndoRedo = true
+        
+        let mutableContent = NSMutableAttributedString(attributedString: textView.attributedText ?? NSAttributedString())
+        var removedCount = 0
+        
+        // Find and remove all reference attachments for this note
+        // Iterate backwards to preserve indices
+        var rangesToRemove: [NSRange] = []
+        
+        mutableContent.enumerateAttribute(.attachment, in: NSRange(location: 0, length: mutableContent.length)) { value, range, _ in
+            if let attachment = value as? ReferenceAttachment,
+               attachment.entryID == note.id {
+                rangesToRemove.append(range)
+            }
+        }
+        
+        // Remove in reverse order
+        for range in rangesToRemove.reversed() {
+            mutableContent.deleteCharacters(in: range)
+            removedCount += 1
+        }
+        
+        if removedCount > 0 {
+            textView.attributedText = mutableContent
+            attributedContent = mutableContent
+            saveChanges()
+            
+            #if DEBUG
+            print("✅ Removed \(removedCount) markers for note \(note.id)")
+            #endif
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            self.isPerformingUndoRedo = false
+        }
+    }
+    
+    /// Jump to the first reference marker for a note in the text
+    private func jumpToNoteMarker(_ note: NoteEntry) {
+        guard let textView = textViewCoordinator.textView else {
+            #if DEBUG
+            print("❌ Cannot jump to note marker: no text view")
+            #endif
+            return
+        }
+        
+        let content = textView.attributedText ?? NSAttributedString()
+        
+        // Find the first marker for this note
+        var foundRange: NSRange?
+        content.enumerateAttribute(.attachment, in: NSRange(location: 0, length: content.length)) { value, range, stop in
+            if let attachment = value as? ReferenceAttachment,
+               attachment.entryID == note.id {
+                foundRange = range
+                stop.pointee = true
+            }
+        }
+        
+        if let range = foundRange {
+            // Scroll to and select the marker
+            textView.selectedRange = range
+            textView.scrollRangeToVisible(range)
+            
+            #if DEBUG
+            print("📍 Jumped to note marker at position \(range.location)")
+            #endif
+        } else {
+            #if DEBUG
+            print("⚠️ No marker found for note \(note.id)")
+            #endif
+        }
+    }
+    
+    /// Handle tap on a reference attachment (shows popover or detail view)
+    private func handleReferenceTapped(_ attachment: ReferenceAttachment, at position: Int) {
+        #if DEBUG
+        print("📝 Reference tapped: \(attachment.referenceType) at position \(position)")
+        #endif
+        
+        guard let project = file.project else {
+            #if DEBUG
+            print("⚠️ No project found")
+            #endif
+            return
+        }
+        
+        switch attachment.referenceType {
+        case .note, .endnote:
+            // Find the corresponding note entry
+            if let notes = project.noteEntries,
+               let note = notes.first(where: { $0.id == attachment.entryID }) {
+                selectedNoteForDetail = note
+            } else {
+                #if DEBUG
+                print("⚠️ Note entry not found for ID: \(attachment.entryID)")
+                #endif
+            }
+            
+        case .glossary:
+            // Find the corresponding glossary entry
+            if let terms = project.glossaryEntries,
+               let term = terms.first(where: { $0.id == attachment.entryID }) {
+                selectedGlossaryTerm = term
+            } else {
+                #if DEBUG
+                print("⚠️ Glossary term not found for ID: \(attachment.entryID)")
+                #endif
+            }
+            
+        case .citation:
+            // Find the corresponding citation entry
+            if let citations = project.citationEntries,
+               let citation = citations.first(where: { $0.id == attachment.entryID }) {
+                selectedCitation = citation
+            } else {
+                #if DEBUG
+                print("⚠️ Citation not found for ID: \(attachment.entryID)")
+                #endif
+            }
+            
+        case .index:
+            // Index entries are invisible, but if somehow tapped, show the editor
+            if let entries = project.indexEntries,
+               let entry = entries.first(where: { $0.id == attachment.entryID }) {
+                selectedIndexEntry = entry
+            } else {
+                #if DEBUG
+                print("⚠️ Index entry not found for ID: \(attachment.entryID)")
+                #endif
+            }
+            
+        case .figure, .table:
+            // Figure and table references - not implemented yet
+            #if DEBUG
+            print("ℹ️ Figure/Table reference tapped: \(attachment.referenceType)")
+            #endif
+        }
+    }
+    
+    // MARK: - Glossary (Feature 029)
+    
+    /// Insert a glossary term marker at the current cursor position
+    private func insertGlossaryMarker(for term: GlossaryEntry) {
+        guard let textView = textViewCoordinator.textView else {
+            #if DEBUG
+            print("❌ Cannot insert glossary marker: no text view")
+            #endif
+            return
+        }
+        
+        #if DEBUG
+        print("📖 Inserting glossary marker for term: \(term.term)")
+        #endif
+        
+        // Get current cursor position
+        let currentRange = textView.selectedRange
+        
+        // Create the reference attachment using the convenience init for glossary
+        let attachment = ReferenceAttachment(
+            glossaryEntryID: term.id,
+            term: term.term
+        )
+        
+        // Create attributed string with the attachment
+        let attachmentString = NSAttributedString(attachment: attachment)
+        
+        // Insert at cursor
+        isPerformingUndoRedo = true
+        textView.textStorage.insert(attachmentString, at: currentRange.location)
+        
+        // Move cursor after the marker
+        let newLocation = currentRange.location + attachmentString.length
+        textView.selectedRange = NSRange(location: newLocation, length: 0)
+        
+        // Increment reference count
+        term.referenceCount += 1
+        
+        // Update the attributed content binding
+        attributedContent = textView.attributedText ?? NSAttributedString()
+        
+        // Save changes
+        saveChanges()
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            self.isPerformingUndoRedo = false
+        }
+        
+        #if DEBUG
+        print("✅ Glossary marker inserted at position \(currentRange.location)")
+        #endif
+    }
+    
+    /// Remove all markers for a deleted glossary term from the text
+    private func removeGlossaryMarkers(for term: GlossaryEntry) {
+        guard let textView = textViewCoordinator.textView else {
+            #if DEBUG
+            print("❌ Cannot remove glossary markers: no text view")
+            #endif
+            return
+        }
+        
+        #if DEBUG
+        print("🗑️ Removing markers for glossary term: \(term.term)")
+        #endif
+        
+        isPerformingUndoRedo = true
+        
+        let mutableContent = NSMutableAttributedString(attributedString: textView.attributedText ?? NSAttributedString())
+        var removedCount = 0
+        
+        // Find and remove all reference attachments for this term
+        var rangesToRemove: [NSRange] = []
+        
+        mutableContent.enumerateAttribute(.attachment, in: NSRange(location: 0, length: mutableContent.length)) { value, range, _ in
+            if let attachment = value as? ReferenceAttachment,
+               attachment.referenceType == .glossary,
+               attachment.entryID == term.id {
+                rangesToRemove.append(range)
+            }
+        }
+        
+        // Remove in reverse order
+        for range in rangesToRemove.reversed() {
+            mutableContent.deleteCharacters(in: range)
+            removedCount += 1
+        }
+        
+        if removedCount > 0 {
+            textView.attributedText = mutableContent
+            attributedContent = mutableContent
+            saveChanges()
+            
+            #if DEBUG
+            print("✅ Removed \(removedCount) markers for glossary term: \(term.term)")
+            #endif
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            self.isPerformingUndoRedo = false
+        }
+    }
+    
+    /// Jump to the first reference marker for a glossary term in the text
+    private func jumpToGlossaryMarker(_ term: GlossaryEntry) {
+        guard let textView = textViewCoordinator.textView else {
+            #if DEBUG
+            print("❌ Cannot jump to glossary marker: no text view")
+            #endif
+            return
+        }
+        
+        let content = textView.attributedText ?? NSAttributedString()
+        
+        // Find the first marker for this term
+        var foundRange: NSRange?
+        content.enumerateAttribute(.attachment, in: NSRange(location: 0, length: content.length)) { value, range, stop in
+            if let attachment = value as? ReferenceAttachment,
+               attachment.referenceType == .glossary,
+               attachment.entryID == term.id {
+                foundRange = range
+                stop.pointee = true
+            }
+        }
+        
+        if let range = foundRange {
+            // Scroll to and select the marker
+            textView.selectedRange = range
+            textView.scrollRangeToVisible(range)
+            
+            #if DEBUG
+            print("📍 Jumped to glossary marker at position \(range.location)")
+            #endif
+        } else {
+            #if DEBUG
+            print("⚠️ No marker found for glossary term: \(term.term)")
+            #endif
+        }
+    }
+    
+    // MARK: - Citations (Feature 029)
+    
+    /// Insert a citation marker at the current cursor position
+    private func insertCitationMarker(for citation: CitationEntry) {
+        guard let textView = textViewCoordinator.textView else {
+            #if DEBUG
+            print("❌ Cannot insert citation marker: no text view")
+            #endif
+            return
+        }
+        
+        #if DEBUG
+        print("📚 Inserting citation marker for: \(citation.authors.first ?? "Unknown") (\(citation.year.map { String($0) } ?? "n.d."))")
+        #endif
+        
+        // Get current cursor position
+        let currentRange = textView.selectedRange
+        
+        // Create the reference attachment using the convenience init for citations
+        let authorLastName = citation.authors.first?.components(separatedBy: " ").last ?? "Author"
+        let attachment = ReferenceAttachment(
+            citationEntryID: citation.id,
+            authorLastName: authorLastName,
+            year: citation.year
+        )
+        
+        // Create attributed string with the attachment
+        let attachmentString = NSAttributedString(attachment: attachment)
+        
+        // Insert at cursor
+        isPerformingUndoRedo = true
+        textView.textStorage.insert(attachmentString, at: currentRange.location)
+        
+        // Move cursor after the marker
+        let newLocation = currentRange.location + attachmentString.length
+        textView.selectedRange = NSRange(location: newLocation, length: 0)
+        
+        // Increment reference count
+        citation.referenceCount += 1
+        
+        // Update the attributed content binding
+        attributedContent = textView.attributedText ?? NSAttributedString()
+        
+        // Save changes
+        saveChanges()
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            self.isPerformingUndoRedo = false
+        }
+        
+        #if DEBUG
+        print("✅ Citation marker inserted at position \(currentRange.location)")
+        #endif
+    }
+    
+    /// Remove all markers for a deleted citation from the text
+    private func removeCitationMarkers(for citation: CitationEntry) {
+        guard let textView = textViewCoordinator.textView else {
+            #if DEBUG
+            print("❌ Cannot remove citation markers: no text view")
+            #endif
+            return
+        }
+        
+        #if DEBUG
+        print("🗑️ Removing markers for citation: \(citation.authors.first ?? "Unknown") (\(citation.year.map { String($0) } ?? "n.d."))")
+        #endif
+        
+        isPerformingUndoRedo = true
+        
+        let mutableContent = NSMutableAttributedString(attributedString: textView.attributedText ?? NSAttributedString())
+        var removedCount = 0
+        
+        // Find and remove all reference attachments for this citation
+        var rangesToRemove: [NSRange] = []
+        
+        mutableContent.enumerateAttribute(.attachment, in: NSRange(location: 0, length: mutableContent.length)) { value, range, _ in
+            if let attachment = value as? ReferenceAttachment,
+               attachment.referenceType == .citation,
+               attachment.entryID == citation.id {
+                rangesToRemove.append(range)
+            }
+        }
+        
+        // Remove in reverse order
+        for range in rangesToRemove.reversed() {
+            mutableContent.deleteCharacters(in: range)
+            removedCount += 1
+        }
+        
+        if removedCount > 0 {
+            textView.attributedText = mutableContent
+            attributedContent = mutableContent
+            saveChanges()
+            
+            #if DEBUG
+            print("✅ Removed \(removedCount) markers for citation: \(citation.authors.first ?? "Unknown")")
+            #endif
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            self.isPerformingUndoRedo = false
+        }
+    }
+    
+    /// Jump to the first reference marker for a citation in the text
+    private func jumpToCitationMarker(_ citation: CitationEntry) {
+        guard let textView = textViewCoordinator.textView else {
+            #if DEBUG
+            print("❌ Cannot jump to citation marker: no text view")
+            #endif
+            return
+        }
+        
+        let content = textView.attributedText ?? NSAttributedString()
+        
+        // Find the first marker for this citation
+        var foundRange: NSRange?
+        content.enumerateAttribute(.attachment, in: NSRange(location: 0, length: content.length)) { value, range, stop in
+            if let attachment = value as? ReferenceAttachment,
+               attachment.referenceType == .citation,
+               attachment.entryID == citation.id {
+                foundRange = range
+                stop.pointee = true
+            }
+        }
+        
+        if let range = foundRange {
+            // Scroll to and select the marker
+            textView.selectedRange = range
+            textView.scrollRangeToVisible(range)
+            
+            #if DEBUG
+            print("📍 Jumped to citation marker at position \(range.location)")
+            #endif
+        } else {
+            #if DEBUG
+            print("⚠️ No marker found for citation: \(citation.authors.first ?? "Unknown")")
+            #endif
+        }
+    }
+    
+    // MARK: - Index (Feature 029)
+    
+    /// Insert an index marker at the current cursor position
+    /// Note: Index markers are invisible in the editor
+    private func insertIndexMarker(for entry: IndexEntry) {
+        guard let textView = textViewCoordinator.textView else {
+            #if DEBUG
+            print("❌ Cannot insert index marker: no text view")
+            #endif
+            return
+        }
+        
+        #if DEBUG
+        print("📑 Inserting index marker for: \(entry.keyword)")
+        #endif
+        
+        // Get current cursor position
+        let currentRange = textView.selectedRange
+        
+        // Create the reference attachment using the convenience init for index
+        let attachment = ReferenceAttachment(
+            indexEntryID: entry.id
+        )
+        
+        // Create attributed string with the attachment
+        let attachmentString = NSAttributedString(attachment: attachment)
+        
+        // Insert at cursor
+        isPerformingUndoRedo = true
+        textView.textStorage.insert(attachmentString, at: currentRange.location)
+        
+        // Move cursor after the marker
+        let newLocation = currentRange.location + attachmentString.length
+        textView.selectedRange = NSRange(location: newLocation, length: 0)
+        
+        // Increment reference count
+        entry.referenceCount += 1
+        
+        // Update the attributed content binding
+        attributedContent = textView.attributedText ?? NSAttributedString()
+        
+        // Save changes
+        saveChanges()
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            self.isPerformingUndoRedo = false
+        }
+        
+        #if DEBUG
+        print("✅ Index marker inserted at position \(currentRange.location)")
+        #endif
+    }
+    
+    /// Remove all markers for a deleted index entry from the text
+    private func removeIndexMarkers(for entry: IndexEntry) {
+        guard let textView = textViewCoordinator.textView else {
+            #if DEBUG
+            print("❌ Cannot remove index markers: no text view")
+            #endif
+            return
+        }
+        
+        #if DEBUG
+        print("🗑️ Removing markers for index entry: \(entry.keyword)")
+        #endif
+        
+        isPerformingUndoRedo = true
+        
+        let mutableContent = NSMutableAttributedString(attributedString: textView.attributedText ?? NSAttributedString())
+        var removedCount = 0
+        
+        // Find and remove all reference attachments for this entry
+        var rangesToRemove: [NSRange] = []
+        
+        mutableContent.enumerateAttribute(.attachment, in: NSRange(location: 0, length: mutableContent.length)) { value, range, _ in
+            if let attachment = value as? ReferenceAttachment,
+               attachment.referenceType == .index,
+               attachment.entryID == entry.id {
+                rangesToRemove.append(range)
+            }
+        }
+        
+        // Remove in reverse order
+        for range in rangesToRemove.reversed() {
+            mutableContent.deleteCharacters(in: range)
+            removedCount += 1
+        }
+        
+        if removedCount > 0 {
+            textView.attributedText = mutableContent
+            attributedContent = mutableContent
+            saveChanges()
+            
+            #if DEBUG
+            print("✅ Removed \(removedCount) markers for index entry: \(entry.keyword)")
+            #endif
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            self.isPerformingUndoRedo = false
+        }
+    }
+    
+    /// Jump to the first reference marker for an index entry in the text
+    private func jumpToIndexMarker(_ entry: IndexEntry) {
+        guard let textView = textViewCoordinator.textView else {
+            #if DEBUG
+            print("❌ Cannot jump to index marker: no text view")
+            #endif
+            return
+        }
+        
+        let content = textView.attributedText ?? NSAttributedString()
+        
+        // Find the first marker for this entry
+        var foundRange: NSRange?
+        content.enumerateAttribute(.attachment, in: NSRange(location: 0, length: content.length)) { value, range, stop in
+            if let attachment = value as? ReferenceAttachment,
+               attachment.referenceType == .index,
+               attachment.entryID == entry.id {
+                foundRange = range
+                stop.pointee = true
+            }
+        }
+        
+        if let range = foundRange {
+            // Scroll to and select the marker (even though invisible, cursor will be there)
+            textView.selectedRange = range
+            textView.scrollRangeToVisible(range)
+            
+            #if DEBUG
+            print("📍 Jumped to index marker at position \(range.location)")
+            #endif
+        } else {
+            #if DEBUG
+            print("⚠️ No marker found for index entry: \(entry.keyword)")
+            #endif
+        }
+    }
     
     private func insertPageBreak() {
         #if DEBUG

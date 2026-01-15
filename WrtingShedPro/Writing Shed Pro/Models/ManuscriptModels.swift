@@ -286,4 +286,18 @@ struct ExportOptions: Equatable {
     var includeTableOfContents: Bool = true
     var includeTitlePage: Bool = true
     var filename: String = "Manuscript"
+    
+    // MARK: - Back Matter Reference Options (Feature 029)
+    
+    /// Include Notes/Endnotes section in back matter
+    var includeNotes: Bool = true
+    
+    /// Include Glossary section in back matter
+    var includeGlossary: Bool = true
+    
+    /// Include Bibliography/Works Cited section in back matter
+    var includeBibliography: Bool = true
+    
+    /// Include Index section in back matter (PDF only - requires page numbers)
+    var includeIndex: Bool = true
 }

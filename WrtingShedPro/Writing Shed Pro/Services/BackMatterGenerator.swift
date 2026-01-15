@@ -1,0 +1,743 @@
+//
+//  BackMatterGenerator.swift
+//  Writing Shed Pro
+//
+//  Feature 029: Back Matter Reference System - Export Integration
+//  Generates Notes, Glossary, Bibliography, and Index sections for manuscript export
+//
+
+import Foundation
+import SwiftData
+import UIKit
+
+/// Service for generating back matter sections for manuscript export
+final class BackMatterGenerator {
+    
+    private let context: ModelContext
+    private let project: Project
+    
+    // MARK: - Formatting Options
+    
+    /// Font for section headings
+    private var headingFont: UIFont {
+        .boldSystemFont(ofSize: 18)
+    }
+    
+    /// Font for entry headings (e.g., note numbers, glossary terms)
+    private var entryHeadingFont: UIFont {
+        .boldSystemFont(ofSize: 14)
+    }
+    
+    /// Font for body text
+    private var bodyFont: UIFont {
+        .systemFont(ofSize: 12)
+    }
+    
+    /// Font for secondary text (page numbers, etc.)
+    private var secondaryFont: UIFont {
+        .systemFont(ofSize: 11)
+    }
+    
+    /// Paragraph style for body text
+    private var bodyParagraphStyle: NSMutableParagraphStyle {
+        let style = NSMutableParagraphStyle()
+        style.lineSpacing = 4
+        style.paragraphSpacing = 8
+        return style
+    }
+    
+    /// Paragraph style for entries with hanging indent (for index)
+    private var hangingIndentStyle: NSMutableParagraphStyle {
+        let style = NSMutableParagraphStyle()
+        style.firstLineHeadIndent = 0
+        style.headIndent = 20
+        style.lineSpacing = 2
+        style.paragraphSpacing = 4
+        return style
+    }
+    
+    /// Paragraph style for sub-entries (indented)
+    private var subEntryStyle: NSMutableParagraphStyle {
+        let style = NSMutableParagraphStyle()
+        style.firstLineHeadIndent = 20
+        style.headIndent = 40
+        style.lineSpacing = 2
+        style.paragraphSpacing = 4
+        return style
+    }
+    
+    // MARK: - Initialization
+    
+    init(context: ModelContext, project: Project) {
+        self.context = context
+        self.project = project
+    }
+    
+    // MARK: - Public Methods
+    
+    /// Generate complete back matter content
+    /// - Parameters:
+    ///   - includeNotes: Include Notes/Endnotes section
+    ///   - includeGlossary: Include Glossary section
+    ///   - includeBibliography: Include Bibliography section
+    ///   - includeIndex: Include Index section (requires page map)
+    ///   - pageMap: Map of reference ID to page number (for index)
+    /// - Returns: Attributed string with all requested back matter sections
+    func generateBackMatter(
+        includeNotes: Bool = true,
+        includeGlossary: Bool = true,
+        includeBibliography: Bool = true,
+        includeIndex: Bool = true,
+        pageMap: [UUID: [Int]] = [:]
+    ) -> NSAttributedString {
+        let result = NSMutableAttributedString()
+        
+        if includeNotes {
+            if let notesSection = generateNotesSection() {
+                result.append(notesSection)
+            }
+        }
+        
+        if includeGlossary {
+            if let glossarySection = generateGlossarySection() {
+                result.append(glossarySection)
+            }
+        }
+        
+        if includeBibliography {
+            if let bibliographySection = generateBibliographySection() {
+                result.append(bibliographySection)
+            }
+        }
+        
+        if includeIndex {
+            if let indexSection = generateIndexSection(pageMap: pageMap) {
+                result.append(indexSection)
+            }
+        }
+        
+        return result
+    }
+    
+    // MARK: - Notes Section
+    
+    /// Generate the Notes/Endnotes section
+    /// - Returns: Attributed string with notes section, or nil if no notes
+    func generateNotesSection() -> NSAttributedString? {
+        // Fetch notes for this project
+        let projectID = project.id
+        let descriptor = FetchDescriptor<NoteEntry>(
+            predicate: #Predicate<NoteEntry> { entry in
+                entry.project?.id == projectID
+            },
+            sortBy: [SortDescriptor(\.displayNumber)]
+        )
+        
+        guard let notes = try? context.fetch(descriptor), !notes.isEmpty else {
+            return nil
+        }
+        
+        let result = NSMutableAttributedString()
+        
+        // Section heading
+        let heading = NSAttributedString(
+            string: "\n\n" + NSLocalizedString("backMatter.notes.heading", comment: "Notes") + "\n\n",
+            attributes: [
+                .font: headingFont,
+                .paragraphStyle: bodyParagraphStyle
+            ]
+        )
+        result.append(heading)
+        
+        // Separate endnotes from general notes
+        let endnotes = notes.filter { $0.isEndnote }.sorted()
+        let generalNotes = notes.filter { !$0.isEndnote }.sorted()
+        
+        // Add endnotes first (numbered)
+        if !endnotes.isEmpty {
+            for note in endnotes {
+                let noteText = formatNoteEntry(note)
+                result.append(noteText)
+            }
+        }
+        
+        // Add general notes
+        if !generalNotes.isEmpty {
+            if !endnotes.isEmpty {
+                // Add separator if we had endnotes
+                result.append(NSAttributedString(string: "\n"))
+            }
+            for note in generalNotes {
+                let noteText = formatNoteEntry(note)
+                result.append(noteText)
+            }
+        }
+        
+        return result
+    }
+    
+    /// Format a single note entry
+    private func formatNoteEntry(_ note: NoteEntry) -> NSAttributedString {
+        let result = NSMutableAttributedString()
+        
+        // Note number/marker
+        let marker: String
+        if note.isEndnote {
+            marker = "[\(note.displayNumber)] "
+        } else {
+            marker = "[Note \(note.displayNumber)] "
+        }
+        
+        let markerAttr = NSAttributedString(
+            string: marker,
+            attributes: [
+                .font: entryHeadingFont,
+                .foregroundColor: UIColor.label
+            ]
+        )
+        result.append(markerAttr)
+        
+        // Title (if present)
+        if let title = note.title, !title.isEmpty {
+            let titleAttr = NSAttributedString(
+                string: title + ": ",
+                attributes: [
+                    .font: entryHeadingFont,
+                    .foregroundColor: UIColor.label
+                ]
+            )
+            result.append(titleAttr)
+        }
+        
+        // Content
+        let contentAttr = NSAttributedString(
+            string: note.content + "\n",
+            attributes: [
+                .font: bodyFont,
+                .foregroundColor: UIColor.label,
+                .paragraphStyle: bodyParagraphStyle
+            ]
+        )
+        result.append(contentAttr)
+        
+        return result
+    }
+    
+    // MARK: - Glossary Section
+    
+    /// Generate the Glossary section
+    /// - Returns: Attributed string with glossary section, or nil if no entries
+    func generateGlossarySection() -> NSAttributedString? {
+        // Fetch glossary entries for this project
+        let projectID = project.id
+        let descriptor = FetchDescriptor<GlossaryEntry>(
+            predicate: #Predicate<GlossaryEntry> { entry in
+                entry.project?.id == projectID
+            },
+            sortBy: [SortDescriptor(\.term)]
+        )
+        
+        guard let entries = try? context.fetch(descriptor), !entries.isEmpty else {
+            return nil
+        }
+        
+        let result = NSMutableAttributedString()
+        
+        // Section heading
+        let heading = NSAttributedString(
+            string: "\n\n" + NSLocalizedString("backMatter.glossary.heading", comment: "Glossary") + "\n\n",
+            attributes: [
+                .font: headingFont,
+                .paragraphStyle: bodyParagraphStyle
+            ]
+        )
+        result.append(heading)
+        
+        // Group entries by first letter
+        let grouped = Dictionary(grouping: entries.sorted()) { entry -> String in
+            String(entry.term.prefix(1)).uppercased()
+        }
+        
+        for letter in grouped.keys.sorted() {
+            // Letter heading
+            let letterHeading = NSAttributedString(
+                string: letter + "\n",
+                attributes: [
+                    .font: entryHeadingFont,
+                    .foregroundColor: UIColor.secondaryLabel
+                ]
+            )
+            result.append(letterHeading)
+            
+            // Entries for this letter
+            for entry in grouped[letter] ?? [] {
+                let entryText = formatGlossaryEntry(entry)
+                result.append(entryText)
+            }
+            
+            result.append(NSAttributedString(string: "\n"))
+        }
+        
+        return result
+    }
+    
+    /// Format a single glossary entry
+    private func formatGlossaryEntry(_ entry: GlossaryEntry) -> NSAttributedString {
+        let result = NSMutableAttributedString()
+        
+        // Term (bold)
+        let termAttr = NSAttributedString(
+            string: entry.term,
+            attributes: [
+                .font: entryHeadingFont,
+                .foregroundColor: UIColor.label
+            ]
+        )
+        result.append(termAttr)
+        
+        // Separator
+        result.append(NSAttributedString(string: " — "))
+        
+        // Definition
+        let definitionAttr = NSAttributedString(
+            string: entry.definition + "\n",
+            attributes: [
+                .font: bodyFont,
+                .foregroundColor: UIColor.label,
+                .paragraphStyle: hangingIndentStyle
+            ]
+        )
+        result.append(definitionAttr)
+        
+        return result
+    }
+    
+    // MARK: - Bibliography Section
+    
+    /// Generate the Bibliography/Works Cited section
+    /// - Returns: Attributed string with bibliography section, or nil if no citations
+    func generateBibliographySection() -> NSAttributedString? {
+        // Fetch citations for this project
+        let projectID = project.id
+        let descriptor = FetchDescriptor<CitationEntry>(
+            predicate: #Predicate<CitationEntry> { entry in
+                entry.project?.id == projectID
+            }
+        )
+        
+        guard let citations = try? context.fetch(descriptor), !citations.isEmpty else {
+            return nil
+        }
+        
+        let result = NSMutableAttributedString()
+        
+        // Section heading
+        let heading = NSAttributedString(
+            string: "\n\n" + NSLocalizedString("backMatter.bibliography.heading", comment: "Bibliography") + "\n\n",
+            attributes: [
+                .font: headingFont,
+                .paragraphStyle: bodyParagraphStyle
+            ]
+        )
+        result.append(heading)
+        
+        // Sort by author, then year
+        let sorted = citations.sorted()
+        
+        for citation in sorted {
+            let citationText = formatCitationEntry(citation)
+            result.append(citationText)
+        }
+        
+        return result
+    }
+    
+    /// Format a single citation entry (APA-style as default)
+    private func formatCitationEntry(_ citation: CitationEntry) -> NSAttributedString {
+        let result = NSMutableAttributedString()
+        
+        // Authors
+        let authors = citation.authors
+        var authorText = ""
+        
+        if authors.isEmpty {
+            authorText = NSLocalizedString("citation.unknownAuthor", comment: "Unknown Author")
+        } else if authors.count == 1 {
+            authorText = authors[0]
+        } else if authors.count == 2 {
+            authorText = "\(authors[0]) & \(authors[1])"
+        } else {
+            authorText = "\(authors[0]) et al."
+        }
+        
+        // Format: Author(s). (Year). Title. Source. URL/DOI
+        var fullCitation = authorText
+        
+        // Year
+        if let year = citation.year {
+            fullCitation += " (\(year))."
+        } else {
+            fullCitation += "."
+        }
+        
+        // Title (italicized)
+        let beforeTitle = NSAttributedString(
+            string: fullCitation + " ",
+            attributes: [
+                .font: bodyFont,
+                .foregroundColor: UIColor.label,
+                .paragraphStyle: hangingIndentStyle
+            ]
+        )
+        result.append(beforeTitle)
+        
+        let titleAttr = NSAttributedString(
+            string: citation.title,
+            attributes: [
+                .font: UIFont.italicSystemFont(ofSize: 12),
+                .foregroundColor: UIColor.label
+            ]
+        )
+        result.append(titleAttr)
+        
+        // Source details
+        var sourceDetails = ""
+        
+        if let source = citation.source, !source.isEmpty {
+            sourceDetails += ". " + source
+        }
+        
+        if let volume = citation.volume, !volume.isEmpty {
+            sourceDetails += ", \(volume)"
+            if let issue = citation.issue, !issue.isEmpty {
+                sourceDetails += "(\(issue))"
+            }
+        }
+        
+        if let pages = citation.pages, !pages.isEmpty {
+            sourceDetails += ", \(pages)"
+        }
+        
+        if let city = citation.city, !city.isEmpty {
+            sourceDetails += ". " + city
+        }
+        
+        // URL or DOI
+        if let doi = citation.doi, !doi.isEmpty {
+            sourceDetails += ". https://doi.org/\(doi)"
+        } else if let url = citation.url, !url.isEmpty {
+            sourceDetails += ". \(url)"
+        }
+        
+        sourceDetails += "\n"
+        
+        let sourceAttr = NSAttributedString(
+            string: sourceDetails,
+            attributes: [
+                .font: bodyFont,
+                .foregroundColor: UIColor.label,
+                .paragraphStyle: hangingIndentStyle
+            ]
+        )
+        result.append(sourceAttr)
+        
+        return result
+    }
+    
+    // MARK: - Index Section
+    
+    /// Generate the Index section with page numbers
+    /// - Parameter pageMap: Map of index entry ID to page numbers where it appears
+    /// - Returns: Attributed string with index section, or nil if no entries
+    func generateIndexSection(pageMap: [UUID: [Int]]) -> NSAttributedString? {
+        // Fetch index entries for this project (top-level only)
+        let projectID = project.id
+        let descriptor = FetchDescriptor<IndexEntry>(
+            predicate: #Predicate<IndexEntry> { entry in
+                entry.project?.id == projectID && entry.parentEntry == nil
+            },
+            sortBy: [SortDescriptor(\.keyword)]
+        )
+        
+        guard let entries = try? context.fetch(descriptor), !entries.isEmpty else {
+            return nil
+        }
+        
+        let result = NSMutableAttributedString()
+        
+        // Section heading
+        let heading = NSAttributedString(
+            string: "\n\n" + NSLocalizedString("backMatter.index.heading", comment: "Index") + "\n\n",
+            attributes: [
+                .font: headingFont,
+                .paragraphStyle: bodyParagraphStyle
+            ]
+        )
+        result.append(heading)
+        
+        // Group entries by first letter
+        let grouped = Dictionary(grouping: entries.sorted()) { entry -> String in
+            String(entry.keyword.prefix(1)).uppercased()
+        }
+        
+        for letter in grouped.keys.sorted() {
+            // Letter heading
+            let letterHeading = NSAttributedString(
+                string: letter + "\n",
+                attributes: [
+                    .font: entryHeadingFont,
+                    .foregroundColor: UIColor.secondaryLabel
+                ]
+            )
+            result.append(letterHeading)
+            
+            // Entries for this letter
+            for entry in grouped[letter] ?? [] {
+                let entryText = formatIndexEntry(entry, pageMap: pageMap, indentLevel: 0)
+                result.append(entryText)
+            }
+            
+            result.append(NSAttributedString(string: "\n"))
+        }
+        
+        return result
+    }
+    
+    /// Format a single index entry with its sub-entries
+    private func formatIndexEntry(_ entry: IndexEntry, pageMap: [UUID: [Int]], indentLevel: Int) -> NSAttributedString {
+        let result = NSMutableAttributedString()
+        
+        // Determine paragraph style based on indent level
+        let style = NSMutableParagraphStyle()
+        style.firstLineHeadIndent = CGFloat(indentLevel * 20)
+        style.headIndent = CGFloat(indentLevel * 20 + 20)
+        style.lineSpacing = 2
+        style.paragraphSpacing = 2
+        
+        // Keyword
+        let keywordAttr = NSAttributedString(
+            string: entry.keyword,
+            attributes: [
+                .font: indentLevel == 0 ? entryHeadingFont : bodyFont,
+                .foregroundColor: UIColor.label,
+                .paragraphStyle: style
+            ]
+        )
+        result.append(keywordAttr)
+        
+        // Page numbers
+        if let pages = pageMap[entry.id], !pages.isEmpty {
+            // Format page numbers (consolidate ranges)
+            let formattedPages = formatPageNumbers(pages)
+            let pagesAttr = NSAttributedString(
+                string: ", \(formattedPages)",
+                attributes: [
+                    .font: secondaryFont,
+                    .foregroundColor: UIColor.secondaryLabel
+                ]
+            )
+            result.append(pagesAttr)
+        }
+        
+        result.append(NSAttributedString(string: "\n"))
+        
+        // Sub-entries (children)
+        if let children = entry.childEntries, !children.isEmpty {
+            for child in children.sorted() {
+                let childText = formatIndexEntry(child, pageMap: pageMap, indentLevel: indentLevel + 1)
+                result.append(childText)
+            }
+        }
+        
+        return result
+    }
+    
+    /// Format page numbers with ranges (e.g., "1, 3, 5-7, 12")
+    private func formatPageNumbers(_ pages: [Int]) -> String {
+        guard !pages.isEmpty else { return "" }
+        
+        let sorted = pages.sorted()
+        var result: [String] = []
+        var rangeStart = sorted[0]
+        var rangeEnd = sorted[0]
+        
+        for i in 1..<sorted.count {
+            if sorted[i] == rangeEnd + 1 {
+                rangeEnd = sorted[i]
+            } else {
+                if rangeStart == rangeEnd {
+                    result.append("\(rangeStart)")
+                } else {
+                    result.append("\(rangeStart)–\(rangeEnd)")
+                }
+                rangeStart = sorted[i]
+                rangeEnd = sorted[i]
+            }
+        }
+        
+        // Add the last range
+        if rangeStart == rangeEnd {
+            result.append("\(rangeStart)")
+        } else {
+            result.append("\(rangeStart)–\(rangeEnd)")
+        }
+        
+        return result.joined(separator: ", ")
+    }
+}
+
+// MARK: - Plain Text Back Matter
+
+extension BackMatterGenerator {
+    
+    /// Generate plain text back matter (for plain text export)
+    /// - Parameters:
+    ///   - includeNotes: Include Notes/Endnotes section
+    ///   - includeGlossary: Include Glossary section
+    ///   - includeBibliography: Include Bibliography section
+    /// - Returns: Plain text string with back matter
+    func generatePlainTextBackMatter(
+        includeNotes: Bool = true,
+        includeGlossary: Bool = true,
+        includeBibliography: Bool = true
+    ) -> String {
+        var result = ""
+        
+        if includeNotes {
+            if let notesSection = generatePlainTextNotesSection() {
+                result += notesSection
+            }
+        }
+        
+        if includeGlossary {
+            if let glossarySection = generatePlainTextGlossarySection() {
+                result += glossarySection
+            }
+        }
+        
+        if includeBibliography {
+            if let bibliographySection = generatePlainTextBibliographySection() {
+                result += bibliographySection
+            }
+        }
+        
+        // Note: Index is not included in plain text (no page numbers)
+        
+        return result
+    }
+    
+    /// Generate plain text notes section
+    private func generatePlainTextNotesSection() -> String? {
+        let projectID = project.id
+        let descriptor = FetchDescriptor<NoteEntry>(
+            predicate: #Predicate<NoteEntry> { entry in
+                entry.project?.id == projectID
+            },
+            sortBy: [SortDescriptor(\.displayNumber)]
+        )
+        
+        guard let notes = try? context.fetch(descriptor), !notes.isEmpty else {
+            return nil
+        }
+        
+        var result = "\n\n" + NSLocalizedString("backMatter.notes.heading", comment: "Notes") + "\n"
+        result += String(repeating: "-", count: 40) + "\n\n"
+        
+        for note in notes.sorted() {
+            if note.isEndnote {
+                result += "[\(note.displayNumber)] "
+            } else {
+                result += "[Note \(note.displayNumber)] "
+            }
+            
+            if let title = note.title, !title.isEmpty {
+                result += title + ": "
+            }
+            
+            result += note.content + "\n\n"
+        }
+        
+        return result
+    }
+    
+    /// Generate plain text glossary section
+    private func generatePlainTextGlossarySection() -> String? {
+        let projectID = project.id
+        let descriptor = FetchDescriptor<GlossaryEntry>(
+            predicate: #Predicate<GlossaryEntry> { entry in
+                entry.project?.id == projectID
+            },
+            sortBy: [SortDescriptor(\.term)]
+        )
+        
+        guard let entries = try? context.fetch(descriptor), !entries.isEmpty else {
+            return nil
+        }
+        
+        var result = "\n\n" + NSLocalizedString("backMatter.glossary.heading", comment: "Glossary") + "\n"
+        result += String(repeating: "-", count: 40) + "\n\n"
+        
+        for entry in entries.sorted() {
+            result += entry.term + " — " + entry.definition + "\n\n"
+        }
+        
+        return result
+    }
+    
+    /// Generate plain text bibliography section
+    private func generatePlainTextBibliographySection() -> String? {
+        let projectID = project.id
+        let descriptor = FetchDescriptor<CitationEntry>(
+            predicate: #Predicate<CitationEntry> { entry in
+                entry.project?.id == projectID
+            }
+        )
+        
+        guard let citations = try? context.fetch(descriptor), !citations.isEmpty else {
+            return nil
+        }
+        
+        var result = "\n\n" + NSLocalizedString("backMatter.bibliography.heading", comment: "Bibliography") + "\n"
+        result += String(repeating: "-", count: 40) + "\n\n"
+        
+        for citation in citations.sorted() {
+            // Simple APA-style format
+            let authors = citation.authors
+            var authorText = ""
+            
+            if authors.isEmpty {
+                authorText = NSLocalizedString("citation.unknownAuthor", comment: "Unknown Author")
+            } else if authors.count == 1 {
+                authorText = authors[0]
+            } else if authors.count == 2 {
+                authorText = "\(authors[0]) & \(authors[1])"
+            } else {
+                authorText = "\(authors[0]) et al."
+            }
+            
+            result += authorText
+            
+            if let year = citation.year {
+                result += " (\(year))."
+            } else {
+                result += "."
+            }
+            
+            result += " " + citation.title + "."
+            
+            if let source = citation.source, !source.isEmpty {
+                result += " " + source + "."
+            }
+            
+            if let doi = citation.doi, !doi.isEmpty {
+                result += " https://doi.org/\(doi)"
+            } else if let url = citation.url, !url.isEmpty {
+                result += " \(url)"
+            }
+            
+            result += "\n\n"
+        }
+        
+        return result
+    }
+}

@@ -47,6 +47,13 @@ struct AttributeValues: Codable {
     var footnoteID: String?
     var footnoteNumber: Int?
     
+    // Reference attachment properties (Feature 029)
+    var isReferenceAttachment: Bool?
+    var referenceType: String?
+    var referenceEntryID: String?
+    var referenceDisplayText: String?
+    var referenceDisplayNumber: Int?
+    
     // Poem section type for poetry analysis
     var poemSectionType: String?
 }
@@ -345,6 +352,13 @@ struct AttributedStringSerializer {
                             attributes.isFootnoteAttachment = true
                             attributes.footnoteID = footnoteAttachment.footnoteID.uuidString
                             attributes.footnoteNumber = footnoteAttachment.number
+                        } else if let referenceAttachment = value as? ReferenceAttachment {
+                            // Feature 029: Reference attachments
+                            attributes.isReferenceAttachment = true
+                            attributes.referenceType = referenceAttachment.referenceType.rawValue
+                            attributes.referenceEntryID = referenceAttachment.entryID.uuidString
+                            attributes.referenceDisplayText = referenceAttachment.displayText
+                            attributes.referenceDisplayNumber = referenceAttachment.displayNumber
                         }
                         // Note: Unknown attachment types are silently ignored
                         
@@ -585,6 +599,28 @@ struct AttributedStringSerializer {
                     // Create FootnoteAttachment
                     let attachment = FootnoteAttachment(footnoteID: footnoteID, number: footnoteNumber)
                     attributes[.attachment] = attachment
+                }
+                
+                // Reference attachment - reconstruct ReferenceAttachment (Feature 029)
+                if let isReference = jsonAttributes.isReferenceAttachment, isReference,
+                   let referenceTypeString = jsonAttributes.referenceType,
+                   let referenceType = ReferenceType(rawValue: referenceTypeString),
+                   let entryIDString = jsonAttributes.referenceEntryID,
+                   let entryID = UUID(uuidString: entryIDString),
+                   let displayText = jsonAttributes.referenceDisplayText {
+                    
+                    // Create ReferenceAttachment
+                    let attachment = ReferenceAttachment(
+                        referenceType: referenceType,
+                        entryID: entryID,
+                        displayText: displayText
+                    )
+                    attachment.displayNumber = jsonAttributes.referenceDisplayNumber ?? 0
+                    attributes[.attachment] = attachment
+                    
+                    // Also add the reference type and ID as custom attributes
+                    attributes[.referenceType] = referenceType.rawValue
+                    attributes[.referenceID] = entryID.uuidString
                 }
                 
                 // Poem section type - for poetry analysis filtering
