@@ -1847,3 +1847,249 @@
 "drama.backMatter.productionHistory" = "Production History";
 "drama.backMatter.afterword" = "Afterword";
 "drama.backMatter.rightsAndPermissions" = "Rights & Permissions";
+
+/* ============================================== */
+/* Feature 029: Back Matter Reference System      */
+/* ============================================== */
+
+/* Common buttons */
+"button.cancel" = "Cancel";
+"button.save" = "Save";
+"button.done" = "Done";
+
+/* Back Matter Headings */
+"backMatter.notes.heading" = "Notes";
+"backMatter.glossary.heading" = "Glossary";
+"backMatter.bibliography.heading" = "Bibliography";
+"backMatter.index.heading" = "Index";
+
+/* Citation Types */
+"citation.type.article" = "Article";
+"citation.type.book" = "Book";
+"citation.type.chapter" = "Book Chapter";
+"citation.type.website" = "Website";
+"citation.type.newspaper" = "Newspaper";
+"citation.type.magazine" = "Magazine";
+"citation.type.report" = "Report";
+"citation.type.thesis" = "Thesis";
+"citation.type.conference" = "Conference";
+"citation.type.other" = "Other";
+"citation.unknownAuthor" = "Unknown Author";
+
+/* Citation Styles */
+"citationStyle.authorYear" = "Author-Year (Smith, 2024)";
+"citationStyle.numbered" = "Numbered [1]";
+"citationStyle.footnote" = "Footnote Style";
+
+/* Note Editor */
+"noteEditor.editEndnote.title" = "Edit Endnote";
+"noteEditor.editNote.title" = "Edit Note";
+"noteEditor.newEndnote.title" = "New Endnote";
+"noteEditor.newNote.title" = "New Note";
+"noteEditor.title.placeholder" = "Title (optional)";
+"noteEditor.title.header" = "Title";
+"noteEditor.title.footer" = "Optional title for organizing notes";
+"noteEditor.content.header" = "Content";
+"noteEditor.endnote.footer" = "Endnotes appear as superscript numbers in the text";
+"noteEditor.note.footer" = "Notes appear as [Note n] in the text";
+"noteEditor.preview.header" = "Preview";
+"noteEditor.preview.marker" = "Marker:";
+"noteEditor.preview.markerNote" = "(number assigned on insert)";
+"noteEditor.info.header" = "Information";
+"noteEditor.info.number" = "Number";
+"noteEditor.info.references" = "References";
+"noteEditor.info.created" = "Created";
+"noteEditor.info.modified" = "Modified";
+"noteEditor.discard.title" = "Discard Changes?";
+"noteEditor.discard.button" = "Discard";
+"noteEditor.discard.message" = "Your changes will be lost.";
+
+/* Notes List */
+"notesList.title" = "Notes";
+"notesList.search.prompt" = "Search notes";
+"notesList.filter" = "Filter";
+"notesList.filter.header" = "Filter";
+"notesList.filter.all" = "All";
+"notesList.filter.notes" = "Notes";
+"notesList.filter.endnotes" = "Endnotes";
+"notesList.sort" = "Sort";
+"notesList.sort.header" = "Sort By";
+"notesList.sort.number" = "Number";
+"notesList.sort.dateCreated" = "Date Created";
+"notesList.sort.dateModified" = "Date Modified";
+"notesList.sort.title" = "Title";
+"notesList.addNote" = "Add Note";
+"notesList.addEndnote" = "Add Endnote";
+"notesList.empty.title" = "No Notes";
+"notesList.empty.description" = "Notes and endnotes you create will appear here.";
+"notesList.summary.notes" = "Notes";
+"notesList.summary.endnotes" = "Endnotes";
+"notesList.summary.orphaned" = "Unreferenced";
+"notesList.orphaned.warning" = "%d notes are not referenced";
+"notesList.orphaned.footer" = "These notes are not referenced in any document.";
+"notesList.type.note" = "Note";
+"notesList.type.endnote" = "Endnote";
+"notesList.edit" = "Edit";
+"notesList.jumpToText" = "Jump to Reference";
+"notesList.jump" = "Jump";
+"notesList.delete" = "Delete";
+"notesList.confirmDelete.title" = "Delete Note?";
+"notesList.confirmDelete.button" = "Delete";
+"notesList.confirmDelete.message" = "This note will be permanently deleted.";
+"notesList.confirmDelete.messageWithRefs" = "This note is referenced %d times. The markers will remain but show as missing.";
+
+/* Citation Editor */
+"citationEditor.editCitation.title" = "Edit Citation";
+"citationEditor.newCitation.title" = "New Citation";
+"citationEditor.required.header" = "Required";
+"citationEditor.required.footer" = "Author, year, and title are required";
+"citationEditor.author.placeholder" = "Author name(s)";
+"citationEditor.year.placeholder" = "Year";
+"citationEditor.title.placeholder" = "Title";
+"citationEditor.optional.header" = "Optional";
+"citationEditor.source.placeholder" = "Journal, publisher, or website";
+"citationEditor.pages.placeholder" = "Page numbers (e.g., 123-145)";
+"citationEditor.url.placeholder" = "URL";
+"citationEditor.accessDate.toggle" = "Include access date";
+"citationEditor.accessDate.label" = "Accessed";
+"citationEditor.preview.header" = "Preview";
+"citationEditor.preview.marker" = "In-text:";
+"citationEditor.preview.bibliography" = "Bibliography:";
+"citationEditor.info.header" = "Information";
+"citationEditor.info.references" = "References";
+"citationEditor.info.created" = "Created";
+"citationEditor.info.modified" = "Modified";
+"citationEditor.discard.title" = "Discard Changes?";
+"citationEditor.discard.button" = "Discard";
+"citationEditor.discard.message" = "Your changes will be lost.";
+
+/* Citations List */
+"citationsList.title" = "Citations";
+"citationsList.search.prompt" = "Search citations";
+"citationsList.sort" = "Sort";
+"citationsList.sort.author" = "Author";
+"citationsList.sort.year" = "Year";
+"citationsList.sort.dateCreated" = "Date Created";
+"citationsList.sort.dateModified" = "Date Modified";
+"citationsList.sort.referenceCount" = "Most Cited";
+"citationsList.addCitation" = "Add Citation";
+"citationsList.empty.title" = "No Citations";
+"citationsList.empty.description" = "Add citations to build your bibliography.";
+"citationsList.summary.total" = "Total Citations";
+"citationsList.summary.uncited" = "Uncited";
+"citationsList.edit" = "Edit";
+"citationsList.expand" = "Expand";
+"citationsList.collapse" = "Collapse";
+"citationsList.jumpToText" = "Jump to Reference";
+"citationsList.jump" = "Jump";
+"citationsList.openURL" = "Open URL";
+"citationsList.delete" = "Delete";
+"citationsList.confirmDelete.title" = "Delete Citation?";
+"citationsList.confirmDelete.button" = "Delete";
+"citationsList.confirmDelete.message" = "This citation will be permanently deleted.";
+"citationsList.confirmDelete.messageWithRefs" = "This citation is referenced %d times. The markers will remain but show as missing.";
+
+/* Glossary Editor */
+"glossaryEditor.editTerm.title" = "Edit Term";
+"glossaryEditor.newTerm.title" = "New Glossary Term";
+"glossaryEditor.term.placeholder" = "Term";
+"glossaryEditor.term.header" = "Term";
+"glossaryEditor.term.footer" = "The word or phrase to define";
+"glossaryEditor.term.exists" = "This term already exists";
+"glossaryEditor.definition.header" = "Definition";
+"glossaryEditor.definition.footer" = "Explanation of the term";
+"glossaryEditor.preview.header" = "Preview";
+"glossaryEditor.preview.marker" = "Marker:";
+"glossaryEditor.info.header" = "Information";
+"glossaryEditor.info.references" = "References";
+"glossaryEditor.info.created" = "Created";
+"glossaryEditor.info.modified" = "Modified";
+"glossaryEditor.discard.title" = "Discard Changes?";
+"glossaryEditor.discard.button" = "Discard";
+"glossaryEditor.discard.message" = "Your changes will be lost.";
+
+/* Glossary List */
+"glossaryList.title" = "Glossary";
+"glossaryList.search.prompt" = "Search terms";
+"glossaryList.sort" = "Sort";
+"glossaryList.sort.alphabetical" = "Alphabetical";
+"glossaryList.sort.dateCreated" = "Date Created";
+"glossaryList.sort.dateModified" = "Date Modified";
+"glossaryList.sort.referenceCount" = "Most Used";
+"glossaryList.addTerm" = "Add Term";
+"glossaryList.empty.title" = "No Glossary Terms";
+"glossaryList.empty.description" = "Add terms to build your project glossary.";
+"glossaryList.summary.total" = "Total Terms";
+"glossaryList.summary.unreferenced" = "Unreferenced";
+"glossaryList.edit" = "Edit";
+"glossaryList.expand" = "Expand";
+"glossaryList.collapse" = "Collapse";
+"glossaryList.jumpToText" = "Jump to Reference";
+"glossaryList.jump" = "Jump";
+"glossaryList.delete" = "Delete";
+"glossaryList.confirmDelete.title" = "Delete Term?";
+"glossaryList.confirmDelete.button" = "Delete";
+"glossaryList.confirmDelete.message" = "This term will be permanently deleted.";
+"glossaryList.confirmDelete.messageWithRefs" = "This term is referenced %d times. The markers will remain but show as missing.";
+
+/* Index Editor */
+"indexEditor.editEntry.title" = "Edit Index Entry";
+"indexEditor.newEntry.title" = "New Index Entry";
+"indexEditor.keyword.placeholder" = "Index keyword";
+"indexEditor.keyword.header" = "Keyword";
+"indexEditor.keyword.footer" = "The word or phrase to add to the index";
+"indexEditor.keyword.exists" = "This keyword already exists";
+"indexEditor.preview.header" = "Preview";
+"indexEditor.preview.marker" = "Marker:";
+"indexEditor.preview.invisible" = "(invisible in text)";
+"indexEditor.preview.indexAppearance" = "In index:";
+"indexEditor.info.header" = "Information";
+"indexEditor.info.references" = "References";
+"indexEditor.info.subEntries" = "Sub-entries";
+"indexEditor.info.created" = "Created";
+"indexEditor.info.modified" = "Modified";
+"indexEditor.discard.title" = "Discard Changes?";
+"indexEditor.discard.button" = "Discard";
+"indexEditor.discard.message" = "Your changes will be lost.";
+
+/* Index List */
+"indexList.title" = "Index";
+"indexList.search.prompt" = "Search index";
+"indexList.sort" = "Sort";
+"indexList.sort.alphabetical" = "Alphabetical";
+"indexList.sort.dateCreated" = "Date Added";
+"indexList.sort.dateModified" = "Date Modified";
+"indexList.sort.referenceCount" = "Most Used";
+"indexList.addEntry" = "Add Entry";
+"indexList.empty.title" = "No Index Entries";
+"indexList.empty.description" = "Add index entries to create your book index.";
+"indexList.summary.total" = "Total Entries";
+"indexList.summary.unreferenced" = "Unreferenced";
+"indexList.summary.footer" = "Index markers are invisible in text. Page numbers are calculated at export.";
+"indexList.edit" = "Edit";
+"indexList.expand" = "Expand";
+"indexList.collapse" = "Collapse";
+"indexList.jumpToText" = "Jump to Reference";
+"indexList.jump" = "Jump";
+"indexList.delete" = "Delete";
+"indexList.confirmDelete.title" = "Delete Index Entry?";
+"indexList.confirmDelete.button" = "Delete";
+"indexList.confirmDelete.message" = "This entry will be permanently deleted.";
+"indexList.confirmDelete.messageWithRefs" = "This entry is referenced %d times. The markers will be removed.";
+
+/* Reference Popover */
+"reference.note.title" = "Note %d";
+"reference.endnote.title" = "Endnote %d";
+"reference.citation.title" = "Citation";
+"reference.glossary.title" = "Glossary Term";
+"reference.index.title" = "Index Entry";
+"reference.figure.title" = "Figure %d";
+"reference.table.title" = "Table %d";
+"reference.showMore" = "Show more...";
+"reference.index.pages" = "Pages:";
+"reference.referenceCount" = "%d references";
+"reference.figureTable.placeholder" = "Figure/Table reference";
+"reference.notFound" = "Reference Not Found";
+"reference.notFound.description" = "The referenced entry may have been deleted.";
+"reference.action.edit" = "Edit";
+"reference.action.goToEntry" = "Go to Entry";
