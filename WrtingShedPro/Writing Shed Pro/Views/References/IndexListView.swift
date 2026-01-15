@@ -209,7 +209,6 @@ struct IndexListView: View {
             }
         }
     }
-    }
     
     // MARK: - Empty State
     
