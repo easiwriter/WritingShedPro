@@ -214,56 +214,56 @@ struct NotesListView: View {
                     }
                 }
             }
-            .onAppear {
-                loadNotes()
+        }
+        .onAppear {
+            loadNotes()
+        }
+        .onChange(of: notes) { oldValue, newValue in
+            // Auto-dismiss when all notes are deleted
+            if newValue.isEmpty && !oldValue.isEmpty {
+                onDismiss?()
+                dismiss()
             }
-            .onChange(of: notes) { oldValue, newValue in
-                // Auto-dismiss when all notes are deleted
-                if newValue.isEmpty && !oldValue.isEmpty {
-                    onDismiss?()
-                    dismiss()
+        }
+        .sheet(isPresented: $showAddNoteSheet) {
+            NoteEditorSheet(
+                project: project,
+                isEndnote: addNoteAsEndnote,
+                onSave: { _ in
+                    loadNotes()
+                    onNoteChanged?()
                 }
+            )
+        }
+        .sheet(item: $editingNote) { note in
+            NoteEditorSheet(
+                project: project,
+                existingNote: note,
+                onSave: { _ in
+                    loadNotes()
+                    onNoteChanged?()
+                }
+            )
+        }
+        .confirmationDialog(
+            NSLocalizedString("notesList.confirmDelete.title", comment: "Delete Note?"),
+            isPresented: .constant(showDeleteConfirmation != nil),
+            titleVisibility: .visible,
+            presenting: showDeleteConfirmation
+        ) { note in
+            Button(NSLocalizedString("notesList.confirmDelete.button", comment: "Delete"), role: .destructive) {
+                deleteNote(note)
+                showDeleteConfirmation = nil
             }
-            .sheet(isPresented: $showAddNoteSheet) {
-                NoteEditorSheet(
-                    project: project,
-                    isEndnote: addNoteAsEndnote,
-                    onSave: { _ in
-                        loadNotes()
-                        onNoteChanged?()
-                    }
-                )
+            
+            Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
+                showDeleteConfirmation = nil
             }
-            .sheet(item: $editingNote) { note in
-                NoteEditorSheet(
-                    project: project,
-                    existingNote: note,
-                    onSave: { _ in
-                        loadNotes()
-                        onNoteChanged?()
-                    }
-                )
-            }
-            .confirmationDialog(
-                NSLocalizedString("notesList.confirmDelete.title", comment: "Delete Note?"),
-                isPresented: .constant(showDeleteConfirmation != nil),
-                titleVisibility: .visible,
-                presenting: showDeleteConfirmation
-            ) { note in
-                Button(NSLocalizedString("notesList.confirmDelete.button", comment: "Delete"), role: .destructive) {
-                    deleteNote(note)
-                    showDeleteConfirmation = nil
-                }
-                
-                Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
-                    showDeleteConfirmation = nil
-                }
-            } message: { note in
-                if note.referenceCount > 0 {
-                    Text(String(format: NSLocalizedString("notesList.confirmDelete.messageWithRefs", comment: ""), note.referenceCount))
-                } else {
-                    Text(NSLocalizedString("notesList.confirmDelete.message", comment: "This note will be permanently deleted."))
-                }
+        } message: { note in
+            if note.referenceCount > 0 {
+                Text(String(format: NSLocalizedString("notesList.confirmDelete.messageWithRefs", comment: ""), note.referenceCount))
+            } else {
+                Text(NSLocalizedString("notesList.confirmDelete.message", comment: "This note will be permanently deleted."))
             }
         }
     }

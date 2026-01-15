@@ -158,56 +158,57 @@ struct IndexListView: View {
                     }
                 }
             }
-            .onAppear {
-                loadEntries()
-            }
-            .onChange(of: entries) { oldValue, newValue in
-                if newValue.isEmpty && !oldValue.isEmpty {
-                    onDismiss?()
-                    dismiss()
-                }
-            }
-            .sheet(isPresented: $showAddEntrySheet) {
-                IndexEditorSheet(
-                    project: project,
-                    onSave: { _ in
-                        loadEntries()
-                        onEntryChanged?()
-                    }
-                )
-            }
-            .sheet(item: $editingEntry) { entry in
-                IndexEditorSheet(
-                    project: project,
-                    existingEntry: entry,
-                    onSave: { _ in
-                        loadEntries()
-                        onEntryChanged?()
-                    }
-                )
-            }
-            .confirmationDialog(
-                NSLocalizedString("indexList.confirmDelete.title", comment: "Delete Index Entry?"),
-                isPresented: .constant(showDeleteConfirmation != nil),
-                titleVisibility: .visible,
-                presenting: showDeleteConfirmation
-            ) { entry in
-                Button(NSLocalizedString("indexList.confirmDelete.button", comment: "Delete"), role: .destructive) {
-                    deleteEntry(entry)
-                    showDeleteConfirmation = nil
-                }
-                
-                Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
-                    showDeleteConfirmation = nil
-                }
-            } message: { entry in
-                if entry.referenceCount > 0 {
-                    Text(String(format: NSLocalizedString("indexList.confirmDelete.messageWithRefs", comment: ""), entry.referenceCount))
-                } else {
-                    Text(NSLocalizedString("indexList.confirmDelete.message", comment: "This entry will be permanently deleted."))
-                }
+        }
+        .onAppear {
+            loadEntries()
+        }
+        .onChange(of: entries) { oldValue, newValue in
+            if newValue.isEmpty && !oldValue.isEmpty {
+                onDismiss?()
+                dismiss()
             }
         }
+        .sheet(isPresented: $showAddEntrySheet) {
+            IndexEditorSheet(
+                project: project,
+                onSave: { _ in
+                    loadEntries()
+                    onEntryChanged?()
+                }
+            )
+        }
+        .sheet(item: $editingEntry) { entry in
+            IndexEditorSheet(
+                project: project,
+                existingEntry: entry,
+                onSave: { _ in
+                    loadEntries()
+                    onEntryChanged?()
+                }
+            )
+        }
+        .confirmationDialog(
+            NSLocalizedString("indexList.confirmDelete.title", comment: "Delete Index Entry?"),
+            isPresented: .constant(showDeleteConfirmation != nil),
+            titleVisibility: .visible,
+            presenting: showDeleteConfirmation
+        ) { entry in
+            Button(NSLocalizedString("indexList.confirmDelete.button", comment: "Delete"), role: .destructive) {
+                deleteEntry(entry)
+                showDeleteConfirmation = nil
+            }
+            
+            Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
+                showDeleteConfirmation = nil
+            }
+        } message: { entry in
+            if entry.referenceCount > 0 {
+                Text(String(format: NSLocalizedString("indexList.confirmDelete.messageWithRefs", comment: ""), entry.referenceCount))
+            } else {
+                Text(NSLocalizedString("indexList.confirmDelete.message", comment: "This entry will be permanently deleted."))
+            }
+        }
+    }
     }
     
     // MARK: - Empty State

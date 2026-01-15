@@ -165,54 +165,54 @@ struct CitationsListView: View {
                     }
                 }
             }
-            .onAppear {
-                loadCitations()
+        }
+        .onAppear {
+            loadCitations()
+        }
+        .onChange(of: citations) { oldValue, newValue in
+            if newValue.isEmpty && !oldValue.isEmpty {
+                onDismiss?()
+                dismiss()
             }
-            .onChange(of: citations) { oldValue, newValue in
-                if newValue.isEmpty && !oldValue.isEmpty {
-                    onDismiss?()
-                    dismiss()
+        }
+        .sheet(isPresented: $showAddCitationSheet) {
+            CitationEditorSheet(
+                project: project,
+                onSave: { _ in
+                    loadCitations()
+                    onCitationChanged?()
                 }
+            )
+        }
+        .sheet(item: $editingCitation) { citation in
+            CitationEditorSheet(
+                project: project,
+                existingCitation: citation,
+                onSave: { _ in
+                    loadCitations()
+                    onCitationChanged?()
+                }
+            )
+        }
+        .confirmationDialog(
+            NSLocalizedString("citationsList.confirmDelete.title", comment: "Delete Citation?"),
+            isPresented: .constant(showDeleteConfirmation != nil),
+            titleVisibility: .visible,
+            presenting: showDeleteConfirmation
+        ) { citation in
+            Button(NSLocalizedString("citationsList.confirmDelete.button", comment: "Delete"), role: .destructive) {
+                deleteCitation(citation)
+                showDeleteConfirmation = nil
             }
-            .sheet(isPresented: $showAddCitationSheet) {
-                CitationEditorSheet(
-                    project: project,
-                    onSave: { _ in
-                        loadCitations()
-                        onCitationChanged?()
-                    }
-                )
+            
+            Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
+                showDeleteConfirmation = nil
             }
-            .sheet(item: $editingCitation) { citation in
-                CitationEditorSheet(
-                    project: project,
-                    existingCitation: citation,
-                    onSave: { _ in
-                        loadCitations()
-                        onCitationChanged?()
-                    }
-                )
-            }
-            .confirmationDialog(
-                NSLocalizedString("citationsList.confirmDelete.title", comment: "Delete Citation?"),
-                isPresented: .constant(showDeleteConfirmation != nil),
-                titleVisibility: .visible,
-                presenting: showDeleteConfirmation
-            ) { citation in
-                Button(NSLocalizedString("citationsList.confirmDelete.button", comment: "Delete"), role: .destructive) {
-                    deleteCitation(citation)
-                    showDeleteConfirmation = nil
-                }
-                
-                Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
-                    showDeleteConfirmation = nil
-                }
-            } message: { citation in
-                if citation.referenceCount > 0 {
-                    Text(String(format: NSLocalizedString("citationsList.confirmDelete.messageWithRefs", comment: ""), citation.referenceCount))
-                } else {
-                    Text(NSLocalizedString("citationsList.confirmDelete.message", comment: "This citation will be permanently deleted."))
-                }
+        } message: { citation in
+            if citation.referenceCount > 0 {
+                Text(String(format: NSLocalizedString("citationsList.confirmDelete.messageWithRefs", comment: ""), citation.referenceCount))
+            } else {
+                Text(NSLocalizedString("citationsList.confirmDelete.message", comment: "This citation will be permanently deleted."))
             }
         }
     }

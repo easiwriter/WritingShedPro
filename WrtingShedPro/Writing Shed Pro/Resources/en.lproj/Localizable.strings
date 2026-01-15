@@ -2109,3 +2109,25 @@
 "insertMenu.addIndexEntry" = "Add Index Entry";
 "insertMenu.showIndex" = "Show Index";
 "fileEdit.insertMenu.accessibility" = "Insert content menu";
+
+/* Back Matter Generated Content View */
+"backMatter.endnotes.empty.title" = "No Endnotes";
+"backMatter.endnotes.empty.description" = "Endnotes added to your manuscript will appear here.";
+"backMatter.endnotes.header" = "Endnotes";
+"backMatter.notes.empty.title" = "No Notes";
+"backMatter.notes.empty.description" = "Notes added to your manuscript will appear here.";
+"backMatter.notes.header" = "Notes";
+"backMatter.glossary.empty.title" = "No Glossary Terms";
+"backMatter.glossary.empty.description" = "Glossary terms added to your manuscript will appear here.";
+"backMatter.glossary.header" = "Glossary";
+"backMatter.bibliography.empty.title" = "No Citations";
+"backMatter.bibliography.empty.description" = "Citations added to your manuscript will appear here.";
+"backMatter.bibliography.header" = "Bibliography";
+"backMatter.index.empty.title" = "No Index Entries";
+"backMatter.index.empty.description" = "Index entries added to your manuscript will appear here.";
+"backMatter.index.header" = "Index";
+"backMatter.unknown.title" = "Unknown Content Type";
+"backMatter.unknown.description" = "This file doesn't match a known back matter type.";
+"backMatter.index.columns" = "Index Columns";
+"backMatter.index.settings.header" = "Index Settings";
+"backMatter.index.columns.footer" = "Number of columns to display the index in when exported.";

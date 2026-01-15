@@ -156,8 +156,12 @@ struct FrontMatterSettings: Codable, Equatable {
 struct BackMatterSettings: Codable, Equatable {
     var enabledItems: Set<BackMatterItem>
     
-    init(enabledItems: Set<BackMatterItem> = []) {
+    /// Number of columns for index display (1-3, default 2)
+    var indexColumnCount: Int
+    
+    init(enabledItems: Set<BackMatterItem> = [], indexColumnCount: Int = 2) {
         self.enabledItems = enabledItems
+        self.indexColumnCount = max(1, min(3, indexColumnCount))
     }
     
     /// Check if an item is enabled

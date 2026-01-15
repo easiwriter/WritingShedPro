@@ -225,6 +225,8 @@ struct BackMatterSettingsDialog: View {
     @State private var enabledItems: Set<BackMatterItem> = []
     // Drama project items
     @State private var dramaEnabledItems: Set<DramaBackMatterItem> = []
+    // Index settings
+    @State private var indexColumnCount: Int = 2
     @State private var isProcessing = false
     
     private var isDrama: Bool {
@@ -249,6 +251,22 @@ struct BackMatterSettingsDialog: View {
                 } footer: {
                     Text(NSLocalizedString("backMatter.settings.footer", comment: "Enabled items will appear as files in your Back Matter folder."))
                 }
+                
+                // Index column count option (only shown when index is enabled)
+                if !isDrama && enabledItems.contains(.index) {
+                    Section {
+                        Picker(NSLocalizedString("backMatter.index.columns", comment: "Index Columns"), selection: $indexColumnCount) {
+                            Text("1").tag(1)
+                            Text("2").tag(2)
+                            Text("3").tag(3)
+                        }
+                        .pickerStyle(.segmented)
+                    } header: {
+                        Text(NSLocalizedString("backMatter.index.settings.header", comment: "Index Settings"))
+                    } footer: {
+                        Text(NSLocalizedString("backMatter.index.columns.footer", comment: "Number of columns to display the index in when exported."))
+                    }
+                }
             }
             .formStyle(.grouped)
             .navigationTitle(NSLocalizedString("backMatter.settings.title", comment: "Back Matter"))
@@ -272,7 +290,9 @@ struct BackMatterSettingsDialog: View {
                 if isDrama {
                     dramaEnabledItems = folder.dramaBackMatterSettings.enabledItems
                 } else {
-                    enabledItems = folder.backMatterSettings.enabledItems
+                    let settings = folder.backMatterSettings
+                    enabledItems = settings.enabledItems
+                    indexColumnCount = settings.indexColumnCount
                 }
             }
         }
@@ -323,7 +343,7 @@ struct BackMatterSettingsDialog: View {
     
     private func saveFictionSettings() {
         let previousSettings = folder.backMatterSettings
-        let newSettings = BackMatterSettings(enabledItems: enabledItems)
+        let newSettings = BackMatterSettings(enabledItems: enabledItems, indexColumnCount: indexColumnCount)
         
         // Create files for newly enabled items
         let newlyEnabled = enabledItems.subtracting(previousSettings.enabledItems)

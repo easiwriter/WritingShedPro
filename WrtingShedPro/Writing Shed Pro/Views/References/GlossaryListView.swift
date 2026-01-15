@@ -158,54 +158,54 @@ struct GlossaryListView: View {
                     }
                 }
             }
-            .onAppear {
-                loadTerms()
+        }
+        .onAppear {
+            loadTerms()
+        }
+        .onChange(of: terms) { oldValue, newValue in
+            if newValue.isEmpty && !oldValue.isEmpty {
+                onDismiss?()
+                dismiss()
             }
-            .onChange(of: terms) { oldValue, newValue in
-                if newValue.isEmpty && !oldValue.isEmpty {
-                    onDismiss?()
-                    dismiss()
+        }
+        .sheet(isPresented: $showAddTermSheet) {
+            GlossaryEditorSheet(
+                project: project,
+                onSave: { _ in
+                    loadTerms()
+                    onTermChanged?()
                 }
+            )
+        }
+        .sheet(item: $editingTerm) { term in
+            GlossaryEditorSheet(
+                project: project,
+                existingTerm: term,
+                onSave: { _ in
+                    loadTerms()
+                    onTermChanged?()
+                }
+            )
+        }
+        .confirmationDialog(
+            NSLocalizedString("glossaryList.confirmDelete.title", comment: "Delete Term?"),
+            isPresented: .constant(showDeleteConfirmation != nil),
+            titleVisibility: .visible,
+            presenting: showDeleteConfirmation
+        ) { term in
+            Button(NSLocalizedString("glossaryList.confirmDelete.button", comment: "Delete"), role: .destructive) {
+                deleteTerm(term)
+                showDeleteConfirmation = nil
             }
-            .sheet(isPresented: $showAddTermSheet) {
-                GlossaryEditorSheet(
-                    project: project,
-                    onSave: { _ in
-                        loadTerms()
-                        onTermChanged?()
-                    }
-                )
+            
+            Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
+                showDeleteConfirmation = nil
             }
-            .sheet(item: $editingTerm) { term in
-                GlossaryEditorSheet(
-                    project: project,
-                    existingTerm: term,
-                    onSave: { _ in
-                        loadTerms()
-                        onTermChanged?()
-                    }
-                )
-            }
-            .confirmationDialog(
-                NSLocalizedString("glossaryList.confirmDelete.title", comment: "Delete Term?"),
-                isPresented: .constant(showDeleteConfirmation != nil),
-                titleVisibility: .visible,
-                presenting: showDeleteConfirmation
-            ) { term in
-                Button(NSLocalizedString("glossaryList.confirmDelete.button", comment: "Delete"), role: .destructive) {
-                    deleteTerm(term)
-                    showDeleteConfirmation = nil
-                }
-                
-                Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
-                    showDeleteConfirmation = nil
-                }
-            } message: { term in
-                if term.referenceCount > 0 {
-                    Text(String(format: NSLocalizedString("glossaryList.confirmDelete.messageWithRefs", comment: ""), term.referenceCount))
-                } else {
-                    Text(NSLocalizedString("glossaryList.confirmDelete.message", comment: "This term will be permanently deleted."))
-                }
+        } message: { term in
+            if term.referenceCount > 0 {
+                Text(String(format: NSLocalizedString("glossaryList.confirmDelete.messageWithRefs", comment: ""), term.referenceCount))
+            } else {
+                Text(NSLocalizedString("glossaryList.confirmDelete.message", comment: "This term will be permanently deleted."))
             }
         }
     }

@@ -169,6 +169,10 @@ struct FolderFilesView: View {
             if let project = folder.project, project.type == .drama,
                FolderCapabilityService.isContentFolder(folder) {
                 DramaSceneEditorView(file: file, project: project)
+            } else if let project = folder.project,
+                      BackMatterGeneratedContentView.isGeneratedBackMatterFile(file) {
+                // Feature 029: Show generated content for back matter files
+                BackMatterGeneratedContentView(file: file, project: project)
             } else {
                 FileEditView(file: file)
             }
