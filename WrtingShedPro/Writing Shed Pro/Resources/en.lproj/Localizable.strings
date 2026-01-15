@@ -2093,3 +2093,19 @@
 "reference.notFound.description" = "The referenced entry may have been deleted.";
 "reference.action.edit" = "Edit";
 "reference.action.goToEntry" = "Go to Entry";
+
+/* Insert Menu - Reference Submenus */
+"insertMenu.notes" = "Notes";
+"insertMenu.addNote" = "Add Note";
+"insertMenu.addEndnote" = "Add Endnote";
+"insertMenu.showNotes" = "Show Notes";
+"insertMenu.glossary" = "Glossary";
+"insertMenu.addGlossaryTerm" = "Add Term";
+"insertMenu.showGlossary" = "Show Glossary";
+"insertMenu.citations" = "Citations";
+"insertMenu.addCitation" = "Add Citation";
+"insertMenu.showCitations" = "Show Citations";
+"insertMenu.index" = "Index";
+"insertMenu.addIndexEntry" = "Add Index Entry";
+"insertMenu.showIndex" = "Show Index";
+"fileEdit.insertMenu.accessibility" = "Insert content menu";
