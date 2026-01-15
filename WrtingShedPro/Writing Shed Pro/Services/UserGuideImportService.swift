@@ -31,7 +31,7 @@ final class UserGuideImportService {
     }
     
     /// Name of the bundled guide project file (without extension)
-    static let guideProjectFileName = "WSP Guide"
+    static let guideProjectFileName = "Writing Shed Pro Guide"
     
     /// Name of the imported project as shown to user
     static let guideProjectName = "Writing Shed Pro Guide"
@@ -51,12 +51,7 @@ final class UserGuideImportService {
             try deleteExistingGuide(modelContext: modelContext)
         }
         
-        // TODO: Implement guide import
-        // 1. Locate "WSP Guide.wsp" in app bundle Resources
-        // 2. Use existing WSP import functionality to import the project
-        // 3. Rename imported project to "Writing Shed Pro Guide"
-        // 4. Return the imported project
-        
+        // Locate the guide file in app bundle Resources
         guard let guideURL = Bundle.main.url(
             forResource: guideProjectFileName,
             withExtension: wspExtension
@@ -64,11 +59,31 @@ final class UserGuideImportService {
             throw GuideImportError.guideNotFound
         }
         
-        // Stub: For now, just verify the file exists
-        // When implemented, this will call the existing JSONImportService
+        // Use JSONImportService to import the WSP file
+        let errorHandler = ImportErrorHandler()
+        let importService = JSONImportService(
+            modelContext: modelContext,
+            errorHandler: errorHandler
+        )
         
-        // Placeholder - throw not found until properly implemented
-        throw GuideImportError.importFailed("Import functionality not yet implemented")
+        do {
+            let project = try importService.importFromJSON(fileURL: guideURL)
+            
+            // Ensure the project has the correct name
+            project.name = guideProjectName
+            try modelContext.save()
+            
+            #if DEBUG
+            print("[UserGuideImport] Successfully imported guide: \(project.name ?? "unnamed")")
+            if !errorHandler.warnings.isEmpty {
+                print("[UserGuideImport] Warnings: \(errorHandler.warnings)")
+            }
+            #endif
+            
+            return project
+        } catch {
+            throw GuideImportError.importFailed(error.localizedDescription)
+        }
     }
     
     /// Checks if the User Guide is already imported
