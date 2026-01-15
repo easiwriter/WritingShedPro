@@ -9,14 +9,14 @@
 import SwiftUI
 import WebKit
 
-/// View for displaying the bundled HTML manual
+/// View for displaying the bundled HTML guide
 struct HTMLManualView: View {
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
         NavigationStack {
             HTMLManualWebView()
-                .navigationTitle("Writing Shed Pro Manual")
+                .navigationTitle("Writing Shed Pro Guide")
                 #if !os(macOS)
                 .navigationBarTitleDisplayMode(.inline)
                 #endif
@@ -34,14 +34,14 @@ struct HTMLManualView: View {
 /// WebView wrapper for displaying HTML content
 struct HTMLManualWebView: UIViewRepresentable {
     
-    /// Name of the bundled HTML manual file (without extension)
-    private static let manualFileName = "WSP Manual"
+    /// Name of the bundled HTML guide file (without extension)
+    private static let guideFileName = "Writing Shed Pro Guide"
     
     func makeUIView(context: Context) -> WKWebView {
         let webView = WKWebView()
         webView.isOpaque = false
         webView.backgroundColor = .systemBackground
-        loadManual(into: webView)
+        loadGuide(into: webView)
         return webView
     }
     
@@ -49,15 +49,15 @@ struct HTMLManualWebView: UIViewRepresentable {
         // No updates needed
     }
     
-    private func loadManual(into webView: WKWebView) {
-        // Try to load the HTML manual from the app bundle
-        if let manualURL = Bundle.main.url(
-            forResource: Self.manualFileName,
+    private func loadGuide(into webView: WKWebView) {
+        // Try to load the HTML guide from the app bundle
+        if let guideURL = Bundle.main.url(
+            forResource: Self.guideFileName,
             withExtension: "html"
         ) {
-            webView.loadFileURL(manualURL, allowingReadAccessTo: manualURL.deletingLastPathComponent())
+            webView.loadFileURL(guideURL, allowingReadAccessTo: guideURL.deletingLastPathComponent())
         } else {
-            // Show placeholder message if manual not found
+            // Show placeholder message if guide not found
             let placeholderHTML = """
             <!DOCTYPE html>
             <html>
@@ -80,9 +80,9 @@ struct HTMLManualWebView: UIViewRepresentable {
                 </style>
             </head>
             <body>
-                <h1>📖 Writing Shed Pro Manual</h1>
+                <h1>📖 Writing Shed Pro Guide</h1>
                 <div class="coming-soon">
-                    <p>The manual is coming soon!</p>
+                    <p>The guide is coming soon!</p>
                     <p>In the meantime, explore the app or contact support for help.</p>
                 </div>
             </body>

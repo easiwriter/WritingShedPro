@@ -1,4 +1,4 @@
-# Feature 027: WSP User Manual
+# Feature 027: WSP User Guide
 
 **Status**: Draft  
 **Priority**: Medium  
@@ -8,21 +8,30 @@
 
 ## Overview
 
-Create the official Writing Shed Pro user manual as a WSP Manual project, written in WSP itself. This demonstrates the app's capabilities (dogfooding) and provides comprehensive documentation for users.
+Create the official Writing Shed Pro User Guide as a WSP project, written in WSP itself. This demonstrates the app's capabilities (dogfooding) and provides comprehensive documentation for users.
 
 ## Goals
 
 1. **Comprehensive Documentation**: Cover all WSP features
-2. **Dogfooding**: Use WSP to create its own manual, proving capabilities
+2. **Dogfooding**: Use WSP to create its own guide, proving capabilities
 3. **Living Document**: Easy to update with new features
 4. **Distribution**: Accessible in-app and via WSP Reader
 
-## Manual Structure
+## Naming Convention
+
+| Item | Name |
+|------|------|
+| WSP Project file | `WSP Guide.wsp` |
+| Project name (in app) | "Writing Shed Pro Guide" |
+| HTML file | `Writing Shed Pro Guide.html` |
+| Menu command | "Import User Guide" |
+
+## Guide Structure
 
 ### Proposed Table of Contents
 
 ```
-Writing Shed Pro Manual (Project)
+Writing Shed Pro Guide (Project)
 │
 ├── Welcome (Folder)
 │   ├── Introduction
@@ -221,39 +230,52 @@ If using Markdown source:
 
 ## Distribution
 
-The manual is distributed in two formats with two access methods:
+The guide is distributed in two formats with two access methods:
 
-### 1. HTML Manual (Quick Reference)
-- **File**: `WSP Manual.html` in app Resources folder
+### 1. HTML Guide (Quick Reference)
+- **File**: `Writing Shed Pro Guide.html` in app Resources folder
 - **Access**: Help button (questionmark.circle) in main toolbar
 - **Purpose**: Quick reference, searchable, always available
 - **Display**: Opens in a WebKit view within the app
 - **Updates**: Bundled with app releases
+- **Generation**: Exported from the WSP Guide project as HTML Manuscript
 
-### 2. Manual Project (Editable Example)
-- **File**: `Manual Project.wsp` in app Resources folder  
-- **Access**: Settings menu → "Import Manual"
+### 2. WSP Guide Project (Editable Example)
+- **File**: `WSP Guide.wsp` in app Resources folder  
+- **Access**: Settings menu → "Import User Guide"
 - **Purpose**: 
-  - Example of a well-structured WSP project
+  - Example of a well-structured WSP Prose project
   - Users can annotate with their own notes
   - Users can export to PDF, RTF, etc.
   - Demonstrates WSP capabilities (dogfooding)
 - **Behavior**:
   - Shows confirmation dialog before import
-  - Creates a regular project the user owns
+  - If guide already exists, offers to replace (with warning about losing notes)
+  - Creates a regular project named "Writing Shed Pro Guide"
   - User can delete and re-import anytime
   - Syncs via iCloud like any other project
 
 ### 3. Bundled with Reader App
-- Include same `Manual Project.wsp`
+- Include same `WSP Guide.wsp`
 - Demonstrates Reader capabilities
 - First-run experience?
 
 ### 4. Online Version (Future)
-- HTML export of manual
-- Hosted on website
+- Same HTML export hosted on website
 - SEO benefits
 - Accessible without app
+
+### HTML Generation Workflow
+
+The HTML guide is generated from the WSP Guide project:
+
+1. Open WSP Guide project in Writing Shed Pro
+2. Use "Export Manuscript as HTML" feature (to be added)
+3. Save as `Writing Shed Pro Guide.html`
+4. Add to Xcode project Resources folder
+5. Bundle with app release
+
+This ensures single source of truth - the WSP project is the master, HTML is derived.
 
 ### Implementation Status
 
@@ -261,18 +283,20 @@ The following stubs have been implemented:
 
 | Component | File | Status |
 |-----------|------|--------|
-| Help button | `ContentViewToolbar.swift` | ✅ Stub added |
-| HTML viewer | `HTMLManualView.swift` | ✅ Stub added |
-| Import Manual menu | `ContentViewToolbar.swift` | ✅ Stub added |
-| Import service | `ManualImportService.swift` | ✅ Stub added |
+| Help button | `ContentViewToolbar.swift` | ✅ Added |
+| HTML viewer | `HTMLManualView.swift` | ✅ Added |
+| Import User Guide menu | `ContentViewToolbar.swift` | ✅ Added |
+| Import service | `UserGuideImportService.swift` | ✅ Added |
+| Replace existing check | `UserGuideImportService.swift` | ✅ Added |
 | State properties | `ContentViewState.swift` | ✅ Added |
 | Sheet bindings | `ContentViewBody.swift` | ✅ Added |
 
 **Still needed:**
-- [ ] Create actual `WSP Manual.html` content
-- [ ] Create actual `Manual Project.wsp` file
-- [ ] Connect `ManualImportService` to existing WSP import logic
-- [ ] Add both files to Xcode project Resources
+- [ ] Add "Export Manuscript as HTML" feature
+- [ ] Create the `WSP Guide.wsp` project with full guide content
+- [ ] Export to `Writing Shed Pro Guide.html`
+- [ ] Connect `UserGuideImportService` to existing WSP import logic
+- [ ] Add both files to Xcode project Resources folder
 
 ## Localization (Future)
 

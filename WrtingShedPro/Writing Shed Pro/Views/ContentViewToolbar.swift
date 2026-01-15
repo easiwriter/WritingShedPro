@@ -33,7 +33,7 @@ struct ContentViewToolbar: ToolbarContent {
                 }
                 
                 Button(action: { state.showManualImportConfirmation = true }) {
-                    Label("Import Manual", systemImage: "book.closed")
+                    Label("Import User Guide", systemImage: "book.closed")
                 }
                 
                 // Poetry preferences submenu
