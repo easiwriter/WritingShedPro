@@ -30,7 +30,7 @@ struct BackMatterGeneratedContentView: View {
     
     /// Determine the back matter type based on file name
     private var backMatterType: BackMatterItem? {
-        guard let fileName = file.name?.lowercased() else { return nil }
+        let fileName = file.name.lowercased()
         
         for item in BackMatterItem.allCases {
             if fileName.contains(item.rawValue.lowercased()) {
@@ -62,7 +62,7 @@ struct BackMatterGeneratedContentView: View {
             }
             .padding()
         }
-        .navigationTitle(file.name ?? "")
+        .navigationTitle(file.name)
         .navigationBarTitleDisplayMode(.inline)
     }
     
@@ -196,7 +196,7 @@ struct BackMatterGeneratedContentView: View {
     @ViewBuilder
     private var bibliographyContent: some View {
         let citations = (project.citationEntries ?? [])
-            .sorted { $0.authors.lowercased() < $1.authors.lowercased() }
+            .sorted { ($0.authors.first ?? "").lowercased() < ($1.authors.first ?? "").lowercased() }
         
         if citations.isEmpty {
             emptyStateView(
@@ -217,10 +217,37 @@ struct BackMatterGeneratedContentView: View {
     
     private func bibliographyRow(_ citation: CitationEntry) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(citation.formattedCitation)
+            Text(formatCitation(citation))
                 .font(.body)
         }
         .padding(.vertical, 4)
+    }
+    
+    /// Format a citation for display
+    private func formatCitation(_ citation: CitationEntry) -> String {
+        var parts: [String] = []
+        
+        // Authors
+        if !citation.authors.isEmpty {
+            parts.append(citation.authors.joined(separator: ", "))
+        }
+        
+        // Year
+        if let year = citation.year {
+            parts.append("(\(year))")
+        }
+        
+        // Title
+        if !citation.title.isEmpty {
+            parts.append(citation.title)
+        }
+        
+        // Source
+        if let source = citation.source, !source.isEmpty {
+            parts.append(source)
+        }
+        
+        return parts.joined(separator: ". ") + "."
     }
     
     // MARK: - Index Content
@@ -324,10 +351,11 @@ extension BackMatterGeneratedContentView {
     /// Check if a file is a generated back matter file
     static func isGeneratedBackMatterFile(_ file: TextFile) -> Bool {
         guard let folder = file.parentFolder,
-              folder.isBackMatterFolder,
-              let fileName = file.name?.lowercased() else {
+              folder.isBackMatterFolder else {
             return false
         }
+        
+        let fileName = file.name.lowercased()
         
         // Check if file name matches any back matter item
         for item in BackMatterItem.allCases {
