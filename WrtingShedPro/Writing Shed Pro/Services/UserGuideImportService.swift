@@ -60,10 +60,12 @@ final class UserGuideImportService {
         }
         
         // Use JSONImportService to import the WSP file
+        // Use generateNewUUIDs: true to avoid CloudKit conflicts with original project
         let errorHandler = ImportErrorHandler()
         let importService = JSONImportService(
             modelContext: modelContext,
-            errorHandler: errorHandler
+            errorHandler: errorHandler,
+            generateNewUUIDs: true
         )
         
         do {

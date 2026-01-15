@@ -27,6 +27,9 @@ class JSONImportService {
     private let modelContext: ModelContext
     private let errorHandler: ImportErrorHandler
     
+    /// When true, generates new UUIDs for all entities (useful for duplicating projects)
+    private let generateNewUUIDs: Bool
+    
     // Cache for mapping old IDs to new objects
     private var textFileMap: [String: TextFile] = [:]
     private var versionMap: [String: Version] = [:]
@@ -36,9 +39,10 @@ class JSONImportService {
     
     // MARK: - Initialization
     
-    init(modelContext: ModelContext, errorHandler: ImportErrorHandler) {
+    init(modelContext: ModelContext, errorHandler: ImportErrorHandler, generateNewUUIDs: Bool = false) {
         self.modelContext = modelContext
         self.errorHandler = errorHandler
+        self.generateNewUUIDs = generateNewUUIDs
     }
     
     // MARK: - Main Import Method
@@ -127,7 +131,7 @@ class JSONImportService {
         // Import publications
         for pubData in data.publications {
             let publication = Publication(
-                id: UUID(uuidString: pubData.id) ?? UUID(),
+                id: generateNewUUIDs ? UUID() : (UUID(uuidString: pubData.id) ?? UUID()),
                 name: pubData.name,
                 type: pubData.type.flatMap { PublicationType(rawValue: $0) } ?? .magazine,
                 url: pubData.url,
@@ -144,7 +148,7 @@ class JSONImportService {
         // Import submissions
         for subData in data.submissions {
             let submission = Submission(
-                id: UUID(uuidString: subData.id) ?? UUID(),
+                id: generateNewUUIDs ? UUID() : (UUID(uuidString: subData.id) ?? UUID()),
                 publication: subData.publicationId.flatMap { publicationMap[$0] },
                 project: project,
                 submittedDate: subData.submittedDate,
@@ -162,7 +166,7 @@ class JSONImportService {
             // Import submitted files
             for sfData in subData.submittedFiles {
                 let submittedFile = SubmittedFile(
-                    id: UUID(uuidString: sfData.id) ?? UUID(),
+                    id: generateNewUUIDs ? UUID() : (UUID(uuidString: sfData.id) ?? UUID()),
                     submission: submission,
                     textFile: sfData.textFileId.flatMap { textFileMap[$0] },
                     version: sfData.versionId.flatMap { versionMap[$0] },
@@ -195,7 +199,7 @@ class JSONImportService {
             parentFolder: parentFolder,
             userOrder: data.userOrder
         )
-        folder.id = UUID(uuidString: data.id) ?? UUID()
+        folder.id = generateNewUUIDs ? UUID() : (UUID(uuidString: data.id) ?? UUID())
         
         // Import text files
         for tfData in data.textFiles {
@@ -216,7 +220,7 @@ class JSONImportService {
     /// Import a text file from WSP format
     private func importWSPTextFile(_ data: WSPTextFileData, folder: Folder, versionMap: inout [String: Version]) -> TextFile {
         let textFile = TextFile()
-        textFile.id = UUID(uuidString: data.id) ?? UUID()
+        textFile.id = generateNewUUIDs ? UUID() : (UUID(uuidString: data.id) ?? UUID())
         textFile.name = data.name
         textFile.createdDate = data.createdDate
         textFile.modifiedDate = data.modifiedDate
@@ -248,7 +252,7 @@ class JSONImportService {
             versionNumber: data.versionNumber,
             comment: data.comment
         )
-        version.id = UUID(uuidString: data.id) ?? UUID()
+        version.id = generateNewUUIDs ? UUID() : (UUID(uuidString: data.id) ?? UUID())
         version.createdDate = data.createdDate
         version.notes = data.notes
         
@@ -261,10 +265,10 @@ class JSONImportService {
         // Import comments
         for cData in data.comments {
             let comment = CommentModel(
-                id: UUID(uuidString: cData.id) ?? UUID(),
+                id: generateNewUUIDs ? UUID() : (UUID(uuidString: cData.id) ?? UUID()),
                 version: version,
                 characterPosition: cData.characterPosition,
-                attachmentID: UUID(uuidString: cData.attachmentID) ?? UUID(),
+                attachmentID: generateNewUUIDs ? UUID() : (UUID(uuidString: cData.attachmentID) ?? UUID()),
                 text: cData.text,
                 author: cData.author,
                 createdAt: cData.createdAt,
@@ -276,10 +280,10 @@ class JSONImportService {
         // Import footnotes
         for fData in data.footnotes {
             let footnote = FootnoteModel(
-                id: UUID(uuidString: fData.id) ?? UUID(),
+                id: generateNewUUIDs ? UUID() : (UUID(uuidString: fData.id) ?? UUID()),
                 version: version,
                 characterPosition: fData.characterPosition,
-                attachmentID: UUID(uuidString: fData.attachmentID) ?? UUID(),
+                attachmentID: generateNewUUIDs ? UUID() : (UUID(uuidString: fData.attachmentID) ?? UUID()),
                 text: fData.text,
                 number: fData.number,
                 createdAt: fData.createdAt,
