@@ -34,6 +34,7 @@ struct ContentViewBody: View {
     let onRunMigrations: () -> Void
     
     @Environment(\.requestReview) var requestReview
+    @Environment(\.modelContext) private var modelContext
     
     var body: some View {
         NavigationStack(path: $state.navigationPath) {
@@ -105,6 +106,22 @@ struct ContentViewBody: View {
             .sheet(isPresented: $state.showSyncDiagnostics) {
                 SyncDiagnosticsView()
             }
+            .sheet(isPresented: $state.showHTMLManual) {
+                HTMLManualView()
+            }
+            .alert("Import Manual Project", isPresented: $state.showManualImportConfirmation) {
+                Button("Cancel", role: .cancel) { }
+                Button("Import") {
+                    importManualProject()
+                }
+            } message: {
+                Text("This will import the Writing Shed Pro manual as an example project you can explore and annotate.")
+            }
+            .alert("Import Error", isPresented: $state.showManualImportError) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(state.manualImportErrorMessage)
+            }
             .fileImporter(
                 isPresented: $state.showingJSONImportPicker,
                 allowedContentTypes: [
@@ -135,6 +152,18 @@ struct ContentViewBody: View {
         .onReceive(NotificationCenter.default.publisher(for: .popToRootNavigation)) { _ in
             // Clear navigation path to pop all views to root
             state.navigationPath = NavigationPath()
+        }
+    }
+    
+    // MARK: - Manual Import
+    
+    /// Import the bundled Manual Project
+    private func importManualProject() {
+        do {
+            try ManualImportService.importManualProject(modelContext: modelContext)
+        } catch {
+            state.manualImportErrorMessage = error.localizedDescription
+            state.showManualImportError = true
         }
     }
 }

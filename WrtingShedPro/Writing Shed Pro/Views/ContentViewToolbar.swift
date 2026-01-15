@@ -32,6 +32,10 @@ struct ContentViewToolbar: ToolbarContent {
                     Label("Import", systemImage: "arrow.down.doc")
                 }
                 
+                Button(action: { state.showManualImportConfirmation = true }) {
+                    Label("Import Manual", systemImage: "book.closed")
+                }
+                
                 // Poetry preferences submenu
                 Menu {
                     Toggle(isOn: Binding(
@@ -114,6 +118,12 @@ struct ContentViewToolbar: ToolbarContent {
         // Action buttons (trailing)
         ToolbarItem(placement: .navigationBarTrailing) {
             HStack(spacing: 16) {
+                // Help button - opens HTML manual
+                Button(action: { state.showHTMLManual = true }) {
+                    Image(systemName: "questionmark.circle")
+                }
+                .accessibilityLabel("Help")
+                
                 #if DEBUG && (targetEnvironment(macCatalyst) || os(macOS))
                 Button(role: .destructive, action: { state.showDeleteAllConfirmation = true }) {
                     Label("contentView.deleteAll", systemImage: "trash")

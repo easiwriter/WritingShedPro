@@ -221,26 +221,58 @@ If using Markdown source:
 
 ## Distribution
 
-### 1. Bundled with Pro App
-- Include manual.wsp in app bundle
-- Accessible from Help menu / Settings
-- Updated with each app release
+The manual is distributed in two formats with two access methods:
 
-### 2. Bundled with Reader App
-- Include same manual.wsp
+### 1. HTML Manual (Quick Reference)
+- **File**: `WSP Manual.html` in app Resources folder
+- **Access**: Help button (questionmark.circle) in main toolbar
+- **Purpose**: Quick reference, searchable, always available
+- **Display**: Opens in a WebKit view within the app
+- **Updates**: Bundled with app releases
+
+### 2. Manual Project (Editable Example)
+- **File**: `Manual Project.wsp` in app Resources folder  
+- **Access**: Settings menu → "Import Manual"
+- **Purpose**: 
+  - Example of a well-structured WSP project
+  - Users can annotate with their own notes
+  - Users can export to PDF, RTF, etc.
+  - Demonstrates WSP capabilities (dogfooding)
+- **Behavior**:
+  - Shows confirmation dialog before import
+  - Creates a regular project the user owns
+  - User can delete and re-import anytime
+  - Syncs via iCloud like any other project
+
+### 3. Bundled with Reader App
+- Include same `Manual Project.wsp`
 - Demonstrates Reader capabilities
 - First-run experience?
-
-### 3. Downloadable
-- Available from website
-- Link in-app to download latest
-- Useful for major updates between releases
 
 ### 4. Online Version (Future)
 - HTML export of manual
 - Hosted on website
 - SEO benefits
 - Accessible without app
+
+### Implementation Status
+
+The following stubs have been implemented:
+
+| Component | File | Status |
+|-----------|------|--------|
+| Help button | `ContentViewToolbar.swift` | ✅ Stub added |
+| HTML viewer | `HTMLManualView.swift` | ✅ Stub added |
+| Import Manual menu | `ContentViewToolbar.swift` | ✅ Stub added |
+| Import service | `ManualImportService.swift` | ✅ Stub added |
+| State properties | `ContentViewState.swift` | ✅ Added |
+| Sheet bindings | `ContentViewBody.swift` | ✅ Added |
+
+**Still needed:**
+- [ ] Create actual `WSP Manual.html` content
+- [ ] Create actual `Manual Project.wsp` file
+- [ ] Connect `ManualImportService` to existing WSP import logic
+- [ ] Add both files to Xcode project Resources
 
 ## Localization (Future)
 

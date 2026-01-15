@@ -38,6 +38,12 @@ final class ContentViewState {
     var projectForPageSetup: Project? // Tracks which project's page setup to show
     var showContactSupport = false
     
+    // Help & Manual
+    var showHTMLManual = false
+    var showManualImportConfirmation = false
+    var showManualImportError = false
+    var manualImportErrorMessage = ""
+    
     // Debug
     var showSyncDiagnostics = false
     
