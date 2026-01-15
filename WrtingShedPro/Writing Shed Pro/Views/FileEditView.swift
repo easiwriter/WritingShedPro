@@ -843,93 +843,109 @@ struct FileEditView: View {
             }
             
             // Notes & Endnotes submenu (Feature 029: Back Matter)
-            Menu {
-                Button(action: {
-                    showNewNoteDialog = true
-                }) {
-                    Label(NSLocalizedString("insertMenu.addNote", comment: "Add Note"), systemImage: "note.text.badge.plus")
-                }
-                
-                Button(action: {
-                    showNewEndnoteDialog = true
-                }) {
-                    Label(NSLocalizedString("insertMenu.addEndnote", comment: "Add Endnote"), systemImage: "number.circle.fill")
-                }
-                
-                if let project = file.project, project.noteEntries?.isEmpty == false {
-                    Divider()
-                    
-                    Button(action: {
-                        showNotesList = true
-                    }) {
-                        Label(NSLocalizedString("insertMenu.showNotes", comment: "Show Notes"), systemImage: "list.bullet.rectangle")
+            // Only show if notes or endnotes enabled in back matter settings
+            if backMatterSettings.isEnabled(.notes) || backMatterSettings.isEnabled(.endnotes) {
+                Menu {
+                    if backMatterSettings.isEnabled(.notes) {
+                        Button(action: {
+                            showNewNoteDialog = true
+                        }) {
+                            Label(NSLocalizedString("insertMenu.addNote", comment: "Add Note"), systemImage: "note.text.badge.plus")
+                        }
                     }
+                    
+                    if backMatterSettings.isEnabled(.endnotes) {
+                        Button(action: {
+                            showNewEndnoteDialog = true
+                        }) {
+                            Label(NSLocalizedString("insertMenu.addEndnote", comment: "Add Endnote"), systemImage: "number.circle.fill")
+                        }
+                    }
+                    
+                    if let project = file.project, project.noteEntries?.isEmpty == false {
+                        Divider()
+                        
+                        Button(action: {
+                            showNotesList = true
+                        }) {
+                            Label(NSLocalizedString("insertMenu.showNotes", comment: "Show Notes"), systemImage: "list.bullet.rectangle")
+                        }
+                    }
+                } label: {
+                    Label(NSLocalizedString("insertMenu.notes", comment: "Notes"), systemImage: "note.text")
                 }
-            } label: {
-                Label(NSLocalizedString("insertMenu.notes", comment: "Notes"), systemImage: "note.text")
             }
             
             // Glossary submenu (Feature 029: Back Matter)
-            Menu {
-                Button(action: {
-                    showNewGlossaryTermDialog = true
-                }) {
-                    Label(NSLocalizedString("insertMenu.addGlossaryTerm", comment: "Add Term"), systemImage: "text.book.closed.fill")
-                }
-                
-                if let project = file.project, project.glossaryEntries?.isEmpty == false {
-                    Divider()
-                    
+            // Only show if glossary enabled in back matter settings
+            if backMatterSettings.isEnabled(.glossary) {
+                Menu {
                     Button(action: {
-                        showGlossaryList = true
+                        showNewGlossaryTermDialog = true
                     }) {
-                        Label(NSLocalizedString("insertMenu.showGlossary", comment: "Show Glossary"), systemImage: "list.bullet.rectangle")
+                        Label(NSLocalizedString("insertMenu.addGlossaryTerm", comment: "Add Term"), systemImage: "text.book.closed.fill")
                     }
+                    
+                    if let project = file.project, project.glossaryEntries?.isEmpty == false {
+                        Divider()
+                        
+                        Button(action: {
+                            showGlossaryList = true
+                        }) {
+                            Label(NSLocalizedString("insertMenu.showGlossary", comment: "Show Glossary"), systemImage: "list.bullet.rectangle")
+                        }
+                    }
+                } label: {
+                    Label(NSLocalizedString("insertMenu.glossary", comment: "Glossary"), systemImage: "text.book.closed")
                 }
-            } label: {
-                Label(NSLocalizedString("insertMenu.glossary", comment: "Glossary"), systemImage: "text.book.closed")
             }
             
             // Citations submenu (Feature 029: Back Matter)
-            Menu {
-                Button(action: {
-                    showNewCitationDialog = true
-                }) {
-                    Label(NSLocalizedString("insertMenu.addCitation", comment: "Add Citation"), systemImage: "quote.opening")
-                }
-                
-                if let project = file.project, project.citationEntries?.isEmpty == false {
-                    Divider()
-                    
+            // Only show if bibliography enabled in back matter settings
+            if backMatterSettings.isEnabled(.bibliography) {
+                Menu {
                     Button(action: {
-                        showCitationsList = true
+                        showNewCitationDialog = true
                     }) {
-                        Label(NSLocalizedString("insertMenu.showCitations", comment: "Show Citations"), systemImage: "list.bullet.rectangle")
+                        Label(NSLocalizedString("insertMenu.addCitation", comment: "Add Citation"), systemImage: "quote.opening")
                     }
+                    
+                    if let project = file.project, project.citationEntries?.isEmpty == false {
+                        Divider()
+                        
+                        Button(action: {
+                            showCitationsList = true
+                        }) {
+                            Label(NSLocalizedString("insertMenu.showCitations", comment: "Show Citations"), systemImage: "list.bullet.rectangle")
+                        }
+                    }
+                } label: {
+                    Label(NSLocalizedString("insertMenu.citations", comment: "Citations"), systemImage: "books.vertical")
                 }
-            } label: {
-                Label(NSLocalizedString("insertMenu.citations", comment: "Citations"), systemImage: "books.vertical")
             }
             
             // Index submenu (Feature 029: Back Matter)
-            Menu {
-                Button(action: {
-                    showNewIndexEntryDialog = true
-                }) {
-                    Label(NSLocalizedString("insertMenu.addIndexEntry", comment: "Add Index Entry"), systemImage: "list.bullet.indent")
-                }
-                
-                if let project = file.project, project.indexEntries?.isEmpty == false {
-                    Divider()
-                    
+            // Only show if index enabled in back matter settings
+            if backMatterSettings.isEnabled(.index) {
+                Menu {
                     Button(action: {
-                        showIndexList = true
+                        showNewIndexEntryDialog = true
                     }) {
-                        Label(NSLocalizedString("insertMenu.showIndex", comment: "Show Index"), systemImage: "list.bullet.rectangle")
+                        Label(NSLocalizedString("insertMenu.addIndexEntry", comment: "Add Index Entry"), systemImage: "list.bullet.indent")
                     }
+                    
+                    if let project = file.project, project.indexEntries?.isEmpty == false {
+                        Divider()
+                        
+                        Button(action: {
+                            showIndexList = true
+                        }) {
+                            Label(NSLocalizedString("insertMenu.showIndex", comment: "Show Index"), systemImage: "list.bullet.rectangle")
+                        }
+                    }
+                } label: {
+                    Label(NSLocalizedString("insertMenu.index", comment: "Index"), systemImage: "list.bullet.indent")
                 }
-            } label: {
-                Label(NSLocalizedString("insertMenu.index", comment: "Index"), systemImage: "list.bullet.indent")
             }
             
             // Section marking menu (poetry projects only)
@@ -1097,6 +1113,16 @@ struct FileEditView: View {
     /// Whether this file belongs to a Poetry project
     private var isPoetryProject: Bool {
         file.project?.type == .poetry
+    }
+    
+    /// Get the Back Matter settings from the project's Back Matter folder
+    private var backMatterSettings: BackMatterSettings {
+        guard let project = file.project,
+              let manuscriptFolder = project.folders?.first(where: { $0.name == "Manuscript" }),
+              let backMatterFolder = manuscriptFolder.folders?.first(where: { $0.isBackMatterFolder }) else {
+            return BackMatterSettings()
+        }
+        return backMatterFolder.backMatterSettings
     }
     
     /// Whether the device is set to an English locale
