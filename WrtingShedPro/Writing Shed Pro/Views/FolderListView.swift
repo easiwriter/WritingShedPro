@@ -11,6 +11,9 @@ struct FolderListView: View {
     @State private var isLoadingFolders = true
     @State private var loadedFolders: [Folder] = []
     
+    // Query all trash items to check if trash folder should be shown
+    @Query private var allTrashItems: [TrashItem]
+    
     init(project: Project, selectedFolder: Folder? = nil) {
         self.project = project
         self.selectedFolder = selectedFolder
@@ -185,10 +188,13 @@ struct FolderListView: View {
             if selectedFolder == nil {
                 // Show all project folders in a simple list
                 ForEach(projectFolders) { folder in
-                    // Special handling for Trash folder
+                    // Special handling for Trash folder: only show if not empty
                     if folder.name == "Trash" {
-                        NavigationLink(destination: TrashView(project: project)) {
-                            FolderRowView(folder: folder)
+                        let trashedItemsForProject = allTrashItems.filter { $0.project?.id == project.id }
+                        if !trashedItemsForProject.isEmpty {
+                            NavigationLink(destination: TrashView(project: project)) {
+                                FolderRowView(folder: folder)
+                            }
                         }
                     } else {
                         // Check if this is a publication folder (Magazines, Competitions, Commissions, Other)

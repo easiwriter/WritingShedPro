@@ -61,6 +61,9 @@ enum WorkflowStatus: String, Codable, CaseIterable {
 
 @Model
 final class Project {
+        // Trash support
+        var isTrashed: Bool = false
+        var deletedDate: Date? = nil
     var id: UUID = UUID()
     var name: String?
     var typeRaw: String?

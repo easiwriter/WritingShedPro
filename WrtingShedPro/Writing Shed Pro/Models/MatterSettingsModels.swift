@@ -73,7 +73,6 @@ enum FrontMatterItem: String, CaseIterable, Codable, Identifiable {
 /// Order defines display order in the folder
 enum BackMatterItem: String, CaseIterable, Codable, Identifiable {
     case endnotes = "Endnotes"
-    case notes = "Notes"
     case glossary = "Glossary"
     case bibliography = "Bibliography"
     case index = "Index"
@@ -85,8 +84,6 @@ enum BackMatterItem: String, CaseIterable, Codable, Identifiable {
         switch self {
         case .endnotes:
             return NSLocalizedString("backMatter.endnotes", comment: "Endnotes")
-        case .notes:
-            return NSLocalizedString("backMatter.notes", comment: "Notes")
         case .glossary:
             return NSLocalizedString("backMatter.glossary", comment: "Glossary")
         case .bibliography:
@@ -103,10 +100,9 @@ enum BackMatterItem: String, CaseIterable, Codable, Identifiable {
     var sortOrder: Int {
         switch self {
         case .endnotes: return 0
-        case .notes: return 1
-        case .glossary: return 2
-        case .bibliography: return 3
-        case .index: return 4
+        case .glossary: return 1
+        case .bibliography: return 2
+        case .index: return 3
         }
     }
 }

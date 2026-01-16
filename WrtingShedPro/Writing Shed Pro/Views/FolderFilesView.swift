@@ -118,6 +118,15 @@ struct FolderFilesView: View {
     @State var showMoveDestinationPicker = false
     @State var filesToMove: [TextFile] = []
     
+    // Query all trash items (for trash count check)
+    @Query private var allTrashItems: [TrashItem]
+    
+    /// Returns the number of TrashItem objects for this folder's project
+    private var trashItemCount: Int {
+        guard let project = folder.project else { return 0 }
+        return allTrashItems.filter { $0.project?.id == project.id }.count
+    }
+    
     // Computed properties moved to FolderFilesView+Helpers.swift
     
     // MARK: - File List View (extracted to reduce body complexity)
@@ -192,20 +201,24 @@ struct FolderFilesView: View {
     
     @ViewBuilder
     private var mainContent: some View {
-        VStack(spacing: 0) {
-            if isContentFolder {
-                workflowStatusFilter
-            }
-            Group {
-                if isMixedContentFolder {
-                    mixedContentBody
-                } else if !sortedFiles.isEmpty {
-                    fileListSection
-                } else {
-                    ContentUnavailableView {
-                        Label("folderFiles.noFiles", systemImage: "doc.text")
-                    } description: {
-                        Text("folderFiles.noFiles.hint")
+        if folder.name == "Trash" && trashItemCount == 0 {
+            EmptyView()
+        } else {
+            VStack(spacing: 0) {
+                if isContentFolder {
+                    workflowStatusFilter
+                }
+                Group {
+                    if isMixedContentFolder {
+                        mixedContentBody
+                    } else if !sortedFiles.isEmpty {
+                        fileListSection
+                    } else {
+                        ContentUnavailableView {
+                            Label("folderFiles.noFiles", systemImage: "doc.text")
+                        } description: {
+                            Text("folderFiles.noFiles.hint")
+                        }
                     }
                 }
             }

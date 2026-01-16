@@ -12,6 +12,7 @@ struct ProjectEditableList: View {
     @State private var selectedProjectForPageSetup: Project?
     @State private var showingManageForms = false
     @State private var showDeleteConfirmation = false
+    @State private var showDeleteForeverConfirmation = false
     @State private var projectsToDelete: IndexSet?
     @State private var deleteInfo: (count: Int, firstName: String)?
     
@@ -117,23 +118,42 @@ struct ProjectEditableList: View {
             Text(exportErrorMessage)
         }
         .confirmationDialog(
-            Text("projectEditableList.deleteTitle"),
+            Text(NSLocalizedString("projectEditableList.deleteTitle", comment: "Delete project(s) confirmation dialog title")),
             isPresented: $showDeleteConfirmation,
             presenting: deleteInfo,
             actions: { _ in
-                Button("projectEditableList.delete", role: .destructive) {
-                    confirmDeleteProjects()
+                Button(NSLocalizedString("projectEditableList.delete", comment: "Delete button"), role: .destructive) {
+                    moveProjectsToTrash()
                 }
-                Button("button.cancel", role: .cancel) {
+                Button(NSLocalizedString("projectEditableList.deleteForever", comment: "Delete Forever button"), role: .destructive) {
+                    showDeleteForeverConfirmation = true
+                }
+                Button(NSLocalizedString("button.cancel", comment: "Cancel button"), role: .cancel) {
                     projectsToDelete = nil
                     deleteInfo = nil
                 }
             },
             message: { info in
+                Text(NSLocalizedString("projectEditableList.deleteMessage", comment: "Delete projects message"))
+            }
+        )
+        .alert(
+            NSLocalizedString("projectEditableList.deleteForeverTitle", comment: "Delete Forever confirmation title"),
+            isPresented: $showDeleteForeverConfirmation,
+            presenting: deleteInfo,
+            actions: { info in
+                Button(NSLocalizedString("projectEditableList.deleteForever", comment: "Delete Forever button"), role: .destructive) {
+                    deleteProjectsPermanently()
+                }
+                Button(NSLocalizedString("button.cancel", comment: "Cancel button"), role: .cancel) {
+                    showDeleteForeverConfirmation = false
+                }
+            },
+            message: { info in
                 if info.count == 1 {
-                    return Text(String(format: NSLocalizedString("projectEditableList.deleteSingleWarning", comment: "Delete single project warning"), info.firstName))
+                    return Text(String(format: NSLocalizedString("projectEditableList.deleteForeverSingleWarning", comment: "Delete single project forever warning"), info.firstName))
                 } else {
-                    return Text(String(format: NSLocalizedString("projectEditableList.deleteMultipleWarning", comment: "Delete multiple projects warning"), info.count))
+                    return Text(String(format: NSLocalizedString("projectEditableList.deleteForeverMultipleWarning", comment: "Delete multiple projects forever warning"), info.count))
                 }
             }
         )
@@ -180,19 +200,30 @@ struct ProjectEditableList: View {
         showDeleteConfirmation = true
     }
     
-    private func confirmDeleteProjects() {
+    private func moveProjectsToTrash() {
         guard let offsets = projectsToDelete else { return }
-        
-        // Safely delete projects by checking index bounds
+        for index in offsets {
+            guard index < sortedProjects.count else { continue }
+            let project = sortedProjects[index]
+            project.isTrashed = true
+            project.deletedDate = Date()
+        }
+        try? modelContext.save()
+        projectsToDelete = nil
+        deleteInfo = nil
+    }
+    
+    private func deleteProjectsPermanently() {
+        guard let offsets = projectsToDelete else { return }
         for index in offsets {
             guard index < sortedProjects.count else { continue }
             let project = sortedProjects[index]
             modelContext.delete(project)
         }
-        
         try? modelContext.save()
         projectsToDelete = nil
         deleteInfo = nil
+        showDeleteForeverConfirmation = false
     }
     
     private func moveProjects(from source: IndexSet, to destination: Int) {

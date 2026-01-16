@@ -36,17 +36,31 @@ struct ContentViewBody: View {
     @Environment(\.requestReview) var requestReview
     @Environment(\.modelContext) private var modelContext
     
+
+    @State private var showProjectTrash = false
+
+    private var trashedProjects: [Project] {
+        projects.filter { $0.isTrashed == true }
+    }
+
     var body: some View {
         NavigationStack(path: $state.navigationPath) {
             VStack(spacing: 0) {
                 ProjectEditableList(
-                    projects: projects,
+                    projects: projects.filter { !$0.isTrashed },
                     selectedSortOrder: $state.selectedSortOrder,
                     isEditMode: Binding(
                         get: { state.editMode == .active },
                         set: { state.editMode = $0 ? .active : .inactive }
                     )
                 )
+                // Only show Trash bin button if there are trashed projects
+                if !trashedProjects.isEmpty {
+                    Button(action: { showProjectTrash = true }) {
+                        Label(NSLocalizedString("projectTrash.title", comment: "Deleted Projects"), systemImage: "trash")
+                    }
+                    .padding(.vertical, 8)
+                }
             }
             .environment(\.editMode, $state.editMode)
             #if !targetEnvironment(macCatalyst)
@@ -90,6 +104,9 @@ struct ContentViewBody: View {
             }
             .sheet(isPresented: $state.showAddProject) {
                 AddProjectSheet(isPresented: $state.showAddProject)
+            }
+            .sheet(isPresented: $showProjectTrash) {
+                ProjectTrashBinView()
             }
             .sheet(isPresented: $state.showManageStyles) {
                 StyleSheetListView()

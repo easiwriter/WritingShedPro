@@ -842,37 +842,25 @@ struct FileEditView: View {
                 Label("Footnote", systemImage: "number.circle")
             }
             
-            // Notes & Endnotes submenu (Feature 029: Back Matter)
-            // Only show if notes or endnotes enabled in back matter settings
-            if backMatterSettings.isEnabled(.notes) || backMatterSettings.isEnabled(.endnotes) {
+            // Endnotes submenu (Feature 029: Back Matter)
+            // Only show if endnotes enabled in back matter settings
+            if backMatterSettings.isEnabled(.endnotes) {
                 Menu {
-                    if backMatterSettings.isEnabled(.notes) {
-                        Button(action: {
-                            showNewNoteDialog = true
-                        }) {
-                            Label(NSLocalizedString("insertMenu.addNote", comment: "Add Note"), systemImage: "note.text.badge.plus")
-                        }
+                    Button(action: {
+                        showNewEndnoteDialog = true
+                    }) {
+                        Label(NSLocalizedString("insertMenu.addEndnote", comment: "Add Endnote"), systemImage: "number.circle.fill")
                     }
-                    
-                    if backMatterSettings.isEnabled(.endnotes) {
-                        Button(action: {
-                            showNewEndnoteDialog = true
-                        }) {
-                            Label(NSLocalizedString("insertMenu.addEndnote", comment: "Add Endnote"), systemImage: "number.circle.fill")
-                        }
-                    }
-                    
-                    if let project = file.project, project.noteEntries?.isEmpty == false {
+                    if let project = file.project, (project.noteEntries?.contains { $0.isEndnote } ?? false) {
                         Divider()
-                        
                         Button(action: {
                             showNotesList = true
                         }) {
-                            Label(NSLocalizedString("insertMenu.showNotes", comment: "Show Notes"), systemImage: "list.bullet.rectangle")
+                            Label(NSLocalizedString("insertMenu.showEndnotes", comment: "Show Endnotes"), systemImage: "list.bullet.rectangle")
                         }
                     }
                 } label: {
-                    Label(NSLocalizedString("insertMenu.notes", comment: "Notes"), systemImage: "note.text")
+                    Label(NSLocalizedString("insertMenu.endnotes", comment: "Endnotes"), systemImage: "number.circle")
                 }
             }
             
@@ -1387,6 +1375,10 @@ struct FileEditView: View {
                             removeNoteMarkers(for: note)
                         }
                     )
+                    .onAppear {
+                        // Set filter to .endnotes if possible
+                        NotificationCenter.default.post(name: NSNotification.Name("NotesListView.SetFilter.Endnotes"), object: nil)
+                    }
                 }
             }
             .sheet(isPresented: $showNewNoteDialog) {

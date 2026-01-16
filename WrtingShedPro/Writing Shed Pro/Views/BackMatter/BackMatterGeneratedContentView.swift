@@ -48,8 +48,6 @@ struct BackMatterGeneratedContentView: View {
                 switch backMatterType {
                 case .endnotes:
                     endnotesContent
-                case .notes:
-                    notesContent
                 case .glossary:
                     glossaryContent
                 case .bibliography:

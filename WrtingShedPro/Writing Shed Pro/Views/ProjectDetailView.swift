@@ -28,16 +28,16 @@ struct ProjectDetailView: View {
             )
         }
         .confirmationDialog(
-            NSLocalizedString("projectDetail.deleteTitle", comment: "Delete project confirmation dialog title"),
+            NSLocalizedString("projectDetail.moveToTrashTitle", comment: "Move project to trash confirmation dialog title"),
             isPresented: $showDeleteConfirmation,
             actions: {
-                Button(NSLocalizedString("projectDetail.delete", comment: "Delete button"), role: .destructive) {
+                Button(NSLocalizedString("projectDetail.moveToTrash", comment: "Move to Trash button"), role: .destructive) {
                     deleteProject()
                 }
                 Button(NSLocalizedString("projectDetail.cancel", comment: "Cancel button"), role: .cancel) { }
             },
             message: {
-                Text(String(format: NSLocalizedString("projectDetail.deleteConfirmMessage", comment: "Delete confirmation message with project name"), project.name ?? ""))
+                Text(String(format: NSLocalizedString("projectDetail.moveToTrashConfirmMessage", comment: "Move to Trash confirmation message with project name"), project.name ?? ""))
             }
         )
         .alert(NSLocalizedString("projectDetail.error", comment: "Error alert title"), isPresented: $showErrorAlert) {
@@ -65,7 +65,9 @@ struct ProjectDetailView: View {
     }
     
     private func deleteProject() {
-        modelContext.delete(project)
+        project.isTrashed = true
+        project.deletedDate = Date()
+        try? modelContext.save()
         dismiss()
     }
 }

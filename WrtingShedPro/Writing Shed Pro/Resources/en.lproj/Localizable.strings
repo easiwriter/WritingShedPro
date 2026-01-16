@@ -1,3 +1,11 @@
+"projectEditableList.cancel" = "Cancel";
+"projectEditableList.moveToTrash" = "Move to Trash";
+"projectEditableList.moveToTrashTitle" = "Move Project(s) to Trash";
+"projectEditableList.moveToTrashSingleWarning" = "Are you sure you want to move \"%@\" to the Trash? You can restore it later from the Trash bin.";
+"projectEditableList.moveToTrashMultipleWarning" = "Are you sure you want to move %d projects to the Trash? You can restore them later from the Trash bin.";
+"projectDetail.moveToTrash" = "Move to Trash";
+"projectDetail.moveToTrashTitle" = "Move Project to Trash";
+"projectDetail.moveToTrashConfirmMessage" = "Are you sure you want to move \"%@\" to the Trash? You can restore it later from the Trash bin.";
 /* Localization strings for Write! app */
 
 /* Project types */
@@ -1406,10 +1414,13 @@
 "folderEditableList.deleteMultipleWarning" = "Are you sure you want to delete %d folders? This will also delete all files and subfolders. This action cannot be undone.";
 
 /* ProjectEditableList */
-"projectEditableList.deleteTitle" = "Delete Projects";
+"projectEditableList.deleteTitle" = "Delete Project?";
 "projectEditableList.delete" = "Delete";
-"projectEditableList.deleteSingleWarning" = "Are you sure you want to delete \"%@\"? This action cannot be undone.";
-"projectEditableList.deleteMultipleWarning" = "Are you sure you want to delete %d projects? This action cannot be undone.";
+"projectEditableList.deleteForever" = "Delete Forever";
+"projectEditableList.deleteMessage" = "Delete moves the project to Trash where it can be restored. Delete Forever permanently removes the project.";
+"projectEditableList.deleteForeverTitle" = "Delete Project Forever?";
+"projectEditableList.deleteForeverSingleWarning" = "\"%@\" will be permanently deleted. This cannot be undone.";
+"projectEditableList.deleteForeverMultipleWarning" = "%d projects will be permanently deleted. This cannot be undone.";
 
 /* CommentDetailView */
 "commentDetail.save" = "Save";
@@ -1489,6 +1500,14 @@
 "fileList.rename.duplicateConfirm" = "Continue";
 "fileList.rename.duplicateCancel" = "Cancel";
 "fileList.export" = "Export";
+
+/* Project Trash Bin - New Keys */
+"projectTrash.title" = "Project Trash";
+"projectTrash.empty" = "No deleted projects";
+"projectTrash.putBack" = "Put Back";
+"projectTrash.deleteForever" = "Delete Forever";
+"projectTrash.putBackConfirm" = "Restore this project to the project list?";
+"projectTrash.deleteForeverConfirm" = "Permanently delete this project? This action cannot be undone.";
 
 /* FormattingToolbar */
 "formattingToolbar.comingSoon.title" = "Coming Soon";
