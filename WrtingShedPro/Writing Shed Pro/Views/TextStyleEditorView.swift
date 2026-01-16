@@ -668,6 +668,9 @@ struct TextStyleEditorView: View {
                 #if DEBUG
                 print("✅ StyleSheetModified notification posted")
                 #endif
+                
+                // Update back matter files for all projects using this stylesheet
+                updateBackMatterForStylesheet(stylesheetID)
             } else {
                 #if DEBUG
                 print("⚠️ Style has no stylesheet - cannot post notification")
@@ -678,6 +681,86 @@ struct TextStyleEditorView: View {
             print("Error saving style: \(error)")
             #endif
         }
+    }
+    
+    /// Update back matter files for all projects using the given stylesheet
+    private func updateBackMatterForStylesheet(_ stylesheetID: UUID) {
+        // Find all projects using this stylesheet
+        let descriptor = FetchDescriptor<Project>(
+            predicate: #Predicate<Project> { project in
+                project.styleSheet?.id == stylesheetID
+            }
+        )
+        
+        guard let projects = try? modelContext.fetch(descriptor) else {
+            #if DEBUG
+            print("⚠️ Could not fetch projects for stylesheet")
+            #endif
+            return
+        }
+        
+        #if DEBUG
+        print("📁 Found \(projects.count) projects using stylesheet \(stylesheetID)")
+        #endif
+        
+        for project in projects {
+            let generator = BackMatterGenerator(context: modelContext, project: project)
+            
+            // Find the Back Matter folder
+            guard let backMatterFolder = project.folders?.first(where: { $0.name == "Back Matter" }) else {
+                continue
+            }
+            
+            // Update enabled back matter files
+            let backMatterItems: [(item: BackMatterItem, shouldUpdate: Bool)] = [
+                (.endnotes, true),
+                (.glossary, backMatterFolder.backMatterSettings.isEnabled(.glossary)),
+                (.bibliography, backMatterFolder.backMatterSettings.isEnabled(.bibliography)),
+                (.index, backMatterFolder.backMatterSettings.isEnabled(.index))
+            ]
+            
+            for (item, shouldUpdate) in backMatterItems {
+                guard shouldUpdate else { continue }
+                
+                // Find existing file
+                let folderID = backMatterFolder.id
+                let fileName = item.fileName
+                let fileDescriptor = FetchDescriptor<TextFile>(
+                    predicate: #Predicate<TextFile> { file in
+                        file.parentFolder?.id == folderID && file.name == fileName
+                    }
+                )
+                
+                guard let backMatterFile = try? modelContext.fetch(fileDescriptor).first else {
+                    continue
+                }
+                
+                // Generate fresh content
+                let generatedContent: NSAttributedString
+                switch item {
+                case .endnotes:
+                    generatedContent = generator.generateNotesSection() ?? NSAttributedString()
+                case .glossary:
+                    generatedContent = generator.generateGlossarySection() ?? NSAttributedString()
+                case .bibliography:
+                    generatedContent = generator.generateBibliographySection() ?? NSAttributedString()
+                case .index:
+                    generatedContent = generator.generateIndexSection(pageMap: [:]) ?? NSAttributedString()
+                }
+                
+                // Update the file's content
+                if let version = backMatterFile.currentVersion {
+                    version.attributedContent = generatedContent
+                    backMatterFile.modifiedDate = Date()
+                }
+            }
+        }
+        
+        try? modelContext.save()
+        
+        #if DEBUG
+        print("✅ Back matter files updated for stylesheet change")
+        #endif
     }
     
     private func createNewStyleFromChanges() {
