@@ -201,6 +201,7 @@ struct FileEditView: View {
                                 textViewCoordinator: textViewCoordinator,
                                 project: file.project,
                                 textContainerInset: UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8),
+                                isEditable: isFileEditable,
                                 onTextChange: { newText in
                                     handleAttributedTextChange(newText)
                                 },
@@ -233,6 +234,7 @@ struct FileEditView: View {
                                 textViewCoordinator: textViewCoordinator,
                                 project: file.project,
                                 textContainerInset: UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8),
+                                isEditable: isFileEditable,
                                 onTextChange: { newText in
                                     handleAttributedTextChange(newText)
                                 },
@@ -272,6 +274,7 @@ struct FileEditView: View {
                                 textViewCoordinator: textViewCoordinator,
                                 project: file.project,
                                 textContainerInset: UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8),
+                                isEditable: isFileEditable,
                                 onTextChange: { newText in
                                     handleAttributedTextChange(newText)
                                 },
@@ -301,6 +304,7 @@ struct FileEditView: View {
                                 textViewCoordinator: textViewCoordinator,
                                 project: file.project,
                                 textContainerInset: UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8),
+                                isEditable: isFileEditable,
                                 onTextChange: { newText in
                                     handleAttributedTextChange(newText)
                                 },
@@ -499,176 +503,181 @@ struct FileEditView: View {
     
     @ViewBuilder
     private func navigationBarButtons() -> some View {
-        let isCompact = UIDevice.current.userInterfaceIdiom == .phone
-        
-        HStack(spacing: isCompact ? 12 : 16) {
-            // Search button (only in edit mode and not opened from multi-file search)
-            if !isPaginationMode && !isFromMultiFileSearch {
-                Button(action: {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        showSearchBar.toggle()
-                        if showSearchBar, let textView = textViewCoordinator.textView {
-                            // Connect search manager to text view when opening
-                            searchManager.connect(to: textView)
-                            // Also connect to the custom undo manager so Replace All can clear it
-                            searchManager.customUndoManager = undoManager
-                        } else if !showSearchBar {
-                            // Disconnect when closing
-                            searchManager.disconnect()
-                        }
-                    }
-                }) {
-                    Image(systemName: showSearchBar ? "magnifyingglass.circle.fill" : "magnifyingglass")
-                }
-                .accessibilityLabel("Find and Replace")
-                .keyboardShortcut("f", modifiers: .command)
-            }
+        // Back matter files are read-only - no toolbar buttons needed
+        if !isFileEditable {
+            EmptyView()
+        } else {
+            let isCompact = UIDevice.current.userInterfaceIdiom == .phone
             
-            // Poetry form reference button (only for poetry projects)
-            if isPoetryProject {
-                Button(action: {
-                    showPoetryFormReference = true
-                }) {
-                    Image(systemName: "text.book.closed")
-                        .overlay(alignment: .topTrailing) {
-                            // Show badge hint when document is empty and has a structured form
-                            if attributedContent.length == 0,
-                               let form = file.poetryForm,
-                               form.id != PoetryForm.freeVerseId {
-                                Circle()
-                                    .fill(Color.accentColor)
-                                    .frame(width: 8, height: 8)
-                                    .offset(x: 4, y: -4)
+            HStack(spacing: isCompact ? 12 : 16) {
+                // Search button (only in edit mode and not opened from multi-file search)
+                if !isPaginationMode && !isFromMultiFileSearch {
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            showSearchBar.toggle()
+                            if showSearchBar, let textView = textViewCoordinator.textView {
+                                // Connect search manager to text view when opening
+                                searchManager.connect(to: textView)
+                                // Also connect to the custom undo manager so Replace All can clear it
+                                searchManager.customUndoManager = undoManager
+                            } else if !showSearchBar {
+                                // Disconnect when closing
+                                searchManager.disconnect()
                             }
                         }
-                }
-                .accessibilityLabel(NSLocalizedString("poetryFormReference.formButtonAccessibility", comment: "Show poetry form reference"))
-                
-                // Poetry metrics button with validation badge (English only - analysis requires CMU dictionary)
-                if isEnglishLocale {
-                    Button(action: {
-                        showPoetryMetrics = true
                     }) {
-                        Image(systemName: "chart.bar")
+                        Image(systemName: showSearchBar ? "magnifyingglass.circle.fill" : "magnifyingglass")
+                    }
+                    .accessibilityLabel("Find and Replace")
+                    .keyboardShortcut("f", modifiers: .command)
+                }
+                
+                // Poetry form reference button (only for poetry projects)
+                if isPoetryProject {
+                    Button(action: {
+                        showPoetryFormReference = true
+                    }) {
+                        Image(systemName: "text.book.closed")
                             .overlay(alignment: .topTrailing) {
-                                // Show badge with issue count when there are validation issues
-                                if let form = file.poetryForm,
+                                // Show badge hint when document is empty and has a structured form
+                                if attributedContent.length == 0,
+                                   let form = file.poetryForm,
                                    form.id != PoetryForm.freeVerseId {
-                                    let validation = PoetryValidator.shared.validate(text: attributedContent.string, against: form)
-                                    if validation.hasIssues {
-                                        Text("\(min(validation.issueCount, 99))")
-                                            .font(.system(size: 9, weight: .bold))
-                                            .foregroundColor(.white)
-                                            .padding(3)
-                                            .background(Color.red)
-                                            .clipShape(Circle())
-                                            .offset(x: 6, y: -6)
-                                    }
+                                    Circle()
+                                        .fill(Color.accentColor)
+                                        .frame(width: 8, height: 8)
+                                        .offset(x: 4, y: -4)
                                 }
                             }
                     }
-                    .accessibilityLabel(NSLocalizedString("poetryMetrics.buttonAccessibility", comment: "Show poetry metrics"))
+                    .accessibilityLabel(NSLocalizedString("poetryFormReference.formButtonAccessibility", comment: "Show poetry form reference"))
+                    
+                    // Poetry metrics button with validation badge (English only - analysis requires CMU dictionary)
+                    if isEnglishLocale {
+                        Button(action: {
+                            showPoetryMetrics = true
+                        }) {
+                            Image(systemName: "chart.bar")
+                                .overlay(alignment: .topTrailing) {
+                                    // Show badge with issue count when there are validation issues
+                                    if let form = file.poetryForm,
+                                       form.id != PoetryForm.freeVerseId {
+                                        let validation = PoetryValidator.shared.validate(text: attributedContent.string, against: form)
+                                        if validation.hasIssues {
+                                            Text("\(min(validation.issueCount, 99))")
+                                                .font(.system(size: 9, weight: .bold))
+                                                .foregroundColor(.white)
+                                                .padding(3)
+                                                .background(Color.red)
+                                                .clipShape(Circle())
+                                                .offset(x: 6, y: -6)
+                                        }
+                                    }
+                                }
+                        }
+                        .accessibilityLabel(NSLocalizedString("poetryMetrics.buttonAccessibility", comment: "Show poetry metrics"))
+                    }
                 }
-            }
-            
-            // Plot elements button (only for files linked to fiction scenes with plot elements)
-            if let scene = file.scene,
-               let plotElements = scene.plotElements,
-               !plotElements.isEmpty {
-                plotElementsButton(plotElements: plotElements)
-            }
-            
-            // Character and Location insert buttons (for Fiction and Drama projects)
-            if let project = file.project,
-               (project.type == .fiction || project.type == .drama) {
-                characterLocationInsertMenu(project: project)
-            }
-            
-            // On iPhone, group paginate/insert/print into a menu to save space
-            // Undo/redo are more commonly used, so they're visible buttons
-            if isCompact {
-                if !isPaginationMode {
-                    // Undo/redo as visible buttons on iPhone
-                    Button(action: {
-                        performUndo()
-                        restoreKeyboardFocus()
-                    }) {
-                        Image(systemName: "arrow.uturn.backward")
-                    }
-                    .disabled(!undoManager.canUndo || isPerformingUndoRedo)
-                    .accessibilityLabel("fileEdit.undo.accessibility")
-                    
-                    Button(action: {
-                        performRedo()
-                        restoreKeyboardFocus()
-                    }) {
-                        Image(systemName: "arrow.uturn.forward")
-                    }
-                    .disabled(!undoManager.canRedo || isPerformingUndoRedo)
-                    .accessibilityLabel("fileEdit.redo.accessibility")
-                    
-                    // Menu with paginate, insert options, and print
-                    Menu {
-                        compactInsertMenuContent()
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
+                
+                // Plot elements button (only for files linked to fiction scenes with plot elements)
+                if let scene = file.scene,
+                   let plotElements = scene.plotElements,
+                   !plotElements.isEmpty {
+                    plotElementsButton(plotElements: plotElements)
+                }
+                
+                // Character and Location insert buttons (for Fiction and Drama projects)
+                if let project = file.project,
+                   (project.type == .fiction || project.type == .drama) {
+                    characterLocationInsertMenu(project: project)
+                }
+                
+                // On iPhone, group paginate/insert/print into a menu to save space
+                // Undo/redo are more commonly used, so they're visible buttons
+                if isCompact {
+                    if !isPaginationMode {
+                        // Undo/redo as visible buttons on iPhone
+                        Button(action: {
+                            performUndo()
+                            restoreKeyboardFocus()
+                        }) {
+                            Image(systemName: "arrow.uturn.backward")
+                        }
+                        .disabled(!undoManager.canUndo || isPerformingUndoRedo)
+                        .accessibilityLabel("fileEdit.undo.accessibility")
+                        
+                        Button(action: {
+                            performRedo()
+                            restoreKeyboardFocus()
+                        }) {
+                            Image(systemName: "arrow.uturn.forward")
+                        }
+                        .disabled(!undoManager.canRedo || isPerformingUndoRedo)
+                        .accessibilityLabel("fileEdit.redo.accessibility")
+                        
+                        // Menu with paginate, insert options, and print
+                        Menu {
+                            compactInsertMenuContent()
+                        } label: {
+                            Image(systemName: "ellipsis.circle")
+                        }
+                    } else {
+                        // In pagination mode on iPhone, just show the toggle button
+                        Button(action: {
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                isPaginationMode.toggle()
+                            }
+                        }) {
+                            Image(systemName: "document.on.document.fill")
+                        }
+                        .accessibilityLabel("fileEdit.switchToEditMode.accessibility")
                     }
                 } else {
-                    // In pagination mode on iPhone, just show the toggle button
+                    // iPad/Mac: Pagination mode toggle (always available)
                     Button(action: {
                         withAnimation(.easeInOut(duration: 0.3)) {
                             isPaginationMode.toggle()
                         }
                     }) {
-                        Image(systemName: "document.on.document.fill")
+                        Image(systemName: isPaginationMode ? "document.on.document.fill" : "document.on.document")
                     }
-                    .accessibilityLabel("fileEdit.switchToEditMode.accessibility")
-                }
-            } else {
-                // iPad/Mac: Pagination mode toggle (always available)
-                Button(action: {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        isPaginationMode.toggle()
-                    }
-                }) {
-                    Image(systemName: isPaginationMode ? "document.on.document.fill" : "document.on.document")
-                }
-                .accessibilityLabel(isPaginationMode ? "fileEdit.switchToEditMode.accessibility" : "fileEdit.switchToPaginationPreview.accessibility")
-                
-                // Insert menu (only in edit mode)
-                if !isPaginationMode {
-                    insertMenu
-                }
-                
-                // iPad/Mac: Show undo/redo/print as separate buttons
-                if !isPaginationMode {
-                    Button(action: {
-                        performUndo()
-                        restoreKeyboardFocus()
-                    }) {
-                        Image(systemName: "arrow.uturn.backward")
-                    }
-                    .disabled(!undoManager.canUndo || isPerformingUndoRedo)
-                    .accessibilityLabel("fileEdit.undo.accessibility")
+                    .accessibilityLabel(isPaginationMode ? "fileEdit.switchToEditMode.accessibility" : "fileEdit.switchToPaginationPreview.accessibility")
                     
-                    Button(action: {
-                        performRedo()
-                        restoreKeyboardFocus()
-                    }) {
-                        Image(systemName: "arrow.uturn.forward")
+                    // Insert menu (only in edit mode)
+                    if !isPaginationMode {
+                        insertMenu
                     }
-                    .disabled(!undoManager.canRedo || isPerformingUndoRedo)
-                    .accessibilityLabel("fileEdit.redo.accessibility")
+                    
+                    // iPad/Mac: Show undo/redo/print as separate buttons
+                    if !isPaginationMode {
+                        Button(action: {
+                            performUndo()
+                            restoreKeyboardFocus()
+                        }) {
+                            Image(systemName: "arrow.uturn.backward")
+                        }
+                        .disabled(!undoManager.canUndo || isPerformingUndoRedo)
+                        .accessibilityLabel("fileEdit.undo.accessibility")
+                        
+                        Button(action: {
+                            performRedo()
+                            restoreKeyboardFocus()
+                        }) {
+                            Image(systemName: "arrow.uturn.forward")
+                        }
+                        .disabled(!undoManager.canRedo || isPerformingUndoRedo)
+                        .accessibilityLabel("fileEdit.redo.accessibility")
+                    }
+                    
+                    // Print button (available in both modes)
+                    Button(action: {
+                        printFile()
+                    }) {
+                        Image(systemName: "printer")
+                    }
+                    .disabled(!PrintService.isPrintingAvailable())
+                    .accessibilityLabel("fileEdit.print.accessibility")
                 }
-                
-                // Print button (available in both modes)
-                Button(action: {
-                    printFile()
-                }) {
-                    Image(systemName: "printer")
-                }
-                .disabled(!PrintService.isPrintingAvailable())
-                .accessibilityLabel("fileEdit.print.accessibility")
             }
         }
     }
@@ -790,8 +799,7 @@ struct FileEditView: View {
             }) {
                 Label("Insert Image", systemImage: "photo")
             }
-            
-            // Change poetry form (poetry projects only)
+
             if isPoetryProject {
                 Button(action: {
                     showPoetryFormPicker = true
@@ -799,87 +807,63 @@ struct FileEditView: View {
                     Label(NSLocalizedString("poetryForm.changeForm", comment: "Change Form"), systemImage: "text.book.closed")
                 }
             }
-            
-            // Comments submenu
+
+            // Comments
             Menu {
-                Button(action: {
-                    showNewCommentDialog = true
-                }) {
+                Button(action: { showNewCommentDialog = true }) {
                     Label("Add Comment", systemImage: "pencil.circle")
                 }
-                
                 if let currentVersion = file.currentVersion, currentVersion.comments?.isEmpty == false {
                     Divider()
-                    
-                    Button(action: {
-                        showCommentsList = true
-                    }) {
+                    Button(action: { showCommentsList = true }) {
                         Label("Show Comments", systemImage: "bubble.left.and.bubble.right")
                     }
                 }
             } label: {
                 Label("Comment", systemImage: "bubble.left")
             }
-            
-            // Footnotes submenu
+
+            // Footnote
             Menu {
-                Button(action: {
-                    showNewFootnoteDialog = true
-                }) {
+                Button(action: { showNewFootnoteDialog = true }) {
                     Label("Add Footnote", systemImage: "pencil.circle")
                 }
-                
                 if let currentVersion = file.currentVersion, currentVersion.footnotes?.isEmpty == false {
                     Divider()
-                    
-                    Button(action: {
-                        showFootnotesList = true
-                    }) {
+                    Button(action: { showFootnotesList = true }) {
                         Label("Show Footnotes", systemImage: "list.number")
                     }
                 }
             } label: {
                 Label("Footnote", systemImage: "number.circle")
             }
-            
-            // Endnotes submenu (Feature 029: Back Matter)
-            // Only show if endnotes enabled in back matter settings
+
+            // Endnote (top-level)
             if backMatterSettings.isEnabled(.endnotes) {
                 Menu {
-                    Button(action: {
-                        showNewEndnoteDialog = true
-                    }) {
+                    Button(action: { showNewEndnoteDialog = true }) {
                         Label(NSLocalizedString("insertMenu.addEndnote", comment: "Add Endnote"), systemImage: "number.circle.fill")
                     }
                     if let project = file.project, (project.noteEntries?.contains { $0.isEndnote } ?? false) {
                         Divider()
-                        Button(action: {
-                            showNotesList = true
-                        }) {
+                        Button(action: { showNotesList = true }) {
                             Label(NSLocalizedString("insertMenu.showEndnotes", comment: "Show Endnotes"), systemImage: "list.bullet.rectangle")
                         }
                     }
                 } label: {
-                    Label(NSLocalizedString("insertMenu.endnotes", comment: "Endnotes"), systemImage: "number.circle")
+                    Label(NSLocalizedString("insertMenu.endnotes", comment: "Endnote"), systemImage: "number.circle")
                 }
             }
-            
-            // Glossary submenu (Feature 029: Back Matter)
-            // Only show if glossary enabled in back matter settings
+
+            // Glossary (top-level)
             if backMatterSettings.isEnabled(.glossary) {
                 Menu {
-                    Button(action: {
-                        showNewGlossaryTermDialog = true
-                    }) {
+                    Button(action: { showNewGlossaryTermDialog = true }) {
                         Label(NSLocalizedString("insertMenu.addGlossaryTerm", comment: "Add Term"), systemImage: "text.book.closed.fill")
                     }
-                    
                     if let project = file.project, project.glossaryEntries?.isEmpty == false {
                         Divider()
-                        
-                        Button(action: {
-                            showGlossaryList = true
-                        }) {
+                        Button(action: { showGlossaryList = true }) {
                             Label(NSLocalizedString("insertMenu.showGlossary", comment: "Show Glossary"), systemImage: "list.bullet.rectangle")
                         }
                     }
@@ -887,47 +871,33 @@ struct FileEditView: View {
                     Label(NSLocalizedString("insertMenu.glossary", comment: "Glossary"), systemImage: "text.book.closed")
                 }
             }
-            
-            // Citations submenu (Feature 029: Back Matter)
-            // Only show if bibliography enabled in back matter settings
+
+            // Citation (top-level)
             if backMatterSettings.isEnabled(.bibliography) {
                 Menu {
-                    Button(action: {
-                        showNewCitationDialog = true
-                    }) {
+                    Button(action: { showNewCitationDialog = true }) {
                         Label(NSLocalizedString("insertMenu.addCitation", comment: "Add Citation"), systemImage: "quote.opening")
                     }
-                    
                     if let project = file.project, project.citationEntries?.isEmpty == false {
                         Divider()
-                        
-                        Button(action: {
-                            showCitationsList = true
-                        }) {
+                        Button(action: { showCitationsList = true }) {
                             Label(NSLocalizedString("insertMenu.showCitations", comment: "Show Citations"), systemImage: "list.bullet.rectangle")
                         }
                     }
                 } label: {
-                    Label(NSLocalizedString("insertMenu.citations", comment: "Citations"), systemImage: "books.vertical")
+                    Label(NSLocalizedString("insertMenu.citations", comment: "Citation"), systemImage: "books.vertical")
                 }
             }
-            
-            // Index submenu (Feature 029: Back Matter)
-            // Only show if index enabled in back matter settings
+
+            // Index (top-level)
             if backMatterSettings.isEnabled(.index) {
                 Menu {
-                    Button(action: {
-                        showNewIndexEntryDialog = true
-                    }) {
+                    Button(action: { showNewIndexEntryDialog = true }) {
                         Label(NSLocalizedString("insertMenu.addIndexEntry", comment: "Add Index Entry"), systemImage: "list.bullet.indent")
                     }
-                    
                     if let project = file.project, project.indexEntries?.isEmpty == false {
                         Divider()
-                        
-                        Button(action: {
-                            showIndexList = true
-                        }) {
+                        Button(action: { showIndexList = true }) {
                             Label(NSLocalizedString("insertMenu.showIndex", comment: "Show Index"), systemImage: "list.bullet.rectangle")
                         }
                     }
@@ -935,17 +905,14 @@ struct FileEditView: View {
                     Label(NSLocalizedString("insertMenu.index", comment: "Index"), systemImage: "list.bullet.indent")
                 }
             }
-            
-            // Section marking menu (poetry projects only)
+
             if isPoetryProject {
                 sectionMarkingMenu
             }
-            
+
             Divider()
-            
-            Button(action: {
-                insertPageBreak()
-            }) {
+
+            Button(action: { insertPageBreak() }) {
                 Label("Page Break", systemImage: "arrow.up.and.line.horizontal.and.arrow.down")
             }
         } label: {
@@ -1140,8 +1107,8 @@ struct FileEditView: View {
     
     private var mainContent: some View {
         VStack(spacing: 0) {
-            // Version toolbar (only shown in edit mode)
-            if !isPaginationMode {
+            // Version toolbar (only shown in edit mode and not for back matter files)
+            if !isPaginationMode && isFileEditable {
                 versionToolbar()
             }
             
@@ -1159,7 +1126,10 @@ struct FileEditView: View {
                 paginationSection()
             } else {
                 textEditorSection()
-                formattingToolbar()
+                // Formatting toolbar (only shown for editable files)
+                if isFileEditable {
+                    formattingToolbar()
+                }
             }
         }
         // Hidden keyboard shortcut handlers - using overlay so they don't affect layout
@@ -1223,6 +1193,14 @@ struct FileEditView: View {
                 }
             )
         }
+    }
+    
+    // MARK: - Computed Properties
+    
+    /// Check if the current file should be editable
+    /// Back matter files are read-only
+    private var isFileEditable: Bool {
+        return !file.isBackMatterFile
     }
     
     var body: some View {
@@ -2073,6 +2051,22 @@ struct FileEditView: View {
             print("📝 Document is empty, skipping reapply")
             #endif
         }
+        
+        // Regenerate back matter files with updated styles
+        updateBackMatterFiles()
+        
+        // If we're viewing a back matter file, reload its content
+        if file.isBackMatterFile {
+            #if DEBUG
+            print("📝 Reloading back matter file content after style change")
+            #endif
+            if let version = file.currentVersion,
+               let content = version.attributedContent {
+                attributedContent = content
+                refreshTrigger = UUID()
+            }
+        }
+        
         #if DEBUG
         print("📝 ========== END ==========")
         #endif
@@ -2657,6 +2651,9 @@ struct FileEditView: View {
         // Save changes
         saveChanges()
         
+        // Update back matter files with the new endnote
+        updateBackMatterFiles()
+        
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
             self.isPerformingUndoRedo = false
         }
@@ -2706,6 +2703,9 @@ struct FileEditView: View {
             attributedContent = mutableContent
             saveChanges()
             
+            // Update back matter files after removing note markers
+            updateBackMatterFiles()
+            
             #if DEBUG
             print("✅ Removed \(removedCount) markers for note \(note.id)")
             #endif
@@ -2750,6 +2750,118 @@ struct FileEditView: View {
             print("⚠️ No marker found for note \(note.id)")
             #endif
         }
+    }
+    
+    /// Update back matter files with current content when notes change
+    private func updateBackMatterFiles() {
+        guard let fileProject = file.project else {
+            #if DEBUG
+            print("⚠️ Cannot update back matter files: no project")
+            #endif
+            return
+        }
+        
+        #if DEBUG
+        print("📁 Project folders: \(fileProject.folders?.map { $0.name } ?? [])")
+        #endif
+        
+        // Find or create the Back Matter folder for this project
+        var backMatterFolder = fileProject.folders?.first(where: { $0.name == "Back Matter" })
+        
+        if backMatterFolder == nil {
+            #if DEBUG
+            print("⚠️ No Back Matter folder found, creating one...")
+            #endif
+            backMatterFolder = Folder(name: "Back Matter", project: fileProject)
+            modelContext.insert(backMatterFolder!)
+        }
+        
+        guard let backMatterFolder = backMatterFolder else { return }
+        
+        #if DEBUG
+        print("📄 Back Matter folder files: \(backMatterFolder.files?.map { $0.name } ?? [])")
+        #endif
+        
+        // Create BackMatterGenerator for generating content
+        let backMatterGenerator = BackMatterGenerator(context: modelContext, project: fileProject)
+        
+        let backMatterItems: [(item: BackMatterItem, shouldUpdate: Bool)] = [
+            (.endnotes, true),
+            (.glossary, backMatterFolder.backMatterSettings.isEnabled(.glossary)),
+            (.bibliography, backMatterFolder.backMatterSettings.isEnabled(.bibliography)),
+            (.index, backMatterFolder.backMatterSettings.isEnabled(.index))
+        ]
+        
+        for (item, shouldUpdate) in backMatterItems {
+            guard shouldUpdate else { continue }
+            
+            #if DEBUG
+            print("🔍 Looking for back matter file: \(item.fileName) (lowercase: \(item.fileName.lowercased()))")
+            #endif
+            
+            // Query database directly for the file instead of using folder.files relationship
+            let folderID = backMatterFolder.id
+            let fileName = item.fileName
+            let descriptor = FetchDescriptor<TextFile>(
+                predicate: #Predicate<TextFile> { file in
+                    file.parentFolder?.id == folderID && file.name == fileName
+                }
+            )
+            
+            var backMatterFile: TextFile?
+            if let existingFile = try? modelContext.fetch(descriptor).first {
+                backMatterFile = existingFile
+                #if DEBUG
+                print("✅ Found existing back matter file: \(existingFile.name)")
+                #endif
+            } else {
+                #if DEBUG
+                print("📄 Creating back matter file: \(item.fileName)")
+                #endif
+                backMatterFile = TextFile(name: item.fileName, parentFolder: backMatterFolder)
+                modelContext.insert(backMatterFile!)
+            }
+            
+            guard let backMatterFile = backMatterFile else { continue }
+            
+            #if DEBUG
+            print("✏️ Updating back matter file: \(backMatterFile.name)")
+            #endif
+            
+            // Generate fresh content for this back matter item using the generator's methods
+            let generatedContent: NSAttributedString
+            
+            switch item {
+            case .endnotes:
+                generatedContent = backMatterGenerator.generateNotesSection() ?? NSAttributedString()
+            case .glossary:
+                generatedContent = backMatterGenerator.generateGlossarySection() ?? NSAttributedString()
+            case .bibliography:
+                generatedContent = backMatterGenerator.generateBibliographySection() ?? NSAttributedString()
+            case .index:
+                generatedContent = backMatterGenerator.generateIndexSection(pageMap: [:]) ?? NSAttributedString()
+            }
+            
+            // Update or create the file's current version with the generated content
+            if backMatterFile.currentVersion == nil {
+                let newVersion = Version(versionNumber: 1)
+                newVersion.textFile = backMatterFile
+                newVersion.attributedContent = generatedContent
+                modelContext.insert(newVersion)
+                backMatterFile.currentVersionIndex = 0
+            } else {
+                backMatterFile.currentVersion?.attributedContent = generatedContent
+            }
+            
+            backMatterFile.modifiedDate = Date()
+            
+            #if DEBUG
+            print("✅ Updated back matter file: \(item.fileName)")
+            #endif
+        }
+        
+        // Save changes to the database
+        try? modelContext.save()
     }
     
     /// Handle tap on a reference attachment (shows popover or detail view)
