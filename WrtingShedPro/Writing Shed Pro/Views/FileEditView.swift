@@ -2990,7 +2990,7 @@ struct FileEditView: View {
         #endif
         
         // Enable settings for files that exist
-        let backMatterItems: [(name: String, type: BackMatterType)] = [
+        let backMatterItems: [(name: String, type: BackMatterItem)] = [
             ("Endnotes", .endnotes),
             ("Glossary", .glossary),
             ("Citations", .bibliography),
