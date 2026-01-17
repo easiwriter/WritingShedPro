@@ -113,7 +113,7 @@ struct NoteEditorSheet: View {
                 // Content section
                 Section {
                     TextEditor(text: $noteContent)
-                        .frame(minHeight: 300)
+                        .frame(maxHeight: .infinity)
                         .font(.body)
                 } header: {
                     Text(NSLocalizedString("noteEditor.content.header", comment: "Content"))
@@ -150,10 +150,13 @@ struct NoteEditorSheet: View {
                 titleVisibility: .visible
             ) {
                 Button(NSLocalizedString("noteEditor.discard.button", comment: "Discard"), role: .destructive) {
+                    showDiscardConfirmation = false
                     onCancel?()
                     dismiss()
                 }
-                Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {}
+                Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
+                    showDiscardConfirmation = false
+                }
             } message: {
                 Text(NSLocalizedString("noteEditor.discard.message", comment: "Your changes will be lost."))
             }
