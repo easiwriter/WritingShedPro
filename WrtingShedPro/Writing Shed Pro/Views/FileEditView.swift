@@ -3130,7 +3130,10 @@ struct FileEditView: View {
         
         // Remove all references and entries for this back matter type
         if file.name == "Endnotes" {
-            referenceTypeToRemove = .endnote
+            // NOTE: Endnotes are stored as .note type attachments (not .endnote)
+            // The ReferenceAttachment.referenceType is always .note for both notes and endnotes
+            // The isEndnote flag on NoteEntry distinguishes them
+            referenceTypeToRemove = .note
             // Remove all endnote entries
             project.noteEntries?.removeAll(where: { $0.isEndnote })
             #if DEBUG
