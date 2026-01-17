@@ -5582,12 +5582,14 @@ private struct NewCommentSheet: View {
                         onCancel()
                         dismiss()
                     }
+                    .buttonStyle(.plain)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("button.add") {
                         onAdd()
                         dismiss()
                     }
+                    .buttonStyle(.plain)
                     .disabled(commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
@@ -5629,12 +5631,14 @@ private struct NewFootnoteSheet: View {
                         onCancel()
                         dismiss()
                     }
+                    .buttonStyle(.plain)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("button.add") {
                         onAdd()
                         dismiss()
                     }
+                    .buttonStyle(.plain)
                     .disabled(footnoteText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }

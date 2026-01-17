@@ -161,12 +161,14 @@ struct NoteEditorSheet: View {
                         onCancel?()
                         dismiss()
                     }
+                    .buttonStyle(.plain)
                 }
                 
                 ToolbarItem(placement: .confirmationAction) {
                     Button(NSLocalizedString("button.save", comment: "Save")) {
                         saveNote()
                     }
+                    .buttonStyle(.plain)
                     .disabled(!canSave)
                 }
             }
