@@ -5543,37 +5543,30 @@ private struct NewCommentSheet: View {
     
     var body: some View {
         NavigationStack {
-            VStack(spacing: 16) {
-                Text("fileEdit.newComment.description")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal)
-                
-                TextEditor(text: $commentText)
-                    .padding(8)
-                    .background(Color(uiColor: .systemGray6))
-                    .cornerRadius(8)
-                    .scrollContentBackground(.hidden)
-                    .padding(.horizontal)
-                    .accessibilityLabel("fileEdit.newComment.textEditor.accessibility")
+            Form {
+                Section {
+                    TextEditor(text: $commentText)
+                        .frame(minHeight: 150)
+                        .font(.body)
+                } header: {
+                    Text("fileEdit.newComment.description")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
                 
                 // Show Comments button (only if there are existing comments)
                 if hasExistingComments {
-                    Button(action: {
-                        dismiss()
-                        onShowComments()
-                    }) {
-                        Label("Show Comments", systemImage: "bubble.left.and.bubble.right")
-                            .frame(maxWidth: .infinity)
+                    Section {
+                        Button(action: {
+                            dismiss()
+                            onShowComments()
+                        }) {
+                            Label("Show Comments", systemImage: "bubble.left.and.bubble.right")
+                        }
                     }
-                    .buttonStyle(.bordered)
-                    .padding(.horizontal)
                 }
-                
-                Spacer()
             }
-            .padding(.top)
             .navigationTitle("fileEdit.newComment.title")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -5582,14 +5575,12 @@ private struct NewCommentSheet: View {
                         onCancel()
                         dismiss()
                     }
-                    .buttonStyle(.plain)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("button.add") {
                         onAdd()
                         dismiss()
                     }
-                    .buttonStyle(.plain)
                     .disabled(commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
@@ -5605,24 +5596,18 @@ private struct NewFootnoteSheet: View {
     
     var body: some View {
         NavigationStack {
-            VStack(spacing: 16) {
-                Text("fileEdit.newFootnote.description")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal)
-                
-                TextEditor(text: $footnoteText)
-                    .padding(8)
-                    .background(Color(uiColor: .systemGray6))
-                    .cornerRadius(8)
-                    .scrollContentBackground(.hidden)
-                    .padding(.horizontal)
-                    .accessibilityLabel("fileEdit.newFootnote.textEditor.accessibility")
-                
-                Spacer()
+            Form {
+                Section {
+                    TextEditor(text: $footnoteText)
+                        .frame(minHeight: 150)
+                        .font(.body)
+                } header: {
+                    Text("fileEdit.newFootnote.description")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
             }
-            .padding(.top)
             .navigationTitle("fileEdit.newFootnote.title")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -5631,14 +5616,12 @@ private struct NewFootnoteSheet: View {
                         onCancel()
                         dismiss()
                     }
-                    .buttonStyle(.plain)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("button.add") {
                         onAdd()
                         dismiss()
                     }
-                    .buttonStyle(.plain)
                     .disabled(footnoteText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }

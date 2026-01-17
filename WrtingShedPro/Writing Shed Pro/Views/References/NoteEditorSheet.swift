@@ -96,62 +96,35 @@ struct NoteEditorSheet: View {
     
     var body: some View {
         NavigationView {
-            VStack(spacing: 0) {
+            Form {
                 // Title section
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(NSLocalizedString("noteEditor.title.header", comment: "Title"))
-                        .font(.headline)
-                        .foregroundColor(.secondary)
-                    
+                Section {
                     TextField(
                         NSLocalizedString("noteEditor.title.placeholder", comment: "Title (optional)"),
                         text: $noteTitle
                     )
-                    .textFieldStyle(.roundedBorder)
-                    
+                } header: {
+                    Text(NSLocalizedString("noteEditor.title.header", comment: "Title"))
+                } footer: {
                     Text(NSLocalizedString("noteEditor.title.footer", comment: "Optional title for organizing notes"))
-                        .font(.caption)
-                        .foregroundColor(.secondary)
                 }
-                .padding(.horizontal)
-                .padding(.top, 16)
-                .padding(.bottom, 16)
-                
-                Divider()
                 
                 // Content section
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(NSLocalizedString("noteEditor.content.header", comment: "Content"))
-                        .font(.headline)
-                        .foregroundColor(.secondary)
-                    
+                Section {
                     TextEditor(text: $noteContent)
                         .font(.body)
-                        .padding(8)
-                        .background(Color(uiColor: .systemGray6))
-                        .cornerRadius(8)
-                        .scrollContentBackground(.hidden)
+                } header: {
+                    Text(NSLocalizedString("noteEditor.content.header", comment: "Content"))
                 }
-                .padding(.horizontal)
-                .padding(.top, 16)
                 
                 // Info section (for existing notes)
                 if let existing = existingNote {
-                    Divider()
-                        .padding(.top, 16)
-                    
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text(NSLocalizedString("noteEditor.info.header", comment: "Information"))
-                            .font(.headline)
-                            .foregroundColor(.secondary)
-                        
+                    Section {
                         infoSection(for: existing)
+                    } header: {
+                        Text(NSLocalizedString("noteEditor.info.header", comment: "Information"))
                     }
-                    .padding(.horizontal)
-                    .padding(.top, 16)
                 }
-                
-                Spacer()
             }
             .navigationTitle(navigationTitle)
             .navigationBarTitleDisplayMode(.inline)
@@ -161,14 +134,12 @@ struct NoteEditorSheet: View {
                         onCancel?()
                         dismiss()
                     }
-                    .buttonStyle(.plain)
                 }
                 
                 ToolbarItem(placement: .confirmationAction) {
                     Button(NSLocalizedString("button.save", comment: "Save")) {
                         saveNote()
                     }
-                    .buttonStyle(.plain)
                     .disabled(!canSave)
                 }
             }
