@@ -506,16 +506,14 @@ struct FileEditView: View {
     private func navigationBarButtons() -> some View {
         // Back matter files: show delete/trash button only
         if !isFileEditable {
-            return AnyView(
-                HStack {
-                    Button(role: .destructive) {
-                        presentDeleteBackMatterAlert = true
-                    } label: {
-                        Image(systemName: "trash")
-                    }
-                    .accessibilityLabel("Delete Back Matter File")
+            HStack {
+                Button(role: .destructive) {
+                    presentDeleteBackMatterAlert = true
+                } label: {
+                    Image(systemName: "trash")
                 }
-            )
+                .accessibilityLabel("Delete Back Matter File")
+            }
         } else {
             let isCompact = UIDevice.current.userInterfaceIdiom == .phone
             
@@ -2211,33 +2209,6 @@ struct FileEditView: View {
     // MARK: - Attributed Text Handling
     
     private func handleAttributedTextChange(_ newAttributedText: NSAttributedString) {
-                // --- Endnote Reference Deletion Detection & Cleanup ---
-                // 1. Find all endnote references in previous and new content
-                let previousEndnoteRefs = Set(findEndnoteReferences(in: previousAttributedContent ?? NSAttributedString(string: previousContent)))
-                let newEndnoteRefs = Set(findEndnoteReferences(in: newAttributedText))
-
-                // 2. If any references were removed, delete the corresponding endnote entries
-                let removedRefs = previousEndnoteRefs.subtracting(newEndnoteRefs)
-                if !removedRefs.isEmpty, let project = file.project {
-                    for ref in removedRefs {
-                        if let entry = project.noteEntries?.first(where: { $0.isEndnote && $0.referenceID == ref }) {
-                            // Register undo for entry removal
-                            let removedEntry = entry
-                            let removedEntryIndex = project.noteEntries?.firstIndex(of: entry)
-                            undoManager.registerUndo(withTarget: self) { target in
-                                if let idx = removedEntryIndex {
-                                    project.noteEntries?.insert(removedEntry, at: idx)
-                                    updateBackMatterFiles()
-                                }
-                            }
-                            // Remove the entry
-                            project.noteEntries?.removeAll(where: { $0 == entry })
-                        }
-                    }
-                    // Update back matter after removals
-                    updateBackMatterFiles()
-                }
-
         #if DEBUG
         print("🔄 handleAttributedTextChange called")
         #if DEBUG
@@ -2322,20 +2293,6 @@ struct FileEditView: View {
             targetFile: file
         )
         undoManager.execute(command)
-
-        // --- End Endnote Reference Deletion Detection ---
-
-    }
-
-    /// Find all endnote reference IDs in the attributed string
-    private func findEndnoteReferences(in attrString: NSAttributedString) -> [String] {
-        var refs: [String] = []
-        attrString.enumerateAttribute(.link, in: NSRange(location: 0, length: attrString.length), options: []) { value, range, _ in
-            if let url = value as? URL, url.scheme == "endnote", let id = url.host {
-                refs.append(id)
-            }
-        }
-        return refs
         
         // Update previous content for next comparison
         previousContent = newContent
@@ -2935,37 +2892,39 @@ struct FileEditView: View {
 
     private func deleteBackMatterFileAndCleanup() {
         guard let folder = file.parentFolder, let project = file.project else { return }
+        
         // Remove all references and entries for this back matter type
         if file.name == "Endnotes" {
-            // Remove all endnote references from manuscript
-            if let manuscript = project.manuscriptFile, let version = manuscript.currentVersion {
-                let mutable = NSMutableAttributedString(attributedString: version.attributedContent ?? NSAttributedString())
-                mutable.enumerateAttribute(.link, in: NSRange(location: 0, length: mutable.length), options: []) { value, range, _ in
-                    if let url = value as? URL, url.scheme == "endnote" {
-                        mutable.deleteCharacters(in: range)
-                    }
-                }
-                version.attributedContent = mutable
-            }
             // Remove all endnote entries
             project.noteEntries?.removeAll(where: { $0.isEndnote })
             // Turn off endnotes in settings
-            folder.backMatterSettings.setEnabled(.endnotes, false)
+            if let backMatterFolder = project.folders?.first(where: { $0.name == "Back Matter" }) {
+                backMatterFolder.backMatterSettings.setEnabled(enabled: false, for: .endnotes)
+            }
         } else if file.name == "Glossary" {
             project.glossaryEntries?.removeAll()
-            folder.backMatterSettings.setEnabled(.glossary, false)
+            if let backMatterFolder = project.folders?.first(where: { $0.name == "Back Matter" }) {
+                backMatterFolder.backMatterSettings.setEnabled(enabled: false, for: .glossary)
+            }
         } else if file.name == "Citations" {
             project.citationEntries?.removeAll()
-            folder.backMatterSettings.setEnabled(.bibliography, false)
+            if let backMatterFolder = project.folders?.first(where: { $0.name == "Back Matter" }) {
+                backMatterFolder.backMatterSettings.setEnabled(enabled: false, for: .bibliography)
+            }
         } else if file.name == "Index" {
             project.indexEntries?.removeAll()
-            folder.backMatterSettings.setEnabled(.index, false)
+            if let backMatterFolder = project.folders?.first(where: { $0.name == "Back Matter" }) {
+                backMatterFolder.backMatterSettings.setEnabled(enabled: false, for: .index)
+            }
         }
-        // Delete the file
-        folder.files?.removeAll(where: { $0 == file })
+        
+        // Delete the file from parent folder
+        folder.removeFile(file)
+        
         // Save and update back matter
-        try? file.modelContext?.save()
+        try? modelContext.save()
         updateBackMatterFiles()
+        
         // Dismiss view
         dismiss()
     }
