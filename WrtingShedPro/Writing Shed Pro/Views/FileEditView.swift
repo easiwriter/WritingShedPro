@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 import PhotosUI
 
 struct FileEditView: View {
+        @State private var presentDeleteBackMatterAlert = false
     @Bindable var file: TextFile
     
     // Track version index changes explicitly for toolbar updates
@@ -503,13 +504,74 @@ struct FileEditView: View {
     
     @ViewBuilder
     private func navigationBarButtons() -> some View {
-        // Back matter files are read-only - no toolbar buttons needed
+        // Back matter files: show delete/trash button only
         if !isFileEditable {
-            EmptyView()
+            return AnyView(
+                HStack {
+                    Button(role: .destructive) {
+                        presentDeleteBackMatterAlert = true
+                    } label: {
+                        Image(systemName: "trash")
+                    }
+                    .accessibilityLabel("Delete Back Matter File")
+                }
+            )
         } else {
+                // --- Delete Back Matter File Alert and Logic ---
+                @ViewBuilder
+                private var deleteBackMatterAlert: some View {
+                    EmptyView()
+                        .alert(isPresented: $presentDeleteBackMatterAlert) {
+                            Alert(
+                                title: Text("Delete Back Matter File?"),
+                                message: Text("This will remove all references to its contents and the referenced items themselves. This cannot be undone. Continue?"),
+                                primaryButton: .destructive(Text("Delete")) {
+                                    deleteBackMatterFileAndCleanup()
+                                },
+                                secondaryButton: .cancel()
+                            )
+                        }
+                }
+
+                private func deleteBackMatterFileAndCleanup() {
+                    guard let folder = file.parentFolder, let project = file.project else { return }
+                    // Remove all references and entries for this back matter type
+                    if file.name == "Endnotes" {
+                        // Remove all endnote references from manuscript
+                        if let manuscript = project.manuscriptFile, let version = manuscript.currentVersion {
+                            let mutable = NSMutableAttributedString(attributedString: version.attributedContent ?? NSAttributedString())
+                            mutable.enumerateAttribute(.link, in: NSRange(location: 0, length: mutable.length), options: []) { value, range, _ in
+                                if let url = value as? URL, url.scheme == "endnote" {
+                                    mutable.deleteCharacters(in: range)
+                                }
+                            }
+                            version.attributedContent = mutable
+                        }
+                        // Remove all endnote entries
+                        project.noteEntries?.removeAll(where: { $0.isEndnote })
+                        // Turn off endnotes in settings
+                        folder.backMatterSettings.setEnabled(.endnotes, false)
+                    } else if file.name == "Glossary" {
+                        project.glossaryEntries?.removeAll()
+                        folder.backMatterSettings.setEnabled(.glossary, false)
+                    } else if file.name == "Citations" {
+                        project.citationEntries?.removeAll()
+                        folder.backMatterSettings.setEnabled(.bibliography, false)
+                    } else if file.name == "Index" {
+                        project.indexEntries?.removeAll()
+                        folder.backMatterSettings.setEnabled(.index, false)
+                    }
+                    // Delete the file
+                    folder.files?.removeAll(where: { $0 == file })
+                    // Save and update back matter
+                    try? file.modelContext?.save()
+                    updateBackMatterFiles()
+                    // Dismiss view
+                    dismiss()
+                }
             let isCompact = UIDevice.current.userInterfaceIdiom == .phone
             
-            HStack(spacing: isCompact ? 12 : 16) {
+            return AnyView(HStack(spacing: isCompact ? 12 : 16) {
                 // Search button (only in edit mode and not opened from multi-file search)
                 if !isPaginationMode && !isFromMultiFileSearch {
                     Button(action: {
@@ -678,7 +740,7 @@ struct FileEditView: View {
                     .disabled(!PrintService.isPrintingAvailable())
                     .accessibilityLabel("fileEdit.print.accessibility")
                 }
-            }
+            })
         }
     }
     
@@ -1243,6 +1305,7 @@ struct FileEditView: View {
                 insertNewFootnote: insertNewFootnote,
                 showCommentsList: { showCommentsList = true }
             ))
+            .background(deleteBackMatterAlert)
             .sheet(isPresented: $showCommentsList) {
                 if let currentVersion = file.currentVersion {
                     CommentsListView(
@@ -2200,6 +2263,33 @@ struct FileEditView: View {
     // MARK: - Attributed Text Handling
     
     private func handleAttributedTextChange(_ newAttributedText: NSAttributedString) {
+                // --- Endnote Reference Deletion Detection & Cleanup ---
+                // 1. Find all endnote references in previous and new content
+                let previousEndnoteRefs = Set(findEndnoteReferences(in: previousAttributedContent ?? NSAttributedString(string: previousContent)))
+                let newEndnoteRefs = Set(findEndnoteReferences(in: newAttributedText))
+
+                // 2. If any references were removed, delete the corresponding endnote entries
+                let removedRefs = previousEndnoteRefs.subtracting(newEndnoteRefs)
+                if !removedRefs.isEmpty, let project = file.project {
+                    for ref in removedRefs {
+                        if let entry = project.noteEntries?.first(where: { $0.isEndnote && $0.referenceID == ref }) {
+                            // Register undo for entry removal
+                            let removedEntry = entry
+                            let removedEntryIndex = project.noteEntries?.firstIndex(of: entry)
+                            undoManager.registerUndo(withTarget: self) { target in
+                                if let idx = removedEntryIndex {
+                                    project.noteEntries?.insert(removedEntry, at: idx)
+                                    updateBackMatterFiles()
+                                }
+                            }
+                            // Remove the entry
+                            project.noteEntries?.removeAll(where: { $0 == entry })
+                        }
+                    }
+                    // Update back matter after removals
+                    updateBackMatterFiles()
+                }
+
         #if DEBUG
         print("🔄 handleAttributedTextChange called")
         #if DEBUG
@@ -2252,6 +2342,7 @@ struct FileEditView: View {
             #endif
             return
         }
+
         
         // Clear image selection when text changes
         selectedImage = nil
@@ -2274,7 +2365,7 @@ struct FileEditView: View {
             string: previousContent,
             attributes: [.font: UIFont.preferredFont(forTextStyle: .body)]
         )
-        
+
         let command = FormatApplyCommand(
             description: "Typing",
             range: NSRange(location: 0, length: newAttributedText.length),
@@ -2283,6 +2374,20 @@ struct FileEditView: View {
             targetFile: file
         )
         undoManager.execute(command)
+
+        // --- End Endnote Reference Deletion Detection ---
+
+    }
+
+    /// Find all endnote reference IDs in the attributed string
+    private func findEndnoteReferences(in attrString: NSAttributedString) -> [String] {
+        var refs: [String] = []
+        attrString.enumerateAttribute(.link, in: NSRange(location: 0, length: attrString.length), options: []) { value, range, _ in
+            if let url = value as? URL, url.scheme == "endnote", let id = url.host {
+                refs.append(id)
+            }
+        }
+        return refs
         
         // Update previous content for next comparison
         previousContent = newContent
