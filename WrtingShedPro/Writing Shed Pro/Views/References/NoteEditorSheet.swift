@@ -65,7 +65,14 @@ struct NoteEditorSheet: View {
     }
     
     private var canSave: Bool {
-        !noteContent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !noteTag.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        // If referencing existing note, just need a selection
+        if mode == .referenceExisting {
+            return selectedExistingNoteID != nil
+        }
+        
+        // For create new mode or editing, need both content and tag
+        return !noteContent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && 
+               !noteTag.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
     
     private var existingNotesOfType: [NoteEntry] {
