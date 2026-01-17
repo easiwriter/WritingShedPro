@@ -3234,7 +3234,7 @@ struct FileEditView: View {
         }
         
         let currentVersion = versions[textFile.currentVersionIndex]
-        guard let attributedText = currentVersion.attributedText else {
+        guard let attributedText = currentVersion.attributedContent else {
             #if DEBUG
             print("  ⚠️ No content found")
             #endif
@@ -3264,7 +3264,8 @@ struct FileEditView: View {
         }
         
         if removedCount > 0 {
-            currentVersion.attributedText = mutableText
+            // Update the version's attributed content (which will encode to formattedContent)
+            currentVersion.attributedContent = mutableText
             #if DEBUG
             print("    ✅ Removed \(removedCount) \(referenceType) references")
             #endif
