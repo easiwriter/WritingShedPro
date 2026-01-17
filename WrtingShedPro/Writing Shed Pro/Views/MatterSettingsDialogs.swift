@@ -293,6 +293,15 @@ struct BackMatterSettingsDialog: View {
                     let settings = folder.backMatterSettings
                     enabledItems = settings.enabledItems
                     indexColumnCount = settings.indexColumnCount
+                    
+                    // Also check which back matter files actually exist and include them
+                    // This ensures files that were created but settings were disabled are still shown as enabled
+                    let files = folder.textFiles ?? []
+                    for item in BackMatterItem.allCases {
+                        if files.contains(where: { $0.name == item.rawValue }) {
+                            enabledItems.insert(item)
+                        }
+                    }
                 }
             }
         }
