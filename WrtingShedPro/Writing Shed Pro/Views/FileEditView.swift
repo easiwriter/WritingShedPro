@@ -1092,12 +1092,23 @@ struct FileEditView: View {
     
     /// Get the Back Matter settings from the project's Back Matter folder
     private var backMatterSettings: BackMatterSettings {
-        guard let project = file.project,
-              let manuscriptFolder = project.folders?.first(where: { $0.name == "Manuscript" }),
-              let backMatterFolder = manuscriptFolder.folders?.first(where: { $0.isBackMatterFolder }) else {
+        guard let project = file.project else {
             return BackMatterSettings()
         }
-        return backMatterFolder.backMatterSettings
+        
+        // First try: Back Matter folder at project level (modern projects)
+        if let backMatterFolder = project.folders?.first(where: { $0.name == "Back Matter" }) {
+            return backMatterFolder.backMatterSettings
+        }
+        
+        // Second try: Back Matter folder inside Manuscript (legacy structure)
+        if let manuscriptFolder = project.folders?.first(where: { $0.name == "Manuscript" }),
+           let backMatterFolder = manuscriptFolder.folders?.first(where: { $0.isBackMatterFolder }) {
+            return backMatterFolder.backMatterSettings
+        }
+        
+        // No back matter found
+        return BackMatterSettings()
     }
     
     /// Whether the device is set to an English locale
