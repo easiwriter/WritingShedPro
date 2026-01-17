@@ -39,7 +39,6 @@ struct NoteEditorSheet: View {
     // MARK: - State
     
     @State private var noteContent: String = ""
-    @State private var noteTitle: String = ""
     @State private var noteTag: String = ""
     @State private var selectedExistingNoteID: UUID?
     @State private var mode: EditorMode = .createNew
@@ -60,9 +59,9 @@ struct NoteEditorSheet: View {
     
     private var hasChanges: Bool {
         if let existing = existingNote {
-            return noteContent != existing.content || noteTitle != (existing.title ?? "") || noteTag != (existing.tag ?? "")
+            return noteContent != existing.content || noteTag != (existing.tag ?? "")
         }
-        return !noteContent.isEmpty || !noteTitle.isEmpty || !noteTag.isEmpty
+        return !noteContent.isEmpty || !noteTag.isEmpty
     }
     
     private var canSave: Bool {
@@ -103,7 +102,6 @@ struct NoteEditorSheet: View {
         // Initialize state from existing note
         if let existing = existingNote {
             _noteContent = State(initialValue: existing.content)
-            _noteTitle = State(initialValue: existing.title ?? "")
             _noteTag = State(initialValue: existing.tag ?? "")
             _mode = State(initialValue: .createNew)
         } else {
@@ -158,13 +156,27 @@ struct NoteEditorSheet: View {
     }
     
     // MARK: - Mode Selector
+    /// COPILOT NOTE: Always use HStack with .buttonBorderShape(.capsule) and .buttonStyle(.bordered)
+    /// for toggle-style mode selection. Do NOT use .segmented style.
     
     private var modeSelector: some View {
-        Picker("Note Action", selection: $mode) {
-            Text("Create New").tag(EditorMode.createNew)
-            Text("Reference Existing").tag(EditorMode.referenceExisting)
+        HStack(spacing: 8) {
+            Button(action: { mode = .createNew }) {
+                Text("Create New")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .buttonBorderShape(.capsule)
+            .tint(mode == .createNew ? .blue : .gray)
+            
+            Button(action: { mode = .referenceExisting }) {
+                Text("Reference Existing")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .buttonBorderShape(.capsule)
+            .tint(mode == .referenceExisting ? .blue : .gray)
         }
-        .pickerStyle(.segmented)
         .padding()
     }
     
@@ -172,18 +184,6 @@ struct NoteEditorSheet: View {
     
     private var createNewNoteForm: some View {
         Form {
-            // Title section
-            Section {
-                TextField(
-                    NSLocalizedString("noteEditor.title.placeholder", comment: "Title (optional)"),
-                    text: $noteTitle
-                )
-            } header: {
-                Text(NSLocalizedString("noteEditor.title.header", comment: "Title"))
-            } footer: {
-                Text(NSLocalizedString("noteEditor.title.footer", comment: "Optional title for organizing notes"))
-            }
-            
             // Tag section (required for tag-based system)
             Section {
                 TextField(
@@ -219,37 +219,68 @@ struct NoteEditorSheet: View {
     // MARK: - Reference Existing Form
     
     private var referenceExistingForm: some View {
-        Form {
-            Section {
-                Picker("Select Note", selection: $selectedExistingNoteID) {
+        VStack(spacing: 0) {
+            Text("Choose Existing Note")
+                .font(.headline)
+                .padding()
+            
+            Text("Select an existing note to reference from this location")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .padding(.horizontal)
+                .padding(.bottom, 12)
+            
+            ScrollView {
+                VStack(spacing: 0) {
                     ForEach(existingNotesOfType) { note in
-                        VStack(alignment: .leading, spacing: 2) {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 2) {
+                        Button(action: { selectedExistingNoteID = note.id }) {
+                            HStack(spacing: 12) {
+                                VStack(alignment: .leading, spacing: 4) {
                                     if let tag = note.tag {
                                         Text(tag)
                                             .font(.headline)
+                                            .foregroundColor(.primary)
                                     }
                                     if let title = note.title {
                                         Text(title)
                                             .font(.caption)
                                             .foregroundColor(.secondary)
                                     }
+                                    Text(note.content)
+                                        .font(.caption)
+                                        .lineLimit(2)
+                                        .foregroundColor(.secondary)
                                 }
                                 Spacer()
-                                Text("\(note.referenceCount)")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
+                                
+                                VStack(alignment: .trailing, spacing: 4) {
+                                    if selectedExistingNoteID == note.id {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .font(.headline)
+                                            .foregroundColor(.blue)
+                                    }
+                                    Text("\(note.referenceCount)")
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                }
                             }
+                            .padding(12)
+                            .background(selectedExistingNoteID == note.id ? Color.blue.opacity(0.1) : Color.clear)
+                            .cornerRadius(8)
                         }
-                        .tag(Optional(note.id))
+                        
+                        if note.id != existingNotesOfType.last?.id {
+                            Divider()
+                                .padding(.horizontal)
+                        }
                     }
                 }
-            } header: {
-                Text("Choose Existing Note")
-            } footer: {
-                Text("Select an existing note to reference from this location")
+                .padding(8)
             }
+            .frame(maxHeight: 300)
+            .border(Color.gray.opacity(0.2))
+            .cornerRadius(8)
+            .padding()
         }
     }
     
@@ -294,7 +325,6 @@ struct NoteEditorSheet: View {
             if let existing = existingNote {
                 // Update existing note
                 existing.content = trimmedContent
-                existing.title = noteTitle.isEmpty ? nil : noteTitle
                 existing.tag = trimmedTag.isEmpty ? nil : trimmedTag
                 existing.modifiedAt = Date()
                 note = existing
