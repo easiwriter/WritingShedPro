@@ -192,6 +192,7 @@ struct NoteEditorSheet: View {
     
     // MARK: - Create New Form
     
+    @ViewBuilder
     private var createNewNoteForm: some View {
         // Tag section (required for tag-based system)
         Section {
