@@ -3302,7 +3302,7 @@ struct FileEditView: View {
             currentVersion.attributedContent = mutableText
             
             // Mark the file as modified so SwiftData tracks the change
-            textFile.updatedAt = Date()
+            textFile.modifiedDate = Date()
             
             #if DEBUG
             print("    ✅ Removed \(removedCount) \(referenceType) references from \(textFile.name)")
