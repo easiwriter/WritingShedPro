@@ -5546,7 +5546,6 @@ private struct NewCommentSheet: View {
             Form {
                 Section {
                     TextEditor(text: $commentText)
-                        .frame(minHeight: 150)
                         .font(.body)
                 } header: {
                     Text("fileEdit.newComment.description")
@@ -5599,7 +5598,6 @@ private struct NewFootnoteSheet: View {
             Form {
                 Section {
                     TextEditor(text: $footnoteText)
-                        .frame(minHeight: 150)
                         .font(.body)
                 } header: {
                     Text("fileEdit.newFootnote.description")
