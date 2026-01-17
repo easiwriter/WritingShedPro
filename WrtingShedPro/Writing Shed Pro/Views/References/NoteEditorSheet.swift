@@ -125,13 +125,6 @@ struct NoteEditorSheet: View {
                     }
                 }
                 
-                // Preview section
-                Section {
-                    previewSection
-                } header: {
-                    Text(NSLocalizedString("noteEditor.preview.header", comment: "Preview"))
-                }
-                
                 // Info section (for existing notes)
                 if let existing = existingNote {
                     Section {
@@ -163,57 +156,15 @@ struct NoteEditorSheet: View {
                 titleVisibility: .visible
             ) {
                 Button(NSLocalizedString("noteEditor.discard.button", comment: "Discard"), role: .destructive) {
+                    showDiscardConfirmation = false
                     onCancel?()
                     dismiss()
                 }
-                Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {}
+                Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
+                    showDiscardConfirmation = false
+                }
             } message: {
                 Text(NSLocalizedString("noteEditor.discard.message", comment: "Your changes will be lost."))
-            }
-        }
-    }
-    
-    // MARK: - Preview Section
-    
-    @ViewBuilder
-    private var previewSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            // Marker preview
-            HStack {
-                Text(NSLocalizedString("noteEditor.preview.marker", comment: "Marker:"))
-                    .foregroundColor(.secondary)
-                
-                if isEndnote {
-                    Text("[n]")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(.blue)
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 2)
-                        .background(Color.blue.opacity(0.1))
-                        .cornerRadius(3)
-                } else {
-                    Text("[Note n]")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(.blue)
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 2)
-                        .background(Color.blue.opacity(0.1))
-                        .cornerRadius(3)
-                }
-                
-                Text(NSLocalizedString("noteEditor.preview.markerNote", comment: "(number assigned on insert)"))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            
-            // Content preview
-            if !noteContent.isEmpty {
-                Divider()
-                
-                Text(noteContent)
-                    .font(.body)
-                    .foregroundColor(.primary)
-                    .lineLimit(5)
             }
         }
     }
