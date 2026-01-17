@@ -506,9 +506,6 @@ struct FileEditView: View {
     private func navigationBarButtons() -> some View {
         // Back matter files: show delete/trash button only
         if !isFileEditable {
-            #if DEBUG
-            print("🗑️ Showing delete button for back matter file: \(file.name)")
-            #endif
             HStack {
                 Button(role: .destructive) {
                     #if DEBUG
@@ -519,6 +516,11 @@ struct FileEditView: View {
                     Image(systemName: "trash")
                 }
                 .accessibilityLabel("Delete Back Matter File")
+            }
+            .onAppear {
+                #if DEBUG
+                print("🗑️ Showing delete button for back matter file: \(file.name)")
+                #endif
             }
         } else {
             let isCompact = UIDevice.current.userInterfaceIdiom == .phone
@@ -2890,9 +2892,42 @@ struct FileEditView: View {
     }
 
     private func deleteBackMatterFileAndCleanup() {
-        guard let folder = file.parentFolder, let project = file.project else {
+        #if DEBUG
+        print("🗑️ deleteBackMatterFileAndCleanup called")
+        print("  file.name: \(file.name)")
+        print("  file.parentFolder: \(file.parentFolder != nil ? "✅" : "❌ nil")")
+        print("  file.project: \(file.project != nil ? "✅" : "❌ nil")")
+        #endif
+        
+        // Navigate up to find the project through the folder hierarchy
+        var currentFolder = file.parentFolder
+        var project: Project?
+        
+        // Traverse up the folder tree to find a folder that has a project
+        while currentFolder != nil {
             #if DEBUG
-            print("❌ Cannot delete: missing folder or project")
+            print("  Checking folder: \(currentFolder?.name ?? "unknown")")
+            #endif
+            if let proj = currentFolder?.project {
+                project = proj
+                #if DEBUG
+                print("  Found project: \(proj.name)")
+                #endif
+                break
+            }
+            currentFolder = currentFolder?.parentFolder
+        }
+        
+        guard let project = project else {
+            #if DEBUG
+            print("❌ Cannot delete: could not find project through folder hierarchy")
+            #endif
+            return
+        }
+        
+        guard let backMatterFolder = file.parentFolder else {
+            #if DEBUG
+            print("❌ Cannot delete: missing parent folder")
             #endif
             return
         }
@@ -2906,27 +2941,19 @@ struct FileEditView: View {
             // Remove all endnote entries
             project.noteEntries?.removeAll(where: { $0.isEndnote })
             // Turn off endnotes in settings
-            if let backMatterFolder = project.folders?.first(where: { $0.name == "Back Matter" }) {
-                backMatterFolder.backMatterSettings.setEnabled(.endnotes, enabled: false)
-                #if DEBUG
-                print("✅ Disabled endnotes setting")
-                #endif
-            }
+            backMatterFolder.backMatterSettings.setEnabled(.endnotes, enabled: false)
+            #if DEBUG
+            print("✅ Disabled endnotes setting")
+            #endif
         } else if file.name == "Glossary" {
             project.glossaryEntries?.removeAll()
-            if let backMatterFolder = project.folders?.first(where: { $0.name == "Back Matter" }) {
-                backMatterFolder.backMatterSettings.setEnabled(.glossary, enabled: false)
-            }
+            backMatterFolder.backMatterSettings.setEnabled(.glossary, enabled: false)
         } else if file.name == "Citations" {
             project.citationEntries?.removeAll()
-            if let backMatterFolder = project.folders?.first(where: { $0.name == "Back Matter" }) {
-                backMatterFolder.backMatterSettings.setEnabled(.bibliography, enabled: false)
-            }
+            backMatterFolder.backMatterSettings.setEnabled(.bibliography, enabled: false)
         } else if file.name == "Index" {
             project.indexEntries?.removeAll()
-            if let backMatterFolder = project.folders?.first(where: { $0.name == "Back Matter" }) {
-                backMatterFolder.backMatterSettings.setEnabled(.index, enabled: false)
-            }
+            backMatterFolder.backMatterSettings.setEnabled(.index, enabled: false)
         }
         
         // Delete the file from SwiftData

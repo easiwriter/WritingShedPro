@@ -16,34 +16,59 @@ final class BackMatterGenerator {
     private let context: ModelContext
     private let project: Project
     
-    // MARK: - Formatting Options
+    // MARK: - Style Resolution
     
-    /// Font for section headings
-    private var headingFont: UIFont {
-        .boldSystemFont(ofSize: 18)
+    /// Resolve a style using StyleSheetService (properly falls back to default stylesheet)
+    private func resolveStyle(_ textStyle: UIFont.TextStyle) -> TextStyleModel? {
+        return StyleSheetService.resolveStyle(textStyle, for: project, context: context)
     }
     
-    /// Font for entry headings (e.g., note numbers, glossary terms)
-    private var entryHeadingFont: UIFont {
-        .boldSystemFont(ofSize: 14)
+    /// Get heading style attributes from the project's stylesheet (Title 1)
+    private var headingAttributes: [NSAttributedString.Key: Any] {
+        if let style = resolveStyle(.title1) {
+            return style.generateAttributes()
+        }
+        // Fallback if style resolution fails completely
+        return [
+            .font: UIFont.preferredFont(forTextStyle: .title1),
+            .foregroundColor: UIColor.label
+        ]
     }
     
-    /// Font for body text
-    private var bodyFont: UIFont {
-        .systemFont(ofSize: 12)
+    /// Get entry heading style attributes from the project's stylesheet (Headline)
+    private var entryHeadingAttributes: [NSAttributedString.Key: Any] {
+        if let style = resolveStyle(.headline) {
+            return style.generateAttributes()
+        }
+        // Fallback if style resolution fails completely
+        return [
+            .font: UIFont.preferredFont(forTextStyle: .headline),
+            .foregroundColor: UIColor.label
+        ]
     }
     
-    /// Font for secondary text (page numbers, etc.)
-    private var secondaryFont: UIFont {
-        .systemFont(ofSize: 11)
+    /// Get body text style attributes from the project's stylesheet (Body)
+    private var bodyAttributes: [NSAttributedString.Key: Any] {
+        if let style = resolveStyle(.body) {
+            return style.generateAttributes()
+        }
+        // Fallback if style resolution fails completely
+        return [
+            .font: UIFont.preferredFont(forTextStyle: .body),
+            .foregroundColor: UIColor.label
+        ]
     }
     
-    /// Paragraph style for body text
-    private var bodyParagraphStyle: NSMutableParagraphStyle {
-        let style = NSMutableParagraphStyle()
-        style.lineSpacing = 4
-        style.paragraphSpacing = 8
-        return style
+    /// Get secondary text style attributes from the project's stylesheet (Caption 1)
+    private var secondaryAttributes: [NSAttributedString.Key: Any] {
+        if let style = resolveStyle(.caption1) {
+            return style.generateAttributes()
+        }
+        // Fallback if style resolution fails completely
+        return [
+            .font: UIFont.preferredFont(forTextStyle: .caption1),
+            .foregroundColor: UIColor.secondaryLabel
+        ]
     }
     
     /// Paragraph style for entries with hanging indent (for index)
@@ -139,13 +164,10 @@ final class BackMatterGenerator {
         
         let result = NSMutableAttributedString()
         
-        // Section heading
+        // Section heading with blank line after
         let heading = NSAttributedString(
-            string: "\n\n" + NSLocalizedString("backMatter.notes.heading", comment: "Notes") + "\n\n",
-            attributes: [
-                .font: headingFont,
-                .paragraphStyle: bodyParagraphStyle
-            ]
+            string: NSLocalizedString("backMatter.notes.heading", comment: "Notes") + "\n\n",
+            attributes: headingAttributes
         )
         result.append(heading)
         
@@ -180,7 +202,7 @@ final class BackMatterGenerator {
     private func formatNoteEntry(_ note: NoteEntry) -> NSAttributedString {
         let result = NSMutableAttributedString()
         
-        // Note number/marker
+        // Note number/marker - on same line as title if present
         let marker: String
         if note.isEndnote {
             marker = "[\(note.displayNumber)] "
@@ -190,33 +212,26 @@ final class BackMatterGenerator {
         
         let markerAttr = NSAttributedString(
             string: marker,
-            attributes: [
-                .font: entryHeadingFont,
-                .foregroundColor: UIColor.label
-            ]
+            attributes: entryHeadingAttributes
         )
         result.append(markerAttr)
         
-        // Title (if present)
+        // Title on same line as marker (if present), followed by newline
         if let title = note.title, !title.isEmpty {
             let titleAttr = NSAttributedString(
-                string: title + ": ",
-                attributes: [
-                    .font: entryHeadingFont,
-                    .foregroundColor: UIColor.label
-                ]
+                string: title + "\n",
+                attributes: entryHeadingAttributes
             )
             result.append(titleAttr)
+        } else {
+            // No title, just add newline after marker
+            result.append(NSAttributedString(string: "\n", attributes: entryHeadingAttributes))
         }
         
-        // Content
+        // Content with paragraph spacing from body style
         let contentAttr = NSAttributedString(
             string: note.content + "\n",
-            attributes: [
-                .font: bodyFont,
-                .foregroundColor: UIColor.label,
-                .paragraphStyle: bodyParagraphStyle
-            ]
+            attributes: bodyAttributes
         )
         result.append(contentAttr)
         
@@ -244,12 +259,16 @@ final class BackMatterGenerator {
         let result = NSMutableAttributedString()
         
         // Section heading
+        var headingAttrs = headingAttributes
+        // Add extra spacing before for section separation
+        if let existingStyle = headingAttrs[.paragraphStyle] as? NSParagraphStyle {
+            let mutableStyle = existingStyle.mutableCopy() as! NSMutableParagraphStyle
+            mutableStyle.paragraphSpacingBefore = 24
+            headingAttrs[.paragraphStyle] = mutableStyle
+        }
         let heading = NSAttributedString(
-            string: "\n\n" + NSLocalizedString("backMatter.glossary.heading", comment: "Glossary") + "\n\n",
-            attributes: [
-                .font: headingFont,
-                .paragraphStyle: bodyParagraphStyle
-            ]
+            string: NSLocalizedString("backMatter.glossary.heading", comment: "Glossary") + "\n",
+            attributes: headingAttrs
         )
         result.append(heading)
         
@@ -260,12 +279,11 @@ final class BackMatterGenerator {
         
         for letter in grouped.keys.sorted() {
             // Letter heading
+            var letterAttrs = entryHeadingAttributes
+            letterAttrs[.foregroundColor] = UIColor.secondaryLabel
             let letterHeading = NSAttributedString(
                 string: letter + "\n",
-                attributes: [
-                    .font: entryHeadingFont,
-                    .foregroundColor: UIColor.secondaryLabel
-                ]
+                attributes: letterAttrs
             )
             result.append(letterHeading)
             
@@ -288,10 +306,7 @@ final class BackMatterGenerator {
         // Term (bold)
         let termAttr = NSAttributedString(
             string: entry.term,
-            attributes: [
-                .font: entryHeadingFont,
-                .foregroundColor: UIColor.label
-            ]
+            attributes: entryHeadingAttributes
         )
         result.append(termAttr)
         
@@ -299,13 +314,11 @@ final class BackMatterGenerator {
         result.append(NSAttributedString(string: " — "))
         
         // Definition
+        var defAttrs = bodyAttributes
+        defAttrs[.paragraphStyle] = hangingIndentStyle
         let definitionAttr = NSAttributedString(
             string: entry.definition + "\n",
-            attributes: [
-                .font: bodyFont,
-                .foregroundColor: UIColor.label,
-                .paragraphStyle: hangingIndentStyle
-            ]
+            attributes: defAttrs
         )
         result.append(definitionAttr)
         
@@ -332,12 +345,16 @@ final class BackMatterGenerator {
         let result = NSMutableAttributedString()
         
         // Section heading
+        var headingAttrs = headingAttributes
+        // Add extra spacing before for section separation
+        if let existingStyle = headingAttrs[.paragraphStyle] as? NSParagraphStyle {
+            let mutableStyle = existingStyle.mutableCopy() as! NSMutableParagraphStyle
+            mutableStyle.paragraphSpacingBefore = 24
+            headingAttrs[.paragraphStyle] = mutableStyle
+        }
         let heading = NSAttributedString(
-            string: "\n\n" + NSLocalizedString("backMatter.bibliography.heading", comment: "Bibliography") + "\n\n",
-            attributes: [
-                .font: headingFont,
-                .paragraphStyle: bodyParagraphStyle
-            ]
+            string: NSLocalizedString("backMatter.bibliography.heading", comment: "Bibliography") + "\n",
+            attributes: headingAttrs
         )
         result.append(heading)
         
@@ -381,22 +398,22 @@ final class BackMatterGenerator {
         }
         
         // Title (italicized)
+        var citationAttrs = bodyAttributes
+        citationAttrs[.paragraphStyle] = hangingIndentStyle
         let beforeTitle = NSAttributedString(
             string: fullCitation + " ",
-            attributes: [
-                .font: bodyFont,
-                .foregroundColor: UIColor.label,
-                .paragraphStyle: hangingIndentStyle
-            ]
+            attributes: citationAttrs
         )
         result.append(beforeTitle)
         
+        // Title (get italic version of body font)
+        var titleAttrs = bodyAttributes
+        if let bodyFont = titleAttrs[.font] as? UIFont {
+            titleAttrs[.font] = bodyFont.italicized
+        }
         let titleAttr = NSAttributedString(
             string: citation.title,
-            attributes: [
-                .font: UIFont.italicSystemFont(ofSize: 12),
-                .foregroundColor: UIColor.label
-            ]
+            attributes: titleAttrs
         )
         result.append(titleAttr)
         
@@ -431,13 +448,11 @@ final class BackMatterGenerator {
         
         sourceDetails += "\n"
         
+        var sourceAttrs = bodyAttributes
+        sourceAttrs[.paragraphStyle] = hangingIndentStyle
         let sourceAttr = NSAttributedString(
             string: sourceDetails,
-            attributes: [
-                .font: bodyFont,
-                .foregroundColor: UIColor.label,
-                .paragraphStyle: hangingIndentStyle
-            ]
+            attributes: sourceAttrs
         )
         result.append(sourceAttr)
         
@@ -466,12 +481,16 @@ final class BackMatterGenerator {
         let result = NSMutableAttributedString()
         
         // Section heading
+        var headingAttrs = headingAttributes
+        // Add extra spacing before for section separation
+        if let existingStyle = headingAttrs[.paragraphStyle] as? NSParagraphStyle {
+            let mutableStyle = existingStyle.mutableCopy() as! NSMutableParagraphStyle
+            mutableStyle.paragraphSpacingBefore = 24
+            headingAttrs[.paragraphStyle] = mutableStyle
+        }
         let heading = NSAttributedString(
-            string: "\n\n" + NSLocalizedString("backMatter.index.heading", comment: "Index") + "\n\n",
-            attributes: [
-                .font: headingFont,
-                .paragraphStyle: bodyParagraphStyle
-            ]
+            string: NSLocalizedString("backMatter.index.heading", comment: "Index") + "\n",
+            attributes: headingAttrs
         )
         result.append(heading)
         
@@ -482,12 +501,11 @@ final class BackMatterGenerator {
         
         for letter in grouped.keys.sorted() {
             // Letter heading
+            var letterAttrs = entryHeadingAttributes
+            letterAttrs[.foregroundColor] = UIColor.secondaryLabel
             let letterHeading = NSAttributedString(
                 string: letter + "\n",
-                attributes: [
-                    .font: entryHeadingFont,
-                    .foregroundColor: UIColor.secondaryLabel
-                ]
+                attributes: letterAttrs
             )
             result.append(letterHeading)
             
@@ -515,13 +533,11 @@ final class BackMatterGenerator {
         style.paragraphSpacing = 2
         
         // Keyword
+        var keywordAttrs = indentLevel == 0 ? entryHeadingAttributes : bodyAttributes
+        keywordAttrs[.paragraphStyle] = style
         let keywordAttr = NSAttributedString(
             string: entry.keyword,
-            attributes: [
-                .font: indentLevel == 0 ? entryHeadingFont : bodyFont,
-                .foregroundColor: UIColor.label,
-                .paragraphStyle: style
-            ]
+            attributes: keywordAttrs
         )
         result.append(keywordAttr)
         
@@ -531,10 +547,7 @@ final class BackMatterGenerator {
             let formattedPages = formatPageNumbers(pages)
             let pagesAttr = NSAttributedString(
                 string: ", \(formattedPages)",
-                attributes: [
-                    .font: secondaryFont,
-                    .foregroundColor: UIColor.secondaryLabel
-                ]
+                attributes: secondaryAttributes
             )
             result.append(pagesAttr)
         }

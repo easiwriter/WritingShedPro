@@ -12,7 +12,6 @@ struct ProjectEditableList: View {
     @State private var selectedProjectForPageSetup: Project?
     @State private var showingManageForms = false
     @State private var showDeleteConfirmation = false
-    @State private var showDeleteForeverConfirmation = false
     @State private var projectsToDelete: IndexSet?
     @State private var deleteInfo: (count: Int, firstName: String)?
     
@@ -126,7 +125,7 @@ struct ProjectEditableList: View {
                     moveProjectsToTrash()
                 }
                 Button(NSLocalizedString("projectEditableList.deleteForever", comment: "Delete Forever button"), role: .destructive) {
-                    showDeleteForeverConfirmation = true
+                    deleteProjectsPermanently()
                 }
                 Button(NSLocalizedString("button.cancel", comment: "Cancel button"), role: .cancel) {
                     projectsToDelete = nil
@@ -135,26 +134,6 @@ struct ProjectEditableList: View {
             },
             message: { info in
                 Text(NSLocalizedString("projectEditableList.deleteMessage", comment: "Delete projects message"))
-            }
-        )
-        .alert(
-            NSLocalizedString("projectEditableList.deleteForeverTitle", comment: "Delete Forever confirmation title"),
-            isPresented: $showDeleteForeverConfirmation,
-            presenting: deleteInfo,
-            actions: { info in
-                Button(NSLocalizedString("projectEditableList.deleteForever", comment: "Delete Forever button"), role: .destructive) {
-                    deleteProjectsPermanently()
-                }
-                Button(NSLocalizedString("button.cancel", comment: "Cancel button"), role: .cancel) {
-                    showDeleteForeverConfirmation = false
-                }
-            },
-            message: { info in
-                if info.count == 1 {
-                    return Text(String(format: NSLocalizedString("projectEditableList.deleteForeverSingleWarning", comment: "Delete single project forever warning"), info.firstName))
-                } else {
-                    return Text(String(format: NSLocalizedString("projectEditableList.deleteForeverMultipleWarning", comment: "Delete multiple projects forever warning"), info.count))
-                }
             }
         )
     }
@@ -223,7 +202,7 @@ struct ProjectEditableList: View {
         try? modelContext.save()
         projectsToDelete = nil
         deleteInfo = nil
-        showDeleteForeverConfirmation = false
+        showDeleteConfirmation = false
     }
     
     private func moveProjects(from source: IndexSet, to destination: Int) {

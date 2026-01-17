@@ -620,6 +620,11 @@ final class TextFile {
         return parentFolder?.project
     }
     
+    /// Check if this file is a back matter file (in Back Matter folder)
+    var isBackMatterFile: Bool {
+        return parentFolder?.name == "Back Matter"
+    }
+    
     /// Get the poetry form for this file (if assigned)
     var poetryForm: PoetryForm? {
         guard let formId = poetryFormId else { return nil }
