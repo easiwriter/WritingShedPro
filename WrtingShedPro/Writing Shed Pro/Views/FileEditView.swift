@@ -506,8 +506,14 @@ struct FileEditView: View {
     private func navigationBarButtons() -> some View {
         // Back matter files: show delete/trash button only
         if !isFileEditable {
+            #if DEBUG
+            print("🗑️ Showing delete button for back matter file: \(file.name)")
+            #endif
             HStack {
                 Button(role: .destructive) {
+                    #if DEBUG
+                    print("🗑️ Delete button tapped for: \(file.name)")
+                    #endif
                     presentDeleteBackMatterAlert = true
                 } label: {
                     Image(systemName: "trash")
@@ -1251,7 +1257,16 @@ struct FileEditView: View {
                 insertNewFootnote: insertNewFootnote,
                 showCommentsList: { showCommentsList = true }
             ))
-            .background(deleteBackMatterAlert)
+            .alert(isPresented: $presentDeleteBackMatterAlert) {
+                Alert(
+                    title: Text("Delete Back Matter File?"),
+                    message: Text("This will remove all references to its contents and the referenced items themselves. This cannot be undone. Continue?"),
+                    primaryButton: .destructive(Text("Delete")) {
+                        deleteBackMatterFileAndCleanup()
+                    },
+                    secondaryButton: .cancel()
+                )
+            }
             .sheet(isPresented: $showCommentsList) {
                 if let currentVersion = file.currentVersion {
                     CommentsListView(
@@ -2874,24 +2889,17 @@ struct FileEditView: View {
         try? modelContext.save()
     }
 
-    // --- Delete Back Matter File Alert and Logic ---
-    @ViewBuilder
-    private var deleteBackMatterAlert: some View {
-        EmptyView()
-            .alert(isPresented: $presentDeleteBackMatterAlert) {
-                Alert(
-                    title: Text("Delete Back Matter File?"),
-                    message: Text("This will remove all references to its contents and the referenced items themselves. This cannot be undone. Continue?"),
-                    primaryButton: .destructive(Text("Delete")) {
-                        deleteBackMatterFileAndCleanup()
-                    },
-                    secondaryButton: .cancel()
-                )
-            }
-    }
-
     private func deleteBackMatterFileAndCleanup() {
-        guard let folder = file.parentFolder, let project = file.project else { return }
+        guard let folder = file.parentFolder, let project = file.project else {
+            #if DEBUG
+            print("❌ Cannot delete: missing folder or project")
+            #endif
+            return
+        }
+        
+        #if DEBUG
+        print("🗑️ Deleting back matter file: \(file.name)")
+        #endif
         
         // Remove all references and entries for this back matter type
         if file.name == "Endnotes" {
@@ -2900,6 +2908,9 @@ struct FileEditView: View {
             // Turn off endnotes in settings
             if let backMatterFolder = project.folders?.first(where: { $0.name == "Back Matter" }) {
                 backMatterFolder.backMatterSettings.setEnabled(.endnotes, enabled: false)
+                #if DEBUG
+                print("✅ Disabled endnotes setting")
+                #endif
             }
         } else if file.name == "Glossary" {
             project.glossaryEntries?.removeAll()
@@ -2921,11 +2932,28 @@ struct FileEditView: View {
         // Delete the file from SwiftData
         modelContext.delete(file)
         
+        #if DEBUG
+        print("🗑️ File deleted from context")
+        #endif
+        
         // Save and update back matter
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+            #if DEBUG
+            print("✅ Context saved successfully")
+            #endif
+        } catch {
+            #if DEBUG
+            print("❌ Error saving context: \(error)")
+            #endif
+        }
+        
         updateBackMatterFiles()
         
         // Dismiss view
+        #if DEBUG
+        print("👈 Dismissing view")
+        #endif
         dismiss()
     }
     
