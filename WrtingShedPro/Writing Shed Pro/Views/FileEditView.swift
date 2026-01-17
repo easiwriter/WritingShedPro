@@ -2918,7 +2918,7 @@ struct FileEditView: View {
         var referencedEntryIDs = Set<UUID>()
         attributedText.enumerateAttribute(.attachment, in: NSRange(location: 0, length: attributedText.length), options: []) { attachment, _, _ in
             if let refAttachment = attachment as? ReferenceAttachment,
-               refAttachment.referenceType == "note" {
+               refAttachment.referenceType == .endnote {
                 referencedEntryIDs.insert(refAttachment.entryID)
                 #if DEBUG
                 print("🔖 Found reference in text: \(refAttachment.entryID)")
@@ -2931,7 +2931,7 @@ struct FileEditView: View {
         for entry in entries {
             if !referencedEntryIDs.contains(entry.id) {
                 #if DEBUG
-                print("🗑️ Found orphaned endnote: \(entry.id) - not referenced in text")
+                print("🗑️ Found orphaned endnote: \(entry.id ?? UUID()) - not referenced in text")
                 #endif
                 entriesToRemove.append(entry)
             }
@@ -2942,7 +2942,7 @@ struct FileEditView: View {
             if let index = project.noteEntries?.firstIndex(of: entry) {
                 project.noteEntries?.remove(at: index)
                 #if DEBUG
-                print("🗑️ Removed orphaned endnote entry: \(entry.id)")
+                print("🗑️ Removed orphaned endnote entry: \(entry.id ?? UUID())")
                 #endif
             }
         }
