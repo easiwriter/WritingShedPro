@@ -112,8 +112,11 @@ struct NoteEditorSheet: View {
     }
     
     // MARK: - Body
-    /// COPILOT NOTE: Use NavigationStack (not NavigationView) for sheets/dialogs.
-    /// NavigationStack renders toolbar buttons as white outlined buttons.
+    /// COPILOT NOTE: For standard iOS dialog styling:
+    /// 1. Use NavigationStack (not NavigationView) 
+    /// 2. Use Form (not VStack) as the main container
+    /// Form applies iOS styling conventions that make toolbar buttons render as white outlined.
+    /// NavigationStack + Form = standard iOS dialog appearance with correct button styling.
     
     var body: some View {
         NavigationStack {
