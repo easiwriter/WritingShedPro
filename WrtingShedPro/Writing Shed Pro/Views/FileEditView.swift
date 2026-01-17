@@ -2909,36 +2909,37 @@ struct FileEditView: View {
             return
         }
         
-        if let coordinator = textViewCoordinator {
-            let text = coordinator.getAttributedString().string
-            
-            // Find entries that don't have a corresponding reference in the text
-            var entriesToRemove: [NoteEntry] = []
-            for entry in entries {
-                // Endnote references are stored as [@UUID]
-                let referenceTag = "[@\(entry.id.uuidString)]"
-                if !text.contains(referenceTag) {
-                    #if DEBUG
-                    print("🗑️ Found orphaned endnote: \(entry.id) - no reference in text")
-                    #endif
-                    entriesToRemove.append(entry)
-                }
+        guard let textView = textViewCoordinator.textView,
+              let text = textView.attributedText?.string else {
+            return
+        }
+        
+        // Find entries that don't have a corresponding reference in the text
+        var entriesToRemove: [NoteEntry] = []
+        for entry in entries {
+            // Endnote references are stored as [@UUID]
+            let referenceTag = "[@\(entry.id.uuidString)]"
+            if !text.contains(referenceTag) {
+                #if DEBUG
+                print("🗑️ Found orphaned endnote: \(entry.id) - no reference in text")
+                #endif
+                entriesToRemove.append(entry)
             }
-            
-            // Remove orphaned entries
-            for entry in entriesToRemove {
-                if let index = project.noteEntries?.firstIndex(of: entry) {
-                    project.noteEntries?.remove(at: index)
-                    #if DEBUG
-                    print("🗑️ Removed orphaned endnote entry: \(entry.id)")
-                    #endif
-                }
+        }
+        
+        // Remove orphaned entries
+        for entry in entriesToRemove {
+            if let index = project.noteEntries?.firstIndex(of: entry) {
+                project.noteEntries?.remove(at: index)
+                #if DEBUG
+                print("🗑️ Removed orphaned endnote entry: \(entry.id)")
+                #endif
             }
-            
-            // Save if any entries were removed
-            if !entriesToRemove.isEmpty {
-                try? modelContext.save()
-            }
+        }
+        
+        // Save if any entries were removed
+        if !entriesToRemove.isEmpty {
+            try? modelContext.save()
         }
     }
     
@@ -2966,18 +2967,18 @@ struct FileEditView: View {
         var project: Project?
         
         // Traverse up the folder tree to find a folder that has a project
-        while currentFolder != nil {
+        while let folder = currentFolder {
             #if DEBUG
-            print("  Checking folder: \(currentFolder?.name ?? "unknown")")
+            print("  Checking folder: \(folder.name)")
             #endif
-            if let proj = currentFolder?.project {
+            if let proj = folder.project {
                 project = proj
                 #if DEBUG
                 print("  Found project: \(proj.name)")
                 #endif
                 break
             }
-            currentFolder = currentFolder?.parentFolder
+            currentFolder = folder.parentFolder
         }
         
         guard let project = project else {
