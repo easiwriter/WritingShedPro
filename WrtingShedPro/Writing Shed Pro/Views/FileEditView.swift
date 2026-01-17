@@ -5551,7 +5551,6 @@ private struct NewCommentSheet: View {
                     .padding(.horizontal)
                 
                 TextEditor(text: $commentText)
-                    .frame(minHeight: 150)
                     .padding(8)
                     .background(Color(uiColor: .systemGray6))
                     .cornerRadius(8)
@@ -5573,25 +5572,35 @@ private struct NewCommentSheet: View {
                 }
                 
                 Spacer()
+                
+                // Buttons
+                VStack(spacing: 12) {
+                    Button(action: {
+                        onAdd()
+                        dismiss()
+                    }) {
+                        Text("button.add")
+                            .frame(maxWidth: .infinity)
+                            .foregroundColor(.white)
+                    }
+                    .buttonStyle(.filled)
+                    .disabled(commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    
+                    Button(action: {
+                        onCancel()
+                        dismiss()
+                    }) {
+                        Text("button.cancel")
+                            .frame(maxWidth: .infinity)
+                            .foregroundColor(.white)
+                    }
+                    .buttonStyle(.filled)
+                }
+                .padding()
             }
             .padding(.top)
             .navigationTitle("fileEdit.newComment.title")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("button.cancel") {
-                        onCancel()
-                        dismiss()
-                    }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("button.add") {
-                        onAdd()
-                        dismiss()
-                    }
-                    .disabled(commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                }
-            }
         }
     }
 }
@@ -5612,7 +5621,6 @@ private struct NewFootnoteSheet: View {
                     .padding(.horizontal)
                 
                 TextEditor(text: $footnoteText)
-                    .frame(minHeight: 150)
                     .padding(8)
                     .background(Color(uiColor: .systemGray6))
                     .cornerRadius(8)
@@ -5621,25 +5629,35 @@ private struct NewFootnoteSheet: View {
                     .accessibilityLabel("fileEdit.newFootnote.textEditor.accessibility")
                 
                 Spacer()
+                
+                // Buttons
+                VStack(spacing: 12) {
+                    Button(action: {
+                        onAdd()
+                        dismiss()
+                    }) {
+                        Text("button.add")
+                            .frame(maxWidth: .infinity)
+                            .foregroundColor(.white)
+                    }
+                    .buttonStyle(.filled)
+                    .disabled(footnoteText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    
+                    Button(action: {
+                        onCancel()
+                        dismiss()
+                    }) {
+                        Text("button.cancel")
+                            .frame(maxWidth: .infinity)
+                            .foregroundColor(.white)
+                    }
+                    .buttonStyle(.filled)
+                }
+                .padding()
             }
             .padding(.top)
             .navigationTitle("fileEdit.newFootnote.title")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("button.cancel") {
-                        onCancel()
-                        dismiss()
-                    }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("button.add") {
-                        onAdd()
-                        dismiss()
-                    }
-                    .disabled(footnoteText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                }
-            }
         }
     }
 }

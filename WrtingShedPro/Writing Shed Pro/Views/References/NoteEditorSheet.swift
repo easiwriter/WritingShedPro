@@ -97,66 +97,94 @@ struct NoteEditorSheet: View {
     
     var body: some View {
         NavigationView {
-            Form {
-                // Title section (optional)
-                Section {
+            VStack(spacing: 0) {
+                // Title section
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(NSLocalizedString("noteEditor.title.header", comment: "Title"))
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                    
                     TextField(
                         NSLocalizedString("noteEditor.title.placeholder", comment: "Title (optional)"),
                         text: $noteTitle
                     )
-                } header: {
-                    Text(NSLocalizedString("noteEditor.title.header", comment: "Title"))
-                } footer: {
+                    .textFieldStyle(.roundedBorder)
+                    
                     Text(NSLocalizedString("noteEditor.title.footer", comment: "Optional title for organizing notes"))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
+                .padding(.horizontal)
+                .padding(.top, 16)
+                .padding(.bottom, 16)
+                
+                Divider()
                 
                 // Content section
-                Section {
-                    TextEditor(text: $noteContent)
-                        .frame(maxHeight: .infinity)
-                        .font(.body)
-                } header: {
+                VStack(alignment: .leading, spacing: 8) {
                     Text(NSLocalizedString("noteEditor.content.header", comment: "Content"))
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                    
+                    TextEditor(text: $noteContent)
+                        .font(.body)
+                        .padding(8)
+                        .background(Color(uiColor: .systemGray6))
+                        .cornerRadius(8)
+                        .scrollContentBackground(.hidden)
                 }
+                .padding(.horizontal)
+                .padding(.top, 16)
                 
                 // Info section (for existing notes)
                 if let existing = existingNote {
-                    Section {
-                        infoSection(for: existing)
-                    } header: {
+                    Divider()
+                        .padding(.top, 16)
+                    
+                    VStack(alignment: .leading, spacing: 12) {
                         Text(NSLocalizedString("noteEditor.info.header", comment: "Information"))
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                        
+                        infoSection(for: existing)
                     }
+                    .padding(.horizontal)
+                    .padding(.top, 16)
                 }
+                
+                Spacer()
+                
+                // Buttons
+                VStack(spacing: 12) {
+                    Button(action: saveNote) {
+                        Text(NSLocalizedString("button.save", comment: "Save"))
+                            .frame(maxWidth: .infinity)
+                            .foregroundColor(.white)
+                    }
+                    .buttonStyle(.filled)
+                    .disabled(!canSave)
+                    
+                    Button(action: handleCancel) {
+                        Text(NSLocalizedString("button.cancel", comment: "Cancel"))
+                            .frame(maxWidth: .infinity)
+                            .foregroundColor(.white)
+                    }
+                    .buttonStyle(.filled)
+                }
+                .padding()
             }
             .navigationTitle(navigationTitle)
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(NSLocalizedString("button.cancel", comment: "Cancel")) {
-                        handleCancel()
-                    }
-                }
-                
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(NSLocalizedString("button.save", comment: "Save")) {
-                        saveNote()
-                    }
-                    .disabled(!canSave)
-                }
-            }
             .confirmationDialog(
                 NSLocalizedString("noteEditor.discard.title", comment: "Discard Changes?"),
                 isPresented: $showDiscardConfirmation,
                 titleVisibility: .visible
             ) {
                 Button(NSLocalizedString("noteEditor.discard.button", comment: "Discard"), role: .destructive) {
-                    showDiscardConfirmation = false
                     onCancel?()
                     dismiss()
                 }
-                Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
-                    showDiscardConfirmation = false
-                }
+                Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {}
             } message: {
                 Text(NSLocalizedString("noteEditor.discard.message", comment: "Your changes will be lost."))
             }
