@@ -2910,18 +2910,28 @@ struct FileEditView: View {
         }
         
         guard let textView = textViewCoordinator.textView,
-              let text = textView.attributedText?.string else {
+              let attributedText = textView.attributedText else {
             return
         }
         
-        // Find entries that don't have a corresponding reference in the text
+        // Collect all endnote reference IDs currently in the text
+        var referencedEntryIDs = Set<UUID>()
+        attributedText.enumerateAttribute(.attachment, in: NSRange(location: 0, length: attributedText.length), options: []) { attachment, _, _ in
+            if let refAttachment = attachment as? ReferenceAttachment,
+               refAttachment.referenceType == "note" {
+                referencedEntryIDs.insert(refAttachment.entryID)
+                #if DEBUG
+                print("🔖 Found reference in text: \(refAttachment.entryID)")
+                #endif
+            }
+        }
+        
+        // Find entries that are not referenced
         var entriesToRemove: [NoteEntry] = []
         for entry in entries {
-            // Endnote references are stored as [@UUID]
-            let referenceTag = "[@\(entry.id.uuidString)]"
-            if !text.contains(referenceTag) {
+            if !referencedEntryIDs.contains(entry.id) {
                 #if DEBUG
-                print("🗑️ Found orphaned endnote: \(entry.id) - no reference in text")
+                print("🗑️ Found orphaned endnote: \(entry.id) - not referenced in text")
                 #endif
                 entriesToRemove.append(entry)
             }
