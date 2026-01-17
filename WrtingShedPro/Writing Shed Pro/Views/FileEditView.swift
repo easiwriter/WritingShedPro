@@ -2931,7 +2931,7 @@ struct FileEditView: View {
         for entry in entries {
             if !referencedEntryIDs.contains(entry.id) {
                 #if DEBUG
-                print("🗑️ Found orphaned endnote: \(entry.id ?? UUID()) - not referenced in text")
+                print("🗑️ Found orphaned endnote: \(entry.id) - not referenced in text")
                 #endif
                 entriesToRemove.append(entry)
             }
@@ -2942,7 +2942,7 @@ struct FileEditView: View {
             if let index = project.noteEntries?.firstIndex(of: entry) {
                 project.noteEntries?.remove(at: index)
                 #if DEBUG
-                print("🗑️ Removed orphaned endnote entry: \(entry.id ?? UUID())")
+                print("🗑️ Removed orphaned endnote entry: \(entry.id)")
                 #endif
             }
         }
@@ -2979,12 +2979,12 @@ struct FileEditView: View {
         // Traverse up the folder tree to find a folder that has a project
         while let folder = currentFolder {
             #if DEBUG
-            print("  Checking folder: \(folder.name)")
+            print("  Checking folder: \(folder.name ?? "unknown")")
             #endif
             if let proj = folder.project {
                 project = proj
                 #if DEBUG
-                print("  Found project: \(proj.name)")
+                print("  Found project: \(proj.name ?? "unknown")")
                 #endif
                 break
             }
