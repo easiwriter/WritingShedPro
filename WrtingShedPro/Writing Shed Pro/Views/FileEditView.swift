@@ -2672,12 +2672,29 @@ struct FileEditView: View {
         // Get current cursor position
         let currentRange = textView.selectedRange
         
-        // Create the reference attachment using the convenience init for numbered refs
-        let attachment = ReferenceAttachment(
-            referenceType: .note,
-            entryID: note.id,
-            number: note.displayNumber
-        )
+        // Create the reference attachment using tag-based initializer
+        let attachment: ReferenceAttachment
+        if let tag = note.tag, !tag.isEmpty {
+            // Use tag-based reference
+            attachment = ReferenceAttachment(
+                referenceType: .note,
+                entryID: note.id,
+                tag: tag
+            )
+            #if DEBUG
+            print("📍 Using tag-based reference: \(tag)")
+            #endif
+        } else {
+            // Fallback to number-based reference (legacy)
+            attachment = ReferenceAttachment(
+                referenceType: .note,
+                entryID: note.id,
+                number: note.displayNumber
+            )
+            #if DEBUG
+            print("📍 Using number-based reference: \(note.displayNumber)")
+            #endif
+        }
         
         // Create attributed string with the attachment
         let attachmentString = NSAttributedString(attachment: attachment)

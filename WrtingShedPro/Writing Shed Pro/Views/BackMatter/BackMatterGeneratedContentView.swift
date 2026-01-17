@@ -91,11 +91,20 @@ struct BackMatterGeneratedContentView: View {
     
     private func endnoteRow(_ note: NoteEntry) -> some View {
         HStack(alignment: .top, spacing: 12) {
-            Text("\(note.displayNumber).")
-                .font(.body)
-                .fontWeight(.semibold)
-                .foregroundColor(.secondary)
-                .frame(width: 30, alignment: .trailing)
+            // Show tag if available, otherwise show number
+            if let tag = note.tag, !tag.isEmpty {
+                Text("[\(tag)]")
+                    .font(.body)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.secondary)
+                    .frame(minWidth: 50, alignment: .trailing)
+            } else {
+                Text("\(note.displayNumber).")
+                    .font(.body)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.secondary)
+                    .frame(width: 30, alignment: .trailing)
+            }
             
             VStack(alignment: .leading, spacing: 4) {
                 if let title = note.title, !title.isEmpty {
@@ -136,11 +145,20 @@ struct BackMatterGeneratedContentView: View {
     
     private func noteRow(_ note: NoteEntry) -> some View {
         HStack(alignment: .top, spacing: 12) {
-            Text("\(note.displayNumber).")
-                .font(.body)
-                .fontWeight(.semibold)
-                .foregroundColor(.secondary)
-                .frame(width: 30, alignment: .trailing)
+            // Show tag if available, otherwise show number
+            if let tag = note.tag, !tag.isEmpty {
+                Text("[Note: \(tag)]")
+                    .font(.body)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.secondary)
+                    .frame(minWidth: 80, alignment: .trailing)
+            } else {
+                Text("\(note.displayNumber).")
+                    .font(.body)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.secondary)
+                    .frame(width: 30, alignment: .trailing)
+            }
             
             VStack(alignment: .leading, spacing: 4) {
                 if let title = note.title, !title.isEmpty {

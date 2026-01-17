@@ -383,14 +383,19 @@ struct NotesListView: View {
     @ViewBuilder
     private func noteRow(_ note: NoteEntry) -> some View {
         HStack(alignment: .top, spacing: 12) {
-            // Note type and number badge
+            // Note type and tag/number badge
             VStack {
                 ZStack {
                     Circle()
                         .fill(note.isEndnote ? Color.indigo.opacity(0.1) : Color.blue.opacity(0.1))
                         .frame(width: 36, height: 36)
                     
-                    if note.isEndnote {
+                    if let tag = note.tag, !tag.isEmpty {
+                        // Show tag abbreviation
+                        Text(tag.prefix(1).uppercased())
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(note.isEndnote ? .indigo : .blue)
+                    } else if note.isEndnote {
                         Text("\(note.displayNumber)")
                             .font(.system(size: 14, weight: .bold))
                             .foregroundColor(.indigo)
@@ -414,7 +419,12 @@ struct NotesListView: View {
             }
             
             VStack(alignment: .leading, spacing: 4) {
-                // Title (if present)
+                // Title or tag (if present)
+                if let tag = note.tag, !tag.isEmpty {
+                    Text(tag)
+                        .font(.headline)
+                        .foregroundColor(note.isEndnote ? .indigo : .blue)
+                }
                 if let title = note.title, !title.isEmpty {
                     Text(title)
                         .font(.headline)

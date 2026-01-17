@@ -40,6 +40,17 @@ struct NoteEditorSheet: View {
     
     @State private var noteContent: String = ""
     @State private var noteTitle: String = ""
+    @State private var noteTag: String = ""
+    @State private var selectedExistingNoteID: UUID?
+    @State private var mode: EditorMode = .createNew
+    
+    // MARK: - Mode enum
+    
+    enum EditorMode {
+        case selectOrCreate
+        case createNew
+        case referenceExisting
+    }
     
     // MARK: - Computed Properties
     
@@ -49,13 +60,17 @@ struct NoteEditorSheet: View {
     
     private var hasChanges: Bool {
         if let existing = existingNote {
-            return noteContent != existing.content || noteTitle != (existing.title ?? "")
+            return noteContent != existing.content || noteTitle != (existing.title ?? "") || noteTag != (existing.tag ?? "")
         }
-        return !noteContent.isEmpty || !noteTitle.isEmpty
+        return !noteContent.isEmpty || !noteTitle.isEmpty || !noteTag.isEmpty
     }
     
     private var canSave: Bool {
-        !noteContent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        !noteContent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !noteTag.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+    
+    private var existingNotesOfType: [NoteEntry] {
+        project.noteEntries?.filter { $0.isEndnote == isEndnote } ?? []
     }
     
     private var navigationTitle: String {
@@ -89,6 +104,12 @@ struct NoteEditorSheet: View {
         if let existing = existingNote {
             _noteContent = State(initialValue: existing.content)
             _noteTitle = State(initialValue: existing.title ?? "")
+            _noteTag = State(initialValue: existing.tag ?? "")
+            _mode = State(initialValue: .createNew)
+        } else {
+            // For new notes, check if there are existing notes to reference
+            let existingNotes = (project.noteEntries?.filter { $0.isEndnote == isEndnote } ?? []).isEmpty
+            _mode = State(initialValue: existingNotes ? .createNew : .selectOrCreate)
         }
     }
     
@@ -96,34 +117,24 @@ struct NoteEditorSheet: View {
     
     var body: some View {
         NavigationView {
-            Form {
-                // Title section
-                Section {
-                    TextField(
-                        NSLocalizedString("noteEditor.title.placeholder", comment: "Title (optional)"),
-                        text: $noteTitle
-                    )
-                } header: {
-                    Text(NSLocalizedString("noteEditor.title.header", comment: "Title"))
-                } footer: {
-                    Text(NSLocalizedString("noteEditor.title.footer", comment: "Optional title for organizing notes"))
-                }
-                
-                // Content section
-                Section {
-                    TextEditor(text: $noteContent)
-                        .font(.body)
-                } header: {
-                    Text(NSLocalizedString("noteEditor.content.header", comment: "Content"))
-                }
-                
-                // Info section (for existing notes)
-                if let existing = existingNote {
-                    Section {
-                        infoSection(for: existing)
-                    } header: {
-                        Text(NSLocalizedString("noteEditor.info.header", comment: "Information"))
+            VStack(spacing: 0) {
+                if !isEditing && existingNotesOfType.isEmpty {
+                    // Only create new option if no existing notes
+                    createNewNoteForm
+                } else if !isEditing && !existingNotesOfType.isEmpty {
+                    // Show mode selector
+                    modeSelector
+                    Divider()
+                    
+                    // Content based on mode
+                    if mode == .referenceExisting {
+                        referenceExistingForm
+                    } else {
+                        createNewNoteForm
                     }
+                } else {
+                    // Editing existing note
+                    createNewNoteForm
                 }
             }
             .navigationTitle(navigationTitle)
@@ -142,6 +153,102 @@ struct NoteEditorSheet: View {
                     }
                     .disabled(!canSave)
                 }
+            }
+        }
+    }
+    
+    // MARK: - Mode Selector
+    
+    private var modeSelector: some View {
+        Picker("Note Action", selection: $mode) {
+            Text("Create New").tag(EditorMode.createNew)
+            Text("Reference Existing").tag(EditorMode.referenceExisting)
+        }
+        .pickerStyle(.segmented)
+        .padding()
+    }
+    
+    // MARK: - Create New Form
+    
+    private var createNewNoteForm: some View {
+        Form {
+            // Title section
+            Section {
+                TextField(
+                    NSLocalizedString("noteEditor.title.placeholder", comment: "Title (optional)"),
+                    text: $noteTitle
+                )
+            } header: {
+                Text(NSLocalizedString("noteEditor.title.header", comment: "Title"))
+            } footer: {
+                Text(NSLocalizedString("noteEditor.title.footer", comment: "Optional title for organizing notes"))
+            }
+            
+            // Tag section (required for tag-based system)
+            Section {
+                TextField(
+                    "e.g., timeline-1, character-insight",
+                    text: $noteTag
+                )
+                .autocorrectionDisabled()
+            } header: {
+                Text("Tag")
+            } footer: {
+                Text("Unique identifier for this note (e.g., 'timeline-1' or 'foreshadow')")
+            }
+            
+            // Content section
+            Section {
+                TextEditor(text: $noteContent)
+                    .font(.body)
+            } header: {
+                Text(NSLocalizedString("noteEditor.content.header", comment: "Content"))
+            }
+            
+            // Info section (for existing notes)
+            if let existing = existingNote {
+                Section {
+                    infoSection(for: existing)
+                } header: {
+                    Text(NSLocalizedString("noteEditor.info.header", comment: "Information"))
+                }
+            }
+        }
+    }
+    
+    // MARK: - Reference Existing Form
+    
+    private var referenceExistingForm: some View {
+        Form {
+            Section {
+                Picker("Select Note", selection: $selectedExistingNoteID) {
+                    ForEach(existingNotesOfType) { note in
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    if let tag = note.tag {
+                                        Text(tag)
+                                            .font(.headline)
+                                    }
+                                    if let title = note.title {
+                                        Text(title)
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                                Spacer()
+                                Text("\(note.referenceCount)")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .tag(Optional(note.id))
+                    }
+                }
+            } header: {
+                Text("Choose Existing Note")
+            } footer: {
+                Text("Select an existing note to reference from this location")
             }
         }
     }
@@ -171,53 +278,64 @@ struct NoteEditorSheet: View {
     // MARK: - Actions
     
     private func saveNote() {
-        let trimmedContent = noteContent.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedContent.isEmpty else { return }
-        
-        let note: NoteEntry
-        
-        if let existing = existingNote {
-            // Update existing note
-            existing.content = trimmedContent
-            existing.title = noteTitle.isEmpty ? nil : noteTitle
-            existing.modifiedAt = Date()
-            note = existing
-            
-            #if DEBUG
-            print("📝 Updated note: \(note.id)")
-            #endif
+        if mode == .referenceExisting, let selectedID = selectedExistingNoteID,
+           let selectedNote = existingNotesOfType.first(where: { $0.id == selectedID }) {
+            // Reference existing note
+            onSave?(selectedNote)
+            dismiss()
         } else {
-            // Create new note
-            note = NoteEntry(
-                project: project,
-                content: trimmedContent,
-                isEndnote: isEndnote,
-                displayNumber: calculateNextNumber(),
-                title: noteTitle.isEmpty ? nil : noteTitle
-            )
+            // Create new note or update existing
+            let trimmedContent = noteContent.trimmingCharacters(in: .whitespacesAndNewlines)
+            let trimmedTag = noteTag.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmedContent.isEmpty && !trimmedTag.isEmpty else { return }
             
-            // Add to project's notes
-            if project.noteEntries == nil {
-                project.noteEntries = []
+            let note: NoteEntry
+            
+            if let existing = existingNote {
+                // Update existing note
+                existing.content = trimmedContent
+                existing.title = noteTitle.isEmpty ? nil : noteTitle
+                existing.tag = trimmedTag.isEmpty ? nil : trimmedTag
+                existing.modifiedAt = Date()
+                note = existing
+                
+                #if DEBUG
+                print("📝 Updated note: \(note.id), tag: \(trimmedTag)")
+                #endif
+            } else {
+                // Create new note
+                note = NoteEntry(
+                    project: project,
+                    content: trimmedContent,
+                    isEndnote: isEndnote,
+                    displayNumber: calculateNextNumber(),
+                    title: noteTitle.isEmpty ? nil : noteTitle,
+                    tag: trimmedTag
+                )
+                
+                // Add to project's notes
+                if project.noteEntries == nil {
+                    project.noteEntries = []
+                }
+                project.noteEntries?.append(note)
+                
+                #if DEBUG
+                print("📝 Created new note: \(note.id), tag: \(trimmedTag)")
+                #endif
             }
-            project.noteEntries?.append(note)
             
-            #if DEBUG
-            print("📝 Created new note: \(note.id), number: \(note.displayNumber)")
-            #endif
+            // Save context
+            do {
+                try modelContext.save()
+            } catch {
+                #if DEBUG
+                print("❌ Error saving note: \(error)")
+                #endif
+            }
+            
+            onSave?(note)
+            dismiss()
         }
-        
-        // Save context
-        do {
-            try modelContext.save()
-        } catch {
-            #if DEBUG
-            print("❌ Error saving note: \(error)")
-            #endif
-        }
-        
-        onSave?(note)
-        dismiss()
     }
     
     private func calculateNextNumber() -> Int {

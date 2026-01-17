@@ -89,6 +89,24 @@ final class ReferenceAttachment: NSTextAttachment {
         self.displayNumber = number
     }
     
+    /// Convenience initializer for tag-based note/endnote references
+    /// - Parameters:
+    ///   - referenceType: The type of reference (.note or .endnote)
+    ///   - entryID: UUID of the referenced entry
+    ///   - tag: The user-supplied tag (e.g., "timeline-1")
+    convenience init(referenceType: ReferenceType, entryID: UUID, tag: String) {
+        let text: String
+        switch referenceType {
+        case .endnote:
+            text = "[\(tag)]"
+        case .note:
+            text = "[Note: \(tag)]"
+        default:
+            text = "[\(tag)]"
+        }
+        self.init(referenceType: referenceType, entryID: entryID, displayText: text)
+    }
+    
     /// Convenience initializer for citation references
     /// - Parameters:
     ///   - entryID: UUID of the CitationEntry

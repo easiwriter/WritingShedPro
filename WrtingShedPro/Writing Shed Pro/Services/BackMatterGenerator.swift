@@ -202,12 +202,22 @@ final class BackMatterGenerator {
     private func formatNoteEntry(_ note: NoteEntry) -> NSAttributedString {
         let result = NSMutableAttributedString()
         
-        // Note number/marker - on same line as title if present
+        // Note marker - use tag if available, otherwise use display number for backward compatibility
         let marker: String
-        if note.isEndnote {
-            marker = "[\(note.displayNumber)] "
+        if let tag = note.tag, !tag.isEmpty {
+            // Use tag-based marker
+            if note.isEndnote {
+                marker = "[\(tag)] "
+            } else {
+                marker = "[Note: \(tag)] "
+            }
         } else {
-            marker = "[Note \(note.displayNumber)] "
+            // Fallback to number-based marker
+            if note.isEndnote {
+                marker = "[\(note.displayNumber)] "
+            } else {
+                marker = "[Note \(note.displayNumber)] "
+            }
         }
         
         let markerAttr = NSAttributedString(
@@ -657,10 +667,19 @@ extension BackMatterGenerator {
         result += String(repeating: "-", count: 40) + "\n\n"
         
         for note in notes.sorted() {
-            if note.isEndnote {
-                result += "[\(note.displayNumber)] "
+            // Use tag if available, otherwise use display number
+            if let tag = note.tag, !tag.isEmpty {
+                if note.isEndnote {
+                    result += "[\(tag)] "
+                } else {
+                    result += "[Note: \(tag)] "
+                }
             } else {
-                result += "[Note \(note.displayNumber)] "
+                if note.isEndnote {
+                    result += "[\(note.displayNumber)] "
+                } else {
+                    result += "[Note \(note.displayNumber)] "
+                }
             }
             
             if let title = note.title, !title.isEmpty {

@@ -98,13 +98,18 @@ final class NoteEntry {
     /// User-provided title (optional)
     var title: String?
     
+    /// User-supplied tag for the note (e.g., "timeline-1", "character-insight")
+    /// Used instead of auto-numbering to avoid renumbering issues
+    var tag: String?
+    
     init(
         id: UUID = UUID(),
         project: Project? = nil,
         content: String = "",
         isEndnote: Bool = false,
         displayNumber: Int = 0,
-        title: String? = nil
+        title: String? = nil,
+        tag: String? = nil
     ) {
         self.id = id
         self.project = project
@@ -112,6 +117,7 @@ final class NoteEntry {
         self.isEndnote = isEndnote
         self.displayNumber = displayNumber
         self.title = title
+        self.tag = tag
         self.createdAt = Date()
         self.modifiedAt = Date()
     }
