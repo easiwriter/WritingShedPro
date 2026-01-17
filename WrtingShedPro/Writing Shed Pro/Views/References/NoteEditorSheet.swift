@@ -40,7 +40,6 @@ struct NoteEditorSheet: View {
     
     @State private var noteContent: String = ""
     @State private var noteTitle: String = ""
-    @State private var showDiscardConfirmation = false
     
     // MARK: - Computed Properties
     
@@ -164,7 +163,10 @@ struct NoteEditorSheet: View {
                     .buttonStyle(.filled)
                     .disabled(!canSave)
                     
-                    Button(action: handleCancel) {
+                    Button(action: {
+                        onCancel?()
+                        dismiss()
+                    }) {
                         Text(NSLocalizedString("button.cancel", comment: "Cancel"))
                             .frame(maxWidth: .infinity)
                             .foregroundColor(.white)
@@ -175,19 +177,6 @@ struct NoteEditorSheet: View {
             }
             .navigationTitle(navigationTitle)
             .navigationBarTitleDisplayMode(.inline)
-            .confirmationDialog(
-                NSLocalizedString("noteEditor.discard.title", comment: "Discard Changes?"),
-                isPresented: $showDiscardConfirmation,
-                titleVisibility: .visible
-            ) {
-                Button(NSLocalizedString("noteEditor.discard.button", comment: "Discard"), role: .destructive) {
-                    onCancel?()
-                    dismiss()
-                }
-                Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {}
-            } message: {
-                Text(NSLocalizedString("noteEditor.discard.message", comment: "Your changes will be lost."))
-            }
         }
     }
     
@@ -214,15 +203,6 @@ struct NoteEditorSheet: View {
     }
     
     // MARK: - Actions
-    
-    private func handleCancel() {
-        if hasChanges {
-            showDiscardConfirmation = true
-        } else {
-            onCancel?()
-            dismiss()
-        }
-    }
     
     private func saveNote() {
         let trimmedContent = noteContent.trimmingCharacters(in: .whitespacesAndNewlines)
