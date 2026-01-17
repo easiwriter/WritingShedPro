@@ -3126,7 +3126,7 @@ struct FileEditView: View {
         #endif
         
         // Determine reference type being removed
-        var referenceTypeToRemove: ReferenceAttachment.ReferenceType?
+        var referenceTypeToRemove: ReferenceType?
         
         // Remove all references and entries for this back matter type
         if file.name == "Endnotes" {
@@ -3142,17 +3142,20 @@ struct FileEditView: View {
             print("✅ Disabled endnotes setting")
             #endif
         } else if file.name == "Glossary" {
+            referenceTypeToRemove = .glossary
             project.glossaryEntries?.removeAll()
             backMatterFolder.backMatterSettings.setEnabled(.glossary, enabled: false)
         } else if file.name == "Citations" {
+            referenceTypeToRemove = .citation
             project.citationEntries?.removeAll()
             backMatterFolder.backMatterSettings.setEnabled(.bibliography, enabled: false)
         } else if file.name == "Index" {
+            referenceTypeToRemove = .index
             project.indexEntries?.removeAll()
             backMatterFolder.backMatterSettings.setEnabled(.index, enabled: false)
         }
         
-        // If this is endnotes, remove all endnote references from all files in the project
+        // If this is a reference type, remove all references from all files in the project
         if let refType = referenceTypeToRemove {
             #if DEBUG
             print("🔍 Scanning project files to remove \(refType) references...")
@@ -3188,7 +3191,7 @@ struct FileEditView: View {
         dismiss()
     }
     
-    private func removeReferenceAttachmentsFromProjectFiles(project: Project, referenceType: ReferenceAttachment.ReferenceType) {
+    private func removeReferenceAttachmentsFromProjectFiles(project: Project, referenceType: ReferenceType) {
         #if DEBUG
         print("🔍 removeReferenceAttachmentsFromProjectFiles: \(referenceType)")
         #endif
@@ -3217,22 +3220,34 @@ struct FileEditView: View {
         }
     }
     
-    private func removeReferenceAttachmentsFromFile(_ textFile: TextFile, referenceType: ReferenceAttachment.ReferenceType) {
+    private func removeReferenceAttachmentsFromFile(_ textFile: TextFile, referenceType: ReferenceType) {
         #if DEBUG
         print("  📄 Scanning file: \(textFile.name)")
         #endif
         
-        guard let content = textFile.content else {
+        // Get the current version's content
+        guard let versions = textFile.versions, versions.count > textFile.currentVersionIndex else {
+            #if DEBUG
+            print("  ⚠️ No versions found")
+            #endif
             return
         }
         
-        let attributedText = NSMutableAttributedString(attributedString: content)
+        let currentVersion = versions[textFile.currentVersionIndex]
+        guard let attributedText = currentVersion.attributedText else {
+            #if DEBUG
+            print("  ⚠️ No content found")
+            #endif
+            return
+        }
+        
+        let mutableText = NSMutableAttributedString(attributedString: attributedText)
         var removedCount = 0
         
         // Enumerate in reverse order to avoid index shifting issues
         var rangesToRemove: [(NSRange, ReferenceAttachment)] = []
         
-        attributedText.enumerateAttribute(.attachment, in: NSRange(location: 0, length: attributedText.length), options: []) { attachment, range, _ in
+        mutableText.enumerateAttribute(NSAttributedString.Key.attachment, in: NSRange(location: 0, length: mutableText.length), options: []) { attachment, range, _ in
             if let refAttachment = attachment as? ReferenceAttachment,
                refAttachment.referenceType == referenceType {
                 #if DEBUG
@@ -3244,12 +3259,12 @@ struct FileEditView: View {
         }
         
         // Remove in reverse order
-        for (index, (range, _)) in rangesToRemove.enumerated().reversed() {
-            attributedText.deleteCharacters(in: range)
+        for (_, (range, _)) in rangesToRemove.enumerated().reversed() {
+            mutableText.deleteCharacters(in: range)
         }
         
         if removedCount > 0 {
-            textFile.content = attributedText
+            currentVersion.attributedText = mutableText
             #if DEBUG
             print("    ✅ Removed \(removedCount) \(referenceType) references")
             #endif
