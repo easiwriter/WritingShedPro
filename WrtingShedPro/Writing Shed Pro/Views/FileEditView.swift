@@ -2918,8 +2918,8 @@ struct FileEditView: View {
             }
         }
         
-        // Delete the file from parent folder
-        folder.files?.removeAll(where: { $0 == file })
+        // Delete the file from SwiftData
+        modelContext.delete(file)
         
         // Save and update back matter
         try? modelContext.save()
