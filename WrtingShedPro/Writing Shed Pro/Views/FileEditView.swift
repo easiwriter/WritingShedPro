@@ -5583,7 +5583,7 @@ private struct NewCommentSheet: View {
                             .frame(maxWidth: .infinity)
                             .foregroundColor(.white)
                     }
-                    .buttonStyle(FilledButtonStyle())
+                    .buttonStyle(.borderedProminent)
                     .disabled(commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     
                     Button(action: {
@@ -5594,7 +5594,7 @@ private struct NewCommentSheet: View {
                             .frame(maxWidth: .infinity)
                             .foregroundColor(.white)
                     }
-                    .buttonStyle(FilledButtonStyle())
+                    .buttonStyle(.borderedProminent)
                 }
                 .padding()
             }
@@ -5640,7 +5640,7 @@ private struct NewFootnoteSheet: View {
                             .frame(maxWidth: .infinity)
                             .foregroundColor(.white)
                     }
-                    .buttonStyle(FilledButtonStyle())
+                    .buttonStyle(.borderedProminent)
                     .disabled(footnoteText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     
                     Button(action: {
@@ -5651,7 +5651,7 @@ private struct NewFootnoteSheet: View {
                             .frame(maxWidth: .infinity)
                             .foregroundColor(.white)
                     }
-                    .buttonStyle(FilledButtonStyle())
+                    .buttonStyle(.borderedProminent)
                 }
                 .padding()
             }

@@ -160,7 +160,7 @@ struct NoteEditorSheet: View {
                             .frame(maxWidth: .infinity)
                             .foregroundColor(.white)
                     }
-                    .buttonStyle(FilledButtonStyle())
+                    .buttonStyle(.borderedProminent)
                     .disabled(!canSave)
                     
                     Button(action: {
@@ -171,7 +171,7 @@ struct NoteEditorSheet: View {
                             .frame(maxWidth: .infinity)
                             .foregroundColor(.white)
                     }
-                    .buttonStyle(FilledButtonStyle())
+                    .buttonStyle(.borderedProminent)
                 }
                 .padding()
             }
