@@ -152,31 +152,24 @@ struct NoteEditorSheet: View {
                 }
                 
                 Spacer()
-                
-                // Buttons
-                VStack(spacing: 12) {
-                    Button(action: saveNote) {
-                        Text(NSLocalizedString("button.save", comment: "Save"))
-                            .frame(maxWidth: .infinity)
-                            .foregroundColor(.white)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(!canSave)
-                    
-                    Button(action: {
-                        onCancel?()
-                        dismiss()
-                    }) {
-                        Text(NSLocalizedString("button.cancel", comment: "Cancel"))
-                            .frame(maxWidth: .infinity)
-                            .foregroundColor(.white)
-                    }
-                    .buttonStyle(.borderedProminent)
-                }
-                .padding()
             }
             .navigationTitle(navigationTitle)
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(NSLocalizedString("button.cancel", comment: "Cancel")) {
+                        onCancel?()
+                        dismiss()
+                    }
+                }
+                
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(NSLocalizedString("button.save", comment: "Save")) {
+                        saveNote()
+                    }
+                    .disabled(!canSave)
+                }
+            }
         }
     }
     

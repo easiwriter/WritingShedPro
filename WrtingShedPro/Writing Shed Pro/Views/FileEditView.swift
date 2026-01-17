@@ -5572,35 +5572,25 @@ private struct NewCommentSheet: View {
                 }
                 
                 Spacer()
-                
-                // Buttons
-                VStack(spacing: 12) {
-                    Button(action: {
-                        onAdd()
-                        dismiss()
-                    }) {
-                        Text("button.add")
-                            .frame(maxWidth: .infinity)
-                            .foregroundColor(.white)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    
-                    Button(action: {
-                        onCancel()
-                        dismiss()
-                    }) {
-                        Text("button.cancel")
-                            .frame(maxWidth: .infinity)
-                            .foregroundColor(.white)
-                    }
-                    .buttonStyle(.borderedProminent)
-                }
-                .padding()
             }
             .padding(.top)
             .navigationTitle("fileEdit.newComment.title")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("button.cancel") {
+                        onCancel()
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("button.add") {
+                        onAdd()
+                        dismiss()
+                    }
+                    .disabled(commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
         }
     }
 }
@@ -5629,35 +5619,25 @@ private struct NewFootnoteSheet: View {
                     .accessibilityLabel("fileEdit.newFootnote.textEditor.accessibility")
                 
                 Spacer()
-                
-                // Buttons
-                VStack(spacing: 12) {
-                    Button(action: {
-                        onAdd()
-                        dismiss()
-                    }) {
-                        Text("button.add")
-                            .frame(maxWidth: .infinity)
-                            .foregroundColor(.white)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(footnoteText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    
-                    Button(action: {
-                        onCancel()
-                        dismiss()
-                    }) {
-                        Text("button.cancel")
-                            .frame(maxWidth: .infinity)
-                            .foregroundColor(.white)
-                    }
-                    .buttonStyle(.borderedProminent)
-                }
-                .padding()
             }
             .padding(.top)
             .navigationTitle("fileEdit.newFootnote.title")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("button.cancel") {
+                        onCancel()
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("button.add") {
+                        onAdd()
+                        dismiss()
+                    }
+                    .disabled(footnoteText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
         }
     }
 }
