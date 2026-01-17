@@ -211,7 +211,7 @@ struct NoteEditorSheet: View {
             Section {
                 TextEditor(text: $noteContent)
                     .font(.body)
-                    .frame(minHeight: 150)
+                    .frame(minHeight: 300)
             } header: {
                 Text(NSLocalizedString("noteEditor.content.header", comment: "Content"))
             }
