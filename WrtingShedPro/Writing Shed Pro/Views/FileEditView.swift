@@ -510,8 +510,12 @@ struct FileEditView: View {
                 Button(role: .destructive) {
                     #if DEBUG
                     print("🗑️ Delete button tapped for: \(file.name)")
+                    print("🗑️ Setting presentDeleteBackMatterAlert to true")
                     #endif
                     presentDeleteBackMatterAlert = true
+                    #if DEBUG
+                    print("🗑️ presentDeleteBackMatterAlert is now: \(presentDeleteBackMatterAlert)")
+                    #endif
                 } label: {
                     Image(systemName: "trash")
                 }
@@ -1260,7 +1264,10 @@ struct FileEditView: View {
                 showCommentsList: { showCommentsList = true }
             ))
             .alert(isPresented: $presentDeleteBackMatterAlert) {
-                Alert(
+                #if DEBUG
+                print("🗑️ Alert is presenting: \(presentDeleteBackMatterAlert)")
+                #endif
+                return Alert(
                     title: Text("Delete Back Matter File?"),
                     message: Text("This will remove all references to its contents and the referenced items themselves. This cannot be undone. Continue?"),
                     primaryButton: .destructive(Text("Delete")) {
@@ -1268,6 +1275,7 @@ struct FileEditView: View {
                     },
                     secondaryButton: .cancel()
                 )
+            }
             }
             .sheet(isPresented: $showCommentsList) {
                 if let currentVersion = file.currentVersion {
@@ -2311,6 +2319,9 @@ struct FileEditView: View {
         )
         undoManager.execute(command)
         
+        // Check for and remove orphaned endnote references
+        cleanupOrphanedEndnoteReferences()
+        
         // Update previous content for next comparison
         previousContent = newContent
         previousAttributedContent = newAttributedText  // Cache for next change
@@ -2889,6 +2900,61 @@ struct FileEditView: View {
         
         // Save changes to the database
         try? modelContext.save()
+    }
+
+    private func cleanupOrphanedEndnoteReferences() {
+        // Find all endnote entries that are no longer referenced in the text
+        let project = file.project ?? file.parentFolder?.project ?? findProjectInHierarchy()
+        guard let project = project else {
+            return
+        }
+        
+        guard let entries = project.noteEntries?.filter({ $0.isEndnote }) else {
+            return
+        }
+        
+        if let coordinator = textViewCoordinator {
+            let text = coordinator.getAttributedString().string
+            
+            // Find entries that don't have a corresponding reference in the text
+            var entriesToRemove: [NoteEntry] = []
+            for entry in entries {
+                // Endnote references are stored as [@UUID]
+                let referenceTag = "[@\(entry.id.uuidString)]"
+                if !text.contains(referenceTag) {
+                    #if DEBUG
+                    print("🗑️ Found orphaned endnote: \(entry.id) - no reference in text")
+                    #endif
+                    entriesToRemove.append(entry)
+                }
+            }
+            
+            // Remove orphaned entries
+            for entry in entriesToRemove {
+                if let index = project.noteEntries?.firstIndex(of: entry) {
+                    project.noteEntries?.remove(at: index)
+                    #if DEBUG
+                    print("🗑️ Removed orphaned endnote entry: \(entry.id)")
+                    #endif
+                }
+            }
+            
+            // Save if any entries were removed
+            if !entriesToRemove.isEmpty {
+                try? modelContext.save()
+            }
+        }
+    }
+    
+    private func findProjectInHierarchy() -> Project? {
+        var current = file.parentFolder
+        while current != nil {
+            if let project = current?.project {
+                return project
+            }
+            current = current?.parentFolder
+        }
+        return nil
     }
 
     private func deleteBackMatterFileAndCleanup() {
