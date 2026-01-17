@@ -112,12 +112,11 @@ struct NoteEditorSheet: View {
     }
     
     // MARK: - Body
+    /// COPILOT NOTE: Use NavigationView with .navigationViewStyle(.stack) for sheets/dialogs.
+    /// This renders toolbar buttons as white outlined buttons (not black solid pills).
     
     var body: some View {
-        /// COPILOT NOTE: Always use NavigationStack (not NavigationView) for sheets/dialogs.
-        /// NavigationStack renders toolbar buttons correctly as plain text buttons.
-        /// NavigationView renders them as black pill-shaped buttons.
-        NavigationStack {
+        NavigationView {
             VStack(spacing: 0) {
                 if !isEditing && existingNotesOfType.isEmpty {
                     // Only create new option if no existing notes
@@ -156,6 +155,7 @@ struct NoteEditorSheet: View {
                 }
             }
         }
+        .navigationViewStyle(.stack)
     }
     
     // MARK: - Mode Selector
