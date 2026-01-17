@@ -1943,6 +1943,9 @@ struct FileEditView: View {
                 }
             }
         }
+        
+        // Sync back matter settings with actual files (handles imported projects)
+        syncBackMatterSettingsWithActualFiles()
     }
     
     private func handleImagePasted() {
@@ -2962,6 +2965,56 @@ struct FileEditView: View {
             current = current?.parentFolder
         }
         return nil
+    }
+
+    /// Sync back matter settings with actual files in the Back Matter folder
+    /// This is called after import to enable settings for back matter files that actually exist
+    private func syncBackMatterSettingsWithActualFiles() {
+        guard let project = file.project ?? file.parentFolder?.project ?? findProjectInHierarchy() else {
+            return
+        }
+        
+        guard let backMatterFolder = project.folders?.first(where: { $0.name == "Back Matter" }) else {
+            return
+        }
+        
+        #if DEBUG
+        print("🔄 Syncing back matter settings with actual files...")
+        #endif
+        
+        // Check which back matter files actually exist
+        let fileNames = backMatterFolder.files?.map { $0.name } ?? []
+        
+        #if DEBUG
+        print("📄 Back matter files found: \(fileNames)")
+        #endif
+        
+        // Enable settings for files that exist
+        let backMatterItems: [(name: String, type: BackMatterType)] = [
+            ("Endnotes", .endnotes),
+            ("Glossary", .glossary),
+            ("Citations", .bibliography),
+            ("Index", .index)
+        ]
+        
+        for (fileName, backMatterType) in backMatterItems {
+            let fileExists = fileNames.contains(fileName)
+            let isCurrentlyEnabled = backMatterFolder.backMatterSettings.isEnabled(backMatterType)
+            
+            if fileExists && !isCurrentlyEnabled {
+                #if DEBUG
+                print("✅ Enabling \(fileName) setting (file exists)")
+                #endif
+                backMatterFolder.backMatterSettings.setEnabled(backMatterType, enabled: true)
+            } else if !fileExists && isCurrentlyEnabled {
+                #if DEBUG
+                print("❌ Disabling \(fileName) setting (file doesn't exist)")
+                #endif
+                backMatterFolder.backMatterSettings.setEnabled(backMatterType, enabled: false)
+            }
+        }
+        
+        try? modelContext.save()
     }
 
     private func deleteBackMatterFileAndCleanup() {
