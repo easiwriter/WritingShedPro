@@ -114,7 +114,10 @@ struct NoteEditorSheet: View {
     // MARK: - Body
     
     var body: some View {
-        NavigationView {
+        /// COPILOT NOTE: Always use NavigationStack (not NavigationView) for sheets/dialogs.
+        /// NavigationStack renders toolbar buttons correctly as plain text buttons.
+        /// NavigationView renders them as black pill-shaped buttons.
+        NavigationStack {
             VStack(spacing: 0) {
                 if !isEditing && existingNotesOfType.isEmpty {
                     // Only create new option if no existing notes
