@@ -113,16 +113,10 @@ struct NoteEditorSheet: View {
                 // Content section
                 Section {
                     TextEditor(text: $noteContent)
-                        .frame(minHeight: 150)
+                        .frame(minHeight: 300)
                         .font(.body)
                 } header: {
                     Text(NSLocalizedString("noteEditor.content.header", comment: "Content"))
-                } footer: {
-                    if isEndnote {
-                        Text(NSLocalizedString("noteEditor.endnote.footer", comment: "Endnotes appear as superscript numbers in the text"))
-                    } else {
-                        Text(NSLocalizedString("noteEditor.note.footer", comment: "Notes appear as [Note n] in the text"))
-                    }
                 }
                 
                 // Info section (for existing notes)
@@ -156,13 +150,10 @@ struct NoteEditorSheet: View {
                 titleVisibility: .visible
             ) {
                 Button(NSLocalizedString("noteEditor.discard.button", comment: "Discard"), role: .destructive) {
-                    showDiscardConfirmation = false
                     onCancel?()
                     dismiss()
                 }
-                Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
-                    showDiscardConfirmation = false
-                }
+                Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {}
             } message: {
                 Text(NSLocalizedString("noteEditor.discard.message", comment: "Your changes will be lost."))
             }
