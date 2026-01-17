@@ -3266,10 +3266,25 @@ struct FileEditView: View {
         let mutableText = NSMutableAttributedString(attributedString: attributedText)
         var removedCount = 0
         
+        #if DEBUG
+        // Debug: Check what attributes are actually in the string
+        var foundAnyAttachments = false
+        mutableText.enumerateAttributes(in: NSRange(location: 0, length: mutableText.length), options: []) { attrs, range, _ in
+            if attrs[NSAttributedString.Key.attachment] != nil {
+                foundAnyAttachments = true
+            }
+        }
+        print("    🔍 Has any attachments: \(foundAnyAttachments)")
+        #endif
+        
         // Enumerate in reverse order to avoid index shifting issues
         var rangesToRemove: [(NSRange, ReferenceAttachment)] = []
         
         mutableText.enumerateAttribute(NSAttributedString.Key.attachment, in: NSRange(location: 0, length: mutableText.length), options: []) { attachment, range, _ in
+            #if DEBUG
+            print("    🔎 Attachment at \(range): \(type(of: attachment)) = \(String(describing: attachment))")
+            #endif
+            
             if let refAttachment = attachment as? ReferenceAttachment,
                refAttachment.referenceType == referenceType {
                 #if DEBUG
