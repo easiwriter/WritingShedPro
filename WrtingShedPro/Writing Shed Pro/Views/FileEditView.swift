@@ -3196,11 +3196,25 @@ struct FileEditView: View {
         print("🔍 removeReferenceAttachmentsFromProjectFiles: \(referenceType)")
         #endif
         
+        var totalRemoved = 0
+        
         func scanFolderForFiles(_ folder: Folder) {
             // Process files in this folder
             if let files = folder.files {
                 for textFile in files {
+                    #if DEBUG
+                    let beforeLength = textFile.versions?[textFile.currentVersionIndex].attributedContent?.length ?? 0
+                    #endif
+                    
                     removeReferenceAttachmentsFromFile(textFile, referenceType: referenceType)
+                    
+                    #if DEBUG
+                    let afterLength = textFile.versions?[textFile.currentVersionIndex].attributedContent?.length ?? 0
+                    if beforeLength != afterLength {
+                        print("  ✅ \(textFile.name): \(beforeLength) → \(afterLength) chars")
+                        totalRemoved += (beforeLength - afterLength)
+                    }
+                    #endif
                 }
             }
             
@@ -3218,6 +3232,10 @@ struct FileEditView: View {
                 scanFolderForFiles(folder)
             }
         }
+        
+        #if DEBUG
+        print("🔍 Removal complete: \(totalRemoved) chars removed total")
+        #endif
     }
     
     private func removeReferenceAttachmentsFromFile(_ textFile: TextFile, referenceType: ReferenceType) {
@@ -3241,6 +3259,10 @@ struct FileEditView: View {
             return
         }
         
+        #if DEBUG
+        print("    📊 Content before: length=\(attributedText.length)")
+        #endif
+        
         let mutableText = NSMutableAttributedString(attributedString: attributedText)
         var removedCount = 0
         
@@ -3251,23 +3273,44 @@ struct FileEditView: View {
             if let refAttachment = attachment as? ReferenceAttachment,
                refAttachment.referenceType == referenceType {
                 #if DEBUG
-                print("    🗑️ Found reference to remove: \(refAttachment.entryID)")
+                print("    🗑️ Found \(referenceType) reference: \(refAttachment.entryID) at range \(range)")
                 #endif
                 rangesToRemove.append((range, refAttachment))
                 removedCount += 1
             }
         }
         
+        #if DEBUG
+        print("    📝 Found \(removedCount) references to remove")
+        #endif
+        
         // Remove in reverse order
         for (_, (range, _)) in rangesToRemove.enumerated().reversed() {
+            #if DEBUG
+            print("    🗑️ Removing range: \(range)")
+            #endif
             mutableText.deleteCharacters(in: range)
         }
         
         if removedCount > 0 {
+            #if DEBUG
+            print("    📊 Content after removal: length=\(mutableText.length)")
+            print("    💾 Updating version.attributedContent...")
+            #endif
+            
             // Update the version's attributed content (which will encode to formattedContent)
             currentVersion.attributedContent = mutableText
+            
+            // Mark the file as modified so SwiftData tracks the change
+            textFile.updatedAt = Date()
+            
             #if DEBUG
-            print("    ✅ Removed \(removedCount) \(referenceType) references")
+            print("    ✅ Removed \(removedCount) \(referenceType) references from \(textFile.name)")
+            print("    📊 New content length: \(currentVersion.attributedContent?.length ?? 0)")
+            #endif
+        } else {
+            #if DEBUG
+            print("    ℹ️ No \(referenceType) references found in \(textFile.name)")
             #endif
         }
     }
