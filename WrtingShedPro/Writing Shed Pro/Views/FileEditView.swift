@@ -3125,10 +3125,17 @@ struct FileEditView: View {
         print("🗑️ Deleting back matter file: \(file.name)")
         #endif
         
+        // Determine reference type being removed
+        var referenceTypeToRemove: ReferenceAttachment.ReferenceType?
+        
         // Remove all references and entries for this back matter type
         if file.name == "Endnotes" {
+            referenceTypeToRemove = .endnote
             // Remove all endnote entries
             project.noteEntries?.removeAll(where: { $0.isEndnote })
+            #if DEBUG
+            print("✅ Removed all endnote entries from project")
+            #endif
             // Turn off endnotes in settings
             backMatterFolder.backMatterSettings.setEnabled(.endnotes, enabled: false)
             #if DEBUG
@@ -3143,6 +3150,14 @@ struct FileEditView: View {
         } else if file.name == "Index" {
             project.indexEntries?.removeAll()
             backMatterFolder.backMatterSettings.setEnabled(.index, enabled: false)
+        }
+        
+        // If this is endnotes, remove all endnote references from all files in the project
+        if let refType = referenceTypeToRemove {
+            #if DEBUG
+            print("🔍 Scanning project files to remove \(refType) references...")
+            #endif
+            removeReferenceAttachmentsFromProjectFiles(project: project, referenceType: refType)
         }
         
         // Delete the file from SwiftData
@@ -3171,6 +3186,74 @@ struct FileEditView: View {
         print("👈 Dismissing view")
         #endif
         dismiss()
+    }
+    
+    private func removeReferenceAttachmentsFromProjectFiles(project: Project, referenceType: ReferenceAttachment.ReferenceType) {
+        #if DEBUG
+        print("🔍 removeReferenceAttachmentsFromProjectFiles: \(referenceType)")
+        #endif
+        
+        func scanFolderForFiles(_ folder: Folder) {
+            // Process files in this folder
+            if let files = folder.files {
+                for textFile in files {
+                    removeReferenceAttachmentsFromFile(textFile, referenceType: referenceType)
+                }
+            }
+            
+            // Recurse into subfolders
+            if let subfolders = folder.folders {
+                for subfolder in subfolders {
+                    scanFolderForFiles(subfolder)
+                }
+            }
+        }
+        
+        // Start scanning from project folders
+        if let folders = project.folders {
+            for folder in folders {
+                scanFolderForFiles(folder)
+            }
+        }
+    }
+    
+    private func removeReferenceAttachmentsFromFile(_ textFile: TextFile, referenceType: ReferenceAttachment.ReferenceType) {
+        #if DEBUG
+        print("  📄 Scanning file: \(textFile.name)")
+        #endif
+        
+        guard let content = textFile.content else {
+            return
+        }
+        
+        let attributedText = NSMutableAttributedString(attributedString: content)
+        var removedCount = 0
+        
+        // Enumerate in reverse order to avoid index shifting issues
+        var rangesToRemove: [(NSRange, ReferenceAttachment)] = []
+        
+        attributedText.enumerateAttribute(.attachment, in: NSRange(location: 0, length: attributedText.length), options: []) { attachment, range, _ in
+            if let refAttachment = attachment as? ReferenceAttachment,
+               refAttachment.referenceType == referenceType {
+                #if DEBUG
+                print("    🗑️ Found reference to remove: \(refAttachment.entryID)")
+                #endif
+                rangesToRemove.append((range, refAttachment))
+                removedCount += 1
+            }
+        }
+        
+        // Remove in reverse order
+        for (index, (range, _)) in rangesToRemove.enumerated().reversed() {
+            attributedText.deleteCharacters(in: range)
+        }
+        
+        if removedCount > 0 {
+            textFile.content = attributedText
+            #if DEBUG
+            print("    ✅ Removed \(removedCount) \(referenceType) references")
+            #endif
+        }
     }
     
     /// Handle tap on a reference attachment (shows popover or detail view)
