@@ -339,7 +339,7 @@ struct NoteEditorSheet: View {
                     content: trimmedContent,
                     isEndnote: isEndnote,
                     displayNumber: calculateNextNumber(),
-                    title: noteTitle.isEmpty ? nil : noteTitle,
+                    title: nil,  // Title field removed - use tag instead
                     tag: trimmedTag
                 )
                 

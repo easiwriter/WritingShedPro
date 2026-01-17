@@ -347,12 +347,13 @@ final class ReferenceAttachment: NSTextAttachment {
             )
             
         case .note:
-            // Blue badge
+            // Use paragraph font (body) size with label color
+            let bodyFont = UIFont.preferredFont(forTextStyle: .body)
             return (
-                textColor: UIColor.systemBlue,
-                backgroundColor: UIColor.systemBlue.withAlphaComponent(0.1),
-                borderColor: UIColor.systemBlue.withAlphaComponent(0.3),
-                font: UIFont.systemFont(ofSize: Self.markerFontSize, weight: .medium)
+                textColor: UIColor.label,
+                backgroundColor: UIColor.label.withAlphaComponent(0.05),
+                borderColor: UIColor.label.withAlphaComponent(0.15),
+                font: UIFont.systemFont(ofSize: bodyFont.pointSize, weight: .regular)
             )
             
         case .citation:
