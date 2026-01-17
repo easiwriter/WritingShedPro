@@ -132,18 +132,21 @@ struct FolderFilesView: View {
     // MARK: - File List View (extracted to reduce body complexity)
     @ViewBuilder
     private var fileListSection: some View {
+        // Back matter and front matter folders are read-only - no edit operations allowed
+        let isReadOnly = folder.isBackMatterFolder || folder.isFrontMatterFolder
+        
         FileListView(
             files: sortedFiles,
             onFileSelected: handleFileSelected,
-            onMove: isProseProject ? handleMove : nil,
-            onDelete: deleteFiles,
-            onExport: handleExport,
+            onMove: (isProseProject && !isReadOnly) ? handleMove : nil,
+            onDelete: isReadOnly ? nil : deleteFiles,
+            onExport: isReadOnly ? nil : handleExport,
             onSubmit: fileListOnSubmit,
             onAddToCollection: fileListOnAddToCollection,
             onReorder: nil,
-            onRename: handleRename,
-            onDeletePermanently: deleteFilesPermanently,
-            onChangeStatus: isContentFolder ? handleChangeStatus : nil
+            onRename: isReadOnly ? nil : handleRename,
+            onDeletePermanently: isReadOnly ? nil : deleteFilesPermanently,
+            onChangeStatus: (isContentFolder && !isReadOnly) ? handleChangeStatus : nil
         )
     }
     
