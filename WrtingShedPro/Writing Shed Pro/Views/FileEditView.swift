@@ -3285,13 +3285,29 @@ struct FileEditView: View {
             print("    🔎 Attachment at \(range): \(type(of: attachment)) = \(String(describing: attachment))")
             #endif
             
-            if let refAttachment = attachment as? ReferenceAttachment,
-               refAttachment.referenceType == referenceType {
+            if let refAttachment = attachment as? ReferenceAttachment {
                 #if DEBUG
-                print("    🗑️ Found \(referenceType) reference: \(refAttachment.entryID) at range \(range)")
+                print("    ✅ Cast successful to ReferenceAttachment")
                 #endif
-                rangesToRemove.append((range, refAttachment))
-                removedCount += 1
+                if refAttachment.referenceType == referenceType {
+                    #if DEBUG
+                    print("    🗑️ Found \(referenceType) reference: \(refAttachment.entryID) at range \(range)")
+                    #endif
+                    rangesToRemove.append((range, refAttachment))
+                    removedCount += 1
+                } else {
+                    #if DEBUG
+                    print("    ⏭️ Skipping \(refAttachment.referenceType) (not \(referenceType))")
+                    #endif
+                }
+            } else {
+                #if DEBUG
+                if attachment != nil {
+                    print("    ⚠️ Attachment exists but is \(type(of: attachment)), not ReferenceAttachment")
+                } else {
+                    print("    ℹ️ nil attachment at range \(range)")
+                }
+                #endif
             }
         }
         
