@@ -517,58 +517,6 @@ struct FileEditView: View {
                 }
             )
         } else {
-                // --- Delete Back Matter File Alert and Logic ---
-                @ViewBuilder
-                private var deleteBackMatterAlert: some View {
-                    EmptyView()
-                        .alert(isPresented: $presentDeleteBackMatterAlert) {
-                            Alert(
-                                title: Text("Delete Back Matter File?"),
-                                message: Text("This will remove all references to its contents and the referenced items themselves. This cannot be undone. Continue?"),
-                                primaryButton: .destructive(Text("Delete")) {
-                                    deleteBackMatterFileAndCleanup()
-                                },
-                                secondaryButton: .cancel()
-                            )
-                        }
-                }
-
-                private func deleteBackMatterFileAndCleanup() {
-                    guard let folder = file.parentFolder, let project = file.project else { return }
-                    // Remove all references and entries for this back matter type
-                    if file.name == "Endnotes" {
-                        // Remove all endnote references from manuscript
-                        if let manuscript = project.manuscriptFile, let version = manuscript.currentVersion {
-                            let mutable = NSMutableAttributedString(attributedString: version.attributedContent ?? NSAttributedString())
-                            mutable.enumerateAttribute(.link, in: NSRange(location: 0, length: mutable.length), options: []) { value, range, _ in
-                                if let url = value as? URL, url.scheme == "endnote" {
-                                    mutable.deleteCharacters(in: range)
-                                }
-                            }
-                            version.attributedContent = mutable
-                        }
-                        // Remove all endnote entries
-                        project.noteEntries?.removeAll(where: { $0.isEndnote })
-                        // Turn off endnotes in settings
-                        folder.backMatterSettings.setEnabled(.endnotes, false)
-                    } else if file.name == "Glossary" {
-                        project.glossaryEntries?.removeAll()
-                        folder.backMatterSettings.setEnabled(.glossary, false)
-                    } else if file.name == "Citations" {
-                        project.citationEntries?.removeAll()
-                        folder.backMatterSettings.setEnabled(.bibliography, false)
-                    } else if file.name == "Index" {
-                        project.indexEntries?.removeAll()
-                        folder.backMatterSettings.setEnabled(.index, false)
-                    }
-                    // Delete the file
-                    folder.files?.removeAll(where: { $0 == file })
-                    // Save and update back matter
-                    try? file.modelContext?.save()
-                    updateBackMatterFiles()
-                    // Dismiss view
-                    dismiss()
-                }
             let isCompact = UIDevice.current.userInterfaceIdiom == .phone
             
             return AnyView(HStack(spacing: isCompact ? 12 : 16) {
@@ -2967,6 +2915,59 @@ struct FileEditView: View {
         
         // Save changes to the database
         try? modelContext.save()
+    }
+
+    // --- Delete Back Matter File Alert and Logic ---
+    @ViewBuilder
+    private var deleteBackMatterAlert: some View {
+        EmptyView()
+            .alert(isPresented: $presentDeleteBackMatterAlert) {
+                Alert(
+                    title: Text("Delete Back Matter File?"),
+                    message: Text("This will remove all references to its contents and the referenced items themselves. This cannot be undone. Continue?"),
+                    primaryButton: .destructive(Text("Delete")) {
+                        deleteBackMatterFileAndCleanup()
+                    },
+                    secondaryButton: .cancel()
+                )
+            }
+    }
+
+    private func deleteBackMatterFileAndCleanup() {
+        guard let folder = file.parentFolder, let project = file.project else { return }
+        // Remove all references and entries for this back matter type
+        if file.name == "Endnotes" {
+            // Remove all endnote references from manuscript
+            if let manuscript = project.manuscriptFile, let version = manuscript.currentVersion {
+                let mutable = NSMutableAttributedString(attributedString: version.attributedContent ?? NSAttributedString())
+                mutable.enumerateAttribute(.link, in: NSRange(location: 0, length: mutable.length), options: []) { value, range, _ in
+                    if let url = value as? URL, url.scheme == "endnote" {
+                        mutable.deleteCharacters(in: range)
+                    }
+                }
+                version.attributedContent = mutable
+            }
+            // Remove all endnote entries
+            project.noteEntries?.removeAll(where: { $0.isEndnote })
+            // Turn off endnotes in settings
+            folder.backMatterSettings.setEnabled(.endnotes, false)
+        } else if file.name == "Glossary" {
+            project.glossaryEntries?.removeAll()
+            folder.backMatterSettings.setEnabled(.glossary, false)
+        } else if file.name == "Citations" {
+            project.citationEntries?.removeAll()
+            folder.backMatterSettings.setEnabled(.bibliography, false)
+        } else if file.name == "Index" {
+            project.indexEntries?.removeAll()
+            folder.backMatterSettings.setEnabled(.index, false)
+        }
+        // Delete the file
+        folder.files?.removeAll(where: { $0 == file })
+        // Save and update back matter
+        try? file.modelContext?.save()
+        updateBackMatterFiles()
+        // Dismiss view
+        dismiss()
     }
     
     /// Handle tap on a reference attachment (shows popover or detail view)
