@@ -1264,10 +1264,7 @@ struct FileEditView: View {
                 showCommentsList: { showCommentsList = true }
             ))
             .alert(isPresented: $presentDeleteBackMatterAlert) {
-                #if DEBUG
-                print("🗑️ Alert is presenting: \(presentDeleteBackMatterAlert)")
-                #endif
-                return Alert(
+                Alert(
                     title: Text("Delete Back Matter File?"),
                     message: Text("This will remove all references to its contents and the referenced items themselves. This cannot be undone. Continue?"),
                     primaryButton: .destructive(Text("Delete")) {
@@ -1275,7 +1272,6 @@ struct FileEditView: View {
                     },
                     secondaryButton: .cancel()
                 )
-            }
             }
             .sheet(isPresented: $showCommentsList) {
                 if let currentVersion = file.currentVersion {
