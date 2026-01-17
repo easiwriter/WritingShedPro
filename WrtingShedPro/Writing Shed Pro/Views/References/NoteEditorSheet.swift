@@ -161,15 +161,24 @@ struct NoteEditorSheet: View {
                         onCancel?()
                         dismiss()
                     }
-                    .buttonStyle(.plain)
+                    .foregroundColor(.black)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 8)
+                    .background(Color(uiColor: .systemGray5))
+                    .cornerRadius(20)
                 }
                 
                 ToolbarItem(placement: .confirmationAction) {
                     Button(NSLocalizedString("button.save", comment: "Save")) {
                         saveNote()
                     }
-                    .buttonStyle(.plain)
+                    .foregroundColor(.black)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 8)
+                    .background(Color(uiColor: .systemGray5))
+                    .cornerRadius(20)
                     .disabled(!canSave)
+                    .opacity(canSave ? 1.0 : 0.5)
                 }
             }
         }

@@ -5582,15 +5582,24 @@ private struct NewCommentSheet: View {
                         onCancel()
                         dismiss()
                     }
-                    .buttonStyle(.plain)
+                    .foregroundColor(.black)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 8)
+                    .background(Color(uiColor: .systemGray5))
+                    .cornerRadius(20)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("button.add") {
                         onAdd()
                         dismiss()
                     }
-                    .buttonStyle(.plain)
+                    .foregroundColor(.black)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 8)
+                    .background(Color(uiColor: .systemGray5))
+                    .cornerRadius(20)
                     .disabled(commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .opacity(commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.5 : 1.0)
                 }
             }
         }
@@ -5631,15 +5640,24 @@ private struct NewFootnoteSheet: View {
                         onCancel()
                         dismiss()
                     }
-                    .buttonStyle(.plain)
+                    .foregroundColor(.black)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 8)
+                    .background(Color(uiColor: .systemGray5))
+                    .cornerRadius(20)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("button.add") {
                         onAdd()
                         dismiss()
                     }
-                    .buttonStyle(.plain)
+                    .foregroundColor(.black)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 8)
+                    .background(Color(uiColor: .systemGray5))
+                    .cornerRadius(20)
                     .disabled(footnoteText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .opacity(footnoteText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.5 : 1.0)
                 }
             }
         }
