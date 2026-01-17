@@ -193,36 +193,34 @@ struct NoteEditorSheet: View {
     // MARK: - Create New Form
     
     private var createNewNoteForm: some View {
-        Form {
-            // Tag section (required for tag-based system)
+        // Tag section (required for tag-based system)
+        Section {
+            TextField(
+                "e.g., timeline-1, character-insight",
+                text: $noteTag
+            )
+            .autocorrectionDisabled()
+        } header: {
+            Text("Tag")
+        } footer: {
+            Text("Unique identifier for this note (e.g., 'timeline-1' or 'foreshadow')")
+        }
+        
+        // Content section
+        Section {
+            TextEditor(text: $noteContent)
+                .font(.body)
+                .frame(minHeight: 300, maxHeight: .infinity)
+        } header: {
+            Text(NSLocalizedString("noteEditor.content.header", comment: "Content"))
+        }
+        
+        // Info section (for existing notes)
+        if let existing = existingNote {
             Section {
-                TextField(
-                    "e.g., timeline-1, character-insight",
-                    text: $noteTag
-                )
-                .autocorrectionDisabled()
+                infoSection(for: existing)
             } header: {
-                Text("Tag")
-            } footer: {
-                Text("Unique identifier for this note (e.g., 'timeline-1' or 'foreshadow')")
-            }
-            
-            // Content section
-            Section {
-                TextEditor(text: $noteContent)
-                    .font(.body)
-                    .frame(minHeight: 300, maxHeight: .infinity)
-            } header: {
-                Text(NSLocalizedString("noteEditor.content.header", comment: "Content"))
-            }
-            
-            // Info section (for existing notes)
-            if let existing = existingNote {
-                Section {
-                    infoSection(for: existing)
-                } header: {
-                    Text(NSLocalizedString("noteEditor.info.header", comment: "Information"))
-                }
+                Text(NSLocalizedString("noteEditor.info.header", comment: "Information"))
             }
         }
     }
