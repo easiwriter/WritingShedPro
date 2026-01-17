@@ -169,19 +169,23 @@ struct NoteEditorSheet: View {
         HStack(spacing: 8) {
             Button(action: { mode = .createNew }) {
                 Text("Create New")
+                    .font(.headline)
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)
             .buttonBorderShape(.capsule)
-            .tint(mode == .createNew ? .blue : .gray)
+            .tint(mode == .createNew ? .white : .gray)
+            .background(mode == .createNew ? Color.blue : Color.clear)
             
             Button(action: { mode = .referenceExisting }) {
                 Text("Reference Existing")
+                    .font(.headline)
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)
             .buttonBorderShape(.capsule)
-            .tint(mode == .referenceExisting ? .blue : .gray)
+            .tint(mode == .referenceExisting ? .white : .gray)
+            .background(mode == .referenceExisting ? Color.blue : Color.clear)
         }
         .padding()
     }
@@ -207,6 +211,7 @@ struct NoteEditorSheet: View {
             Section {
                 TextEditor(text: $noteContent)
                     .font(.body)
+                    .frame(minHeight: 150)
             } header: {
                 Text(NSLocalizedString("noteEditor.content.header", comment: "Content"))
             }
@@ -226,20 +231,16 @@ struct NoteEditorSheet: View {
     
     private var referenceExistingForm: some View {
         VStack(spacing: 0) {
-            Text("Choose Existing Note")
-                .font(.headline)
-                .padding()
-            
-            Text("Select an existing note to reference from this location")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .padding(.horizontal)
-                .padding(.bottom, 12)
-            
             ScrollView {
                 VStack(spacing: 0) {
                     ForEach(existingNotesOfType) { note in
-                        Button(action: { selectedExistingNoteID = note.id }) {
+                        Button(action: { 
+                            if selectedExistingNoteID == note.id {
+                                selectedExistingNoteID = nil
+                            } else {
+                                selectedExistingNoteID = note.id
+                            }
+                        }) {
                             HStack(spacing: 12) {
                                 VStack(alignment: .leading, spacing: 4) {
                                     if let tag = note.tag {
