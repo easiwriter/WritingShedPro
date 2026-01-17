@@ -139,13 +139,13 @@ struct FolderFilesView: View {
             files: sortedFiles,
             onFileSelected: handleFileSelected,
             onMove: (isProseProject && !isReadOnly) ? handleMove : nil,
-            onDelete: isReadOnly ? nil : deleteFiles,
+            onDelete: isReadOnly ? { _ in } : deleteFiles,
             onExport: isReadOnly ? nil : handleExport,
             onSubmit: fileListOnSubmit,
             onAddToCollection: fileListOnAddToCollection,
             onReorder: nil,
-            onRename: isReadOnly ? nil : handleRename,
-            onDeletePermanently: isReadOnly ? nil : deleteFilesPermanently,
+            onRename: isReadOnly ? { _ in } : handleRename,
+            onDeletePermanently: isReadOnly ? { _ in } : deleteFilesPermanently,
             onChangeStatus: (isContentFolder && !isReadOnly) ? handleChangeStatus : nil
         )
     }
