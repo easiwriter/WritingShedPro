@@ -112,19 +112,20 @@ struct NoteEditorSheet: View {
     }
     
     // MARK: - Body
-    /// COPILOT NOTE: Use NavigationView with .navigationViewStyle(.stack) for sheets/dialogs.
-    /// This renders toolbar buttons as white outlined buttons (not black solid pills).
+    /// COPILOT NOTE: Use NavigationStack (not NavigationView) for sheets/dialogs.
+    /// NavigationStack renders toolbar buttons as white outlined buttons.
     
     var body: some View {
-        NavigationView {
-            VStack(spacing: 0) {
+        NavigationStack {
+            Form {
                 if !isEditing && existingNotesOfType.isEmpty {
                     // Only create new option if no existing notes
                     createNewNoteForm
                 } else if !isEditing && !existingNotesOfType.isEmpty {
                     // Show mode selector
-                    modeSelector
-                    Divider()
+                    Section {
+                        modeSelector
+                    }
                     
                     // Content based on mode
                     if mode == .referenceExisting {
@@ -155,7 +156,6 @@ struct NoteEditorSheet: View {
                 }
             }
         }
-        .navigationViewStyle(.stack)
     }
     
     // MARK: - Mode Selector
