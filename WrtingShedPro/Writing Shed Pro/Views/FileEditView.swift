@@ -2977,6 +2977,16 @@ struct FileEditView: View {
             return
         }
         
+        #if DEBUG
+        print("🔄 syncBackMatterSettings: Found project: \(project.name ?? "unnamed")")
+        print("  Project has \(project.folders?.count ?? 0) folders")
+        if let folders = project.folders {
+            for folder in folders {
+                print("    - \(folder.name ?? "unnamed") (\(folder.files?.count ?? 0) files)")
+            }
+        }
+        #endif
+        
         guard let backMatterFolder = project.folders?.first(where: { $0.name == "Back Matter" }) else {
             #if DEBUG
             print("🔄 syncBackMatterSettings: Could not find Back Matter folder")
@@ -2986,10 +2996,21 @@ struct FileEditView: View {
         
         #if DEBUG
         print("🔄 Syncing back matter settings with actual files...")
-        print("  Folder: \(backMatterFolder.name ?? "unknown")")
+        print("  Folder ID: \(backMatterFolder.id)")
+        print("  Folder has \(backMatterFolder.files?.count ?? 0) files in relationship")
         #endif
         
-        // Query database directly to get all files in back matter folder
+        // Try relationship first
+        if let relationshipFiles = backMatterFolder.files, !relationshipFiles.isEmpty {
+            let fileNames = Set(relationshipFiles.compactMap { $0.name })
+            #if DEBUG
+            print("📄 Back matter files from relationship: \(fileNames)")
+            #endif
+            syncSettingsWithFileNames(fileNames, backMatterFolder: backMatterFolder)
+            return
+        }
+        
+        // Query database directly as fallback
         let folderID = backMatterFolder.id
         do {
             let descriptor = FetchDescriptor<TextFile>(
@@ -2998,51 +3019,54 @@ struct FileEditView: View {
                 }
             )
             let backMatterFiles = try modelContext.fetch(descriptor)
-            let fileNames = Set(backMatterFiles.map { $0.name ?? "" })
+            let fileNames = Set(backMatterFiles.compactMap { $0.name })
             
             #if DEBUG
-            print("📄 Back matter files found: \(fileNames)")
+            print("📄 Back matter files from database query: \(fileNames)")
             #endif
-            
-            // Enable settings for files that exist
-            let backMatterItems: [(name: String, type: BackMatterItem)] = [
-                ("Endnotes", .endnotes),
-                ("Glossary", .glossary),
-                ("Citations", .bibliography),
-                ("Index", .index)
-            ]
-            
-            for (fileName, backMatterType) in backMatterItems {
-                let fileExists = fileNames.contains(fileName)
-                let isCurrentlyEnabled = backMatterFolder.backMatterSettings.isEnabled(backMatterType)
-                
-                #if DEBUG
-                print("  Checking \(fileName): exists=\(fileExists), enabled=\(isCurrentlyEnabled)")
-                #endif
-                
-                if fileExists && !isCurrentlyEnabled {
-                    #if DEBUG
-                    print("  ✅ Enabling \(fileName) setting (file exists)")
-                    #endif
-                    backMatterFolder.backMatterSettings.setEnabled(backMatterType, enabled: true)
-                } else if !fileExists && isCurrentlyEnabled {
-                    #if DEBUG
-                    print("  ❌ Disabling \(fileName) setting (file doesn't exist)")
-                    #endif
-                    backMatterFolder.backMatterSettings.setEnabled(backMatterType, enabled: false)
-                }
-            }
-            
-            try modelContext.save()
-            
-            #if DEBUG
-            print("✅ Back matter settings synced")
-            #endif
+            syncSettingsWithFileNames(fileNames, backMatterFolder: backMatterFolder)
         } catch {
             #if DEBUG
-            print("❌ Failed to sync back matter settings: \(error)")
+            print("❌ Failed to query back matter files: \(error)")
             #endif
         }
+    }
+    
+    private func syncSettingsWithFileNames(_ fileNames: Set<String>, backMatterFolder: Folder) {
+        // Enable settings for files that exist
+        let backMatterItems: [(name: String, type: BackMatterItem)] = [
+            ("Endnotes", .endnotes),
+            ("Glossary", .glossary),
+            ("Citations", .bibliography),
+            ("Index", .index)
+        ]
+        
+        for (fileName, backMatterType) in backMatterItems {
+            let fileExists = fileNames.contains(fileName)
+            let isCurrentlyEnabled = backMatterFolder.backMatterSettings.isEnabled(backMatterType)
+            
+            #if DEBUG
+            print("  Checking \(fileName): exists=\(fileExists), enabled=\(isCurrentlyEnabled)")
+            #endif
+            
+            if fileExists && !isCurrentlyEnabled {
+                #if DEBUG
+                print("  ✅ Enabling \(fileName) setting (file exists)")
+                #endif
+                backMatterFolder.backMatterSettings.setEnabled(backMatterType, enabled: true)
+            } else if !fileExists && isCurrentlyEnabled {
+                #if DEBUG
+                print("  ❌ Disabling \(fileName) setting (file doesn't exist)")
+                #endif
+                backMatterFolder.backMatterSettings.setEnabled(backMatterType, enabled: false)
+            }
+        }
+        
+        try? modelContext.save()
+        
+        #if DEBUG
+        print("✅ Back matter settings synced")
+        #endif
     }
 
     private func deleteBackMatterFileAndCleanup() {
