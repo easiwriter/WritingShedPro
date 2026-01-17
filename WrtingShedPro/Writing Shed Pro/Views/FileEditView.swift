@@ -517,7 +517,7 @@ struct FileEditView: View {
         } else {
             let isCompact = UIDevice.current.userInterfaceIdiom == .phone
             
-            return AnyView(HStack(spacing: isCompact ? 12 : 16) {
+            HStack(spacing: isCompact ? 12 : 16) {
                 // Search button (only in edit mode and not opened from multi-file search)
                 if !isPaginationMode && !isFromMultiFileSearch {
                     Button(action: {
@@ -686,7 +686,7 @@ struct FileEditView: View {
                     .disabled(!PrintService.isPrintingAvailable())
                     .accessibilityLabel("fileEdit.print.accessibility")
                 }
-            })
+            }
         }
     }
     
@@ -2899,27 +2899,27 @@ struct FileEditView: View {
             project.noteEntries?.removeAll(where: { $0.isEndnote })
             // Turn off endnotes in settings
             if let backMatterFolder = project.folders?.first(where: { $0.name == "Back Matter" }) {
-                backMatterFolder.backMatterSettings.setEnabled(enabled: false, for: .endnotes)
+                backMatterFolder.backMatterSettings.setEnabled(.endnotes, enabled: false)
             }
         } else if file.name == "Glossary" {
             project.glossaryEntries?.removeAll()
             if let backMatterFolder = project.folders?.first(where: { $0.name == "Back Matter" }) {
-                backMatterFolder.backMatterSettings.setEnabled(enabled: false, for: .glossary)
+                backMatterFolder.backMatterSettings.setEnabled(.glossary, enabled: false)
             }
         } else if file.name == "Citations" {
             project.citationEntries?.removeAll()
             if let backMatterFolder = project.folders?.first(where: { $0.name == "Back Matter" }) {
-                backMatterFolder.backMatterSettings.setEnabled(enabled: false, for: .bibliography)
+                backMatterFolder.backMatterSettings.setEnabled(.bibliography, enabled: false)
             }
         } else if file.name == "Index" {
             project.indexEntries?.removeAll()
             if let backMatterFolder = project.folders?.first(where: { $0.name == "Back Matter" }) {
-                backMatterFolder.backMatterSettings.setEnabled(enabled: false, for: .index)
+                backMatterFolder.backMatterSettings.setEnabled(.index, enabled: false)
             }
         }
         
         // Delete the file from parent folder
-        folder.removeFile(file)
+        folder.files?.removeAll(where: { $0 == file })
         
         // Save and update back matter
         try? modelContext.save()
