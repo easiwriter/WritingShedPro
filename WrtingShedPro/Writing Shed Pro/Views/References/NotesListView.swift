@@ -78,6 +78,8 @@ struct NotesListView: View {
     @State private var showDeleteConfirmation: NoteEntry?
     @State private var showAddNoteSheet = false
     @State private var addNoteAsEndnote = false
+    @State private var showAllDeletedAlert = false
+    @State private var previousNoteCount = 0
     
     // MARK: - Computed Properties
     
@@ -125,7 +127,10 @@ struct NotesListView: View {
     var body: some View {
         NavigationStack {
             Group {
-                if notes.isEmpty {
+                if notes.isEmpty && previousNoteCount > 0 && showAllDeletedAlert {
+                    // Showing alert - display empty state in background
+                    emptyState
+                } else if notes.isEmpty {
                     emptyState
                 } else {
                     notesList
@@ -153,6 +158,13 @@ struct NotesListView: View {
         }
         .onAppear {
             loadNotes()
+        }
+        .onChange(of: notes) { oldValue, newValue in
+            // Check if we just deleted all notes
+            if !oldValue.isEmpty && newValue.isEmpty {
+                showAllDeletedAlert = true
+            }
+            previousNoteCount = newValue.count
         }
         .sheet(isPresented: $showAddNoteSheet) {
             NoteEditorSheet(
@@ -193,6 +205,12 @@ struct NotesListView: View {
                 Text("This note is referenced \(note.referenceCount) times. All references will be removed from your documents.")
             } else {
                 Text(NSLocalizedString("notesList.confirmDelete.message", comment: "This note will be permanently deleted."))
+            }
+        }
+        .alert("All Endnotes Have Been Deleted", isPresented: $showAllDeletedAlert) {
+            Button("OK") {
+                onDismiss?()
+                dismiss()
             }
         }
     }

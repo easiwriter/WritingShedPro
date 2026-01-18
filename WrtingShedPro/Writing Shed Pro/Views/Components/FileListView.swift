@@ -438,12 +438,16 @@ struct FileListView: View {
             .tint(.blue)
         }
         
-        Button {
-            prepareDelete([file])
-        } label: {
-            Label("fileList.delete", systemImage: "trash")
+        // Delete button not shown for back matter files
+        let isBackMatterFile = ["Endnotes", "Glossary", "Bibliography", "Index"].contains(file.name)
+        if !isBackMatterFile {
+            Button {
+                prepareDelete([file])
+            } label: {
+                Label("fileList.delete", systemImage: "trash")
+            }
+            .tint(.red)
         }
-        .tint(.red)
     }
     
     /// Expand/Collapse all buttons for section view

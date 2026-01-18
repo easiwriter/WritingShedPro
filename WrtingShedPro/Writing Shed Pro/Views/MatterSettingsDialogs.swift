@@ -233,6 +233,51 @@ struct BackMatterSettingsDialog: View {
         folder.isDramaProject
     }
     
+    /// Check if a back matter item has any references in the project
+    private func hasReferences(for item: BackMatterItem) -> Bool {
+        // Back Matter folder's parent should be Manuscript folder, which has project reference
+        guard let project = folder.parentFolder?.project else {
+            #if DEBUG
+            print("⚠️ hasReferences: Could not access project via folder.parentFolder.project")
+            print("   folder: \(folder.name ?? "unknown")")
+            print("   parentFolder: \(folder.parentFolder?.name ?? "nil")")
+            #endif
+            return false
+        }
+        
+        let result: Bool
+        switch item {
+        case .endnotes:
+            let entries = project.noteEntries?.filter { $0.isEndnote && $0.referenceCount > 0 } ?? []
+            result = !entries.isEmpty
+            #if DEBUG
+            print("📊 Endnotes: \(entries.count) with references, hasReferences=\(result)")
+            #endif
+            return result
+        case .glossary:
+            let entries = project.glossaryEntries?.filter { $0.referenceCount > 0 } ?? []
+            result = !entries.isEmpty
+            #if DEBUG
+            print("📊 Glossary: \(entries.count) with references, hasReferences=\(result)")
+            #endif
+            return result
+        case .bibliography:
+            let entries = project.citationEntries?.filter { $0.referenceCount > 0 } ?? []
+            result = !entries.isEmpty
+            #if DEBUG
+            print("📊 Bibliography: \(entries.count) with references, hasReferences=\(result)")
+            #endif
+            return result
+        case .index:
+            let entries = project.indexEntries?.filter { $0.referenceCount > 0 } ?? []
+            result = !entries.isEmpty
+            #if DEBUG
+            print("📊 Index: \(entries.count) with references, hasReferences=\(result)")
+            #endif
+            return result
+        }
+    }
+    
     var body: some View {
         NavigationStack {
             Form {
@@ -243,7 +288,9 @@ struct BackMatterSettingsDialog: View {
                         }
                     } else {
                         ForEach(BackMatterItem.allCases) { item in
-                            Toggle(item.localizedName, isOn: binding(for: item))
+                            if !hasReferences(for: item) {
+                                Toggle(item.localizedName, isOn: binding(for: item))
+                            }
                         }
                     }
                 } header: {

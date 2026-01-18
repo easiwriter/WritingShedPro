@@ -25,6 +25,12 @@ struct BackMatterGeneratedContentView: View {
     // MARK: - State
     
     @State private var entries: [Any] = []
+    @State private var showDeletedAlert = false
+    @State private var deletedItemName: String = ""
+    @State private var previousEndnoteCount: Int = 0
+    @State private var previousGlossaryCount: Int = 0
+    @State private var previousBibliographyCount: Int = 0
+    @State private var previousIndexCount: Int = 0
     
     // MARK: - Computed Properties
     
@@ -73,11 +79,22 @@ struct BackMatterGeneratedContentView: View {
             .sorted { $0.displayNumber < $1.displayNumber }
         
         if endnotes.isEmpty {
-            emptyStateView(
-                title: NSLocalizedString("backMatter.endnotes.empty.title", comment: "No Endnotes"),
-                description: NSLocalizedString("backMatter.endnotes.empty.description", comment: "Endnotes added to your manuscript will appear here."),
-                systemImage: "number.circle"
-            )
+            // Check if we just deleted all endnotes (transition from non-empty to empty)
+            if previousEndnoteCount > 0 {
+                // Trigger alert
+                VStack {}
+                    .onAppear {
+                        showDeletedAlert = true
+                        deletedItemName = NSLocalizedString("backMatter.endnotes", comment: "Endnotes")
+                    }
+            } else {
+                // First time viewing - show empty state
+                emptyStateView(
+                    title: NSLocalizedString("backMatter.endnotes.empty.title", comment: "No Endnotes"),
+                    description: NSLocalizedString("backMatter.endnotes.empty.description", comment: "Endnotes added to your manuscript will appear here."),
+                    systemImage: "number.circle"
+                )
+            }
         } else {
             Text(NSLocalizedString("backMatter.endnotes.header", comment: "Endnotes"))
                 .font(.title2)
@@ -85,6 +102,12 @@ struct BackMatterGeneratedContentView: View {
             
             ForEach(endnotes) { note in
                 endnoteRow(note)
+            }
+            .onAppear {
+                previousEndnoteCount = endnotes.count
+            }
+            .onChange(of: endnotes.count) { _, newCount in
+                previousEndnoteCount = newCount
             }
         }
     }
