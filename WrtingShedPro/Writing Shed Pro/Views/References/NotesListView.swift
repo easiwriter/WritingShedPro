@@ -11,18 +11,15 @@
 import SwiftUI
 import SwiftData
 
-/// Filter options for notes list
+/// Filter options for endnotes list
 enum NotesFilter: String, CaseIterable {
     case all = "All"
-    case notes = "Notes"
     case endnotes = "Endnotes"
     
     var localizedTitle: String {
         switch self {
         case .all:
             return NSLocalizedString("notesList.filter.all", comment: "All")
-        case .notes:
-            return NSLocalizedString("notesList.filter.notes", comment: "Notes")
         case .endnotes:
             return NSLocalizedString("notesList.filter.endnotes", comment: "Endnotes")
         }
@@ -88,17 +85,7 @@ struct NotesListView: View {
     // MARK: - Computed Properties
     
     private var filteredNotes: [NoteEntry] {
-        var result = notes
-        
-        // Apply filter
-        switch filter {
-        case .all:
-            break
-        case .notes:
-            result = result.filter { !$0.isEndnote }
-        case .endnotes:
-            result = result.filter { $0.isEndnote }
-        }
+        var result = notes.filter { $0.isEndnote }
         
         // Apply search
         if !searchText.isEmpty {
@@ -147,7 +134,7 @@ struct NotesListView: View {
                     notesList
                 }
             }
-            .navigationTitle(NSLocalizedString("notesList.title", comment: "Notes"))
+            .navigationTitle(NSLocalizedString("notesList.endnotes.title", comment: "Endnotes"))
             .navigationBarTitleDisplayMode(.inline)
             .searchable(text: $searchText, prompt: NSLocalizedString("notesList.search.prompt", comment: "Search notes"))
             .toolbar {
@@ -159,58 +146,11 @@ struct NotesListView: View {
                 }
                 
                 ToolbarItem(placement: .primaryAction) {
-                    Menu {
-                        Button {
-                            addNoteAsEndnote = false
-                            showAddNoteSheet = true
-                        } label: {
-                            Label(
-                                NSLocalizedString("notesList.addNote", comment: "Add Note"),
-                                systemImage: "note.text.badge.plus"
-                            )
-                        }
-                        
-                        Button {
-                            addNoteAsEndnote = true
-                            showAddNoteSheet = true
-                        } label: {
-                            Label(
-                                NSLocalizedString("notesList.addEndnote", comment: "Add Endnote"),
-                                systemImage: "number.circle.fill"
-                            )
-                        }
-                    } label: {
+                    Button(action: {
+                        addNoteAsEndnote = true
+                        showAddNoteSheet = true
+                    }) {
                         Image(systemName: "plus")
-                    }
-                }
-                
-                ToolbarItem(placement: .secondaryAction) {
-                    Menu {
-                        // Filter section
-                        Section(NSLocalizedString("notesList.filter.header", comment: "Filter")) {
-                            Picker(selection: $filter) {
-                                ForEach(NotesFilter.allCases, id: \.self) { filterOption in
-                                    Text(filterOption.localizedTitle)
-                                        .tag(filterOption)
-                                }
-                            } label: {
-                                Text(NSLocalizedString("notesList.filter", comment: "Filter"))
-                            }
-                        }
-                        
-                        // Sort section
-                        Section(NSLocalizedString("notesList.sort.header", comment: "Sort By")) {
-                            Picker(selection: $sortOrder) {
-                                ForEach(NotesSortOrder.allCases, id: \.self) { sortOption in
-                                    Text(sortOption.localizedTitle)
-                                        .tag(sortOption)
-                                }
-                            } label: {
-                                Text(NSLocalizedString("notesList.sort", comment: "Sort"))
-                            }
-                        }
-                    } label: {
-                        Image(systemName: "line.3.horizontal.decrease.circle")
                     }
                 }
             }
@@ -309,69 +249,19 @@ struct NotesListView: View {
     
     private var notesList: some View {
         List {
-            // Summary section
-            Section {
-                HStack {
-                    VStack(alignment: .leading) {
-                        Text(NSLocalizedString("notesList.summary.notes", comment: "Notes"))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Text("\(notesCount)")
-                            .font(.title2)
-                            .fontWeight(.semibold)
-                    }
-                    
-                    Spacer()
-                    
-                    VStack(alignment: .center) {
-                        Text(NSLocalizedString("notesList.summary.endnotes", comment: "Endnotes"))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Text("\(endnotesCount)")
-                            .font(.title2)
-                            .fontWeight(.semibold)
-                    }
-                    
-                    Spacer()
-                    
-                    VStack(alignment: .trailing) {
-                        Text(NSLocalizedString("notesList.summary.orphaned", comment: "Unreferenced"))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Text("\(orphanedNotes.count)")
-                            .font(.title2)
-                            .fontWeight(.semibold)
-                            .foregroundColor(orphanedNotes.isEmpty ? .primary : .orange)
-                    }
-                }
-                .padding(.vertical, 4)
-            }
-            
-            // Orphaned notes warning
-            if !orphanedNotes.isEmpty {
+            // Endnotes section - only show endnotes
+            if !filteredNotes.isEmpty {
                 Section {
-                    HStack {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundColor(.orange)
-                        Text(String(format: NSLocalizedString("notesList.orphaned.warning", comment: ""), orphanedNotes.count))
-                            .font(.subheadline)
+                    ForEach(filteredNotes) { note in
+                        noteRow(note)
                     }
-                } footer: {
-                    Text(NSLocalizedString("notesList.orphaned.footer", comment: "These notes are not referenced in any document."))
-                }
-            }
-            
-            // Notes list
-            Section {
-                ForEach(filteredNotes) { note in
-                    noteRow(note)
-                }
-            } header: {
-                HStack {
-                    Text(filter.localizedTitle)
-                    Spacer()
-                    Text("\(filteredNotes.count)")
-                        .foregroundStyle(.secondary)
+                } header: {
+                    HStack {
+                        Text(NSLocalizedString("notesList.summary.endnotes", comment: "Endnotes"))
+                        Spacer()
+                        Text("\(filteredNotes.count)")
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
         }
