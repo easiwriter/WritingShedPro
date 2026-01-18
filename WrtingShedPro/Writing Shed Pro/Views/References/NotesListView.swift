@@ -317,6 +317,33 @@ struct NotesListView: View {
             }
             
             Spacer()
+            
+            // Actions menu
+            Menu {
+                Button {
+                    editingNote = note
+                } label: {
+                    Label(
+                        NSLocalizedString("notesList.edit", comment: "Edit"),
+                        systemImage: "pencil.circle"
+                    )
+                }
+                
+                Divider()
+                
+                Button(role: .destructive) {
+                    showDeleteConfirmation = note
+                } label: {
+                    Label(
+                        NSLocalizedString("notesList.delete", comment: "Delete"),
+                        systemImage: "trash"
+                    )
+                }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+                    .foregroundStyle(.secondary)
+                    .font(.title3)
+            }
         }
         .contentShape(Rectangle())
         .onTapGesture(count: 2) {
