@@ -406,8 +406,14 @@ struct NotesListView: View {
     }
     
     private func deleteNote(_ note: NoteEntry) {
-        // Remove all references from files that contain them
-        removeReferencesFromAllFiles(for: note)
+        // NOTE: We can't remove references from saved versions because RTF format
+        // doesn't preserve custom ReferenceAttachment instances. The attachments
+        // are only preserved in memory in the UITextView.
+        // 
+        // Instead, we call onNoteDeleted which removes from the CURRENT open file,
+        // and files that had the deleted note will show "orphaned" references
+        // until they're manually cleaned up or we implement a background cleanup
+        // process that checks each file on load.
         
         // Remove from project
         project.noteEntries?.removeAll { $0.id == note.id }
@@ -425,191 +431,13 @@ struct NotesListView: View {
         
         loadNotes()
         onNoteChanged?()
+        onNoteDeleted?(note) // Notify parent to remove markers from current file
         
         #if DEBUG
         print("🗑️ Deleted note: \(note.id)")
         #endif
     }
-    
-    /// Remove reference markers for a note from all files that contain them
-    private func removeReferencesFromAllFiles(for note: NoteEntry) {
-        // Get all file IDs that contain references to this note
-        let fileIDs = note.referencingFileIDs
-        
-        #if DEBUG
-        print("🔍 DEBUG: Note \(note.id) has \(fileIDs.count) referencing file IDs: \(fileIDs)")
-        #endif
-        
-        guard !fileIDs.isEmpty else {
-            #if DEBUG
-            print("ℹ️ Note \(note.id) has no references to remove")
-            #endif
-            return
-        }
-        
-        #if DEBUG
-        print("🗑️ Removing note \(note.id) references from \(fileIDs.count) file(s)")
-        #endif
-        
-        // Find all files in the project that match the referencing file IDs
-        var filesToUpdate: [TextFile] = []
-        
-        if let folders = project.folders {
-            #if DEBUG
-            print("🔍 DEBUG: Project has \(folders.count) top-level folders")
-            #endif
-            for folder in folders {
-                collectFiles(from: folder, matching: fileIDs, into: &filesToUpdate)
-            }
-        }
-        
-        #if DEBUG
-        print("🔍 DEBUG: Found \(filesToUpdate.count) files to update for note \(note.id)")
-        for file in filesToUpdate {
-            print("  - File: \(file.name) (\(file.id))")
-        }
-        #endif
-        
-        // Remove markers from each file
-        for file in filesToUpdate {
-            removeMarkersFromFile(file, for: note)
-        }
-    }
-    
-    /// Recursively collect files from a folder that match the given file IDs
-    private func collectFiles(from folder: Folder, matching fileIDs: [UUID], into result: inout [TextFile]) {
-        #if DEBUG
-        print("🔍 DEBUG: Scanning folder '\(folder.name)' for matching files")
-        #endif
-        
-        // Add files from this folder
-        if let files = folder.textFiles {
-            #if DEBUG
-            print("  - Folder has \(files.count) text files")
-            #endif
-            for file in files where fileIDs.contains(file.id) {
-                #if DEBUG
-                print("    ✓ Found matching file: \(file.name) (\(file.id))")
-                #endif
-                result.append(file)
-            }
-        }
-        
-        // Recurse into subfolders
-        if let subfolders = folder.subfolders {
-            #if DEBUG
-            print("  - Folder has \(subfolders.count) subfolders")
-            #endif
-            for subfolder in subfolders {
-                collectFiles(from: subfolder, matching: fileIDs, into: &result)
-            }
-        }
-    }
-    
-    /// Remove all markers for a note from a specific file
-    private func removeMarkersFromFile(_ file: TextFile, for note: NoteEntry) {
-        #if DEBUG
-        print("🔍 DEBUG: Processing file \(file.name) (\(file.id)) for note \(note.id)")
-        #endif
-        
-        // Get the current version (most recent)
-        guard let version = file.versions?.last else {
-            #if DEBUG
-            print("⚠️ File \(file.id) has no versions")
-            #endif
-            return
-        }
-        
-        guard let formattedData = version.formattedContent else {
-            #if DEBUG
-            print("⚠️ Could not read formatted content from file \(file.id)")
-            #endif
-            return
-        }
-        
-        #if DEBUG
-        print("  - Version has \(formattedData.count) bytes of formatted content")
-        #endif
-        
-        let mutableContent: NSMutableAttributedString
-        do {
-            let attributedString = try NSAttributedString(data: formattedData, options: [:], documentAttributes: nil)
-            mutableContent = NSMutableAttributedString(attributedString: attributedString)
-            #if DEBUG
-            print("  - Deserialized to \(mutableContent.length) characters")
-            #endif
-        } catch {
-            #if DEBUG
-            print("⚠️ Could not deserialize attributed string from file \(file.id): \(error)")
-            #endif
-            return
-        }
-        
-        var rangesToRemove: [NSRange] = []
-        
-        // Find all reference markers for this note
-        #if DEBUG
-        var totalAttachments = 0
-        #endif
-        mutableContent.enumerateAttribute(NSAttributedString.Key.attachment, in: NSRange(location: 0, length: mutableContent.length)) { value, range, _ in
-            #if DEBUG
-            totalAttachments += 1
-            #endif
-            if let attachment = value as? ReferenceAttachment {
-                #if DEBUG
-                print("    - Found attachment: entryID=\(attachment.entryID), looking for \(note.id)")
-                #endif
-                if attachment.entryID == note.id {
-                    #if DEBUG
-                    print("      ✓ Match! Range: \(range.location)-\(range.location + range.length)")
-                    #endif
-                    rangesToRemove.append(range)
-                }
-            }
-        }
-        
-        #if DEBUG
-        print("  - Found \(totalAttachments) total attachments, \(rangesToRemove.count) match note \(note.id)")
-        #endif
-        
-        guard !rangesToRemove.isEmpty else {
-            #if DEBUG
-            print("  - No markers to remove from file \(file.id)")
-            #endif
-            return
-        }
-        
-        // Remove markers in reverse order
-        #if DEBUG
-        print("  - Removing \(rangesToRemove.count) markers...")
-        #endif
-        for range in rangesToRemove.reversed() {
-            mutableContent.deleteCharacters(in: range)
-        }
-        
-        // Update file if markers were removed
-        do {
-            let options: [NSAttributedString.DocumentAttributeKey: Any] = [
-                .documentType: NSAttributedString.DocumentType.rtf,
-                .characterEncoding: String.Encoding.utf8.rawValue
-            ]
-            let fileData = try mutableContent.data(from: NSRange(location: 0, length: mutableContent.length), documentAttributes: options)
-            #if DEBUG
-            print("  - Serialized to \(fileData.count) bytes (was \(formattedData.count))")
-            print("  - Updating version.formattedContent...")
-            #endif
-            version.formattedContent = fileData
-            
-            #if DEBUG
-            print("✅ Removed \(rangesToRemove.count) markers from file \(file.id)")
-            print("  - Version formattedContent size after update: \(version.formattedContent?.count ?? 0) bytes")
-            #endif
-        } catch {
-            #if DEBUG
-            print("❌ Error updating file \(file.id): \(error)")
-            #endif
-        }
-    }
+
 }
 
 // MARK: - Localization Keys
