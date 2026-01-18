@@ -490,9 +490,13 @@ struct NotesListView: View {
             return
         }
         
-        guard let mutableContent = NSMutableAttributedString(data: formattedData, options: [:], documentAttributes: nil) else {
+        let mutableContent: NSMutableAttributedString
+        do {
+            let attributedString = try NSAttributedString(data: formattedData, options: [:], documentAttributes: nil)
+            mutableContent = NSMutableAttributedString(attributedString: attributedString)
+        } catch {
             #if DEBUG
-            print("⚠️ Could not deserialize attributed string from file \(file.id)")
+            print("⚠️ Could not deserialize attributed string from file \(file.id): \(error)")
             #endif
             return
         }
