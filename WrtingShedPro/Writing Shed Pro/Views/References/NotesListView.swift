@@ -436,6 +436,10 @@ struct NotesListView: View {
         // Get all file IDs that contain references to this note
         let fileIDs = note.referencingFileIDs
         
+        #if DEBUG
+        print("🔍 DEBUG: Note \(note.id) has \(fileIDs.count) referencing file IDs: \(fileIDs)")
+        #endif
+        
         guard !fileIDs.isEmpty else {
             #if DEBUG
             print("ℹ️ Note \(note.id) has no references to remove")
@@ -451,10 +455,20 @@ struct NotesListView: View {
         var filesToUpdate: [TextFile] = []
         
         if let folders = project.folders {
+            #if DEBUG
+            print("🔍 DEBUG: Project has \(folders.count) top-level folders")
+            #endif
             for folder in folders {
                 collectFiles(from: folder, matching: fileIDs, into: &filesToUpdate)
             }
         }
+        
+        #if DEBUG
+        print("🔍 DEBUG: Found \(filesToUpdate.count) files to update for note \(note.id)")
+        for file in filesToUpdate {
+            print("  - File: \(file.name) (\(file.id))")
+        }
+        #endif
         
         // Remove markers from each file
         for file in filesToUpdate {
@@ -464,15 +478,28 @@ struct NotesListView: View {
     
     /// Recursively collect files from a folder that match the given file IDs
     private func collectFiles(from folder: Folder, matching fileIDs: [UUID], into result: inout [TextFile]) {
+        #if DEBUG
+        print("🔍 DEBUG: Scanning folder '\(folder.name)' for matching files")
+        #endif
+        
         // Add files from this folder
         if let files = folder.textFiles {
+            #if DEBUG
+            print("  - Folder has \(files.count) text files")
+            #endif
             for file in files where fileIDs.contains(file.id) {
+                #if DEBUG
+                print("    ✓ Found matching file: \(file.name) (\(file.id))")
+                #endif
                 result.append(file)
             }
         }
         
         // Recurse into subfolders
         if let subfolders = folder.subfolders {
+            #if DEBUG
+            print("  - Folder has \(subfolders.count) subfolders")
+            #endif
             for subfolder in subfolders {
                 collectFiles(from: subfolder, matching: fileIDs, into: &result)
             }
@@ -481,19 +508,36 @@ struct NotesListView: View {
     
     /// Remove all markers for a note from a specific file
     private func removeMarkersFromFile(_ file: TextFile, for note: NoteEntry) {
+        #if DEBUG
+        print("🔍 DEBUG: Processing file \(file.name) (\(file.id)) for note \(note.id)")
+        #endif
+        
         // Get the current version (most recent)
-        guard let version = file.versions?.last,
-              let formattedData = version.formattedContent else {
+        guard let version = file.versions?.last else {
+            #if DEBUG
+            print("⚠️ File \(file.id) has no versions")
+            #endif
+            return
+        }
+        
+        guard let formattedData = version.formattedContent else {
             #if DEBUG
             print("⚠️ Could not read formatted content from file \(file.id)")
             #endif
             return
         }
         
+        #if DEBUG
+        print("  - Version has \(formattedData.count) bytes of formatted content")
+        #endif
+        
         let mutableContent: NSMutableAttributedString
         do {
             let attributedString = try NSAttributedString(data: formattedData, options: [:], documentAttributes: nil)
             mutableContent = NSMutableAttributedString(attributedString: attributedString)
+            #if DEBUG
+            print("  - Deserialized to \(mutableContent.length) characters")
+            #endif
         } catch {
             #if DEBUG
             print("⚠️ Could not deserialize attributed string from file \(file.id): \(error)")
@@ -504,18 +548,41 @@ struct NotesListView: View {
         var rangesToRemove: [NSRange] = []
         
         // Find all reference markers for this note
+        #if DEBUG
+        var totalAttachments = 0
+        #endif
         mutableContent.enumerateAttribute(NSAttributedString.Key.attachment, in: NSRange(location: 0, length: mutableContent.length)) { value, range, _ in
-            if let attachment = value as? ReferenceAttachment,
-               attachment.entryID == note.id {
-                rangesToRemove.append(range)
+            #if DEBUG
+            totalAttachments += 1
+            #endif
+            if let attachment = value as? ReferenceAttachment {
+                #if DEBUG
+                print("    - Found attachment: entryID=\(attachment.entryID), looking for \(note.id)")
+                #endif
+                if attachment.entryID == note.id {
+                    #if DEBUG
+                    print("      ✓ Match! Range: \(range.location)-\(range.location + range.length)")
+                    #endif
+                    rangesToRemove.append(range)
+                }
             }
         }
         
+        #if DEBUG
+        print("  - Found \(totalAttachments) total attachments, \(rangesToRemove.count) match note \(note.id)")
+        #endif
+        
         guard !rangesToRemove.isEmpty else {
+            #if DEBUG
+            print("  - No markers to remove from file \(file.id)")
+            #endif
             return
         }
         
         // Remove markers in reverse order
+        #if DEBUG
+        print("  - Removing \(rangesToRemove.count) markers...")
+        #endif
         for range in rangesToRemove.reversed() {
             mutableContent.deleteCharacters(in: range)
         }
@@ -527,10 +594,15 @@ struct NotesListView: View {
                 .characterEncoding: String.Encoding.utf8.rawValue
             ]
             let fileData = try mutableContent.data(from: NSRange(location: 0, length: mutableContent.length), documentAttributes: options)
+            #if DEBUG
+            print("  - Serialized to \(fileData.count) bytes (was \(formattedData.count))")
+            print("  - Updating version.formattedContent...")
+            #endif
             version.formattedContent = fileData
             
             #if DEBUG
             print("✅ Removed \(rangesToRemove.count) markers from file \(file.id)")
+            print("  - Version formattedContent size after update: \(version.formattedContent?.count ?? 0) bytes")
             #endif
         } catch {
             #if DEBUG
