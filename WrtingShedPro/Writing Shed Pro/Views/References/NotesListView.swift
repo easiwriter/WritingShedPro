@@ -136,7 +136,6 @@ struct NotesListView: View {
             }
             .navigationTitle(NSLocalizedString("notesList.endnotes.title", comment: "Endnotes"))
             .navigationBarTitleDisplayMode(.inline)
-            .searchable(text: $searchText, prompt: NSLocalizedString("notesList.search.prompt", comment: "Search notes"))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(NSLocalizedString("button.done", comment: "Done")) {
@@ -157,13 +156,6 @@ struct NotesListView: View {
         }
         .onAppear {
             loadNotes()
-        }
-        .onChange(of: notes) { oldValue, newValue in
-            // Auto-dismiss when all notes are deleted
-            if newValue.isEmpty && !oldValue.isEmpty {
-                onDismiss?()
-                dismiss()
-            }
         }
         .sheet(isPresented: $showAddNoteSheet) {
             NoteEditorSheet(
@@ -420,7 +412,7 @@ struct NotesListView: View {
             if note.referenceCount > 0 {
                 Button {
                     onJumpToNote?(note)
-                    dismiss()
+
                 } label: {
                     Label(
                         NSLocalizedString("notesList.jump", comment: "Jump"),
