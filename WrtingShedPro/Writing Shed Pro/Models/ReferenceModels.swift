@@ -12,6 +12,47 @@
 import Foundation
 import SwiftData
 
+// MARK: - Reference Metadata (for RTF Serialization)
+
+/// Stores metadata about a single reference within a document
+/// Used to reconstruct ReferenceAttachment instances after RTF deserialization
+/// RTF format doesn't preserve custom NSTextAttachment subclasses, so we store
+/// the reference information separately and restore it on deserialization
+struct ReferenceEntry: Codable {
+    let type: ReferenceType
+    let entryID: UUID
+    let displayText: String
+    let displayNumber: Int
+}
+
+/// Collection of reference metadata for all references in a version
+/// Stored in Version.referenceMetadataData as JSON-encoded data
+struct ReferenceMetadata: Codable {
+    var references: [ReferenceEntry] = []
+    
+    /// Add a reference entry
+    mutating func add(type: ReferenceType, entryID: UUID, displayText: String, displayNumber: Int = 0) {
+        references.append(ReferenceEntry(type: type, entryID: entryID, displayText: displayText, displayNumber: displayNumber))
+    }
+    
+    /// Remove all references to a specific entry
+    mutating func removeReferences(to entryID: UUID) {
+        references.removeAll { $0.entryID == entryID }
+    }
+    
+    /// Encode to Data for storage
+    func encode() -> Data? {
+        let encoder = JSONEncoder()
+        return try? encoder.encode(self)
+    }
+    
+    /// Decode from Data
+    static func decode(_ data: Data) -> ReferenceMetadata? {
+        let decoder = JSONDecoder()
+        return try? decoder.decode(ReferenceMetadata.self, from: data)
+    }
+}
+
 // MARK: - Reference Type Enum
 
 /// Types of references that can be embedded in document text

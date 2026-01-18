@@ -1874,6 +1874,14 @@ struct FileEditView: View {
             // Comments created before we added serialization support need to be re-inserted
             restoreOrphanedCommentMarkers()
             
+            // FEATURE 029: Restore ReferenceAttachment instances from metadata
+            // Since RTF format doesn't preserve custom attachment subclasses,
+            // we use the metadata to recreate them on load
+            if let metadataData = file.currentVersion?.referenceMetadataData,
+               let metadata = ReferenceMetadata.decode(metadataData) {
+                attributedContent = restoreReferenceAttachments(in: attributedContent, from: metadata)
+            }
+            
             // Position cursor at beginning of text (unless opening from search, which will position at first match)
             if searchContext == nil || searchContext?.shouldActivate == false {
                 selectedRange = NSRange(location: 0, length: 0)
@@ -5509,10 +5517,15 @@ struct FileEditView: View {
             // Save it as-is - no scaling needed since we normalize on load, not on save
             file.currentVersion?.attributedContent = currentContent
             
+            // FEATURE 029: Extract and save reference metadata
+            let referenceMetadata = extractReferenceMetadata(from: currentContent)
+            file.currentVersion?.referenceMetadataData = referenceMetadata.encode()
+            
             // Count attachments for debugging
             var commentCount = 0
             var imageCount = 0
             var footnoteCount = 0
+            var referenceCount = 0
             var poemSectionCount = 0
             currentContent.enumerateAttribute(.attachment, in: NSRange(location: 0, length: currentContent.length)) { value, range, _ in
                 if value is CommentAttachment {
@@ -5521,6 +5534,8 @@ struct FileEditView: View {
                     imageCount += 1
                 } else if value is FootnoteAttachment {
                     footnoteCount += 1
+                } else if value is ReferenceAttachment {
+                    referenceCount += 1
                 }
             }
             currentContent.enumerateAttribute(.poemSectionType, in: NSRange(location: 0, length: currentContent.length)) { value, range, _ in
@@ -5532,7 +5547,7 @@ struct FileEditView: View {
                 }
             }
             #if DEBUG
-            print("💾 Saving attributed content with \(commentCount) comments, \(imageCount) images, \(footnoteCount) footnotes, and \(poemSectionCount) marked sections")
+            print("💾 Saving attributed content with \(commentCount) comments, \(imageCount) images, \(footnoteCount) footnotes, \(referenceCount) references, and \(poemSectionCount) marked sections")
             #endif
         } else {
             var contentToSave = attributedContent
@@ -5546,6 +5561,10 @@ struct FileEditView: View {
             }
             
             file.currentVersion?.attributedContent = contentToSave
+            
+            // FEATURE 029: Extract and save reference metadata
+            let referenceMetadata = extractReferenceMetadata(from: contentToSave)
+            file.currentVersion?.referenceMetadataData = referenceMetadata.encode()
         }
         
         file.modifiedDate = Date()
@@ -5560,6 +5579,80 @@ struct FileEditView: View {
             print("Error saving context: \(error)")
             #endif
         }
+    }
+    
+    /// FEATURE 029: Extract all reference attachments and create metadata
+    /// This creates a persistent record of references that survives RTF serialization
+    private func extractReferenceMetadata(from attributedString: NSAttributedString) -> ReferenceMetadata {
+        var metadata = ReferenceMetadata()
+        
+        attributedString.enumerateAttribute(.attachment, in: NSRange(location: 0, length: attributedString.length)) { value, range, _ in
+            if let referenceAttachment = value as? ReferenceAttachment {
+                metadata.add(
+                    type: referenceAttachment.referenceType,
+                    entryID: referenceAttachment.entryID,
+                    displayText: referenceAttachment.displayText,
+                    displayNumber: referenceAttachment.displayNumber
+                )
+            }
+        }
+        
+        return metadata
+    }
+    
+    /// FEATURE 029: Restore ReferenceAttachment instances from metadata
+    /// RTF format doesn't preserve custom NSTextAttachment subclasses, so we use
+    /// the stored metadata to recreate ReferenceAttachment instances on file load
+    private func restoreReferenceAttachments(in attributedString: NSAttributedString, from metadata: ReferenceMetadata) -> NSAttributedString {
+        let mutableString = NSMutableAttributedString(attributedString: attributedString)
+        var mutableMetadata = metadata
+        var attachmentsToReplace: [(range: NSRange, entry: ReferenceEntry)] = []
+        var orphanedAttachments: [NSRange] = []
+        
+        // Find all generic attachments and match them with metadata entries
+        mutableString.enumerateAttribute(.attachment, in: NSRange(location: 0, length: mutableString.length)) { value, range, _ in
+            if value != nil {
+                // Check if this is a ReferenceAttachment (from saved content)
+                if let refAttachment = value as? ReferenceAttachment {
+                    // Check if there's a metadata entry for this
+                    if let index = mutableMetadata.references.firstIndex(where: { $0.entryID == refAttachment.entryID }) {
+                        // Keep it - has metadata
+                        mutableMetadata.references.remove(at: index)
+                    } else {
+                        // Orphaned - no metadata for it (was deleted)
+                        orphanedAttachments.append(range)
+                    }
+                } else if !(value is CommentAttachment) && !(value is ImageAttachment) && !(value is FootnoteAttachment) {
+                    // Generic attachment (should not happen, but handle it)
+                    if !mutableMetadata.references.isEmpty {
+                        let entry = mutableMetadata.references.removeFirst()
+                        attachmentsToReplace.append((range: range, entry: entry))
+                    } else {
+                        orphanedAttachments.append(range)
+                    }
+                }
+            }
+        }
+        
+        // Remove orphaned attachments in reverse order to maintain ranges
+        for range in orphanedAttachments.reversed() {
+            mutableString.deleteCharacters(in: range)
+        }
+        
+        // Replace generic attachments with proper ReferenceAttachment instances
+        for (range, entry) in attachmentsToReplace.reversed() {
+            let referenceAttachment = ReferenceAttachment(
+                referenceType: entry.type,
+                entryID: entry.entryID,
+                displayText: entry.displayText
+            )
+            referenceAttachment.displayNumber = entry.displayNumber
+            
+            let attachmentString = NSMutableAttributedString(attachment: referenceAttachment)
+            mutableString.replaceCharacters(in: range, with: attachmentString)
+        }
+        
+        return mutableString
     }
     
     // MARK: - Keyboard Management

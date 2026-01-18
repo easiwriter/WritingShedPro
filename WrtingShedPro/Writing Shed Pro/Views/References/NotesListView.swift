@@ -207,30 +207,6 @@ struct NotesListView: View {
             )
         } description: {
             Text(NSLocalizedString("notesList.empty.description", comment: "Notes and endnotes you create will appear here."))
-        } actions: {
-            HStack(spacing: 16) {
-                Button {
-                    addNoteAsEndnote = false
-                    showAddNoteSheet = true
-                } label: {
-                    Label(
-                        NSLocalizedString("notesList.addNote", comment: "Add Note"),
-                        systemImage: "note.text.badge.plus"
-                    )
-                }
-                .buttonStyle(.bordered)
-                
-                Button {
-                    addNoteAsEndnote = true
-                    showAddNoteSheet = true
-                } label: {
-                    Label(
-                        NSLocalizedString("notesList.addEndnote", comment: "Add Endnote"),
-                        systemImage: "number.circle.fill"
-                    )
-                }
-                .buttonStyle(.bordered)
-            }
         }
     }
     
@@ -341,33 +317,6 @@ struct NotesListView: View {
             }
             
             Spacer()
-            
-            // Actions menu
-            Menu {
-                Button {
-                    editingNote = note
-                } label: {
-                    Label(
-                        NSLocalizedString("notesList.edit", comment: "Edit"),
-                        systemImage: "pencil.circle"
-                    )
-                }
-                
-                Divider()
-                
-                Button(role: .destructive) {
-                    showDeleteConfirmation = note
-                } label: {
-                    Label(
-                        NSLocalizedString("notesList.delete", comment: "Delete"),
-                        systemImage: "trash"
-                    )
-                }
-            } label: {
-                Image(systemName: "ellipsis.circle")
-                    .foregroundStyle(.secondary)
-                    .font(.title3)
-            }
         }
         .contentShape(Rectangle())
         .onTapGesture(count: 2) {
@@ -406,14 +355,70 @@ struct NotesListView: View {
     }
     
     private func deleteNote(_ note: NoteEntry) {
-        // NOTE: We can't remove references from saved versions because RTF format
-        // doesn't preserve custom ReferenceAttachment instances. The attachments
-        // are only preserved in memory in the UITextView.
-        // 
-        // Instead, we call onNoteDeleted which removes from the CURRENT open file,
-        // and files that had the deleted note will show "orphaned" references
-        // until they're manually cleaned up or we implement a background cleanup
-        // process that checks each file on load.
+        // FEATURE 029: Remove references from all files that contain them
+        // Since we now store reference metadata separately from RTF content,
+        // we can reliably remove references even from closed files
+        
+        let referencingFileIDs = note.referencingFileIDs
+        
+        #if DEBUG
+        print("🗑️ Deleting note \(note.id) from \(referencingFileIDs.count) file(s): \(referencingFileIDs)")
+        #endif
+        
+        for fileID in referencingFileIDs {
+            // Find the file with this ID in the project
+            if let file = project.folders?.flatMap({ $0.files ?? [] }).first(where: { $0.id == fileID }) {
+                #if DEBUG
+                print("  📄 Found file: \(file.id)")
+                #endif
+                
+                // Remove references to this note from all versions of this file
+                if let versions = file.versions {
+                    for version in versions {
+                        #if DEBUG
+                        print("    📋 Processing version: metadataData=\(version.referenceMetadataData != nil)")
+                        #endif
+                        
+                        // Try to get metadata - if not stored, extract from content
+                        var metadata: ReferenceMetadata
+                        if let metadataData = version.referenceMetadataData,
+                           let decodedMetadata = ReferenceMetadata.decode(metadataData) {
+                            metadata = decodedMetadata
+                            #if DEBUG
+                            print("      ✅ Loaded metadata from storage: \(metadata.references.count) references")
+                            #endif
+                        } else {
+                            // Fallback: extract from content if metadata not stored
+                            #if DEBUG
+                            print("      ⚠️ No metadata stored, extracting from content")
+                            #endif
+                            metadata = ReferenceMetadata()
+                            // Since we can't reliably extract from RTF format, we'll have to skip
+                            // This is only for old files that don't have metadata
+                            continue
+                        }
+                        
+                        // Remove all entries referencing this note
+                        let countBefore = metadata.references.count
+                        metadata.removeReferences(to: note.id)
+                        let countAfter = metadata.references.count
+                        
+                        if countBefore > countAfter {
+                            // Save updated metadata
+                            version.referenceMetadataData = metadata.encode()
+                            
+                            #if DEBUG
+                            print("      ✏️ Removed \(countBefore - countAfter) references")
+                            #endif
+                        }
+                    }
+                }
+            } else {
+                #if DEBUG
+                print("  ❌ File not found: \(fileID)")
+                #endif
+            }
+        }
         
         // Remove from project
         project.noteEntries?.removeAll { $0.id == note.id }
@@ -423,6 +428,9 @@ struct NotesListView: View {
         
         do {
             try modelContext.save()
+            #if DEBUG
+            print("💾 Saved deletion to database")
+            #endif
         } catch {
             #if DEBUG
             print("❌ Error deleting note: \(error)")
@@ -433,8 +441,13 @@ struct NotesListView: View {
         onNoteChanged?()
         onNoteDeleted?(note) // Notify parent to remove markers from current file
         
+        // Notify ALL open file views to refresh their content
+        // This ensures that if other files are currently open and show this note's references,
+        // they will refresh from the database where metadata has been deleted
+        NotificationCenter.default.post(name: NSNotification.Name("ReferenceMetadataDidChange"), object: note.id)
+        
         #if DEBUG
-        print("🗑️ Deleted note: \(note.id)")
+        print("🗑️ Completed note deletion")
         #endif
     }
 

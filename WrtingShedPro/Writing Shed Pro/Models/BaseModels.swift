@@ -344,6 +344,12 @@ final class Version {
     /// Formatted content stored as RTF data
     var formattedContent: Data?
     
+    // MARK: - Feature 029: Reference Metadata
+    /// Reference metadata for back matter entries (notes, glossary, citations, index)
+    /// Stores which entries are referenced at which positions, needed because RTF
+    /// doesn't preserve custom ReferenceAttachment subclasses
+    var referenceMetadataData: Data?
+    
     // PERFORMANCE: Cache for deserialized attributed content
     // Transient - not persisted, cleared when formattedContent changes
     @Transient private var _cachedAttributedContent: NSAttributedString?
