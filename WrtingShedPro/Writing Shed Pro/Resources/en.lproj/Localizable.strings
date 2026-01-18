@@ -2119,6 +2119,7 @@
 "insertMenu.addNote" = "Add Note";
 "insertMenu.addEndnote" = "Add Endnote";
 "insertMenu.showNotes" = "Show Notes";
+"insertMenu.showEndnotes" = "Show Endnotes";
 "insertMenu.glossary" = "Glossary";
 "insertMenu.addGlossaryTerm" = "Add Term";
 "insertMenu.showGlossary" = "Show Glossary";
