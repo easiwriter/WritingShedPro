@@ -1381,9 +1381,6 @@ struct FileEditView: View {
                 if let project = file.project {
                     NotesListView(
                         project: project,
-                        onJumpToNote: { note in
-                            jumpToNoteMarker(note)
-                        },
                         onDismiss: {
                             showNotesList = false
                         },
@@ -2782,40 +2779,6 @@ struct FileEditView: View {
     }
     
     /// Jump to the first reference marker for a note in the text
-    private func jumpToNoteMarker(_ note: NoteEntry) {
-        guard let textView = textViewCoordinator.textView else {
-            #if DEBUG
-            print("❌ Cannot jump to note marker: no text view")
-            #endif
-            return
-        }
-        
-        let content = textView.attributedText ?? NSAttributedString()
-        
-        // Find the first marker for this note
-        var foundRange: NSRange?
-        content.enumerateAttribute(.attachment, in: NSRange(location: 0, length: content.length)) { value, range, stop in
-            if let attachment = value as? ReferenceAttachment,
-               attachment.entryID == note.id {
-                foundRange = range
-                stop.pointee = true
-            }
-        }
-        
-        if let range = foundRange {
-            // Scroll to and select the marker
-            textView.selectedRange = range
-            textView.scrollRangeToVisible(range)
-            
-            #if DEBUG
-            print("📍 Jumped to note marker at position \(range.location)")
-            #endif
-        } else {
-            #if DEBUG
-            print("⚠️ No marker found for note \(note.id)")
-            #endif
-        }
-    }
     
     /// Update back matter files with current content when notes change
     private func updateBackMatterFiles() {

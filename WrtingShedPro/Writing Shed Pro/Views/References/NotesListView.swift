@@ -59,9 +59,6 @@ struct NotesListView: View {
     
     let project: Project
     
-    /// Callback when user wants to jump to a note marker in the text
-    var onJumpToNote: ((NoteEntry) -> Void)?
-    
     /// Callback when list is dismissed
     var onDismiss: (() -> Void)?
     
@@ -193,7 +190,7 @@ struct NotesListView: View {
             }
         } message: { note in
             if note.referenceCount > 0 {
-                Text(String(format: NSLocalizedString("notesList.confirmDelete.messageWithRefs", comment: ""), note.referenceCount))
+                Text("This note is referenced \(note.referenceCount) times. All references will be removed from your documents.")
             } else {
                 Text(NSLocalizedString("notesList.confirmDelete.message", comment: "This note will be permanently deleted."))
             }
@@ -356,18 +353,6 @@ struct NotesListView: View {
                     )
                 }
                 
-                if note.referenceCount > 0 {
-                    Button {
-                        onJumpToNote?(note)
-                        dismiss()
-                    } label: {
-                        Label(
-                            NSLocalizedString("notesList.jumpToText", comment: "Jump to Reference"),
-                            systemImage: "arrow.right"
-                        )
-                    }
-                }
-                
                 Divider()
                 
                 Button(role: .destructive) {
@@ -407,20 +392,6 @@ struct NotesListView: View {
                 )
             }
             .tint(.blue)
-        }
-        .swipeActions(edge: .leading, allowsFullSwipe: true) {
-            if note.referenceCount > 0 {
-                Button {
-                    onJumpToNote?(note)
-
-                } label: {
-                    Label(
-                        NSLocalizedString("notesList.jump", comment: "Jump"),
-                        systemImage: "arrow.right"
-                    )
-                }
-                .tint(.green)
-            }
         }
     }
     
