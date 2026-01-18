@@ -2707,6 +2707,11 @@ struct FileEditView: View {
         // Increment reference count
         note.referenceCount += 1
         
+        // Track which file contains this reference
+        if !note.referencingFileIDs.contains(file.id) {
+            note.referencingFileIDs.append(file.id)
+        }
+        
         // Update the attributed content binding
         attributedContent = textView.attributedText ?? NSAttributedString()
         
@@ -2763,6 +2768,17 @@ struct FileEditView: View {
         if removedCount > 0 {
             textView.attributedText = mutableContent
             attributedContent = mutableContent
+            
+            // Update reference count
+            note.referenceCount -= removedCount
+            
+            // Remove file ID if no more references in this file
+            if note.referenceCount == 0 {
+                note.referencingFileIDs.removeAll()
+            } else {
+                note.referencingFileIDs.removeAll { $0 == file.id }
+            }
+            
             saveChanges()
             
             // Update back matter files after removing note markers

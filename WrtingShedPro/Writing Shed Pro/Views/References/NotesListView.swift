@@ -406,6 +406,9 @@ struct NotesListView: View {
     }
     
     private func deleteNote(_ note: NoteEntry) {
+        // Remove all references from files that contain them
+        removeReferencesFromAllFiles(for: note)
+        
         // Remove from project
         project.noteEntries?.removeAll { $0.id == note.id }
         
@@ -422,11 +425,104 @@ struct NotesListView: View {
         
         loadNotes()
         onNoteChanged?()
-        onNoteDeleted?(note) // Notify parent to remove markers from text
         
         #if DEBUG
         print("🗑️ Deleted note: \(note.id)")
         #endif
+    }
+    
+    /// Remove reference markers for a note from all files that contain them
+    private func removeReferencesFromAllFiles(for note: NoteEntry) {
+        // Get all file IDs that contain references to this note
+        let fileIDs = note.referencingFileIDs
+        
+        guard !fileIDs.isEmpty else {
+            #if DEBUG
+            print("ℹ️ Note \(note.id) has no references to remove")
+            #endif
+            return
+        }
+        
+        #if DEBUG
+        print("🗑️ Removing note \(note.id) references from \(fileIDs.count) file(s)")
+        #endif
+        
+        // Find all files in the project that match the referencing file IDs
+        var filesToUpdate: [WritingFile] = []
+        
+        if let folders = project.folders {
+            for folder in folders {
+                collectFiles(from: folder, matching: fileIDs, into: &filesToUpdate)
+            }
+        }
+        
+        // Remove markers from each file
+        for file in filesToUpdate {
+            removeMarkersFromFile(file, for: note)
+        }
+    }
+    
+    /// Recursively collect files from a folder that match the given file IDs
+    private func collectFiles(from folder: Folder, matching fileIDs: [UUID], into result: inout [WritingFile]) {
+        // Add files from this folder
+        if let files = folder.files {
+            for file in files where fileIDs.contains(file.id) {
+                result.append(file)
+            }
+        }
+        
+        // Recurse into subfolders
+        if let subfolders = folder.subfolders {
+            for subfolder in subfolders {
+                collectFiles(from: subfolder, matching: fileIDs, into: &result)
+            }
+        }
+    }
+    
+    /// Remove all markers for a note from a specific file
+    private func removeMarkersFromFile(_ file: WritingFile, for note: NoteEntry) {
+        guard let contentData = file.contentData,
+              let mutableContent = NSMutableAttributedString(data: contentData, options: [:], documentAttributes: nil) as NSMutableAttributedString? else {
+            #if DEBUG
+            print("⚠️ Could not read content from file \(file.id)")
+            #endif
+            return
+        }
+        
+        var rangesToRemove: [NSRange] = []
+        
+        // Find all reference markers for this note
+        mutableContent.enumerateAttribute(.attachment, in: NSRange(location: 0, length: mutableContent.length)) { value, range, _ in
+            if let attachment = value as? ReferenceAttachment,
+               attachment.entryID == note.id {
+                rangesToRemove.append(range)
+            }
+        }
+        
+        // Remove markers in reverse order
+        for range in rangesToRemove.reversed() {
+            mutableContent.deleteCharacters(in: range)
+        }
+        
+        // Update file if markers were removed
+        if !rangesToRemove.isEmpty {
+            do {
+                let options: [NSAttributedString.DocumentAttributeKey: Any] = [
+                    .documentType: NSAttributedString.DocumentType.rtf,
+                    .characterEncoding: String.Encoding.utf8.rawValue
+                ]
+                let fileData = try mutableContent.data(from: NSRange(location: 0, length: mutableContent.length), documentAttributes: options)
+                file.contentData = fileData
+                
+                #if DEBUG
+                print("✅ Removed \(rangesToRemove.count) markers from file \(file.id)")
+                #endif
+            } catch {
+                #if DEBUG
+                print("❌ Error updating file \(file.id): \(error)")
+                #endif
+            }
+        }
     }
 }
 

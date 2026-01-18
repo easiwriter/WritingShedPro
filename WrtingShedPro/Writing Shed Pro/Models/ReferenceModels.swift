@@ -89,6 +89,9 @@ final class NoteEntry {
     /// Number of references to this note in the document
     var referenceCount: Int = 0
     
+    /// List of file IDs that contain references to this note (for efficient deletion)
+    var referencingFileIDs: [UUID] = []
+    
     /// When the note was created
     var createdAt: Date = Date()
     
