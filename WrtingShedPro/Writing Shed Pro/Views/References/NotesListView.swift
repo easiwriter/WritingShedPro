@@ -448,7 +448,7 @@ struct NotesListView: View {
         #endif
         
         // Find all files in the project that match the referencing file IDs
-        var filesToUpdate: [WritingFile] = []
+        var filesToUpdate: [TextFile] = []
         
         if let folders = project.folders {
             for folder in folders {
@@ -463,9 +463,9 @@ struct NotesListView: View {
     }
     
     /// Recursively collect files from a folder that match the given file IDs
-    private func collectFiles(from folder: Folder, matching fileIDs: [UUID], into result: inout [WritingFile]) {
+    private func collectFiles(from folder: Folder, matching fileIDs: [UUID], into result: inout [TextFile]) {
         // Add files from this folder
-        if let files = folder.files {
+        if let files = folder.textFiles {
             for file in files where fileIDs.contains(file.id) {
                 result.append(file)
             }
@@ -480,11 +480,19 @@ struct NotesListView: View {
     }
     
     /// Remove all markers for a note from a specific file
-    private func removeMarkersFromFile(_ file: WritingFile, for note: NoteEntry) {
-        guard let contentData = file.contentData,
-              let mutableContent = NSMutableAttributedString(data: contentData, options: [:], documentAttributes: nil) as NSMutableAttributedString? else {
+    private func removeMarkersFromFile(_ file: TextFile, for note: NoteEntry) {
+        // Get the current version (most recent)
+        guard let version = file.versions?.last,
+              let formattedData = version.formattedContent else {
             #if DEBUG
-            print("⚠️ Could not read content from file \(file.id)")
+            print("⚠️ Could not read formatted content from file \(file.id)")
+            #endif
+            return
+        }
+        
+        guard let mutableContent = NSMutableAttributedString(data: formattedData, options: [:], documentAttributes: nil) else {
+            #if DEBUG
+            print("⚠️ Could not deserialize attributed string from file \(file.id)")
             #endif
             return
         }
@@ -492,11 +500,15 @@ struct NotesListView: View {
         var rangesToRemove: [NSRange] = []
         
         // Find all reference markers for this note
-        mutableContent.enumerateAttribute(.attachment, in: NSRange(location: 0, length: mutableContent.length)) { value, range, _ in
+        mutableContent.enumerateAttribute(NSAttributedString.Key.attachment, in: NSRange(location: 0, length: mutableContent.length)) { value, range, _ in
             if let attachment = value as? ReferenceAttachment,
                attachment.entryID == note.id {
                 rangesToRemove.append(range)
             }
+        }
+        
+        guard !rangesToRemove.isEmpty else {
+            return
         }
         
         // Remove markers in reverse order
@@ -505,23 +517,21 @@ struct NotesListView: View {
         }
         
         // Update file if markers were removed
-        if !rangesToRemove.isEmpty {
-            do {
-                let options: [NSAttributedString.DocumentAttributeKey: Any] = [
-                    .documentType: NSAttributedString.DocumentType.rtf,
-                    .characterEncoding: String.Encoding.utf8.rawValue
-                ]
-                let fileData = try mutableContent.data(from: NSRange(location: 0, length: mutableContent.length), documentAttributes: options)
-                file.contentData = fileData
-                
-                #if DEBUG
-                print("✅ Removed \(rangesToRemove.count) markers from file \(file.id)")
-                #endif
-            } catch {
-                #if DEBUG
-                print("❌ Error updating file \(file.id): \(error)")
-                #endif
-            }
+        do {
+            let options: [NSAttributedString.DocumentAttributeKey: Any] = [
+                .documentType: NSAttributedString.DocumentType.rtf,
+                .characterEncoding: String.Encoding.utf8.rawValue
+            ]
+            let fileData = try mutableContent.data(from: NSRange(location: 0, length: mutableContent.length), documentAttributes: options)
+            version.formattedContent = fileData
+            
+            #if DEBUG
+            print("✅ Removed \(rangesToRemove.count) markers from file \(file.id)")
+            #endif
+        } catch {
+            #if DEBUG
+            print("❌ Error updating file \(file.id): \(error)")
+            #endif
         }
     }
 }
