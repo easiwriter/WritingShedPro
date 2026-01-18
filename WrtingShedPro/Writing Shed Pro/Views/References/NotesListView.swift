@@ -126,29 +126,31 @@ struct NotesListView: View {
     // MARK: - Body
     
     var body: some View {
-        Group {
-            if notes.isEmpty {
-                emptyState
-            } else {
-                notesList
-            }
-        }
-        .navigationTitle(NSLocalizedString("notesList.endnotes.title", comment: "Endnotes"))
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button(NSLocalizedString("button.done", comment: "Done")) {
-                    onDismiss?()
-                    dismiss()
+        NavigationStack {
+            Group {
+                if notes.isEmpty {
+                    emptyState
+                } else {
+                    notesList
                 }
             }
-            
-            ToolbarItem(placement: .primaryAction) {
-                Button(action: {
-                    addNoteAsEndnote = true
-                    showAddNoteSheet = true
-                }) {
-                    Image(systemName: "plus")
+            .navigationTitle(NSLocalizedString("notesList.endnotes.title", comment: "Endnotes"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(NSLocalizedString("button.done", comment: "Done")) {
+                        onDismiss?()
+                        dismiss()
+                    }
+                }
+                
+                ToolbarItem(placement: .primaryAction) {
+                    Button(action: {
+                        addNoteAsEndnote = true
+                        showAddNoteSheet = true
+                    }) {
+                        Image(systemName: "plus")
+                    }
                 }
             }
         }
