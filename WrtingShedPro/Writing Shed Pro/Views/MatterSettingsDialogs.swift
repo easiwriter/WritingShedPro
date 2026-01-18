@@ -288,9 +288,8 @@ struct BackMatterSettingsDialog: View {
                         }
                     } else {
                         ForEach(BackMatterItem.allCases) { item in
-                            if !hasReferences(for: item) {
-                                Toggle(item.localizedName, isOn: binding(for: item))
-                            }
+                            Toggle(item.localizedName, isOn: binding(for: item))
+                                .disabled(hasReferences(for: item))
                         }
                     }
                 } header: {
