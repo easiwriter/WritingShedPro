@@ -49,12 +49,45 @@ protocol ReferenceEntry: Identifiable {
 
 | Model | Key Properties |
 |-------|----------------|
-| `NoteEntry` | `id`, `content: String`, `referenceCount: Int = 0` |
-| `GlossaryEntry` | `id`, `term: String`, `definition: String`, `citation: CitationEntry?`, `referenceCount: Int = 0` |
-| `CitationEntry` | `id`, `authors: [String]`, `year: Int?`, `title: String`, `source: String?`, `url: String?`, `referenceCount: Int = 0` — format-agnostic storage for APA/MLA/Chicago |
-| `IndexEntry` | `id`, `keyword: String`, `parentEntry: IndexEntry?` (for sub-entries), `referenceCount: Int = 0` |
+| `NoteEntry` | `id`, `content: String`, `referenceCount: Int = 0`, `referencingFileIDs: [UUID] = []` |
+| `GlossaryEntry` | `id`, `term: String`, `definition: String`, `citation: CitationEntry?`, `referenceCount: Int = 0`, `referencingFileIDs: [UUID] = []` |
+| `CitationEntry` | `id`, `authors: [String]`, `year: Int?`, `title: String`, `source: String?`, `url: String?`, `referenceCount: Int = 0`, `referencingFileIDs: [UUID] = []` — format-agnostic storage for APA/MLA/Chicago |
+| `IndexEntry` | `id`, `keyword: String`, `parentEntry: IndexEntry?` (for sub-entries), `referenceCount: Int = 0`, `referencingFileIDs: [UUID] = []` |
 
 **SwiftData/CloudKit Compliance:** All properties are optional or have default values. No `@Attribute(.unique)` constraints.
+
+### Efficient Reference Deletion: referencingFileIDs Pattern
+
+When a back matter entry is deleted, all reference markers to it must be removed from ALL files in the project. To avoid expensive iteration through all files, **each reference entry tracks which files contain references to it** using a `referencingFileIDs` array:
+
+**Implementation Details:**
+- When a reference is added to a note in a file, add the file's ID to `note.referencingFileIDs`
+- When a reference is removed from a file, remove the file ID from the array (or keep it if more references exist in that file)
+- When deleting a note, only iterate through files in `referencingFileIDs` instead of scanning all files
+- This approach should be applied to **all back matter objects**: `NoteEntry`, `GlossaryEntry`, `CitationEntry`, `IndexEntry`
+
+**Benefits:**
+- Deletion operations scale to O(n) where n = number of files with references, not total files in project
+- Projects with 50+ files in back matter will see dramatic performance improvement
+- Reference tracking is automatic: happens at add/remove time, not at deletion time
+
+**Code Pattern:**
+```swift
+// When adding a reference
+if !note.referencingFileIDs.contains(file.id) {
+    note.referencingFileIDs.append(file.id)
+}
+
+// When removing a reference
+note.referencingFileIDs.removeAll { $0 == file.id }
+
+// When deleting entry
+for fileID in note.referencingFileIDs {
+    if let file = findFile(withID: fileID) {
+        removeMarkersFromFile(file, for: note)
+    }
+}
+```
 
 ### NSAttributedString Storage
 
@@ -87,7 +120,7 @@ Each reference marker in the text carries:
 
 **Deletion of Entry:**
 - If user deletes an entry with `referenceCount > 0`, warn: "This citation has 3 references. Delete anyway?"
-- If confirmed, remove all inline markers referencing that entry
+- If confirmed, remove all inline markers referencing that entry (efficiently using `referencingFileIDs`)
 
 ### Glossary Workflow
 
@@ -320,7 +353,7 @@ Each reference marker in the text carries:
    - Ensure undo of delete restores reference counts
 3. Handle entry deletion:
    - Show warning if `referenceCount > 0`
-   - On confirm, scan all documents and remove markers
+   - On confirm, scan only files in `referencingFileIDs` and remove markers
 4. Orphan management:
    - Background check for entries with `referenceCount = 0`
    - Optional cleanup prompt in settings or project view
