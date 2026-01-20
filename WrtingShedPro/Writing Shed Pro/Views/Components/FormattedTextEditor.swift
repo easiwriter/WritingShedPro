@@ -1594,7 +1594,13 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
             } else if let _ = textStorage.attribute(.attachment, at: characterIndex, effectiveRange: nil) as? ReferenceAttachment {
                 // Change cursor to pointer for references
                 NSCursor.pointingHand.set()
+            } else {
+                // Reset to default arrow cursor for regular text
+                NSCursor.arrow.set()
             }
+        } else {
+            // Reset to default arrow cursor when outside text
+            NSCursor.arrow.set()
         }
         
         return super.hitTest(point, with: event)
