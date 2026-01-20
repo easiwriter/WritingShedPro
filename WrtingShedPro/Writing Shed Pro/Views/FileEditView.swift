@@ -922,76 +922,69 @@ struct FileEditView: View {
             }
 
             // Comments
-            Menu {
-                Button(action: { showNewCommentDialog = true }) {
-                    Label("Add Comment", systemImage: "pencil.circle")
-                }
-                if let currentVersion = file.currentVersion, currentVersion.comments?.isEmpty == false {
+            // Comments - submenu only if there are comments
+            if let currentVersion = file.currentVersion, currentVersion.comments?.isEmpty == false {
+                Menu {
+                    Button(action: { showNewCommentDialog = true }) {
+                        Label("Add Comment", systemImage: "pencil.circle")
+                    }
                     Divider()
                     Button(action: { showCommentsList = true }) {
                         Label("Show Comments", systemImage: "bubble.left.and.bubble.right")
                     }
+                } label: {
+                    Label("Comment", systemImage: "bubble.left")
                 }
-            } label: {
-                Label("Comment", systemImage: "bubble.left")
+            } else {
+                Button(action: { showNewCommentDialog = true }) {
+                    Label("Add Comment", systemImage: "pencil.circle")
+                }
             }
 
-            // Footnote
-            Menu {
-                Button(action: { showNewFootnoteDialog = true }) {
-                    Label("Add Footnote", systemImage: "pencil.circle")
-                }
-                if let currentVersion = file.currentVersion, currentVersion.footnotes?.isEmpty == false {
+            // Footnotes - submenu only if there are footnotes
+            if let currentVersion = file.currentVersion, currentVersion.footnotes?.isEmpty == false {
+                Menu {
+                    Button(action: { showNewFootnoteDialog = true }) {
+                        Label("Add Footnote", systemImage: "pencil.circle")
+                    }
                     Divider()
                     Button(action: { showFootnotesList = true }) {
                         Label("Show Footnotes", systemImage: "list.number")
                     }
+                } label: {
+                    Label("Footnote", systemImage: "number.circle")
                 }
-            } label: {
-                Label("Footnote", systemImage: "number.circle")
+            } else {
+                Button(action: { showNewFootnoteDialog = true }) {
+                    Label("Add Footnote", systemImage: "pencil.circle")
+                }
             }
 
-            // Endnote (top-level)
+            // Endnote - direct button, no submenu
             if backMatterSettings.isEnabled(.endnotes) {
-                Menu {
-                    Button(action: { showNewEndnoteDialog = true }) {
-                        Label(NSLocalizedString("insertMenu.addEndnote", comment: "Add Endnote"), systemImage: "number.circle.fill")
-                    }
-                } label: {
-                    Label(NSLocalizedString("insertMenu.endnotes", comment: "Endnote"), systemImage: "number.circle")
+                Button(action: { showNewEndnoteDialog = true }) {
+                    Label(NSLocalizedString("insertMenu.addEndnote", comment: "Add Endnote"), systemImage: "number.circle.fill")
                 }
             }
 
-            // Glossary (top-level)
+            // Glossary - direct button, no submenu
             if backMatterSettings.isEnabled(.glossary) {
-                Menu {
-                    Button(action: { showNewGlossaryTermDialog = true }) {
-                        Label(NSLocalizedString("insertMenu.addGlossaryTerm", comment: "Add Term"), systemImage: "text.book.closed.fill")
-                    }
-                } label: {
-                    Label(NSLocalizedString("insertMenu.glossary", comment: "Glossary"), systemImage: "text.book.closed")
+                Button(action: { showNewGlossaryTermDialog = true }) {
+                    Label(NSLocalizedString("insertMenu.addGlossaryTerm", comment: "Add Term"), systemImage: "text.book.closed.fill")
                 }
             }
 
-            // Citation (top-level)
+            // Citation - direct button, no submenu
             if backMatterSettings.isEnabled(.bibliography) {
-                Menu {
-                    Button(action: { showNewCitationDialog = true }) {
-                        Label(NSLocalizedString("insertMenu.addCitation", comment: "Add Citation"), systemImage: "quote.opening")
-                    }
-                } label: {
-                    Label(NSLocalizedString("insertMenu.citations", comment: "Citation"), systemImage: "books.vertical")
+                Button(action: { showNewCitationDialog = true }) {
+                    Label(NSLocalizedString("insertMenu.addCitation", comment: "Add Citation"), systemImage: "quote.opening")
                 }
             }
 
-            // Index (top-level)
+            // Index - direct button, no submenu
             if backMatterSettings.isEnabled(.index) {
-                Menu {
-                    Button(action: { showNewIndexEntryDialog = true }) {
-                        Label(NSLocalizedString("insertMenu.addIndexEntry", comment: "Add Index Entry"), systemImage: "list.bullet.indent")
-                    }
-                } label: {
-                    Label(NSLocalizedString("insertMenu.index", comment: "Index"), systemImage: "list.bullet.indent")
+                Button(action: { showNewIndexEntryDialog = true }) {
+                    Label(NSLocalizedString("insertMenu.addIndexEntry", comment: "Add Index Entry"), systemImage: "list.bullet.indent")
                 }
             }
 
