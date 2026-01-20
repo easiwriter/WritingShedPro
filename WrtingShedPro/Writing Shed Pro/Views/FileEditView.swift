@@ -1684,19 +1684,10 @@ struct FileEditView: View {
             }
             // Feature 029: Reference editor sheet (shows appropriate editor based on reference type)
             .sheet(isPresented: $showReferenceEditor) {
-                if let attachment = selectedReferenceAttachment,
-                   let project = file.project {
-                    // For now, show NoteEditorSheet for all reference types
-                    // We can expand this to show different editors based on reference type
-                    NoteEditorSheet(
-                        project: project,
-                        existingNote: nil,
-                        onSave: { _ in
-                            forceRefresh.toggle()
-                        },
-                        onCancel: {
-                            showReferenceEditor = false
-                        }
+                if let attachment = selectedReferenceAttachment {
+                    ReferenceEditorSheet(
+                        project: file.project,
+                        referenceAttachment: attachment
                     )
                 }
             }
