@@ -31,6 +31,7 @@ struct BackMatterGeneratedContentView: View {
     @State private var previousGlossaryCount: Int = 0
     @State private var previousBibliographyCount: Int = 0
     @State private var previousIndexCount: Int = 0
+    @State private var refreshTrigger = UUID()
     
     // MARK: - Computed Properties
     
@@ -68,7 +69,11 @@ struct BackMatterGeneratedContentView: View {
         }
         .navigationTitle(file.name)
         .navigationBarTitleDisplayMode(.inline)
-    }
+        .id(refreshTrigger)
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+            // Refresh when app returns to foreground (handles changes from other views)
+            refreshTrigger = UUID()
+        }
     
     // MARK: - Endnotes Content
     
