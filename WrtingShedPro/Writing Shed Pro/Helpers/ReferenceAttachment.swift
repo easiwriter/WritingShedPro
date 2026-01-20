@@ -46,11 +46,17 @@ final class ReferenceAttachment: NSTextAttachment {
         }
     }
     
-    /// Font size for the marker
-    private static let markerFontSize: CGFloat = 13
-    
-    /// Superscript font size (for endnotes)
-    private static let superscriptFontSize: CGFloat = 11
+    /// Whether this attachment is being rendered for the page/print view (as opposed to edit view)
+    /// When true: render in black. When false: render in blue
+    var isForPageView: Bool = false {
+        didSet {
+            if isForPageView != oldValue {
+                // Clear cached image when context changes
+                self.image = nil
+                self.contents = nil
+            }
+        }
+    }
     
     // MARK: - Initialization
     
@@ -221,7 +227,7 @@ final class ReferenceAttachment: NSTextAttachment {
     ) -> UIImage? {
         
         #if DEBUG
-        print("🔖🎨 ReferenceAttachment.image() - type: \(referenceType), displayText: \(displayText)")
+        print("🔖🎨 ReferenceAttachment.image() - type: \(referenceType), displayText: \(displayText), isForPageView: \(isForPageView)")
         #endif
         
         // Index markers are invisible
@@ -234,12 +240,31 @@ final class ReferenceAttachment: NSTextAttachment {
             }
         }
         
-        // Determine styling based on reference type
-        let (textColor, backgroundColor, borderColor, font) = stylingForType()
+        // Get the font from the surrounding text for proper sizing and baseline alignment
+        guard let textContainer = textContainer,
+              let layoutManager = textContainer.layoutManager,
+              let textStorage = layoutManager.textStorage else {
+            return createFallbackImage(at: charIndex)
+        }
         
-        // Create attributed string for the marker
+        // Get the font at this character position (before the attachment)
+        let surroundingFont: UIFont
+        if charIndex > 0 {
+            surroundingFont = textStorage.attribute(.font, at: charIndex - 1, effectiveRange: nil) as? UIFont
+                ?? UIFont.systemFont(ofSize: 16)
+        } else if charIndex < textStorage.length {
+            surroundingFont = textStorage.attribute(.font, at: charIndex, effectiveRange: nil) as? UIFont
+                ?? UIFont.systemFont(ofSize: 16)
+        } else {
+            surroundingFont = UIFont.systemFont(ofSize: 16)
+        }
+        
+        // Determine text color based on context
+        let textColor = isForPageView ? UIColor.black : UIColor.systemBlue
+        
+        // Create attributed string using the surrounding text's font
         let attributes: [NSAttributedString.Key: Any] = [
-            .font: font,
+            .font: surroundingFont,
             .foregroundColor: textColor
         ]
         
@@ -248,57 +273,53 @@ final class ReferenceAttachment: NSTextAttachment {
         // Calculate size needed for the text
         let textSize = attributedString.size()
         
-        // Add padding
-        let horizontalPadding: CGFloat = referenceType == .glossary ? 2 : 4
-        let verticalPadding: CGFloat = 2
-        let imageSize = CGSize(
-            width: ceil(textSize.width) + (horizontalPadding * 2),
-            height: ceil(textSize.height) + (verticalPadding * 2)
-        )
-        
-        guard imageSize.width > 0 && imageSize.height > 0 else {
+        guard textSize.width > 0 && textSize.height > 0 else {
             return nil
         }
         
-        // Create image with styling
+        // Create image - no padding, just the text itself for inline display
+        let imageSize = CGSize(
+            width: ceil(textSize.width),
+            height: ceil(textSize.height)
+        )
+        
         let renderer = UIGraphicsImageRenderer(size: imageSize)
         let image = renderer.image { context in
-            let rect = CGRect(origin: .zero, size: imageSize)
-            
-            // Draw background (rounded rect for most types)
-            if referenceType != .glossary {
-                let backgroundPath = UIBezierPath(roundedRect: rect, cornerRadius: 3)
-                backgroundColor.setFill()
-                backgroundPath.fill()
-                
-                // Draw border
-                borderColor.setStroke()
-                backgroundPath.lineWidth = 0.5
-                backgroundPath.stroke()
-            }
-            
-            // Draw text centered
-            let textRect = CGRect(
-                x: horizontalPadding,
-                y: verticalPadding,
-                width: textSize.width,
-                height: textSize.height
-            )
+            // Draw text directly without background or border
+            let textRect = CGRect(origin: .zero, size: imageSize)
             attributedString.draw(in: textRect)
-            
-            // For glossary, add underline
-            if referenceType == .glossary {
-                let underlineY = rect.maxY - 1
-                let underlinePath = UIBezierPath()
-                underlinePath.move(to: CGPoint(x: 0, y: underlineY))
-                underlinePath.addLine(to: CGPoint(x: rect.width, y: underlineY))
-                textColor.setStroke()
-                underlinePath.lineWidth = 1
-                underlinePath.stroke()
-            }
         }
         
         return image
+    }
+    
+    /// Fallback image generation when we can't get surrounding font
+    private func createFallbackImage(at charIndex: Int) -> UIImage? {
+        let font = UIFont.systemFont(ofSize: 16)
+        let textColor = isForPageView ? UIColor.black : UIColor.systemBlue
+        
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: textColor
+        ]
+        
+        let attributedString = NSAttributedString(string: displayText, attributes: attributes)
+        let textSize = attributedString.size()
+        
+        guard textSize.width > 0 && textSize.height > 0 else {
+            return nil
+        }
+        
+        let imageSize = CGSize(
+            width: ceil(textSize.width),
+            height: ceil(textSize.height)
+        )
+        
+        let renderer = UIGraphicsImageRenderer(size: imageSize)
+        return renderer.image { context in
+            let textRect = CGRect(origin: .zero, size: imageSize)
+            attributedString.draw(in: textRect)
+        }
     }
     
     /// Calculate the bounds for the attachment
@@ -317,20 +338,38 @@ final class ReferenceAttachment: NSTextAttachment {
         guard let textContainer = textContainer,
               let layoutManager = textContainer.layoutManager,
               let textStorage = layoutManager.textStorage else {
-            // Fallback
-            return calculateBoundsForDefaultFont()
+            // Fallback: use standard 16pt font
+            let font = UIFont.systemFont(ofSize: 16)
+            let size = (displayText as NSString).size(withAttributes: [.font: font])
+            // Use descender to align numbers with baseline (brackets can extend above/below)
+            return CGRect(x: 0, y: font.descender, width: ceil(size.width), height: ceil(size.height))
         }
         
-        // Get the font at this character position
+        // Get the font at the character position before this attachment
         let font: UIFont
-        if charIndex < textStorage.length {
+        if charIndex > 0 {
+            font = textStorage.attribute(.font, at: charIndex - 1, effectiveRange: nil) as? UIFont
+                ?? UIFont.systemFont(ofSize: 16)
+        } else if charIndex < textStorage.length {
             font = textStorage.attribute(.font, at: charIndex, effectiveRange: nil) as? UIFont
-                ?? UIFont.systemFont(ofSize: 17)
+                ?? UIFont.systemFont(ofSize: 16)
         } else {
-            font = UIFont.systemFont(ofSize: 17)
+            font = UIFont.systemFont(ofSize: 16)
         }
         
-        return calculateBounds(for: font)
+        // Calculate bounds that match the surrounding text's baseline
+        let size = (displayText as NSString).size(withAttributes: [.font: font])
+        
+        // Position attachment so the *number inside* aligns with baseline, not the brackets
+        // The brackets are typically full line height, but numbers are smaller
+        // Move the attachment down (negative y) so descenders align, which positions numbers correctly
+        // Use the font's descender value (negative number) to align with text baseline
+        return CGRect(
+            x: 0,
+            y: font.descender,
+            width: ceil(size.width),
+            height: ceil(size.height)
+        )
     }
     
     // MARK: - Private Helpers
@@ -343,7 +382,7 @@ final class ReferenceAttachment: NSTextAttachment {
                 textColor: UIColor.systemBlue,
                 backgroundColor: UIColor.systemBlue.withAlphaComponent(0.1),
                 borderColor: UIColor.systemBlue.withAlphaComponent(0.3),
-                font: UIFont.systemFont(ofSize: Self.superscriptFontSize, weight: .semibold)
+                font: UIFont.systemFont(ofSize: 11, weight: .semibold)
             )
             
         case .note:
@@ -362,7 +401,7 @@ final class ReferenceAttachment: NSTextAttachment {
                 textColor: UIColor.systemIndigo,
                 backgroundColor: UIColor.systemIndigo.withAlphaComponent(0.1),
                 borderColor: UIColor.systemIndigo.withAlphaComponent(0.3),
-                font: UIFont.systemFont(ofSize: Self.markerFontSize, weight: .medium)
+                font: UIFont.systemFont(ofSize: 13, weight: .medium)
             )
             
         case .glossary:
@@ -371,7 +410,7 @@ final class ReferenceAttachment: NSTextAttachment {
                 textColor: UIColor.systemTeal,
                 backgroundColor: UIColor.clear,
                 borderColor: UIColor.clear,
-                font: UIFont.systemFont(ofSize: Self.markerFontSize, weight: .regular)
+                font: UIFont.systemFont(ofSize: 13, weight: .regular)
             )
             
         case .figure, .table:
@@ -380,7 +419,7 @@ final class ReferenceAttachment: NSTextAttachment {
                 textColor: UIColor.systemGreen.darker(by: 0.1) ?? .systemGreen,
                 backgroundColor: UIColor.systemGreen.withAlphaComponent(0.1),
                 borderColor: UIColor.systemGreen.withAlphaComponent(0.3),
-                font: UIFont.systemFont(ofSize: Self.markerFontSize, weight: .medium)
+                font: UIFont.systemFont(ofSize: 13, weight: .medium)
             )
             
         case .index:
@@ -403,36 +442,6 @@ final class ReferenceAttachment: NSTextAttachment {
         return CGRect(
             x: 0,
             y: -verticalPadding,
-            width: ceil(size.width) + (horizontalPadding * 2),
-            height: ceil(size.height) + (verticalPadding * 2)
-        )
-    }
-    
-    private func calculateBounds(for contextFont: UIFont) -> CGRect {
-        let (_, _, _, markerFont) = stylingForType()
-        let size = (displayText as NSString).size(withAttributes: [.font: markerFont])
-        let horizontalPadding: CGFloat = referenceType == .glossary ? 2 : 4
-        let verticalPadding: CGFloat = 2
-        
-        // Calculate vertical offset to align with text baseline
-        let descent = contextFont.descender
-        let yOffset: CGFloat
-        
-        switch referenceType {
-        case .endnote:
-            // Superscript - raised position
-            yOffset = descent + (contextFont.pointSize * 0.3)
-        case .glossary:
-            // Inline with text
-            yOffset = descent
-        default:
-            // Slight raise for badge-style markers
-            yOffset = descent - 1
-        }
-        
-        return CGRect(
-            x: 0,
-            y: yOffset,
             width: ceil(size.width) + (horizontalPadding * 2),
             height: ceil(size.height) + (verticalPadding * 2)
         )
