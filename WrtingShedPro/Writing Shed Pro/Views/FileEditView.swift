@@ -486,7 +486,7 @@ struct FileEditView: View {
         Button(action: {
             insertPageBreak()
         }) {
-            Label("Page Break", systemImage: "arrow.up.and.line.horizontal.and.arrow.down")
+            Label("Insert Page Break", systemImage: "arrow.up.and.line.horizontal.and.arrow.down")
         }
         
         Divider()
@@ -995,7 +995,7 @@ struct FileEditView: View {
             Divider()
 
             Button(action: { insertPageBreak() }) {
-                Label("Page Break", systemImage: "arrow.up.and.line.horizontal.and.arrow.down")
+                Label("Insert Page Break", systemImage: "arrow.up.and.line.horizontal.and.arrow.down")
             }
         } label: {
             Image(systemName: "text.badge.plus")
