@@ -74,6 +74,11 @@ struct FileEditView: View {
     @State private var showNewIndexEntryDialog = false
     @State private var selectedIndexEntry: IndexEntry?
     
+    // Feature 029: Reference interaction (single-tap support)
+    @State private var showReferenceEditor = false
+    @State private var selectedReferenceAttachment: ReferenceAttachment?
+    @State private var selectedReferencePosition: Int = 0
+    
     // Feature 020: Printing
     @State private var showPrintError = false
     @State private var printErrorMessage = ""
@@ -219,6 +224,11 @@ struct FileEditView: View {
                                 },
                                 onFootnoteTapped: { attachment, position in
                                     handleFootnoteTap(attachment: attachment, position: position)
+                                },
+                                onReferenceTapped: { attachment, position in
+                                    selectedReferenceAttachment = attachment
+                                    selectedReferencePosition = position
+                                    showReferenceEditor = true
                                 }
                             )
                             .frame(width: geometry.size.width * inverseScale, height: geometry.size.height * inverseScale)
@@ -252,6 +262,11 @@ struct FileEditView: View {
                                 },
                                 onFootnoteTapped: { attachment, position in
                                     handleFootnoteTap(attachment: attachment, position: position)
+                                },
+                                onReferenceTapped: { attachment, position in
+                                    selectedReferenceAttachment = attachment
+                                    selectedReferencePosition = position
+                                    showReferenceEditor = true
                                 }
                             )
                             .frame(width: geometry.size.width * inverseScale, height: geometry.size.height * inverseScale)
@@ -292,6 +307,11 @@ struct FileEditView: View {
                                 },
                                 onFootnoteTapped: { attachment, position in
                                     handleFootnoteTap(attachment: attachment, position: position)
+                                },
+                                onReferenceTapped: { attachment, position in
+                                    selectedReferenceAttachment = attachment
+                                    selectedReferencePosition = position
+                                    showReferenceEditor = true
                                 }
                             )
                             .id(refreshTrigger)
@@ -322,6 +342,11 @@ struct FileEditView: View {
                                 },
                                 onFootnoteTapped: { attachment, position in
                                     handleFootnoteTap(attachment: attachment, position: position)
+                                },
+                                onReferenceTapped: { attachment, position in
+                                    selectedReferenceAttachment = attachment
+                                    selectedReferencePosition = position
+                                    showReferenceEditor = true
                                 }
                             )
                             .id(refreshTrigger)
@@ -1653,6 +1678,24 @@ struct FileEditView: View {
                         },
                         onCancel: {
                             selectedIndexEntry = nil
+                        }
+                    )
+                }
+            }
+            // Feature 029: Reference editor sheet (shows appropriate editor based on reference type)
+            .sheet(isPresented: $showReferenceEditor) {
+                if let attachment = selectedReferenceAttachment,
+                   let project = file.project {
+                    // For now, show NoteEditorSheet for all reference types
+                    // We can expand this to show different editors based on reference type
+                    NoteEditorSheet(
+                        project: project,
+                        existingNote: nil,
+                        onSave: { _ in
+                            forceRefresh.toggle()
+                        },
+                        onCancel: {
+                            showReferenceEditor = false
                         }
                     )
                 }
