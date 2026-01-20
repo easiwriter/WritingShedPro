@@ -554,12 +554,6 @@ struct FileEditView: View {
             Button(action: { showNewEndnoteDialog = true }) {
                 Label(NSLocalizedString("insertMenu.addEndnote", comment: "Add Endnote"), systemImage: "number.circle.fill")
             }
-            if let project = file.project, (project.noteEntries?.contains { $0.isEndnote } ?? false) {
-                Divider()
-                Button(action: { showNotesList = true }) {
-                    Label(NSLocalizedString("insertMenu.showEndnotes", comment: "Show Endnotes"), systemImage: "list.bullet.rectangle")
-                }
-            }
         } label: {
             Label(NSLocalizedString("insertMenu.endnotes", comment: "Endnote"), systemImage: "number.circle")
         }
@@ -571,12 +565,6 @@ struct FileEditView: View {
         Menu {
             Button(action: { showNewGlossaryTermDialog = true }) {
                 Label(NSLocalizedString("insertMenu.addGlossaryTerm", comment: "Add Term"), systemImage: "text.book.closed.fill")
-            }
-            if let project = file.project, project.glossaryEntries?.isEmpty == false {
-                Divider()
-                Button(action: { showGlossaryList = true }) {
-                    Label(NSLocalizedString("insertMenu.showGlossary", comment: "Show Glossary"), systemImage: "list.bullet.rectangle")
-                }
             }
         } label: {
             Label(NSLocalizedString("insertMenu.glossary", comment: "Glossary"), systemImage: "text.book.closed")
@@ -590,12 +578,6 @@ struct FileEditView: View {
             Button(action: { showNewCitationDialog = true }) {
                 Label(NSLocalizedString("insertMenu.addCitation", comment: "Add Citation"), systemImage: "quote.opening")
             }
-            if let project = file.project, project.citationEntries?.isEmpty == false {
-                Divider()
-                Button(action: { showCitationsList = true }) {
-                    Label(NSLocalizedString("insertMenu.showCitations", comment: "Show Citations"), systemImage: "list.bullet.rectangle")
-                }
-            }
         } label: {
             Label(NSLocalizedString("insertMenu.citations", comment: "Citation"), systemImage: "books.vertical")
         }
@@ -607,12 +589,6 @@ struct FileEditView: View {
         Menu {
             Button(action: { showNewIndexEntryDialog = true }) {
                 Label(NSLocalizedString("insertMenu.addIndexEntry", comment: "Add Index Entry"), systemImage: "list.bullet.indent")
-            }
-            if let project = file.project, project.indexEntries?.isEmpty == false {
-                Divider()
-                Button(action: { showIndexList = true }) {
-                    Label(NSLocalizedString("insertMenu.showIndex", comment: "Show Index"), systemImage: "list.bullet.rectangle")
-                }
             }
         } label: {
             Label(NSLocalizedString("insertMenu.index", comment: "Index"), systemImage: "list.number")
@@ -981,12 +957,6 @@ struct FileEditView: View {
                     Button(action: { showNewEndnoteDialog = true }) {
                         Label(NSLocalizedString("insertMenu.addEndnote", comment: "Add Endnote"), systemImage: "number.circle.fill")
                     }
-                    if let project = file.project, (project.noteEntries?.contains { $0.isEndnote } ?? false) {
-                        Divider()
-                        Button(action: { showNotesList = true }) {
-                            Label(NSLocalizedString("insertMenu.showEndnotes", comment: "Show Endnotes"), systemImage: "list.bullet.rectangle")
-                        }
-                    }
                 } label: {
                     Label(NSLocalizedString("insertMenu.endnotes", comment: "Endnote"), systemImage: "number.circle")
                 }
@@ -997,12 +967,6 @@ struct FileEditView: View {
                 Menu {
                     Button(action: { showNewGlossaryTermDialog = true }) {
                         Label(NSLocalizedString("insertMenu.addGlossaryTerm", comment: "Add Term"), systemImage: "text.book.closed.fill")
-                    }
-                    if let project = file.project, project.glossaryEntries?.isEmpty == false {
-                        Divider()
-                        Button(action: { showGlossaryList = true }) {
-                            Label(NSLocalizedString("insertMenu.showGlossary", comment: "Show Glossary"), systemImage: "list.bullet.rectangle")
-                        }
                     }
                 } label: {
                     Label(NSLocalizedString("insertMenu.glossary", comment: "Glossary"), systemImage: "text.book.closed")
@@ -1015,12 +979,6 @@ struct FileEditView: View {
                     Button(action: { showNewCitationDialog = true }) {
                         Label(NSLocalizedString("insertMenu.addCitation", comment: "Add Citation"), systemImage: "quote.opening")
                     }
-                    if let project = file.project, project.citationEntries?.isEmpty == false {
-                        Divider()
-                        Button(action: { showCitationsList = true }) {
-                            Label(NSLocalizedString("insertMenu.showCitations", comment: "Show Citations"), systemImage: "list.bullet.rectangle")
-                        }
-                    }
                 } label: {
                     Label(NSLocalizedString("insertMenu.citations", comment: "Citation"), systemImage: "books.vertical")
                 }
@@ -1031,12 +989,6 @@ struct FileEditView: View {
                 Menu {
                     Button(action: { showNewIndexEntryDialog = true }) {
                         Label(NSLocalizedString("insertMenu.addIndexEntry", comment: "Add Index Entry"), systemImage: "list.bullet.indent")
-                    }
-                    if let project = file.project, project.indexEntries?.isEmpty == false {
-                        Divider()
-                        Button(action: { showIndexList = true }) {
-                            Label(NSLocalizedString("insertMenu.showIndex", comment: "Show Index"), systemImage: "list.bullet.rectangle")
-                        }
                     }
                 } label: {
                     Label(NSLocalizedString("insertMenu.index", comment: "Index"), systemImage: "list.bullet.indent")
