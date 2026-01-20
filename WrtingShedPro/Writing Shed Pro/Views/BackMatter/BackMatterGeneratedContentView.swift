@@ -74,6 +74,7 @@ struct BackMatterGeneratedContentView: View {
             // Refresh when app returns to foreground (handles changes from other views)
             refreshTrigger = UUID()
         }
+    }
     
     // MARK: - Endnotes Content
     
