@@ -179,7 +179,7 @@ struct ReferenceEditorSheet_Previews: PreviewProvider {
         let container = try! ModelContainer(for: Project.self, configurations: config)
         
         let project = Project(name: "Test", type: .fiction)
-        let note = NoteEntry(tag: "test-note", content: "This is test content", isEndnote: false)
+        let note = NoteEntry(content: "This is test content", tag: "test-note", isEndnote: false)
         project.noteEntries = [note]
         
         let reference = ReferenceAttachment(referenceType: .note, entryID: note.id, tag: "test-note")
