@@ -2122,7 +2122,7 @@
 "insertMenu.showNotes" = "Show Notes";
 "insertMenu.showEndnotes" = "Show Endnotes";
 "insertMenu.glossary" = "Glossary";
-"insertMenu.addGlossaryTerm" = "Add Term";
+"insertMenu.addGlossaryTerm" = "Add Glossary Term";
 "insertMenu.showGlossary" = "Show Glossary";
 "insertMenu.citations" = "Citations";
 "insertMenu.addCitation" = "Add Citation";
