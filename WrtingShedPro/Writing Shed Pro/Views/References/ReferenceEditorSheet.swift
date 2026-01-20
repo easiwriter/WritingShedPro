@@ -96,34 +96,33 @@ struct ReferenceEditorSheet: View {
         switch referenceAttachment.referenceType {
         case .note, .endnote:
             if let note = project.noteEntries?.first(where: { $0.id == referenceAttachment.entryID }) {
-                entryContent = note.content ?? ""
+                entryContent = note.content
                 entryTitle = note.tag ?? ""
             }
             
         case .citation:
             if let citation = project.citationEntries?.first(where: { $0.id == referenceAttachment.entryID }) {
-                entryContent = citation.notes ?? ""
-                entryTitle = citation.title ?? ""
+                entryContent = citation.title
+                entryTitle = citation.title
             }
             
         case .glossary:
             if let term = project.glossaryEntries?.first(where: { $0.id == referenceAttachment.entryID }) {
-                entryContent = term.definition ?? ""
-                entryTitle = term.term ?? ""
+                entryContent = term.definition
+                entryTitle = term.term
             }
             
         case .index:
             if let entry = project.indexEntries?.first(where: { $0.id == referenceAttachment.entryID }) {
-                entryContent = entry.entry ?? ""
-                entryTitle = entry.entry ?? ""
+                entryContent = entry.keyword
+                entryTitle = entry.keyword
             }
             
         case .figure, .table:
-            // For figures and tables, show caption
-            if let figure = project.figureEntries?.first(where: { $0.id == referenceAttachment.entryID }) {
-                entryContent = figure.caption ?? ""
-                entryTitle = figure.title ?? ""
-            }
+            // For figures and tables, we don't have these in the model yet
+            // Just show empty content
+            entryContent = ""
+            entryTitle = referenceAttachment.displayText
         }
     }
     
@@ -142,7 +141,7 @@ struct ReferenceEditorSheet: View {
             
         case .citation:
             if let citation = project.citationEntries?.first(where: { $0.id == referenceAttachment.entryID }) {
-                citation.notes = entryContent
+                citation.title = entryContent
             }
             
         case .glossary:
@@ -152,13 +151,12 @@ struct ReferenceEditorSheet: View {
             
         case .index:
             if let entry = project.indexEntries?.first(where: { $0.id == referenceAttachment.entryID }) {
-                entry.entry = entryContent
+                entry.keyword = entryContent
             }
             
         case .figure, .table:
-            if let figure = project.figureEntries?.first(where: { $0.id == referenceAttachment.entryID }) {
-                figure.caption = entryContent
-            }
+            // No changes needed for now
+            break
         }
         
         // Save to database

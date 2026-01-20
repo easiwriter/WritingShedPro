@@ -993,7 +993,7 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
                 replacements.append((range: range, replacement: NSAttributedString(string: numberString, attributes: attributes)))
             } else if attachment is CommentAttachment {
                 replacements.append((range: range, replacement: NSAttributedString(string: "")))
-            } else if var referenceAttachment = attachment as? ReferenceAttachment {
+            } else if let referenceAttachment = attachment as? ReferenceAttachment {
                 // Mark reference attachments for page view rendering (black color, not blue)
                 referenceAttachment.isForPageView = true
             }
