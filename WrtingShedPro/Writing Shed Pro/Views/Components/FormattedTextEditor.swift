@@ -1591,6 +1591,9 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
             } else if let _ = textStorage.attribute(.attachment, at: characterIndex, effectiveRange: nil) as? CommentAttachment {
                 // Change cursor to pointer for comments
                 NSCursor.pointingHand.set()
+            } else if let _ = textStorage.attribute(.attachment, at: characterIndex, effectiveRange: nil) as? ReferenceAttachment {
+                // Change cursor to pointer for references
+                NSCursor.pointingHand.set()
             }
         }
         
