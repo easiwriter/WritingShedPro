@@ -168,7 +168,79 @@ struct ReferenceEditorSheet: View {
             return
         }
         
+        // Regenerate back matter files to reflect changes
+        regenerateBackMatterFiles(project)
+        
         dismiss()
+    }
+    
+    private func regenerateBackMatterFiles(_ project: Project) {
+        // Find the Back Matter folder
+        guard let backMatterFolder = project.folders?.first(where: { $0.isBackMatterFolder }) else {
+            return
+        }
+        
+        let backMatterGenerator = BackMatterGenerator(context: modelContext, project: project)
+        
+        let backMatterItems: [(item: BackMatterItem, shouldUpdate: Bool)] = [
+            (.endnotes, true),
+            (.glossary, backMatterFolder.backMatterSettings.isEnabled(.glossary)),
+            (.bibliography, backMatterFolder.backMatterSettings.isEnabled(.bibliography)),
+            (.index, backMatterFolder.backMatterSettings.isEnabled(.index))
+        ]
+        
+        for (item, shouldUpdate) in backMatterItems {
+            guard shouldUpdate else { continue }
+            
+            // Find the back matter file
+            let folderID = backMatterFolder.id
+            let fileName = item.fileName
+            let descriptor = FetchDescriptor<TextFile>(
+                predicate: #Predicate<TextFile> { file in
+                    file.parentFolder?.id == folderID && file.name == fileName
+                }
+            )
+            
+            guard let backMatterFile = try? modelContext.fetch(descriptor).first else {
+                continue
+            }
+            
+            // Generate fresh content for this back matter item
+            let generatedContent: NSAttributedString
+            
+            switch item {
+            case .endnotes:
+                generatedContent = backMatterGenerator.generateNotesSection() ?? NSAttributedString()
+            case .glossary:
+                generatedContent = backMatterGenerator.generateGlossarySection() ?? NSAttributedString()
+            case .bibliography:
+                generatedContent = backMatterGenerator.generateBibliographySection() ?? NSAttributedString()
+            case .index:
+                generatedContent = backMatterGenerator.generateIndexSection(pageMap: [:]) ?? NSAttributedString()
+            }
+            
+            // Update the file's content
+            if backMatterFile.currentVersion == nil {
+                let newVersion = Version(versionNumber: 1)
+                newVersion.textFile = backMatterFile
+                newVersion.attributedContent = generatedContent
+                modelContext.insert(newVersion)
+                backMatterFile.currentVersionIndex = 0
+            } else {
+                backMatterFile.currentVersion?.attributedContent = generatedContent
+            }
+            
+            backMatterFile.modifiedDate = Date()
+        }
+        
+        // Save the updated back matter files
+        do {
+            try modelContext.save()
+        } catch {
+            #if DEBUG
+            print("❌ Failed to save updated back matter files: \(error)")
+            #endif
+        }
     }
 }
 
