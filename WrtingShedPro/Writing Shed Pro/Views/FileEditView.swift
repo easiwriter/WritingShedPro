@@ -206,6 +206,7 @@ struct FileEditView: View {
                                 selectedRange: $selectedRange,
                                 textViewCoordinator: textViewCoordinator,
                                 project: file.project,
+                                undoManager: undoManager,
                                 textContainerInset: UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8),
                                 isEditable: isFileEditable,
                                 onTextChange: { newText in
@@ -247,6 +248,7 @@ struct FileEditView: View {
                                 selectedRange: $selectedRange,
                                 textViewCoordinator: textViewCoordinator,
                                 project: file.project,
+                                undoManager: undoManager,
                                 textContainerInset: UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8),
                                 isEditable: isFileEditable,
                                 onTextChange: { newText in
@@ -295,6 +297,7 @@ struct FileEditView: View {
                                 selectedRange: $selectedRange,
                                 textViewCoordinator: textViewCoordinator,
                                 project: file.project,
+                                undoManager: undoManager,
                                 textContainerInset: UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8),
                                 isEditable: isFileEditable,
                                 onTextChange: { newText in
@@ -333,6 +336,7 @@ struct FileEditView: View {
                                 selectedRange: $selectedRange,
                                 textViewCoordinator: textViewCoordinator,
                                 project: file.project,
+                                undoManager: undoManager,
                                 textContainerInset: UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8),
                                 isEditable: isFileEditable,
                                 onTextChange: { newText in

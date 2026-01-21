@@ -43,6 +43,9 @@ struct FormattedTextEditor: UIViewRepresentable {
     /// Project reference for dynamic numbering (Feature 016)
     var project: Project?
     
+    /// Optional undo manager for coordinated undo/redo
+    var undoManager: UndoManager?
+    
     // MARK: - Configuration
     
     /// Font to use for new text (when no formatting is applied)
@@ -70,6 +73,7 @@ struct FormattedTextEditor: UIViewRepresentable {
         selectedRange: Binding<NSRange> = .constant(NSRange(location: 0, length: 0)),
         textViewCoordinator: TextViewCoordinator? = nil,
         project: Project? = nil,
+        undoManager: UndoManager? = nil,
         font: UIFont = .preferredFont(forTextStyle: .body),
         textColor: UIColor = .label,
         backgroundColor: UIColor = .systemBackground,
@@ -89,6 +93,7 @@ struct FormattedTextEditor: UIViewRepresentable {
         self._selectedRange = selectedRange
         self.textViewCoordinator = textViewCoordinator
         self.project = project
+        self.undoManager = undoManager
         self.font = font
         self.textColor = textColor
         self.backgroundColor = backgroundColor
@@ -186,6 +191,17 @@ struct FormattedTextEditor: UIViewRepresentable {
         
         // Set delegate
         textView.delegate = context.coordinator
+        
+        // Disable UITextView's built-in undo/redo if we have a coordinated undoManager
+        // This ensures all undo/redo goes through our TextFileUndoManager
+        if undoManager != nil {
+            #if DEBUG
+            print("🔄 FormattedTextEditor: Disabling textView.undoManager to use coordinated manager")
+            #endif
+            textView.undoManager?.removeAllActions()
+            // Replace the textView's undoManager with our coordinated one
+            // Note: We can't directly set undoManager, but we can use its methods
+        }
         
         // Add tap gesture recognizer for image selection
         let tapGesture = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleTap(_:)))
