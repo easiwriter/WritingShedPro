@@ -6,13 +6,13 @@
 //  Created by GitHub Copilot on 15/01/2026.
 //
 //  Custom NSTextAttachment for displaying reference markers in text
-//  Supports notes, endnotes, citations, glossary, index, figures, and tables
+//  Supports notes, endnotes, references, glossary, index, figures, and tables
 //
 
 import UIKit
 
 /// Custom NSTextAttachment that displays a reference marker in the text
-/// Used for inline references to notes, citations, glossary terms, index entries, etc.
+/// Used for inline references to notes, references, glossary terms, index entries, etc.
 final class ReferenceAttachment: NSTextAttachment {
     
     // MARK: - Properties
@@ -20,7 +20,7 @@ final class ReferenceAttachment: NSTextAttachment {
     /// The type of reference
     let referenceType: ReferenceType
     
-    /// UUID of the referenced entry (NoteEntry, CitationEntry, etc.)
+    /// UUID of the referenced entry (NoteEntry, ReferenceEntry, etc.)
     let entryID: UUID
     
     /// Display text for the marker (e.g., "[1]", "[Smith, 2024]", "protagonist")
@@ -117,16 +117,6 @@ final class ReferenceAttachment: NSTextAttachment {
     /// - Parameters:
     ///   - entryID: UUID of the CitationEntry
     ///   - authorLastName: Primary author's last name
-    ///   - year: Publication year
-    convenience init(citationEntryID: UUID, authorLastName: String, year: Int?) {
-        let text: String
-        if let year = year {
-            text = "[\(authorLastName), \(year)]"
-        } else {
-            text = "[\(authorLastName)]"
-        }
-        self.init(referenceType: .citation, entryID: citationEntryID, displayText: text)
-    }
     
     /// Convenience initializer for glossary terms
     /// - Parameters:
