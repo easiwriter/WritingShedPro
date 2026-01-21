@@ -3515,14 +3515,14 @@ struct FileEditView: View {
                 #endif
             }
             
-        case .citation:
-            // Find the corresponding citation entry
-            if let citations = project.citationEntries,
-               let citation = citations.first(where: { $0.id == attachment.entryID }) {
-                selectedCitation = citation
+        case .reference:
+            // Find the corresponding reference entry
+            if let references = project.referenceEntries,
+               let reference = references.first(where: { $0.id == attachment.entryID }) {
+                selectedReference = reference
             } else {
                 #if DEBUG
-                print("⚠️ Citation not found for ID: \(attachment.entryID)")
+                print("⚠️ Reference not found for ID: \(attachment.entryID)")
                 #endif
             }
             
@@ -3867,27 +3867,26 @@ struct FileEditView: View {
     // MARK: - Citations (Feature 029)
     
     /// Insert a citation marker at the current cursor position
-    private func insertCitationMarker(for citation: CitationEntry) {
+    private func insertCitationMarker(for reference: ReferenceEntry) {
         guard let textView = textViewCoordinator.textView else {
             #if DEBUG
-            print("❌ Cannot insert citation marker: no text view")
+            print("❌ Cannot insert reference marker: no text view")
             #endif
             return
         }
         
         #if DEBUG
-        print("📚 Inserting citation marker for: \(citation.authors.first ?? "Unknown") (\(citation.year.map { String($0) } ?? "n.d."))")
+        print("📚 Inserting reference marker for: \(reference.author) (\(reference.publicationDate))")
         #endif
         
         // Get current cursor position
         let currentRange = textView.selectedRange
         
-        // Create the reference attachment using the convenience init for citations
-        let authorLastName = citation.authors.first?.components(separatedBy: " ").last ?? "Author"
+        // Create the reference attachment using the convenience init for references
         let attachment = ReferenceAttachment(
-            citationEntryID: citation.id,
-            authorLastName: authorLastName,
-            year: citation.year
+            referenceEntryID: reference.id,
+            author: reference.author,
+            date: reference.publicationDate
         )
         
         // Create attributed string with the attachment
@@ -3902,7 +3901,7 @@ struct FileEditView: View {
         textView.selectedRange = NSRange(location: newLocation, length: 0)
         
         // Increment reference count
-        citation.referenceCount += 1
+        reference.referenceCount += 1
         
         // Update the attributed content binding
         attributedContent = textView.attributedText ?? NSAttributedString()
@@ -6052,7 +6051,7 @@ struct FileEditView: View {
     private func restoreReferenceAttachments(in attributedString: NSAttributedString, from metadata: ReferenceMetadata) -> NSAttributedString {
         let mutableString = NSMutableAttributedString(attributedString: attributedString)
         var mutableMetadata = metadata
-        var attachmentsToReplace: [(range: NSRange, entry: ReferenceEntry)] = []
+        var attachmentsToReplace: [(range: NSRange, entry: ReferenceMetadataEntry)] = []
         var orphanedAttachments: [NSRange] = []
         
         // Find all generic attachments and match them with metadata entries
