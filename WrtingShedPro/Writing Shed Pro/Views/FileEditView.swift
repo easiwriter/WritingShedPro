@@ -3530,7 +3530,7 @@ struct FileEditView: View {
             }
             
             // Delete the reference from the database
-            self.deleteReferenceFromDatabase(attachment)
+            self.deleteReferenceFromDatabase(attachment, textView: textView)
             
             // Update back matter
             self.updateBackMatterFiles()
@@ -3544,7 +3544,7 @@ struct FileEditView: View {
     }
     
     /// Delete reference from database without undo
-    private func deleteReferenceFromDatabase(_ attachment: ReferenceAttachment) {
+    private func deleteReferenceFromDatabase(_ attachment: ReferenceAttachment, textView: UITextView) {
         #if DEBUG
         print("🗑️ Deleting reference from database: \(attachment.displayText)")
         #endif
@@ -3621,18 +3621,18 @@ struct FileEditView: View {
         
         // Update the current version's formatted content with the modified textStorage
         if let currentVersion = file.versions?[file.currentVersionIndex] {
-            let attributedText = textViewCoordinator.textView.attributedText
+            let currentContent = textView.attributedText ?? NSAttributedString()
+            currentVersion.attributedContent = currentContent
+            let referenceMetadata = extractReferenceMetadata(from: currentContent)
+            currentVersion.referenceMetadataData = referenceMetadata.encode()
             do {
-                let rtfData = try attributedText.data(from: NSRange(0..<attributedText.length), 
-                                                       documentAttributes: [.documentType: NSAttributedString.DocumentType.rtf])
-                currentVersion.formattedContent = rtfData
                 try modelContext.save()
                 #if DEBUG
-                print("💾 Version formatted content updated and saved")
+                print("💾 Version content and metadata updated and saved")
                 #endif
             } catch {
                 #if DEBUG
-                print("❌ Error updating formatted content: \(error)")
+                print("❌ Error saving version content: \(error)")
                 #endif
             }
         }
