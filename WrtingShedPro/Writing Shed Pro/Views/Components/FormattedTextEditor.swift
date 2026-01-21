@@ -34,6 +34,9 @@ struct FormattedTextEditor: UIViewRepresentable {
     /// Optional callback when user taps on a reference marker (Feature 029)
     var onReferenceTapped: ((ReferenceAttachment, Int) -> Void)?
     
+    /// Optional callback when a reference marker is being deleted (Feature 029)
+    var onReferenceDeleted: ((ReferenceAttachment) -> Void)?
+    
     /// Coordinator for managing textView reference
     var textViewCoordinator: TextViewCoordinator?
     
@@ -79,7 +82,8 @@ struct FormattedTextEditor: UIViewRepresentable {
         onClearImageSelection: (() -> Void)? = nil,
         onCommentTapped: ((CommentAttachment, Int) -> Void)? = nil,
         onFootnoteTapped: ((FootnoteAttachment, Int) -> Void)? = nil,
-        onReferenceTapped: ((ReferenceAttachment, Int) -> Void)? = nil
+        onReferenceTapped: ((ReferenceAttachment, Int) -> Void)? = nil,
+        onReferenceDeleted: ((ReferenceAttachment) -> Void)? = nil
     ) {
         self._attributedText = attributedText
         self._selectedRange = selectedRange
@@ -98,6 +102,7 @@ struct FormattedTextEditor: UIViewRepresentable {
         self.onCommentTapped = onCommentTapped
         self.onFootnoteTapped = onFootnoteTapped
         self.onReferenceTapped = onReferenceTapped
+        self.onReferenceDeleted = onReferenceDeleted
     }
     
     // MARK: - UIViewRepresentable
@@ -786,6 +791,29 @@ struct FormattedTextEditor: UIViewRepresentable {
                                 }
                             }
                         }
+                    }
+                }
+            }
+            
+            // FEATURE 029: Detect when references are being deleted
+            // When replacementText is empty and we're deleting characters, check if any ReferenceAttachments are in the deletion range
+            if text.isEmpty && range.length > 0 {
+                if let attrText = textView.attributedText {
+                    // Find all reference attachments in the range being deleted
+                    var referencesToDelete: [ReferenceAttachment] = []
+                    
+                    attrText.enumerateAttribute(.attachment, in: range, options: []) { value, _, _ in
+                        if let attachment = value as? ReferenceAttachment {
+                            referencesToDelete.append(attachment)
+                        }
+                    }
+                    
+                    // If we found references being deleted, notify the parent
+                    for reference in referencesToDelete {
+                        #if DEBUG
+                        print("🗑️ Reference attachment detected in deletion range: \(reference.displayText)")
+                        #endif
+                        parent.onReferenceDeleted?(reference)
                     }
                 }
             }

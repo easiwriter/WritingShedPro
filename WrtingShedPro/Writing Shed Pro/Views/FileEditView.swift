@@ -229,6 +229,9 @@ struct FileEditView: View {
                                     selectedReferenceAttachment = attachment
                                     selectedReferencePosition = position
                                     showReferenceEditor = true
+                                },
+                                onReferenceDeleted: { attachment in
+                                    handleReferenceDeleted(attachment)
                                 }
                             )
                             .frame(width: geometry.size.width * inverseScale, height: geometry.size.height * inverseScale)
@@ -267,6 +270,9 @@ struct FileEditView: View {
                                     selectedReferenceAttachment = attachment
                                     selectedReferencePosition = position
                                     showReferenceEditor = true
+                                },
+                                onReferenceDeleted: { attachment in
+                                    handleReferenceDeleted(attachment)
                                 }
                             )
                             .frame(width: geometry.size.width * inverseScale, height: geometry.size.height * inverseScale)
@@ -312,6 +318,9 @@ struct FileEditView: View {
                                     selectedReferenceAttachment = attachment
                                     selectedReferencePosition = position
                                     showReferenceEditor = true
+                                },
+                                onReferenceDeleted: { attachment in
+                                    handleReferenceDeleted(attachment)
                                 }
                             )
                             .id(refreshTrigger)
@@ -347,6 +356,9 @@ struct FileEditView: View {
                                     selectedReferenceAttachment = attachment
                                     selectedReferencePosition = position
                                     showReferenceEditor = true
+                                },
+                                onReferenceDeleted: { attachment in
+                                    handleReferenceDeleted(attachment)
                                 }
                             )
                             .id(refreshTrigger)
@@ -3472,6 +3484,84 @@ struct FileEditView: View {
             print("ℹ️ Figure/Table reference tapped: \(attachment.referenceType)")
             #endif
         }
+    }
+    
+    /// Handle deletion of a reference attachment from text (Feature 029)
+    private func handleReferenceDeleted(_ attachment: ReferenceAttachment) {
+        #if DEBUG
+        print("🗑️ Reference deleted: \(attachment.referenceType) \(attachment.entryID.uuidString.prefix(8))")
+        #endif
+        
+        guard let project = file.project else {
+            #if DEBUG
+            print("⚠️ Cannot handle reference deletion: no project")
+            #endif
+            return
+        }
+        
+        // Determine reference type string for command
+        let referenceTypeString: String
+        switch attachment.referenceType {
+        case .note, .endnote:
+            referenceTypeString = "note"
+        case .glossary:
+            referenceTypeString = "glossary"
+        case .citation:
+            referenceTypeString = "citation"
+        case .index, .figure, .table:
+            referenceTypeString = "index"
+        }
+        
+        // Find the entry and get its current state for undo
+        var previousRefCount: Int = 0
+        var previousReferencingFileIDs: [UUID] = []
+        
+        switch attachment.referenceType {
+        case .note, .endnote:
+            if let notes = project.noteEntries,
+               let entry = notes.first(where: { $0.id == attachment.entryID }) {
+                previousRefCount = entry.referenceCount
+                previousReferencingFileIDs = entry.referencingFileIDs
+            }
+        case .glossary:
+            if let entries = project.glossaryEntries,
+               let entry = entries.first(where: { $0.id == attachment.entryID }) {
+                previousRefCount = entry.referenceCount
+            }
+        case .citation:
+            if let entries = project.citationEntries,
+               let entry = entries.first(where: { $0.id == attachment.entryID }) {
+                previousRefCount = entry.referenceCount
+            }
+        case .index, .figure, .table:
+            if let entries = project.indexEntries,
+               let entry = entries.first(where: { $0.id == attachment.entryID }) {
+                previousRefCount = entry.referenceCount
+            }
+        }
+        
+        // Create and execute the delete command
+        let command = ReferenceDeleteCommand(
+            description: "Delete Reference",
+            referenceType: referenceTypeString,
+            referenceID: attachment.entryID,
+            fileID: file.id,
+            previousRefCount: previousRefCount,
+            previousReferencingFileIDs: previousReferencingFileIDs,
+            targetFile: file,
+            modelContext: modelContext,
+            updateBackMatterCallback: { [weak self] in
+                self?.updateBackMatterFiles()
+            }
+        )
+        
+        // Add to undo manager and execute
+        undoManager.addCommand(command)
+        command.execute()
+        
+        #if DEBUG
+        print("✅ Reference deletion command executed")
+        #endif
     }
     
     // MARK: - Glossary (Feature 029)
