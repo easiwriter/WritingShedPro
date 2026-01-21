@@ -42,28 +42,6 @@ struct ReferenceEditorSheet: View {
                         }
                 } else {
                     VStack(spacing: 0) {
-                        // Button bar at top
-                        HStack(spacing: 12) {
-                            Button(role: .cancel) {
-                                dismiss()
-                            } label: {
-                                Text(NSLocalizedString("button.cancel", comment: "Cancel"))
-                                    .frame(maxWidth: .infinity)
-                            }
-                            .buttonStyle(.bordered)
-                            
-                            Button {
-                                saveChanges()
-                            } label: {
-                                Text(NSLocalizedString("button.save", comment: "Save"))
-                                    .frame(maxWidth: .infinity)
-                            }
-                            .buttonStyle(.borderedProminent)
-                        }
-                        .padding()
-                        
-                        Divider()
-                        
                         // Content editor
                         TextEditor(text: $entryContent)
                             .font(.body)
@@ -73,6 +51,21 @@ struct ReferenceEditorSheet: View {
                 }
             }
             .navigationTitle("Edit \(referenceAttachment.displayText)")
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarBackButtonHidden(true)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button(NSLocalizedString("button.cancel", comment: "Cancel")) {
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(NSLocalizedString("button.save", comment: "Save")) {
+                        saveChanges()
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+            }
             .navigationBarTitleDisplayMode(.inline)
             .alert("Error", isPresented: $showError) {
                 Button(NSLocalizedString("button.ok", comment: "OK")) { }
