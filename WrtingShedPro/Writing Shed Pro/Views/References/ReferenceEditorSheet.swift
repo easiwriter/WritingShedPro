@@ -42,15 +42,7 @@ struct ReferenceEditorSheet: View {
                         }
                 } else {
                     VStack(spacing: 0) {
-                        // Content editor
-                        TextEditor(text: $entryContent)
-                            .font(.body)
-                            .padding()
-                            .background(Color(.systemBackground))
-                        
-                        Divider()
-                        
-                        // Button bar
+                        // Button bar at top
                         HStack(spacing: 12) {
                             Button(role: .cancel) {
                                 dismiss()
@@ -69,6 +61,14 @@ struct ReferenceEditorSheet: View {
                             .buttonStyle(.borderedProminent)
                         }
                         .padding()
+                        
+                        Divider()
+                        
+                        // Content editor
+                        TextEditor(text: $entryContent)
+                            .font(.body)
+                            .padding()
+                            .background(Color(.systemBackground))
                     }
                 }
             }
