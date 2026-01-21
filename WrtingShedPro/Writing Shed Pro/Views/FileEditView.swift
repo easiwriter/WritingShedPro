@@ -3506,23 +3506,34 @@ struct FileEditView: View {
         )
         
         alert.addAction(UIAlertAction(title: "Don't Delete", style: .cancel) { _ in
-            // Undo the text deletion
-            textView.undoManager?.undo()
             #if DEBUG
-            print("🔙 Reference deletion cancelled, text restored")
+            print("🔙 Reference deletion cancelled - no action taken")
             #endif
         })
         
-        alert.addAction(UIAlertAction(title: "Delete Reference", style: .destructive) { _ in
+        alert.addAction(UIAlertAction(title: "Delete Reference", style: .destructive) { [weak self] _ in
             #if DEBUG
-            print("✅ User confirmed reference deletion")
+            print("✅ User confirmed reference deletion - deleting text and updating database")
             #endif
             
+            // Now delete the text from the text view
+            // Find the attachment in the text to get its location
+            textView.textStorage.enumerateAttribute(NSAttributedString.Key.attachment, in: NSRange(0..<textView.textStorage.length), options: []) { value, range, _ in
+                if let att = value as? ReferenceAttachment,
+                   att.entryID == attachment.entryID {
+                    // Delete this character (the attachment)
+                    textView.textStorage.deleteCharacters(in: range)
+                    #if DEBUG
+                    print("🗑️ Deleted reference attachment from text at range \(range)")
+                    #endif
+                }
+            }
+            
             // Delete the reference from the database
-            self.deleteReferenceFromDatabase(attachment)
+            self?.deleteReferenceFromDatabase(attachment)
             
             // Update back matter
-            self.updateBackMatterFiles()
+            self?.updateBackMatterFiles()
         })
         
         // Present alert on the root view controller

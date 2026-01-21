@@ -820,18 +820,23 @@ struct FormattedTextEditor: UIViewRepresentable {
                         }
                     }
                     
-                    // If we found references being deleted, notify the parent
+                    // If we found references being deleted, show confirmation alert
                     if !referencesToDelete.isEmpty {
                         #if DEBUG
-                        print("🗑️ \(referencesToDelete.count) references found in deletion range - notifying handler")
+                        print("🗑️ \(referencesToDelete.count) references found in deletion range - showing confirmation")
                         #endif
                         
+                        // Prevent the deletion for now - we'll handle it after user confirms
                         for reference in referencesToDelete {
                             #if DEBUG
                             print("🗑️ Calling onReferenceDeleted callback for: \(reference.displayText)")
                             #endif
                             parent.onReferenceDeleted?(reference)
                         }
+                        
+                        // Return false to prevent UITextView from deleting the text
+                        // We'll manually delete after the user confirms in the alert
+                        return false
                     } else {
                         #if DEBUG
                         print("🗑️ No references found in deletion range - allowing normal deletion")
