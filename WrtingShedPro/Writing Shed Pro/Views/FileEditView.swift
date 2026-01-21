@@ -3594,17 +3594,22 @@ struct FileEditView: View {
         )
         
         // Register undo action with UITextView's undoManager
-        // Use a helper class since FileEditView is a struct
-        if let textView = textViewCoordinator.textView {
-            let helper = ReferenceDeleteUndoHelper(
-                view: self,
-                referenceType: referenceTypeString,
-                referenceID: attachment.entryID,
-                fileID: file.id,
-                previousRefCount: previousRefCount,
-                previousReferencingFileIDs: previousReferencingFileIDs
-            )
-            textView.undoManager?.registerUndo(withTarget: helper, selector: #selector(ReferenceDeleteUndoHelper.performUndo))
+        // Use a helper closure stored in undoManager
+        if let textView = textViewCoordinator.textView,
+           let undoManager = textView.undoManager {
+            // Store a handler in the undo manager that will call back to this view
+            let handler = {
+                self.restoreReferenceState(
+                    referenceType: referenceTypeString,
+                    referenceID: attachment.entryID,
+                    fileID: file.id,
+                    previousRefCount: previousRefCount,
+                    previousReferencingFileIDs: previousReferencingFileIDs
+                )
+            }
+            // Register the undo with a simple wrapper object
+            let undoWrapper = UndoHandlerWrapper(handler: handler)
+            undoManager.registerUndo(withTarget: undoWrapper, selector: #selector(UndoHandlerWrapper.performUndo(object:)))
         }
         
         #if DEBUG
@@ -3623,8 +3628,6 @@ struct FileEditView: View {
         #if DEBUG
         print("🗑️ executeReferenceDelete: \(referenceType) ref \(referenceID.uuidString.prefix(8))")
         #endif
-        
-        guard let project = file.project else { return }
         
         // Decrement the reference count
         switch referenceType {
@@ -3689,7 +3692,7 @@ struct FileEditView: View {
     }
     
     /// Restore reference state when undo is called
-    private func restoreReferenceState(
+    func restoreReferenceState(
         referenceType: String,
         referenceID: UUID,
         fileID: UUID,
@@ -6312,42 +6315,15 @@ private struct ImageStyleEditorSheetContent: View {
 
 // MARK: - Undo Helper for Reference Deletion
 
-/// Helper class to bridge struct FileEditView with NSUndoManager
-private class ReferenceDeleteUndoHelper: NSObject {
-    weak var view: FileEditView?
-    let referenceType: String
-    let referenceID: UUID
-    let fileID: UUID
-    let previousRefCount: Int
-    let previousReferencingFileIDs: [UUID]
+/// Helper class to wrap closure for NSUndoManager
+private class UndoHandlerWrapper: NSObject {
+    let handler: () -> Void
     
-    init(
-        view: FileEditView,
-        referenceType: String,
-        referenceID: UUID,
-        fileID: UUID,
-        previousRefCount: Int,
-        previousReferencingFileIDs: [UUID]
-    ) {
-        self.view = view
-        self.referenceType = referenceType
-        self.referenceID = referenceID
-        self.fileID = fileID
-        self.previousRefCount = previousRefCount
-        self.previousReferencingFileIDs = previousReferencingFileIDs
+    init(handler: @escaping () -> Void) {
+        self.handler = handler
     }
     
-    @objc func performUndo() {
-        #if DEBUG
-        print("🔄 ReferenceDeleteUndoHelper.performUndo: \(referenceType) ref \(referenceID.uuidString.prefix(8))")
-        #endif
-        
-        view?.restoreReferenceState(
-            referenceType: referenceType,
-            referenceID: referenceID,
-            fileID: fileID,
-            previousRefCount: previousRefCount,
-            previousReferencingFileIDs: previousReferencingFileIDs
-        )
+    @objc func performUndo(object: Any?) {
+        handler()
     }
 }
