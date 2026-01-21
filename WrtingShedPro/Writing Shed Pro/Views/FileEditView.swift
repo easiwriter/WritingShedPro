@@ -3594,20 +3594,17 @@ struct FileEditView: View {
         )
         
         // Register undo action with UITextView's undoManager
-        // This ensures the undo is coordinated with the text deletion
+        // Use a helper class since FileEditView is a struct
         if let textView = textViewCoordinator.textView {
-            textView.undoManager?.registerUndo(withTarget: self) { [weak self, referenceType = referenceTypeString, refID = attachment.entryID, fileID = file.id, prevCount = previousRefCount, prevFileIDs = previousReferencingFileIDs] _ in
-                #if DEBUG
-                print("🔄 Undoing reference deletion: \(referenceType) ref \(refID.uuidString.prefix(8))")
-                #endif
-                self?.restoreReferenceState(
-                    referenceType: referenceType,
-                    referenceID: refID,
-                    fileID: fileID,
-                    previousRefCount: prevCount,
-                    previousReferencingFileIDs: prevFileIDs
-                )
-            }
+            let helper = ReferenceDeleteUndoHelper(
+                view: self,
+                referenceType: referenceTypeString,
+                referenceID: attachment.entryID,
+                fileID: file.id,
+                previousRefCount: previousRefCount,
+                previousReferencingFileIDs: previousReferencingFileIDs
+            )
+            textView.undoManager?.registerUndo(withTarget: helper, selector: #selector(ReferenceDeleteUndoHelper.performUndo))
         }
         
         #if DEBUG
@@ -3703,8 +3700,6 @@ struct FileEditView: View {
         print("🔄 restoreReferenceState: \(referenceType) ref \(referenceID.uuidString.prefix(8))")
         #endif
         
-        guard let project = file.project else { return }
-        
         // Restore the reference count
         switch referenceType {
         case "note":
@@ -3757,19 +3752,6 @@ struct FileEditView: View {
         
         // Update back matter
         updateBackMatterFiles()
-        
-        // Register redo action to delete again
-        if let textView = textViewCoordinator.textView {
-            textView.undoManager?.registerRedo(withTarget: self) { [weak self, refType = referenceType, refID = referenceID, fileID, prevCount = previousRefCount, prevFileIDs = previousReferencingFileIDs] _ in
-                self?.executeReferenceDelete(
-                    referenceType: refType,
-                    referenceID: refID,
-                    fileID: fileID,
-                    previousRefCount: prevCount,
-                    previousReferencingFileIDs: prevFileIDs
-                )
-            }
-        }
     }
     
     /// Helper to restore an attachment (called during undo - currently not invoked, needs implementation)
@@ -6324,6 +6306,48 @@ private struct ImageStyleEditorSheetContent: View {
             availableCaptionStyles: captionStyles,
             styleSheet: styleSheet,
             onApply: onApply
+        )
+    }
+}
+
+// MARK: - Undo Helper for Reference Deletion
+
+/// Helper class to bridge struct FileEditView with NSUndoManager
+private class ReferenceDeleteUndoHelper: NSObject {
+    weak var view: FileEditView?
+    let referenceType: String
+    let referenceID: UUID
+    let fileID: UUID
+    let previousRefCount: Int
+    let previousReferencingFileIDs: [UUID]
+    
+    init(
+        view: FileEditView,
+        referenceType: String,
+        referenceID: UUID,
+        fileID: UUID,
+        previousRefCount: Int,
+        previousReferencingFileIDs: [UUID]
+    ) {
+        self.view = view
+        self.referenceType = referenceType
+        self.referenceID = referenceID
+        self.fileID = fileID
+        self.previousRefCount = previousRefCount
+        self.previousReferencingFileIDs = previousReferencingFileIDs
+    }
+    
+    @objc func performUndo() {
+        #if DEBUG
+        print("🔄 ReferenceDeleteUndoHelper.performUndo: \(referenceType) ref \(referenceID.uuidString.prefix(8))")
+        #endif
+        
+        view?.restoreReferenceState(
+            referenceType: referenceType,
+            referenceID: referenceID,
+            fileID: fileID,
+            previousRefCount: previousRefCount,
+            previousReferencingFileIDs: previousReferencingFileIDs
         )
     }
 }
