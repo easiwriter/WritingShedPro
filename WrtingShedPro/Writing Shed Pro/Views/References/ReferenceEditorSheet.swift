@@ -26,6 +26,7 @@ struct ReferenceEditorSheet: View {
     
     @State private var entryContent: String = ""
     @State private var entryTitle: String = ""
+    @State private var originalContent: String = ""
     @State private var isLoading = true
     @State private var showError = false
     @State private var errorMessage = ""
@@ -50,7 +51,7 @@ struct ReferenceEditorSheet: View {
                     }
                 }
             }
-            .navigationTitle("Edit \(referenceAttachment.displayText)")
+            .navigationTitle("Edit \(entryTitle)")
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarBackButtonHidden(true)
             .toolbar {
@@ -64,6 +65,7 @@ struct ReferenceEditorSheet: View {
                         saveChanges()
                     }
                     .buttonStyle(.borderedProminent)
+                    .disabled(entryContent == originalContent)
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
@@ -90,24 +92,28 @@ struct ReferenceEditorSheet: View {
         case .note, .endnote:
             if let note = project.noteEntries?.first(where: { $0.id == referenceAttachment.entryID }) {
                 entryContent = note.content
+                originalContent = note.content
                 entryTitle = note.tag ?? ""
             }
             
         case .citation:
             if let citation = project.citationEntries?.first(where: { $0.id == referenceAttachment.entryID }) {
                 entryContent = citation.title
+                originalContent = citation.title
                 entryTitle = citation.title
             }
             
         case .glossary:
             if let term = project.glossaryEntries?.first(where: { $0.id == referenceAttachment.entryID }) {
                 entryContent = term.definition
+                originalContent = term.definition
                 entryTitle = term.term
             }
             
         case .index:
             if let entry = project.indexEntries?.first(where: { $0.id == referenceAttachment.entryID }) {
                 entryContent = entry.keyword
+                originalContent = entry.keyword
                 entryTitle = entry.keyword
             }
             
@@ -115,6 +121,7 @@ struct ReferenceEditorSheet: View {
             // For figures and tables, we don't have these in the model yet
             // Just show empty content
             entryContent = ""
+            originalContent = ""
             entryTitle = referenceAttachment.displayText
         }
     }
