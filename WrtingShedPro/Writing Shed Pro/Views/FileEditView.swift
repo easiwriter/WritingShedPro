@@ -547,51 +547,35 @@ struct FileEditView: View {
         }
     }
     
-    /// Endnotes submenu for compact mode
+    /// Endnotes button for compact mode
     @ViewBuilder
     private func compactEndnotesSubmenu() -> some View {
-        Menu {
-            Button(action: { showNewEndnoteDialog = true }) {
-                Label(NSLocalizedString("insertMenu.addEndnote", comment: "Add Endnote"), systemImage: "number.circle.fill")
-            }
-        } label: {
-            Label(NSLocalizedString("insertMenu.endnotes", comment: "Endnote"), systemImage: "number.circle")
+        Button(action: { showNewEndnoteDialog = true }) {
+            Label(NSLocalizedString("insertMenu.addEndnote", comment: "Add Endnote"), systemImage: "number.circle.fill")
         }
     }
     
-    /// Glossary submenu for compact mode
+    /// Glossary button for compact mode
     @ViewBuilder
     private func compactGlossarySubmenu() -> some View {
-        Menu {
-            Button(action: { showNewGlossaryTermDialog = true }) {
-                Label(NSLocalizedString("insertMenu.addGlossaryTerm", comment: "Add Term"), systemImage: "text.book.closed.fill")
-            }
-        } label: {
-            Label(NSLocalizedString("insertMenu.glossary", comment: "Glossary"), systemImage: "text.book.closed")
+        Button(action: { showNewGlossaryTermDialog = true }) {
+            Label(NSLocalizedString("insertMenu.addGlossaryTerm", comment: "Add Glossary Term"), systemImage: "text.book.closed.fill")
         }
     }
     
-    /// Citation submenu for compact mode
+    /// Citation button for compact mode
     @ViewBuilder
     private func compactCitationSubmenu() -> some View {
-        Menu {
-            Button(action: { showNewCitationDialog = true }) {
-                Label(NSLocalizedString("insertMenu.addCitation", comment: "Add Citation"), systemImage: "quote.opening")
-            }
-        } label: {
-            Label(NSLocalizedString("insertMenu.citations", comment: "Citation"), systemImage: "books.vertical")
+        Button(action: { showNewCitationDialog = true }) {
+            Label(NSLocalizedString("insertMenu.addCitation", comment: "Add Citation"), systemImage: "quote.opening")
         }
     }
     
-    /// Index submenu for compact mode
+    /// Index button for compact mode
     @ViewBuilder
     private func compactIndexSubmenu() -> some View {
-        Menu {
-            Button(action: { showNewIndexEntryDialog = true }) {
-                Label(NSLocalizedString("insertMenu.addIndexEntry", comment: "Add Index Entry"), systemImage: "list.bullet.indent")
-            }
-        } label: {
-            Label(NSLocalizedString("insertMenu.index", comment: "Index"), systemImage: "list.number")
+        Button(action: { showNewIndexEntryDialog = true }) {
+            Label(NSLocalizedString("insertMenu.addIndexEntry", comment: "Add Index Entry"), systemImage: "list.bullet.indent")
         }
     }
     
