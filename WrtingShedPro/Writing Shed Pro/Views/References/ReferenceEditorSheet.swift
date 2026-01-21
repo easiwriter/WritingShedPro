@@ -96,18 +96,18 @@ struct ReferenceEditorSheet: View {
                 entryTitle = note.tag ?? ""
             }
             
-        case .citation:
-            if let citation = project.citationEntries?.first(where: { $0.id == referenceAttachment.entryID }) {
-                entryContent = citation.title
-                originalContent = citation.title
-                entryTitle = citation.title
-            }
-            
         case .glossary:
             if let term = project.glossaryEntries?.first(where: { $0.id == referenceAttachment.entryID }) {
                 entryContent = term.definition
                 originalContent = term.definition
                 entryTitle = term.term
+            }
+            
+        case .reference:
+            if let reference = project.referenceEntries?.first(where: { $0.id == referenceAttachment.entryID }) {
+                entryContent = reference.details
+                originalContent = reference.details
+                entryTitle = "\(reference.author), \(reference.publicationDate)"
             }
             
         case .index:
@@ -139,14 +139,15 @@ struct ReferenceEditorSheet: View {
                 note.content = entryContent
             }
             
-        case .citation:
-            if let citation = project.citationEntries?.first(where: { $0.id == referenceAttachment.entryID }) {
-                citation.title = entryContent
-            }
-            
         case .glossary:
             if let term = project.glossaryEntries?.first(where: { $0.id == referenceAttachment.entryID }) {
                 term.definition = entryContent
+            }
+            
+        case .reference:
+            if let reference = project.referenceEntries?.first(where: { $0.id == referenceAttachment.entryID }) {
+                reference.details = entryContent
+                reference.modifiedAt = Date()
             }
             
         case .index:

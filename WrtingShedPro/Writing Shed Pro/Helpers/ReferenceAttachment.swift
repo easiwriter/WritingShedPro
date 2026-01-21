@@ -406,21 +406,21 @@ final class ReferenceAttachment: NSTextAttachment {
                 font: UIFont.systemFont(ofSize: bodyFont.pointSize, weight: .regular)
             )
             
-        case .citation:
-            // Purple/indigo for academic feel
-            return (
-                textColor: UIColor.systemIndigo,
-                backgroundColor: UIColor.systemIndigo.withAlphaComponent(0.1),
-                borderColor: UIColor.systemIndigo.withAlphaComponent(0.3),
-                font: UIFont.systemFont(ofSize: 13, weight: .medium)
-            )
-            
         case .glossary:
             // Teal with underline (no background)
             return (
                 textColor: UIColor.systemTeal,
                 backgroundColor: UIColor.clear,
                 borderColor: UIColor.clear,
+                font: UIFont.systemFont(ofSize: 13, weight: .regular)
+            )
+            
+        case .reference:
+            // Brown/orange for references
+            return (
+                textColor: UIColor.systemBrown,
+                backgroundColor: UIColor.systemBrown.withAlphaComponent(0.1),
+                borderColor: UIColor.systemBrown.withAlphaComponent(0.3),
                 font: UIFont.systemFont(ofSize: 13, weight: .regular)
             )
             

@@ -60,7 +60,6 @@ enum ReferenceType: String, Codable, CaseIterable {
     case note       // [Note n] - General notes
     case endnote    // [n] - Superscript endnotes
     case reference  // [Author, Date] - References/Bibliography
-    case citation   // [Author, Year] - Bibliography citations
     case glossary   // Styled term - Glossary definitions
     case index      // Invisible marker - Index entries
     case figure     // [Fig n] - Figure references
@@ -72,7 +71,6 @@ enum ReferenceType: String, Codable, CaseIterable {
         case .note: return "[Note %d]"
         case .endnote: return "[%d]"
         case .reference: return "[%@, %@]"  // Author, Date
-        case .citation: return "[%@, %d]"  // Author, Year
         case .glossary: return "%@"  // Term itself (styled)
         case .index: return ""  // Invisible
         case .figure: return "[Fig %d]"
@@ -86,7 +84,6 @@ enum ReferenceType: String, Codable, CaseIterable {
         case .note: return "(see Note %d)"
         case .endnote: return "(see Note %d)"
         case .reference: return "(%@, %@)"  // Author, Date
-        case .citation: return "(%@, %d)"  // Author, Year
         case .glossary: return "%@ (see Glossary)"
         case .index: return ""  // Stripped in plain text
         case .figure: return "(see Figure %d)"

@@ -58,11 +58,11 @@ class ReferenceTrackingService {
                 print("[ReferenceTrackingService] ✅ Incremented glossary \(entryID) count to \(entry.referenceCount)")
                 #endif
             }
-        case .citation:
-            if let entry = fetchCitationEntry(id: entryID, in: context) {
+        case .reference:
+            if let entry = fetchReferenceEntry(id: entryID, in: context) {
                 entry.incrementReferenceCount()
                 #if DEBUG
-                print("[ReferenceTrackingService] ✅ Incremented citation \(entryID) count to \(entry.referenceCount)")
+                print("[ReferenceTrackingService] ✅ Incremented reference \(entryID) count to \(entry.referenceCount)")
                 #endif
             }
         case .index, .figure, .table:
@@ -101,11 +101,11 @@ class ReferenceTrackingService {
                 print("[ReferenceTrackingService] ✅ Decremented glossary \(entryID) count to \(entry.referenceCount)")
                 #endif
             }
-        case .citation:
-            if let entry = fetchCitationEntry(id: entryID, in: context) {
+        case .reference:
+            if let entry = fetchReferenceEntry(id: entryID, in: context) {
                 entry.decrementReferenceCount()
                 #if DEBUG
-                print("[ReferenceTrackingService] ✅ Decremented citation \(entryID) count to \(entry.referenceCount)")
+                print("[ReferenceTrackingService] ✅ Decremented reference \(entryID) count to \(entry.referenceCount)")
                 #endif
             }
         case .index, .figure, .table:
@@ -422,8 +422,8 @@ class ReferenceTrackingService {
         return try? context.fetch(descriptor).first
     }
     
-    private func fetchCitationEntry(id: UUID, in context: ModelContext) -> CitationEntry? {
-        let descriptor = FetchDescriptor<CitationEntry>(
+    private func fetchReferenceEntry(id: UUID, in context: ModelContext) -> ReferenceEntry? {
+        let descriptor = FetchDescriptor<ReferenceEntry>(
             predicate: #Predicate { $0.id == id }
         )
         return try? context.fetch(descriptor).first
