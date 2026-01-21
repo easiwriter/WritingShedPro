@@ -1751,12 +1751,6 @@ struct FileEditView: View {
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("UndoRedoContentRestored"))) { notification in
                 handleUndoRedoContentRestored(notification)
             }
-            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ReferenceDeleteCommandUndone"))) { _ in
-                #if DEBUG
-                print("📋 Received ReferenceDeleteCommandUndone notification - updating back matter")
-                #endif
-                updateBackMatterFiles()
-            }
             .alert("Print Error", isPresented: $showPrintError) {
                 Button("OK", role: .cancel) { }
             } message: {
@@ -3493,7 +3487,7 @@ struct FileEditView: View {
     }
     
     /// Handle deletion of a reference attachment from text (Feature 029)
-    /// Now uses UITextView's undoManager for coordinated undo/redo
+    /// Shows confirmation alert - deletion is permanent and not undoable
     private func handleReferenceDeleted(_ attachment: ReferenceAttachment) {
         #if DEBUG
         print("🗑️📌 handleReferenceDeleted called")
@@ -3502,18 +3496,48 @@ struct FileEditView: View {
         print("   DisplayText: \(attachment.displayText)")
         #endif
         
-        guard let project = file.project else {
-            #if DEBUG
-            print("❌ Cannot handle reference deletion: no project")
-            #endif
-            return
-        }
+        guard let textView = textViewCoordinator.textView else { return }
         
+        // Show confirmation alert
+        let alert = UIAlertController(
+            title: "Delete Reference?",
+            message: "Deleting this reference is permanent and cannot be undone. The reference will be removed from the back matter.",
+            preferredStyle: .alert
+        )
+        
+        alert.addAction(UIAlertAction(title: "Don't Delete", style: .cancel) { _ in
+            // Undo the text deletion
+            textView.undoManager?.undo()
+            #if DEBUG
+            print("🔙 Reference deletion cancelled, text restored")
+            #endif
+        })
+        
+        alert.addAction(UIAlertAction(title: "Delete Reference", style: .destructive) { _ in
+            #if DEBUG
+            print("✅ User confirmed reference deletion")
+            #endif
+            
+            // Delete the reference from the database
+            self.deleteReferenceFromDatabase(attachment)
+            
+            // Update back matter
+            self.updateBackMatterFiles()
+        })
+        
+        // Present alert on the root view controller
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let root = windowScene.windows.first?.rootViewController {
+            root.present(alert, animated: true)
+        }
+    }
+    
+    /// Delete reference from database without undo
+    private func deleteReferenceFromDatabase(_ attachment: ReferenceAttachment) {
         #if DEBUG
-        print("✅ Project found")
+        print("🗑️ Deleting reference from database: \(attachment.displayText)")
         #endif
         
-        // Determine reference type string
         let referenceTypeString: String
         switch attachment.referenceType {
         case .note, .endnote:
@@ -3526,91 +3550,63 @@ struct FileEditView: View {
             referenceTypeString = "index"
         }
         
-        #if DEBUG
-        print("   ReferenceTypeString: \(referenceTypeString)")
-        #endif
-        
-        // Find the entry and get its current state for undo
-        var previousRefCount: Int = 0
-        var previousReferencingFileIDs: [UUID] = []
-        
-        switch attachment.referenceType {
-        case .note, .endnote:
-            if let notes = project.noteEntries,
-               let entry = notes.first(where: { $0.id == attachment.entryID }) {
-                previousRefCount = entry.referenceCount
-                previousReferencingFileIDs = entry.referencingFileIDs
+        // Decrement the reference count
+        switch referenceTypeString {
+        case "note":
+            if let noteEntry = try? modelContext.fetch(FetchDescriptor<NoteEntry>())
+                .first(where: { $0.id == attachment.entryID }) {
+                if noteEntry.referenceCount > 0 {
+                    noteEntry.referenceCount -= 1
+                }
+                noteEntry.referencingFileIDs.removeAll { $0 == file.id }
                 #if DEBUG
-                print("   ✅ Found note entry: refCount=\(previousRefCount), referencingFiles=\(previousReferencingFileIDs.count)")
-                #endif
-            } else {
-                #if DEBUG
-                print("   ❌ Note entry not found")
+                print("📝 Decremented note ref count to: \(noteEntry.referenceCount)")
                 #endif
             }
-        case .glossary:
-            if let entries = project.glossaryEntries,
-               let entry = entries.first(where: { $0.id == attachment.entryID }) {
-                previousRefCount = entry.referenceCount
+        case "glossary":
+            if let glossaryEntry = try? modelContext.fetch(FetchDescriptor<GlossaryEntry>())
+                .first(where: { $0.id == attachment.entryID }) {
+                if glossaryEntry.referenceCount > 0 {
+                    glossaryEntry.referenceCount -= 1
+                }
                 #if DEBUG
-                print("   ✅ Found glossary entry: refCount=\(previousRefCount)")
-                #endif
-            } else {
-                #if DEBUG
-                print("   ❌ Glossary entry not found")
+                print("📕 Decremented glossary ref count to: \(glossaryEntry.referenceCount)")
                 #endif
             }
-        case .citation:
-            if let entries = project.citationEntries,
-               let entry = entries.first(where: { $0.id == attachment.entryID }) {
-                previousRefCount = entry.referenceCount
+        case "citation":
+            if let citationEntry = try? modelContext.fetch(FetchDescriptor<CitationEntry>())
+                .first(where: { $0.id == attachment.entryID }) {
+                if citationEntry.referenceCount > 0 {
+                    citationEntry.referenceCount -= 1
+                }
                 #if DEBUG
-                print("   ✅ Found citation entry: refCount=\(previousRefCount)")
-                #endif
-            } else {
-                #if DEBUG
-                print("   ❌ Citation entry not found")
+                print("📗 Decremented citation ref count to: \(citationEntry.referenceCount)")
                 #endif
             }
-        case .index, .figure, .table:
-            if let entries = project.indexEntries,
-               let entry = entries.first(where: { $0.id == attachment.entryID }) {
-                previousRefCount = entry.referenceCount
+        case "index":
+            if let indexEntry = try? modelContext.fetch(FetchDescriptor<IndexEntry>())
+                .first(where: { $0.id == attachment.entryID }) {
+                if indexEntry.referenceCount > 0 {
+                    indexEntry.referenceCount -= 1
+                }
                 #if DEBUG
-                print("   ✅ Found index entry: refCount=\(previousRefCount)")
-                #endif
-            } else {
-                #if DEBUG
-                print("   ❌ Index entry not found")
+                print("📙 Decremented index ref count to: \(indexEntry.referenceCount)")
                 #endif
             }
+        default:
+            break
         }
         
-        #if DEBUG
-        print("🗑️ Executing reference deletion with TextFileUndoManager")
-        #endif
-        
-        // Create and execute the delete command through the proper undo manager
-        let command = ReferenceDeleteCommand(
-            description: "Delete Reference",
-            referenceType: referenceTypeString,
-            referenceID: attachment.entryID,
-            fileID: file.id,
-            previousRefCount: previousRefCount,
-            previousReferencingFileIDs: previousReferencingFileIDs,
-            attachmentReferenceType: attachment.referenceType,
-            attachmentEntryID: attachment.entryID,
-            attachmentDisplayText: attachment.displayText,
-            targetFile: file,
-            modelContext: modelContext
-        )
-        
-        // Execute through the app's undo manager
-        undoManager.execute(command)
-        
-        #if DEBUG
-        print("✅ Reference deletion complete")
-        #endif
+        do {
+            try modelContext.save()
+            #if DEBUG
+            print("💾 Database saved")
+            #endif
+        } catch {
+            #if DEBUG
+            print("❌ Error saving: \(error)")
+            #endif
+        }
     }
     
     // MARK: - Glossary (Feature 029)
