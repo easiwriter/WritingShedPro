@@ -3618,6 +3618,9 @@ struct FileEditView: View {
             print("❌ Error saving: \(error)")
             #endif
         }
+        
+        // Also update the File entity's content with the modified textStorage
+        file.content = textViewCoordinator.textView.attributedText
     }
     
     // MARK: - Glossary (Feature 029)

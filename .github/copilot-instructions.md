@@ -70,4 +70,14 @@ Example:
 ```
 
 Views that already implement this: FolderFilesView, FolderListView (subfolders), FileEditView, TrashView, CollectionsView, CollectionDetailView, SubmissionsView, SubmissionDetailView, PublicationsListView
+
+## Swift Memory Management: Structs vs Classes
+**CRITICAL: Structs CANNOT use [weak self] in closures**
+- SwiftUI Views are structs, not classes
+- `[weak self]` is only valid for class and class-bound protocol types
+- In struct closures (alert handlers, buttons, etc.), either:
+  - Use direct `self` capture if scope is small/temporary (no retain cycle risk)
+  - Extract logic into a separate method called without capture
+  - Use captured properties instead of self
+- When you see `'weak' may only be applied to class and class-bound protocol types, not 'YourViewName'`, it means YourViewName is a struct
 <!-- MANUAL ADDITIONS END -->
