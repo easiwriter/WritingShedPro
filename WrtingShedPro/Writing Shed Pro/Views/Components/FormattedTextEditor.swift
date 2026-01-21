@@ -674,6 +674,11 @@ struct FormattedTextEditor: UIViewRepresentable {
         
         // Intercept text changes to handle Enter key and ensure correct styling
         func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
+            #if DEBUG
+            if text.isEmpty && range.length > 0 {
+                print("📝 shouldChangeTextIn: deletion detected (range: \(range), text: '\(text)' - empty: \(text.isEmpty))")
+            }
+            #endif
             
             // Check if user pressed Enter (newline character)
             if text == "\n" {
@@ -798,6 +803,10 @@ struct FormattedTextEditor: UIViewRepresentable {
             // FEATURE 029: Detect when references are being deleted
             // When replacementText is empty and we're deleting characters, check if any ReferenceAttachments are in the deletion range
             if text.isEmpty && range.length > 0 {
+                #if DEBUG
+                print("📝🗑️ Text deletion detected: deleting \(range.length) chars at position \(range.location)")
+                #endif
+                
                 if let attrText = textView.attributedText {
                     // Find all reference attachments in the range being deleted
                     var referencesToDelete: [ReferenceAttachment] = []
@@ -805,16 +814,29 @@ struct FormattedTextEditor: UIViewRepresentable {
                     attrText.enumerateAttribute(.attachment, in: range, options: []) { value, _, _ in
                         if let attachment = value as? ReferenceAttachment {
                             referencesToDelete.append(attachment)
+                            #if DEBUG
+                            print("🗑️ 📌 Found ReferenceAttachment in deletion range: \(attachment.displayText) (type: \(attachment.referenceType), id: \(attachment.entryID.uuidString.prefix(8)))")
+                            #endif
                         }
                     }
                     
                     // If we found references being deleted, notify the parent
+                    if referencesToDelete.isEmpty {
+                        #if DEBUG
+                        print("🗑️ No references found in deletion range")
+                        #endif
+                    }
+                    
                     for reference in referencesToDelete {
                         #if DEBUG
-                        print("🗑️ Reference attachment detected in deletion range: \(reference.displayText)")
+                        print("🗑️ Calling onReferenceDeleted callback for: \(reference.displayText)")
                         #endif
                         parent.onReferenceDeleted?(reference)
                     }
+                } else {
+                    #if DEBUG
+                    print("🗑️ ⚠️ No attributed text available")
+                    #endif
                 }
             }
             

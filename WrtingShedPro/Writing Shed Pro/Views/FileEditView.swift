@@ -3489,15 +3489,22 @@ struct FileEditView: View {
     /// Handle deletion of a reference attachment from text (Feature 029)
     private func handleReferenceDeleted(_ attachment: ReferenceAttachment) {
         #if DEBUG
-        print("🗑️ Reference deleted: \(attachment.referenceType) \(attachment.entryID.uuidString.prefix(8))")
+        print("🗑️📌 handleReferenceDeleted called")
+        print("   Type: \(attachment.referenceType)")
+        print("   EntryID: \(attachment.entryID.uuidString.prefix(8))")
+        print("   DisplayText: \(attachment.displayText)")
         #endif
         
         guard let project = file.project else {
             #if DEBUG
-            print("⚠️ Cannot handle reference deletion: no project")
+            print("❌ Cannot handle reference deletion: no project")
             #endif
             return
         }
+        
+        #if DEBUG
+        print("✅ Project found")
+        #endif
         
         // Determine reference type string for command
         let referenceTypeString: String
@@ -3512,9 +3519,14 @@ struct FileEditView: View {
             referenceTypeString = "index"
         }
         
+        #if DEBUG
+        print("   ReferenceTypeString: \(referenceTypeString)")
+        #endif
+        
         // Find the entry and get its current state for undo
         var previousRefCount: Int = 0
         var previousReferencingFileIDs: [UUID] = []
+        var entryFound = false
         
         switch attachment.referenceType {
         case .note, .endnote:
@@ -3522,25 +3534,63 @@ struct FileEditView: View {
                let entry = notes.first(where: { $0.id == attachment.entryID }) {
                 previousRefCount = entry.referenceCount
                 previousReferencingFileIDs = entry.referencingFileIDs
+                entryFound = true
+                #if DEBUG
+                print("   ✅ Found note entry: refCount=\(previousRefCount), referencingFiles=\(previousReferencingFileIDs.count)")
+                #endif
+            } else {
+                #if DEBUG
+                print("   ❌ Note entry not found")
+                #endif
             }
         case .glossary:
             if let entries = project.glossaryEntries,
                let entry = entries.first(where: { $0.id == attachment.entryID }) {
                 previousRefCount = entry.referenceCount
+                entryFound = true
+                #if DEBUG
+                print("   ✅ Found glossary entry: refCount=\(previousRefCount)")
+                #endif
+            } else {
+                #if DEBUG
+                print("   ❌ Glossary entry not found")
+                #endif
             }
         case .citation:
             if let entries = project.citationEntries,
                let entry = entries.first(where: { $0.id == attachment.entryID }) {
                 previousRefCount = entry.referenceCount
+                entryFound = true
+                #if DEBUG
+                print("   ✅ Found citation entry: refCount=\(previousRefCount)")
+                #endif
+            } else {
+                #if DEBUG
+                print("   ❌ Citation entry not found")
+                #endif
             }
         case .index, .figure, .table:
             if let entries = project.indexEntries,
                let entry = entries.first(where: { $0.id == attachment.entryID }) {
                 previousRefCount = entry.referenceCount
+                entryFound = true
+                #if DEBUG
+                print("   ✅ Found index entry: refCount=\(previousRefCount)")
+                #endif
+            } else {
+                #if DEBUG
+                print("   ❌ Index entry not found")
+                #endif
             }
         }
         
         // Create and execute the delete command
+        #if DEBUG
+        print("🗑️ Creating ReferenceDeleteCommand")
+        print("   FileID: \(file.id.uuidString.prefix(8))")
+        print("   ModelContext: \(modelContext != nil ? "yes" : "NO")")
+        #endif
+        
         let command = ReferenceDeleteCommand(
             description: "Delete Reference",
             referenceType: referenceTypeString,
@@ -3553,14 +3603,22 @@ struct FileEditView: View {
             updateBackMatterCallback: nil
         )
         
+        #if DEBUG
+        print("🗑️ Executing command through undoManager")
+        #endif
+        
         // Execute through undo manager
         undoManager.execute(command)
+        
+        #if DEBUG
+        print("🗑️ Command executed, calling updateBackMatterFiles")
+        #endif
         
         // Regenerate back matter files after deletion
         updateBackMatterFiles()
         
         #if DEBUG
-        print("✅ Reference deletion command executed")
+        print("✅ Reference deletion complete")
         #endif
     }
     
