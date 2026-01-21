@@ -75,6 +75,11 @@ struct FileEditView: View {
     @State private var showNewIndexEntryDialog = false
     @State private var selectedIndexEntry: IndexEntry?
     
+    // Feature 029: References (Back Matter)
+    @State private var showReferencesList = false
+    @State private var showNewReferenceDialog = false
+    @State private var selectedReference: ReferenceEntry?
+    
     // Feature 029: Reference interaction (single-tap support)
     @State private var showReferenceEditor = false
     @State private var selectedReferenceAttachment: ReferenceAttachment?
@@ -490,6 +495,11 @@ struct FileEditView: View {
             compactCitationSubmenu()
         }
         
+        // Reference (top-level)
+        if backMatterSettings.isEnabled(.references) {
+            compactReferenceSubmenu()
+        }
+        
         // Index (top-level)
         if backMatterSettings.isEnabled(.index) {
             compactIndexSubmenu()
@@ -595,6 +605,14 @@ struct FileEditView: View {
     private func compactIndexSubmenu() -> some View {
         Button(action: { showNewIndexEntryDialog = true }) {
             Label(NSLocalizedString("insertMenu.addIndexEntry", comment: "Add Index Entry"), systemImage: "list.bullet.indent")
+        }
+    }
+    
+    /// Reference button for compact mode
+    @ViewBuilder
+    private func compactReferenceSubmenu() -> some View {
+        Button(action: { showNewReferenceDialog = true }) {
+            Label(NSLocalizedString("insertMenu.addReference", comment: "Add Reference"), systemImage: "books.vertical.fill")
         }
     }
     
@@ -981,6 +999,18 @@ struct FileEditView: View {
             if backMatterSettings.isEnabled(.bibliography) {
                 Button(action: { showNewCitationDialog = true }) {
                     Label(NSLocalizedString("insertMenu.addCitation", comment: "Add Citation"), systemImage: "quote.opening")
+                }
+            }
+            
+            // Reference - direct button, no submenu
+            if backMatterSettings.isEnabled(.references) {
+                let referenceCount = file.project?.referenceEntries?.filter { $0.referenceCount > 0 }.count ?? 0
+                Button(action: { showNewReferenceDialog = true }) {
+                    if referenceCount > 0 {
+                        Label("\(NSLocalizedString("insertMenu.addReference", comment: "Add Reference")) (\(referenceCount))", systemImage: "books.vertical.fill")
+                    } else {
+                        Label(NSLocalizedString("insertMenu.addReference", comment: "Add Reference"), systemImage: "books.vertical.fill")
+                    }
                 }
             }
 
@@ -1630,6 +1660,38 @@ struct FileEditView: View {
                             selectedIndexEntry = nil
                         }
                     )
+                }
+            }
+            // Feature 029: References sheets
+            .sheet(isPresented: $showReferencesList) {
+                if let project = file.project {
+                    ReferencesListView(project: project)
+                }
+            }
+            .sheet(isPresented: $showNewReferenceDialog) {
+                if let project = file.project {
+                    ReferenceCreatorSheet(
+                        project: project,
+                        onSave: { reference in
+                            insertReferenceMarker(for: reference)
+                        }
+                    )
+                    .presentationDetents([.medium, .large])
+                }
+            }
+            .sheet(item: $selectedReference) { reference in
+                if let project = file.project {
+                    ReferenceCreatorSheet(
+                        project: project,
+                        existingReference: reference,
+                        onSave: { _ in
+                            forceRefresh.toggle()
+                        },
+                        onCancel: {
+                            selectedReference = nil
+                        }
+                    )
+                    .presentationDetents([.medium, .large])
                 }
             }
             // Feature 029: Reference editor sheet (shows appropriate editor based on reference type)
@@ -4092,6 +4154,147 @@ struct FileEditView: View {
         } else {
             #if DEBUG
             print("⚠️ No marker found for index entry: \(entry.keyword)")
+            #endif
+        }
+    }
+    
+    // MARK: - Reference Methods (Feature 029: References)
+    
+    /// Insert a reference marker at the current cursor position
+    private func insertReferenceMarker(for reference: ReferenceEntry) {
+        guard let textView = textViewCoordinator.textView else {
+            #if DEBUG
+            print("❌ Cannot insert reference marker: no text view")
+            #endif
+            return
+        }
+        
+        #if DEBUG
+        print("📚 Inserting reference marker for: \(reference.author), \(reference.publicationDate)")
+        #endif
+        
+        // Get current cursor position
+        let currentRange = textView.selectedRange
+        
+        // Create the reference attachment using the convenience init for references
+        let attachment = ReferenceAttachment(
+            referenceEntryID: reference.id,
+            author: reference.author,
+            date: reference.publicationDate
+        )
+        
+        // Create attributed string with the attachment
+        let attachmentString = NSAttributedString(attachment: attachment)
+        
+        // Insert at cursor
+        isPerformingUndoRedo = true
+        textView.textStorage.insert(attachmentString, at: currentRange.location)
+        
+        // Move cursor after the marker
+        let newLocation = currentRange.location + attachmentString.length
+        textView.selectedRange = NSRange(location: newLocation, length: 0)
+        
+        // Increment reference count
+        reference.referenceCount += 1
+        
+        // Update the attributed content binding
+        attributedContent = textView.attributedText ?? NSAttributedString()
+        
+        // Save changes
+        saveChanges()
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            self.isPerformingUndoRedo = false
+        }
+        
+        #if DEBUG
+        print("✅ Reference marker inserted at position \(currentRange.location)")
+        #endif
+    }
+    
+    /// Remove all markers for a deleted reference from the text
+    private func removeReferenceMarkers(for reference: ReferenceEntry) {
+        guard let textView = textViewCoordinator.textView else {
+            #if DEBUG
+            print("❌ Cannot remove reference markers: no text view")
+            #endif
+            return
+        }
+        
+        #if DEBUG
+        print("🗑️ Removing markers for reference: \(reference.author), \(reference.publicationDate)")
+        #endif
+        
+        isPerformingUndoRedo = true
+        
+        let mutableContent = NSMutableAttributedString(attributedString: textView.attributedText ?? NSAttributedString())
+        var removedCount = 0
+        
+        // Find and remove all reference attachments for this reference
+        var rangesToRemove: [NSRange] = []
+        
+        mutableContent.enumerateAttribute(.attachment, in: NSRange(location: 0, length: mutableContent.length)) { value, range, _ in
+            if let attachment = value as? ReferenceAttachment,
+               attachment.referenceType == .reference,
+               attachment.entryID == reference.id {
+                rangesToRemove.append(range)
+            }
+        }
+        
+        // Remove in reverse order
+        for range in rangesToRemove.reversed() {
+            mutableContent.deleteCharacters(in: range)
+            removedCount += 1
+        }
+        
+        if removedCount > 0 {
+            textView.attributedText = mutableContent
+            attributedContent = mutableContent
+            saveChanges()
+            
+            #if DEBUG
+            print("✅ Removed \(removedCount) markers for reference: \(reference.author)")
+            #endif
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            self.isPerformingUndoRedo = false
+        }
+    }
+    
+    /// Jump to the first reference marker for a reference in the text
+    private func jumpToReferenceMarker(_ reference: ReferenceEntry) {
+        guard let textView = textViewCoordinator.textView else {
+            #if DEBUG
+            print("❌ Cannot jump to reference marker: no text view")
+            #endif
+            return
+        }
+        
+        let content = textView.attributedText ?? NSAttributedString()
+        
+        // Find the first marker for this reference
+        var foundRange: NSRange?
+        content.enumerateAttribute(.attachment, in: NSRange(location: 0, length: content.length)) { value, range, stop in
+            if let attachment = value as? ReferenceAttachment,
+               attachment.referenceType == .reference,
+               attachment.entryID == reference.id {
+                foundRange = range
+                stop.pointee = true
+            }
+        }
+        
+        if let range = foundRange {
+            // Scroll to and select the marker
+            textView.selectedRange = range
+            textView.scrollRangeToVisible(range)
+            
+            #if DEBUG
+            print("📍 Jumped to reference marker at position \(range.location)")
+            #endif
+        } else {
+            #if DEBUG
+            print("⚠️ No marker found for reference: \(reference.author)")
             #endif
         }
     }

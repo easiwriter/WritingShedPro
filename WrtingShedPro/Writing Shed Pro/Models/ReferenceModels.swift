@@ -59,6 +59,7 @@ struct ReferenceMetadata: Codable {
 enum ReferenceType: String, Codable, CaseIterable {
     case note       // [Note n] - General notes
     case endnote    // [n] - Superscript endnotes
+    case reference  // [Author, Date] - References/Bibliography
     case citation   // [Author, Year] - Bibliography citations
     case glossary   // Styled term - Glossary definitions
     case index      // Invisible marker - Index entries
@@ -70,6 +71,7 @@ enum ReferenceType: String, Codable, CaseIterable {
         switch self {
         case .note: return "[Note %d]"
         case .endnote: return "[%d]"
+        case .reference: return "[%@, %@]"  // Author, Date
         case .citation: return "[%@, %d]"  // Author, Year
         case .glossary: return "%@"  // Term itself (styled)
         case .index: return ""  // Invisible
@@ -83,6 +85,7 @@ enum ReferenceType: String, Codable, CaseIterable {
         switch self {
         case .note: return "(see Note %d)"
         case .endnote: return "(see Note %d)"
+        case .reference: return "(%@, %@)"  // Author, Date
         case .citation: return "(%@, %d)"  // Author, Year
         case .glossary: return "%@ (see Glossary)"
         case .index: return ""  // Stripped in plain text
@@ -290,6 +293,82 @@ final class GlossaryEntry {
 }
 
 extension GlossaryEntry: ReferenceEntryProtocol {}
+
+// MARK: - Reference Entry Model (Bibliography/References)
+
+/// Represents a reference entry with author/organisation, date, and publication details
+/// Used for back matter References section
+@Model
+final class ReferenceEntry {
+    /// Unique identifier
+    var id: UUID = UUID()
+    
+    /// The Project this reference belongs to
+    var project: Project?
+    
+    /// Author name or organisation
+    var author: String = ""
+    
+    /// Publication year or date
+    var publicationDate: String = ""
+    
+    /// Further details (journal, publisher, URL, etc.)
+    var details: String = ""
+    
+    /// Number of references to this entry in the document
+    var referenceCount: Int = 0
+    
+    /// When the entry was created
+    var createdAt: Date = Date()
+    
+    /// When the entry was last modified
+    var modifiedAt: Date = Date()
+    
+    init(
+        id: UUID = UUID(),
+        project: Project? = nil,
+        author: String = "",
+        publicationDate: String = "",
+        details: String = ""
+    ) {
+        self.id = id
+        self.project = project
+        self.author = author
+        self.publicationDate = publicationDate
+        self.details = details
+        self.createdAt = Date()
+        self.modifiedAt = Date()
+    }
+    
+    /// Increment reference count (when entry is linked in text)
+    func incrementReferenceCount() {
+        referenceCount += 1
+        modifiedAt = Date()
+    }
+    
+    /// Decrement reference count (when link is removed)
+    func decrementReferenceCount() {
+        referenceCount = max(0, referenceCount - 1)
+        modifiedAt = Date()
+    }
+    
+    /// Check if this entry is orphaned (no references)
+    var isOrphaned: Bool {
+        referenceCount == 0
+    }
+    
+    /// Format for inline display: [Author, Date]
+    var inlineMarker: String {
+        "[\\(author), \\(publicationDate)]"
+    }
+    
+    /// Format for plain text export
+    var plainTextMarker: String {
+        "\\(author), \\(publicationDate)"
+    }
+}
+
+extension ReferenceEntry: ReferenceEntryProtocol {}
 
 // MARK: - Citation Entry Model
 

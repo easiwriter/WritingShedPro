@@ -74,7 +74,7 @@ enum FrontMatterItem: String, CaseIterable, Codable, Identifiable {
 enum BackMatterItem: String, CaseIterable, Codable, Identifiable {
     case endnotes = "Endnotes"
     case glossary = "Glossary"
-    case bibliography = "Bibliography"
+    case references = "References"
     case index = "Index"
     
     var id: String { rawValue }
@@ -86,8 +86,8 @@ enum BackMatterItem: String, CaseIterable, Codable, Identifiable {
             return NSLocalizedString("backMatter.endnotes", comment: "Endnotes")
         case .glossary:
             return NSLocalizedString("backMatter.glossary", comment: "Glossary")
-        case .bibliography:
-            return NSLocalizedString("backMatter.bibliography", comment: "Bibliography")
+        case .references:
+            return NSLocalizedString("backMatter.references", comment: "References")
         case .index:
             return NSLocalizedString("backMatter.index", comment: "Index")
         }

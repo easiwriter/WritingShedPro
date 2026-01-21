@@ -107,6 +107,9 @@ final class Project {
     @Relationship(deleteRule: .cascade, inverse: \GlossaryEntry.project)
     var glossaryEntries: [GlossaryEntry]? = []
     
+    @Relationship(deleteRule: .cascade, inverse: \ReferenceEntry.project)
+    var referenceEntries: [ReferenceEntry]? = []
+    
     @Relationship(deleteRule: .cascade, inverse: \CitationEntry.project)
     var citationEntries: [CitationEntry]? = []
     

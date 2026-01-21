@@ -137,6 +137,16 @@ final class ReferenceAttachment: NSTextAttachment {
         self.init(referenceType: .glossary, entryID: glossaryEntryID, displayText: displayText)
     }
     
+    /// Convenience initializer for references (author, date)
+    /// - Parameters:
+    ///   - entryID: UUID of the ReferenceEntry
+    ///   - author: Author or organisation name
+    ///   - date: Publication date
+    convenience init(referenceEntryID: UUID, author: String, date: String) {
+        let displayText = "[\(author), \(date)]"
+        self.init(referenceType: .reference, entryID: referenceEntryID, displayText: displayText)
+    }
+    
     /// Convenience initializer for index markers (invisible)
     /// - Parameter entryID: UUID of the IndexEntry
     convenience init(indexEntryID: UUID) {
