@@ -14,7 +14,7 @@ import UIKit
 // MARK: - Custom Attribute Keys
 
 extension NSAttributedString.Key {
-    /// The type of reference (note, endnote, citation, glossary, index, figure, table)
+    /// The type of reference (note, endnote, reference, glossary, index, figure, table)
     static let referenceType = NSAttributedString.Key("com.writingshed.referenceType")
     
     /// The UUID of the referenced entry (NoteEntry, GlossaryEntry, etc.)
@@ -355,9 +355,9 @@ extension NSMutableAttributedString {
             // Blue text
             addAttribute(.foregroundColor, value: UIColor.systemBlue, range: range)
             
-        case .citation:
-            // Blue text
-            addAttribute(.foregroundColor, value: UIColor.systemBlue, range: range)
+        case .reference:
+            // Brown/orange text for references
+            addAttribute(.foregroundColor, value: UIColor(red: 0.8, green: 0.5, blue: 0.2, alpha: 1.0), range: range)
             
         case .glossary:
             // Underlined, tappable
