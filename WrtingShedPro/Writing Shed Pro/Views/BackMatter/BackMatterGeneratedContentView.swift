@@ -3,7 +3,7 @@
 //  Writing Shed Pro
 //
 //  Feature 029: Back Matter - Display auto-generated back matter content
-//  This view shows compiled content for back matter files (Endnotes, Notes, Glossary, Bibliography, Index)
+//  This view shows compiled content for back matter files (Endnotes, Notes, Glossary, References, Index)
 //
 
 import SwiftUI
@@ -29,7 +29,7 @@ struct BackMatterGeneratedContentView: View {
     @State private var deletedItemName: String = ""
     @State private var previousEndnoteCount: Int = 0
     @State private var previousGlossaryCount: Int = 0
-    @State private var previousBibliographyCount: Int = 0
+    @State private var previousReferencesCount: Int = 0
     @State private var previousIndexCount: Int = 0
     @State private var refreshTrigger = UUID()
     
@@ -57,8 +57,8 @@ struct BackMatterGeneratedContentView: View {
                     endnotesContent
                 case .glossary:
                     glossaryContent
-                case .bibliography:
-                    bibliographyContent
+                case .references:
+                    referencesContent
                 case .index:
                     indexContent
                 case nil:
@@ -236,60 +236,55 @@ struct BackMatterGeneratedContentView: View {
         .padding(.vertical, 8)
     }
     
-    // MARK: - Bibliography Content
+    // MARK: - References Content
     
     @ViewBuilder
-    private var bibliographyContent: some View {
-        let citations = (project.citationEntries ?? [])
-            .sorted { ($0.authors.first ?? "").lowercased() < ($1.authors.first ?? "").lowercased() }
+    private var referencesContent: some View {
+        let references = (project.referenceEntries ?? [])
+            .sorted { $0.author.lowercased() < $1.author.lowercased() }
         
-        if citations.isEmpty {
+        if references.isEmpty {
             emptyStateView(
-                title: NSLocalizedString("backMatter.bibliography.empty.title", comment: "No Citations"),
-                description: NSLocalizedString("backMatter.bibliography.empty.description", comment: "Citations added to your manuscript will appear here."),
+                title: NSLocalizedString("backMatter.references.empty.title", comment: "No References"),
+                description: NSLocalizedString("backMatter.references.empty.description", comment: "References added to your manuscript will appear here."),
                 systemImage: "books.vertical"
             )
         } else {
-            Text(NSLocalizedString("backMatter.bibliography.header", comment: "Bibliography"))
+            Text(NSLocalizedString("backMatter.references.header", comment: "References"))
                 .font(.title2)
                 .fontWeight(.bold)
             
-            ForEach(citations) { citation in
-                bibliographyRow(citation)
+            ForEach(references) { reference in
+                referenceRow(reference)
             }
         }
     }
     
-    private func bibliographyRow(_ citation: CitationEntry) -> some View {
+    private func referenceRow(_ reference: ReferenceEntry) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(formatCitation(citation))
+            Text(formatReference(reference))
                 .font(.body)
         }
         .padding(.vertical, 4)
     }
     
-    /// Format a citation for display
-    private func formatCitation(_ citation: CitationEntry) -> String {
+    /// Format a reference entry for display
+    private func formatReference(_ reference: ReferenceEntry) -> String {
         var parts: [String] = []
         
-        // Authors
-        if !citation.authors.isEmpty {
-            parts.append(citation.authors.joined(separator: ", "))
+        // Author
+        if !reference.author.isEmpty {
+            parts.append(reference.author)
         }
         
-        // Year
-        if let year = citation.year {
-            parts.append("(\(year))")
+        // Publication Date
+        if !reference.publicationDate.isEmpty {
+            parts.append("(\(reference.publicationDate))")
         }
         
-        // Title
-        if !citation.title.isEmpty {
-            parts.append(citation.title)
-        }
-        
-        // Source
-        if let source = citation.source, !source.isEmpty {
-            parts.append(source)
+        // Details (journal, publisher, URL, etc.)
+        if !reference.details.isEmpty {
+            parts.append(reference.details)
         }
         
         return parts.joined(separator: ". ") + "."
