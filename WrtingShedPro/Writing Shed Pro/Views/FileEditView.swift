@@ -3533,7 +3533,6 @@ struct FileEditView: View {
                let entry = notes.first(where: { $0.id == attachment.entryID }) {
                 previousRefCount = entry.referenceCount
                 previousReferencingFileIDs = entry.referencingFileIDs
-                entryFound = true
                 #if DEBUG
                 print("   ✅ Found note entry: refCount=\(previousRefCount), referencingFiles=\(previousReferencingFileIDs.count)")
                 #endif
@@ -3546,7 +3545,6 @@ struct FileEditView: View {
             if let entries = project.glossaryEntries,
                let entry = entries.first(where: { $0.id == attachment.entryID }) {
                 previousRefCount = entry.referenceCount
-                entryFound = true
                 #if DEBUG
                 print("   ✅ Found glossary entry: refCount=\(previousRefCount)")
                 #endif
@@ -3559,7 +3557,6 @@ struct FileEditView: View {
             if let entries = project.citationEntries,
                let entry = entries.first(where: { $0.id == attachment.entryID }) {
                 previousRefCount = entry.referenceCount
-                entryFound = true
                 #if DEBUG
                 print("   ✅ Found citation entry: refCount=\(previousRefCount)")
                 #endif
@@ -3572,7 +3569,6 @@ struct FileEditView: View {
             if let entries = project.indexEntries,
                let entry = entries.first(where: { $0.id == attachment.entryID }) {
                 previousRefCount = entry.referenceCount
-                entryFound = true
                 #if DEBUG
                 print("   ✅ Found index entry: refCount=\(previousRefCount)")
                 #endif
