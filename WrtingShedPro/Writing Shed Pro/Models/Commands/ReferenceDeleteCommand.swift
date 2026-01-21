@@ -30,8 +30,6 @@ final class ReferenceDeleteCommand: UndoableCommand {
     /// Weak references to data model objects (can't be codable, but needed for execute/undo)
     weak var targetFile: TextFile?
     weak var modelContext: ModelContext?
-    var updateBackMatterCallback: (() -> Void)?
-    var restoreAttachmentCallback: ((ReferenceAttachment) -> Void)?
     
     // MARK: - Initialization
     
@@ -47,9 +45,7 @@ final class ReferenceDeleteCommand: UndoableCommand {
          attachmentEntryID: UUID,
          attachmentDisplayText: String,
          targetFile: TextFile? = nil,
-         modelContext: ModelContext? = nil,
-         updateBackMatterCallback: (() -> Void)? = nil,
-         restoreAttachmentCallback: ((ReferenceAttachment) -> Void)? = nil) {
+         modelContext: ModelContext? = nil) {
         self.id = id
         self.timestamp = timestamp
         self.description = description
@@ -63,8 +59,6 @@ final class ReferenceDeleteCommand: UndoableCommand {
         self.attachmentDisplayText = attachmentDisplayText
         self.targetFile = targetFile
         self.modelContext = modelContext
-        self.updateBackMatterCallback = updateBackMatterCallback
-        self.restoreAttachmentCallback = restoreAttachmentCallback
     }
     
     // MARK: - UndoableCommand
@@ -142,12 +136,6 @@ final class ReferenceDeleteCommand: UndoableCommand {
             print("❌ ReferenceDeleteCommand.execute: Error saving: \(error)")
             #endif
         }
-        
-        // Update back matter after deletion
-        #if DEBUG
-        print("📋 ReferenceDeleteCommand.execute: Calling updateBackMatterCallback")
-        #endif
-        updateBackMatterCallback?()
     }
     
     func undo() {
@@ -215,27 +203,11 @@ final class ReferenceDeleteCommand: UndoableCommand {
             #endif
         }
         
-        // Restore the attachment to the text
+        // Just restore the database state
+        // Attachment restoration and back matter updates are handled by FileEditView
         #if DEBUG
-        print("📋 ReferenceDeleteCommand.undo: Calling restoreAttachmentCallback")
+        print("📋 ReferenceDeleteCommand.undo: Database state restored (callbacks optional)")
         #endif
-        let restoredAttachment = ReferenceAttachment(
-            referenceType: attachmentReferenceType,
-            entryID: attachmentEntryID,
-            displayText: attachmentDisplayText
-        )
-        restoreAttachmentCallback?(restoredAttachment)
-        
-        // Update back matter after undo (deferred to let SwiftUI binding propagate first)
-        #if DEBUG
-        print("📋 ReferenceDeleteCommand.undo: Deferring updateBackMatterCallback")
-        #endif
-        DispatchQueue.main.async { [weak self] in
-            #if DEBUG
-            print("📋 ReferenceDeleteCommand.undo: Now calling deferred updateBackMatterCallback")
-            #endif
-            self?.updateBackMatterCallback?()
-        }
     }
     
     // MARK: - Codable

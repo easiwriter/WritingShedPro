@@ -3597,13 +3597,7 @@ struct FileEditView: View {
             attachmentEntryID: attachment.entryID,
             attachmentDisplayText: attachment.displayText,
             targetFile: file,
-            modelContext: modelContext,
-            updateBackMatterCallback: { [unowned self] in
-                self.updateBackMatterFiles()
-            },
-            restoreAttachmentCallback: { [unowned self] attachment in
-                self.restoreReferenceAttachment(attachment)
-            }
+            modelContext: modelContext
         )
         
         #if DEBUG
@@ -3657,6 +3651,13 @@ struct FileEditView: View {
             print("⚠️ No text view available to remove attachment")
             #endif
         }
+        
+        #if DEBUG
+        print("🗑️ Calling updateBackMatterFiles")
+        #endif
+        
+        // Regenerate back matter files after deletion
+        updateBackMatterFiles()
         
         #if DEBUG
         print("✅ Reference deletion complete")
