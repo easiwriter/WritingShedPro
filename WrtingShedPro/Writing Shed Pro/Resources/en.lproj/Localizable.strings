@@ -2016,6 +2016,7 @@
 "glossaryEditor.term.placeholder" = "Term";
 "glossaryEditor.term.header" = "Term";
 "glossaryEditor.term.footer" = "The word or phrase to define";
+"glossaryEditor.term.prefilled.footer" = "Term locked from context menu selection";
 "glossaryEditor.term.exists" = "This term already exists";
 "glossaryEditor.definition.header" = "Definition";
 "glossaryEditor.definition.footer" = "Explanation of the term";

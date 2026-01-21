@@ -116,7 +116,7 @@ final class ReferenceAttachmentTests: XCTestCase {
         
         XCTAssertEqual(attachment.referenceType, .glossary)
         XCTAssertEqual(attachment.entryID, entryID)
-        XCTAssertEqual(attachment.displayText, "Protagonist")
+        XCTAssertEqual(attachment.displayText, "[see Protagonist]")
     }
     
     // MARK: - Index Initialization Tests

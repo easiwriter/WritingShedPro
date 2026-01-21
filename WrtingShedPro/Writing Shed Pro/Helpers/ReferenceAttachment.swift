@@ -133,7 +133,8 @@ final class ReferenceAttachment: NSTextAttachment {
     ///   - entryID: UUID of the GlossaryEntry
     ///   - term: The glossary term
     convenience init(glossaryEntryID: UUID, term: String) {
-        self.init(referenceType: .glossary, entryID: glossaryEntryID, displayText: term)
+        let displayText = "[see \(term)]"
+        self.init(referenceType: .glossary, entryID: glossaryEntryID, displayText: displayText)
     }
     
     /// Convenience initializer for index markers (invisible)

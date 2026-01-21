@@ -41,15 +41,7 @@ struct NoteEditorSheet: View {
     @State private var noteContent: String = ""
     @State private var noteTag: String = ""
     @State private var selectedExistingNoteID: UUID?
-    @State private var mode: EditorMode = .createNew
-    
-    // MARK: - Mode enum
-    
-    enum EditorMode {
-        case selectOrCreate
-        case createNew
-        case referenceExisting
-    }
+    @State private var showingReferenceExistingList: Bool = false
     
     // MARK: - Computed Properties
     
@@ -65,12 +57,10 @@ struct NoteEditorSheet: View {
     }
     
     private var canSave: Bool {
-        // If referencing existing note, just need a selection
-        if mode == .referenceExisting {
+        if isReferencingExisting {
             return selectedExistingNoteID != nil
         }
-        
-        // For create new mode or editing, need both content and tag
+
         return !noteContent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && 
                !noteTag.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
@@ -82,6 +72,10 @@ struct NoteEditorSheet: View {
         ?? []
     }
     
+    private var isReferencingExisting: Bool {
+        showingReferenceExistingList && !existingNotesOfType.isEmpty
+    }
+
     private var navigationTitle: String {
         if isEditing {
             return isEndnote 
@@ -113,11 +107,6 @@ struct NoteEditorSheet: View {
         if let existing = existingNote {
             _noteContent = State(initialValue: existing.content)
             _noteTag = State(initialValue: existing.tag ?? "")
-            _mode = State(initialValue: .createNew)
-        } else {
-            // For new notes, check if there are existing notes to reference
-            let existingNotes = (project.noteEntries?.filter { $0.isEndnote == isEndnote } ?? []).isEmpty
-            _mode = State(initialValue: existingNotes ? .createNew : .selectOrCreate)
         }
     }
     
@@ -131,23 +120,22 @@ struct NoteEditorSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                if !isEditing && existingNotesOfType.isEmpty {
-                    // Only create new option if no existing notes
+                if !isEditing {
+                    if !existingNotesOfType.isEmpty {
+                        Section {
+                            referenceExistingToggle
+                        }
+                        if isReferencingExisting {
+                            Section {
+                                referenceExistingForm
+                            } header: {
+                                Text("Select a reference to reuse")
+                                    .font(.subheadline)
+                            }
+                        }
+                    }
                     createNewNoteForm
-                } else if !isEditing && !existingNotesOfType.isEmpty {
-                    // Show mode selector
-                    Section {
-                        modeSelector
-                    }
-                    
-                    // Content based on mode
-                    if mode == .referenceExisting {
-                        referenceExistingForm
-                    } else {
-                        createNewNoteForm
-                    }
                 } else {
-                    // Editing existing note
                     createNewNoteForm
                 }
             }
@@ -171,35 +159,22 @@ struct NoteEditorSheet: View {
         }
     }
     
-    // MARK: - Mode Selector
-    /// COPILOT NOTE: Always use HStack with .buttonBorderShape(.capsule) and .buttonStyle(.bordered)
-    /// for toggle-style mode selection. Do NOT use .segmented style.
-    
-    private var modeSelector: some View {
-        HStack(spacing: 8) {
-            Button(action: { mode = .createNew }) {
-                Text("Create New")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
+    private var referenceExistingToggle: some View {
+        Button(action: {
+            showingReferenceExistingList.toggle()
+            if !showingReferenceExistingList {
+                selectedExistingNoteID = nil
             }
-            .buttonStyle(.bordered)
-            .buttonBorderShape(.capsule)
-            .tint(mode == .createNew ? .white : .gray)
-            .background(mode == .createNew ? Color.blue : Color.clear)
-            
-            Button(action: { mode = .referenceExisting }) {
-                Text("Reference Existing")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.bordered)
-            .buttonBorderShape(.capsule)
-            .tint(mode == .referenceExisting ? .white : .gray)
-            .background(mode == .referenceExisting ? Color.blue : Color.clear)
+        }) {
+            Text(showingReferenceExistingList ? "Hide Reference Existing" : "Reference Existing")
+                .font(.headline)
+                .frame(maxWidth: .infinity)
         }
-        .padding()
+        .buttonStyle(.bordered)
+        .buttonBorderShape(.capsule)
+        .tint(.gray)
     }
-    
+
     // MARK: - Create New Form
     
     @ViewBuilder
@@ -221,7 +196,6 @@ struct NoteEditorSheet: View {
         Section {
             TextEditor(text: $noteContent)
                 .font(.body)
-                .frame(minHeight: 300, maxHeight: .infinity)
         } header: {
             Text(NSLocalizedString("noteEditor.content.header", comment: "Content"))
         }
@@ -325,7 +299,8 @@ struct NoteEditorSheet: View {
     // MARK: - Actions
     
     private func saveNote() {
-        if mode == .referenceExisting, let selectedID = selectedExistingNoteID,
+        if isReferencingExisting,
+           let selectedID = selectedExistingNoteID,
            let selectedNote = existingNotesOfType.first(where: { $0.id == selectedID }) {
             // Reference existing note
             onSave?(selectedNote)

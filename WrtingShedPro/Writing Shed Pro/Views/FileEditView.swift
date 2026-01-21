@@ -63,6 +63,7 @@ struct FileEditView: View {
     @State private var showGlossaryList = false
     @State private var showNewGlossaryTermDialog = false
     @State private var selectedGlossaryTerm: GlossaryEntry?
+    @State private var glossaryTermFromContextMenu: String?  // Term selected from context menu "Add to Glossary"
     
     // Feature 029: Citations (Back Matter)
     @State private var showCitationsList = false
@@ -232,6 +233,9 @@ struct FileEditView: View {
                                 },
                                 onReferenceDeleted: { attachments, deletionRange in
                                     handleReferenceDeleted(attachments, in: deletionRange)
+                                },
+                                onGlossaryAddRequested: { selectedText in
+                                    handleGlossaryAddRequested(selectedText)
                                 }
                             )
                             .frame(width: geometry.size.width * inverseScale, height: geometry.size.height * inverseScale)
@@ -273,6 +277,9 @@ struct FileEditView: View {
                                 },
                                 onReferenceDeleted: { attachments, deletionRange in
                                     handleReferenceDeleted(attachments, in: deletionRange)
+                                },
+                                onGlossaryAddRequested: { selectedText in
+                                    handleGlossaryAddRequested(selectedText)
                                 }
                             )
                             .frame(width: geometry.size.width * inverseScale, height: geometry.size.height * inverseScale)
@@ -1515,8 +1522,10 @@ struct FileEditView: View {
                 if let project = file.project {
                     GlossaryEditorSheet(
                         project: project,
+                        prefilledTerm: glossaryTermFromContextMenu,
                         onSave: { term in
                             insertGlossaryMarker(for: term)
+                            glossaryTermFromContextMenu = nil
                         }
                     )
                 }
@@ -3502,9 +3511,9 @@ struct FileEditView: View {
         
         let message: String
         if attachments.count > 1 {
-            message = "Deleting these references is permanent and cannot be undone. The references will be removed from the back matter."
+            message = "Cutting or deleting these references copies the text when cutting, but the references and their back matter entries are removed permanently. This cannot be undone."
         } else {
-            message = "Deleting this reference is permanent and cannot be undone. The reference will be removed from the back matter."
+            message = "Cutting or deleting this reference copies the text when cutting, but the reference and its back matter entry are removed permanently. This cannot be undone."
         }
         
         // Show confirmation alert
@@ -3640,6 +3649,32 @@ struct FileEditView: View {
     }
     
     // MARK: - Glossary (Feature 029)
+    
+    /// Handle "Add to Glossary" from context menu with selected text
+    private func handleGlossaryAddRequested(_ selectedText: String) {
+        let trimmedText = selectedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedText.isEmpty else { return }
+        
+        guard let project = file.project else { return }
+        
+        // Check if this glossary term already exists (case-insensitive)
+        if let existingTerm = project.glossaryEntries?.first(where: { 
+            $0.term.lowercased() == trimmedText.lowercased() 
+        }) {
+            // Term exists - insert marker directly
+            #if DEBUG
+            print("📖 Glossary term '\(trimmedText)' already exists, inserting marker directly")
+            #endif
+            insertGlossaryMarker(for: existingTerm)
+        } else {
+            // Term is new - show editor with pre-filled term name
+            #if DEBUG
+            print("📖 New glossary term '\(trimmedText)' - showing editor")
+            #endif
+            glossaryTermFromContextMenu = trimmedText
+            showNewGlossaryTermDialog = true
+        }
+    }
     
     /// Insert a glossary term marker at the current cursor position
     private func insertGlossaryMarker(for term: GlossaryEntry) {

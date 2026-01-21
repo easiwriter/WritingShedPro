@@ -32,7 +32,7 @@ Each reference type uses a distinct inline marker format, automatically numbered
 | Citation | `[Author, Year]` | `[Smith, 2024]` | APA-style inline reference |
 | Figure | `[Fig n]` | `[Fig 1]` | For list of figures |
 | Table | `[Table n]` | `[Table 1]` | For list of tables (future) |
-| Glossary | *(term itself)* | `protagonist` | Styled inline (underline/color), no brackets |
+| Glossary | `[see term]` | `[see protagonist]` | Inline marker uses `[see <term>]`; blue in edit mode, black in page view, tag always matches the glossary term |
 | Index | *(invisible marker)* | — | No visible marker; stored for page calculation at export |
 
 ### Model Definitions
@@ -126,9 +126,12 @@ Each reference marker in the text carries:
 
 1. User selects a term in the text
 2. Context menu shows "Add to Glossary"
-3. If term exists in `GlossaryEntry` list → link to existing entry
-4. If term is new → prompt for definition, create new `GlossaryEntry`
-5. Term is styled (underline/color) and tappable to show definition popover
+3. If term exists in `GlossaryEntry` list → link to existing entry (no additional dialog; each entry is unique)
+4. If term is new → present the Glossary Entry sheet (same layout as the EndNote dialog but without the Reference Existing section)
+-   Tag field is locked to the selected term and becomes the inline label
+-   Definition editor is the primary content area, with an optional citation picker
+-   Saving creates the entry and inserts the `[see <tag>]` marker
+5. Inserted marker is styled blue in edit mode, black in page view, and tappable so the definition popover can be shown
 
 ### Index Workflow
 
@@ -259,16 +262,16 @@ Each reference marker in the text carries:
 **Tasks:**
 1. Add context menu item "Add to Glossary" when text is selected
 2. Create `Views/Sheets/GlossaryEntrySheet.swift`:
-   - Term field (pre-filled from selection)
-   - Definition text editor
-   - Optional citation picker (from existing citations)
+   - Mirrors `NoteEditorSheet` (text editor + metadata) but removes the Reference Existing section so each glossary term is defined exactly once
+   - Term field is pre-filled from the selection, drives the `tag` value, and represents the name of the glossary entry (the tag is also the inline marker label)
+   - Definition editor becomes the entry content and the optional citation picker lets users attach an existing citation
 3. Implement term matching:
-   - On "Add to Glossary", check if term already exists
-   - If exists: link to existing entry
-   - If new: show entry sheet
-4. Apply glossary styling to attributed string:
-   - Underline or distinct color for glossary terms
-   - Tappable to show definition popover
+   - On "Add to Glossary", check if the term already exists in the glossary
+   - If it exists, link directly to that entry without presenting Reference Existing controls
+   - If it is new, present the GlossaryEntrySheet, save the definition, and create the new entry with the selected term as its tag
+4. Insert `[see <tag>]` markers for every glossary reference:
+   - Markers are blue in edit mode, black in manuscript/page view, and tappable for the definition popover
+   - Reference counts are updated just like endnotes, since the sheet mirrors the EndNote dialog workflow
 5. Create `Views/BackMatter/GlossaryListView.swift`:
    - Alphabetically sorted list of terms
    - Edit/delete actions

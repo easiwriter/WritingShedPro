@@ -37,6 +37,9 @@ struct FormattedTextEditor: UIViewRepresentable {
     /// Optional callback when a reference marker is being deleted (Feature 029)
     var onReferenceDeleted: (([ReferenceAttachment], NSRange) -> Void)?
     
+    /// Optional callback when user selects "Add to Glossary" from context menu (Feature 029)
+    var onGlossaryAddRequested: ((String) -> Void)?
+    
     /// Coordinator for managing textView reference
     var textViewCoordinator: TextViewCoordinator?
     
@@ -83,7 +86,8 @@ struct FormattedTextEditor: UIViewRepresentable {
         onCommentTapped: ((CommentAttachment, Int) -> Void)? = nil,
         onFootnoteTapped: ((FootnoteAttachment, Int) -> Void)? = nil,
         onReferenceTapped: ((ReferenceAttachment, Int) -> Void)? = nil,
-        onReferenceDeleted: (([ReferenceAttachment], NSRange) -> Void)? = nil
+        onReferenceDeleted: (([ReferenceAttachment], NSRange) -> Void)? = nil,
+        onGlossaryAddRequested: ((String) -> Void)? = nil
     ) {
         self._attributedText = attributedText
         self._selectedRange = selectedRange
@@ -103,6 +107,7 @@ struct FormattedTextEditor: UIViewRepresentable {
         self.onFootnoteTapped = onFootnoteTapped
         self.onReferenceTapped = onReferenceTapped
         self.onReferenceDeleted = onReferenceDeleted
+        self.onGlossaryAddRequested = onGlossaryAddRequested
     }
     
     // MARK: - UIViewRepresentable
@@ -140,6 +145,11 @@ struct FormattedTextEditor: UIViewRepresentable {
         // Wire up reference tap callback (Feature 029)
         textView.onReferenceTapped = { [weak coordinator] attachment, position in
             coordinator?.parent.onReferenceTapped?(attachment, position)
+        }
+        
+        // Wire up glossary add requested callback (Feature 029)
+        textView.onGlossaryAddRequested = { [weak coordinator] selectedText in
+            coordinator?.parent.onGlossaryAddRequested?(selectedText)
         }
         
         // Set input accessory view if provided
@@ -1522,6 +1532,7 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
     var onCommentTapped: ((CommentAttachment, Int) -> Void)?
     var onFootnoteTapped: ((FootnoteAttachment, Int) -> Void)?
     var onReferenceTapped: ((ReferenceAttachment, Int) -> Void)?
+    var onGlossaryAddRequested: ((String) -> Void)?  // Called with selected text when user selects "Add to Glossary"
     
     // Selection border view for images
     private let selectionBorderView: UIView = {
@@ -1820,7 +1831,27 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
             return index1 < index2
         }
         
-        return UIMenu(children: orderedActions)
+        // Feature 029: Add "Add to Glossary" action if text is selected
+        var menuChildren: [UIMenuElement] = orderedActions
+        
+        // Get selected text
+        if let selectedTextRange = self.selectedTextRange {
+            let selectedText = self.text(in: selectedTextRange)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            
+            // Only add glossary option if text is selected and not empty
+            if !selectedText.isEmpty {
+                let addToGlossaryAction = UIAction(
+                    title: NSLocalizedString("insertMenu.addGlossaryTerm", comment: "Add to Glossary"),
+                    image: UIImage(systemName: "text.book.closed.fill"),
+                    handler: { [weak self] _ in
+                        self?.onGlossaryAddRequested?(selectedText)
+                    }
+                )
+                menuChildren.append(addToGlossaryAction)
+            }
+        }
+        
+        return UIMenu(children: menuChildren)
     }
     
     // Update selection border position when layout changes (e.g., rotation)

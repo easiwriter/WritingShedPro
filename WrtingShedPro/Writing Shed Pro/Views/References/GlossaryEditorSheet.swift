@@ -27,6 +27,9 @@ struct GlossaryEditorSheet: View {
     /// Existing term to edit (nil for new term)
     let existingTerm: GlossaryEntry?
     
+    /// Term name pre-filled from context menu selection (read-only when set)
+    let prefilledTerm: String?
+    
     /// Callback when term is saved, returns the entry for marker insertion
     var onSave: ((GlossaryEntry) -> Void)?
     
@@ -78,18 +81,22 @@ struct GlossaryEditorSheet: View {
     init(
         project: Project,
         existingTerm: GlossaryEntry? = nil,
+        prefilledTerm: String? = nil,
         onSave: ((GlossaryEntry) -> Void)? = nil,
         onCancel: (() -> Void)? = nil
     ) {
         self.project = project
         self.existingTerm = existingTerm
+        self.prefilledTerm = prefilledTerm
         self.onSave = onSave
         self.onCancel = onCancel
         
-        // Initialize state from existing term
+        // Initialize state from existing term or prefilled term
         if let existing = existingTerm {
             _termName = State(initialValue: existing.term)
             _termDefinition = State(initialValue: existing.definition)
+        } else if let prefilled = prefilledTerm {
+            _termName = State(initialValue: prefilled)
         }
     }
     
@@ -100,11 +107,24 @@ struct GlossaryEditorSheet: View {
             Form {
                 // Term section
                 Section {
-                    TextField(
-                        NSLocalizedString("glossaryEditor.term.placeholder", comment: "Term"),
-                        text: $termName
-                    )
-                    .autocapitalization(.words)
+                    if prefilledTerm != nil {
+                        // When pre-filled from context menu, show as read-only
+                        HStack {
+                            Text(termName)
+                                .font(.body)
+                            Spacer()
+                            Image(systemName: "lock.fill")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                        }
+                    } else {
+                        // When creating new or editing, show as editable
+                        TextField(
+                            NSLocalizedString("glossaryEditor.term.placeholder", comment: "Term"),
+                            text: $termName
+                        )
+                        .autocapitalization(.words)
+                    }
                     
                     if termExists {
                         HStack {
@@ -118,25 +138,21 @@ struct GlossaryEditorSheet: View {
                 } header: {
                     Text(NSLocalizedString("glossaryEditor.term.header", comment: "Term"))
                 } footer: {
-                    Text(NSLocalizedString("glossaryEditor.term.footer", comment: "The word or phrase to define"))
+                    if prefilledTerm != nil {
+                        Text(NSLocalizedString("glossaryEditor.term.prefilled.footer", comment: "Term locked from context menu selection"))
+                    } else {
+                        Text(NSLocalizedString("glossaryEditor.term.footer", comment: "The word or phrase to define"))
+                    }
                 }
                 
                 // Definition section
                 Section {
                     TextEditor(text: $termDefinition)
-                        .frame(minHeight: 100)
                         .font(.body)
                 } header: {
                     Text(NSLocalizedString("glossaryEditor.definition.header", comment: "Definition"))
                 } footer: {
                     Text(NSLocalizedString("glossaryEditor.definition.footer", comment: "Explanation of the term"))
-                }
-                
-                // Preview section
-                Section {
-                    previewSection
-                } header: {
-                    Text(NSLocalizedString("glossaryEditor.preview.header", comment: "Preview"))
                 }
                 
                 // Info section (for existing terms)
@@ -153,7 +169,12 @@ struct GlossaryEditorSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(NSLocalizedString("button.cancel", comment: "Cancel")) {
-                        handleCancel()
+                        if hasChanges {
+                            showDiscardConfirmation = true
+                        } else {
+                            onCancel?()
+                            dismiss()
+                        }
                     }
                 }
                 
@@ -176,52 +197,6 @@ struct GlossaryEditorSheet: View {
                 Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {}
             } message: {
                 Text(NSLocalizedString("glossaryEditor.discard.message", comment: "Your changes will be lost."))
-            }
-        }
-    }
-    
-    // MARK: - Preview Section
-    
-    @ViewBuilder
-    private var previewSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            // Marker preview
-            HStack {
-                Text(NSLocalizedString("glossaryEditor.preview.marker", comment: "Marker:"))
-                    .foregroundColor(.secondary)
-                
-                if !termName.isEmpty {
-                    Text("[\(termName)]")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(.teal)
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 2)
-                        .background(Color.teal.opacity(0.1))
-                        .cornerRadius(3)
-                } else {
-                    Text("[Term]")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(.teal.opacity(0.5))
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 2)
-                        .background(Color.teal.opacity(0.05))
-                        .cornerRadius(3)
-                }
-            }
-            
-            // Definition preview
-            if !termDefinition.isEmpty {
-                Divider()
-                
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(termName.isEmpty ? "Term" : termName)
-                        .font(.headline)
-                    
-                    Text(termDefinition)
-                        .font(.body)
-                        .foregroundColor(.primary)
-                        .lineLimit(3)
-                }
             }
         }
     }
