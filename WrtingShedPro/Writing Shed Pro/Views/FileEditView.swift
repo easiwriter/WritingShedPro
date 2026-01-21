@@ -3511,7 +3511,7 @@ struct FileEditView: View {
             #endif
         })
         
-        alert.addAction(UIAlertAction(title: "Delete Reference", style: .destructive) { [weak self] _ in
+        alert.addAction(UIAlertAction(title: "Delete Reference", style: .destructive) { _ in
             #if DEBUG
             print("✅ User confirmed reference deletion - deleting text and updating database")
             #endif
@@ -3530,10 +3530,10 @@ struct FileEditView: View {
             }
             
             // Delete the reference from the database
-            self?.deleteReferenceFromDatabase(attachment)
+            self.deleteReferenceFromDatabase(attachment)
             
             // Update back matter
-            self?.updateBackMatterFiles()
+            self.updateBackMatterFiles()
         })
         
         // Present alert on the root view controller
