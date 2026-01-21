@@ -3609,7 +3609,7 @@ struct FileEditView: View {
             }
             // Register the undo with a simple wrapper object
             let undoWrapper = UndoHandlerWrapper(handler: handler)
-            undoManager.registerUndo(withTarget: undoWrapper, selector: #selector(UndoHandlerWrapper.performUndo(object:)))
+            undoManager.registerUndo(withTarget: undoWrapper, selector: #selector(UndoHandlerWrapper.performUndo), object: nil)
         }
         
         #if DEBUG
