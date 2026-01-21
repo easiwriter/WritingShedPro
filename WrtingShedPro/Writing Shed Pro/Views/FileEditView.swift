@@ -3550,16 +3550,14 @@ struct FileEditView: View {
             previousReferencingFileIDs: previousReferencingFileIDs,
             targetFile: file,
             modelContext: modelContext,
-            updateBackMatterCallback: { [weak modelContext] in
-                // Regenerate back matter files after deletion
-                guard let context = modelContext else { return }
-                BackMatterGenerator.shared.generateAllBackMatter(for: file, in: context)
-            }
+            updateBackMatterCallback: nil
         )
         
-        // Add to undo manager and execute
-        undoManager.addCommand(command)
-        command.execute()
+        // Execute through undo manager
+        undoManager.execute(command)
+        
+        // Regenerate back matter files after deletion
+        updateBackMatterFiles()
         
         #if DEBUG
         print("✅ Reference deletion command executed")
