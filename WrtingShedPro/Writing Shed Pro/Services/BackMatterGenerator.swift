@@ -149,11 +149,11 @@ final class BackMatterGenerator {
     /// Generate the Notes/Endnotes section
     /// - Returns: Attributed string with notes section, or nil if no notes
     func generateNotesSection() -> NSAttributedString? {
-        // Fetch notes for this project
+        // Fetch notes for this project that have active references (refCount > 0)
         let projectID = project.id
         let descriptor = FetchDescriptor<NoteEntry>(
             predicate: #Predicate<NoteEntry> { entry in
-                entry.project?.id == projectID
+                entry.project?.id == projectID && entry.referenceCount > 0
             },
             sortBy: [SortDescriptor(\.displayNumber)]
         )
@@ -253,11 +253,11 @@ final class BackMatterGenerator {
     /// Generate the Glossary section
     /// - Returns: Attributed string with glossary section, or nil if no entries
     func generateGlossarySection() -> NSAttributedString? {
-        // Fetch glossary entries for this project
+        // Fetch glossary entries for this project that have active references (refCount > 0)
         let projectID = project.id
         let descriptor = FetchDescriptor<GlossaryEntry>(
             predicate: #Predicate<GlossaryEntry> { entry in
-                entry.project?.id == projectID
+                entry.project?.id == projectID && entry.referenceCount > 0
             },
             sortBy: [SortDescriptor(\.term)]
         )
@@ -475,11 +475,11 @@ final class BackMatterGenerator {
     /// - Parameter pageMap: Map of index entry ID to page numbers where it appears
     /// - Returns: Attributed string with index section, or nil if no entries
     func generateIndexSection(pageMap: [UUID: [Int]]) -> NSAttributedString? {
-        // Fetch index entries for this project (top-level only)
+        // Fetch index entries for this project (top-level only) that have active references (refCount > 0)
         let projectID = project.id
         let descriptor = FetchDescriptor<IndexEntry>(
             predicate: #Predicate<IndexEntry> { entry in
-                entry.project?.id == projectID && entry.parentEntry == nil
+                entry.project?.id == projectID && entry.parentEntry == nil && entry.referenceCount > 0
             },
             sortBy: [SortDescriptor(\.keyword)]
         )
