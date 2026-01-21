@@ -136,7 +136,7 @@ struct ReferencesListView: View {
         List {
             Section {
                 SearchableTextField(
-                    NSLocalizedString("references.search.placeholder", comment: "Search references..."),
+                    placeholder: NSLocalizedString("references.search.placeholder", comment: "Search references..."),
                     text: $searchText
                 )
             }
@@ -190,11 +190,11 @@ struct ReferencesListView: View {
                         
                         Button(
                             NSLocalizedString("references.menu.delete", comment: "Delete"),
+                            role: .destructive,
                             action: {
                                 referenceToDelete = reference
                                 showingDeleteConfirmation = true
-                            },
-                            role: .destructive
+                            }
                         )
                     } label: {
                         Image(systemName: "ellipsis")

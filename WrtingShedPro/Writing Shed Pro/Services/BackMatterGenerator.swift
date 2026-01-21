@@ -335,6 +335,86 @@ final class BackMatterGenerator {
         return result
     }
     
+    // MARK: - References Section
+    
+    /// Generate the References section
+    /// - Returns: Attributed string with references section, or nil if no entries
+    func generateReferencesSection() -> NSAttributedString? {
+        // Fetch reference entries for this project that have active references (refCount > 0)
+        let projectID = project.id
+        let descriptor = FetchDescriptor<ReferenceEntry>(
+            predicate: #Predicate<ReferenceEntry> { entry in
+                entry.project?.id == projectID && entry.referenceCount > 0
+            },
+            sortBy: [SortDescriptor(\.author)]
+        )
+        
+        guard let references = try? context.fetch(descriptor), !references.isEmpty else {
+            return nil
+        }
+        
+        let result = NSMutableAttributedString()
+        
+        // Section heading
+        var headingAttrs = headingAttributes
+        // Add extra spacing before for section separation
+        if let existingStyle = headingAttrs[.paragraphStyle] as? NSParagraphStyle {
+            let mutableStyle = existingStyle.mutableCopy() as! NSMutableParagraphStyle
+            mutableStyle.paragraphSpacingBefore = 24
+            headingAttrs[.paragraphStyle] = mutableStyle
+        }
+        let heading = NSAttributedString(
+            string: NSLocalizedString("backMatter.references.heading", comment: "References") + "\n",
+            attributes: headingAttrs
+        )
+        result.append(heading)
+        
+        // Sort by author
+        let sorted = references.sorted { $0.author.lowercased() < $1.author.lowercased() }
+        
+        for reference in sorted {
+            let referenceText = formatReferenceEntry(reference)
+            result.append(referenceText)
+        }
+        
+        return result
+    }
+    
+    /// Format a single reference entry
+    private func formatReferenceEntry(_ reference: ReferenceEntry) -> NSAttributedString {
+        let result = NSMutableAttributedString()
+        
+        // Format: Author (Date). Details
+        var parts: [String] = []
+        
+        // Author
+        if !reference.author.isEmpty {
+            parts.append(reference.author)
+        }
+        
+        // Date
+        if !reference.publicationDate.isEmpty {
+            parts.append("(\(reference.publicationDate))")
+        }
+        
+        // Details
+        if !reference.details.isEmpty {
+            parts.append(reference.details)
+        }
+        
+        let fullReference = parts.joined(separator: " ") + "\n"
+        
+        var refAttrs = bodyAttributes
+        refAttrs[.paragraphStyle] = hangingIndentStyle
+        let referenceAttr = NSAttributedString(
+            string: fullReference,
+            attributes: refAttrs
+        )
+        result.append(referenceAttr)
+        
+        return result
+    }
+    
     // MARK: - Bibliography Section
     
     /// Generate the Bibliography/Works Cited section
