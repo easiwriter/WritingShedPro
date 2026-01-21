@@ -35,7 +35,7 @@ struct FormattedTextEditor: UIViewRepresentable {
     var onReferenceTapped: ((ReferenceAttachment, Int) -> Void)?
     
     /// Optional callback when a reference marker is being deleted (Feature 029)
-    var onReferenceDeleted: ((ReferenceAttachment) -> Void)?
+    var onReferenceDeleted: (([ReferenceAttachment], NSRange) -> Void)?
     
     /// Coordinator for managing textView reference
     var textViewCoordinator: TextViewCoordinator?
@@ -83,7 +83,7 @@ struct FormattedTextEditor: UIViewRepresentable {
         onCommentTapped: ((CommentAttachment, Int) -> Void)? = nil,
         onFootnoteTapped: ((FootnoteAttachment, Int) -> Void)? = nil,
         onReferenceTapped: ((ReferenceAttachment, Int) -> Void)? = nil,
-        onReferenceDeleted: ((ReferenceAttachment) -> Void)? = nil
+        onReferenceDeleted: (([ReferenceAttachment], NSRange) -> Void)? = nil
     ) {
         self._attributedText = attributedText
         self._selectedRange = selectedRange
@@ -807,46 +807,45 @@ struct FormattedTextEditor: UIViewRepresentable {
                 print("📝🗑️ Text deletion detected: deleting \(range.length) chars at position \(range.location)")
                 #endif
                 
-                if let attrText = textView.attributedText {
-                    // Find all reference attachments in the range being deleted
-                    var referencesToDelete: [ReferenceAttachment] = []
-                    
-                    attrText.enumerateAttribute(.attachment, in: range, options: []) { value, _, _ in
-                        if let attachment = value as? ReferenceAttachment {
-                            referencesToDelete.append(attachment)
+                    if let attrText = textView.attributedText {
+                        // Find all reference attachments in the range being deleted
+                        var referencesToDelete: [ReferenceAttachment] = []
+                        var seenAttachments = Set<ObjectIdentifier>()
+                        
+                        attrText.enumerateAttribute(.attachment, in: range, options: []) { value, _, _ in
+                            if let attachment = value as? ReferenceAttachment {
+                                let identifier = ObjectIdentifier(attachment)
+                                guard !seenAttachments.contains(identifier) else { return }
+                                seenAttachments.insert(identifier)
+                                referencesToDelete.append(attachment)
+                                #if DEBUG
+                                print("🗑️ 📌 Found ReferenceAttachment in deletion range: \(attachment.displayText) (type: \(attachment.referenceType), id: \(attachment.entryID.uuidString.prefix(8)))")
+                                #endif
+                            }
+                        }
+
+                        // If we found references being deleted, show confirmation alert
+                        if !referencesToDelete.isEmpty {
                             #if DEBUG
-                            print("🗑️ 📌 Found ReferenceAttachment in deletion range: \(attachment.displayText) (type: \(attachment.referenceType), id: \(attachment.entryID.uuidString.prefix(8)))")
+                            print("🗑️ \(referencesToDelete.count) references found in deletion range - showing confirmation")
+                            #endif
+                           
+                            // Prevent the deletion for now - we'll handle it after user confirms
+                            parent.onReferenceDeleted?(referencesToDelete, range)
+                           
+                            // Return false to prevent UITextView from deleting the text
+                            // We'll manually delete after the user confirms in the alert
+                            return false
+                        } else {
+                            #if DEBUG
+                            print("🗑️ No references found in deletion range - allowing normal deletion")
                             #endif
                         }
-                    }
-                    
-                    // If we found references being deleted, show confirmation alert
-                    if !referencesToDelete.isEmpty {
-                        #if DEBUG
-                        print("🗑️ \(referencesToDelete.count) references found in deletion range - showing confirmation")
-                        #endif
-                        
-                        // Prevent the deletion for now - we'll handle it after user confirms
-                        for reference in referencesToDelete {
-                            #if DEBUG
-                            print("🗑️ Calling onReferenceDeleted callback for: \(reference.displayText)")
-                            #endif
-                            parent.onReferenceDeleted?(reference)
-                        }
-                        
-                        // Return false to prevent UITextView from deleting the text
-                        // We'll manually delete after the user confirms in the alert
-                        return false
                     } else {
                         #if DEBUG
-                        print("🗑️ No references found in deletion range - allowing normal deletion")
+                        print("🗑️ ⚠️ No attributed text available")
                         #endif
                     }
-                } else {
-                    #if DEBUG
-                    print("🗑️ ⚠️ No attributed text available")
-                    #endif
-                }
             }
             
             return true

@@ -230,8 +230,8 @@ struct FileEditView: View {
                                     selectedReferencePosition = position
                                     showReferenceEditor = true
                                 },
-                                onReferenceDeleted: { attachment in
-                                    handleReferenceDeleted(attachment)
+                                onReferenceDeleted: { attachments, deletionRange in
+                                    handleReferenceDeleted(attachments, in: deletionRange)
                                 }
                             )
                             .frame(width: geometry.size.width * inverseScale, height: geometry.size.height * inverseScale)
@@ -271,8 +271,8 @@ struct FileEditView: View {
                                     selectedReferencePosition = position
                                     showReferenceEditor = true
                                 },
-                                onReferenceDeleted: { attachment in
-                                    handleReferenceDeleted(attachment)
+                                onReferenceDeleted: { attachments, deletionRange in
+                                    handleReferenceDeleted(attachments, in: deletionRange)
                                 }
                             )
                             .frame(width: geometry.size.width * inverseScale, height: geometry.size.height * inverseScale)
@@ -319,8 +319,8 @@ struct FileEditView: View {
                                     selectedReferencePosition = position
                                     showReferenceEditor = true
                                 },
-                                onReferenceDeleted: { attachment in
-                                    handleReferenceDeleted(attachment)
+                                onReferenceDeleted: { attachments, deletionRange in
+                                    handleReferenceDeleted(attachments, in: deletionRange)
                                 }
                             )
                             .id(refreshTrigger)
@@ -357,8 +357,8 @@ struct FileEditView: View {
                                     selectedReferencePosition = position
                                     showReferenceEditor = true
                                 },
-                                onReferenceDeleted: { attachment in
-                                    handleReferenceDeleted(attachment)
+                                onReferenceDeleted: { attachments, deletionRange in
+                                    handleReferenceDeleted(attachments, in: deletionRange)
                                 }
                             )
                             .id(refreshTrigger)
@@ -3488,20 +3488,29 @@ struct FileEditView: View {
     
     /// Handle deletion of a reference attachment from text (Feature 029)
     /// Shows confirmation alert - deletion is permanent and not undoable
-    private func handleReferenceDeleted(_ attachment: ReferenceAttachment) {
+    private func handleReferenceDeleted(_ attachments: [ReferenceAttachment], in deletionRange: NSRange) {
         #if DEBUG
         print("🗑️📌 handleReferenceDeleted called")
-        print("   Type: \(attachment.referenceType)")
-        print("   EntryID: \(attachment.entryID.uuidString.prefix(8))")
-        print("   DisplayText: \(attachment.displayText)")
+        for attachment in attachments {
+            print("   Type: \(attachment.referenceType)")
+            print("   EntryID: \(attachment.entryID.uuidString.prefix(8))")
+            print("   DisplayText: \(attachment.displayText)")
+        }
         #endif
         
         guard let textView = textViewCoordinator.textView else { return }
         
+        let message: String
+        if attachments.count > 1 {
+            message = "Deleting these references is permanent and cannot be undone. The references will be removed from the back matter."
+        } else {
+            message = "Deleting this reference is permanent and cannot be undone. The reference will be removed from the back matter."
+        }
+        
         // Show confirmation alert
         let alert = UIAlertController(
             title: "Delete Reference?",
-            message: "Deleting this reference is permanent and cannot be undone. The reference will be removed from the back matter.",
+            message: message,
             preferredStyle: .alert
         )
         
@@ -3515,24 +3524,31 @@ struct FileEditView: View {
             #if DEBUG
             print("✅ User confirmed reference deletion - deleting text and updating database")
             #endif
-            
-            // Now delete the text from the text view
-            // Find the attachment in the text to get its location
-            textView.textStorage.enumerateAttribute(NSAttributedString.Key.attachment, in: NSRange(0..<textView.textStorage.length), options: []) { value, range, _ in
-                if let att = value as? ReferenceAttachment,
-                   att.entryID == attachment.entryID {
-                    // Delete this character (the attachment)
-                    textView.textStorage.deleteCharacters(in: range)
-                    #if DEBUG
-                    print("🗑️ Deleted reference attachment from text at range \(range)")
-                    #endif
-                }
+
+            guard deletionRange.length > 0 else {
+                #if DEBUG
+                print("⚠️ Deletion range empty, nothing to remove")
+                #endif
+                return
             }
             
-            // Delete the reference from the database
+            // Safely clamp range to current text storage
+            let maxLength = textView.textStorage.length
+            let safeRange = NSIntersectionRange(deletionRange, NSRange(location: 0, length: maxLength))
+            guard safeRange.length > 0 else {
+                #if DEBUG
+                print("⚠️ Safe deletion range is empty")
+                #endif
+                return
+            }
+
+            textView.textStorage.replaceCharacters(in: safeRange, with: "")
+            textView.selectedRange = NSRange(location: safeRange.location, length: 0)
             attributedContent = textView.attributedText ?? NSAttributedString()
-            self.deleteReferenceFromDatabase(attachment, textView: textView)
-            
+
+            // Delete the reference(s) from the database
+            self.deleteReferenceFromDatabase(attachments, textView: textView)
+
             // Update back matter
             self.updateBackMatterFiles()
         })
@@ -3545,97 +3561,81 @@ struct FileEditView: View {
     }
     
     /// Delete reference from database without undo
-    private func deleteReferenceFromDatabase(_ attachment: ReferenceAttachment, textView: UITextView) {
+    private func deleteReferenceFromDatabase(_ attachments: [ReferenceAttachment], textView: UITextView) {
+        guard !attachments.isEmpty else { return }
         #if DEBUG
-        print("🗑️ Deleting reference from database: \(attachment.displayText)")
+        print("🗑️ Deleting \(attachments.count) reference(s) from database")
         #endif
-        
-        let referenceTypeString: String
-        switch attachment.referenceType {
-        case .note, .endnote:
-            referenceTypeString = "note"
-        case .glossary:
-            referenceTypeString = "glossary"
-        case .citation:
-            referenceTypeString = "citation"
-        case .index, .figure, .table:
-            referenceTypeString = "index"
+
+        var groupedByEntry: [UUID: (type: ReferenceType, count: Int)] = [:]
+        for attachment in attachments {
+            if let entry = groupedByEntry[attachment.entryID] {
+                groupedByEntry[attachment.entryID] = (type: entry.type, count: entry.count + 1)
+            } else {
+                groupedByEntry[attachment.entryID] = (type: attachment.referenceType, count: 1)
+            }
         }
-        
-        // Decrement the reference count
-        switch referenceTypeString {
-        case "note":
-            if let noteEntry = try? modelContext.fetch(FetchDescriptor<NoteEntry>())
-                .first(where: { $0.id == attachment.entryID }) {
-                if noteEntry.referenceCount > 0 {
-                    noteEntry.referenceCount -= 1
+
+        for (entryID, entryInfo) in groupedByEntry {
+            switch entryInfo.type {
+            case .note, .endnote:
+                if let noteEntry = try? modelContext.fetch(FetchDescriptor<NoteEntry>())
+                    .first(where: { $0.id == entryID }) {
+                    let newCount = max(0, noteEntry.referenceCount - entryInfo.count)
+                    noteEntry.referenceCount = newCount
+                    if newCount == 0 {
+                        noteEntry.referencingFileIDs.removeAll { $0 == file.id }
+                    }
+                    #if DEBUG
+                    print("📝 Decremented note ref count to: \(noteEntry.referenceCount)")
+                    #endif
                 }
-                noteEntry.referencingFileIDs.removeAll { $0 == file.id }
-                #if DEBUG
-                print("📝 Decremented note ref count to: \(noteEntry.referenceCount)")
-                #endif
-            }
-        case "glossary":
-            if let glossaryEntry = try? modelContext.fetch(FetchDescriptor<GlossaryEntry>())
-                .first(where: { $0.id == attachment.entryID }) {
-                if glossaryEntry.referenceCount > 0 {
-                    glossaryEntry.referenceCount -= 1
+            case .glossary:
+                if let glossaryEntry = try? modelContext.fetch(FetchDescriptor<GlossaryEntry>())
+                    .first(where: { $0.id == entryID }) {
+                    let newCount = max(0, glossaryEntry.referenceCount - entryInfo.count)
+                    glossaryEntry.referenceCount = newCount
+                    #if DEBUG
+                    print("📕 Decremented glossary ref count to: \(glossaryEntry.referenceCount)")
+                    #endif
                 }
-                #if DEBUG
-                print("📕 Decremented glossary ref count to: \(glossaryEntry.referenceCount)")
-                #endif
-            }
-        case "citation":
-            if let citationEntry = try? modelContext.fetch(FetchDescriptor<CitationEntry>())
-                .first(where: { $0.id == attachment.entryID }) {
-                if citationEntry.referenceCount > 0 {
-                    citationEntry.referenceCount -= 1
+            case .citation:
+                if let citationEntry = try? modelContext.fetch(FetchDescriptor<CitationEntry>())
+                    .first(where: { $0.id == entryID }) {
+                    let newCount = max(0, citationEntry.referenceCount - entryInfo.count)
+                    citationEntry.referenceCount = newCount
+                    #if DEBUG
+                    print("📗 Decremented citation ref count to: \(citationEntry.referenceCount)")
+                    #endif
                 }
-                #if DEBUG
-                print("📗 Decremented citation ref count to: \(citationEntry.referenceCount)")
-                #endif
-            }
-        case "index":
-            if let indexEntry = try? modelContext.fetch(FetchDescriptor<IndexEntry>())
-                .first(where: { $0.id == attachment.entryID }) {
-                if indexEntry.referenceCount > 0 {
-                    indexEntry.referenceCount -= 1
+            case .index, .figure, .table:
+                if let indexEntry = try? modelContext.fetch(FetchDescriptor<IndexEntry>())
+                    .first(where: { $0.id == entryID }) {
+                    let newCount = max(0, indexEntry.referenceCount - entryInfo.count)
+                    indexEntry.referenceCount = newCount
+                    #if DEBUG
+                    print("📙 Decremented index ref count to: \(indexEntry.referenceCount)")
+                    #endif
                 }
-                #if DEBUG
-                print("📙 Decremented index ref count to: \(indexEntry.referenceCount)")
-                #endif
             }
-        default:
-            break
         }
-        
-        do {
-            try modelContext.save()
-            #if DEBUG
-            print("💾 Database saved")
-            #endif
-        } catch {
-            #if DEBUG
-            print("❌ Error saving: \(error)")
-            #endif
-        }
-        
-        // Update the current version's formatted content with the modified textStorage
+
         if let currentVersion = file.versions?[file.currentVersionIndex] {
             let currentContent = textView.attributedText ?? NSAttributedString()
             currentVersion.attributedContent = currentContent
             let referenceMetadata = extractReferenceMetadata(from: currentContent)
             currentVersion.referenceMetadataData = referenceMetadata.encode()
-            do {
-                try modelContext.save()
-                #if DEBUG
-                print("💾 Version content and metadata updated and saved")
-                #endif
-            } catch {
-                #if DEBUG
-                print("❌ Error saving version content: \(error)")
-                #endif
-            }
+        }
+
+        do {
+            try modelContext.save()
+            #if DEBUG
+            print("💾 Database and version content saved")
+            #endif
+        } catch {
+            #if DEBUG
+            print("❌ Error saving: \(error)")
+            #endif
         }
     }
     
