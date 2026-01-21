@@ -12,7 +12,7 @@ import SwiftUI
 import SwiftData
 
 /// View for displaying reference content in a popover
-/// Shows different content based on reference type (note, glossary, citation, etc.)
+/// Shows different content based on reference type (note, glossary, reference, etc.)
 struct ReferencePopoverView: View {
     
     // MARK: - Environment
@@ -108,7 +108,7 @@ struct ReferencePopoverView: View {
         switch attachment.referenceType {
         case .note, .endnote:
             return "note.text"
-        case .citation:
+        case .reference:
             return "book.closed"
         case .glossary:
             return "textformat.abc"
@@ -125,8 +125,8 @@ struct ReferencePopoverView: View {
         switch attachment.referenceType {
         case .note, .endnote:
             return .blue
-        case .citation:
-            return .indigo
+        case .reference:
+            return .orange
         case .glossary:
             return .teal
         case .index:
@@ -142,8 +142,8 @@ struct ReferencePopoverView: View {
             return String(format: NSLocalizedString("reference.note.title", comment: "Note title"), attachment.displayNumber)
         case .endnote:
             return String(format: NSLocalizedString("reference.endnote.title", comment: "Endnote title"), attachment.displayNumber)
-        case .citation:
-            return NSLocalizedString("reference.citation.title", comment: "Citation")
+        case .reference:
+            return NSLocalizedString("reference.reference.title", comment: "Reference")
         case .glossary:
             return NSLocalizedString("reference.glossary.title", comment: "Glossary Term")
         case .index:
@@ -166,8 +166,8 @@ struct ReferencePopoverView: View {
         switch attachment.referenceType {
         case .note, .endnote:
             noteContentView
-        case .citation:
-            citationContentView
+        case .reference:
+            referenceContentView
         case .glossary:
             glossaryContentView
         case .index:
@@ -203,42 +203,27 @@ struct ReferencePopoverView: View {
     }
     
     @ViewBuilder
-    private var citationContentView: some View {
-        if let citation = fetchCitationEntry() {
+    private var referenceContentView: some View {
+        if let reference = fetchReferenceEntry() {
             VStack(alignment: .leading, spacing: 8) {
-                // Authors
-                if !citation.authors.isEmpty {
-                    Text(citation.authors.joined(separator: ", "))
+                // Author
+                if !reference.author.isEmpty {
+                    Text(reference.author)
                         .font(.subheadline.weight(.medium))
                 }
                 
-                // Title
-                Text(citation.title)
-                    .font(.body)
-                    .italic()
-                
-                // Source and year
-                HStack {
-                    if let source = citation.source {
-                        Text(source)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    if let year = citation.year {
-                        Text("(\(year))")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
+                // Publication Date
+                if !reference.publicationDate.isEmpty {
+                    Text("("+reference.publicationDate+")")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
                 
-                // URL if available
-                if let urlString = citation.url, let url = URL(string: urlString) {
-                    Link(destination: url) {
-                        Label(urlString, systemImage: "link")
-                            .font(.caption)
-                            .lineLimit(1)
-                    }
+                // Details (journal, publisher, URL, etc.)
+                if !reference.details.isEmpty {
+                    Text(reference.details)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
             }
         } else {
@@ -375,9 +360,9 @@ struct ReferencePopoverView: View {
         return try? modelContext.fetch(descriptor).first
     }
     
-    private func fetchCitationEntry() -> CitationEntry? {
+    private func fetchReferenceEntry() -> ReferenceEntry? {
         let entryID = attachment.entryID
-        let descriptor = FetchDescriptor<CitationEntry>(
+        let descriptor = FetchDescriptor<ReferenceEntry>(
             predicate: #Predicate { $0.id == entryID }
         )
         return try? modelContext.fetch(descriptor).first
