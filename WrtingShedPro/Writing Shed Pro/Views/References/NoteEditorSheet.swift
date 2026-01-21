@@ -76,7 +76,10 @@ struct NoteEditorSheet: View {
     }
     
     private var existingNotesOfType: [NoteEntry] {
-        project.noteEntries?.filter { $0.isEndnote == isEndnote } ?? []
+        project.noteEntries?
+            .filter { $0.isEndnote == isEndnote }
+            .filter { $0.referenceCount > 0 }
+        ?? []
     }
     
     private var navigationTitle: String {

@@ -3530,6 +3530,7 @@ struct FileEditView: View {
             }
             
             // Delete the reference from the database
+            attributedContent = textView.attributedText ?? NSAttributedString()
             self.deleteReferenceFromDatabase(attachment, textView: textView)
             
             // Update back matter
