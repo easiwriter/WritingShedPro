@@ -1727,6 +1727,56 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
         return false
     }
     
+    // MARK: - Copy with Reference Stripping
+    
+    /// Override copy to strip reference attachments and inform user
+    @objc override func copy(_ sender: Any?) {
+        guard let selectedRange = selectedTextRange else {
+            super.copy(sender)
+            return
+        }
+        
+        let nsRange = convert(selectedRange)
+        let selectedString = attributedText.attributedSubstring(from: nsRange)
+        
+        // Check if selection contains any reference attachments
+        var hasReferences = false
+        selectedString.enumerateAttribute(.attachment, in: NSRange(0..<selectedString.length), options: []) { value, _, _ in
+            if let _ = value as? ReferenceAttachment {
+                hasReferences = true
+            }
+        }
+        
+        if hasReferences {
+            #if DEBUG
+            print("📋 Copy operation detected - stripping reference attachments")
+            #endif
+            
+            // Create plain text version without reference attachments
+            let plainString = selectedString.string
+            
+            // Copy to pasteboard
+            UIPasteboard.general.string = plainString
+            
+            // Show brief feedback to user
+            let alert = UIAlertController(
+                title: "References Not Copied",
+                message: "References cannot be copied. Only the text will be copied. This helps maintain accurate reference tracking.",
+                preferredStyle: .alert
+            )
+            alert.addAction(UIAlertAction(title: "OK", style: .default))
+            
+            // Present on root view controller
+            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+               let root = windowScene.windows.first?.rootViewController {
+                root.present(alert, animated: true)
+            }
+        } else {
+            // No references - proceed with normal copy
+            super.copy(sender)
+        }
+    }
+    
     // iOS 16+ Edit Menu Customization
     @available(iOS 16.0, *)
     override func editMenu(for textRange: UITextRange, suggestedActions: [UIMenuElement]) -> UIMenu? {
