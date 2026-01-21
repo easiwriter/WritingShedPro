@@ -3664,7 +3664,14 @@ struct FileEditView: View {
         #endif
     }
     
-    /// Restore a reference attachment to the text (for undo)
+    // TODO: Implement undo/redo for reference deletion
+    // When undo is called, we need to:
+    // 1. Restore the reference attachment to the text
+    // 2. Regenerate back matter to restore the entry
+    // Currently, only the database state is restored by ReferenceDeleteCommand.undo()
+    // Need to add observation of model changes to trigger attachment restoration
+    
+    /// Helper to restore an attachment (called during undo - currently not invoked, needs implementation)
     private func restoreReferenceAttachment(_ attachment: ReferenceAttachment) {
         #if DEBUG
         print("🔄 Restoring reference attachment: \(attachment.displayText)")
