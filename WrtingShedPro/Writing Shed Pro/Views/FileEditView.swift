@@ -3619,8 +3619,23 @@ struct FileEditView: View {
             #endif
         }
         
-        // Also update the File entity's content with the modified textStorage
-        file.content = textViewCoordinator.textView.attributedText
+        // Update the current version's formatted content with the modified textStorage
+        if let currentVersion = file.versions?[file.currentVersionIndex] {
+            let attributedText = textViewCoordinator.textView.attributedText
+            do {
+                let rtfData = try attributedText.data(from: NSRange(0..<attributedText.length), 
+                                                       documentAttributes: [.documentType: NSAttributedString.DocumentType.rtf])
+                currentVersion.formattedContent = rtfData
+                try modelContext.save()
+                #if DEBUG
+                print("💾 Version formatted content updated and saved")
+                #endif
+            } catch {
+                #if DEBUG
+                print("❌ Error updating formatted content: \(error)")
+                #endif
+            }
+        }
     }
     
     // MARK: - Glossary (Feature 029)
