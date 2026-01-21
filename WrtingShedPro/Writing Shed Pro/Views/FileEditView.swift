@@ -3604,56 +3604,12 @@ struct FileEditView: View {
         print("🗑️ Executing command through undoManager")
         #endif
         
-        // Execute through undo manager
+        // Execute through undo manager - this updates the database
+        // The text deletion is handled naturally by UITextView
         undoManager.execute(command)
         
         #if DEBUG
-        print("🗑️ Command executed, now removing attachment from text")
-        #endif
-        
-        // Now remove the attachment from the text
-        if let textView = textViewCoordinator.textView,
-           let attrText = textView.attributedText {
-            // Find and remove the attachment from the text storage
-            var rangeToDelete: NSRange? = nil
-            
-            // Search for this specific attachment in the text
-            attrText.enumerateAttribute(.attachment, in: NSRange(location: 0, length: attrText.length), options: []) { value, range, _ in
-                if let foundAttachment = value as? ReferenceAttachment,
-                   foundAttachment.entryID == attachment.entryID &&
-                   foundAttachment.referenceType == attachment.referenceType &&
-                   foundAttachment.displayText == attachment.displayText {
-                    rangeToDelete = range
-                }
-            }
-            
-            if let rangeToDelete = rangeToDelete {
-                #if DEBUG
-                print("🗑️ Found attachment at range: \(rangeToDelete)")
-                #endif
-                
-                // Remove the attachment - we need to do this outside the undo system
-                // since we already have the deletion recorded via ReferenceDeleteCommand
-                textView.undoManager?.disableUndoRegistration()
-                textView.textStorage.deleteCharacters(in: rangeToDelete)
-                textView.undoManager?.enableUndoRegistration()
-                
-                #if DEBUG
-                print("🗑️ Attachment removed from text")
-                #endif
-            } else {
-                #if DEBUG
-                print("⚠️ Could not find attachment in text to remove")
-                #endif
-            }
-        } else {
-            #if DEBUG
-            print("⚠️ No text view available to remove attachment")
-            #endif
-        }
-        
-        #if DEBUG
-        print("🗑️ Calling updateBackMatterFiles")
+        print("🗑️ Command executed, updating back matter")
         #endif
         
         // Regenerate back matter files after deletion
