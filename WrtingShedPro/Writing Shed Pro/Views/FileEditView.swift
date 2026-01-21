@@ -4248,10 +4248,11 @@ struct FileEditView: View {
         guard backMatterFolder.backMatterSettings.isEnabled(.references) else { return }
         
         // Find or create the References back matter file
+        let folderID = backMatterFolder.id
         let fileName = BackMatterItem.references.fileName
         let descriptor = FetchDescriptor<TextFile>(
             predicate: #Predicate<TextFile> { file in
-                file.parentFolder?.id == backMatterFolder.id && file.name == fileName
+                file.parentFolder?.id == folderID && file.name == fileName
             }
         )
         
