@@ -3550,8 +3550,10 @@ struct FileEditView: View {
             previousReferencingFileIDs: previousReferencingFileIDs,
             targetFile: file,
             modelContext: modelContext,
-            updateBackMatterCallback: { [weak self] in
-                self?.updateBackMatterFiles()
+            updateBackMatterCallback: { [weak modelContext] in
+                // Regenerate back matter files after deletion
+                guard let context = modelContext else { return }
+                BackMatterGenerator.shared.generateAllBackMatter(for: file, in: context)
             }
         )
         
