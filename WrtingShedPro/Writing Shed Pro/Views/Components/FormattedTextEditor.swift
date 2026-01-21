@@ -1731,17 +1731,17 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
     
     /// Override copy to strip reference attachments and inform user
     @objc override func copy(_ sender: Any?) {
-        guard let selectedRange = selectedTextRange else {
+        let nsRange = selectedRange
+        guard nsRange.length > 0 else {
             super.copy(sender)
             return
         }
         
-        let nsRange = convert(selectedRange)
         let selectedString = attributedText.attributedSubstring(from: nsRange)
         
         // Check if selection contains any reference attachments
         var hasReferences = false
-        selectedString.enumerateAttribute(.attachment, in: NSRange(0..<selectedString.length), options: []) { value, _, _ in
+        selectedString.enumerateAttribute(NSAttributedString.Key.attachment, in: NSRange(0..<selectedString.length), options: []) { value, _, _ in
             if let _ = value as? ReferenceAttachment {
                 hasReferences = true
             }
