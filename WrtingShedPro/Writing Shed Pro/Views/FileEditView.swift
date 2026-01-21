@@ -1751,6 +1751,12 @@ struct FileEditView: View {
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("UndoRedoContentRestored"))) { notification in
                 handleUndoRedoContentRestored(notification)
             }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ReferenceDeleteCommandUndone"))) { _ in
+                #if DEBUG
+                print("📋 Received ReferenceDeleteCommandUndone notification - updating back matter")
+                #endif
+                updateBackMatterFiles()
+            }
             .alert("Print Error", isPresented: $showPrintError) {
                 Button("OK", role: .cancel) { }
             } message: {

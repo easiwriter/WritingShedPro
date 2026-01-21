@@ -203,11 +203,11 @@ final class ReferenceDeleteCommand: UndoableCommand {
             #endif
         }
         
-        // Just restore the database state
-        // Attachment restoration and back matter updates are handled by FileEditView
+        // Post notification so FileEditView can update back matter
         #if DEBUG
-        print("📋 ReferenceDeleteCommand.undo: Database state restored (callbacks optional)")
+        print("📋 ReferenceDeleteCommand.undo: Posting updateBackMatterNotification")
         #endif
+        NotificationCenter.default.post(name: NSNotification.Name("ReferenceDeleteCommandUndone"), object: nil)
     }
     
     // MARK: - Codable
