@@ -65,11 +65,6 @@ struct FileEditView: View {
     @State private var selectedGlossaryTerm: GlossaryEntry?
     @State private var glossaryTermFromContextMenu: String?  // Term selected from context menu "Add to Glossary"
     
-    // Feature 029: Citations (Back Matter)
-    @State private var showCitationsList = false
-    @State private var showNewCitationDialog = false
-    @State private var selectedCitation: CitationEntry?
-    
     // Feature 029: Index (Back Matter)
     @State private var showIndexList = false
     @State private var showNewIndexEntryDialog = false
@@ -587,13 +582,6 @@ struct FileEditView: View {
         }
     }
     
-    /// Citation button for compact mode
-    @ViewBuilder
-    private func compactCitationSubmenu() -> some View {
-        Button(action: { showNewCitationDialog = true }) {
-            Label(NSLocalizedString("insertMenu.addCitation", comment: "Add Citation"), systemImage: "quote.opening")
-        }
-    }
     
     /// Index button for compact mode
     @ViewBuilder
@@ -1558,50 +1546,6 @@ struct FileEditView: View {
                         },
                         onCancel: {
                             selectedGlossaryTerm = nil
-                        }
-                    )
-                }
-            }
-            // Feature 029: Citations sheets
-            .sheet(isPresented: $showCitationsList) {
-                if let project = file.project {
-                    CitationsListView(
-                        project: project,
-                        onJumpToCitation: { citation in
-                            jumpToCitationMarker(citation)
-                        },
-                        onDismiss: {
-                            showCitationsList = false
-                        },
-                        onCitationChanged: {
-                            saveChanges()
-                        },
-                        onCitationDeleted: { citation in
-                            removeCitationMarkers(for: citation)
-                        }
-                    )
-                }
-            }
-            .sheet(isPresented: $showNewCitationDialog) {
-                if let project = file.project {
-                    CitationEditorSheet(
-                        project: project,
-                        onSave: { citation in
-                            insertCitationMarker(for: citation)
-                        }
-                    )
-                }
-            }
-            .sheet(item: $selectedCitation) { citation in
-                if let project = file.project {
-                    CitationEditorSheet(
-                        project: project,
-                        existingCitation: citation,
-                        onSave: { _ in
-                            forceRefresh.toggle()
-                        },
-                        onCancel: {
-                            selectedCitation = nil
                         }
                     )
                 }
@@ -3658,13 +3602,13 @@ struct FileEditView: View {
                     print("📕 Decremented glossary ref count to: \(glossaryEntry.referenceCount)")
                     #endif
                 }
-            case .citation:
-                if let citationEntry = try? modelContext.fetch(FetchDescriptor<CitationEntry>())
+            case .reference:
+                if let referenceEntry = try? modelContext.fetch(FetchDescriptor<ReferenceEntry>())
                     .first(where: { $0.id == entryID }) {
-                    let newCount = max(0, citationEntry.referenceCount - entryInfo.count)
-                    citationEntry.referenceCount = newCount
+                    let newCount = max(0, referenceEntry.referenceCount - entryInfo.count)
+                    referenceEntry.referenceCount = newCount
                     #if DEBUG
-                    print("📗 Decremented citation ref count to: \(citationEntry.referenceCount)")
+                    print("📗 Decremented reference ref count to: \(referenceEntry.referenceCount)")
                     #endif
                 }
             case .index, .figure, .table:
@@ -3941,7 +3885,7 @@ struct FileEditView: View {
         
         mutableContent.enumerateAttribute(.attachment, in: NSRange(location: 0, length: mutableContent.length)) { value, range, _ in
             if let attachment = value as? ReferenceAttachment,
-               attachment.referenceType == .citation,
+               attachment.referenceType == .reference,
                attachment.entryID == citation.id {
                 rangesToRemove.append(range)
             }
@@ -3983,7 +3927,7 @@ struct FileEditView: View {
         var foundRange: NSRange?
         content.enumerateAttribute(.attachment, in: NSRange(location: 0, length: content.length)) { value, range, stop in
             if let attachment = value as? ReferenceAttachment,
-               attachment.referenceType == .citation,
+               attachment.referenceType == .reference,
                attachment.entryID == citation.id {
                 foundRange = range
                 stop.pointee = true
