@@ -3598,11 +3598,11 @@ struct FileEditView: View {
             attachmentDisplayText: attachment.displayText,
             targetFile: file,
             modelContext: modelContext,
-            updateBackMatterCallback: { [weak self] in
-                self?.updateBackMatterFiles()
+            updateBackMatterCallback: { [unowned self] in
+                self.updateBackMatterFiles()
             },
-            restoreAttachmentCallback: { [weak self] attachment in
-                self?.restoreReferenceAttachment(attachment)
+            restoreAttachmentCallback: { [unowned self] attachment in
+                self.restoreReferenceAttachment(attachment)
             }
         )
         
@@ -3618,9 +3618,9 @@ struct FileEditView: View {
         #endif
         
         // Now remove the attachment from the text
-        if let textView = textViewCoordinator.textView {
+        if let textView = textViewCoordinator.textView,
+           let attrText = textView.attributedText {
             // Find and remove the attachment from the text storage
-            let attrText = textView.attributedText
             var rangeToDelete: NSRange? = nil
             
             // Search for this specific attachment in the text
