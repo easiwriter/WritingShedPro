@@ -22,10 +22,14 @@ final class ReferenceDeleteCommand: UndoableCommand {
     /// Previous referencingFileIDs (for Notes only)
     let previousReferencingFileIDs: [UUID]
     
+    /// The attachment data (for restoring on undo)
+    let attachment: ReferenceAttachment
+    
     /// Weak references to data model objects (can't be codable, but needed for execute/undo)
     weak var targetFile: TextFile?
     weak var modelContext: ModelContext?
     var updateBackMatterCallback: (() -> Void)?
+    var restoreAttachmentCallback: ((ReferenceAttachment) -> Void)?
     
     // MARK: - Initialization
     
@@ -37,9 +41,11 @@ final class ReferenceDeleteCommand: UndoableCommand {
          fileID: UUID,
          previousRefCount: Int,
          previousReferencingFileIDs: [UUID] = [],
+         attachment: ReferenceAttachment,
          targetFile: TextFile? = nil,
          modelContext: ModelContext? = nil,
-         updateBackMatterCallback: (() -> Void)? = nil) {
+         updateBackMatterCallback: (() -> Void)? = nil,
+         restoreAttachmentCallback: ((ReferenceAttachment) -> Void)? = nil) {
         self.id = id
         self.timestamp = timestamp
         self.description = description
@@ -48,9 +54,11 @@ final class ReferenceDeleteCommand: UndoableCommand {
         self.fileID = fileID
         self.previousRefCount = previousRefCount
         self.previousReferencingFileIDs = previousReferencingFileIDs
+        self.attachment = attachment
         self.targetFile = targetFile
         self.modelContext = modelContext
         self.updateBackMatterCallback = updateBackMatterCallback
+        self.restoreAttachmentCallback = restoreAttachmentCallback
     }
     
     // MARK: - UndoableCommand
@@ -201,6 +209,12 @@ final class ReferenceDeleteCommand: UndoableCommand {
             #endif
         }
         
+        // Restore the attachment to the text
+        #if DEBUG
+        print("📋 ReferenceDeleteCommand.undo: Calling restoreAttachmentCallback")
+        #endif
+        restoreAttachmentCallback?(attachment)
+        
         // Update back matter after undo (deferred to let SwiftUI binding propagate first)
         #if DEBUG
         print("📋 ReferenceDeleteCommand.undo: Deferring updateBackMatterCallback")
@@ -219,6 +233,7 @@ final class ReferenceDeleteCommand: UndoableCommand {
         case id, timestamp, description
         case referenceType, referenceID, fileID
         case previousRefCount, previousReferencingFileIDs
+        case attachment
     }
     
     required init(from decoder: any Decoder) throws {
@@ -231,6 +246,7 @@ final class ReferenceDeleteCommand: UndoableCommand {
         fileID = try container.decode(UUID.self, forKey: .fileID)
         previousRefCount = try container.decode(Int.self, forKey: .previousRefCount)
         previousReferencingFileIDs = try container.decode([UUID].self, forKey: .previousReferencingFileIDs)
+        attachment = try container.decode(ReferenceAttachment.self, forKey: .attachment)
     }
     
     func encode(to encoder: any Encoder) throws {
@@ -240,6 +256,10 @@ final class ReferenceDeleteCommand: UndoableCommand {
         try container.encode(description, forKey: .description)
         try container.encode(referenceType, forKey: .referenceType)
         try container.encode(referenceID, forKey: .referenceID)
+        try container.encode(fileID, forKey: .fileID)
+        try container.encode(previousRefCount, forKey: .previousRefCount)
+        try container.encode(previousReferencingFileIDs, forKey: .previousReferencingFileIDs)
+        try container.encode(attachment, forKey: .attachment)
         try container.encode(fileID, forKey: .fileID)
         try container.encode(previousRefCount, forKey: .previousRefCount)
         try container.encode(previousReferencingFileIDs, forKey: .previousReferencingFileIDs)

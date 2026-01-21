@@ -3593,9 +3593,15 @@ struct FileEditView: View {
             fileID: file.id,
             previousRefCount: previousRefCount,
             previousReferencingFileIDs: previousReferencingFileIDs,
+            attachment: attachment,
             targetFile: file,
             modelContext: modelContext,
-            updateBackMatterCallback: nil
+            updateBackMatterCallback: { [weak self] in
+                self?.updateBackMatterFiles()
+            },
+            restoreAttachmentCallback: { [weak self] attachment in
+                self?.restoreReferenceAttachment(attachment)
+            }
         )
         
         #if DEBUG
@@ -3606,14 +3612,84 @@ struct FileEditView: View {
         undoManager.execute(command)
         
         #if DEBUG
-        print("🗑️ Command executed, calling updateBackMatterFiles")
+        print("🗑️ Command executed, now removing attachment from text")
         #endif
         
-        // Regenerate back matter files after deletion
-        updateBackMatterFiles()
+        // Now remove the attachment from the text
+        if let textView = textViewCoordinator.textView {
+            // Find and remove the attachment from the text storage
+            let attrText = textView.attributedText
+            var rangeToDelete: NSRange? = nil
+            
+            // Search for this specific attachment in the text
+            attrText.enumerateAttribute(.attachment, in: NSRange(location: 0, length: attrText.length), options: []) { value, range, _ in
+                if let foundAttachment = value as? ReferenceAttachment,
+                   foundAttachment.entryID == attachment.entryID &&
+                   foundAttachment.referenceType == attachment.referenceType &&
+                   foundAttachment.displayText == attachment.displayText {
+                    rangeToDelete = range
+                }
+            }
+            
+            if let rangeToDelete = rangeToDelete {
+                #if DEBUG
+                print("🗑️ Found attachment at range: \(rangeToDelete)")
+                #endif
+                
+                // Remove the attachment - we need to do this outside the undo system
+                // since we already have the deletion recorded via ReferenceDeleteCommand
+                textView.undoManager?.disableUndoRegistration()
+                textView.textStorage.deleteCharacters(in: rangeToDelete)
+                textView.undoManager?.enableUndoRegistration()
+                
+                #if DEBUG
+                print("🗑️ Attachment removed from text")
+                #endif
+            } else {
+                #if DEBUG
+                print("⚠️ Could not find attachment in text to remove")
+                #endif
+            }
+        } else {
+            #if DEBUG
+            print("⚠️ No text view available to remove attachment")
+            #endif
+        }
         
         #if DEBUG
         print("✅ Reference deletion complete")
+        #endif
+    }
+    
+    /// Restore a reference attachment to the text (for undo)
+    private func restoreReferenceAttachment(_ attachment: ReferenceAttachment) {
+        #if DEBUG
+        print("🔄 Restoring reference attachment: \(attachment.displayText)")
+        #endif
+        
+        guard let textView = textViewCoordinator.textView else {
+            #if DEBUG
+            print("⚠️ No text view available to restore attachment")
+            #endif
+            return
+        }
+        
+        // For now, we need to find where the attachment was and re-insert it
+        // This is a simplified approach - in a full implementation, we'd track the position
+        // For now, insert at the current cursor position
+        let currentRange = textView.selectedRange
+        
+        // Create the attributed string with the attachment
+        let attrString = NSMutableAttributedString()
+        attrString.append(NSAttributedString(attachment: attachment, attributes: [:]))
+        
+        // Insert at current position
+        textView.undoManager?.disableUndoRegistration()
+        textView.textStorage.insert(attrString, at: currentRange.location)
+        textView.undoManager?.enableUndoRegistration()
+        
+        #if DEBUG
+        print("🔄 Attachment restored to text at position \(currentRange.location)")
         #endif
     }
     
