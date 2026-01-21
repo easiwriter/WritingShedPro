@@ -39,7 +39,6 @@ struct FileEditView: View {
     @State private var isPaginationMode = false // Toggle between edit and pagination preview modes
     @State private var undoManager: TextFileUndoManager
     @StateObject private var textViewCoordinator = TextViewCoordinator()
-    @State private var activeUndoHandlers: [UndoHandlerWrapper] = []  // Keep strong references to handlers
     
     // Feature 014: Comments
     @State private var showCommentsList = false
@@ -3582,214 +3581,30 @@ struct FileEditView: View {
         }
         
         #if DEBUG
-        print("🗑️ Executing reference deletion with undo registered to UITextView")
+        print("🗑️ Executing reference deletion with TextFileUndoManager")
         #endif
         
-        // Perform the database update immediately
-        executeReferenceDelete(
+        // Create and execute the delete command through the proper undo manager
+        let command = ReferenceDeleteCommand(
+            description: "Delete Reference",
             referenceType: referenceTypeString,
             referenceID: attachment.entryID,
             fileID: file.id,
             previousRefCount: previousRefCount,
-            previousReferencingFileIDs: previousReferencingFileIDs
+            previousReferencingFileIDs: previousReferencingFileIDs,
+            attachmentReferenceType: attachment.referenceType,
+            attachmentEntryID: attachment.entryID,
+            attachmentDisplayText: attachment.displayText,
+            targetFile: file,
+            modelContext: modelContext,
+            onBackMatterUpdate: updateBackMatterFiles
         )
         
-        // Register undo action with UITextView's undoManager
-        // Use a helper closure stored in undoManager
-        if let textView = textViewCoordinator.textView,
-           let undoManager = textView.undoManager {
-            // Store a handler in the undo manager that will call back to this view
-            let handler = {
-                self.restoreReferenceState(
-                    referenceType: referenceTypeString,
-                    referenceID: attachment.entryID,
-                    fileID: file.id,
-                    previousRefCount: previousRefCount,
-                    previousReferencingFileIDs: previousReferencingFileIDs
-                )
-            }
-            // Create wrapper and keep strong reference in state
-            let undoWrapper = UndoHandlerWrapper(handler: handler)
-            activeUndoHandlers.append(undoWrapper)
-            
-            // Register the undo with the wrapper
-            undoManager.registerUndo(withTarget: undoWrapper, selector: #selector(UndoHandlerWrapper.performUndo), object: nil)
-        }
+        // Execute through the app's undo manager
+        undoManager.execute(command)
         
         #if DEBUG
-        print("✅ Reference deletion complete with undo registered")
-        #endif
-    }
-    
-    /// Execute the reference deletion in the database
-    private func executeReferenceDelete(
-        referenceType: String,
-        referenceID: UUID,
-        fileID: UUID,
-        previousRefCount: Int,
-        previousReferencingFileIDs: [UUID]
-    ) {
-        #if DEBUG
-        print("🗑️ executeReferenceDelete: \(referenceType) ref \(referenceID.uuidString.prefix(8))")
-        #endif
-        
-        // Decrement the reference count
-        switch referenceType {
-        case "note":
-            if let noteEntry = try? modelContext.fetch(FetchDescriptor<NoteEntry>())
-                .first(where: { $0.id == referenceID }) {
-                if noteEntry.referenceCount > 0 {
-                    noteEntry.referenceCount -= 1
-                }
-                noteEntry.referencingFileIDs.removeAll { $0 == fileID }
-                #if DEBUG
-                print("📝 Decremented note ref count to: \(noteEntry.referenceCount)")
-                #endif
-            }
-        case "glossary":
-            if let glossaryEntry = try? modelContext.fetch(FetchDescriptor<GlossaryEntry>())
-                .first(where: { $0.id == referenceID }) {
-                if glossaryEntry.referenceCount > 0 {
-                    glossaryEntry.referenceCount -= 1
-                }
-                #if DEBUG
-                print("📕 Decremented glossary ref count to: \(glossaryEntry.referenceCount)")
-                #endif
-            }
-        case "citation":
-            if let citationEntry = try? modelContext.fetch(FetchDescriptor<CitationEntry>())
-                .first(where: { $0.id == referenceID }) {
-                if citationEntry.referenceCount > 0 {
-                    citationEntry.referenceCount -= 1
-                }
-                #if DEBUG
-                print("📗 Decremented citation ref count to: \(citationEntry.referenceCount)")
-                #endif
-            }
-        case "index":
-            if let indexEntry = try? modelContext.fetch(FetchDescriptor<IndexEntry>())
-                .first(where: { $0.id == referenceID }) {
-                if indexEntry.referenceCount > 0 {
-                    indexEntry.referenceCount -= 1
-                }
-                #if DEBUG
-                print("📙 Decremented index ref count to: \(indexEntry.referenceCount)")
-                #endif
-            }
-        default:
-            break
-        }
-        
-        do {
-            try modelContext.save()
-            #if DEBUG
-            print("💾 Database saved")
-            #endif
-        } catch {
-            #if DEBUG
-            print("❌ Error saving: \(error)")
-            #endif
-        }
-        
-        // Update back matter
-        updateBackMatterFiles()
-    }
-    
-    /// Restore reference state when undo is called
-    func restoreReferenceState(
-        referenceType: String,
-        referenceID: UUID,
-        fileID: UUID,
-        previousRefCount: Int,
-        previousReferencingFileIDs: [UUID]
-    ) {
-        #if DEBUG
-        print("🔄 restoreReferenceState: \(referenceType) ref \(referenceID.uuidString.prefix(8))")
-        #endif
-        
-        // Restore the reference count
-        switch referenceType {
-        case "note":
-            if let noteEntry = try? modelContext.fetch(FetchDescriptor<NoteEntry>())
-                .first(where: { $0.id == referenceID }) {
-                noteEntry.referenceCount = previousRefCount
-                noteEntry.referencingFileIDs = previousReferencingFileIDs
-                #if DEBUG
-                print("📝 Restored note ref count to: \(noteEntry.referenceCount)")
-                #endif
-            }
-        case "glossary":
-            if let glossaryEntry = try? modelContext.fetch(FetchDescriptor<GlossaryEntry>())
-                .first(where: { $0.id == referenceID }) {
-                glossaryEntry.referenceCount = previousRefCount
-                #if DEBUG
-                print("📕 Restored glossary ref count to: \(glossaryEntry.referenceCount)")
-                #endif
-            }
-        case "citation":
-            if let citationEntry = try? modelContext.fetch(FetchDescriptor<CitationEntry>())
-                .first(where: { $0.id == referenceID }) {
-                citationEntry.referenceCount = previousRefCount
-                #if DEBUG
-                print("📗 Restored citation ref count to: \(citationEntry.referenceCount)")
-                #endif
-            }
-        case "index":
-            if let indexEntry = try? modelContext.fetch(FetchDescriptor<IndexEntry>())
-                .first(where: { $0.id == referenceID }) {
-                indexEntry.referenceCount = previousRefCount
-                #if DEBUG
-                print("📙 Restored index ref count to: \(indexEntry.referenceCount)")
-                #endif
-            }
-        default:
-            break
-        }
-        
-        do {
-            try modelContext.save()
-            #if DEBUG
-            print("💾 Database saved after restore")
-            #endif
-        } catch {
-            #if DEBUG
-            print("❌ Error saving after restore: \(error)")
-            #endif
-        }
-        
-        // Update back matter
-        updateBackMatterFiles()
-    }
-    
-    /// Helper to restore an attachment (called during undo - currently not invoked, needs implementation)
-    private func restoreReferenceAttachment(_ attachment: ReferenceAttachment) {
-        #if DEBUG
-        print("🔄 Restoring reference attachment: \(attachment.displayText)")
-        #endif
-        
-        guard let textView = textViewCoordinator.textView else {
-            #if DEBUG
-            print("⚠️ No text view available to restore attachment")
-            #endif
-            return
-        }
-        
-        // For now, we need to find where the attachment was and re-insert it
-        // This is a simplified approach - in a full implementation, we'd track the position
-        // For now, insert at the current cursor position
-        let currentRange = textView.selectedRange
-        
-        // Create the attributed string with the attachment
-        let attrString = NSMutableAttributedString()
-        attrString.append(NSAttributedString(attachment: attachment, attributes: [:]))
-        
-        // Insert at current position
-        textView.undoManager?.disableUndoRegistration()
-        textView.textStorage.insert(attrString, at: currentRange.location)
-        textView.undoManager?.enableUndoRegistration()
-        
-        #if DEBUG
-        print("🔄 Attachment restored to text at position \(currentRange.location)")
+        print("✅ Reference deletion complete")
         #endif
     }
     
@@ -6317,17 +6132,3 @@ private struct ImageStyleEditorSheetContent: View {
     }
 }
 
-// MARK: - Undo Helper for Reference Deletion
-
-/// Helper class to wrap closure for NSUndoManager
-private class UndoHandlerWrapper: NSObject {
-    let handler: () -> Void
-    
-    init(handler: @escaping () -> Void) {
-        self.handler = handler
-    }
-    
-    @objc func performUndo(object: Any?) {
-        handler()
-    }
-}
