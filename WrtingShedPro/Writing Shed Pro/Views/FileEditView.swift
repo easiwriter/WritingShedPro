@@ -3593,7 +3593,9 @@ struct FileEditView: View {
             fileID: file.id,
             previousRefCount: previousRefCount,
             previousReferencingFileIDs: previousReferencingFileIDs,
-            attachment: attachment,
+            attachmentReferenceType: attachment.referenceType,
+            attachmentEntryID: attachment.entryID,
+            attachmentDisplayText: attachment.displayText,
             targetFile: file,
             modelContext: modelContext,
             updateBackMatterCallback: { [weak self] in

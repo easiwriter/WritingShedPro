@@ -22,8 +22,10 @@ final class ReferenceDeleteCommand: UndoableCommand {
     /// Previous referencingFileIDs (for Notes only)
     let previousReferencingFileIDs: [UUID]
     
-    /// The attachment data (for restoring on undo)
-    let attachment: ReferenceAttachment
+    /// The attachment data (for restoring on undo) - stored separately for Codable support
+    let attachmentReferenceType: ReferenceType
+    let attachmentEntryID: UUID
+    let attachmentDisplayText: String
     
     /// Weak references to data model objects (can't be codable, but needed for execute/undo)
     weak var targetFile: TextFile?
@@ -41,7 +43,9 @@ final class ReferenceDeleteCommand: UndoableCommand {
          fileID: UUID,
          previousRefCount: Int,
          previousReferencingFileIDs: [UUID] = [],
-         attachment: ReferenceAttachment,
+         attachmentReferenceType: ReferenceType,
+         attachmentEntryID: UUID,
+         attachmentDisplayText: String,
          targetFile: TextFile? = nil,
          modelContext: ModelContext? = nil,
          updateBackMatterCallback: (() -> Void)? = nil,
@@ -54,7 +58,9 @@ final class ReferenceDeleteCommand: UndoableCommand {
         self.fileID = fileID
         self.previousRefCount = previousRefCount
         self.previousReferencingFileIDs = previousReferencingFileIDs
-        self.attachment = attachment
+        self.attachmentReferenceType = attachmentReferenceType
+        self.attachmentEntryID = attachmentEntryID
+        self.attachmentDisplayText = attachmentDisplayText
         self.targetFile = targetFile
         self.modelContext = modelContext
         self.updateBackMatterCallback = updateBackMatterCallback
@@ -213,7 +219,12 @@ final class ReferenceDeleteCommand: UndoableCommand {
         #if DEBUG
         print("📋 ReferenceDeleteCommand.undo: Calling restoreAttachmentCallback")
         #endif
-        restoreAttachmentCallback?(attachment)
+        let restoredAttachment = ReferenceAttachment(
+            referenceType: attachmentReferenceType,
+            entryID: attachmentEntryID,
+            displayText: attachmentDisplayText
+        )
+        restoreAttachmentCallback?(restoredAttachment)
         
         // Update back matter after undo (deferred to let SwiftUI binding propagate first)
         #if DEBUG
@@ -233,7 +244,7 @@ final class ReferenceDeleteCommand: UndoableCommand {
         case id, timestamp, description
         case referenceType, referenceID, fileID
         case previousRefCount, previousReferencingFileIDs
-        case attachment
+        case attachmentReferenceType, attachmentEntryID, attachmentDisplayText
     }
     
     required init(from decoder: any Decoder) throws {
@@ -246,7 +257,9 @@ final class ReferenceDeleteCommand: UndoableCommand {
         fileID = try container.decode(UUID.self, forKey: .fileID)
         previousRefCount = try container.decode(Int.self, forKey: .previousRefCount)
         previousReferencingFileIDs = try container.decode([UUID].self, forKey: .previousReferencingFileIDs)
-        attachment = try container.decode(ReferenceAttachment.self, forKey: .attachment)
+        attachmentReferenceType = try container.decode(ReferenceType.self, forKey: .attachmentReferenceType)
+        attachmentEntryID = try container.decode(UUID.self, forKey: .attachmentEntryID)
+        attachmentDisplayText = try container.decode(String.self, forKey: .attachmentDisplayText)
     }
     
     func encode(to encoder: any Encoder) throws {
@@ -259,7 +272,9 @@ final class ReferenceDeleteCommand: UndoableCommand {
         try container.encode(fileID, forKey: .fileID)
         try container.encode(previousRefCount, forKey: .previousRefCount)
         try container.encode(previousReferencingFileIDs, forKey: .previousReferencingFileIDs)
-        try container.encode(attachment, forKey: .attachment)
+        try container.encode(attachmentReferenceType, forKey: .attachmentReferenceType)
+        try container.encode(attachmentEntryID, forKey: .attachmentEntryID)
+        try container.encode(attachmentDisplayText, forKey: .attachmentDisplayText)
         try container.encode(fileID, forKey: .fileID)
         try container.encode(previousRefCount, forKey: .previousRefCount)
         try container.encode(previousReferencingFileIDs, forKey: .previousReferencingFileIDs)
