@@ -39,6 +39,7 @@ struct FileEditView: View {
     @State private var isPaginationMode = false // Toggle between edit and pagination preview modes
     @State private var undoManager: TextFileUndoManager
     @StateObject private var textViewCoordinator = TextViewCoordinator()
+    @State private var activeUndoHandlers: [UndoHandlerWrapper] = []  // Keep strong references to handlers
     
     // Feature 014: Comments
     @State private var showCommentsList = false
@@ -3607,8 +3608,11 @@ struct FileEditView: View {
                     previousReferencingFileIDs: previousReferencingFileIDs
                 )
             }
-            // Register the undo with a simple wrapper object
+            // Create wrapper and keep strong reference in state
             let undoWrapper = UndoHandlerWrapper(handler: handler)
+            activeUndoHandlers.append(undoWrapper)
+            
+            // Register the undo with the wrapper
             undoManager.registerUndo(withTarget: undoWrapper, selector: #selector(UndoHandlerWrapper.performUndo), object: nil)
         }
         
