@@ -18,7 +18,7 @@ import SwiftData
 /// Used to reconstruct ReferenceAttachment instances after RTF deserialization
 /// RTF format doesn't preserve custom NSTextAttachment subclasses, so we store
 /// the reference information separately and restore it on deserialization
-struct ReferenceEntry: Codable {
+struct ReferenceMetadataEntry: Codable {
     let type: ReferenceType
     let entryID: UUID
     let displayText: String
@@ -28,11 +28,11 @@ struct ReferenceEntry: Codable {
 /// Collection of reference metadata for all references in a version
 /// Stored in Version.referenceMetadataData as JSON-encoded data
 struct ReferenceMetadata: Codable {
-    var references: [ReferenceEntry] = []
+    var references: [ReferenceMetadataEntry] = []
     
     /// Add a reference entry
     mutating func add(type: ReferenceType, entryID: UUID, displayText: String, displayNumber: Int = 0) {
-        references.append(ReferenceEntry(type: type, entryID: entryID, displayText: displayText, displayNumber: displayNumber))
+        references.append(ReferenceMetadataEntry(type: type, entryID: entryID, displayText: displayText, displayNumber: displayNumber))
     }
     
     /// Remove all references to a specific entry
