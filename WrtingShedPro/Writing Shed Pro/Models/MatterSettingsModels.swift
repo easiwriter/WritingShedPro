@@ -101,7 +101,7 @@ enum BackMatterItem: String, CaseIterable, Codable, Identifiable {
         switch self {
         case .endnotes: return 0
         case .glossary: return 1
-        case .bibliography: return 2
+        case .references: return 2
         case .index: return 3
         }
     }

@@ -490,11 +490,6 @@ struct FileEditView: View {
             compactGlossarySubmenu()
         }
         
-        // Citation (top-level)
-        if backMatterSettings.isEnabled(.bibliography) {
-            compactCitationSubmenu()
-        }
-        
         // Reference (top-level)
         if backMatterSettings.isEnabled(.references) {
             compactReferenceSubmenu()
@@ -992,13 +987,6 @@ struct FileEditView: View {
             if backMatterSettings.isEnabled(.glossary) {
                 Button(action: { showNewGlossaryTermDialog = true }) {
                     Label(NSLocalizedString("insertMenu.addGlossaryTerm", comment: "Add Term"), systemImage: "text.book.closed.fill")
-                }
-            }
-
-            // Citation - direct button, no submenu
-            if backMatterSettings.isEnabled(.bibliography) {
-                Button(action: { showNewCitationDialog = true }) {
-                    Label(NSLocalizedString("insertMenu.addCitation", comment: "Add Citation"), systemImage: "quote.opening")
                 }
             }
             
@@ -2978,7 +2966,7 @@ struct FileEditView: View {
         let backMatterItems: [(item: BackMatterItem, shouldUpdate: Bool)] = [
             (.endnotes, true),
             (.glossary, backMatterFolder.backMatterSettings.isEnabled(.glossary)),
-            (.bibliography, backMatterFolder.backMatterSettings.isEnabled(.bibliography)),
+            (.references, backMatterFolder.backMatterSettings.isEnabled(.references)),
             (.index, backMatterFolder.backMatterSettings.isEnabled(.index))
         ]
         
@@ -3026,8 +3014,8 @@ struct FileEditView: View {
                 generatedContent = backMatterGenerator.generateNotesSection() ?? NSAttributedString()
             case .glossary:
                 generatedContent = backMatterGenerator.generateGlossarySection() ?? NSAttributedString()
-            case .bibliography:
-                generatedContent = backMatterGenerator.generateBibliographySection() ?? NSAttributedString()
+            case .references:
+                generatedContent = backMatterGenerator.generateReferencesSection() ?? NSAttributedString()
             case .index:
                 generatedContent = backMatterGenerator.generateIndexSection(pageMap: [:]) ?? NSAttributedString()
             }
@@ -3190,7 +3178,7 @@ struct FileEditView: View {
         let backMatterItems: [(name: String, type: BackMatterItem)] = [
             ("Endnotes", .endnotes),
             ("Glossary", .glossary),
-            ("Citations", .bibliography),
+            ("References", .references),
             ("Index", .index)
         ]
         
@@ -3290,10 +3278,10 @@ struct FileEditView: View {
             referenceTypeToRemove = .glossary
             project.glossaryEntries?.removeAll()
             backMatterFolder.backMatterSettings.setEnabled(.glossary, enabled: false)
-        } else if file.name == "Citations" {
-            referenceTypeToRemove = .citation
-            project.citationEntries?.removeAll()
-            backMatterFolder.backMatterSettings.setEnabled(.bibliography, enabled: false)
+        } else if file.name == "References" {
+            referenceTypeToRemove = .reference
+            project.referenceEntries?.removeAll()
+            backMatterFolder.backMatterSettings.setEnabled(.references, enabled: false)
         } else if file.name == "Index" {
             referenceTypeToRemove = .index
             project.indexEntries?.removeAll()

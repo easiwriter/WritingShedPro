@@ -185,7 +185,7 @@ struct ReferenceEditorSheet: View {
         let backMatterItems: [(item: BackMatterItem, shouldUpdate: Bool)] = [
             (.endnotes, true),
             (.glossary, backMatterFolder.backMatterSettings.isEnabled(.glossary)),
-            (.bibliography, backMatterFolder.backMatterSettings.isEnabled(.bibliography)),
+            (.references, backMatterFolder.backMatterSettings.isEnabled(.references)),
             (.index, backMatterFolder.backMatterSettings.isEnabled(.index))
         ]
         
@@ -213,8 +213,8 @@ struct ReferenceEditorSheet: View {
                 generatedContent = backMatterGenerator.generateNotesSection() ?? NSAttributedString()
             case .glossary:
                 generatedContent = backMatterGenerator.generateGlossarySection() ?? NSAttributedString()
-            case .bibliography:
-                generatedContent = backMatterGenerator.generateBibliographySection() ?? NSAttributedString()
+            case .references:
+                generatedContent = backMatterGenerator.generateReferencesSection() ?? NSAttributedString()
             case .index:
                 generatedContent = backMatterGenerator.generateIndexSection(pageMap: [:]) ?? NSAttributedString()
             }

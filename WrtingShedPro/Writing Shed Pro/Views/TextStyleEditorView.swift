@@ -715,7 +715,7 @@ struct TextStyleEditorView: View {
             let backMatterItems: [(item: BackMatterItem, shouldUpdate: Bool)] = [
                 (.endnotes, true),
                 (.glossary, backMatterFolder.backMatterSettings.isEnabled(.glossary)),
-                (.bibliography, backMatterFolder.backMatterSettings.isEnabled(.bibliography)),
+                (.references, backMatterFolder.backMatterSettings.isEnabled(.references)),
                 (.index, backMatterFolder.backMatterSettings.isEnabled(.index))
             ]
             
@@ -742,8 +742,8 @@ struct TextStyleEditorView: View {
                     generatedContent = generator.generateNotesSection() ?? NSAttributedString()
                 case .glossary:
                     generatedContent = generator.generateGlossarySection() ?? NSAttributedString()
-                case .bibliography:
-                    generatedContent = generator.generateBibliographySection() ?? NSAttributedString()
+                case .references:
+                    generatedContent = generator.generateReferencesSection() ?? NSAttributedString()
                 case .index:
                     generatedContent = generator.generateIndexSection(pageMap: [:]) ?? NSAttributedString()
                 }

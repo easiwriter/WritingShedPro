@@ -261,11 +261,11 @@ struct BackMatterSettingsDialog: View {
             print("📊 Glossary: \(entries.count) with references, hasReferences=\(result)")
             #endif
             return result
-        case .bibliography:
-            let entries = project.citationEntries?.filter { $0.referenceCount > 0 } ?? []
+        case .references:
+            let entries = project.referenceEntries?.filter { $0.referenceCount > 0 } ?? []
             result = !entries.isEmpty
             #if DEBUG
-            print("📊 Bibliography: \(entries.count) with references, hasReferences=\(result)")
+            print("📊 References: \(entries.count) with references, hasReferences=\(result)")
             #endif
             return result
         case .index:
