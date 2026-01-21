@@ -3526,7 +3526,6 @@ struct FileEditView: View {
         // Find the entry and get its current state for undo
         var previousRefCount: Int = 0
         var previousReferencingFileIDs: [UUID] = []
-        var entryFound = false
         
         switch attachment.referenceType {
         case .note, .endnote:
@@ -3588,7 +3587,7 @@ struct FileEditView: View {
         #if DEBUG
         print("🗑️ Creating ReferenceDeleteCommand")
         print("   FileID: \(file.id.uuidString.prefix(8))")
-        print("   ModelContext: \(modelContext != nil ? "yes" : "NO")")
+        print("   ModelContext: present")
         #endif
         
         let command = ReferenceDeleteCommand(
