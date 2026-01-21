@@ -4134,6 +4134,11 @@ struct FileEditView: View {
         // Save changes
         saveChanges()
         
+        // Regenerate back matter files to show the reference in the References section
+        if let project = file.project {
+            regenerateBackMatterFilesForReferences(project)
+        }
+        
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
             self.isPerformingUndoRedo = false
         }
@@ -4227,6 +4232,45 @@ struct FileEditView: View {
             #if DEBUG
             print("⚠️ No marker found for reference: \(reference.author)")
             #endif
+        }
+    }
+    
+    /// Regenerate back matter files after reference count changes
+    private func regenerateBackMatterFilesForReferences(_ project: Project) {
+        // Find the Back Matter folder
+        guard let backMatterFolder = project.folders?.first(where: { $0.isBackMatterFolder }) else {
+            return
+        }
+        
+        let backMatterGenerator = BackMatterGenerator(context: modelContext, project: project)
+        
+        // Only regenerate the References section
+        guard backMatterFolder.backMatterSettings.isEnabled(.references) else { return }
+        
+        // Find or create the References back matter file
+        let fileName = BackMatterItem.references.fileName
+        let descriptor = FetchDescriptor<TextFile>(
+            predicate: #Predicate<TextFile> { file in
+                file.parentFolder?.id == backMatterFolder.id && file.name == fileName
+            }
+        )
+        
+        if let backMatterFile = try? modelContext.fetch(descriptor).first {
+            // Generate new content
+            let generatedContent = backMatterGenerator.generateReferencesSection() ?? NSAttributedString()
+            
+            // Update or create current version
+            if backMatterFile.currentVersion == nil {
+                let newVersion = Version(versionNumber: 1)
+                newVersion.textFile = backMatterFile
+                newVersion.attributedContent = generatedContent
+                modelContext.insert(newVersion)
+                backMatterFile.currentVersionIndex = 0
+            } else {
+                backMatterFile.currentVersion?.attributedContent = generatedContent
+            }
+            
+            try? modelContext.save()
         }
     }
     
