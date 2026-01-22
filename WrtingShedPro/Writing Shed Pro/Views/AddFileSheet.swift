@@ -36,8 +36,8 @@ struct AddFileSheet: View {
                         }
                 }
                 
-                // Poetry form picker section (only for Poetry projects with English locale)
-                if isPoetryProject && isEnglishLocale {
+                // Poetry form picker section (only for Poetry projects)
+                if isPoetryProject {
                     Section {
                         PoetryFormPickerCompact(selectedForm: $selectedPoetryForm)
                     } header: {
@@ -59,7 +59,7 @@ struct AddFileSheet: View {
                     Button(NSLocalizedString("addFile.add", comment: "Add button")) {
                         addFile()
                     }
-                    .disabled(fileName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(isAddButtonDisabled)
                     .foregroundColor(.blue)
                 }
             }
@@ -72,7 +72,22 @@ struct AddFileSheet: View {
         .navigationViewStyle(.stack)
     }
     
+    // MARK: - Validation
+    
+    private var isAddButtonDisabled: Bool {
+        // Name is required - same for all project types
+        return fileName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+    
     private func addFile() {
+        // Validate name is not empty
+        let trimmedName = fileName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedName.isEmpty {
+            errorMessage = NSLocalizedString("addFile.nameRequired", comment: "File name is required")
+            showErrorAlert = true
+            return
+        }
+        
         // Check if folder allows files
         guard FolderCapabilityService.canAddFile(to: parentFolder) else {
             errorMessage = FolderCapabilityService.disallowedOperationMessage(for: parentFolder, operation: .addFile)

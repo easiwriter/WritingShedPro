@@ -463,6 +463,7 @@
 "addFile.location" = "Location";
 "addFile.error" = "Error";
 "addFile.ok" = "OK";
+"addFile.nameRequired" = "File name is required";
 "addFile.duplicateName" = "A file with this name already exists in this folder.";
 "addFile.duplicateNameInTrash" = "A file with this name exists in Trash. Restore or permanently delete it first, or use a different name.";
 "addFile.poetryFormHeader" = "Poetry Form";
