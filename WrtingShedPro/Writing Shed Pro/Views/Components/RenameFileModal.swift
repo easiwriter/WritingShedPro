@@ -30,12 +30,13 @@ struct RenameFileModal: View {
     
     @State private var newName: String = ""
     @State private var showDuplicateWarning = false
+    @State private var showRenameAlert = true
     
     // MARK: - Body
     
     var body: some View {
         Color.clear
-            .alert("fileList.rename.title", isPresented: .constant(true)) {
+            .alert("fileList.rename.title", isPresented: $showRenameAlert) {
                 TextField("fileList.rename.placeholder", text: $newName)
                     .onAppear {
                         newName = file.name
@@ -92,6 +93,7 @@ struct RenameFileModal: View {
         let trimmedName = newName.trimmingCharacters(in: .whitespaces)
         file.name = trimmedName
         onRename(trimmedName)
+        showRenameAlert = false
         dismiss()
     }
 }
