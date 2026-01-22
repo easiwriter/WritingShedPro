@@ -94,13 +94,15 @@ extension FolderFilesView {
     @ViewBuilder
     var renamePickerSheet: some View {
         if let file = filesToRename.first {
-            RenameFileModal(
-                file: file,
-                filesInFolder: sortedFiles,
-                onRename: { newName in
-                    renameFile(newName: newName)
-                }
-            )
+            NavigationStack {
+                RenameFileModal(
+                    file: file,
+                    filesInFolder: sortedFiles,
+                    onRename: { newName in
+                        renameFile(newName: newName)
+                    }
+                )
+            }
         }
     }
     
