@@ -59,8 +59,8 @@ struct AddFileSheet: View {
                     Button(NSLocalizedString("addFile.add", comment: "Add button")) {
                         addFile()
                     }
+                    .foregroundColor(isAddButtonDisabled ? .gray : .blue)
                     .disabled(isAddButtonDisabled)
-                    .foregroundColor(.blue)
                 }
             }
             .alert(NSLocalizedString("addFile.error", comment: "Error alert title"), isPresented: $showErrorAlert) {
@@ -80,7 +80,7 @@ struct AddFileSheet: View {
     }
     
     private func addFile() {
-        // Validate name is not empty
+        // Explicitly check if name is empty first
         let trimmedName = fileName.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmedName.isEmpty {
             errorMessage = NSLocalizedString("addFile.nameRequired", comment: "File name is required")
@@ -95,9 +95,9 @@ struct AddFileSheet: View {
             return
         }
         
-        // Validate file name
+        // Validate file name format
         do {
-            try NameValidator.validateFileName(fileName)
+            try NameValidator.validateFileName(trimmedName)
         } catch {
             errorMessage = error.localizedDescription
             showErrorAlert = true
