@@ -166,8 +166,14 @@ struct FolderFilesView: View {
     }
     
     private func handleRename(_ files: [TextFile]) {
-        filesToRename = files
-        showRenamePicker = true
+        // FileListView already renamed the file - just save the context
+        do {
+            try modelContext.save()
+        } catch {
+            #if DEBUG
+            print("Error saving renamed file: \(error)")
+            #endif
+        }
     }
     
     private func handleChangeStatus(_ files: [TextFile]) {
