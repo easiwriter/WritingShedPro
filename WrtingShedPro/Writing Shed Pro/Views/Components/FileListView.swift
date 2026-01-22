@@ -253,7 +253,6 @@ struct FileListView: View {
             
             Button("fileList.rename.cancel", role: .cancel) {
                 renameText = ""
-                selectedFileIDs.removeAll()
             }
             
             Button("fileList.rename.confirm") {
@@ -727,7 +726,6 @@ struct FileListView: View {
         
         renameText = ""
         selectedFileIDs.removeAll()
-        showRenameModal = false
     }
     
     // MARK: - Section Persistence
