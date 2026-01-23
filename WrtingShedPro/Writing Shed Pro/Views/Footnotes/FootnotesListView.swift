@@ -54,12 +54,12 @@ struct FootnotesListView: View {
             }
             .navigationTitle("footnotesList.title")
             .navigationBarTitleDisplayMode(.inline)
-        }
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button("button.done") {
-                    onDismiss?()
-                    dismiss()
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("button.done") {
+                        onDismiss?()
+                        dismiss()
+                    }
                 }
             }
         }

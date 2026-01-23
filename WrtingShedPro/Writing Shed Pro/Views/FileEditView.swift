@@ -1383,9 +1383,6 @@ struct FileEditView: View {
                 if let currentVersion = file.currentVersion {
                     CommentsListView(
                         version: currentVersion,
-                        onDismiss: {
-                            showCommentsList = false
-                        },
                         onJumpToComment: { comment in
                             jumpToComment(comment)
                         },
@@ -3609,11 +3606,19 @@ struct FileEditView: View {
         
         guard let textView = textViewCoordinator.textView else { return }
         
-        let message = NSLocalizedString("commentsList.confirmDelete.message", comment: "This will permanently delete the comment and remove its marker from your text. This cannot be undone.")
+        let title: String
+        let message: String
+        if attachments.count > 1 {
+            title = String(format: NSLocalizedString("commentsList.confirmDeleteMultiple.title", comment: "Delete %d Comments?"), attachments.count)
+            message = String(format: NSLocalizedString("commentsList.confirmDeleteMultiple.message", comment: "This will permanently delete %d comments and remove their markers from your text. This cannot be undone."), attachments.count)
+        } else {
+            title = NSLocalizedString("commentsList.confirmDelete.title", comment: "Delete Comment?")
+            message = NSLocalizedString("commentsList.confirmDelete.message", comment: "This will permanently delete the comment and remove its marker from your text. This cannot be undone.")
+        }
         
         // Show confirmation alert
         let alert = UIAlertController(
-            title: NSLocalizedString("commentsList.confirmDelete.title", comment: "Delete Comment?"),
+            title: title,
             message: message,
             preferredStyle: .alert
         )
@@ -3693,11 +3698,19 @@ struct FileEditView: View {
         
         guard let textView = textViewCoordinator.textView else { return }
         
-        let message = NSLocalizedString("footnotesList.confirmDelete.message", comment: "Deleting this footnote will move it to the trash. You can restore it from there if needed. This cannot be undone.")
+        let title: String
+        let message: String
+        if attachments.count > 1 {
+            title = String(format: NSLocalizedString("footnotesList.confirmDeleteMultiple.title", comment: "Delete %d Footnotes?"), attachments.count)
+            message = String(format: NSLocalizedString("footnotesList.confirmDeleteMultiple.message", comment: "This will permanently delete %d footnotes and remove their markers from your text. This cannot be undone."), attachments.count)
+        } else {
+            title = NSLocalizedString("footnotesList.confirmDelete.title", comment: "Delete Footnote?")
+            message = NSLocalizedString("footnotesList.confirmDelete.message", comment: "Deleting this footnote will move it to the trash. You can restore it from there if needed. This cannot be undone.")
+        }
         
         // Show confirmation alert
         let alert = UIAlertController(
-            title: NSLocalizedString("footnotesList.confirmDelete.title", comment: "Delete Footnote?"),
+            title: title,
             message: message,
             preferredStyle: .alert
         )

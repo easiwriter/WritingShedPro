@@ -1229,6 +1229,8 @@
 "footnotesList.confirmDelete.title" = "Delete Footnote?";
 "footnotesList.confirmDelete.message" = "This will permanently delete the footnote and remove its marker from your text. This cannot be undone.";
 "footnotesList.confirmDelete.button" = "Delete";
+"footnotesList.confirmDeleteMultiple.title" = "Delete %d Footnotes?";
+"footnotesList.confirmDeleteMultiple.message" = "This will permanently delete %d footnotes and remove their markers from your text. This cannot be undone.";
 "footnotesList.confirmDeleteForever.title" = "Delete Footnote Forever?";
 "footnotesList.confirmDeleteForever.message" = "This footnote will be permanently deleted and cannot be recovered.";
 "footnotesList.confirmDeleteForever.button" = "Delete Forever";
@@ -1251,6 +1253,8 @@
 "commentsList.confirmDelete.title" = "Delete Comment?";
 "commentsList.confirmDelete.message" = "This will permanently delete the comment and remove its marker from your text. This cannot be undone.";
 "commentsList.confirmDelete.button" = "Delete";
+"commentsList.confirmDeleteMultiple.title" = "Delete %d Comments?";
+"commentsList.confirmDeleteMultiple.message" = "This will permanently delete %d comments and remove their markers from your text. This cannot be undone.";
 
 /* StyleSheetManagementView - New Keys */
 "styleSheetManagement.title" = "Stylesheets";
