@@ -1383,6 +1383,9 @@ struct FileEditView: View {
                 if let currentVersion = file.currentVersion {
                     CommentsListView(
                         version: currentVersion,
+                        onDismiss: {
+                            showCommentsList = false
+                        },
                         onJumpToComment: { comment in
                             jumpToComment(comment)
                         },

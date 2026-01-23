@@ -68,7 +68,7 @@ struct CommentsListView: View {
             .navigationTitle("commentsList.title")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
+                ToolbarItem(placement: .confirmationAction) {
                     Button("button.done") {
                         onDismiss?()
                         dismiss()
