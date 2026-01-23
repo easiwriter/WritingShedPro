@@ -1421,6 +1421,13 @@ struct FileEditView: View {
                     )
                     .navigationBarTitleDisplayMode(.inline)
                     .navigationTitle(NSLocalizedString("fileEdit.commentSheet.title", comment: ""))
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("button.done") {
+                                selectedCommentForDetail = nil
+                            }
+                        }
+                    }
                 }
                 .presentationDetents([.medium, .large])
             }
