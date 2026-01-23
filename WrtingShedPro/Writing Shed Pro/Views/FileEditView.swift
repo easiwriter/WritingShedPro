@@ -1386,6 +1386,9 @@ struct FileEditView: View {
                         onJumpToComment: { comment in
                             jumpToComment(comment)
                         },
+                        onDismiss: {
+                            showCommentsList = false
+                        },
                         onCommentResolvedChanged: { comment in
                             // Comment resolved state was changed in the list
                             // Update the visual marker in the text
