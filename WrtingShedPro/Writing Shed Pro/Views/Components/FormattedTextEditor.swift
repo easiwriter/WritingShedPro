@@ -43,6 +43,10 @@ struct FormattedTextEditor: UIViewRepresentable {
     /// Optional callback when a footnote marker is being deleted
     var onFootnoteDeleted: (([FootnoteAttachment], NSRange) -> Void)?
     
+    /// Unified callback when mixed attachment types are being deleted together
+    /// Called when selection contains a mix of references, comments, and/or footnotes
+    var onMixedAttachmentsDeleted: (([ReferenceAttachment], [CommentAttachment], [FootnoteAttachment], NSRange) -> Void)?
+    
     /// Optional callback when user selects "Add to Glossary" from context menu (Feature 029)
     var onGlossaryAddRequested: ((String) -> Void)?
     
@@ -95,6 +99,7 @@ struct FormattedTextEditor: UIViewRepresentable {
         onReferenceDeleted: (([ReferenceAttachment], NSRange) -> Void)? = nil,
         onCommentDeleted: (([CommentAttachment], NSRange) -> Void)? = nil,
         onFootnoteDeleted: (([FootnoteAttachment], NSRange) -> Void)? = nil,
+        onMixedAttachmentsDeleted: (([ReferenceAttachment], [CommentAttachment], [FootnoteAttachment], NSRange) -> Void)? = nil,
         onGlossaryAddRequested: ((String) -> Void)? = nil
     ) {
         self._attributedText = attributedText
@@ -117,6 +122,7 @@ struct FormattedTextEditor: UIViewRepresentable {
         self.onReferenceDeleted = onReferenceDeleted
         self.onCommentDeleted = onCommentDeleted
         self.onFootnoteDeleted = onFootnoteDeleted
+        self.onMixedAttachmentsDeleted = onMixedAttachmentsDeleted
         self.onGlossaryAddRequested = onGlossaryAddRequested
     }
     
@@ -867,7 +873,20 @@ struct FormattedTextEditor: UIViewRepresentable {
                             }
                         }
 
-                        // Handle references being deleted
+                        // Count how many different types of attachments are being deleted
+                        let typesFound = [!referencesToDelete.isEmpty, !commentsToDelete.isEmpty, !footnotesToDelete.isEmpty].filter { $0 }.count
+                        
+                        // If multiple types are found, use unified callback
+                        if typesFound > 1 {
+                            #if DEBUG
+                            print("🗑️ Mixed attachments found: \(referencesToDelete.count) references, \(commentsToDelete.count) comments, \(footnotesToDelete.count) footnotes - using unified handler")
+                            #endif
+                            
+                            parent.onMixedAttachmentsDeleted?(referencesToDelete, commentsToDelete, footnotesToDelete, range)
+                            return false
+                        }
+                        
+                        // Handle references being deleted (single type)
                         if !referencesToDelete.isEmpty {
                             #if DEBUG
                             print("🗑️ \(referencesToDelete.count) references found in deletion range - showing confirmation")
@@ -881,7 +900,7 @@ struct FormattedTextEditor: UIViewRepresentable {
                             return false
                         }
                         
-                        // Handle comments being deleted
+                        // Handle comments being deleted (single type)
                         if !commentsToDelete.isEmpty {
                             #if DEBUG
                             print("🗑️ \(commentsToDelete.count) comments found in deletion range - showing confirmation")
@@ -894,7 +913,7 @@ struct FormattedTextEditor: UIViewRepresentable {
                             return false
                         }
                         
-                        // Handle footnotes being deleted
+                        // Handle footnotes being deleted (single type)
                         if !footnotesToDelete.isEmpty {
                             #if DEBUG
                             print("🗑️ \(footnotesToDelete.count) footnotes found in deletion range - showing confirmation")

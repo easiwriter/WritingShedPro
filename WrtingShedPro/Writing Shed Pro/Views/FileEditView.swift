@@ -240,6 +240,9 @@ struct FileEditView: View {
                                 onFootnoteDeleted: { attachments, deletionRange in
                                     handleFootnoteMarkerDeleted(attachments, in: deletionRange)
                                 },
+                                onMixedAttachmentsDeleted: { references, comments, footnotes, deletionRange in
+                                    handleMixedAttachmentsDeleted(references, comments: comments, footnotes: footnotes, in: deletionRange)
+                                },
                                 onGlossaryAddRequested: { selectedText in
                                     handleGlossaryAddRequested(selectedText)
                                 }
@@ -289,6 +292,9 @@ struct FileEditView: View {
                                 },
                                 onFootnoteDeleted: { attachments, deletionRange in
                                     handleFootnoteMarkerDeleted(attachments, in: deletionRange)
+                                },
+                                onMixedAttachmentsDeleted: { references, comments, footnotes, deletionRange in
+                                    handleMixedAttachmentsDeleted(references, comments: comments, footnotes: footnotes, in: deletionRange)
                                 },
                                 onGlossaryAddRequested: { selectedText in
                                     handleGlossaryAddRequested(selectedText)
@@ -346,6 +352,9 @@ struct FileEditView: View {
                                 },
                                 onFootnoteDeleted: { attachments, deletionRange in
                                     handleFootnoteMarkerDeleted(attachments, in: deletionRange)
+                                },
+                                onMixedAttachmentsDeleted: { references, comments, footnotes, deletionRange in
+                                    handleMixedAttachmentsDeleted(references, comments: comments, footnotes: footnotes, in: deletionRange)
                                 }
                             )
                             .id(refreshTrigger)
@@ -390,6 +399,9 @@ struct FileEditView: View {
                                 },
                                 onFootnoteDeleted: { attachments, deletionRange in
                                     handleFootnoteMarkerDeleted(attachments, in: deletionRange)
+                                },
+                                onMixedAttachmentsDeleted: { references, comments, footnotes, deletionRange in
+                                    handleMixedAttachmentsDeleted(references, comments: comments, footnotes: footnotes, in: deletionRange)
                                 }
                             )
                             .id(refreshTrigger)
@@ -3520,6 +3532,120 @@ struct FileEditView: View {
             #if DEBUG
             print("ℹ️ Figure/Table reference tapped: \(attachment.referenceType)")
             #endif
+        }
+    }
+    
+    /// Handle deletion of mixed attachment types (references, comments, footnotes) from text
+    /// Shows unified confirmation alert - deletion is permanent and not undoable
+    private func handleMixedAttachmentsDeleted(
+        _ references: [ReferenceAttachment],
+        comments: [CommentAttachment],
+        footnotes: [FootnoteAttachment],
+        in deletionRange: NSRange
+    ) {
+        #if DEBUG
+        print("🗑️🔀 handleMixedAttachmentsDeleted called")
+        print("   References: \(references.count), Comments: \(comments.count), Footnotes: \(footnotes.count)")
+        #endif
+        
+        guard let textView = textViewCoordinator.textView else { return }
+        
+        // Count total items for message
+        let totalCount = references.count + comments.count + footnotes.count
+        
+        let message: String
+        if totalCount > 1 {
+            message = "Cutting or deleting these references copies the text when cutting, but the references and their back matter entries are removed permanently. This cannot be undone."
+        } else {
+            message = "Cutting or deleting this reference copies the text when cutting, but the reference and its back matter entry are removed permanently. This cannot be undone."
+        }
+        
+        // Show confirmation alert
+        let alert = UIAlertController(
+            title: "Delete References?",
+            message: message,
+            preferredStyle: .alert
+        )
+        
+        alert.addAction(UIAlertAction(title: "Don't Delete", style: .cancel) { _ in
+            #if DEBUG
+            print("🔙 Mixed deletion cancelled - no action taken")
+            #endif
+        })
+        
+        alert.addAction(UIAlertAction(title: "Delete References", style: .destructive) { _ in
+            #if DEBUG
+            print("✅ User confirmed mixed deletion - deleting all attachments")
+            #endif
+            
+            // Set flag to bypass undo stack - deletion is not undoable
+            self.isPerformingUndoRedo = true
+            
+            guard deletionRange.length > 0 else {
+                #if DEBUG
+                print("⚠️ Deletion range empty, nothing to remove")
+                #endif
+                return
+            }
+            
+            // Safely clamp range to current text storage
+            let maxLength = textView.textStorage.length
+            let safeRange = NSIntersectionRange(deletionRange, NSRange(location: 0, length: maxLength))
+            guard safeRange.length > 0 else {
+                #if DEBUG
+                print("⚠️ Safe deletion range is empty")
+                #endif
+                return
+            }
+            
+            // Delete the text
+            textView.textStorage.replaceCharacters(in: safeRange, with: "")
+            textView.selectedRange = NSRange(location: safeRange.location, length: 0)
+            self.attributedContent = textView.attributedText ?? NSAttributedString()
+            
+            // Delete references from database
+            if !references.isEmpty {
+                self.deleteReferenceFromDatabase(references, textView: textView)
+            }
+            
+            // Delete comments from database
+            for attachment in comments {
+                if let commentsArray = self.file.currentVersion?.comments,
+                   let comment = commentsArray.first(where: { $0.attachmentID == attachment.commentID }) {
+                    self.modelContext.delete(comment)
+                    #if DEBUG
+                    print("💬 Deleted comment from database: \(attachment.commentID.uuidString.prefix(8))")
+                    #endif
+                }
+            }
+            
+            // Move footnotes to trash
+            for attachment in footnotes {
+                if let footnotesArray = self.file.currentVersion?.footnotes,
+                   let footnote = footnotesArray.first(where: { $0.attachmentID == attachment.footnoteID }) {
+                    FootnoteManager.shared.deleteFootnote(footnote, context: self.modelContext)
+                    #if DEBUG
+                    print("📝 Moved footnote to trash: \(attachment.footnoteID.uuidString.prefix(8))")
+                    #endif
+                }
+            }
+            
+            // Update back matter
+            self.updateBackMatterFiles()
+            
+            // Save changes
+            self.saveChanges()
+            
+            // Reset flag after update completes
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                self.isPerformingUndoRedo = false
+            }
+        })
+        
+        // Present alert on the root view controller
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let root = windowScene.windows.first?.rootViewController {
+            root.present(alert, animated: true)
         }
     }
     
