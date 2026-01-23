@@ -1958,8 +1958,8 @@
 "notesList.delete" = "Delete";
 "notesList.confirmDelete.title" = "Delete Note?";
 "notesList.confirmDelete.button" = "Delete";
-"notesList.confirmDelete.message" = "This note will be permanently deleted.";
-"notesList.confirmDelete.messageWithRefs" = "This note is referenced %d times. The markers will remain but show as missing.";
+"notesList.confirmDelete.message" = "This note will be permanently deleted. This cannot be undone.";
+"notesList.confirmDelete.messageWithRefs" = "This note is referenced %d times. The markers will remain but show as missing. This cannot be undone.";
 
 /* Citation Editor */
 "citationEditor.editCitation.title" = "Edit Citation";
@@ -2053,8 +2053,8 @@
 "glossaryList.delete" = "Delete";
 "glossaryList.confirmDelete.title" = "Delete Term?";
 "glossaryList.confirmDelete.button" = "Delete";
-"glossaryList.confirmDelete.message" = "This term will be permanently deleted.";
-"glossaryList.confirmDelete.messageWithRefs" = "This term is referenced %d times. The markers will remain but show as missing.";
+"glossaryList.confirmDelete.message" = "This term will be permanently deleted. This cannot be undone.";
+"glossaryList.confirmDelete.messageWithRefs" = "This term is referenced %d times. The markers will remain but show as missing. This cannot be undone.";
 
 /* Reference Creator (formerly Bibliography) */
 "referenceCreator.newReference.title" = "New Reference";

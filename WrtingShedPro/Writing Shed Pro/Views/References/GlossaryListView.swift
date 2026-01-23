@@ -479,6 +479,6 @@ struct GlossaryListView: View {
  "glossaryList.delete" = "Delete";
  "glossaryList.confirmDelete.title" = "Delete Term?";
  "glossaryList.confirmDelete.button" = "Delete";
- "glossaryList.confirmDelete.message" = "This term will be permanently deleted.";
- "glossaryList.confirmDelete.messageWithRefs" = "This term is referenced %d times. The markers will remain but show as missing.";
+ "glossaryList.confirmDelete.message" = "This term will be permanently deleted. This cannot be undone.";
+ "glossaryList.confirmDelete.messageWithRefs" = "This term is referenced %d times. The markers will remain but show as missing. This cannot be undone.";
  */

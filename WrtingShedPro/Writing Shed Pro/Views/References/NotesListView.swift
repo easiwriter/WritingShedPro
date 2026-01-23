@@ -533,6 +533,6 @@ struct NotesListView: View {
  "notesList.delete" = "Delete";
  "notesList.confirmDelete.title" = "Delete Note?";
  "notesList.confirmDelete.button" = "Delete";
- "notesList.confirmDelete.message" = "This note will be permanently deleted.";
- "notesList.confirmDelete.messageWithRefs" = "This note is referenced %d times. The markers will remain but show as missing.";
+ "notesList.confirmDelete.message" = "This note will be permanently deleted. This cannot be undone.";
+ "notesList.confirmDelete.messageWithRefs" = "This note is referenced %d times. The markers will remain but show as missing. This cannot be undone.";
  */

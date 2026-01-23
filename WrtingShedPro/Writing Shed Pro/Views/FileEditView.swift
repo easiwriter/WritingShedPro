@@ -234,6 +234,12 @@ struct FileEditView: View {
                                 onReferenceDeleted: { attachments, deletionRange in
                                     handleReferenceDeleted(attachments, in: deletionRange)
                                 },
+                                onCommentDeleted: { attachments, deletionRange in
+                                    handleCommentMarkerDeleted(attachments, in: deletionRange)
+                                },
+                                onFootnoteDeleted: { attachments, deletionRange in
+                                    handleFootnoteMarkerDeleted(attachments, in: deletionRange)
+                                },
                                 onGlossaryAddRequested: { selectedText in
                                     handleGlossaryAddRequested(selectedText)
                                 }
@@ -277,6 +283,12 @@ struct FileEditView: View {
                                 },
                                 onReferenceDeleted: { attachments, deletionRange in
                                     handleReferenceDeleted(attachments, in: deletionRange)
+                                },
+                                onCommentDeleted: { attachments, deletionRange in
+                                    handleCommentMarkerDeleted(attachments, in: deletionRange)
+                                },
+                                onFootnoteDeleted: { attachments, deletionRange in
+                                    handleFootnoteMarkerDeleted(attachments, in: deletionRange)
                                 },
                                 onGlossaryAddRequested: { selectedText in
                                     handleGlossaryAddRequested(selectedText)
@@ -328,6 +340,12 @@ struct FileEditView: View {
                                 },
                                 onReferenceDeleted: { attachments, deletionRange in
                                     handleReferenceDeleted(attachments, in: deletionRange)
+                                },
+                                onCommentDeleted: { attachments, deletionRange in
+                                    handleCommentMarkerDeleted(attachments, in: deletionRange)
+                                },
+                                onFootnoteDeleted: { attachments, deletionRange in
+                                    handleFootnoteMarkerDeleted(attachments, in: deletionRange)
                                 }
                             )
                             .id(refreshTrigger)
@@ -366,6 +384,12 @@ struct FileEditView: View {
                                 },
                                 onReferenceDeleted: { attachments, deletionRange in
                                     handleReferenceDeleted(attachments, in: deletionRange)
+                                },
+                                onCommentDeleted: { attachments, deletionRange in
+                                    handleCommentMarkerDeleted(attachments, in: deletionRange)
+                                },
+                                onFootnoteDeleted: { attachments, deletionRange in
+                                    handleFootnoteMarkerDeleted(attachments, in: deletionRange)
                                 }
                             )
                             .id(refreshTrigger)
@@ -1982,7 +2006,7 @@ struct FileEditView: View {
                     #if DEBUG
                     print("📝 onAppear: Reapplying styles to pick up any changes")
                     #endif
-                    reapplyAllStyles()
+                    reapplyAllStyles(registerUndo: false)  // Don't register undo for initial load
                 } else {
                     #if DEBUG
                     print("📝 onAppear: Skipping style reapply for legacy RTF document (preserves direct formatting)")
@@ -3563,6 +3587,177 @@ struct FileEditView: View {
         }
     }
     
+    /// Handle deletion of comment marker(s) from text
+    /// Shows confirmation alert - deletion is permanent and not undoable
+    private func handleCommentMarkerDeleted(_ attachments: [CommentAttachment], in deletionRange: NSRange) {
+        #if DEBUG
+        print("🗑️💬 handleCommentMarkerDeleted called")
+        for attachment in attachments {
+            print("   CommentID: \(attachment.commentID.uuidString.prefix(8))")
+        }
+        #endif
+        
+        guard let textView = textViewCoordinator.textView else { return }
+        
+        let message = NSLocalizedString("commentsList.confirmDelete.message", comment: "This will permanently delete the comment and remove its marker from your text. This cannot be undone.")
+        
+        // Show confirmation alert
+        let alert = UIAlertController(
+            title: NSLocalizedString("commentsList.confirmDelete.title", comment: "Delete Comment?"),
+            message: message,
+            preferredStyle: .alert
+        )
+        
+        alert.addAction(UIAlertAction(title: NSLocalizedString("button.cancel", comment: "Cancel"), style: .cancel) { _ in
+            #if DEBUG
+            print("🔙 Comment deletion cancelled - no action taken")
+            #endif
+        })
+        
+        alert.addAction(UIAlertAction(title: NSLocalizedString("commentsList.confirmDelete.button", comment: "Delete"), style: .destructive) { _ in
+            #if DEBUG
+            print("✅ User confirmed comment deletion - deleting text and database entry")
+            #endif
+            
+            // Set flag to bypass undo stack - comment deletion is not undoable
+            self.isPerformingUndoRedo = true
+            
+            guard deletionRange.length > 0 else {
+                #if DEBUG
+                print("⚠️ Deletion range empty, nothing to remove")
+                #endif
+                return
+            }
+            
+            // Safely clamp range to current text storage
+            let maxLength = textView.textStorage.length
+            let safeRange = NSIntersectionRange(deletionRange, NSRange(location: 0, length: maxLength))
+            guard safeRange.length > 0 else {
+                #if DEBUG
+                print("⚠️ Safe deletion range is empty")
+                #endif
+                return
+            }
+            
+            // Delete the text
+            textView.textStorage.replaceCharacters(in: safeRange, with: "")
+            textView.selectedRange = NSRange(location: safeRange.location, length: 0)
+            self.attributedContent = textView.attributedText ?? NSAttributedString()
+            
+            // Delete the comment(s) from the database
+            for attachment in attachments {
+                if let comments = self.file.currentVersion?.comments,
+                   let comment = comments.first(where: { $0.attachmentID == attachment.commentID }) {
+                    self.modelContext.delete(comment)
+                    #if DEBUG
+                    print("💬 Deleted comment from database: \(attachment.commentID.uuidString.prefix(8))")
+                    #endif
+                }
+            }
+            
+            // Save changes
+            self.saveChanges()
+            
+            // Reset flag after update completes
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                self.isPerformingUndoRedo = false
+            }
+        })
+        
+        // Present alert on the root view controller
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let root = windowScene.windows.first?.rootViewController {
+            root.present(alert, animated: true)
+        }
+    }
+    
+    /// Handle deletion of footnote marker(s) from text
+    /// Shows confirmation alert - deletion is permanent and not undoable
+    private func handleFootnoteMarkerDeleted(_ attachments: [FootnoteAttachment], in deletionRange: NSRange) {
+        #if DEBUG
+        print("🗑️📝 handleFootnoteMarkerDeleted called")
+        for attachment in attachments {
+            print("   FootnoteID: \(attachment.footnoteID.uuidString.prefix(8))")
+        }
+        #endif
+        
+        guard let textView = textViewCoordinator.textView else { return }
+        
+        let message = NSLocalizedString("footnotesList.confirmDelete.message", comment: "Deleting this footnote will move it to the trash. You can restore it from there if needed. This cannot be undone.")
+        
+        // Show confirmation alert
+        let alert = UIAlertController(
+            title: NSLocalizedString("footnotesList.confirmDelete.title", comment: "Delete Footnote?"),
+            message: message,
+            preferredStyle: .alert
+        )
+        
+        alert.addAction(UIAlertAction(title: NSLocalizedString("button.cancel", comment: "Cancel"), style: .cancel) { _ in
+            #if DEBUG
+            print("🔙 Footnote deletion cancelled - no action taken")
+            #endif
+        })
+        
+        alert.addAction(UIAlertAction(title: NSLocalizedString("footnotesList.confirmDelete.button", comment: "Delete"), style: .destructive) { _ in
+            #if DEBUG
+            print("✅ User confirmed footnote deletion - deleting text and moving to trash")
+            #endif
+            
+            // Set flag to bypass undo stack - footnote deletion is not undoable
+            self.isPerformingUndoRedo = true
+            
+            guard deletionRange.length > 0 else {
+                #if DEBUG
+                print("⚠️ Deletion range empty, nothing to remove")
+                #endif
+                return
+            }
+            
+            // Safely clamp range to current text storage
+            let maxLength = textView.textStorage.length
+            let safeRange = NSIntersectionRange(deletionRange, NSRange(location: 0, length: maxLength))
+            guard safeRange.length > 0 else {
+                #if DEBUG
+                print("⚠️ Safe deletion range is empty")
+                #endif
+                return
+            }
+            
+            // Delete the text
+            textView.textStorage.replaceCharacters(in: safeRange, with: "")
+            textView.selectedRange = NSRange(location: safeRange.location, length: 0)
+            self.attributedContent = textView.attributedText ?? NSAttributedString()
+            
+            // Move the footnote(s) to trash
+            for attachment in attachments {
+                if let footnotes = self.file.currentVersion?.footnotes,
+                   let footnote = footnotes.first(where: { $0.attachmentID == attachment.footnoteID }) {
+                    footnote.isDeleted = true
+                    #if DEBUG
+                    print("📝 Moved footnote to trash: \(attachment.footnoteID.uuidString.prefix(8))")
+                    #endif
+                }
+            }
+            
+            // Renumber remaining footnotes
+            FootnoteRenumbering.renumberFootnotes(in: self.attributedContent, version: self.file.currentVersion)
+            
+            // Save changes
+            self.saveChanges()
+            
+            // Reset flag after update completes
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                self.isPerformingUndoRedo = false
+            }
+        })
+        
+        // Present alert on the root view controller
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let root = windowScene.windows.first?.rootViewController {
+            root.present(alert, animated: true)
+        }
+    }
+    
     /// Delete reference from database without undo
     private func deleteReferenceFromDatabase(_ attachments: [ReferenceAttachment], textView: UITextView) {
         guard !attachments.isEmpty else { return }
@@ -4339,6 +4534,9 @@ struct FileEditView: View {
     }
     
     private func removeCommentMarker(_ comment: CommentModel) {
+        // Set flag to bypass undo stack - comment deletion is not undoable (consistent with notes/glossary/footnotes)
+        isPerformingUndoRedo = true
+        
         // Remove the comment marker from text (called when comment is deleted from detail view)
         attributedContent = CommentInsertionHelper.removeComment(
             from: attributedContent,
@@ -4350,6 +4548,11 @@ struct FileEditView: View {
         #if DEBUG
         print("💬 Comment marker removed: \(comment.attachmentID)")
         #endif
+        
+        // Reset flag after update completes
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            self.isPerformingUndoRedo = false
+        }
     }
     
     private func toggleCommentResolved(_ comment: CommentModel) {
@@ -4928,7 +5131,8 @@ struct FileEditView: View {
     /// - Changing ImageStyle in stylesheet affects only NEW images
     /// - Existing images retain their custom scale/alignment settings
     /// - Similar to how manually bolded text keeps its formatting even if Body style changes
-    private func reapplyAllStyles() {
+    /// - Parameter registerUndo: Whether to register an undo command for the style changes (default true, false for initial load)
+    private func reapplyAllStyles(registerUndo: Bool = true) {
         #if DEBUG
         print("🔄 ========== REAPPLY ALL STYLES START ==========")
         #endif
@@ -5166,19 +5370,25 @@ struct FileEditView: View {
             print("✅ Reapplied all styles successfully")
             #endif
             
-            // Create undo command
-            let command = FormatApplyCommand(
-                description: "Reapply All Styles",
-                range: NSRange(location: 0, length: mutableText.length),
-                beforeContent: beforeContent,
-                afterContent: mutableText,
-                targetFile: file
-            )
-            
-            undoManager.execute(command)
-            #if DEBUG
-            print("✅ Added undo command")
-            #endif
+            // Create undo command only if requested (not during initial document load)
+            if registerUndo {
+                let command = FormatApplyCommand(
+                    description: "Reapply All Styles",
+                    range: NSRange(location: 0, length: mutableText.length),
+                    beforeContent: beforeContent,
+                    afterContent: mutableText,
+                    targetFile: file
+                )
+                
+                undoManager.execute(command)
+                #if DEBUG
+                print("✅ Added undo command")
+                #endif
+            } else {
+                #if DEBUG
+                print("ℹ️ Skipping undo command (initial load)")
+                #endif
+            }
             
             // Update typing attributes for current position
             if selectedRange.location != NSNotFound,

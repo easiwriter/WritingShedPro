@@ -67,12 +67,12 @@ struct CommentsListView: View {
             }
             .navigationTitle("commentsList.title")
             .navigationBarTitleDisplayMode(.inline)
-        }
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button("button.done") {
-                    onDismiss?()
-                    dismiss()
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("button.done") {
+                        onDismiss?()
+                        dismiss()
+                    }
                 }
             }
         }

@@ -37,6 +37,12 @@ struct FormattedTextEditor: UIViewRepresentable {
     /// Optional callback when a reference marker is being deleted (Feature 029)
     var onReferenceDeleted: (([ReferenceAttachment], NSRange) -> Void)?
     
+    /// Optional callback when a comment marker is being deleted
+    var onCommentDeleted: (([CommentAttachment], NSRange) -> Void)?
+    
+    /// Optional callback when a footnote marker is being deleted
+    var onFootnoteDeleted: (([FootnoteAttachment], NSRange) -> Void)?
+    
     /// Optional callback when user selects "Add to Glossary" from context menu (Feature 029)
     var onGlossaryAddRequested: ((String) -> Void)?
     
@@ -87,6 +93,8 @@ struct FormattedTextEditor: UIViewRepresentable {
         onFootnoteTapped: ((FootnoteAttachment, Int) -> Void)? = nil,
         onReferenceTapped: ((ReferenceAttachment, Int) -> Void)? = nil,
         onReferenceDeleted: (([ReferenceAttachment], NSRange) -> Void)? = nil,
+        onCommentDeleted: (([CommentAttachment], NSRange) -> Void)? = nil,
+        onFootnoteDeleted: (([FootnoteAttachment], NSRange) -> Void)? = nil,
         onGlossaryAddRequested: ((String) -> Void)? = nil
     ) {
         self._attributedText = attributedText
@@ -107,6 +115,8 @@ struct FormattedTextEditor: UIViewRepresentable {
         self.onFootnoteTapped = onFootnoteTapped
         self.onReferenceTapped = onReferenceTapped
         self.onReferenceDeleted = onReferenceDeleted
+        self.onCommentDeleted = onCommentDeleted
+        self.onFootnoteDeleted = onFootnoteDeleted
         self.onGlossaryAddRequested = onGlossaryAddRequested
     }
     
@@ -810,19 +820,22 @@ struct FormattedTextEditor: UIViewRepresentable {
                 }
             }
             
-            // FEATURE 029: Detect when references are being deleted
-            // When replacementText is empty and we're deleting characters, check if any ReferenceAttachments are in the deletion range
+            // FEATURE 029: Detect when references, comments, or footnotes are being deleted
+            // When replacementText is empty and we're deleting characters, check for any markers in the deletion range
             if text.isEmpty && range.length > 0 {
                 #if DEBUG
                 print("📝🗑️ Text deletion detected: deleting \(range.length) chars at position \(range.location)")
                 #endif
                 
                     if let attrText = textView.attributedText {
-                        // Find all reference attachments in the range being deleted
+                        // Find all attachments in the range being deleted
                         var referencesToDelete: [ReferenceAttachment] = []
+                        var commentsToDelete: [CommentAttachment] = []
+                        var footnotesToDelete: [FootnoteAttachment] = []
                         var seenAttachments = Set<ObjectIdentifier>()
                         
                         attrText.enumerateAttribute(.attachment, in: range, options: []) { value, _, _ in
+                            // Check for ReferenceAttachment (notes, glossary, references)
                             if let attachment = value as? ReferenceAttachment {
                                 let identifier = ObjectIdentifier(attachment)
                                 guard !seenAttachments.contains(identifier) else { return }
@@ -832,9 +845,29 @@ struct FormattedTextEditor: UIViewRepresentable {
                                 print("🗑️ 📌 Found ReferenceAttachment in deletion range: \(attachment.displayText) (type: \(attachment.referenceType), id: \(attachment.entryID.uuidString.prefix(8)))")
                                 #endif
                             }
+                            // Check for CommentAttachment
+                            else if let attachment = value as? CommentAttachment {
+                                let identifier = ObjectIdentifier(attachment)
+                                guard !seenAttachments.contains(identifier) else { return }
+                                seenAttachments.insert(identifier)
+                                commentsToDelete.append(attachment)
+                                #if DEBUG
+                                print("🗑️ 💬 Found CommentAttachment in deletion range: commentID=\(attachment.commentID.uuidString.prefix(8))")
+                                #endif
+                            }
+                            // Check for FootnoteAttachment
+                            else if let attachment = value as? FootnoteAttachment {
+                                let identifier = ObjectIdentifier(attachment)
+                                guard !seenAttachments.contains(identifier) else { return }
+                                seenAttachments.insert(identifier)
+                                footnotesToDelete.append(attachment)
+                                #if DEBUG
+                                print("🗑️ 📝 Found FootnoteAttachment in deletion range: footnoteID=\(attachment.footnoteID.uuidString.prefix(8))")
+                                #endif
+                            }
                         }
 
-                        // If we found references being deleted, show confirmation alert
+                        // Handle references being deleted
                         if !referencesToDelete.isEmpty {
                             #if DEBUG
                             print("🗑️ \(referencesToDelete.count) references found in deletion range - showing confirmation")
@@ -846,11 +879,39 @@ struct FormattedTextEditor: UIViewRepresentable {
                             // Return false to prevent UITextView from deleting the text
                             // We'll manually delete after the user confirms in the alert
                             return false
-                        } else {
-                            #if DEBUG
-                            print("🗑️ No references found in deletion range - allowing normal deletion")
-                            #endif
                         }
+                        
+                        // Handle comments being deleted
+                        if !commentsToDelete.isEmpty {
+                            #if DEBUG
+                            print("🗑️ \(commentsToDelete.count) comments found in deletion range - showing confirmation")
+                            #endif
+                           
+                            // Prevent the deletion for now - we'll handle it after user confirms
+                            parent.onCommentDeleted?(commentsToDelete, range)
+                           
+                            // Return false to prevent UITextView from deleting the text
+                            return false
+                        }
+                        
+                        // Handle footnotes being deleted
+                        if !footnotesToDelete.isEmpty {
+                            #if DEBUG
+                            print("🗑️ \(footnotesToDelete.count) footnotes found in deletion range - showing confirmation")
+                            #endif
+                           
+                            // Prevent the deletion for now - we'll handle it after user confirms
+                            parent.onFootnoteDeleted?(footnotesToDelete, range)
+                           
+                            // Return false to prevent UITextView from deleting the text
+                            return false
+                        }
+                        
+                        #if DEBUG
+                        if referencesToDelete.isEmpty && commentsToDelete.isEmpty && footnotesToDelete.isEmpty {
+                            print("🗑️ No references, comments, or footnotes found in deletion range - allowing normal deletion")
+                        }
+                        #endif
                     } else {
                         #if DEBUG
                         print("🗑️ ⚠️ No attributed text available")
