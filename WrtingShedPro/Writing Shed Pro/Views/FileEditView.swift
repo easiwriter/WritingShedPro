@@ -3728,19 +3728,16 @@ struct FileEditView: View {
             textView.selectedRange = NSRange(location: safeRange.location, length: 0)
             self.attributedContent = textView.attributedText ?? NSAttributedString()
             
-            // Move the footnote(s) to trash
+            // Move the footnote(s) to trash using FootnoteManager (handles renumbering)
             for attachment in attachments {
                 if let footnotes = self.file.currentVersion?.footnotes,
                    let footnote = footnotes.first(where: { $0.attachmentID == attachment.footnoteID }) {
-                    footnote.isDeleted = true
+                    FootnoteManager.shared.deleteFootnote(footnote, context: self.modelContext)
                     #if DEBUG
                     print("📝 Moved footnote to trash: \(attachment.footnoteID.uuidString.prefix(8))")
                     #endif
                 }
             }
-            
-            // Renumber remaining footnotes
-            FootnoteRenumbering.renumberFootnotes(in: self.attributedContent, version: self.file.currentVersion)
             
             // Save changes
             self.saveChanges()
