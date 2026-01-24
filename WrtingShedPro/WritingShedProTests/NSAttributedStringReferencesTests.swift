@@ -113,10 +113,10 @@ final class NSAttributedStringReferencesTests: XCTestCase {
             .referenceID: entryID1.uuidString
         ], range: noteRange)
         
-        // Add citation reference
+        // Add reference
         let citationRange = (mutableString.string as NSString).range(of: "citation")
         mutableString.addAttributes([
-            .referenceType: ReferenceType.citation.rawValue,
+            .referenceType: ReferenceType.reference.rawValue,
             .referenceID: entryID2.uuidString
         ], range: citationRange)
         
@@ -126,7 +126,7 @@ final class NSAttributedStringReferencesTests: XCTestCase {
         
         // Should be sorted by location
         XCTAssertEqual(refs[0].type, .note)
-        XCTAssertEqual(refs[1].type, .citation)
+        XCTAssertEqual(refs[1].type, .reference)
     }
     
     // MARK: - references(in:) Tests
@@ -187,19 +187,19 @@ final class NSAttributedStringReferencesTests: XCTestCase {
             .referenceID: noteID.uuidString
         ], range: endnoteRange)
         
-        // Add citation
+        // Add reference
         let citationRange = NSRange(location: 8, length: 13)
         mutableString.addAttributes([
-            .referenceType: ReferenceType.citation.rawValue,
+            .referenceType: ReferenceType.reference.rawValue,
             .referenceID: citationID.uuidString
         ], range: citationRange)
         
         let endnotes = mutableString.references(ofType: .endnote)
-        let citations = mutableString.references(ofType: .citation)
+        let references = mutableString.references(ofType: .reference)
         let notes = mutableString.references(ofType: .note)
         
         XCTAssertEqual(endnotes.count, 1)
-        XCTAssertEqual(citations.count, 1)
+        XCTAssertEqual(references.count, 1)
         XCTAssertTrue(notes.isEmpty)
     }
     
@@ -305,12 +305,12 @@ final class NSAttributedStringReferencesTests: XCTestCase {
     // MARK: - All Reference Types Detection Tests
     
     func testDetectsAllReferenceTypes() {
-        let mutableString = NSMutableAttributedString(string: "note endnote citation glossary index figure table")
+        let mutableString = NSMutableAttributedString(string: "note endnote reference glossary index figure table")
         
         let types: [(String, ReferenceType)] = [
             ("note", .note),
             ("endnote", .endnote),
-            ("citation", .citation),
+            ("reference", .reference),
             ("glossary", .glossary),
             ("index", .index),
             ("figure", .figure),
@@ -333,7 +333,7 @@ final class NSAttributedStringReferencesTests: XCTestCase {
         let foundTypes = Set(refs.map { $0.type })
         XCTAssertTrue(foundTypes.contains(.note))
         XCTAssertTrue(foundTypes.contains(.endnote))
-        XCTAssertTrue(foundTypes.contains(.citation))
+        XCTAssertTrue(foundTypes.contains(.reference))
         XCTAssertTrue(foundTypes.contains(.glossary))
         XCTAssertTrue(foundTypes.contains(.index))
         XCTAssertTrue(foundTypes.contains(.figure))

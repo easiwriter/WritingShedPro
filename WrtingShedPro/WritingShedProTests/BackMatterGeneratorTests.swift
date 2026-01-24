@@ -51,7 +51,9 @@ final class BackMatterGeneratorTests: XCTestCase {
     func testGenerateNotesSectionWithEndnotes() {
         // Create test endnotes
         let note1 = NoteEntry(project: testProject, content: "First endnote content", isEndnote: true, displayNumber: 1)
+        note1.referenceCount = 1
         let note2 = NoteEntry(project: testProject, content: "Second endnote content", isEndnote: true, displayNumber: 2)
+        note2.referenceCount = 1
         
         modelContext.insert(note1)
         modelContext.insert(note2)
@@ -70,6 +72,7 @@ final class BackMatterGeneratorTests: XCTestCase {
     func testGenerateNotesSectionWithGeneralNotes() {
         // Create test general notes
         let note = NoteEntry(project: testProject, content: "General note content", isEndnote: false, displayNumber: 1, title: "Important Note")
+        note.referenceCount = 1
         
         modelContext.insert(note)
         try? modelContext.save()
@@ -86,7 +89,9 @@ final class BackMatterGeneratorTests: XCTestCase {
     func testGenerateNotesSectionMixedTypes() {
         // Create both endnotes and general notes
         let endnote = NoteEntry(project: testProject, content: "Endnote", isEndnote: true, displayNumber: 1)
+        endnote.referenceCount = 1
         let generalNote = NoteEntry(project: testProject, content: "General", isEndnote: false, displayNumber: 1)
+        generalNote.referenceCount = 1
         
         modelContext.insert(endnote)
         modelContext.insert(generalNote)
@@ -110,7 +115,9 @@ final class BackMatterGeneratorTests: XCTestCase {
     func testGenerateGlossarySectionWithEntries() {
         // Create test glossary entries
         let entry1 = GlossaryEntry(project: testProject, term: "Protagonist", definition: "The main character")
+        entry1.referenceCount = 1
         let entry2 = GlossaryEntry(project: testProject, term: "Antagonist", definition: "The opposing force")
+        entry2.referenceCount = 1
         
         modelContext.insert(entry1)
         modelContext.insert(entry2)
@@ -129,8 +136,11 @@ final class BackMatterGeneratorTests: XCTestCase {
     func testGenerateGlossarySectionAlphabeticalGrouping() {
         // Create entries starting with different letters
         let entryA = GlossaryEntry(project: testProject, term: "Apple", definition: "A fruit")
+        entryA.referenceCount = 1
         let entryB = GlossaryEntry(project: testProject, term: "Banana", definition: "Another fruit")
+        entryB.referenceCount = 1
         let entryZ = GlossaryEntry(project: testProject, term: "Zebra", definition: "An animal")
+        entryZ.referenceCount = 1
         
         modelContext.insert(entryA)
         modelContext.insert(entryB)
@@ -267,7 +277,9 @@ final class BackMatterGeneratorTests: XCTestCase {
     
     func testGenerateIndexSectionWithEntries() {
         let entry1 = IndexEntry(project: testProject, keyword: "Testing")
+        entry1.referenceCount = 1
         let entry2 = IndexEntry(project: testProject, keyword: "Development")
+        entry2.referenceCount = 1
         
         modelContext.insert(entry1)
         modelContext.insert(entry2)
@@ -288,6 +300,7 @@ final class BackMatterGeneratorTests: XCTestCase {
     
     func testGenerateIndexSectionWithPageNumbers() {
         let entry = IndexEntry(project: testProject, keyword: "Swift")
+        entry.referenceCount = 1
         
         modelContext.insert(entry)
         try? modelContext.save()
@@ -307,8 +320,11 @@ final class BackMatterGeneratorTests: XCTestCase {
     
     func testGenerateIndexSectionAlphabeticalGrouping() {
         let entryA = IndexEntry(project: testProject, keyword: "Apple")
+        entryA.referenceCount = 1
         let entryB = IndexEntry(project: testProject, keyword: "Banana")
+        entryB.referenceCount = 1
         let entryZ = IndexEntry(project: testProject, keyword: "Zebra")
+        entryZ.referenceCount = 1
         
         modelContext.insert(entryA)
         modelContext.insert(entryB)
@@ -337,9 +353,12 @@ final class BackMatterGeneratorTests: XCTestCase {
     func testGenerateBackMatterAllSections() {
         // Create entries for all sections
         let note = NoteEntry(project: testProject, content: "Note content", isEndnote: true, displayNumber: 1)
+        note.referenceCount = 1  // Must have references to be included
         let glossary = GlossaryEntry(project: testProject, term: "Term", definition: "Definition")
+        glossary.referenceCount = 1  // Must have references to be included
         let citation = CitationEntry(project: testProject, authors: ["Author"], year: 2024, title: "Title")
         let index = IndexEntry(project: testProject, keyword: "Keyword")
+        index.referenceCount = 1  // Must have references to be included
         
         modelContext.insert(note)
         modelContext.insert(glossary)
@@ -366,6 +385,7 @@ final class BackMatterGeneratorTests: XCTestCase {
     func testGenerateBackMatterSelectiveSections() {
         // Create entries for all sections
         let note = NoteEntry(project: testProject, content: "Note content", isEndnote: true, displayNumber: 1)
+        note.referenceCount = 1  // Must have references to be included
         let glossary = GlossaryEntry(project: testProject, term: "Term", definition: "Definition")
         
         modelContext.insert(note)
@@ -402,6 +422,7 @@ final class BackMatterGeneratorTests: XCTestCase {
     
     func testGeneratePlainTextBackMatterNotes() {
         let note = NoteEntry(project: testProject, content: "Plain text note", isEndnote: true, displayNumber: 1)
+        note.referenceCount = 1
         
         modelContext.insert(note)
         // Establish bidirectional relationship
@@ -425,6 +446,7 @@ final class BackMatterGeneratorTests: XCTestCase {
     
     func testGeneratePlainTextBackMatterGlossary() {
         let entry = GlossaryEntry(project: testProject, term: "PlainTerm", definition: "Plain definition")
+        entry.referenceCount = 1
         
         modelContext.insert(entry)
         // Establish bidirectional relationship

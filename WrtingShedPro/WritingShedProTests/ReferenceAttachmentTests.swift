@@ -78,31 +78,31 @@ final class ReferenceAttachmentTests: XCTestCase {
         XCTAssertEqual(attachment.displayText, "[Table 1]")
     }
     
-    // MARK: - Citation Initialization Tests
+    // MARK: - Reference Initialization Tests
     
-    func testReferenceAttachmentCitationWithYear() {
+    func testReferenceAttachmentReferenceWithDate() {
         let entryID = UUID()
         let attachment = ReferenceAttachment(
-            citationEntryID: entryID,
-            authorLastName: "Smith",
-            year: 2024
+            referenceEntryID: entryID,
+            author: "Smith",
+            date: "2024"
         )
         
-        XCTAssertEqual(attachment.referenceType, .citation)
+        XCTAssertEqual(attachment.referenceType, .reference)
         XCTAssertEqual(attachment.entryID, entryID)
         XCTAssertEqual(attachment.displayText, "[Smith, 2024]")
     }
     
-    func testReferenceAttachmentCitationWithoutYear() {
+    func testReferenceAttachmentReferenceWithEmptyDate() {
         let entryID = UUID()
         let attachment = ReferenceAttachment(
-            citationEntryID: entryID,
-            authorLastName: "Doe",
-            year: nil
+            referenceEntryID: entryID,
+            author: "Doe",
+            date: ""
         )
         
-        XCTAssertEqual(attachment.referenceType, .citation)
-        XCTAssertEqual(attachment.displayText, "[Doe]")
+        XCTAssertEqual(attachment.referenceType, .reference)
+        XCTAssertEqual(attachment.displayText, "[Doe, ]")
     }
     
     // MARK: - Glossary Initialization Tests
@@ -172,12 +172,12 @@ final class ReferenceAttachmentTests: XCTestCase {
         
         // Just verify these don't crash - actual colors are implementation details
         let noteAttachment = ReferenceAttachment(referenceType: .note, entryID: UUID(), displayText: "[Note 1]")
-        let citationAttachment = ReferenceAttachment(referenceType: .citation, entryID: UUID(), displayText: "[Smith, 2024]")
+        let referenceAttachment = ReferenceAttachment(referenceType: .reference, entryID: UUID(), displayText: "[Smith, 2024]")
         let glossaryAttachment = ReferenceAttachment(referenceType: .glossary, entryID: UUID(), displayText: "Term")
         let indexAttachment = ReferenceAttachment(indexEntryID: UUID())
         
         XCTAssertNotNil(noteAttachment)
-        XCTAssertNotNil(citationAttachment)
+        XCTAssertNotNil(referenceAttachment)
         XCTAssertNotNil(glossaryAttachment)
         XCTAssertNotNil(indexAttachment)
     }
@@ -257,9 +257,9 @@ final class ReferenceAttachmentTests: XCTestCase {
         let endnote = ReferenceAttachment(referenceType: .endnote, entryID: entryID, number: 1)
         XCTAssertEqual(endnote.referenceType, .endnote)
         
-        // Citation
-        let citation = ReferenceAttachment(citationEntryID: entryID, authorLastName: "Test", year: 2024)
-        XCTAssertEqual(citation.referenceType, .citation)
+        // Reference
+        let reference = ReferenceAttachment(referenceEntryID: entryID, author: "Test", date: "2024")
+        XCTAssertEqual(reference.referenceType, .reference)
         
         // Glossary
         let glossary = ReferenceAttachment(glossaryEntryID: entryID, term: "Term")

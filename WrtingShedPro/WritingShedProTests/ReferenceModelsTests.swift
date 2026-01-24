@@ -521,7 +521,7 @@ final class ReferenceModelsTests: XCTestCase {
     func testReferenceTypeMarkerFormats() {
         XCTAssertEqual(ReferenceType.note.markerFormat, "[Note %d]")
         XCTAssertEqual(ReferenceType.endnote.markerFormat, "[%d]")
-        XCTAssertEqual(ReferenceType.citation.markerFormat, "[%@, %d]")
+        XCTAssertEqual(ReferenceType.reference.markerFormat, "[%@, %@]")
         XCTAssertEqual(ReferenceType.glossary.markerFormat, "%@")
         XCTAssertEqual(ReferenceType.index.markerFormat, "")
         XCTAssertEqual(ReferenceType.figure.markerFormat, "[Fig %d]")
@@ -531,7 +531,7 @@ final class ReferenceModelsTests: XCTestCase {
     func testReferenceTypePlainTextFormats() {
         XCTAssertEqual(ReferenceType.note.plainTextFormat, "(see Note %d)")
         XCTAssertEqual(ReferenceType.endnote.plainTextFormat, "(see Note %d)")
-        XCTAssertEqual(ReferenceType.citation.plainTextFormat, "(%@, %d)")
+        XCTAssertEqual(ReferenceType.reference.plainTextFormat, "(%@, %@)")
         XCTAssertEqual(ReferenceType.glossary.plainTextFormat, "%@ (see Glossary)")
         XCTAssertEqual(ReferenceType.index.plainTextFormat, "")
     }
