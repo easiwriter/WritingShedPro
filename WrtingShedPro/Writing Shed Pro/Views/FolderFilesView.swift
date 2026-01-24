@@ -308,6 +308,10 @@ struct FolderFilesView: View {
                 Section {
                     ForEach(sortedSubfolders) { subfolder in
                         mixedContentSubfolderRow(subfolder)
+                            // Enable drag-to-reorder without edit mode
+                            .onDrag {
+                                return NSItemProvider(object: subfolder.id.uuidString as NSString)
+                            }
                     }
                     .onMove(perform: moveSubfolders)
                 } header: {
@@ -326,6 +330,10 @@ struct FolderFilesView: View {
                 Section {
                     ForEach(sortedMixedFiles) { file in
                         mixedContentFileRow(file)
+                            // Enable drag-to-reorder without edit mode
+                            .onDrag {
+                                return NSItemProvider(object: file.id.uuidString as NSString)
+                            }
                     }
                     .onMove(perform: moveMixedFiles)
                 } header: {

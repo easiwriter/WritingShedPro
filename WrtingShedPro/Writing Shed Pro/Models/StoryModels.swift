@@ -592,7 +592,10 @@ final class Character {
     var name: String?
     var role: String?  // Character's role in the story (protagonist, love interest, etc.)
     var archetypeRaw: String?  // Only used when monomyth enabled
-    var biography: String?  // Character background and notes
+    var history: String?  // Character's background/history
+    var looks: String?  // Physical appearance description
+    var traits: String?  // Personality traits
+    var work: String?  // Occupation/what they do
     var createdDate: Date = Date()
     var modifiedDate: Date = Date()
     
@@ -616,11 +619,14 @@ final class Character {
         set { archetypeRaw = newValue?.rawValue }
     }
     
-    init(name: String? = nil, role: String? = nil, archetype: CharacterArchetype? = nil, biography: String? = nil) {
+    init(name: String? = nil, role: String? = nil, archetype: CharacterArchetype? = nil, history: String? = nil, looks: String? = nil, traits: String? = nil, work: String? = nil) {
         self.name = name
         self.role = role
         self.archetypeRaw = archetype?.rawValue
-        self.biography = biography
+        self.history = history
+        self.looks = looks
+        self.traits = traits
+        self.work = work
     }
 }
 
@@ -629,7 +635,10 @@ final class Character {
 final class Location {
     var id: UUID = UUID()
     var name: String?
-    var locationDescription: String?  // Description of the location
+    var detail: String?  // General description/details of the location
+    var sights: String?  // Visual descriptions
+    var sounds: String?  // Auditory descriptions
+    var smells: String?  // Olfactory descriptions
     var createdDate: Date = Date()
     var modifiedDate: Date = Date()
     
@@ -645,9 +654,12 @@ final class Location {
     // Plot elements this location is planned for (many-to-many)
     var plotElements: [PlotElement]?
     
-    init(name: String? = nil, description: String? = nil) {
+    init(name: String? = nil, detail: String? = nil, sights: String? = nil, sounds: String? = nil, smells: String? = nil) {
         self.name = name
-        self.locationDescription = description
+        self.detail = detail
+        self.sights = sights
+        self.sounds = sounds
+        self.smells = smells
     }
 }
 

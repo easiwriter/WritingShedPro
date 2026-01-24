@@ -179,14 +179,20 @@ struct SectionListView: View {
     private var sectionList: some View {
         List(selection: $selectedSectionIDs) {
             ForEach(sortedSections) { section in
-                if isEditMode {
-                    SectionRowView(section: section)
-                } else {
-                    NavigationLink {
-                        ProseFilesView(project: project, section: section)
-                    } label: {
+                Group {
+                    if isEditMode {
                         SectionRowView(section: section)
+                    } else {
+                        NavigationLink {
+                            ProseFilesView(project: project, section: section)
+                        } label: {
+                            SectionRowView(section: section)
+                        }
                     }
+                }
+                // Enable drag-to-reorder without edit mode
+                .onDrag {
+                    return NSItemProvider(object: section.id.uuidString as NSString)
                 }
             }
             .onMove(perform: moveSections)

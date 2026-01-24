@@ -134,14 +134,20 @@ struct ProseFilesView: View {
     private var fileList: some View {
         List(selection: $selectedFileIDs) {
             ForEach(sortedFiles) { file in
-                if isEditMode {
-                    FileRowView(file: file)
-                } else {
-                    NavigationLink {
-                        FileEditView(file: file)
-                    } label: {
+                Group {
+                    if isEditMode {
                         FileRowView(file: file)
+                    } else {
+                        NavigationLink {
+                            FileEditView(file: file)
+                        } label: {
+                            FileRowView(file: file)
+                        }
                     }
+                }
+                // Enable drag-to-reorder without edit mode
+                .onDrag {
+                    return NSItemProvider(object: file.id.uuidString as NSString)
                 }
             }
             .onMove(perform: moveFiles)

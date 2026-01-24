@@ -25,7 +25,10 @@ struct AddCharacterSheet: View {
     @State private var name: String = ""
     @State private var role: String = ""
     @State private var selectedArchetype: CharacterArchetype?
-    @State private var biography: String = ""
+    @State private var history: String = ""
+    @State private var looks: String = ""
+    @State private var traits: String = ""
+    @State private var work: String = ""
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
     
@@ -74,13 +77,38 @@ struct AddCharacterSheet: View {
                     Text(NSLocalizedString("fiction.character.archetype.footer", comment: "Archetypes help structure your story"))
                 }
                 
-                // Biography
+                // Character Details
                 Section {
-                    TextEditor(text: $biography)
-                        .frame(minHeight: 100)
-                        .accessibilityLabel(NSLocalizedString("fiction.character.biography.accessibility", comment: "Character biography"))
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(NSLocalizedString("fiction.character.history", comment: "History"))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        TextEditor(text: $history)
+                            .frame(minHeight: 60)
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(NSLocalizedString("fiction.character.looks", comment: "Looks"))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        TextEditor(text: $looks)
+                            .frame(minHeight: 60)
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(NSLocalizedString("fiction.character.traits", comment: "Traits"))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        TextEditor(text: $traits)
+                            .frame(minHeight: 60)
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(NSLocalizedString("fiction.character.work", comment: "Work"))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        TextEditor(text: $work)
+                            .frame(minHeight: 60)
+                    }
                 } header: {
-                    Text(NSLocalizedString("fiction.character.biography", comment: "Biography"))
+                    Text(NSLocalizedString("fiction.character.section.details", comment: "Character Details"))
                 }
             }
             .navigationTitle(NSLocalizedString("fiction.character.add.title", comment: "Add Character"))
@@ -123,7 +151,10 @@ struct AddCharacterSheet: View {
             name: trimmedName,
             role: role.isEmpty ? nil : role,
             archetype: selectedArchetype,
-            biography: biography.isEmpty ? nil : biography
+            history: history.isEmpty ? nil : history,
+            looks: looks.isEmpty ? nil : looks,
+            traits: traits.isEmpty ? nil : traits,
+            work: work.isEmpty ? nil : work
         )
         character.project = project
         

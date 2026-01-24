@@ -99,9 +99,13 @@ struct CollectionsView: View {
                 List {
                     ForEach(sortedCollections) { collection in
                         collectionRow(for: collection)
+                            // Enable drag-to-reorder without edit mode
+                            .onDrag {
+                                return NSItemProvider(object: collection.id.uuidString as NSString)
+                            }
                     }
                     .onDelete(perform: isEditMode ? nil : deleteCollections)
-                    .onMove(perform: isEditMode ? moveCollections : nil)
+                    .onMove(perform: moveCollections)
                 }
                 .listStyle(.plain)
                 .toolbar {

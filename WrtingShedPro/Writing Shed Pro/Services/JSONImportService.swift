@@ -362,6 +362,11 @@ class JSONImportService {
         // Import collections (text collections)
         try importCollections(from: writingShedData, into: project)
         
+        // Import Novel-specific entities (Characters, Locations, Chapters, Scenes)
+        if project.type == .fiction {
+            try importNovelEntities(from: writingShedData, into: project)
+        }
+        
         // NOTE: We do NOT call importCollectionSubmissions() - see COLLECTION_SUBMISSION_FIX.md
         // In legacy app, WS_CollectionSubmission_Entity is just metadata linking a collection to a publication
         // The collection itself (WS_Collection_Entity) is what appears in Submissions folder
@@ -409,12 +414,34 @@ class JSONImportService {
         // Check if this name already exists
         projectName = ensureUniqueName(projectName)
         
-        // Map project type
-        let projectType = mapProjectType(data.projectModel)
+        // Try to get project type from the nested project JSON first
+        var projectType: ProjectType = .prose
+        var isNovel = false
+        
+        if let projectData = data.project.data(using: .utf8),
+           let projectDict = try? JSONSerialization.jsonObject(with: projectData) as? [String: Any],
+           let typeString = projectDict["projectType"] as? String {
+            projectType = mapProjectType(typeString)
+            isNovel = typeString.lowercased() == "novel"
+            #if DEBUG
+            print("[JSONImport] Project type from JSON: \(typeString) -> \(projectType)")
+            #endif
+        } else {
+            // Fall back to projectModel field
+            projectType = mapProjectType(data.projectModel)
+        }
         
         // Create project
         let project = Project(name: projectName, type: projectType, creationDate: Date())
         project.modifiedDate = Date()
+        
+        // Set fictionClass for Novel projects
+        if isNovel {
+            project.fictionClass = .novel
+            #if DEBUG
+            print("[JSONImport] Set fictionClass to .novel")
+            #endif
+        }
         
         return project
     }
@@ -1772,6 +1799,319 @@ class JSONImportService {
             name: dict["name"] as? String,
             dateCreated: createdDate
         )
+    }
+    
+    // MARK: - Novel Import (Feature 030)
+    
+    /// Import Novel-specific entities: Characters, Locations, Chapters, Scenes
+    private func importNovelEntities(from data: WritingShedData, into project: Project) throws {
+        #if DEBUG
+        print("[JSONImport] ===== NOVEL IMPORT =====")
+        #endif
+        
+        // Maps for linking
+        var chapterMap: [String: Chapter] = [:]
+        var sceneToChapterMap: [String: String] = [:] // Scene ID -> Chapter ID
+        var characterMap: [String: Character] = [:] // Character ID -> Character
+        var locationMap: [String: Location] = [:] // Location ID -> Location
+        var characterSceneIds: [String: [String]] = [:] // Character ID -> [Scene IDs]
+        var locationSceneIds: [String: [String]] = [:] // Location ID -> [Scene IDs]
+        var sceneMap: [String: StoryScene] = [:] // Scene ID -> StoryScene
+        
+        // Import Characters from sceneComponentDatas
+        for component in data.sceneComponentDatas where component.type == "WS_Character_Entity" {
+            if let character = try importNovelCharacter(from: component, into: project) {
+                characterMap[component.id] = character
+                // Parse scene IDs from the character's scenes field
+                if let sceneIds = decodeSceneIdsFromPlistData(component.scenes) {
+                    characterSceneIds[component.id] = sceneIds
+                }
+            }
+        }
+        
+        // Import Locations from sceneComponentDatas
+        for component in data.sceneComponentDatas where component.type == "WS_Location_Entity" {
+            if let location = try importNovelLocation(from: component, into: project) {
+                locationMap[component.id] = location
+                // Parse scene IDs from the location's scenes field
+                if let sceneIds = decodeSceneIdsFromPlistData(component.scenes) {
+                    locationSceneIds[component.id] = sceneIds
+                }
+            }
+        }
+        
+        // Import Chapters from collectionComponentDatas and collect scene-to-chapter mappings
+        for component in data.collectionComponentDatas where component.type == "WS_Chapter_Entity" {
+            if let chapter = try importNovelChapter(from: component, into: project) {
+                chapterMap[component.id] = chapter
+                
+                // Parse collectedTextIds to get scene IDs for this chapter
+                if let sceneIds = decodeSceneIdsFromChapter(component) {
+                    for sceneId in sceneIds {
+                        sceneToChapterMap[sceneId] = component.id
+                    }
+                }
+            }
+        }
+        
+        // Import Scenes from textFileDatas (WS_Scene_Entity type)
+        for textFileData in data.textFileDatas where textFileData.type == "WS_Scene_Entity" {
+            if let scene = try importNovelScene(from: textFileData, into: project, chapterMap: chapterMap, sceneToChapterMap: sceneToChapterMap) {
+                sceneMap[textFileData.id] = scene
+            }
+        }
+        
+        // Link characters to scenes
+        for (characterId, sceneIds) in characterSceneIds {
+            guard let character = characterMap[characterId] else { continue }
+            for sceneId in sceneIds {
+                if let scene = sceneMap[sceneId] {
+                    if character.scenes == nil {
+                        character.scenes = []
+                    }
+                    character.scenes?.append(scene)
+                    #if DEBUG
+                    print("[JSONImport] Linked character '\(character.name ?? "")' to scene '\(scene.name ?? "")'")
+                    #endif
+                }
+            }
+        }
+        
+        // Link locations to scenes
+        for (locationId, sceneIds) in locationSceneIds {
+            guard let location = locationMap[locationId] else { continue }
+            for sceneId in sceneIds {
+                if let scene = sceneMap[sceneId] {
+                    // Location has a one-to-many relationship with scenes (scene.location)
+                    scene.location = location
+                    #if DEBUG
+                    print("[JSONImport] Linked location '\(location.name ?? "")' to scene '\(scene.name ?? "")'")
+                    #endif
+                }
+            }
+        }
+        
+        #if DEBUG
+        print("[JSONImport] ===== NOVEL IMPORT COMPLETE =====")
+        #endif
+    }
+    
+    /// Decode scene IDs from plist-encoded Data (used for character.scenes and location.scenes)
+    private func decodeSceneIdsFromPlistData(_ data: Data?) -> [String]? {
+        guard let data = data, !data.isEmpty else {
+            return nil
+        }
+        
+        do {
+            if let plistArray = try PropertyListSerialization.propertyList(from: data, format: nil) as? [String] {
+                // Each ID is prefixed with project name, extract the UUID part (last 36 chars)
+                let sceneIds = plistArray.compactMap { fullId -> String? in
+                    if fullId.count >= 36 {
+                        let uuidPart = String(fullId.suffix(36))
+                        if UUID(uuidString: uuidPart) != nil {
+                            return uuidPart
+                        }
+                    }
+                    return nil
+                }
+                
+                #if DEBUG
+                print("[JSONImport] Decoded \(sceneIds.count) scene IDs from plist data")
+                #endif
+                
+                return sceneIds.isEmpty ? nil : sceneIds
+            }
+        } catch {
+            #if DEBUG
+            print("[JSONImport] Failed to decode scene IDs from plist: \(error)")
+            #endif
+        }
+        
+        return nil
+    }
+    
+    /// Decode scene IDs from a chapter's collectedTextIds field
+    private func decodeSceneIdsFromChapter(_ component: CollectionComponentData) -> [String]? {
+        guard let collectedTextIds = component.collectedTextIds,
+              !collectedTextIds.isEmpty else {
+            return nil
+        }
+        
+        // The collectedTextIds is a plist-encoded array of strings (prefixed with project name)
+        do {
+            if let plistArray = try PropertyListSerialization.propertyList(from: collectedTextIds, format: nil) as? [String] {
+                // Each ID may be prefixed with project name, extract the UUID part
+                let sceneIds = plistArray.compactMap { fullId -> String? in
+                    // Format is likely "projectName + UUID", extract the UUID (last 36 chars)
+                    if fullId.count >= 36 {
+                        let uuidPart = String(fullId.suffix(36))
+                        // Validate it looks like a UUID
+                        if UUID(uuidString: uuidPart) != nil {
+                            return uuidPart
+                        }
+                    }
+                    return nil
+                }
+                
+                #if DEBUG
+                print("[JSONImport] Decoded \(sceneIds.count) scene IDs from chapter")
+                #endif
+                
+                return sceneIds.isEmpty ? nil : sceneIds
+            }
+        } catch {
+            #if DEBUG
+            print("[JSONImport] Failed to decode collectedTextIds: \(error)")
+            #endif
+        }
+        
+        return nil
+    }
+    
+    /// Import a Character from WS_Character_Entity
+    private func importNovelCharacter(from component: SceneComponentData, into project: Project) throws -> Character? {
+        guard let jsonData = component.sceneComponent.data(using: .utf8),
+              let dict = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
+            errorHandler.addWarning("Failed to decode character: \(component.id)")
+            return nil
+        }
+        
+        let name = dict["name"] as? String
+        let role = dict["role"] as? String
+        let history = dict["history"] as? String
+        let looks = dict["looks"] as? String
+        let traits = dict["traits"] as? String
+        let work = dict["work"] as? String
+        
+        let character = Character(
+            name: name?.trimmingCharacters(in: .whitespaces),
+            role: role?.trimmingCharacters(in: .whitespaces),
+            history: history?.trimmingCharacters(in: .whitespaces),
+            looks: looks?.trimmingCharacters(in: .whitespaces),
+            traits: traits?.trimmingCharacters(in: .whitespaces),
+            work: work?.trimmingCharacters(in: .whitespaces)
+        )
+        character.id = UUID(uuidString: component.id) ?? UUID()
+        character.project = project
+        
+        modelContext.insert(character)
+        
+        #if DEBUG
+        print("[JSONImport] ✅ Imported character: \(name ?? "unnamed")")
+        #endif
+        
+        return character
+    }
+    
+    /// Import a Location from WS_Location_Entity
+    private func importNovelLocation(from component: SceneComponentData, into project: Project) throws -> Location? {
+        guard let jsonData = component.sceneComponent.data(using: .utf8),
+              let dict = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
+            errorHandler.addWarning("Failed to decode location: \(component.id)")
+            return nil
+        }
+        
+        let name = dict["name"] as? String
+        let detail = dict["detail"] as? String
+        let sights = dict["sights"] as? String
+        let sounds = dict["sounds"] as? String
+        let smells = dict["smells"] as? String
+        
+        let location = Location(
+            name: name?.trimmingCharacters(in: .whitespaces),
+            detail: detail?.trimmingCharacters(in: .whitespaces),
+            sights: sights?.trimmingCharacters(in: .whitespaces),
+            sounds: sounds?.trimmingCharacters(in: .whitespaces),
+            smells: smells?.trimmingCharacters(in: .whitespaces)
+        )
+        location.id = UUID(uuidString: component.id) ?? UUID()
+        location.project = project
+        
+        modelContext.insert(location)
+        
+        #if DEBUG
+        print("[JSONImport] ✅ Imported location: \(name ?? "unnamed")")
+        #endif
+        
+        return location
+    }
+    
+    /// Import a Chapter from WS_Chapter_Entity
+    private func importNovelChapter(from component: CollectionComponentData, into project: Project) throws -> Chapter? {
+        guard let jsonData = component.collectionComponent.data(using: .utf8),
+              let dict = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
+            errorHandler.addWarning("Failed to decode chapter: \(component.id)")
+            return nil
+        }
+        
+        let name = dict["name"] as? String
+        let position = dict["position"] as? Int
+        
+        let chapter = Chapter(name: name?.trimmingCharacters(in: .whitespaces))
+        chapter.id = UUID(uuidString: component.id) ?? UUID()
+        chapter.userOrder = position
+        chapter.project = project
+        
+        modelContext.insert(chapter)
+        
+        #if DEBUG
+        print("[JSONImport] ✅ Imported chapter: \(name ?? "unnamed") at position \(position ?? 0)")
+        #endif
+        
+        return chapter
+    }
+    
+    /// Import a Scene from WS_Scene_Entity in textFileDatas
+    private func importNovelScene(from textFileData: TextFileData, into project: Project, chapterMap: [String: Chapter], sceneToChapterMap: [String: String]) throws -> StoryScene? {
+        guard let jsonData = textFileData.textFile.data(using: .utf8),
+              let dict = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
+            errorHandler.addWarning("Failed to decode scene: \(textFileData.id)")
+            return nil
+        }
+        
+        let name = dict["name"] as? String
+        let action = dict["action"] as? String
+        let notes = dict["notes"] as? String
+        let position = dict["position"] as? Int
+        
+        // Combine action and notes into synopsis
+        var synopsisParts: [String] = []
+        if let action = action, !action.isEmpty {
+            synopsisParts.append(action.trimmingCharacters(in: .whitespaces))
+        }
+        if let notes = notes, !notes.isEmpty {
+            synopsisParts.append(notes.trimmingCharacters(in: .whitespaces))
+        }
+        let synopsis = synopsisParts.isEmpty ? nil : synopsisParts.joined(separator: "\n\n")
+        
+        // Find associated TextFile from our cache
+        let linkedTextFile = textFileMap[textFileData.id]
+        
+        // Find the chapter this scene belongs to
+        var chapter: Chapter?
+        if let chapterId = sceneToChapterMap[textFileData.id] {
+            chapter = chapterMap[chapterId]
+        }
+        
+        let scene = StoryScene()
+        scene.id = UUID(uuidString: textFileData.id) ?? UUID()
+        scene.name = name?.trimmingCharacters(in: .whitespaces)
+        scene.synopsis = synopsis
+        scene.userOrder = position
+        scene.project = project
+        scene.chapter = chapter
+        scene.textFile = linkedTextFile
+        
+        // Link the TextFile back to the scene
+        linkedTextFile?.scene = scene
+        
+        modelContext.insert(scene)
+        
+        #if DEBUG
+        print("[JSONImport] ✅ Imported scene: \(name ?? "unnamed") with textFile: \(linkedTextFile != nil), chapter: \(chapter?.name ?? "none")")
+        #endif
+        
+        return scene
     }
 }
 

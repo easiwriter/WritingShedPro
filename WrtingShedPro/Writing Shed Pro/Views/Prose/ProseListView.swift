@@ -339,6 +339,10 @@ struct ProseListView: View {
         List(selection: $selectedFileIDs) {
             ForEach(sortedFiles) { file in
                 fileRow(for: file)
+                    // Enable drag-to-reorder without edit mode (only when within a section)
+                    .onDrag {
+                        return NSItemProvider(object: file.id.uuidString as NSString)
+                    }
             }
             .onMove(perform: section != nil ? moveFiles : nil)
         }

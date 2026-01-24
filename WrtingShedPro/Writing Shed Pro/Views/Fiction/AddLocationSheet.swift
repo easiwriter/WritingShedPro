@@ -23,7 +23,10 @@ struct AddLocationSheet: View {
     // MARK: - State
     
     @State private var name: String = ""
-    @State private var locationDescription: String = ""
+    @State private var detail: String = ""
+    @State private var sights: String = ""
+    @State private var sounds: String = ""
+    @State private var smells: String = ""
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
     
@@ -46,15 +49,38 @@ struct AddLocationSheet: View {
                     Text(NSLocalizedString("fiction.location.section.basic", comment: "Basic Info"))
                 }
                 
-                // Description
+                // Location Details
                 Section {
-                    TextEditor(text: $locationDescription)
-                        .frame(minHeight: 100)
-                        .accessibilityLabel(NSLocalizedString("fiction.location.description.accessibility", comment: "Location description"))
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(NSLocalizedString("fiction.location.detail", comment: "Detail"))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        TextEditor(text: $detail)
+                            .frame(minHeight: 60)
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(NSLocalizedString("fiction.location.sights", comment: "Sights"))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        TextEditor(text: $sights)
+                            .frame(minHeight: 60)
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(NSLocalizedString("fiction.location.sounds", comment: "Sounds"))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        TextEditor(text: $sounds)
+                            .frame(minHeight: 60)
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(NSLocalizedString("fiction.location.smells", comment: "Smells"))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        TextEditor(text: $smells)
+                            .frame(minHeight: 60)
+                    }
                 } header: {
-                    Text(NSLocalizedString("fiction.location.description", comment: "Description"))
-                } footer: {
-                    Text(NSLocalizedString("fiction.location.description.footer", comment: "Describe the setting"))
+                    Text(NSLocalizedString("fiction.location.section.details", comment: "Location Details"))
                 }
             }
             .navigationTitle(NSLocalizedString("fiction.location.add.title", comment: "Add Location"))
@@ -95,7 +121,10 @@ struct AddLocationSheet: View {
         
         let location = Location(
             name: trimmedName,
-            description: locationDescription.isEmpty ? nil : locationDescription
+            detail: detail.isEmpty ? nil : detail,
+            sights: sights.isEmpty ? nil : sights,
+            sounds: sounds.isEmpty ? nil : sounds,
+            smells: smells.isEmpty ? nil : smells
         )
         location.project = project
         

@@ -152,8 +152,8 @@ struct LocationRowView: View {
             Text(location.name ?? NSLocalizedString("fiction.untitled", comment: "Untitled"))
                 .font(.headline)
             
-            if let description = location.locationDescription, !description.isEmpty {
-                Text(description)
+            if let detail = location.detail, !detail.isEmpty {
+                Text(detail)
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .lineLimit(2)

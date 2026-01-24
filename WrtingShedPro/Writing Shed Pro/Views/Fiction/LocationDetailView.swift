@@ -24,7 +24,10 @@ struct LocationDetailView: View {
     
     @State private var isEditing = false
     @State private var editName: String = ""
-    @State private var editDescription: String = ""
+    @State private var editDetail: String = ""
+    @State private var editSights: String = ""
+    @State private var editSounds: String = ""
+    @State private var editSmells: String = ""
     @State private var showDeleteConfirmation = false
     
     // MARK: - Body
@@ -93,12 +96,48 @@ struct LocationDetailView: View {
             Text(NSLocalizedString("fiction.location.section.basic", comment: "Basic Info"))
         }
         
-        // Description
-        if let description = location.locationDescription, !description.isEmpty {
+        // Location Details (Detail, Sights, Sounds, Smells)
+        let hasDetail = location.detail != nil && !location.detail!.isEmpty
+        let hasSights = location.sights != nil && !location.sights!.isEmpty
+        let hasSounds = location.sounds != nil && !location.sounds!.isEmpty
+        let hasSmells = location.smells != nil && !location.smells!.isEmpty
+        
+        if hasDetail || hasSights || hasSounds || hasSmells {
             Section {
-                Text(description)
+                if hasDetail {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(NSLocalizedString("fiction.location.detail", comment: "Detail"))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text(location.detail!)
+                    }
+                }
+                if hasSights {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(NSLocalizedString("fiction.location.sights", comment: "Sights"))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text(location.sights!)
+                    }
+                }
+                if hasSounds {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(NSLocalizedString("fiction.location.sounds", comment: "Sounds"))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text(location.sounds!)
+                    }
+                }
+                if hasSmells {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(NSLocalizedString("fiction.location.smells", comment: "Smells"))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text(location.smells!)
+                    }
+                }
             } header: {
-                Text(NSLocalizedString("fiction.location.description", comment: "Description"))
+                Text(NSLocalizedString("fiction.location.section.details", comment: "Location Details"))
             }
         }
         
@@ -151,12 +190,38 @@ struct LocationDetailView: View {
             Text(NSLocalizedString("fiction.location.section.basic", comment: "Basic Info"))
         }
         
-        // Description
+        // Location Details
         Section {
-            TextEditor(text: $editDescription)
-                .frame(minHeight: 100)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(NSLocalizedString("fiction.location.detail", comment: "Detail"))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                TextEditor(text: $editDetail)
+                    .frame(minHeight: 60)
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                Text(NSLocalizedString("fiction.location.sights", comment: "Sights"))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                TextEditor(text: $editSights)
+                    .frame(minHeight: 60)
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                Text(NSLocalizedString("fiction.location.sounds", comment: "Sounds"))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                TextEditor(text: $editSounds)
+                    .frame(minHeight: 60)
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                Text(NSLocalizedString("fiction.location.smells", comment: "Smells"))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                TextEditor(text: $editSmells)
+                    .frame(minHeight: 60)
+            }
         } header: {
-            Text(NSLocalizedString("fiction.location.description", comment: "Description"))
+            Text(NSLocalizedString("fiction.location.section.details", comment: "Location Details"))
         }
     }
     
@@ -164,13 +229,19 @@ struct LocationDetailView: View {
     
     private func startEditing() {
         editName = location.name ?? ""
-        editDescription = location.locationDescription ?? ""
+        editDetail = location.detail ?? ""
+        editSights = location.sights ?? ""
+        editSounds = location.sounds ?? ""
+        editSmells = location.smells ?? ""
         isEditing = true
     }
     
     private func saveChanges() {
         location.name = editName.trimmingCharacters(in: .whitespacesAndNewlines)
-        location.locationDescription = editDescription.isEmpty ? nil : editDescription
+        location.detail = editDetail.isEmpty ? nil : editDetail
+        location.sights = editSights.isEmpty ? nil : editSights
+        location.sounds = editSounds.isEmpty ? nil : editSounds
+        location.smells = editSmells.isEmpty ? nil : editSmells
         
         try? modelContext.save()
         isEditing = false

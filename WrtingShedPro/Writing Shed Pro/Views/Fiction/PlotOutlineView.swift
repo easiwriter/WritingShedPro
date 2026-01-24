@@ -185,6 +185,10 @@ struct PlotOutlineView: View {
                             Label(NSLocalizedString("button.delete", comment: "Delete"), systemImage: "trash")
                         }
                     }
+                    // Enable drag-to-reorder without edit mode
+                    .onDrag {
+                        return NSItemProvider(object: element.id.uuidString as NSString)
+                    }
             }
             .onMove(perform: movePlotElements)
         }

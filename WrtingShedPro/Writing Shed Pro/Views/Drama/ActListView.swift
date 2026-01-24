@@ -179,14 +179,20 @@ struct ActListView: View {
     private var actList: some View {
         List(selection: $selectedActIDs) {
             ForEach(sortedActs) { act in
-                if isEditMode {
-                    ActRowView(act: act)
-                } else {
-                    NavigationLink {
-                        SceneListView(project: project, act: act)
-                    } label: {
+                Group {
+                    if isEditMode {
                         ActRowView(act: act)
+                    } else {
+                        NavigationLink {
+                            SceneListView(project: project, act: act)
+                        } label: {
+                            ActRowView(act: act)
+                        }
                     }
+                }
+                // Enable drag-to-reorder without edit mode
+                .onDrag {
+                    return NSItemProvider(object: act.id.uuidString as NSString)
                 }
             }
             .onMove(perform: moveActs)

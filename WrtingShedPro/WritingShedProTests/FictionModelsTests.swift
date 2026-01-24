@@ -277,14 +277,17 @@ final class FictionModelsTests: XCTestCase {
     // MARK: - Character Tests
     
     func testCharacterCreation() {
-        let character = Character(name: "Frodo", role: "Protagonist", archetype: .hero, biography: "A hobbit from the Shire")
+        let character = Character(name: "Frodo", role: "Protagonist", archetype: .hero, history: "Born in the Shire", looks: "Short with curly hair", traits: "Brave and loyal", work: "Ring bearer")
         modelContext.insert(character)
         
         XCTAssertNotNil(character.id)
         XCTAssertEqual(character.name, "Frodo")
         XCTAssertEqual(character.role, "Protagonist")
         XCTAssertEqual(character.archetype, .hero)
-        XCTAssertEqual(character.biography, "A hobbit from the Shire")
+        XCTAssertEqual(character.history, "Born in the Shire")
+        XCTAssertEqual(character.looks, "Short with curly hair")
+        XCTAssertEqual(character.traits, "Brave and loyal")
+        XCTAssertEqual(character.work, "Ring bearer")
     }
     
     func testCharacterArchetypeRoundTrip() {
@@ -340,12 +343,15 @@ final class FictionModelsTests: XCTestCase {
     // MARK: - Location Tests
     
     func testLocationCreation() {
-        let location = Location(name: "The Shire", description: "A peaceful land of rolling hills")
+        let location = Location(name: "The Shire", detail: "A peaceful land of rolling hills", sights: "Green meadows", sounds: "Birds chirping", smells: "Fresh grass")
         modelContext.insert(location)
         
         XCTAssertNotNil(location.id)
         XCTAssertEqual(location.name, "The Shire")
-        XCTAssertEqual(location.locationDescription, "A peaceful land of rolling hills")
+        XCTAssertEqual(location.detail, "A peaceful land of rolling hills")
+        XCTAssertEqual(location.sights, "Green meadows")
+        XCTAssertEqual(location.sounds, "Birds chirping")
+        XCTAssertEqual(location.smells, "Fresh grass")
     }
     
     func testLocationProjectRelationship() throws {

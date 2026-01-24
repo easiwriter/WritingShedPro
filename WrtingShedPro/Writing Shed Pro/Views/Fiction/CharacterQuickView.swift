@@ -2,18 +2,25 @@
 //  CharacterQuickView.swift
 //  Writing Shed Pro
 //
-//  Quick read-only view of a character's biography and archetype
+//  Quick read-only view of a character's details and archetype
 //  Displayed when tapping a character in the editor insert menu
 //
 
 import SwiftUI
 
-/// Quick read-only view showing character biography and archetype
+/// Quick read-only view showing character details and archetype
 struct CharacterQuickView: View {
     
     @Environment(\.dismiss) private var dismiss
     
     let character: Character
+    
+    private var hasDetails: Bool {
+        (character.history != nil && !character.history!.isEmpty) ||
+        (character.looks != nil && !character.looks!.isEmpty) ||
+        (character.traits != nil && !character.traits!.isEmpty) ||
+        (character.work != nil && !character.work!.isEmpty)
+    }
     
     var body: some View {
         NavigationStack {
@@ -24,13 +31,13 @@ struct CharacterQuickView: View {
                         archetypeSection(archetype)
                     }
                     
-                    // Biography section
-                    if let biography = character.biography, !biography.isEmpty {
-                        biographySection(biography)
+                    // Character details section
+                    if hasDetails {
+                        detailsSection
                     }
                     
                     // Show message if no content
-                    if character.archetype == nil && (character.biography?.isEmpty ?? true) {
+                    if character.archetype == nil && !hasDetails {
                         noContentMessage
                     }
                 }
@@ -66,13 +73,29 @@ struct CharacterQuickView: View {
         }
     }
     
-    private func biographySection(_ biography: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(NSLocalizedString("fiction.character.biography", comment: "Biography"))
+    private var detailsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if let history = character.history, !history.isEmpty {
+                detailField(NSLocalizedString("fiction.character.history", comment: "History"), value: history)
+            }
+            if let looks = character.looks, !looks.isEmpty {
+                detailField(NSLocalizedString("fiction.character.looks", comment: "Looks"), value: looks)
+            }
+            if let traits = character.traits, !traits.isEmpty {
+                detailField(NSLocalizedString("fiction.character.traits", comment: "Traits"), value: traits)
+            }
+            if let work = character.work, !work.isEmpty {
+                detailField(NSLocalizedString("fiction.character.work", comment: "Work"), value: work)
+            }
+        }
+    }
+    
+    private func detailField(_ label: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
                 .font(.headline)
                 .foregroundStyle(.secondary)
-            
-            Text(biography)
+            Text(value)
                 .font(.body)
         }
     }
@@ -81,7 +104,7 @@ struct CharacterQuickView: View {
         ContentUnavailableView(
             NSLocalizedString("fiction.character.noDetails.title", comment: "No Details"),
             systemImage: "person.fill",
-            description: Text(NSLocalizedString("fiction.character.noDetails.message", comment: "No biography or archetype has been added for this character."))
+            description: Text(NSLocalizedString("fiction.character.noDetails.message", comment: "No details or archetype has been added for this character."))
         )
     }
 }

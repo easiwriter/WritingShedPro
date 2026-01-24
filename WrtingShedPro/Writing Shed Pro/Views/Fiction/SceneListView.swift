@@ -541,6 +541,10 @@ struct SceneListView: View {
                             }
                         }
                     }
+                    // Enable drag-to-reorder without edit mode (only when within an act)
+                    .onDrag {
+                        return NSItemProvider(object: scene.id.uuidString as NSString)
+                    }
             }
             // Only enable drag-to-reorder when viewing scenes within an act
             .onMove(perform: act != nil ? moveScenes : nil)

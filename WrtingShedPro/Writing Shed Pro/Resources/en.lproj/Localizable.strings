@@ -162,6 +162,11 @@
 "fiction.character.archetype.none" = "None";
 "fiction.character.archetype.footer" = "Archetypes help structure your story using classic character roles.";
 "fiction.character.section.archetype" = "Archetype";
+"fiction.character.section.details" = "Character Details";
+"fiction.character.history" = "History";
+"fiction.character.looks" = "Looks";
+"fiction.character.traits" = "Traits";
+"fiction.character.work" = "Work";
 "fiction.character.biography" = "Biography";
 "fiction.character.biography.accessibility" = "Character biography and backstory";
 "fiction.character.add.title" = "Add Character";
@@ -170,7 +175,7 @@
 "fiction.character.scenes" = "Appears In";
 "fiction.character.delete" = "Delete Character";
 "fiction.character.noDetails.title" = "No Details";
-"fiction.character.noDetails.message" = "No biography or archetype has been added for this character.";
+"fiction.character.noDetails.message" = "No details or archetype has been added for this character.";
 
 /* Fiction Locations View (Feature 022) */
 "fiction.locations.title" = "Locations";
@@ -182,6 +187,11 @@
 "fiction.location.name" = "Name";
 "fiction.location.name.accessibility" = "Location name";
 "fiction.location.section.basic" = "Basic Info";
+"fiction.location.section.details" = "Location Details";
+"fiction.location.detail" = "Detail";
+"fiction.location.sights" = "Sights";
+"fiction.location.sounds" = "Sounds";
+"fiction.location.smells" = "Smells";
 "fiction.location.description" = "Description";
 "fiction.location.description.accessibility" = "Location description";
 "fiction.location.description.footer" = "Describe this setting in detail.";
@@ -192,7 +202,7 @@
 "fiction.location.sceneCount" = "%d scenes";
 "fiction.location.delete" = "Delete Location";
 "fiction.location.noDetails.title" = "No Details";
-"fiction.location.noDetails.message" = "No description has been added for this location.";
+"fiction.location.noDetails.message" = "No details have been added for this location.";
 
 /* Fiction Scenes View (Feature 022) */
 "fiction.scenes.title" = "Scenes";

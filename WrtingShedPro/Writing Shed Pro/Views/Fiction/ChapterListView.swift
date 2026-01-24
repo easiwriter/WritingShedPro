@@ -109,6 +109,10 @@ struct ChapterListView: View {
                         Label(NSLocalizedString("button.delete", comment: "Delete"), systemImage: "trash")
                     }
                 }
+                // Enable drag-to-reorder without edit mode
+                .onDrag {
+                    return NSItemProvider(object: chapter.id.uuidString as NSString)
+                }
             }
             .onMove(perform: moveChapters)
         }

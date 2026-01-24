@@ -26,7 +26,10 @@ struct CharacterDetailView: View {
     @State private var editName: String = ""
     @State private var editRole: String = ""
     @State private var editArchetype: CharacterArchetype?
-    @State private var editBiography: String = ""
+    @State private var editHistory: String = ""
+    @State private var editLooks: String = ""
+    @State private var editTraits: String = ""
+    @State private var editWork: String = ""
     @State private var showDeleteConfirmation = false
     
     // MARK: - Body
@@ -116,12 +119,48 @@ struct CharacterDetailView: View {
             }
         }
         
-        // Biography
-        if let biography = character.biography, !biography.isEmpty {
+        // Character Details (History, Looks, Traits, Work)
+        let hasHistory = character.history != nil && !character.history!.isEmpty
+        let hasLooks = character.looks != nil && !character.looks!.isEmpty
+        let hasTraits = character.traits != nil && !character.traits!.isEmpty
+        let hasWork = character.work != nil && !character.work!.isEmpty
+        
+        if hasHistory || hasLooks || hasTraits || hasWork {
             Section {
-                Text(biography)
+                if hasHistory {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(NSLocalizedString("fiction.character.history", comment: "History"))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text(character.history!)
+                    }
+                }
+                if hasLooks {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(NSLocalizedString("fiction.character.looks", comment: "Looks"))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text(character.looks!)
+                    }
+                }
+                if hasTraits {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(NSLocalizedString("fiction.character.traits", comment: "Traits"))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text(character.traits!)
+                    }
+                }
+                if hasWork {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(NSLocalizedString("fiction.character.work", comment: "Work"))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text(character.work!)
+                    }
+                }
             } header: {
-                Text(NSLocalizedString("fiction.character.biography", comment: "Biography"))
+                Text(NSLocalizedString("fiction.character.section.details", comment: "Character Details"))
             }
         }
         
@@ -196,12 +235,38 @@ struct CharacterDetailView: View {
             Text(NSLocalizedString("fiction.character.section.archetype", comment: "Archetype"))
         }
         
-        // Biography
+        // Character Details
         Section {
-            TextEditor(text: $editBiography)
-                .frame(minHeight: 100)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(NSLocalizedString("fiction.character.history", comment: "History"))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                TextEditor(text: $editHistory)
+                    .frame(minHeight: 60)
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                Text(NSLocalizedString("fiction.character.looks", comment: "Looks"))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                TextEditor(text: $editLooks)
+                    .frame(minHeight: 60)
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                Text(NSLocalizedString("fiction.character.traits", comment: "Traits"))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                TextEditor(text: $editTraits)
+                    .frame(minHeight: 60)
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                Text(NSLocalizedString("fiction.character.work", comment: "Work"))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                TextEditor(text: $editWork)
+                    .frame(minHeight: 60)
+            }
         } header: {
-            Text(NSLocalizedString("fiction.character.biography", comment: "Biography"))
+            Text(NSLocalizedString("fiction.character.section.details", comment: "Character Details"))
         }
     }
     
@@ -211,7 +276,10 @@ struct CharacterDetailView: View {
         editName = character.name ?? ""
         editRole = character.role ?? ""
         editArchetype = character.archetype
-        editBiography = character.biography ?? ""
+        editHistory = character.history ?? ""
+        editLooks = character.looks ?? ""
+        editTraits = character.traits ?? ""
+        editWork = character.work ?? ""
         isEditing = true
     }
     
@@ -219,7 +287,10 @@ struct CharacterDetailView: View {
         character.name = editName.trimmingCharacters(in: .whitespacesAndNewlines)
         character.role = editRole.isEmpty ? nil : editRole
         character.archetype = editArchetype
-        character.biography = editBiography.isEmpty ? nil : editBiography
+        character.history = editHistory.isEmpty ? nil : editHistory
+        character.looks = editLooks.isEmpty ? nil : editLooks
+        character.traits = editTraits.isEmpty ? nil : editTraits
+        character.work = editWork.isEmpty ? nil : editWork
         
         try? modelContext.save()
         isEditing = false
