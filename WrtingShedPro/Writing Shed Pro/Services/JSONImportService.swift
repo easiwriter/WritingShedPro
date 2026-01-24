@@ -362,9 +362,18 @@ class JSONImportService {
         // Import collections (text collections)
         try importCollections(from: writingShedData, into: project)
         
-        // Import Novel-specific entities (Characters, Locations, Chapters, Scenes)
+        // Import Fiction-specific entities
         if project.type == .fiction {
-            try importNovelEntities(from: writingShedData, into: project)
+            #if DEBUG
+            print("[JSONImport] Fiction project, fictionClass: \(project.fictionClass?.rawValue ?? "nil")")
+            #endif
+            if project.fictionClass == .shortFiction {
+                // Short Stories: Create StoryScene and Chapter for each story
+                try importShortStoryEntities(from: writingShedData, into: project)
+            } else {
+                // Novel: Import Characters, Locations, Chapters, Scenes
+                try importNovelEntities(from: writingShedData, into: project)
+            }
         }
         
         // NOTE: We do NOT call importCollectionSubmissions() - see COLLECTION_SUBMISSION_FIX.md
@@ -418,13 +427,18 @@ class JSONImportService {
         var projectType: ProjectType = .prose
         var isNovel = false
         
+        var isShortStories = false
+        
         if let projectData = data.project.data(using: .utf8),
            let projectDict = try? JSONSerialization.jsonObject(with: projectData) as? [String: Any],
            let typeString = projectDict["projectType"] as? String {
             projectType = mapProjectType(typeString)
             isNovel = typeString.lowercased() == "novel"
+            isShortStories = typeString.lowercased() == "short stories"
             #if DEBUG
             print("[JSONImport] Project type from JSON: \(typeString) -> \(projectType)")
+            print("[JSONImport] isNovel: \(isNovel), isShortStories: \(isShortStories)")
+            print("[JSONImport] typeString.lowercased(): '\(typeString.lowercased())'")
             #endif
         } else {
             // Fall back to projectModel field
@@ -440,6 +454,11 @@ class JSONImportService {
             project.fictionClass = .novel
             #if DEBUG
             print("[JSONImport] Set fictionClass to .novel")
+            #endif
+        } else if isShortStories {
+            project.fictionClass = .shortFiction
+            #if DEBUG
+            print("[JSONImport] Set fictionClass to .shortFiction")
             #endif
         }
         
@@ -528,6 +547,7 @@ class JSONImportService {
             "novel": .fiction,
             "shortstory": .fiction,
             "short story": .fiction,
+            "short stories": .fiction,  // WS legacy plural form
             "fiction": .fiction,
             "poetry": .poetry,
             "script": .drama,
@@ -1421,21 +1441,41 @@ class JSONImportService {
             ]
             
         case .fiction:
-            // New Fiction structure: single Scenes folder (workflow is on files)
-            folderNames = [
-                "Scenes",
-                "Characters",
-                "Locations",
-                "Chapters",
-                "Collections",
-                "Submissions",
-                "Plot",
-                "Research",
-                "Magazines",
-                "Competitions",
-                "Other",
-                "Trash"
-            ]
+            // Fiction structure depends on fictionClass
+            if project.fictionClass == .shortFiction {
+                // Short Fiction: Stories folder instead of Chapters
+                folderNames = [
+                    "Manuscript",
+                    "Stories",
+                    "Scenes",
+                    "Characters",
+                    "Locations",
+                    "Plot",
+                    "Collections",
+                    "Submissions",
+                    "Research",
+                    "Magazines",
+                    "Competitions",
+                    "Other",
+                    "Trash"
+                ]
+            } else {
+                // Novel: Chapters folder
+                folderNames = [
+                    "Chapters",
+                    "Scenes",
+                    "Characters",
+                    "Locations",
+                    "Plot",
+                    "Collections",
+                    "Submissions",
+                    "Research",
+                    "Magazines",
+                    "Competitions",
+                    "Other",
+                    "Trash"
+                ]
+            }
             
         case .drama:
             // New Drama structure: single Scripts folder (workflow is on files)
@@ -1799,6 +1839,71 @@ class JSONImportService {
             name: dict["name"] as? String,
             dateCreated: createdDate
         )
+    }
+    
+    // MARK: - Short Stories Import (Feature 030)
+    
+    /// Import Short Story entities: For each WS_Story_Entity, create a StoryScene and Chapter
+    /// The TextFile has already been imported by importTextFiles()
+    private func importShortStoryEntities(from data: WritingShedData, into project: Project) throws {
+        #if DEBUG
+        print("[JSONImport] ===== SHORT STORIES IMPORT =====")
+        #endif
+        
+        var storyCount = 0
+        
+        for textFileData in data.textFileDatas where textFileData.type == "WS_Story_Entity" {
+            // Get the already-imported TextFile
+            guard let textFile = textFileMap[textFileData.id] else {
+                errorHandler.addWarning("TextFile not found for story: \(textFileData.id)")
+                continue
+            }
+            
+            // Decode story metadata for the name
+            guard let jsonData = textFileData.textFile.data(using: .utf8),
+                  let dict = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
+                errorHandler.addWarning("Failed to decode story metadata: \(textFileData.id)")
+                continue
+            }
+            
+            let name = dict["name"] as? String ?? textFile.name
+            
+            // Create a Chapter for this story (each short story is its own chapter)
+            let chapter = Chapter(
+                name: name,
+                synopsis: nil,
+                userOrder: storyCount
+            )
+            chapter.id = UUID()
+            chapter.project = project
+            modelContext.insert(chapter)
+            
+            // Create a StoryScene linked to the TextFile and Chapter
+            let scene = StoryScene(
+                name: name,
+                synopsis: nil,
+                userOrder: 0  // Single scene per chapter
+            )
+            scene.id = UUID(uuidString: textFileData.id) ?? UUID()
+            scene.project = project
+            scene.chapter = chapter
+            scene.textFile = textFile
+            
+            // Link the TextFile back to the scene
+            textFile.scene = scene
+            
+            modelContext.insert(scene)
+            
+            storyCount += 1
+            
+            #if DEBUG
+            print("[JSONImport] ✅ Imported story: \(name ?? "unnamed") -> Scene + Chapter")
+            #endif
+        }
+        
+        #if DEBUG
+        print("[JSONImport] ===== SHORT STORIES IMPORT COMPLETE: \(storyCount) stories =====")
+        #endif
     }
     
     // MARK: - Novel Import (Feature 030)

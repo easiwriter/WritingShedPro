@@ -1,6 +1,6 @@
-# Feature 030: WS Novel Import Enhancement
+# Feature 030: WS Novel & Short Stories Import Enhancement
 
-**Status:** Not Started  
+**Status:** In Progress  
 **Priority:** High  
 **Estimated Effort:** TBD  
 **Dependencies:** 009-database-import, 022-smart-fiction-creation  
@@ -10,15 +10,17 @@
 ## Implementation Status
 
 ### Completed
-- *(None yet)*
+- ✅ Detect and map WS Novel project type during import (fictionClass = .novel)
+- ✅ Detect and map WS Short Stories project type during import (fictionClass = .shortFiction)
+- ✅ Import WS Novel chapters as Fiction chapters
+- ✅ Import WS Novel scenes as Fiction scenes
+- ✅ Import WS Short Stories as StoryScene + Chapter pairs
+- ✅ Updated Character model (history, looks, traits, work)
+- ✅ Updated Location model (detail, sights, sounds, smells)
+- ✅ Preserve scene-chapter relationships for both Novel and Short Stories
 
 ### In Progress / Not Started
-- ⏳ Detect and map WS Novel project type during import
-- ⏳ Import WS Novel chapters as Fiction chapters
-- ⏳ Import WS Novel scenes as Fiction scenes
-- ⏳ Map WS Novel folder structure to Fiction structure
-- ⏳ Handle WS Novel-specific metadata
-- ⏳ Preserve scene-chapter relationships
+- *(None remaining)*
 
 ## Overview
 
