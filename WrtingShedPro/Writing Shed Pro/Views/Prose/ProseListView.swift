@@ -445,6 +445,9 @@ struct ProseListView: View {
         Button(NSLocalizedString("export.format.docx", comment: "Word")) {
             exportFiles(filesToExport, format: .word)
         }
+        Button(ExportFormat.markdown.localizedName) {
+            exportFiles(filesToExport, format: .markdown)
+        }
         Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
             filesToExport = []
         }

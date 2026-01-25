@@ -157,6 +157,9 @@ extension FolderFilesView {
         Button(ExportFormat.word.localizedName) {
             exportFiles(format: .word)
         }
+        Button(ExportFormat.markdown.localizedName) {
+            exportFiles(format: .markdown)
+        }
         Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
             filesToExport = []
         }
@@ -179,6 +182,9 @@ extension FolderFilesView {
         }
         Button(ExportFormat.word.localizedName) {
             exportCombinedFolder(format: .word)
+        }
+        Button(ExportFormat.markdown.localizedName) {
+            exportCombinedFolder(format: .markdown)
         }
         Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
             exportCombinedContent = nil
