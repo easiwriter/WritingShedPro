@@ -901,19 +901,19 @@ private struct FileRowView: View {
     let file: TextFile
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 2) {
             HStack {
                 Text(file.name.isEmpty ? NSLocalizedString("prose.untitled", comment: "Untitled") : file.name)
-                    .font(.headline)
+                    .font(.subheadline)
                 
                 Spacer()
                 
                 // Workflow status indicator
                 if let status = file.workflowStatus {
                     Text(status.localizedName)
-                        .font(.caption)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
+                        .font(.caption2)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 1)
                         .background(Color(status.color).opacity(0.2))
                         .foregroundColor(Color(status.color))
                         .clipShape(Capsule())
@@ -922,15 +922,15 @@ private struct FileRowView: View {
             
             // Section assignment
             if let section = file.section {
-                HStack(spacing: 4) {
+                HStack(spacing: 3) {
                     Image(systemName: "doc.text")
-                        .font(.caption)
+                        .font(.caption2)
                     Text(section.name ?? NSLocalizedString("prose.untitled", comment: "Untitled"))
-                        .font(.caption)
+                        .font(.caption2)
                 }
                 .foregroundColor(.secondary)
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 1)
     }
 }
