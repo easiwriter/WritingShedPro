@@ -8,6 +8,7 @@ Writing Shed Pro offers multiple ways to export your work for sharing, submissio
 |--------|----------|-------------------|
 | **PDF** | Submissions, sharing, print | All formatting, pagination, footnotes |
 | **RTF** | Editor collaboration | Most formatting, editable |
+| **Markdown** | Plain text with structure | Headings, bold, italic, links |
 | **Plain Text** | Maximum compatibility | Text only, no formatting |
 | **Print** | Physical copies | All formatting via printing |
 
@@ -126,5 +127,6 @@ Writing Shed Pro offers multiple ways to export your work for sharing, submissio
 ## See Also
 - [PDF Export](02-pdf-export.md)
 - [RTF Export](03-rtf-export.md)
+- [Markdown Import and Export](06-markdown-import-export.md)
 - [Printing](04-printing.md)
 - [Page Setup](../08-advanced-features/03-page-setup.md)

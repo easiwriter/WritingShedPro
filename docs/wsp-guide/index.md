@@ -56,6 +56,7 @@ Welcome to the official user guide for Writing Shed Pro, the professional writin
 - [RTF Export](08-publishing/03-rtf-export.md)
 - [Printing](08-publishing/04-printing.md)
 - [Submission Tracking](08-publishing/05-submission-tracking.md)
+- [Markdown Import and Export](08-publishing/06-markdown-import-export.md)
 
 ### 9. Advanced Features
 - [Search and Replace](09-advanced-features/01-search-and-replace.md)
