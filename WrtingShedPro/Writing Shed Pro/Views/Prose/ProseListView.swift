@@ -74,6 +74,16 @@ struct ProseListView: View {
     
     /// Header/Footer editor state
     @State private var showHeaderFooterEditor = false
+    @State private var headerLeft: String = ""
+    @State private var headerCenter: String = ""
+    @State private var headerRight: String = ""
+    @State private var footerLeft: String = ""
+    @State private var footerCenter: String = ""
+    @State private var footerRight: String = ""
+    @State private var headerInsertTarget: HeaderFooterField = .left
+    @State private var footerInsertTarget: HeaderFooterField = .left
+    @State private var showHeaderElementPicker = false
+    @State private var showFooterElementPicker = false
     
     // MARK: - Init
     
@@ -167,7 +177,7 @@ struct ProseListView: View {
             }
             .sheet(isPresented: $showSearchView) {
                 if let folder = proseFolder {
-                    SearchReplaceView(folder: folder)
+                    MultiFileSearchView(folder: folder, files: sortedFiles)
                 }
             }
             .sheet(isPresented: $showHeaderFooterEditor) {
@@ -319,7 +329,12 @@ struct ProseListView: View {
     /// Whether headers or footers are enabled for this project
     private var headersOrFootersEnabled: Bool {
         guard let pageSetup = project.pageSetup else { return false }
-        return pageSetup.showHeaders || pageSetup.showFooters
+        return pageSetup.hasHeaders || pageSetup.hasFooters
+    }
+    
+    /// Available elements for header/footer insertion
+    private var headerFooterElements: [String] {
+        ["Page Number", "Total Pages", "Date", "Time", "Title", "Author"]
     }
     
     // MARK: - Sheet Content
@@ -378,8 +393,36 @@ struct ProseListView: View {
     
     @ViewBuilder
     private var headerFooterSheet: some View {
-        if let pageSetup = project.pageSetup {
-            HeaderFooterDialog(pageSetup: pageSetup)
+        HeaderFooterDialog(
+            headerEnabled: project.pageSetup?.hasHeaders ?? false,
+            footerEnabled: project.pageSetup?.hasFooters ?? false,
+            headerLeft: $headerLeft,
+            headerCenter: $headerCenter,
+            headerRight: $headerRight,
+            footerLeft: $footerLeft,
+            footerCenter: $footerCenter,
+            footerRight: $footerRight,
+            headerInsertTarget: $headerInsertTarget,
+            footerInsertTarget: $footerInsertTarget,
+            showHeaderElementPicker: $showHeaderElementPicker,
+            showFooterElementPicker: $showFooterElementPicker,
+            headerFooterElements: headerFooterElements,
+            onCancel: { showHeaderFooterEditor = false },
+            onSave: {
+                if let pageSetup = project.pageSetup {
+                    pageSetup.headerLeft = headerLeft
+                    pageSetup.headerCenter = headerCenter
+                    pageSetup.headerRight = headerRight
+                    pageSetup.footerLeft = footerLeft
+                    pageSetup.footerCenter = footerCenter
+                    pageSetup.footerRight = footerRight
+                    try? modelContext.save()
+                }
+                showHeaderFooterEditor = false
+            }
+        )
+        .onAppear {
+            initializeHeaderFooterFields()
         }
     }
     
@@ -832,6 +875,19 @@ struct ProseListView: View {
         } catch {
             importErrorMessage = error.localizedDescription
             showImportError = true
+        }
+    }
+    
+    // MARK: - Header/Footer Initialization
+    
+    private func initializeHeaderFooterFields() {
+        if let pageSetup = project.pageSetup {
+            headerLeft = pageSetup.headerLeft ?? ""
+            headerCenter = pageSetup.headerCenter ?? ""
+            headerRight = pageSetup.headerRight ?? ""
+            footerLeft = pageSetup.footerLeft ?? ""
+            footerCenter = pageSetup.footerCenter ?? ""
+            footerRight = pageSetup.footerRight ?? ""
         }
     }
 }
