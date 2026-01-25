@@ -65,6 +65,27 @@ struct ContentViewToolbar: ToolbarContent {
                     )) {
                         Label("Auto-Open Form Reference", systemImage: "book")
                     }
+                    
+                    Divider()
+                    
+                    // English dialect picker for pronunciation/stress analysis
+                    Menu {
+                        ForEach(EnglishDialect.allCases, id: \.self) { dialect in
+                            Button {
+                                poetryPrefs.englishDialect = dialect
+                            } label: {
+                                HStack {
+                                    Text(dialect.displayName)
+                                    if poetryPrefs.englishDialect == dialect {
+                                        Spacer()
+                                        Image(systemName: "checkmark")
+                                    }
+                                }
+                            }
+                        }
+                    } label: {
+                        Label("Pronunciation: \(poetryPrefs.englishDialect.shortName)", systemImage: "globe")
+                    }
                 } label: {
                     Label("Poetry Settings", systemImage: "text.quote")
                 }

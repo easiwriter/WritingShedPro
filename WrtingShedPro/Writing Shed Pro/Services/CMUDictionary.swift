@@ -45,7 +45,8 @@ struct Phoneme: Equatable, Hashable {
     }
 }
 
-/// Service for accessing the CMU Pronouncing Dictionary
+/// Service for accessing pronunciation dictionaries (CMU for US, custom for UK)
+/// Supports switching between American and British English dialects
 final class CMUDictionary {
     
     static let shared = CMUDictionary()
@@ -54,37 +55,89 @@ final class CMUDictionary {
     /// Some words have multiple pronunciations (stored as array)
     private var pronunciations: [String: [[Phoneme]]] = [:]
     
-    /// Whether the dictionary has been loaded
-    private var isLoaded = false
+    /// The currently loaded dialect
+    private var loadedDialect: EnglishDialect?
     
     /// Loading state for thread safety
     private let loadingQueue = DispatchQueue(label: "com.writingshed.cmu-dictionary")
     
+    /// Observer for dialect changes
+    private var dialectObserver: NSObjectProtocol?
+    
     private init() {
-        // Load dictionary lazily on first use
+        // Listen for dialect changes
+        dialectObserver = NotificationCenter.default.addObserver(
+            forName: .dialectDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            if let newDialect = notification.object as? EnglishDialect {
+                self?.switchDialect(to: newDialect)
+            }
+        }
+    }
+    
+    deinit {
+        if let observer = dialectObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+    }
+    
+    /// Switch to a different dialect's dictionary
+    private func switchDialect(to dialect: EnglishDialect) {
+        loadingQueue.sync {
+            guard loadedDialect != dialect else { return }
+            pronunciations.removeAll()
+            loadedDialect = nil
+            loadDictionary(for: dialect)
+            loadedDialect = dialect
+            print("CMUDictionary: Switched to \(dialect.displayName)")
+        }
+    }
+    
+    /// Get the current dialect (defaults to user preference)
+    var currentDialect: EnglishDialect {
+        loadedDialect ?? PoetryPreferences.shared.englishDialect
     }
     
     /// Ensure the dictionary is loaded before use
     func ensureLoaded() {
+        let targetDialect = PoetryPreferences.shared.englishDialect
         loadingQueue.sync {
-            guard !isLoaded else { return }
-            loadDictionary()
-            isLoaded = true
+            guard loadedDialect != targetDialect else { return }
+            loadDictionary(for: targetDialect)
+            loadedDialect = targetDialect
         }
     }
     
-    /// Load the CMU dictionary from the bundled resource
-    private func loadDictionary() {
-        // Try to find the bundled dictionary file
-        guard let url = Bundle.main.url(forResource: "cmudict", withExtension: "txt") else {
-            print("CMUDictionary: cmudict.txt not found in bundle")
+    /// Load a pronunciation dictionary for the specified dialect
+    private func loadDictionary(for dialect: EnglishDialect) {
+        pronunciations.removeAll()
+        
+        // Try to find the bundled dictionary file for this dialect
+        let fileName = dialect.dictionaryFileName
+        guard let url = Bundle.main.url(forResource: fileName, withExtension: "txt") else {
+            print("CMUDictionary: \(fileName).txt not found in bundle")
+            // Fall back to CMU dictionary if British dictionary not found
+            if dialect == .british {
+                print("CMUDictionary: Falling back to American English dictionary")
+                if let fallbackUrl = Bundle.main.url(forResource: "cmudict", withExtension: "txt") {
+                    do {
+                        let content = try String(contentsOf: fallbackUrl, encoding: .utf8)
+                        parseDictionary(content)
+                        print("CMUDictionary: Loaded \(pronunciations.count) words (US fallback)")
+                    } catch {
+                        print("CMUDictionary: Error loading fallback dictionary: \(error)")
+                    }
+                }
+            }
             return
         }
         
         do {
             let content = try String(contentsOf: url, encoding: .utf8)
             parseDictionary(content)
-            print("CMUDictionary: Loaded \(pronunciations.count) words")
+            print("CMUDictionary: Loaded \(pronunciations.count) words (\(dialect.displayName))")
         } catch {
             print("CMUDictionary: Error loading dictionary: \(error)")
         }

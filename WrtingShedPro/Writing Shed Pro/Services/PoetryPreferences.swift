@@ -9,6 +9,34 @@
 import Foundation
 import Observation
 
+/// English dialect for pronunciation/stress analysis
+enum EnglishDialect: String, CaseIterable, Codable {
+    case american = "american"
+    case british = "british"
+    
+    var displayName: String {
+        switch self {
+        case .american: return NSLocalizedString("dialect.american", comment: "American English")
+        case .british: return NSLocalizedString("dialect.british", comment: "British English")
+        }
+    }
+    
+    var shortName: String {
+        switch self {
+        case .american: return "US"
+        case .british: return "UK"
+        }
+    }
+    
+    /// The dictionary file name for this dialect
+    var dictionaryFileName: String {
+        switch self {
+        case .american: return "cmudict"
+        case .british: return "britdict"
+        }
+    }
+}
+
 /// Service for managing poetry feature preferences
 /// Persisted in UserDefaults and syncs across app lifecycle
 @Observable
@@ -21,6 +49,7 @@ final class PoetryPreferences {
         static let showStressAnalysis = "poetry.showStressAnalysis"
         static let autoOpenFormReference = "poetry.autoOpenFormReference"
         static let showSyllableHints = "poetry.showSyllableHints"
+        static let englishDialect = "poetry.englishDialect"
     }
     
     // MARK: - Properties
@@ -55,6 +84,26 @@ final class PoetryPreferences {
         set { store.set(newValue, forKey: Keys.showSyllableHints) }
     }
     
+    /// English dialect for pronunciation and stress analysis
+    /// Default: .american (CMU dictionary)
+    var englishDialect: EnglishDialect {
+        get {
+            guard let rawValue = store.string(forKey: Keys.englishDialect),
+                  let dialect = EnglishDialect(rawValue: rawValue) else {
+                return .american
+            }
+            return dialect
+        }
+        set {
+            let oldValue = englishDialect
+            store.set(newValue.rawValue, forKey: Keys.englishDialect)
+            // Notify dictionary services to reload if dialect changed
+            if oldValue != newValue {
+                NotificationCenter.default.post(name: .dialectDidChange, object: newValue)
+            }
+        }
+    }
+    
     // MARK: - Singleton
     
     static let shared = PoetryPreferences()
@@ -71,5 +120,13 @@ final class PoetryPreferences {
         store.removeObject(forKey: Keys.showStressAnalysis)
         store.removeObject(forKey: Keys.autoOpenFormReference)
         store.removeObject(forKey: Keys.showSyllableHints)
+        store.removeObject(forKey: Keys.englishDialect)
     }
+}
+
+// MARK: - Notification Names
+
+extension Notification.Name {
+    /// Posted when the English dialect preference changes
+    static let dialectDidChange = Notification.Name("com.writingshed.dialectDidChange")
 }

@@ -9,8 +9,27 @@ final class StressAnalyzer {
     
     static let shared = StressAnalyzer()
     
+    /// Observer for dialect changes
+    private var dialectObserver: NSObjectProtocol?
+    
     private init() {
         loadStressDictionary()
+        
+        // Listen for dialect changes and clear cache
+        dialectObserver = NotificationCenter.default.addObserver(
+            forName: .dialectDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.clearCache()
+            self?.loadStressDictionary()
+        }
+    }
+    
+    deinit {
+        if let observer = dialectObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
     }
     
     // MARK: - Types

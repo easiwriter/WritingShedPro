@@ -1,0 +1,174 @@
+;;; British English Pronunciation Dictionary
+;;; Format: WORD PHONEME1 PHONEME2 ... (ARPAbet with stress markers)
+;;; Stress markers: 0=unstressed, 1=primary stress, 2=secondary stress
+;;; 
+;;; This dictionary contains British English pronunciations for words that differ
+;;; significantly from American English, particularly in stress patterns.
+;;; Words not found here will fall through to the CMU (American) dictionary.
+;;;
+;;; Key differences include:
+;;; - Different stress placement (e.g., controversy, advertisement)
+;;; - Syllable reduction (e.g., secretary, laboratory)
+;;; - Vowel differences that affect stress perception
+;;;
+
+;;; Words with different stress patterns in British English
+advertisement AH0 D V ER1 T IH0 S M AH0 N T
+advertisement(2) AE2 D V ER1 T IH0 Z M AH0 N T
+controversy K AH0 N T R AA1 V ER0 S IY0
+controversy(2) K AA1 N T R AH0 V ER0 S IY0
+laboratory L AH0 B AA1 R AH0 T R IY0
+laboratory(2) L AE1 B R AH0 T R IY0
+secretary S EH1 K R AH0 T R IY0
+secretary(2) S EH1 K R IH0 T R IY0
+obligatory AH0 B L IH1 G AH0 T R IY0
+preparatory P R IH0 P AE1 R AH0 T R IY0
+migratory M AY1 G R AH0 T R IY0
+mandatory M AE1 N D AH0 T R IY0
+
+;;; -ary/-ory words with different stress (UK often stresses differently)
+necessary N EH1 S AH0 S R IY0
+temporary T EH1 M P R AH0 R IY0
+military M IH1 L IH0 T R IY0
+ordinary AO1 D N R IY0
+ordinary(2) AO1 D IH0 N R IY0
+stationary S T EY1 SH AH0 N R IY0
+dictionary D IH1 K SH AH0 N R IY0
+dictionary(2) D IH1 K SH N R IY0
+commentary K AA1 M AH0 N T R IY0
+documentary D AA2 K Y UH0 M EH1 N T R IY0
+voluntary V AA1 L AH0 N T R IY0
+sanctuary S AE1 NG K CH UH0 R IY0
+infirmary IH0 N F ER1 M R IY0
+
+;;; Words ending in -ile (UK often has /AY L/ where US has /AH L/)
+agile AE1 JH AY0 L
+docile D OW1 S AY0 L
+fertile F ER1 T AY0 L
+fragile F R AE1 JH AY0 L
+futile F Y UW1 T AY0 L
+hostile HH AA1 S T AY0 L
+missile M IH1 S AY0 L
+mobile M OW1 B AY0 L
+reptile R EH1 P T AY0 L
+sterile S T EH1 R AY0 L
+tactile T AE1 K T AY0 L
+textile T EH1 K S T AY0 L
+versatile V ER1 S AH0 T AY0 L
+volatile V AA1 L AH0 T AY0 L
+projectile P R AH0 JH EH1 K T AY0 L
+
+;;; Words with -ization (UK pronunciation /AY Z EY SH AH N/)
+authorization AO2 TH AH0 R AY0 Z EY1 SH AH0 N
+civilization S IH2 V IH0 L AY0 Z EY1 SH AH0 N
+globalization G L OW2 B AH0 L AY0 Z EY1 SH AH0 N
+organization AO2 R G AH0 N AY0 Z EY1 SH AH0 N
+privatization P R AY2 V AH0 T AY0 Z EY1 SH AH0 N
+realization R IY2 AH0 L AY0 Z EY1 SH AH0 N
+
+;;; Words with different vowel + stress
+ballet B AE1 L EY0
+baton B AE1 T AH0 N
+brochure B R OW1 SH AH0
+brochure(2) B R OW1 SH ER0
+buffet B UH1 F EY0
+café K AE1 F EY0
+cafe K AE1 F EY0
+debut D EY1 B Y UW0
+depot D EH1 P OW0
+fiancé F IY0 AA1 N S EY0
+fiancée F IY0 AA1 N S EY0
+garage G AE1 R IH0 JH
+garage(2) G AE1 R AA0 ZH
+lieutenant L EH0 F T EH1 N AH0 N T
+massage M AE1 S AA0 ZH
+premier P R EH1 M IY0 ER0
+premiere P R EH1 M IY0 ER0
+renaissance R IH0 N EY1 S AH0 N S
+résumé R EH1 Z Y UH0 M EY0
+resume R EH1 Z Y UH0 M EY0
+valet V AE1 L EY0
+valet(2) V AE1 L IH0 T
+
+;;; Common words with different stress
+address AH0 D R EH1 S
+adult AE1 D AH0 L T
+aluminium AE2 L Y UH0 M IH1 N IY0 AH0 M
+applicable AH0 P L IH1 K AH0 B AH0 L
+aristocrat AE1 R IH0 S T AH0 K R AE0 T
+ballet B AE1 L EY0
+comparable K AA1 M P R AH0 B AH0 L
+composite K AA1 M P AH0 Z IH0 T
+cremate K R IH0 M EY1 T
+debris D EH1 B R IY0
+detail D IY1 T EY0 L
+dictate D IH1 K T EY0 T
+donate D OW1 N EY0 T
+equate IH0 K W EY1 T
+equitable EH1 K W IH0 T AH0 B AH0 L
+formidable F AO1 M IH0 D AH0 B AH0 L
+frustrate F R AH1 S T R EY0 T
+gala G AA1 L AH0
+harass HH AE1 R AH0 S
+hospitable HH AA1 S P IH0 T AH0 B AH0 L
+migraine M IY1 G R EY0 N
+migrate M AY1 G R EY0 T
+negate N IH0 G EY1 T
+oregano AO2 R IH0 G AA1 N OW0
+orientate AO1 R IY0 AH0 N T EY0 T
+paprika P AE1 P R IH0 K AH0
+patent P EY1 T AH0 N T
+primarily P R AY0 M EH1 R AH0 L IY0
+privacy P R IH1 V AH0 S IY0
+progress P R OW1 G R EH0 S
+project P R AA1 JH EH0 K T
+protégé P R OW1 T AH0 ZH EY0
+protege P R OW1 T AH0 ZH EY0
+quagmire K W AA1 G M AY0 ER0
+quagmire(2) K W AE1 G M AY0 ER0
+research R IY1 S ER0 CH
+resource R IH0 S AO1 R S
+schedule SH EH1 JH UH0 L
+schedule(2) SH EH1 D Y UH0 L
+simultaneous S IH2 M AH0 L T EY1 N IY0 AH0 S
+tissue T IH1 SH UW0
+translate T R AE1 N S L EY0 T
+translate(2) T R AA1 N Z L EY0 T
+vaccine V AE1 K S IY0 N
+vitamins V IH1 T AH0 M IH0 N Z
+
+;;; Place names with different pronunciation
+Birmingham B ER1 M IH0 NG AH0 M
+Edinburgh EH1 D IH0 N B R AH0
+Edinburgh(2) EH1 D IH0 N B AH0 R AH0
+Gloucester G L AA1 S T ER0
+Leicester L EH1 S T ER0
+Thames T EH1 M Z
+Worcester W UH1 S T ER0
+
+;;; Words spelled with -our (included for stress reference)
+behaviour B IH0 HH EY1 V Y ER0
+colour K AH1 L ER0
+favour F EY1 V ER0
+flavour F L EY1 V ER0
+harbour HH AA1 R B ER0
+honour AA1 N ER0
+humour HH Y UW1 M ER0
+labour L EY1 B ER0
+neighbour N EY1 B ER0
+rumour R UW1 M ER0
+savour S EY1 V ER0
+vapour V EY1 P ER0
+
+;;; -ise/-ize verbs (included for completeness, stress same)
+apologise AH0 P AA1 L AH0 JH AY0 Z
+criticise K R IH1 T IH0 S AY0 Z
+emphasise EH1 M F AH0 S AY0 Z
+organise AO1 R G AH0 N AY0 Z
+realise R IY1 AH0 L AY0 Z
+recognise R EH1 K AH0 G N AY0 Z
+
+;;; Words with schwa differences affecting rhythm
+aluminium AE2 L Y UH0 M IH1 N IY0 AH0 M
+speciality S P EH2 SH IY0 AE1 L IH0 T IY0
+

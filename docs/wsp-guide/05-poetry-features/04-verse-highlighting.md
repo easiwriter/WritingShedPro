@@ -53,8 +53,23 @@ to BE or NOT to BE that IS the QUES tion
 Writing Shed Pro uses:
 
 ### Dictionary-Based Analysis
-- CMU Pronouncing Dictionary provides stress for known words
-- High accuracy for standard pronunciation
+- Pronunciation dictionaries provide stress markers for known words
+- **American English**: CMU Pronouncing Dictionary
+- **British English**: Specialized UK pronunciation dictionary
+- High accuracy for standard pronunciation in your selected dialect
+
+### Dialect Selection
+Stress patterns can differ significantly between American and British English. See [Syllable Counting](02-syllable-counting.md#selecting-your-dialect) for how to switch between dialects.
+
+#### Stress Differences by Dialect
+| Word | American | British |
+|------|----------|---------|
+| advertisement | ad-ver-TISE-ment | ad-VER-tis-ment |
+| controversy | CON-tro-ver-sy | con-TROV-er-sy |
+| primarily | pry-MARE-uh-lee | PRY-muh-ruh-lee |
+| research | REE-search / ree-SEARCH | REE-search |
+
+The stress pattern display automatically reflects your chosen dialect.
 
 ### Contextual Estimation
 - Some words change stress based on usage

@@ -28,10 +28,30 @@ When editing a poem with a syllable-based form:
 
 Writing Shed Pro uses a sophisticated syllable counting algorithm:
 
-### CMU Pronouncing Dictionary
-- Industry-standard pronunciation database
-- Covers most English words
+### Pronunciation Dictionaries
+- **CMU Dictionary**: Standard American English pronunciations
+- **British Dictionary**: UK English pronunciations with different stress patterns
 - Provides accurate syllable counts for known words
+
+### Selecting Your Dialect
+Writing Shed Pro supports both American and British English pronunciation:
+
+1. Go to the main menu (gear icon)
+2. Open **Poetry Settings**
+3. Select **Pronunciation** → Choose **US** or **UK**
+
+This affects:
+- Syllable counting (some words have different syllable counts)
+- Stress pattern analysis
+- Rhyme detection
+
+#### Key Differences
+| Word | American | British |
+|------|----------|---------|
+| secretary | 4 syllables | 3 syllables |
+| laboratory | 5 syllables | 4 syllables |
+| advertisement | ad-ver-TISE-ment | ad-VER-tis-ment |
+| controversy | CON-tro-ver-sy | con-TROV-er-sy |
 
 ### Fallback Algorithm
 For words not in the dictionary:
