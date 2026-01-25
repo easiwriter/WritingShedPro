@@ -85,6 +85,9 @@ struct ProseListView: View {
     @State private var showHeaderElementPicker = false
     @State private var showFooterElementPicker = false
     
+    /// Collapsible section state - tracks which sections are expanded
+    @State private var expandedSections: Set<String> = []
+    
     // MARK: - Init
     
     init(project: Project, section: ProseSection? = nil) {
@@ -154,6 +157,49 @@ struct ProseListView: View {
     /// Whether bottom toolbar should show
     private var showToolbar: Bool {
         isEditMode && !selectedFileIDs.isEmpty
+    }
+    
+    /// Helper struct for grouping files by section
+    private struct SectionGroup: Identifiable {
+        let id: String
+        let name: String
+        let files: [TextFile]
+        
+        var count: Int { files.count }
+    }
+    
+    /// Group files by their section name (only when not viewing a specific section)
+    private var sectionGroups: [SectionGroup] {
+        guard section == nil else { return [] }  // Don't group when viewing a section
+        
+        var groups: [String: [TextFile]] = [:]
+        var unassignedFiles: [TextFile] = []
+        
+        for file in sortedFiles {
+            if let sectionName = file.section?.name {
+                groups[sectionName, default: []].append(file)
+            } else {
+                unassignedFiles.append(file)
+            }
+        }
+        
+        // Build result with assigned sections first (sorted by name), then unassigned
+        var result: [SectionGroup] = groups.keys.sorted().map { name in
+            SectionGroup(id: name, name: name, files: groups[name]!)
+        }
+        
+        // Add unassigned files at the end if any
+        if !unassignedFiles.isEmpty {
+            let unassignedLabel = NSLocalizedString("prose.section.unassigned", comment: "Unassigned")
+            result.append(SectionGroup(id: "__unassigned__", name: unassignedLabel, files: unassignedFiles))
+        }
+        
+        return result
+    }
+    
+    /// Whether to show collapsible sections (only when there are assigned sections and not viewing a specific section)
+    private var useSections: Bool {
+        section == nil && sectionGroups.count > 1
     }
     
     // MARK: - Body
@@ -264,6 +310,11 @@ struct ProseListView: View {
     
     @ViewBuilder
     private var toolbarTrailingContent: some View {
+        // Expand/Collapse all button (only when using sections and not in edit mode)
+        if useSections && !isEditMode {
+            expandCollapseButton
+        }
+        
         // Search button (only when files exist and not in edit mode)
         if !sortedFiles.isEmpty && !isEditMode {
             Button {
@@ -555,16 +606,117 @@ struct ProseListView: View {
     
     private var fileList: some View {
         List(selection: $selectedFileIDs) {
-            ForEach(sortedFiles) { file in
-                fileRow(for: file)
-                    // Enable drag-to-reorder without edit mode (only when within a section)
-                    .onDrag {
-                        return NSItemProvider(object: file.id.uuidString as NSString)
+            if useSections {
+                // Show collapsible sections grouped by section name
+                ForEach(sectionGroups) { group in
+                    Section {
+                        // Only show files if section is expanded
+                        if expandedSections.contains(group.id) {
+                            ForEach(group.files) { file in
+                                fileRow(for: file)
+                            }
+                        }
+                    } header: {
+                        sectionHeader(for: group)
                     }
+                }
+            } else {
+                // Flat list (when viewing a specific section or no section assignments)
+                ForEach(sortedFiles) { file in
+                    fileRow(for: file)
+                        // Enable drag-to-reorder without edit mode (only when within a section)
+                        .onDrag {
+                            return NSItemProvider(object: file.id.uuidString as NSString)
+                        }
+                }
+                .onMove(perform: section != nil ? moveFiles : nil)
             }
-            .onMove(perform: section != nil ? moveFiles : nil)
         }
         .listStyle(.plain)
+        .onChange(of: editMode) { _, newValue in
+            if useSections {
+                if newValue == .active {
+                    // Expand all sections when entering edit mode for easier multi-select
+                    expandedSections = Set(sectionGroups.map { $0.id })
+                }
+            }
+        }
+        .onAppear {
+            // Start with all sections expanded
+            if useSections && expandedSections.isEmpty {
+                expandedSections = Set(sectionGroups.map { $0.id })
+            }
+        }
+    }
+    
+    /// Section header with name, count, and expand/collapse functionality
+    @ViewBuilder
+    private func sectionHeader(for group: SectionGroup) -> some View {
+        let isExpanded = expandedSections.contains(group.id)
+        
+        Button {
+            withAnimation {
+                if expandedSections.contains(group.id) {
+                    expandedSections.remove(group.id)
+                } else {
+                    expandedSections.insert(group.id)
+                }
+            }
+        } label: {
+            HStack(spacing: 12) {
+                // Disclosure indicator
+                Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                    .foregroundStyle(.secondary)
+                    .font(.body)
+                    .fontWeight(.semibold)
+                    .frame(width: 20)
+                
+                Image(systemName: "folder")
+                    .foregroundStyle(.secondary)
+                
+                Text(group.name)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                
+                Text("(\(group.count))")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                
+                Spacer()
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text("\(group.name), \(group.count) files"))
+        .accessibilityHint(Text(isExpanded ? 
+            NSLocalizedString("section.collapse.hint", comment: "Tap to collapse section") : 
+            NSLocalizedString("section.expand.hint", comment: "Tap to expand section")))
+    }
+    
+    /// Expand/Collapse all button for section view
+    @ViewBuilder
+    private var expandCollapseButton: some View {
+        let allExpanded = expandedSections.count == sectionGroups.count
+        
+        Button {
+            withAnimation {
+                if allExpanded {
+                    // Collapse all
+                    expandedSections.removeAll()
+                } else {
+                    // Expand all
+                    expandedSections = Set(sectionGroups.map { $0.id })
+                }
+            }
+        } label: {
+            Image(systemName: allExpanded ? "chevron.up.circle" : "chevron.down.circle")
+        }
+        .accessibilityLabel(Text(allExpanded ?
+            NSLocalizedString("fileList.collapseAll", comment: "Collapse all sections") :
+            NSLocalizedString("fileList.expandAll", comment: "Expand all sections")))
+        .help(allExpanded ?
+            NSLocalizedString("fileList.collapseAll", comment: "Collapse all sections") :
+            NSLocalizedString("fileList.expandAll", comment: "Expand all sections"))
     }
     
     @ViewBuilder
