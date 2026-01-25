@@ -52,6 +52,29 @@ struct ProseListView: View {
     /// Workflow status filter (nil = show all)
     @State private var statusFilter: WorkflowStatus? = nil
     
+    /// Rename state
+    @State private var showRenameSheet = false
+    @State private var fileToRename: TextFile?
+    
+    /// File details state
+    @State private var showFileDetails = false
+    @State private var fileForDetails: TextFile?
+    
+    /// Export state
+    @State private var showExportMenu = false
+    @State private var filesToExport: [TextFile] = []
+    
+    /// Search state
+    @State private var showSearchView = false
+    
+    /// Import state
+    @State private var showImportPicker = false
+    @State private var showImportError = false
+    @State private var importErrorMessage = ""
+    
+    /// Header/Footer editor state
+    @State private var showHeaderFooterEditor = false
+    
     // MARK: - Init
     
     init(project: Project, section: ProseSection? = nil) {
@@ -126,6 +149,67 @@ struct ProseListView: View {
     // MARK: - Body
     
     var body: some View {
+        mainContent
+            .sheet(isPresented: $showAddFile) {
+                AddProseFileSheet(project: project)
+            }
+            .sheet(isPresented: $showSectionPicker) {
+                sectionPickerSheet
+            }
+            .sheet(isPresented: $showStatusPicker) {
+                statusPickerSheet
+            }
+            .sheet(isPresented: $showRenameSheet) {
+                renameSheet
+            }
+            .sheet(isPresented: $showFileDetails) {
+                detailsSheet
+            }
+            .sheet(isPresented: $showSearchView) {
+                if let folder = proseFolder {
+                    SearchReplaceView(folder: folder)
+                }
+            }
+            .sheet(isPresented: $showHeaderFooterEditor) {
+                headerFooterSheet
+            }
+            .fileImporter(
+                isPresented: $showImportPicker,
+                allowedContentTypes: [.rtf, UTType("org.openxmlformats.wordprocessingml.document") ?? .data, UTType(filenameExtension: "md") ?? .plainText],
+                allowsMultipleSelection: false,
+                onCompletion: handleImport
+            )
+            .alert(NSLocalizedString("import.error.title", comment: "Import Failed"), isPresented: $showImportError) {
+                Button(NSLocalizedString("button.ok", comment: "OK"), role: .cancel) {}
+            } message: {
+                Text(importErrorMessage)
+            }
+            .confirmationDialog(
+                NSLocalizedString("export.dialog.title", comment: "Export Format"),
+                isPresented: $showExportMenu,
+                titleVisibility: .visible
+            ) {
+                exportDialogButtons
+            }
+            .confirmationDialog(
+                deleteConfirmationTitle,
+                isPresented: $showDeleteConfirmation,
+                titleVisibility: .visible
+            ) {
+                deleteDialogButtons
+            } message: {
+                Text(NSLocalizedString("fileList.deleteConfirmation.messageEnhanced", comment: "Delete moves to trash, Delete Forever is permanent"))
+            }
+            .onChange(of: editMode) { _, newValue in
+                if newValue == .inactive {
+                    selectedFileIDs.removeAll()
+                }
+            }
+    }
+    
+    // MARK: - Main Content
+    
+    private var mainContent: some View {
         VStack(spacing: 0) {
             workflowStatusFilter
             
@@ -156,99 +240,187 @@ struct ProseListView: View {
                 PopToRootBackButton()
             }
             ToolbarItemGroup(placement: .topBarTrailing) {
-                // Add file button (hidden when viewing a section's files)
-                if section == nil {
-                    Button {
-                        showAddFile = true
-                    } label: {
-                        Image(systemName: "plus")
-                    }
-                    .accessibilityLabel(NSLocalizedString("prose.files.add", comment: "Add file"))
-                    .disabled(editMode == .active)
-                }
-                
-                // Edit/Done button
-                if !sortedFiles.isEmpty {
-                    Button {
-                        withAnimation {
-                            if editMode == .active {
-                                editMode = .inactive
-                                selectedFileIDs.removeAll()
-                            } else {
-                                editMode = .active
-                            }
-                        }
-                    } label: {
-                        Text(isEditMode ? NSLocalizedString("button.done", comment: "Done") : NSLocalizedString("button.edit", comment: "Edit"))
-                    }
-                }
+                toolbarTrailingContent
             }
-            
-            // Bottom toolbar for multi-select actions
             ToolbarItemGroup(placement: .bottomBar) {
                 if showToolbar {
                     bottomToolbarContent
                 }
             }
         }
-        .sheet(isPresented: $showAddFile) {
-            AddProseFileSheet(project: project)
+    }
+    
+    // MARK: - Toolbar Trailing Content
+    
+    @ViewBuilder
+    private var toolbarTrailingContent: some View {
+        // Search button (only when files exist and not in edit mode)
+        if !sortedFiles.isEmpty && !isEditMode {
+            Button {
+                showSearchView = true
+            } label: {
+                Image(systemName: "magnifyingglass")
+            }
+            .accessibilityLabel(NSLocalizedString("search.accessibility", comment: "Search files"))
+            .help(NSLocalizedString("search.help", comment: "Search and replace across all files"))
         }
-        .sheet(isPresented: $showSectionPicker) {
-            SectionPickerSheet(
-                project: project,
-                selectedFiles: selectedFiles.filter { $0.workflowStatus == .ready },
-                onAssign: { section in
-                    let readyFiles = selectedFiles.filter { $0.workflowStatus == .ready }
-                    assignFilesToSection(readyFiles, section: section)
-                    showSectionPicker = false
-                    exitEditMode()
-                },
-                onCancel: {
-                    showSectionPicker = false
+        
+        // Import button (only when not in section view and not in edit mode)
+        if section == nil && !isEditMode {
+            Button {
+                showImportPicker = true
+            } label: {
+                Image(systemName: "square.and.arrow.down")
+            }
+            .accessibilityLabel(NSLocalizedString("import.accessibility", comment: "Import document"))
+            .help(NSLocalizedString("import.help", comment: "Import Word or Markdown document"))
+        }
+        
+        // Header/Footer editor button
+        if !isEditMode {
+            Button {
+                showHeaderFooterEditor = true
+            } label: {
+                Image(systemName: "rectangle.and.pencil.and.ellipsis")
+            }
+            .accessibilityLabel(NSLocalizedString("headerFooter.accessibility", comment: "Edit headers and footers"))
+            .help(NSLocalizedString("headerFooter.help", comment: "Edit page headers and footers"))
+            .foregroundStyle(headersOrFootersEnabled ? Color.accentColor : Color.secondary)
+            .disabled(!headersOrFootersEnabled)
+        }
+        
+        // Add file button (hidden when viewing a section's files)
+        if section == nil && !isEditMode {
+            Button {
+                showAddFile = true
+            } label: {
+                Image(systemName: "plus")
+            }
+            .accessibilityLabel(NSLocalizedString("prose.files.add", comment: "Add file"))
+        }
+        
+        // Edit/Done button
+        if !sortedFiles.isEmpty {
+            Button {
+                withAnimation {
+                    if editMode == .active {
+                        editMode = .inactive
+                        selectedFileIDs.removeAll()
+                    } else {
+                        editMode = .active
+                    }
+                }
+            } label: {
+                Text(isEditMode ? NSLocalizedString("button.done", comment: "Done") : NSLocalizedString("button.edit", comment: "Edit"))
+            }
+        }
+    }
+    
+    /// Whether headers or footers are enabled for this project
+    private var headersOrFootersEnabled: Bool {
+        guard let pageSetup = project.pageSetup else { return false }
+        return pageSetup.showHeaders || pageSetup.showFooters
+    }
+    
+    // MARK: - Sheet Content
+    
+    @ViewBuilder
+    private var sectionPickerSheet: some View {
+        SectionPickerSheet(
+            project: project,
+            selectedFiles: selectedFiles.filter { $0.workflowStatus == .ready },
+            onAssign: { section in
+                let readyFiles = selectedFiles.filter { $0.workflowStatus == .ready }
+                assignFilesToSection(readyFiles, section: section)
+                showSectionPicker = false
+                exitEditMode()
+            },
+            onCancel: {
+                showSectionPicker = false
+            }
+        )
+    }
+    
+    @ViewBuilder
+    private var statusPickerSheet: some View {
+        WorkflowStatusPickerSheet(
+            files: selectedFiles,
+            onStatusSelected: { newStatus in
+                changeFilesStatus(selectedFiles, to: newStatus)
+                showStatusPicker = false
+                exitEditMode()
+            },
+            onCancel: {
+                showStatusPicker = false
+            }
+        )
+    }
+    
+    @ViewBuilder
+    private var renameSheet: some View {
+        if let file = fileToRename {
+            RenameFileModal(
+                file: file,
+                filesInFolder: sortedFiles,
+                onRename: { newName in
+                    renameFile(file, to: newName)
                 }
             )
         }
-        .sheet(isPresented: $showStatusPicker) {
-            WorkflowStatusPickerSheet(
-                files: selectedFiles,
-                onStatusSelected: { newStatus in
-                    changeFilesStatus(selectedFiles, to: newStatus)
-                    showStatusPicker = false
-                    exitEditMode()
-                },
-                onCancel: {
-                    showStatusPicker = false
-                }
-            )
+    }
+    
+    @ViewBuilder
+    private var detailsSheet: some View {
+        if let file = fileForDetails {
+            FileDetailsSheet(file: file)
         }
-        .confirmationDialog(
-            filesToDelete.count == 1
-                ? NSLocalizedString("fileList.deleteFile.title", comment: "Delete file?")
-                : String(format: NSLocalizedString("fileList.deleteFiles.title", comment: "Delete files?"), filesToDelete.count),
-            isPresented: $showDeleteConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button(NSLocalizedString("fileList.delete", comment: "Move to Trash"), role: .destructive) {
-                moveFilesToTrash(filesToDelete)
-                filesToDelete = []
-                exitEditMode()
-            }
-            Button(NSLocalizedString("fileList.deletePermanently", comment: "Delete Forever"), role: .destructive) {
-                deleteFilesPermanently(filesToDelete)
-                filesToDelete = []
-                exitEditMode()
-            }
-            Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
-                filesToDelete = []
-            }
-        } message: {
-            Text(NSLocalizedString("fileList.deleteConfirmation.messageEnhanced", comment: "Delete moves to trash, Delete Forever is permanent"))
+    }
+    
+    @ViewBuilder
+    private var headerFooterSheet: some View {
+        if let pageSetup = project.pageSetup {
+            HeaderFooterDialog(pageSetup: pageSetup)
         }
-        .onChange(of: editMode) { _, newValue in
-            if newValue == .inactive {
-                selectedFileIDs.removeAll()
-            }
+    }
+    
+    // MARK: - Dialog Content
+    
+    private var deleteConfirmationTitle: String {
+        filesToDelete.count == 1
+            ? NSLocalizedString("fileList.deleteFile.title", comment: "Delete file?")
+            : String(format: NSLocalizedString("fileList.deleteFiles.title", comment: "Delete files?"), filesToDelete.count)
+    }
+    
+    @ViewBuilder
+    private var exportDialogButtons: some View {
+        Button(NSLocalizedString("export.format.rtf", comment: "RTF")) {
+            exportFiles(filesToExport, format: .rtf)
+        }
+        Button(NSLocalizedString("export.format.html", comment: "HTML")) {
+            exportFiles(filesToExport, format: .html)
+        }
+        Button(NSLocalizedString("export.format.docx", comment: "Word")) {
+            exportFiles(filesToExport, format: .word)
+        }
+        Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
+            filesToExport = []
+        }
+    }
+    
+    @ViewBuilder
+    private var deleteDialogButtons: some View {
+        Button(NSLocalizedString("fileList.delete", comment: "Move to Trash"), role: .destructive) {
+            moveFilesToTrash(filesToDelete)
+            filesToDelete = []
+            exitEditMode()
+        }
+        Button(NSLocalizedString("fileList.deletePermanently", comment: "Delete Forever"), role: .destructive) {
+            deleteFilesPermanently(filesToDelete)
+            filesToDelete = []
+            exitEditMode()
+        }
+        Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
+            filesToDelete = []
         }
     }
     
@@ -351,15 +523,95 @@ struct ProseListView: View {
     
     @ViewBuilder
     private func fileRow(for file: TextFile) -> some View {
-        if isEditMode {
-            FileRowView(file: file)
-        } else {
-            NavigationLink {
-                FileEditView(file: file)
-            } label: {
+        HStack {
+            if isEditMode {
                 FileRowView(file: file)
+            } else {
+                NavigationLink {
+                    FileEditView(file: file)
+                } label: {
+                    FileRowView(file: file)
+                }
+            }
+            
+            // Ellipsis menu (only in normal mode)
+            if !isEditMode {
+                fileOptionsMenu(for: file)
             }
         }
+        .contextMenu {
+            // Details
+            Button {
+                fileForDetails = file
+                showFileDetails = true
+            } label: {
+                Label(NSLocalizedString("fileList.details", comment: "Details"), systemImage: "info.circle")
+            }
+            
+            Divider()
+            
+            // Rename
+            Button {
+                fileToRename = file
+                showRenameSheet = true
+            } label: {
+                Label(NSLocalizedString("fileList.rename", comment: "Rename"), systemImage: "pencil")
+            }
+            
+            // Export
+            Button {
+                filesToExport = [file]
+                showExportMenu = true
+            } label: {
+                Label(NSLocalizedString("fileList.export", comment: "Export"), systemImage: "square.and.arrow.up")
+            }
+            
+            Divider()
+            
+            Button(role: .destructive) {
+                prepareDelete([file])
+            } label: {
+                Label(NSLocalizedString("button.delete", comment: "Delete"), systemImage: "trash")
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private func fileOptionsMenu(for file: TextFile) -> some View {
+        Menu {
+            // File Details
+            Button {
+                fileForDetails = file
+                showFileDetails = true
+            } label: {
+                Label(NSLocalizedString("fileList.details", comment: "Details"), systemImage: "info.circle")
+            }
+            
+            Divider()
+            
+            // Rename
+            Button {
+                fileToRename = file
+                showRenameSheet = true
+            } label: {
+                Label(NSLocalizedString("fileList.rename", comment: "Rename"), systemImage: "pencil")
+            }
+            
+            // Export
+            Button {
+                filesToExport = [file]
+                showExportMenu = true
+            } label: {
+                Label(NSLocalizedString("fileList.export", comment: "Export"), systemImage: "square.and.arrow.up")
+            }
+        } label: {
+            Image(systemName: "ellipsis.circle")
+                .imageScale(.large)
+                .foregroundStyle(.secondary)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
     
     // MARK: - Empty State
@@ -421,6 +673,31 @@ struct ProseListView: View {
         try? modelContext.save()
     }
     
+    private func renameFile(_ file: TextFile, to newName: String) {
+        let trimmedName = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else { return }
+        
+        file.name = trimmedName
+        file.modifiedDate = Date()
+        
+        try? modelContext.save()
+        
+        fileToRename = nil
+        showRenameSheet = false
+    }
+    
+    private func exportFiles(_ files: [TextFile], format: ExportFormat) {
+        // TODO: Implement export using ExportService
+        // For now, this is a placeholder that matches the FolderFilesView pattern
+        guard let file = files.first else { return }
+        
+        #if DEBUG
+        print("[ProseListView] Export requested for '\(file.name)' as \(format.rawValue)")
+        #endif
+        
+        filesToExport = []
+    }
+    
     private func assignFilesToSection(_ files: [TextFile], section: ProseSection?) {
         for file in files {
             file.section = section
@@ -444,6 +721,118 @@ struct ProseListView: View {
         }
         
         try? modelContext.save()
+    }
+    
+    // MARK: - Import Functions
+    
+    private func handleImport(result: Result<[URL], Error>) {
+        switch result {
+        case .success(let urls):
+            guard let url = urls.first else { return }
+            
+            // Check file extension to determine import method
+            let fileExtension = url.pathExtension.lowercased()
+            
+            if fileExtension == "md" || fileExtension == "markdown" {
+                handleMarkdownImport(url: url)
+            } else {
+                handleWordImport(url: url)
+            }
+            
+        case .failure(let error):
+            importErrorMessage = "Failed to access file: \(error.localizedDescription)"
+            showImportError = true
+        }
+    }
+    
+    private func handleMarkdownImport(url: URL) {
+        guard let folder = proseFolder else {
+            importErrorMessage = NSLocalizedString("import.error.noFolder", comment: "No Prose folder found")
+            showImportError = true
+            return
+        }
+        
+        do {
+            let styleSheet = project.styleSheet
+            let attributedString = try MarkdownImportService.importMarkdown(from: url, styleSheet: styleSheet)
+            let plainText = attributedString.string
+            let filename = url.deletingPathExtension().lastPathComponent
+            
+            let rtfData = try? attributedString.data(
+                from: NSRange(location: 0, length: attributedString.length),
+                documentAttributes: [.documentType: NSAttributedString.DocumentType.rtf]
+            )
+            
+            let file = TextFile(name: filename, initialContent: "", parentFolder: folder)
+            file.workflowStatus = .draft
+            
+            if let firstVersion = file.versions?.first {
+                firstVersion.content = plainText
+                firstVersion.formattedContent = rtfData
+            }
+            
+            file.modifiedDate = Date()
+            modelContext.insert(file)
+            
+            do {
+                try modelContext.save()
+                modelContext.processPendingChanges()
+                
+                #if DEBUG
+                print("✅ [ProseListView] Imported Markdown '\(filename)' successfully")
+                #endif
+                
+            } catch {
+                modelContext.delete(file)
+                importErrorMessage = "Failed to save imported file: \(error.localizedDescription)"
+                showImportError = true
+            }
+            
+        } catch {
+            importErrorMessage = error.localizedDescription
+            showImportError = true
+        }
+    }
+    
+    private func handleWordImport(url: URL) {
+        guard let folder = proseFolder else {
+            importErrorMessage = NSLocalizedString("import.error.noFolder", comment: "No Prose folder found")
+            showImportError = true
+            return
+        }
+        
+        do {
+            let (plainText, rtfData, filename) = try WordDocumentService.importWordDocument(from: url)
+            
+            let file = TextFile(name: filename, initialContent: "", parentFolder: folder)
+            file.workflowStatus = .draft
+            
+            if let firstVersion = file.versions?.first {
+                firstVersion.content = plainText
+                firstVersion.formattedContent = rtfData
+            }
+            
+            file.modifiedDate = Date()
+            modelContext.insert(file)
+            
+            do {
+                try modelContext.save()
+                modelContext.processPendingChanges()
+                
+                #if DEBUG
+                print("✅ [ProseListView] Imported Word '\(filename)' successfully")
+                #endif
+                
+            } catch {
+                modelContext.delete(file)
+                importErrorMessage = "Failed to save imported file: \(error.localizedDescription)"
+                showImportError = true
+            }
+            
+        } catch {
+            importErrorMessage = error.localizedDescription
+            showImportError = true
+        }
     }
 }
 

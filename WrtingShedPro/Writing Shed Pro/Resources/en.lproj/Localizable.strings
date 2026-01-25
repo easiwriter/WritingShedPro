@@ -71,6 +71,9 @@
 "export.format.rtf" = "Rich Text Format";
 "export.format.plainText" = "Plain Text";
 "export.format.word" = "Word Document";
+"export.format.html" = "HTML (Web page)";
+"export.format.epub" = "EPUB (eBook)";
+"export.format.markdown" = "Markdown";
 
 /* Character Archetypes (Feature 022) */
 "archetype.hero" = "Hero";
@@ -508,6 +511,7 @@
 "poetryForms.editor.descriptionRequired" = "Description is required";
 "poetryForms.editor.structure" = "Structure (Optional)";
 "poetryForms.editor.lineCount" = "Line Count";
+"poetryForms.editor.stanzaCount" = "Stanza Count";
 "poetryForms.editor.syllablePattern" = "Syllable Pattern";
 "poetryForms.editor.syllablePatternHint" = "e.g., 5,7,5";
 "poetryForms.editor.syllablePatternInvalid" = "Use numbers separated by commas or hyphens";
@@ -518,6 +522,10 @@
 "poetryForms.editor.templateContent" = "Template Content";
 "poetryForms.editor.duplicateAsCustom" = "Duplicate as Custom";
 "poetryForms.editor.readOnly" = "Predefined forms cannot be edited";
+
+/* Poetry Validator Stanza Messages */
+"poetryValidator.needMoreStanzas" = "Need %d more stanza(s)";
+"poetryValidator.tooManyStanzas" = "Too many stanzas (%d extra)";
 
 /* Poetry Form Delete Confirmation (Phase 2) */
 "poetryForms.delete.title" = "Delete Form?";
@@ -1019,6 +1027,12 @@
 "contentView.importError.emptyFile" = "The selected file is empty or corrupt.";
 "contentView.importError.failed" = "Failed to import project: %@";
 "contentView.importError.selectFailed" = "Failed to select file: %@";
+
+/* Markdown Import */
+"import.markdown.error.invalid" = "Invalid Markdown file";
+"import.markdown.error.encoding" = "Could not read file encoding";
+"import.markdown.error.empty" = "File is empty";
+"import.markdown.error.parsing" = "Failed to parse Markdown";
 
 /* FileEditView - New Keys */
 "fileEdit.noPageSetup.title" = "No Page Setup";

@@ -1897,7 +1897,7 @@ class JSONImportService {
             storyCount += 1
             
             #if DEBUG
-            print("[JSONImport] ✅ Imported story: \(name ?? "unnamed") -> Scene + Chapter")
+            print("[JSONImport] ✅ Imported story: \(name) -> Scene + Chapter")
             #endif
         }
         

@@ -140,6 +140,7 @@ struct PoetryValidationPanel: View {
     private func colorForIssueType(_ type: LineValidationIssue.IssueType) -> Color {
         switch type {
         case .lineCount: return .orange
+        case .stanzaCount: return .orange
         case .syllableCount: return .purple
         case .rhymeScheme: return .blue
         case .meter: return .cyan
@@ -151,6 +152,7 @@ struct PoetryValidationPanel: View {
     private func nameForIssueType(_ type: LineValidationIssue.IssueType) -> String {
         switch type {
         case .lineCount: return "Line Count"
+        case .stanzaCount: return "Stanza Count"
         case .syllableCount: return "Syllables"
         case .rhymeScheme: return "Rhyme"
         case .meter: return "Meter"

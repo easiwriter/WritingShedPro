@@ -20,6 +20,7 @@ struct LineValidationIssue: Identifiable, Equatable {
     
     enum IssueType: String, CaseIterable {
         case lineCount = "lineCount"
+        case stanzaCount = "stanzaCount"
         case syllableCount = "syllableCount"
         case rhymeScheme = "rhymeScheme"
         case meter = "meter"
@@ -40,6 +41,8 @@ struct ValidationResult {
     let issues: [LineValidationIssue]
     let lineCount: Int
     let expectedLineCount: Int?
+    let stanzaCount: Int
+    let expectedStanzaCount: Int?
     let overallCompliance: Double  // 0.0 to 1.0
     
     var hasIssues: Bool { !issues.isEmpty }
@@ -110,6 +113,9 @@ final class PoetryValidator {
         }
         let lineCount = numberedLines.count
         
+        // Count stanzas (groups of non-empty lines separated by blank lines)
+        let stanzaCount = countStanzas(in: lines)
+        
         // Skip validation for Free Verse and Custom forms
         guard form.id != PoetryForm.freeVerseId && !form.isCustom else {
             return ValidationResult(
@@ -117,6 +123,8 @@ final class PoetryValidator {
                 issues: [],
                 lineCount: lineCount,
                 expectedLineCount: nil,
+                stanzaCount: stanzaCount,
+                expectedStanzaCount: nil,
                 overallCompliance: 1.0
             )
         }
@@ -124,6 +132,11 @@ final class PoetryValidator {
         // Validate line count
         if let expected = form.lineCount, expected > 0 {
             issues.append(contentsOf: validateLineCount(lines: numberedLines, expected: expected))
+        }
+        
+        // Validate stanza count
+        if let expected = form.stanzaCount, expected > 0 {
+            issues.append(contentsOf: validateStanzaCount(actual: stanzaCount, expected: expected))
         }
         
         // Validate syllable pattern
@@ -161,6 +174,8 @@ final class PoetryValidator {
             issues: issues,
             lineCount: lineCount,
             expectedLineCount: form.lineCount,
+            stanzaCount: stanzaCount,
+            expectedStanzaCount: form.stanzaCount,
             overallCompliance: compliance
         )
     }
@@ -193,6 +208,57 @@ final class PoetryValidator {
                     actual: nil
                 ))
             }
+        }
+        
+        return issues
+    }
+    
+    // MARK: - Stanza Count Validation
+    
+    /// Count stanzas in a poem (groups of non-empty lines separated by blank lines)
+    private func countStanzas(in lines: [String]) -> Int {
+        var stanzaCount = 0
+        var inStanza = false
+        
+        for line in lines {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.isEmpty {
+                // Blank line - end of current stanza if we were in one
+                if inStanza {
+                    inStanza = false
+                }
+            } else {
+                // Non-empty line - start new stanza if not already in one
+                if !inStanza {
+                    stanzaCount += 1
+                    inStanza = true
+                }
+            }
+        }
+        
+        return stanzaCount
+    }
+    
+    /// Validate stanza count against expected
+    private func validateStanzaCount(actual: Int, expected: Int) -> [LineValidationIssue] {
+        var issues: [LineValidationIssue] = []
+        
+        if actual != expected {
+            let message: String
+            if actual < expected {
+                message = String(format: NSLocalizedString("poetryValidator.needMoreStanzas", comment: "Need more stanzas"), expected - actual)
+            } else {
+                message = String(format: NSLocalizedString("poetryValidator.tooManyStanzas", comment: "Too many stanzas"), actual - expected)
+            }
+            
+            issues.append(LineValidationIssue(
+                lineNumber: 0,  // 0 = overall issue, not specific line
+                lineText: "",
+                issueType: .stanzaCount,
+                message: message,
+                expected: "\(expected)",
+                actual: "\(actual)"
+            ))
         }
         
         return issues

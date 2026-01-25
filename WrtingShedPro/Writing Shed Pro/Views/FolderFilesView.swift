@@ -492,15 +492,31 @@ struct FolderFilesView: View {
                 HStack {
                     Label(file.name.isEmpty ? NSLocalizedString("folderFiles.untitledFile", comment: "Untitled file") : file.name, systemImage: "doc.text")
                     Spacer()
-                    Image(systemName: "chevron.right")
-                        .foregroundColor(.secondary)
-                        .font(.caption)
                 }
             }
             .buttonStyle(.plain)
             .foregroundStyle(.primary)
+            
+            // Ellipsis menu (only in normal mode)
+            if !isEditMode {
+                mixedContentFileOptionsMenu(for: file)
+            } else {
+                // Keep chevron for spacing consistency in edit mode
+                Image(systemName: "chevron.right")
+                    .foregroundColor(.secondary)
+                    .font(.caption)
+            }
         }
         .contextMenu {
+            Button {
+                filesToRename = [file]
+                showRenamePicker = true
+            } label: {
+                Label(NSLocalizedString("fileList.rename", comment: "Rename"), systemImage: "pencil")
+            }
+            
+            Divider()
+            
             Button(role: .destructive) {
                 deleteFiles([file])
             } label: {
@@ -523,6 +539,34 @@ struct FolderFilesView: View {
                 }
             }
         }
+    }
+    
+    /// Options menu for a file in mixed content view (ellipsis button)
+    @ViewBuilder
+    private func mixedContentFileOptionsMenu(for file: TextFile) -> some View {
+        Menu {
+            Button {
+                filesToRename = [file]
+                showRenamePicker = true
+            } label: {
+                Label(NSLocalizedString("fileList.rename", comment: "Rename"), systemImage: "pencil")
+            }
+            
+            Divider()
+            
+            Button(role: .destructive) {
+                deleteFiles([file])
+            } label: {
+                Label(NSLocalizedString("button.delete", comment: "Delete"), systemImage: "trash")
+            }
+        } label: {
+            Image(systemName: "ellipsis.circle")
+                .imageScale(.large)
+                .foregroundStyle(.secondary)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
     
     /// Bottom toolbar for mixed content multi-select actions
@@ -823,58 +867,123 @@ struct FolderFilesView: View {
         case .success(let urls):
             guard let url = urls.first else { return }
             
-            do {
-                let (plainText, rtfData, filename) = try WordDocumentService.importWordDocument(from: url)
-                
-                // Create new text file with initial empty content
-                let file = TextFile(name: filename, initialContent: "", parentFolder: folder)
-                
-                // Set default workflow status for imported files
-                file.workflowStatus = .draft
-                
-                // Update the first version with imported content
-                if let firstVersion = file.versions?.first {
-                    firstVersion.content = plainText
-                    firstVersion.formattedContent = rtfData
-                    // Version uses createdDate, not modifiedDate
-                }
-                
-                file.modifiedDate = Date()
-                
-                // Insert and save immediately
-                modelContext.insert(file)
-                
-                do {
-                    try modelContext.save()
-                    
-                    #if DEBUG
-                    print("✅ Imported '\(filename)' successfully")
-                    #if DEBUG
-                    print("   File ID: \(file.id)")
-                    #endif
-                    #if DEBUG
-                    print("   Version count: \(file.versions?.count ?? 0)")
-                    #endif
-                    #endif
-                    
-                    // CRITICAL: Process pending changes to avoid "store went missing" error
-                    // This ensures SwiftData has fully committed the object before CloudKit sync
-                    modelContext.processPendingChanges()
-                    
-                } catch {
-                    // If save fails, remove the file from context
-                    modelContext.delete(file)
-                    importErrorMessage = "Failed to save imported file: \(error.localizedDescription)"
-                    showImportError = true
-                }
-                
-            } catch {
-                importErrorMessage = error.localizedDescription
-                showImportError = true
+            // Check file extension to determine import method
+            let fileExtension = url.pathExtension.lowercased()
+            
+            if fileExtension == "md" || fileExtension == "markdown" {
+                // Import Markdown file
+                handleMarkdownImport(url: url)
+            } else {
+                // Import Word/RTF document
+                handleWordImport(url: url)
             }
             
         case .failure(let error):
             importErrorMessage = "Failed to access file: \(error.localizedDescription)"
+            showImportError = true
+        }
+    }
+    
+    /// Handle importing a Markdown file
+    private func handleMarkdownImport(url: URL) {
+        do {
+            // Get the project's stylesheet for style mapping
+            let styleSheet = folder.project?.styleSheet
+            
+            // Import and convert the Markdown
+            let attributedString = try MarkdownImportService.importMarkdown(from: url, styleSheet: styleSheet)
+            let plainText = attributedString.string
+            
+            // Get filename without extension
+            let filename = url.deletingPathExtension().lastPathComponent
+            
+            // Convert to RTF data for storage
+            let rtfData = try? attributedString.data(
+                from: NSRange(location: 0, length: attributedString.length),
+                documentAttributes: [.documentType: NSAttributedString.DocumentType.rtf]
+            )
+            
+            // Create new text file
+            let file = TextFile(name: filename, initialContent: "", parentFolder: folder)
+            file.workflowStatus = .draft
+            
+            // Update the first version with imported content
+            if let firstVersion = file.versions?.first {
+                firstVersion.content = plainText
+                firstVersion.formattedContent = rtfData
+            }
+            
+            file.modifiedDate = Date()
+            
+            // Insert and save
+            modelContext.insert(file)
+            
+            do {
+                try modelContext.save()
+                
+                #if DEBUG
+                print("✅ Imported Markdown '\(filename)' successfully")
+                print("   File ID: \(file.id)")
+                print("   Version count: \(file.versions?.count ?? 0)")
+                #endif
+                
+                modelContext.processPendingChanges()
+                
+            } catch {
+                modelContext.delete(file)
+                importErrorMessage = "Failed to save imported file: \(error.localizedDescription)"
+                showImportError = true
+            }
+            
+        } catch {
+            importErrorMessage = error.localizedDescription
+            showImportError = true
+        }
+    }
+    
+    /// Handle importing a Word/RTF document
+    private func handleWordImport(url: URL) {
+        do {
+            let (plainText, rtfData, filename) = try WordDocumentService.importWordDocument(from: url)
+            
+            // Create new text file with initial empty content
+            let file = TextFile(name: filename, initialContent: "", parentFolder: folder)
+            
+            // Set default workflow status for imported files
+            file.workflowStatus = .draft
+            
+            // Update the first version with imported content
+            if let firstVersion = file.versions?.first {
+                firstVersion.content = plainText
+                firstVersion.formattedContent = rtfData
+            }
+            
+            file.modifiedDate = Date()
+            
+            // Insert and save immediately
+            modelContext.insert(file)
+            
+            do {
+                try modelContext.save()
+                
+                #if DEBUG
+                print("✅ Imported '\(filename)' successfully")
+                print("   File ID: \(file.id)")
+                print("   Version count: \(file.versions?.count ?? 0)")
+                #endif
+                
+                // CRITICAL: Process pending changes to avoid "store went missing" error
+                modelContext.processPendingChanges()
+                
+            } catch {
+                // If save fails, remove the file from context
+                modelContext.delete(file)
+                importErrorMessage = "Failed to save imported file: \(error.localizedDescription)"
+                showImportError = true
+            }
+            
+        } catch {
+            importErrorMessage = error.localizedDescription
             showImportError = true
         }
     }
@@ -1005,6 +1114,11 @@ struct FolderFilesView: View {
                         let exportService = DOCXExportService(modelContext: modelContext)
                         return try exportService.exportMultipleToDOCX(attributedStrings, filename: filename)
                     }.value
+                case .markdown:
+                    // Use the array version for Markdown to preserve page breaks
+                    data = try await Task.detached {
+                        try MarkdownExportService.exportMultipleToMarkdownData(attributedStrings, filename: filename)
+                    }.value
                 case .pdf, .plainText:
                     // Not supported for combined folder export
                     return
@@ -1062,6 +1176,8 @@ struct FolderFilesView: View {
                 // Export to DOCX using DOCXExportService
                 let exportService = DOCXExportService(modelContext: modelContext)
                 exportData = try exportService.exportToDOCX(content, filename: filename)
+            case .markdown:
+                exportData = try MarkdownExportService.exportToMarkdownData(content, filename: filename)
             case .pdf, .plainText:
                 // Not supported for single file export from this view
                 return
@@ -1115,6 +1231,8 @@ struct FolderFilesView: View {
             return .pdf
         case .plainText:
             return .plainText
+        case .markdown:
+            return UTType(filenameExtension: "md") ?? .plainText
         }
     }
     
@@ -1141,11 +1259,11 @@ struct FolderFilesView: View {
 
 struct ExportDocument: FileDocument {
     static var readableContentTypes: [UTType] { 
-        [.rtf, .html, UTType(filenameExtension: "epub") ?? .data, UTType("org.openxmlformats.wordprocessingml.document") ?? .data, .data] 
+        [.rtf, .html, UTType(filenameExtension: "epub") ?? .data, UTType("org.openxmlformats.wordprocessingml.document") ?? .data, UTType(filenameExtension: "md") ?? .plainText, .data] 
     }
     
     static var writableContentTypes: [UTType] { 
-        [.rtf, .html, UTType(filenameExtension: "epub") ?? .data, UTType("org.openxmlformats.wordprocessingml.document") ?? .data, .data] 
+        [.rtf, .html, UTType(filenameExtension: "epub") ?? .data, UTType("org.openxmlformats.wordprocessingml.document") ?? .data, UTType(filenameExtension: "md") ?? .plainText, .data] 
     }
     
     var data: Data

@@ -238,6 +238,7 @@ struct PoetryMetricsDashboard: View {
     private func issueTypeIcon(_ type: LineValidationIssue.IssueType) -> String {
         switch type {
         case .lineCount: return "text.alignleft"
+        case .stanzaCount: return "rectangle.split.3x1"
         case .syllableCount: return "textformat.123"
         case .rhymeScheme: return "text.quote"
         case .meter: return "waveform.path"
@@ -249,6 +250,7 @@ struct PoetryMetricsDashboard: View {
     private func issueTypeColor(_ type: LineValidationIssue.IssueType) -> Color {
         switch type {
         case .lineCount: return .orange
+        case .stanzaCount: return .orange
         case .syllableCount: return .purple
         case .rhymeScheme: return .blue
         case .meter: return .cyan
@@ -260,6 +262,7 @@ struct PoetryMetricsDashboard: View {
     private func issueTypeName(_ type: LineValidationIssue.IssueType) -> String {
         switch type {
         case .lineCount: return "Line Count"
+        case .stanzaCount: return "Stanza Count"
         case .syllableCount: return "Syllables"
         case .rhymeScheme: return "Rhyme Scheme"
         case .meter: return "Meter"

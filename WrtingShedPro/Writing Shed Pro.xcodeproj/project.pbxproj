@@ -19,6 +19,20 @@
 			remoteGlobalIDString = D741DF6B2EA76292003629E8;
 			remoteInfo = "Write!";
 		};
+		D76ABF692F260E6F002D8588 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D741DF642EA76292003629E8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D76ABF572F260E6C002D8588;
+			remoteInfo = "WSP Reader";
+		};
+		D76ABF732F260E70002D8588 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D741DF642EA76292003629E8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D76ABF572F260E6C002D8588;
+			remoteInfo = "WSP Reader";
+		};
 		D7QLEXT032F05000000000001 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = D741DF642EA76292003629E8 /* Project object */;
@@ -45,6 +59,9 @@
 /* Begin PBXFileReference section */
 		D741DF6C2EA76292003629E8 /* Writing Shed Pro.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Writing Shed Pro.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		D741DF7D2EA76295003629E8 /* Writing Shed ProTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Writing Shed ProTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		D76ABF582F260E6C002D8588 /* WSP Reader.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "WSP Reader.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		D76ABF682F260E6F002D8588 /* WSP ReaderTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "WSP ReaderTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		D76ABF722F260E70002D8588 /* WSP ReaderUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "WSP ReaderUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		D7FF9B742F0D553600FDC047 /* Writing Shed Pro.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = "Writing Shed Pro.xctestplan"; sourceTree = "<group>"; };
 		D7QLEXT002F05000000000001 /* WSPQuickLook.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = WSPQuickLook.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -56,6 +73,13 @@
 				Info.plist,
 			);
 			target = D741DF6B2EA76292003629E8 /* Writing Shed Pro */;
+		};
+		D76ABF802F260E70002D8588 /* Exceptions for "WSP Reader" folder in "WSP Reader" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = D76ABF572F260E6C002D8588 /* WSP Reader */;
 		};
 		D7QLEXT0D2F05000000000001 /* Exceptions for "WSPQuickLook" folder in "WSPQuickLook" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
@@ -78,6 +102,24 @@
 		D741DF802EA76295003629E8 /* WritingShedProTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = WritingShedProTests;
+			sourceTree = "<group>";
+		};
+		D76ABF592F260E6C002D8588 /* WSP Reader */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				D76ABF802F260E70002D8588 /* Exceptions for "WSP Reader" folder in "WSP Reader" target */,
+			);
+			path = "WSP Reader";
+			sourceTree = "<group>";
+		};
+		D76ABF6B2F260E6F002D8588 /* WSP ReaderTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "WSP ReaderTests";
+			sourceTree = "<group>";
+		};
+		D76ABF752F260E70002D8588 /* WSP ReaderUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "WSP ReaderUITests";
 			sourceTree = "<group>";
 		};
 		D7QLEXT052F05000000000001 /* WSPQuickLook */ = {
@@ -106,6 +148,27 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D76ABF552F260E6C002D8588 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D76ABF652F260E6F002D8588 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D76ABF6F2F260E70002D8588 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -116,6 +179,9 @@
 				D741DF6E2EA76292003629E8 /* Writing Shed Pro */,
 				D741DF802EA76295003629E8 /* WritingShedProTests */,
 				D7QLEXT052F05000000000001 /* WSPQuickLook */,
+				D76ABF592F260E6C002D8588 /* WSP Reader */,
+				D76ABF6B2F260E6F002D8588 /* WSP ReaderTests */,
+				D76ABF752F260E70002D8588 /* WSP ReaderUITests */,
 				D741DF6D2EA76292003629E8 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -126,6 +192,9 @@
 				D741DF6C2EA76292003629E8 /* Writing Shed Pro.app */,
 				D741DF7D2EA76295003629E8 /* Writing Shed ProTests.xctest */,
 				D7QLEXT002F05000000000001 /* WSPQuickLook.appex */,
+				D76ABF582F260E6C002D8588 /* WSP Reader.app */,
+				D76ABF682F260E6F002D8588 /* WSP ReaderTests.xctest */,
+				D76ABF722F260E70002D8588 /* WSP ReaderUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -181,6 +250,74 @@
 			productReference = D741DF7D2EA76295003629E8 /* Writing Shed ProTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		D76ABF572F260E6C002D8588 /* WSP Reader */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D76ABF812F260E70002D8588 /* Build configuration list for PBXNativeTarget "WSP Reader" */;
+			buildPhases = (
+				D76ABF542F260E6C002D8588 /* Sources */,
+				D76ABF552F260E6C002D8588 /* Frameworks */,
+				D76ABF562F260E6C002D8588 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				D76ABF592F260E6C002D8588 /* WSP Reader */,
+			);
+			name = "WSP Reader";
+			packageProductDependencies = (
+			);
+			productName = "WSP Reader";
+			productReference = D76ABF582F260E6C002D8588 /* WSP Reader.app */;
+			productType = "com.apple.product-type.application";
+		};
+		D76ABF672F260E6F002D8588 /* WSP ReaderTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D76ABF822F260E70002D8588 /* Build configuration list for PBXNativeTarget "WSP ReaderTests" */;
+			buildPhases = (
+				D76ABF642F260E6F002D8588 /* Sources */,
+				D76ABF652F260E6F002D8588 /* Frameworks */,
+				D76ABF662F260E6F002D8588 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D76ABF6A2F260E6F002D8588 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				D76ABF6B2F260E6F002D8588 /* WSP ReaderTests */,
+			);
+			name = "WSP ReaderTests";
+			packageProductDependencies = (
+			);
+			productName = "WSP ReaderTests";
+			productReference = D76ABF682F260E6F002D8588 /* WSP ReaderTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		D76ABF712F260E70002D8588 /* WSP ReaderUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D76ABF832F260E70002D8588 /* Build configuration list for PBXNativeTarget "WSP ReaderUITests" */;
+			buildPhases = (
+				D76ABF6E2F260E70002D8588 /* Sources */,
+				D76ABF6F2F260E70002D8588 /* Frameworks */,
+				D76ABF702F260E70002D8588 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D76ABF742F260E70002D8588 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				D76ABF752F260E70002D8588 /* WSP ReaderUITests */,
+			);
+			name = "WSP ReaderUITests";
+			packageProductDependencies = (
+			);
+			productName = "WSP ReaderUITests";
+			productReference = D76ABF722F260E70002D8588 /* WSP ReaderUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 		D7QLEXT042F05000000000001 /* WSPQuickLook */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = D7QLEXT0A2F05000000000001 /* Build configuration list for PBXNativeTarget "WSPQuickLook" */;
@@ -209,7 +346,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 1640;
+				LastSwiftUpdateCheck = 2620;
 				LastUpgradeCheck = 2620;
 				TargetAttributes = {
 					D741DF6B2EA76292003629E8 = {
@@ -218,6 +355,17 @@
 					D741DF7C2EA76295003629E8 = {
 						CreatedOnToolsVersion = 16.4;
 						TestTargetID = D741DF6B2EA76292003629E8;
+					};
+					D76ABF572F260E6C002D8588 = {
+						CreatedOnToolsVersion = 26.2;
+					};
+					D76ABF672F260E6F002D8588 = {
+						CreatedOnToolsVersion = 26.2;
+						TestTargetID = D76ABF572F260E6C002D8588;
+					};
+					D76ABF712F260E70002D8588 = {
+						CreatedOnToolsVersion = 26.2;
+						TestTargetID = D76ABF572F260E6C002D8588;
 					};
 					D7QLEXT042F05000000000001 = {
 						CreatedOnToolsVersion = 16.4;
@@ -244,6 +392,9 @@
 				D741DF6B2EA76292003629E8 /* Writing Shed Pro */,
 				D741DF7C2EA76295003629E8 /* Writing Shed ProTests */,
 				D7QLEXT042F05000000000001 /* WSPQuickLook */,
+				D76ABF572F260E6C002D8588 /* WSP Reader */,
+				D76ABF672F260E6F002D8588 /* WSP ReaderTests */,
+				D76ABF712F260E70002D8588 /* WSP ReaderUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -257,6 +408,27 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		D741DF7B2EA76295003629E8 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D76ABF562F260E6C002D8588 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D76ABF662F260E6F002D8588 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D76ABF702F260E70002D8588 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -287,6 +459,27 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D76ABF542F260E6C002D8588 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D76ABF642F260E6F002D8588 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D76ABF6E2F260E70002D8588 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		D7QLEXT082F05000000000001 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -301,6 +494,16 @@
 			isa = PBXTargetDependency;
 			target = D741DF6B2EA76292003629E8 /* Writing Shed Pro */;
 			targetProxy = D741DF7E2EA76295003629E8 /* PBXContainerItemProxy */;
+		};
+		D76ABF6A2F260E6F002D8588 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D76ABF572F260E6C002D8588 /* WSP Reader */;
+			targetProxy = D76ABF692F260E6F002D8588 /* PBXContainerItemProxy */;
+		};
+		D76ABF742F260E70002D8588 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D76ABF572F260E6C002D8588 /* WSP Reader */;
+			targetProxy = D76ABF732F260E70002D8588 /* PBXContainerItemProxy */;
 		};
 		D7QLEXT072F05000000000001 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -584,6 +787,199 @@
 			};
 			name = Release;
 		};
+		D76ABF7A2F260E70002D8588 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = SK6C3MP32D;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "WSP Reader/Info.plist";
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.appworks.WSP-Reader";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = auto;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				XROS_DEPLOYMENT_TARGET = 26.2;
+			};
+			name = Debug;
+		};
+		D76ABF7B2F260E70002D8588 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "WSP Reader/WSP ReaderRelease.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = SK6C3MP32D;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "WSP Reader/Info.plist";
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.appworks.wspreader;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = auto;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				XROS_DEPLOYMENT_TARGET = 26.2;
+			};
+			name = Release;
+		};
+		D76ABF7C2F260E70002D8588 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = SK6C3MP32D;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.appworks.WSP-ReaderTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/WSP Reader.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/WSP Reader";
+				XROS_DEPLOYMENT_TARGET = 26.2;
+			};
+			name = Debug;
+		};
+		D76ABF7D2F260E70002D8588 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = SK6C3MP32D;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.appworks.wspreadertests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/WSP Reader.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/WSP Reader";
+				XROS_DEPLOYMENT_TARGET = 26.2;
+			};
+			name = Release;
+		};
+		D76ABF7E2F260E70002D8588 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = SK6C3MP32D;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.appworks.WSP-ReaderUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TEST_TARGET_NAME = "WSP Reader";
+				XROS_DEPLOYMENT_TARGET = 26.2;
+			};
+			name = Debug;
+		};
+		D76ABF7F2F260E70002D8588 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = SK6C3MP32D;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.appworks.wspreaderuitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TEST_TARGET_NAME = "WSP Reader";
+				XROS_DEPLOYMENT_TARGET = 26.2;
+			};
+			name = Release;
+		};
 		D7QLEXT0B2F05000000000001 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -674,6 +1070,33 @@
 			buildConfigurations = (
 				D741DF962EA76295003629E8 /* Debug */,
 				D741DF972EA76295003629E8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D76ABF812F260E70002D8588 /* Build configuration list for PBXNativeTarget "WSP Reader" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D76ABF7A2F260E70002D8588 /* Debug */,
+				D76ABF7B2F260E70002D8588 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D76ABF822F260E70002D8588 /* Build configuration list for PBXNativeTarget "WSP ReaderTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D76ABF7C2F260E70002D8588 /* Debug */,
+				D76ABF7D2F260E70002D8588 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D76ABF832F260E70002D8588 /* Build configuration list for PBXNativeTarget "WSP ReaderUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D76ABF7E2F260E70002D8588 /* Debug */,
+				D76ABF7F2F260E70002D8588 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

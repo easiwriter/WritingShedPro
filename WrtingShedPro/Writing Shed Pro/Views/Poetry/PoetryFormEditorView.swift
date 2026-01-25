@@ -33,6 +33,7 @@ struct PoetryFormEditorView: View {
     @State private var category: PoetryFormCategory = .custom
     @State private var formDescription: String = ""
     @State private var lineCountText: String = ""
+    @State private var stanzaCountText: String = ""
     @State private var syllablePatternText: String = ""
     @State private var rhymeScheme: String = ""
     @State private var meterPattern: String = ""
@@ -67,6 +68,10 @@ struct PoetryFormEditorView: View {
     
     private var lineCount: Int? {
         Int(lineCountText.trimmingCharacters(in: .whitespaces))
+    }
+    
+    private var stanzaCount: Int? {
+        Int(stanzaCountText.trimmingCharacters(in: .whitespaces))
     }
     
     private var syllablePattern: [Int]? {
@@ -116,6 +121,16 @@ struct PoetryFormEditorView: View {
                         Text(NSLocalizedString("poetryForms.editor.lineCount", comment: "Line Count"))
                         Spacer()
                         TextField("", text: $lineCountText)
+                            .keyboardType(.numberPad)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 80)
+                            .disabled(isViewMode)
+                    }
+                    
+                    HStack {
+                        Text(NSLocalizedString("poetryForms.editor.stanzaCount", comment: "Stanza Count"))
+                        Spacer()
+                        TextField("", text: $stanzaCountText)
                             .keyboardType(.numberPad)
                             .multilineTextAlignment(.trailing)
                             .frame(width: 80)
@@ -230,6 +245,7 @@ struct PoetryFormEditorView: View {
         category = form.category
         formDescription = form.description
         lineCountText = form.lineCount.map { String($0) } ?? ""
+        stanzaCountText = form.stanzaCount.map { String($0) } ?? ""
         syllablePatternText = form.syllablePattern?.map { String($0) }.joined(separator: ", ") ?? ""
         rhymeScheme = form.rhymeScheme ?? ""
         meterPattern = form.meterPattern ?? ""
@@ -285,6 +301,7 @@ struct PoetryFormEditorView: View {
             name: trimmedName,
             category: category,
             lineCount: lineCount,
+            stanzaCount: stanzaCount,
             syllablePattern: syllablePattern,
             rhymeScheme: rhymeScheme.isEmpty ? nil : rhymeScheme,
             meterPattern: meterPattern.isEmpty ? nil : meterPattern,
@@ -305,6 +322,7 @@ struct PoetryFormEditorView: View {
             name: "\(original.name) (Copy)",
             category: original.category,
             lineCount: original.lineCount,
+            stanzaCount: original.stanzaCount,
             syllablePattern: original.syllablePattern,
             rhymeScheme: original.rhymeScheme,
             meterPattern: original.meterPattern,

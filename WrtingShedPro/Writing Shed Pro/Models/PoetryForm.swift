@@ -7,6 +7,7 @@ struct PoetryForm: Identifiable, Codable, Hashable {
     let name: String
     let category: PoetryFormCategory
     let lineCount: Int?
+    let stanzaCount: Int?  // Number of stanzas (separated by blank lines)
     let syllablePattern: [Int]?
     let rhymeScheme: String?
     let meterPattern: String?
@@ -36,12 +37,21 @@ struct PoetryForm: Identifiable, Codable, Hashable {
         lineCount != nil && lineCount! > 0
     }
     
+    /// Whether this form has a specific stanza count requirement
+    var hasStanzaCountRequirement: Bool {
+        stanzaCount != nil && stanzaCount! > 0
+    }
+    
     /// A short summary of the form's requirements for display
     var requirementsSummary: String {
         var parts: [String] = []
         
         if let lines = lineCount {
             parts.append("\(lines) lines")
+        }
+        
+        if let stanzas = stanzaCount {
+            parts.append("\(stanzas) stanzas")
         }
         
         if let syllables = syllablePattern, !syllables.isEmpty {
@@ -67,6 +77,7 @@ struct PoetryForm: Identifiable, Codable, Hashable {
         name: String,
         category: PoetryFormCategory,
         lineCount: Int? = nil,
+        stanzaCount: Int? = nil,
         syllablePattern: [Int]? = nil,
         rhymeScheme: String? = nil,
         meterPattern: String? = nil,
@@ -78,6 +89,7 @@ struct PoetryForm: Identifiable, Codable, Hashable {
         self.name = name
         self.category = category
         self.lineCount = lineCount
+        self.stanzaCount = stanzaCount
         self.syllablePattern = syllablePattern
         self.rhymeScheme = rhymeScheme
         self.meterPattern = meterPattern

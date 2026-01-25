@@ -45,7 +45,7 @@ extension FolderFilesView {
         content
             .fileImporter(
                 isPresented: $showImportPicker,
-                allowedContentTypes: [.rtf, UTType("org.openxmlformats.wordprocessingml.document") ?? .data],
+                allowedContentTypes: [.rtf, UTType("org.openxmlformats.wordprocessingml.document") ?? .data, UTType(filenameExtension: "md") ?? .plainText],
                 allowsMultipleSelection: false,
                 onCompletion: handleImport
             )

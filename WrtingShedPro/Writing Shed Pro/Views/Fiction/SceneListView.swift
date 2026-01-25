@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
 
 /// List view showing scenes - either for entire project (Short Fiction) or within a chapter (Novel)
 /// Matches FileListView pattern with:
@@ -329,7 +330,7 @@ struct SceneListView: View {
         }
         .fileImporter(
             isPresented: $showImportPicker,
-            allowedContentTypes: [.rtf, .init("org.openxmlformats.wordprocessingml.document") ?? .data],
+            allowedContentTypes: [.rtf, .init("org.openxmlformats.wordprocessingml.document") ?? .data, UTType(filenameExtension: "md") ?? .plainText],
             allowsMultipleSelection: false,
             onCompletion: handleImport
         )
@@ -729,8 +730,27 @@ struct SceneListView: View {
             guard let url = urls.first else { return }
             
             do {
-                // Use WordDocumentService to import RTF or DOCX
-                let (plainText, rtfData, fileName) = try WordDocumentService.importWordDocument(from: url)
+                let plainText: String
+                let rtfData: Data?
+                let fileName: String
+                
+                // Check file extension to determine import method
+                let fileExtension = url.pathExtension.lowercased()
+                
+                if fileExtension == "md" || fileExtension == "markdown" {
+                    // Import Markdown file
+                    let styleSheet = project.styleSheet
+                    let attributedString = try MarkdownImportService.importMarkdown(from: url, styleSheet: styleSheet)
+                    plainText = attributedString.string
+                    rtfData = try? attributedString.data(
+                        from: NSRange(location: 0, length: attributedString.length),
+                        documentAttributes: [.documentType: NSAttributedString.DocumentType.rtf]
+                    )
+                    fileName = url.deletingPathExtension().lastPathComponent
+                } else {
+                    // Use WordDocumentService to import RTF or DOCX
+                    (plainText, rtfData, fileName) = try WordDocumentService.importWordDocument(from: url)
+                }
                 
                 // Create a new scene
                 let newScene = StoryScene(name: fileName)

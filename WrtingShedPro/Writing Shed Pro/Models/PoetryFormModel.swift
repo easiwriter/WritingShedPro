@@ -29,6 +29,9 @@ final class PoetryFormModel {
     /// Number of lines in the form (nil for variable-length forms)
     var lineCount: Int?
     
+    /// Number of stanzas in the form (nil for variable stanza forms)
+    var stanzaCount: Int?
+    
     /// JSON-encoded syllable pattern array (e.g., "[5,7,5]" for Haiku)
     var syllablePatternData: Data?
     
@@ -90,6 +93,7 @@ final class PoetryFormModel {
         name: String = "",
         category: PoetryFormCategory = .custom,
         lineCount: Int? = nil,
+        stanzaCount: Int? = nil,
         syllablePattern: [Int]? = nil,
         rhymeScheme: String? = nil,
         meterPattern: String? = nil,
@@ -104,6 +108,7 @@ final class PoetryFormModel {
         self.name = name
         self.categoryRaw = category.rawValue
         self.lineCount = lineCount
+        self.stanzaCount = stanzaCount
         self.rhymeScheme = rhymeScheme
         self.meterPattern = meterPattern
         self.formDescription = formDescription
@@ -128,6 +133,7 @@ final class PoetryFormModel {
             name: name,
             category: category,
             lineCount: lineCount,
+            stanzaCount: stanzaCount,
             syllablePattern: syllablePattern,
             rhymeScheme: rhymeScheme,
             meterPattern: meterPattern,
@@ -148,6 +154,7 @@ final class PoetryFormModel {
             name: form.name,
             category: form.category,
             lineCount: form.lineCount,
+            stanzaCount: form.stanzaCount,
             syllablePattern: form.syllablePattern,
             rhymeScheme: form.rhymeScheme,
             meterPattern: form.meterPattern,
@@ -166,6 +173,7 @@ final class PoetryFormModel {
             name: "\(name) (Copy)",
             category: category,
             lineCount: lineCount,
+            stanzaCount: stanzaCount,
             syllablePattern: syllablePattern,
             rhymeScheme: rhymeScheme,
             meterPattern: meterPattern,

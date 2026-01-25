@@ -106,6 +106,7 @@ final class ExportOptionsTests: XCTestCase {
         XCTAssertEqual(ExportFormat.word.fileExtension, "docx")
         XCTAssertEqual(ExportFormat.html.fileExtension, "html")
         XCTAssertEqual(ExportFormat.epub.fileExtension, "epub")
+        XCTAssertEqual(ExportFormat.markdown.fileExtension, "md")
     }
     
     func testExportFormatMimeTypes() {
@@ -115,6 +116,7 @@ final class ExportOptionsTests: XCTestCase {
         XCTAssertEqual(ExportFormat.word.mimeType, "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
         XCTAssertEqual(ExportFormat.html.mimeType, "text/html")
         XCTAssertEqual(ExportFormat.epub.mimeType, "application/epub+zip")
+        XCTAssertEqual(ExportFormat.markdown.mimeType, "text/markdown")
     }
     
     func testExportFormatIcons() {
@@ -124,6 +126,7 @@ final class ExportOptionsTests: XCTestCase {
         XCTAssertEqual(ExportFormat.word.icon, "doc")
         XCTAssertEqual(ExportFormat.html.icon, "chevron.left.slash.chevron.right")
         XCTAssertEqual(ExportFormat.epub.icon, "book")
+        XCTAssertEqual(ExportFormat.markdown.icon, "text.badge.checkmark")
     }
     
     func testExportFormatLocalizedNames() {

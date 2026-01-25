@@ -1,0 +1,183 @@
+# The Editor
+
+The editor is where you spend most of your time in Writing Shed Pro. It's designed to be clean, focused, and powerful. This guide covers everything you need to know about writing and editing text.
+
+## Opening the Editor
+
+Tap any file to open it in the editor. The editor fills the screen, giving you maximum space for writing.
+
+## The Writing Area
+
+The main area shows your text with full formatting:
+- Paragraph styles are visible (headings appear larger, etc.)
+- Character formatting shows (bold, italic, underline)
+- Images appear inline
+- Footnote markers are visible and tappable
+
+### Cursor and Selection
+- Tap to place the cursor
+- Double-tap a word to select it
+- Triple-tap to select a paragraph
+- Drag the selection handles to adjust
+
+## The Toolbar
+
+A toolbar appears above the keyboard with quick access to formatting:
+
+| Button | Function |
+|--------|----------|
+| **¶** | Paragraph style picker |
+| **B** | Bold |
+| *I* | Italic |
+| **U** | Underline |
+| **S̶** | Strikethrough |
+| **⊕** | Insert menu |
+
+### Paragraph Style Picker
+Tap **¶** to see available paragraph styles. Tap a style to apply it to the current paragraph. Available styles include:
+- Body (default)
+- Heading 1, 2, 3
+- Subheadline
+- Caption
+- Footnote
+- And more...
+
+### Character Formatting
+Select text, then tap a formatting button:
+- **B** toggles bold
+- *I* toggles italic
+- **U** toggles underline
+- **S̶** toggles strikethrough
+
+### Insert Menu
+Tap **⊕** to insert:
+- **Image**: Add a photo or illustration
+- **Footnote**: Create a numbered footnote
+- **Comment**: Add a revision note
+
+## Text Selection Menu
+
+When you select text, a menu appears with options:
+
+### Standard Actions
+- **Cut**: Remove text and copy to clipboard
+- **Copy**: Copy to clipboard
+- **Paste**: Insert from clipboard
+- **Select All**: Select entire document
+
+### Extended Actions
+- **Look Up**: Dictionary definition and web search
+- **Translate**: Use Apple's translation
+- **Search Web**: Search the selected text online
+- **Share**: Send text to other apps
+
+### Writing Shed Pro Actions
+- **Edit Style**: Open the stylesheet editor for the current style
+
+## Undo and Redo
+
+Writing Shed Pro maintains a full undo history:
+
+### Gestures
+- **Undo**: Three-finger swipe left, or shake device
+- **Redo**: Three-finger swipe right
+
+### Keyboard Shortcuts (Mac/iPad with keyboard)
+- **Undo**: ⌘Z
+- **Redo**: ⌘⇧Z
+
+The undo history is maintained during your editing session. It resets when you close the file.
+
+## Auto-Save
+
+Your work saves automatically:
+- Changes are saved continuously as you type
+- No "Save" button needed
+- Saves sync to iCloud within seconds
+- Never lose work to a crash or power loss
+
+## Zoom
+
+Adjust the text size while editing:
+
+### Pinch to Zoom (iOS)
+- Pinch out to zoom in
+- Pinch in to zoom out
+
+### Keyboard Shortcuts (Mac)
+- **Zoom In**: ⌘+
+- **Zoom Out**: ⌘-
+- **Reset Zoom**: ⌘0
+
+Zoom is for editing comfort only; it doesn't affect the saved document.
+
+## Navigation
+
+### Scroll
+- Swipe up/down to scroll through the document
+- The scroll bar indicates your position
+
+### Jump to Location
+- Use Search (⌘F) to find specific text
+- Tap footnotes to jump to footnote content
+- Tap comments to see comment details
+
+### Keyboard Navigation (with hardware keyboard)
+- Arrow keys move the cursor
+- ⌥← / ⌥→ move by word
+- ⌘← / ⌘→ move to line start/end
+- ⌘↑ / ⌘↓ move to document start/end
+
+## Full-Screen Writing
+
+For distraction-free writing:
+
+### Hide the Toolbar
+- On iPad/Mac: The toolbar can be collapsed
+- The formatting bar above the keyboard remains available
+
+### Focus Mode (if available)
+- Dims everything except the current paragraph
+- Helps maintain focus on your current thought
+
+## Word Count
+
+The editor shows a live word count:
+- Displayed in the status area
+- Updates as you type
+- Shows words, characters, and paragraphs
+
+See [Word Count and Statistics](07-word-count-and-statistics.md) for detailed statistics.
+
+## Tips for Effective Editing
+
+### Let It Flow
+Write first, format later. Get your ideas down, then apply styles.
+
+### Use Paragraph Styles
+Instead of manual formatting, use paragraph styles. This ensures consistency and makes global changes easy.
+
+### Save Formatting for Later
+Focus on words during your first draft. Return for formatting during revision.
+
+### Learn the Shortcuts
+Keyboard shortcuts dramatically speed up your workflow. See [Keyboard Shortcuts](../09-reference/01-keyboard-shortcut-list.md).
+
+## Platform Differences
+
+### iOS (iPhone/iPad)
+- On-screen keyboard appears when editing
+- Formatting toolbar above keyboard
+- Tap and hold for selection
+- External keyboards fully supported
+
+### Mac (via Catalyst)
+- Full hardware keyboard support
+- Menu bar access to all commands
+- Right-click context menus
+- Trackpad and mouse input
+
+## See Also
+- [Text Formatting](02-text-formatting.md)
+- [Headings and Styles](03-headings-and-styles.md)
+- [Keyboard Shortcuts](../09-reference/01-keyboard-shortcut-list.md)
