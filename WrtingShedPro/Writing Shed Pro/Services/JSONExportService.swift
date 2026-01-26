@@ -130,6 +130,9 @@ class JSONExportService {
         // Folders and files
         exportData.folders = buildFolderData(from: project)
         
+        // Prose sections (for Prose projects)
+        exportData.proseSections = buildProseSectionData(from: project)
+        
         // Publications
         exportData.publications = buildPublicationData(from: project)
         
@@ -139,6 +142,7 @@ class JSONExportService {
         #if DEBUG
         print("[JSONExport] Built export data:")
         print("[JSONExport]   Folders: \(exportData.folders.count)")
+        print("[JSONExport]   Prose Sections: \(exportData.proseSections.count)")
         print("[JSONExport]   Publications: \(exportData.publications.count)")
         print("[JSONExport]   Submissions: \(exportData.submissions.count)")
         #endif
@@ -206,6 +210,8 @@ class JSONExportService {
             workflowStatus: textFile.workflowStatusRaw,
             poetryFormId: textFile.poetryFormId?.uuidString,
             poetryFormName: textFile.poetryFormName,
+            sectionId: textFile.section?.id.uuidString,
+            includedInManuscript: textFile.includedInManuscript,
             versions: versions
         )
     }
@@ -266,6 +272,23 @@ class JSONExportService {
         )
     }
     
+    // MARK: - Prose Section Data
+    
+    private func buildProseSectionData(from project: Project) -> [WSPProseSectionData] {
+        guard let sections = project.sections else { return [] }
+        
+        return sections.map { section in
+            WSPProseSectionData(
+                id: section.id.uuidString,
+                name: section.name ?? "Untitled",
+                synopsis: section.synopsis,
+                userOrder: section.userOrder,
+                createdDate: section.createdDate,
+                modifiedDate: section.modifiedDate
+            )
+        }
+    }
+    
     // MARK: - Publication Data
     
     private func buildPublicationData(from project: Project) -> [WSPPublicationData] {
@@ -300,6 +323,8 @@ class JSONExportService {
                 collectionDescription: submission.collectionDescription,
                 isCollection: submission.isCollection,
                 submittedDate: submission.submittedDate,
+                returnExpectedBy: submission.returnExpectedBy,
+                returnedOn: submission.returnedOn,
                 notes: submission.notes,
                 userOrder: submission.userOrder,
                 createdDate: submission.createdDate,
@@ -334,6 +359,7 @@ struct WSPExportData: Codable {
     var appVersion: String = "1.0"
     var project: WSPProjectData = WSPProjectData()
     var folders: [WSPFolderData] = []
+    var proseSections: [WSPProseSectionData] = []
     var publications: [WSPPublicationData] = []
     var submissions: [WSPSubmissionData] = []
 }
@@ -350,6 +376,15 @@ struct WSPProjectData: Codable {
     var fictionClass: String?
     var useMonomyth: Bool = false  // Legacy, kept for backward compatibility
     var storyStructure: String?    // New: StoryStructure raw value
+}
+
+struct WSPProseSectionData: Codable {
+    var id: String = ""
+    var name: String = ""
+    var synopsis: String?
+    var userOrder: Int?
+    var createdDate: Date = Date()
+    var modifiedDate: Date = Date()
 }
 
 struct WSPFolderData: Codable {
@@ -371,6 +406,8 @@ struct WSPTextFileData: Codable {
     var workflowStatus: String?
     var poetryFormId: String?
     var poetryFormName: String?
+    var sectionId: String?
+    var includedInManuscript: Bool = true
     var versions: [WSPVersionData] = []
 }
 
@@ -424,6 +461,8 @@ struct WSPSubmissionData: Codable {
     var collectionDescription: String?
     var isCollection: Bool = false
     var submittedDate: Date = Date()
+    var returnExpectedBy: Date?
+    var returnedOn: Date?
     var notes: String?
     var userOrder: Int?
     var createdDate: Date = Date()

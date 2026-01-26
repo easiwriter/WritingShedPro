@@ -127,4 +127,4 @@ By using Writing Shed Pro, you acknowledge that you have read, understood, and a
 
 ## See Also
 - [Credits](02-credits.md)
-- [Contact Support](../10-reference/05-contact-support.md)
+- [Contact Support](../11-reference/05-contact-support.md)

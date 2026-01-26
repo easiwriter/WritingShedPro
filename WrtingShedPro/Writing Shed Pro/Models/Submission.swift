@@ -27,6 +27,8 @@ class Submission {
     var submittedFiles: [SubmittedFile]? = []
     
     var submittedDate: Date = Date()
+    var returnExpectedBy: Date?  // When response is expected
+    var returnedOn: Date?  // When response was actually received
     var notes: String?
     
     var createdDate: Date = Date()

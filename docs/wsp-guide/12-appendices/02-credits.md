@@ -48,5 +48,5 @@ Gratitude to:
 The best features often come from user suggestions. If you have ideas for improving Writing Shed Pro, please share them through our support channels.
 
 ## See Also
-- [Contact Support](../10-reference/05-contact-support.md)
+- [Contact Support](../11-reference/05-contact-support.md)
 - [Legal](03-legal.md)

@@ -804,6 +804,307 @@ class HTMLExportService {
         return cleaned
     }
     
+    // MARK: - Markdown to HTML
+    
+    /// Convert Markdown text to HTML
+    /// - Parameters:
+    ///   - markdown: The Markdown content to convert
+    ///   - filename: Document title
+    /// - Returns: Complete HTML document string
+    static func markdownToHTML(_ markdown: String, filename: String) -> String {
+        var html = markdown
+        
+        // Process file anchor markers first (%%FILEANCHOR:id%%)
+        html = html.replacingOccurrences(
+            of: "%%FILEANCHOR:([^%]+)%%",
+            with: "<a id=\"$1\"></a>",
+            options: .regularExpression
+        )
+        
+        // Process code blocks first (to protect them from other conversions)
+        var codeBlocks: [String: String] = [:]
+        var codeBlockIndex = 0
+        let codeBlockPattern = "```([a-zA-Z]*)\\n([\\s\\S]*?)```"
+        if let regex = try? NSRegularExpression(pattern: codeBlockPattern, options: []) {
+            let matches = regex.matches(in: html, range: NSRange(html.startIndex..., in: html))
+            for match in matches.reversed() {
+                if let range = Range(match.range, in: html),
+                   let langRange = Range(match.range(at: 1), in: html),
+                   let codeRange = Range(match.range(at: 2), in: html) {
+                    let lang = String(html[langRange])
+                    let code = String(html[codeRange])
+                    let placeholder = "%%CODEBLOCK\(codeBlockIndex)%%"
+                    let langClass = lang.isEmpty ? "" : " class=\"language-\(lang)\""
+                    codeBlocks[placeholder] = "<pre><code\(langClass)>\(escapeHTML(code))</code></pre>"
+                    html.replaceSubrange(range, with: placeholder)
+                    codeBlockIndex += 1
+                }
+            }
+        }
+        
+        // Inline code
+        html = html.replacingOccurrences(of: "`([^`]+)`", with: "<code>$1</code>", options: .regularExpression)
+        
+        // Headers with IDs for anchor links (must be at start of line)
+        html = addHeadingIDs(html, level: 6)
+        html = addHeadingIDs(html, level: 5)
+        html = addHeadingIDs(html, level: 4)
+        html = addHeadingIDs(html, level: 3)
+        html = addHeadingIDs(html, level: 2)
+        html = addHeadingIDs(html, level: 1)
+        
+        // Bold and italic
+        html = html.replacingOccurrences(of: "\\*\\*\\*([^*]+)\\*\\*\\*", with: "<strong><em>$1</em></strong>", options: .regularExpression)
+        html = html.replacingOccurrences(of: "\\*\\*([^*]+)\\*\\*", with: "<strong>$1</strong>", options: .regularExpression)
+        html = html.replacingOccurrences(of: "\\*([^*]+)\\*", with: "<em>$1</em>", options: .regularExpression)
+        
+        // Links - process and fix hrefs
+        html = processLinks(html)
+        
+        // Unordered lists
+        html = html.replacingOccurrences(of: "(?m)^- (.+)$", with: "<li>$1</li>", options: .regularExpression)
+        html = html.replacingOccurrences(of: "(<li>.*</li>\\n)+", with: "<ul>\n$0</ul>\n", options: .regularExpression)
+        
+        // Ordered lists
+        html = html.replacingOccurrences(of: "(?m)^\\d+\\. (.+)$", with: "<li>$1</li>", options: .regularExpression)
+        
+        // Blockquotes
+        html = html.replacingOccurrences(of: "(?m)^> (.+)$", with: "<blockquote>$1</blockquote>", options: .regularExpression)
+        
+        // Horizontal rules - add "Back to Contents" link before each
+        html = html.replacingOccurrences(
+            of: "(?m)^---+$",
+            with: "<p class=\"back-to-top\"><a href=\"#contents\">↑ Back to Contents</a></p>\n<hr>",
+            options: .regularExpression
+        )
+        html = html.replacingOccurrences(of: "(?m)^\\*\\*\\*+$", with: "<hr>", options: .regularExpression)
+        
+        // Tables (basic support)
+        let lines = html.components(separatedBy: "\n")
+        var result: [String] = []
+        var inTable = false
+        var headerProcessed = false
+        
+        for line in lines {
+            if line.contains("|") && !line.trimmingCharacters(in: .whitespaces).isEmpty {
+                if !inTable {
+                    result.append("<table>")
+                    inTable = true
+                    headerProcessed = false
+                }
+                
+                // Skip separator line (|---|---|)
+                if line.contains("---") {
+                    headerProcessed = true
+                    continue
+                }
+                
+                let cells = line.split(separator: "|").map { $0.trimmingCharacters(in: .whitespaces) }
+                let tag = !headerProcessed ? "th" : "td"
+                let row = "<tr>" + cells.map { "<\(tag)>\($0)</\(tag)>" }.joined() + "</tr>"
+                result.append(row)
+            } else {
+                if inTable {
+                    result.append("</table>")
+                    inTable = false
+                }
+                result.append(line)
+            }
+        }
+        if inTable {
+            result.append("</table>")
+        }
+        html = result.joined(separator: "\n")
+        
+        // Restore code blocks
+        for (placeholder, codeBlock) in codeBlocks {
+            html = html.replacingOccurrences(of: placeholder, with: codeBlock)
+        }
+        
+        // Paragraphs (wrap remaining text blocks)
+        html = html.replacingOccurrences(of: "(?m)^([^<\\n].+)$", with: "<p>$1</p>", options: .regularExpression)
+        
+        // Clean up empty paragraphs
+        html = html.replacingOccurrences(of: "<p></p>", with: "")
+        html = html.replacingOccurrences(of: "<p>\\s*</p>", with: "", options: .regularExpression)
+        
+        // Build complete HTML document
+        let css = """
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            line-height: 1.6;
+            color: #333;
+        }
+        h1, h2, h3, h4, h5, h6 { margin-top: 1.5em; margin-bottom: 0.5em; }
+        h1 { font-size: 2em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+        h2 { font-size: 1.5em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+        code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+        pre { background: #f4f4f4; padding: 16px; border-radius: 6px; overflow-x: auto; }
+        pre code { background: none; padding: 0; }
+        blockquote { border-left: 4px solid #ddd; margin-left: 0; padding-left: 16px; color: #666; }
+        table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+        th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+        th { background: #f4f4f4; font-weight: bold; }
+        ul, ol { padding-left: 2em; }
+        a { color: #0066cc; }
+        hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
+        /* Back to Contents link */
+        .back-to-top {
+            text-align: right;
+            font-size: 0.9em;
+            margin: 1.5em 0 0.5em 0;
+        }
+        .back-to-top a {
+            color: #666;
+            text-decoration: none;
+        }
+        .back-to-top a:hover {
+            color: #0066cc;
+            text-decoration: underline;
+        }
+        @media (prefers-color-scheme: dark) {
+            body { background: #1a1a1a; color: #e0e0e0; }
+            code, pre { background: #2d2d2d; }
+            th { background: #2d2d2d; }
+            th, td { border-color: #444; }
+            blockquote { border-color: #555; color: #aaa; }
+            h1, h2 { border-color: #444; }
+            a { color: #4da3ff; }
+            .back-to-top a { color: #999; }
+        }
+        """
+        
+        return """
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>\(escapeHTML(filename))</title>
+            <style>\(css)</style>
+        </head>
+        <body>
+        \(html)
+        </body>
+        </html>
+        """
+    }
+    
+    /// Escape HTML special characters
+    private static func escapeHTML(_ string: String) -> String {
+        string
+            .replacingOccurrences(of: "&", with: "&amp;")
+            .replacingOccurrences(of: "<", with: "&lt;")
+            .replacingOccurrences(of: ">", with: "&gt;")
+            .replacingOccurrences(of: "\"", with: "&quot;")
+    }
+    
+    /// Generate a slug/ID from heading text
+    private static func slugify(_ text: String) -> String {
+        text.lowercased()
+            .replacingOccurrences(of: "[^a-z0-9\\s-]", with: "", options: .regularExpression)
+            .replacingOccurrences(of: "\\s+", with: "-", options: .regularExpression)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "-"))
+    }
+    
+    /// Add IDs to headings for anchor link support
+    private static func addHeadingIDs(_ html: String, level: Int) -> String {
+        let hashes = String(repeating: "#", count: level)
+        let pattern = "(?m)^\(hashes) (.+)$"
+        
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else {
+            return html
+        }
+        
+        var result = html
+        let matches = regex.matches(in: html, range: NSRange(html.startIndex..., in: html))
+        
+        // Process in reverse to maintain ranges
+        for match in matches.reversed() {
+            if let range = Range(match.range, in: result),
+               let textRange = Range(match.range(at: 1), in: result) {
+                let headingText = String(result[textRange])
+                let id = slugify(headingText)
+                let replacement = "<h\(level) id=\"\(id)\">\(headingText)</h\(level)>"
+                result.replaceSubrange(range, with: replacement)
+            }
+        }
+        
+        return result
+    }
+    
+    /// Process links - add target="_blank" for external links, fix internal links
+    private static func processLinks(_ html: String) -> String {
+        let linkPattern = "\\[([^\\]]+)\\]\\(([^)]+)\\)"
+        
+        guard let regex = try? NSRegularExpression(pattern: linkPattern, options: []) else {
+            return html.replacingOccurrences(of: linkPattern, with: "<a href=\"$2\">$1</a>", options: .regularExpression)
+        }
+        
+        var result = html
+        let matches = regex.matches(in: html, range: NSRange(html.startIndex..., in: html))
+        
+        // Process in reverse to maintain ranges
+        for match in matches.reversed() {
+            if let range = Range(match.range, in: result),
+               let textRange = Range(match.range(at: 1), in: result),
+               let hrefRange = Range(match.range(at: 2), in: result) {
+                let linkText = String(result[textRange])
+                let href = String(result[hrefRange])
+                
+                // Determine link type and build appropriate anchor tag
+                var attrs: String
+                
+                if href.hasPrefix("http://") || href.hasPrefix("https://") {
+                    // External link - open in new tab
+                    attrs = "href=\"\(href)\" target=\"_blank\" rel=\"noopener noreferrer\""
+                } else if href.hasSuffix(".md") {
+                    // Link to another .md file - convert to anchor based on filename
+                    // Extract just the filename without path and extension
+                    let filename = (href as NSString).lastPathComponent
+                    let anchor = filename
+                        .replacingOccurrences(of: ".md", with: "")
+                        .lowercased()
+                        .replacingOccurrences(of: " ", with: "-")
+                        .replacingOccurrences(of: "[^a-z0-9-]", with: "", options: .regularExpression)
+                    attrs = "href=\"#\(anchor)\""
+                } else if href.hasPrefix("#") {
+                    // Already an anchor link - slugify to match heading IDs
+                    let anchorText = String(href.dropFirst())
+                    attrs = "href=\"#\(slugify(anchorText))\""
+                } else if href.hasPrefix("mailto:") {
+                    // Email link
+                    attrs = "href=\"\(href)\""
+                } else {
+                    // Other relative link - try to make it work as anchor
+                    let anchor = slugify(href)
+                    attrs = "href=\"#\(anchor)\""
+                }
+                
+                let replacement = "<a \(attrs)>\(linkText)</a>"
+                result.replaceSubrange(range, with: replacement)
+            }
+        }
+        
+        return result
+    }
+    
+    /// Export Markdown content to HTML data
+    /// - Parameters:
+    ///   - markdown: The Markdown content
+    ///   - filename: Document title
+    /// - Returns: HTML data
+    static func exportMarkdownToHTMLData(_ markdown: String, filename: String) throws -> Data {
+        let html = markdownToHTML(markdown, filename: filename)
+        guard let data = html.data(using: .utf8) else {
+            throw HTMLExportError.encodingFailed
+        }
+        return data
+    }
+    
     // MARK: - Validation
     
     /// Check if HTML export is available

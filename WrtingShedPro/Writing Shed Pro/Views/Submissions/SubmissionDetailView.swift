@@ -17,6 +17,8 @@ struct SubmissionDetailView: View {
     @State private var showingDeleteConfirmation = false
     @State private var showPrintError = false
     @State private var printErrorMessage = ""
+    @State private var showingRecordResponse = false
+    @State private var responseDate: Date = Date()
     
     var body: some View {
         List {
@@ -39,6 +41,18 @@ struct SubmissionDetailView: View {
             Section {
                 LabeledContent(NSLocalizedString("submissions.submitted.label", comment: "Submitted")) {
                     Text(submission.submittedDate, style: .date)
+                }
+                
+                if let expectedDate = submission.returnExpectedBy {
+                    LabeledContent(NSLocalizedString("submissions.expectedBy.label", comment: "Response Expected")) {
+                        Text(expectedDate, style: .date)
+                    }
+                }
+                
+                if let returnedDate = submission.returnedOn {
+                    LabeledContent(NSLocalizedString("submissions.returnedOn.label", comment: "Response Received")) {
+                        Text(returnedDate, style: .date)
+                    }
                 }
                 
                 if let notes = submission.notes {
@@ -67,6 +81,33 @@ struct SubmissionDetailView: View {
                 }
             } header: {
                 Text(String(format: NSLocalizedString("submissions.files.label", comment: "Files"), submission.fileCount))
+            }
+            
+            // Record response (only show if not already received)
+            if submission.returnedOn == nil {
+                Section {
+                    if showingRecordResponse {
+                        DatePicker(
+                            NSLocalizedString("submissions.returnedOn.label", comment: "Response Received"),
+                            selection: $responseDate,
+                            displayedComponents: .date
+                        )
+                        
+                        Button(NSLocalizedString("submissions.saveResponse", comment: "Save Response Date")) {
+                            submission.returnedOn = responseDate
+                            submission.modifiedDate = Date()
+                            showingRecordResponse = false
+                        }
+                    } else {
+                        Button {
+                            showingRecordResponse = true
+                        } label: {
+                            Label(NSLocalizedString("submissions.recordResponse", comment: "Record Response"), systemImage: "calendar.badge.checkmark")
+                        }
+                    }
+                } header: {
+                    Text(NSLocalizedString("submissions.response.section", comment: "Response"))
+                }
             }
             
             // Delete

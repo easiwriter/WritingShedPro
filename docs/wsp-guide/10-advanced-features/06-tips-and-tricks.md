@@ -152,5 +152,5 @@ Found a real bug? Report it through the app or support channels.
 
 ## See Also
 - [Keyboard Shortcuts](05-keyboard-shortcuts.md)
-- [Troubleshooting](../10-reference/03-troubleshooting.md)
-- [FAQ](../10-reference/04-faq.md)
+- [Troubleshooting](../11-reference/03-troubleshooting.md)
+- [FAQ](../11-reference/04-faq.md)

@@ -94,8 +94,8 @@ You've learned the basics! Here's where to go next:
 
 - **[The Interface Tour](../02-getting-started/03-the-interface-tour.md)** – Explore all the views and controls
 - **[Text Formatting](../04-writing/02-text-formatting.md)** – Master styles and formatting
-- **[Poetry Mode Overview](../05-poetry-features/01-poetry-mode-overview.md)** – If you're a poet
-- **[Fiction Mode Overview](../06-fiction-features/01-fiction-mode-overview.md)** – If you're writing fiction
+- **[Poetry Mode Overview](../06-poetry-features/01-poetry-mode-overview.md)** – If you're a poet
+- **[Fiction Mode Overview](../07-fiction-features/01-fiction-mode-overview.md)** – If you're writing fiction
 
 ## Tips for New Users
 

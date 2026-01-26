@@ -17,6 +17,7 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
     // MARK: - Properties
     
     private let layoutManager: PaginatedTextLayoutManager
+    private let layoutResult: PaginatedTextLayoutManager.LayoutResult
     private let pageSetup: PageSetup
     private let version: Version?
     private let modelContext: ModelContext?
@@ -31,16 +32,19 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
     /// Initialize with our layout manager and context
     /// - Parameters:
     ///   - layoutManager: The layout manager with calculated pagination
+    ///   - layoutResult: The layout result from calculateLayout (avoids async timing issue)
     ///   - pageSetup: Page setup configuration
     ///   - version: Version for footnote support
     ///   - context: Model context for footnote queries
     ///   - project: Project for stylesheet
-    init(layoutManager: PaginatedTextLayoutManager, 
+    init(layoutManager: PaginatedTextLayoutManager,
+         layoutResult: PaginatedTextLayoutManager.LayoutResult,
          pageSetup: PageSetup,
          version: Version?,
          context: ModelContext?,
          project: Project) {
         self.layoutManager = layoutManager
+        self.layoutResult = layoutResult
         self.pageSetup = pageSetup
         self.version = version
         self.modelContext = context
@@ -66,7 +70,7 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
     // MARK: - UIPrintPageRenderer Overrides
     
     override var numberOfPages: Int {
-        return layoutManager.pageCount
+        return layoutResult.totalPages
     }
     
     override func drawPage(at pageIndex: Int, in printableRect: CGRect) {
@@ -81,13 +85,14 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
         print("📄 [CustomPDFPageRenderer] Drawing page \(pageIndex + 1)/\(numberOfPages)")
         #endif
         
-        // Get page info from layout manager
-        guard let pageInfo = layoutManager.pageInfo(forPage: pageIndex) else {
+        // Get page info from layout result directly (not layoutManager property which is async)
+        guard pageIndex >= 0, pageIndex < layoutResult.pageInfos.count else {
             #if DEBUG
             print("❌ [CustomPDFPageRenderer] No page info for page \(pageIndex)")
             #endif
             return
         }
+        let pageInfo = layoutResult.pageInfos[pageIndex]
         
         // Calculate page layout
         let pageLayout = PageLayoutCalculator.calculateLayout(from: pageSetup)

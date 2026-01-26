@@ -181,5 +181,5 @@ Collect all poems about nature, all stories about love, etc.
 
 ## See Also
 - [Organizing Your Work](../03-projects/05-organizing-your-work.md)
-- [Submission Tracking](../08-publishing/05-submission-tracking.md)
+- [Submission Tracking](../09-publishing/05-submission-tracking.md)
 - [Folders and Files](../03-projects/04-folders-and-files.md)

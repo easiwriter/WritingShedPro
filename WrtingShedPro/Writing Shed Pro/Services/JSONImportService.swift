@@ -96,6 +96,7 @@ class JSONImportService {
         print("[JSONImport] Project Name: \(data.project.name)")
         print("[JSONImport] Format Version: \(data.formatVersion)")
         print("[JSONImport] Folders: \(data.folders.count)")
+        print("[JSONImport] Prose Sections: \(data.proseSections.count)")
         #endif
         
         // Create project
@@ -121,10 +122,26 @@ class JSONImportService {
         var textFileMap: [String: TextFile] = [:]
         var versionMap: [String: Version] = [:]
         var publicationMap: [String: Publication] = [:]
+        var proseSectionMap: [String: ProseSection] = [:]
+        
+        // Import prose sections first (so text files can link to them)
+        for sectionData in data.proseSections {
+            let section = ProseSection(
+                name: sectionData.name,
+                synopsis: sectionData.synopsis,
+                userOrder: sectionData.userOrder
+            )
+            section.id = generateNewUUIDs ? UUID() : (UUID(uuidString: sectionData.id) ?? UUID())
+            section.createdDate = sectionData.createdDate
+            section.modifiedDate = sectionData.modifiedDate
+            section.project = project
+            proseSectionMap[sectionData.id] = section
+            modelContext.insert(section)
+        }
         
         // Import folders (includes text files and versions)
         for folderData in data.folders {
-            let folder = importWSPFolder(folderData, project: project, parentFolder: nil, textFileMap: &textFileMap, versionMap: &versionMap)
+            let folder = importWSPFolder(folderData, project: project, parentFolder: nil, textFileMap: &textFileMap, versionMap: &versionMap, proseSectionMap: proseSectionMap)
             modelContext.insert(folder)
         }
         
@@ -192,7 +209,7 @@ class JSONImportService {
     }
     
     /// Import a folder from WSP format (recursive)
-    private func importWSPFolder(_ data: WSPFolderData, project: Project, parentFolder: Folder?, textFileMap: inout [String: TextFile], versionMap: inout [String: Version]) -> Folder {
+    private func importWSPFolder(_ data: WSPFolderData, project: Project, parentFolder: Folder?, textFileMap: inout [String: TextFile], versionMap: inout [String: Version], proseSectionMap: [String: ProseSection]) -> Folder {
         let folder = Folder(
             name: data.name,
             project: parentFolder == nil ? project : nil,
@@ -203,14 +220,14 @@ class JSONImportService {
         
         // Import text files
         for tfData in data.textFiles {
-            let textFile = importWSPTextFile(tfData, folder: folder, versionMap: &versionMap)
+            let textFile = importWSPTextFile(tfData, folder: folder, versionMap: &versionMap, proseSectionMap: proseSectionMap)
             textFileMap[tfData.id] = textFile
             modelContext.insert(textFile)
         }
         
         // Import subfolders recursively
         for subfolderData in data.subfolders {
-            let subfolder = importWSPFolder(subfolderData, project: project, parentFolder: folder, textFileMap: &textFileMap, versionMap: &versionMap)
+            let subfolder = importWSPFolder(subfolderData, project: project, parentFolder: folder, textFileMap: &textFileMap, versionMap: &versionMap, proseSectionMap: proseSectionMap)
             modelContext.insert(subfolder)
         }
         
@@ -218,7 +235,7 @@ class JSONImportService {
     }
     
     /// Import a text file from WSP format
-    private func importWSPTextFile(_ data: WSPTextFileData, folder: Folder, versionMap: inout [String: Version]) -> TextFile {
+    private func importWSPTextFile(_ data: WSPTextFileData, folder: Folder, versionMap: inout [String: Version], proseSectionMap: [String: ProseSection]) -> TextFile {
         let textFile = TextFile()
         textFile.id = generateNewUUIDs ? UUID() : (UUID(uuidString: data.id) ?? UUID())
         textFile.name = data.name
@@ -230,6 +247,14 @@ class JSONImportService {
         textFile.poetryFormId = data.poetryFormId.flatMap { UUID(uuidString: $0) }
         textFile.poetryFormName = data.poetryFormName
         textFile.parentFolder = folder
+        
+        // Link to prose section if specified
+        if let sectionId = data.sectionId {
+            textFile.section = proseSectionMap[sectionId]
+        }
+        
+        // Set manuscript inclusion flag
+        textFile.includedInManuscript = data.includedInManuscript
         
         // Clear auto-created version
         textFile.versions = []
@@ -1302,6 +1327,8 @@ class JSONImportService {
             newSubmission.publication = publication  // Having publication set places it in Submissions folder
             newSubmission.isCollection = false  // This is a submission, not a collection
             newSubmission.submittedDate = metadata.submittedDate
+            newSubmission.returnedOn = metadata.returnedOn
+            newSubmission.returnExpectedBy = metadata.returnExpectedBy
             newSubmission.notes = metadata.notes ?? ""
             newSubmission.createdDate = Date()
             newSubmission.modifiedDate = Date()
@@ -1357,6 +1384,16 @@ class JSONImportService {
             metadata.submittedDate = Date(timeIntervalSinceReferenceDate: timestamp)
         }
         
+        // Get returned on date
+        if let timestamp = dict["returnedOn"] as? TimeInterval {
+            metadata.returnedOn = Date(timeIntervalSinceReferenceDate: timestamp)
+        }
+        
+        // Get return expected by date
+        if let timestamp = dict["returnExpectedBy"] as? TimeInterval {
+            metadata.returnExpectedBy = Date(timeIntervalSinceReferenceDate: timestamp)
+        }
+        
         // Get notes
         metadata.notes = dict["notes"] as? String
         
@@ -1368,6 +1405,8 @@ class JSONImportService {
     
     struct CollectionSubmissionMetadata {
         var submittedDate: Date = Date()
+        var returnedOn: Date?
+        var returnExpectedBy: Date?
         var notes: String?
         var acceptedFiles: [String: Bool]? // fileID -> isAccepted
     }

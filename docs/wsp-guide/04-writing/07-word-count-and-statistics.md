@@ -59,7 +59,7 @@ In Poetry projects, additional metrics appear:
 - **Stress Pattern**: For metered verse
 - **Line Length**: Character count per line
 
-See [Syllable Counting](../05-poetry-features/02-syllable-counting.md) for details.
+See [Syllable Counting](../06-poetry-features/02-syllable-counting.md) for details.
 
 ## Fiction-Specific Statistics
 
@@ -142,5 +142,5 @@ When you need to report statistics:
 
 ## See Also
 - [The Editor](01-the-editor.md)
-- [Syllable Counting](../05-poetry-features/02-syllable-counting.md)
+- [Syllable Counting](../06-poetry-features/02-syllable-counting.md)
 - [Project Settings](../03-projects/03-project-settings.md)

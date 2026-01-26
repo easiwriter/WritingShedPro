@@ -124,7 +124,7 @@ Learn these first:
 Add shortcuts as you need them. Muscle memory develops over time.
 
 ### Print a Reference
-See [Keyboard Shortcut List](../10-reference/01-keyboard-shortcut-list.md) for a printable list.
+See [Keyboard Shortcut List](../11-reference/01-keyboard-shortcut-list.md) for a printable list.
 
 ## Troubleshooting
 
@@ -139,6 +139,6 @@ See [Keyboard Shortcut List](../10-reference/01-keyboard-shortcut-list.md) for a
 - Report bugs if shortcuts behave unexpectedly
 
 ## See Also
-- [Keyboard Shortcut List](../10-reference/01-keyboard-shortcut-list.md)
+- [Keyboard Shortcut List](../11-reference/01-keyboard-shortcut-list.md)
 - [The Editor](../04-writing/01-the-editor.md)
 - [The Interface Tour](../02-getting-started/03-the-interface-tour.md)

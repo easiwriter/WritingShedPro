@@ -17,6 +17,7 @@ struct WSPExportData: Codable {
     var appVersion: String = ""
     var project: WSPProjectData = WSPProjectData()
     var folders: [WSPFolderData] = []
+    var proseSections: [WSPProseSectionData] = []
     var publications: [WSPPublicationData] = []
     var submissions: [WSPSubmissionData] = []
 }
@@ -35,6 +36,17 @@ struct WSPProjectData: Codable {
     var fictionClass: String?
     var useMonomyth: Bool = false
     var storyStructure: String?
+}
+
+// MARK: - Prose Section Data
+
+struct WSPProseSectionData: Codable {
+    var id: String = ""
+    var name: String = ""
+    var synopsis: String?
+    var userOrder: Int?
+    var createdDate: Date = Date()
+    var modifiedDate: Date = Date()
 }
 
 // MARK: - Folder Data
@@ -60,6 +72,8 @@ struct WSPTextFileData: Codable {
     var workflowStatus: String?
     var poetryFormId: String?
     var poetryFormName: String?
+    var sectionId: String?
+    var includedInManuscript: Bool = true
     var versions: [WSPVersionData] = []
 }
 

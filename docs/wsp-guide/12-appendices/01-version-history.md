@@ -69,4 +69,4 @@ Enable automatic updates in App Store settings to always have the latest version
 
 ## See Also
 - [What's New](../01-welcome/02-whats-new.md)
-- [Contact Support](../10-reference/05-contact-support.md)
+- [Contact Support](../11-reference/05-contact-support.md)

@@ -306,6 +306,9 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         // Set content size
         contentSize = baseContentSize
         
+        // Ensure scroll starts at the top
+        contentOffset = .zero
+        
         // Ensure no content inset initially
         contentInset = .zero
         
@@ -390,6 +393,10 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         // If layout manager or page setup changed, clear all pages and recalculate
         if isNewLayoutManager || pageSetupChanged {
             clearAllPages()
+            
+            // Reset scroll position to top when layout changes
+            contentOffset = .zero
+            lastSeenPageCount = 0
             
             // Recalculate layout with new page setup (pass version and context for footnote-aware layout)
             if !layoutManager.isLayoutValid {

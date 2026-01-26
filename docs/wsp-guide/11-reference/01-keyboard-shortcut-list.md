@@ -167,5 +167,5 @@ ZOOM
 | ↑↓←→ | Arrow keys |
 
 ## See Also
-- [Keyboard Shortcuts](../09-advanced-features/05-keyboard-shortcuts.md)
+- [Keyboard Shortcuts](../10-advanced-features/05-keyboard-shortcuts.md)
 - [The Editor](../04-writing/01-the-editor.md)

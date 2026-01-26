@@ -66,6 +66,8 @@
 "manuscript.error.loadFailed" = "Failed to load file: %@";
 "manuscript.error.layoutFailed" = "Failed to calculate page layout";
 "manuscript.error.exportFailed" = "Failed to export as %@";
+"manuscript.error.exportFailedTitle" = "Export Failed";
+"manuscript.error.exportFailedGeneric" = "Failed to generate PDF";
 "manuscript.error.noPageSetup" = "Page setup required for manuscript preview";
 "export.format.pdf" = "PDF Document";
 "export.format.rtf" = "Rich Text Format";
@@ -1012,6 +1014,7 @@
 "button.save" = "Save";
 "button.add" = "Add";
 "button.edit" = "Edit";
+"button.rename" = "Rename";
 
 /* ContentView - New Keys */
 "contentView.manageStylesheets" = "Manage Stylesheets";

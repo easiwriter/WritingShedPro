@@ -145,4 +145,4 @@ You can export to Markdown, edit externally, and reimport:
 ## See Also
 - [Export Options](01-export-options.md)
 - [RTF Export](03-rtf-export.md)
-- [Stylesheet Editor](../09-advanced-features/02-stylesheet-editor.md)
+- [Stylesheet Editor](../10-advanced-features/02-stylesheet-editor.md)

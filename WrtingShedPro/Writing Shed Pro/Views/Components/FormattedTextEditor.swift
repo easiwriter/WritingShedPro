@@ -61,7 +61,7 @@ struct FormattedTextEditor: UIViewRepresentable {
     /// Font to use for new text (when no formatting is applied)
     var font: UIFont
     
-    /// Text color for new text
+/// Text color for new text
     var textColor: UIColor
     
     /// Background color
@@ -784,22 +784,31 @@ struct FormattedTextEditor: UIViewRepresentable {
             // When user backspaces, delete both the zero-width space AND the newline in one action
             if text.isEmpty && range.length == 1 {
                 if let attrText = textView.attributedText, range.location < attrText.length {
-                    let string = attrText.string
-                    let deleteIndex = string.index(string.startIndex, offsetBy: range.location)
-                    let charToDelete = string[deleteIndex]
+                    // Use NSString for UTF-16 safe character access (NSRange uses UTF-16 offsets)
+                    let nsString = attrText.string as NSString
                     
-                    // Check if we're deleting a zero-width space
-                    if charToDelete == "\u{200B}" {
+                    // Safety check for bounds
+                    guard range.location < nsString.length else {
+                        #if DEBUG
+                        print("⚠️ shouldChangeTextIn: range.location \(range.location) >= nsString.length \(nsString.length)")
+                        #endif
+                        return true
+                    }
+                    
+                    let charToDelete = nsString.character(at: range.location)
+                    
+                    // Check if we're deleting a zero-width space (U+200B = 0x200B)
+                    if charToDelete == 0x200B {
                         // Check if there's a newline before it
                         if range.location > 0 {
-                            let prevIndex = string.index(before: deleteIndex)
-                            let prevChar = string[prevIndex]
+                            let prevChar = nsString.character(at: range.location - 1)
                             
-                            if prevChar == "\n" {
+                            // Check for newline (0x0A = line feed)
+                            if prevChar == 0x0A {
                                 // Check if this is the only content on the line (just zero-width space)
                                 // Find the next newline or end of string
-                                let afterZWS = string.index(after: deleteIndex)
-                                let isEndOfLine = afterZWS >= string.endIndex || string[afterZWS] == "\n"
+                                let afterZWSLocation = range.location + 1
+                                let isEndOfLine = afterZWSLocation >= nsString.length || nsString.character(at: afterZWSLocation) == 0x0A
                                 
                                 if isEndOfLine {
                                     // Delete both the newline and zero-width space
@@ -1081,13 +1090,43 @@ struct FormattedTextEditor: UIViewRepresentable {
             print("📍 textViewDidChangeSelection: position=\(newRange.location), length=\(newRange.length), textLength=\(textLength)")
             #endif
             
+            // Safety check: ensure location is within bounds
+            guard newRange.location <= textLength else {
+                #if DEBUG
+                print("⚠️ textViewDidChangeSelection: location \(newRange.location) exceeds textLength \(textLength) - skipping")
+                #endif
+                previousSelection = newRange
+                parent.selectedRange = newRange
+                parent.onSelectionChange?(newRange)
+                return
+            }
+            
             // Check if cursor landed on a zero-width space
             if newRange.length == 0, newRange.location > 0, newRange.location < textLength {
                 if let attributedText = textView.attributedText {
-                    let stringIndex = attributedText.string.index(attributedText.string.startIndex, offsetBy: newRange.location)
-                    let char = attributedText.string[stringIndex]
+                    // Use NSString for UTF-16 safe character access (NSRange uses UTF-16 offsets)
+                    let nsString = attributedText.string as NSString
+                    let nsStringLength = nsString.length
                     
-                    if char == "\u{200B}" {
+                    #if DEBUG
+                    print("📍 Checking character at \(newRange.location), nsString.length=\(nsStringLength), attributedText.length=\(attributedText.length)")
+                    #endif
+                    
+                    // Extra safety check for nsString bounds
+                    guard newRange.location < nsStringLength else {
+                        #if DEBUG
+                        print("⚠️ location \(newRange.location) >= nsStringLength \(nsStringLength) - skipping character check")
+                        #endif
+                        previousSelection = newRange
+                        parent.selectedRange = newRange
+                        parent.onSelectionChange?(newRange)
+                        return
+                    }
+                    
+                    let charAtLocation = nsString.character(at: newRange.location)
+                    
+                    // Check for zero-width space (U+200B = 0x200B = 8203)
+                    if charAtLocation == 0x200B {
                         #if DEBUG
                         print("📍 Cursor on zero-width space at position \(newRange.location)")
                         #endif

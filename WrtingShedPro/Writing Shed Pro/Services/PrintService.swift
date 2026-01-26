@@ -252,7 +252,7 @@ class PrintService {
         
         // Calculate layout with footnote support
         let version = file.currentVersion
-        let _ = layoutManager.calculateLayout(version: version, context: context)
+        let layoutResult = layoutManager.calculateLayout(version: version, context: context)
         
         #if DEBUG
         print("🖨️ Print Dialog Setup:")
@@ -261,12 +261,13 @@ class PrintService {
         print("   - Using CustomPDFPageRenderer with footnote support")
         #endif
         #if DEBUG
-        print("   - Calculated pages: \(layoutManager.pageCount)")
+        print("   - Calculated pages: \(layoutResult.totalPages)")
         #endif
         
         // Create custom renderer
         let renderer = CustomPDFPageRenderer(
             layoutManager: layoutManager,
+            layoutResult: layoutResult,
             pageSetup: pageSetup,
             version: version,
             context: context,
@@ -482,7 +483,7 @@ class PrintService {
         )
         
         // Calculate layout (no version/context for multi-file - footnotes not supported)
-        let _ = layoutManager.calculateLayout()
+        let layoutResult = layoutManager.calculateLayout()
         
         #if DEBUG
         print("🖨️ Custom Renderer Print Dialog (Multi-file with page breaks):")
@@ -491,7 +492,7 @@ class PrintService {
         print("   - Using CustomPDFPageRenderer for proper page break support")
         #endif
         #if DEBUG
-        print("   - Calculated pages: \(layoutManager.pageCount)")
+        print("   - Calculated pages: \(layoutResult.totalPages)")
         #endif
         #if DEBUG
         print("   - Job name: \(title)")
@@ -500,6 +501,7 @@ class PrintService {
         // Create custom renderer
         let renderer = CustomPDFPageRenderer(
             layoutManager: layoutManager,
+            layoutResult: layoutResult,
             pageSetup: pageSetup,
             version: nil,  // No version for multi-file
             context: nil,  // No context for multi-file
@@ -757,21 +759,24 @@ class PrintService {
         )
         
         // Calculate layout (with footnote support if version provided)
-        let _ = layoutManager.calculateLayout(version: version, context: context)
+        // IMPORTANT: Use the returned result directly, not layoutManager.pageCount,
+        // because the property update happens async and won't be ready yet
+        let layoutResult = layoutManager.calculateLayout(version: version, context: context)
         #if DEBUG
-        print("   - Calculated: \(layoutManager.pageCount) pages")
+        print("   - Calculated: \(layoutResult.totalPages) pages")
         #endif
         
-        guard layoutManager.pageCount > 0 else {
+        guard layoutResult.totalPages > 0 else {
             #if DEBUG
             print("❌ [PrintService] No pages to render")
             #endif
             return nil
         }
         
-        // Create custom renderer
+        // Create custom renderer with the layout result
         let renderer = CustomPDFPageRenderer(
             layoutManager: layoutManager,
+            layoutResult: layoutResult,
             pageSetup: pageSetup,
             version: version,
             context: context,

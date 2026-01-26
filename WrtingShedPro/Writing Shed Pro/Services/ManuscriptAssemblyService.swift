@@ -265,18 +265,68 @@ final class ManuscriptAssemblyService {
     
     /// Get body sections for Prose projects
     private func getProseBodySections(for project: Project) -> [ManuscriptSection] {
+        #if DEBUG
+        print("[ManuscriptAssembly] getProseBodySections - using ProseSection ordering")
+        #endif
+        
         guard let proseFolder = project.folders?.first(where: { $0.name == "Prose" }) else {
+            #if DEBUG
+            print("[ManuscriptAssembly] ❌ No Prose folder found")
+            #endif
             return []
         }
         
-        let files = collectFilesRecursively(from: proseFolder)
-        guard !files.isEmpty else { return [] }
+        // Get all prose sections sorted by userOrder
+        let sortedSections = (project.sections ?? [])
+            .sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+        
+        #if DEBUG
+        print("[ManuscriptAssembly] Found \(sortedSections.count) prose sections")
+        for section in sortedSections {
+            print("  Section: \(section.name ?? "unnamed") (userOrder: \(section.userOrder ?? -1))")
+        }
+        #endif
+        
+        // Collect all files from Prose folder
+        let allFiles = collectFilesRecursively(from: proseFolder)
+        
+        // Build ordered list: files sorted by section order, then by file order within section
+        var orderedFiles: [TextFile] = []
+        
+        // First, add files grouped by their section in section order
+        for proseSection in sortedSections {
+            let sectionFiles = allFiles
+                .filter { $0.section?.id == proseSection.id }
+                .sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+            orderedFiles.append(contentsOf: sectionFiles)
+            
+            #if DEBUG
+            if !sectionFiles.isEmpty {
+                print("[ManuscriptAssembly] Section '\(proseSection.name ?? "")': \(sectionFiles.count) files")
+            }
+            #endif
+        }
+        
+        // Add any files without a section (shouldn't happen normally, but be safe)
+        let unassignedFiles = allFiles
+            .filter { $0.section == nil }
+            .sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+        orderedFiles.append(contentsOf: unassignedFiles)
+        
+        #if DEBUG
+        print("[ManuscriptAssembly] Total ordered files: \(orderedFiles.count)")
+        for (idx, file) in orderedFiles.prefix(10).enumerated() {
+            print("  \(idx): \(file.name) (section: \(file.section?.name ?? "none"))")
+        }
+        #endif
+        
+        guard !orderedFiles.isEmpty else { return [] }
         
         return [ManuscriptSection(
             title: NSLocalizedString("folder.prose", comment: "Prose"),
             sectionType: .body,
             sourceFolder: proseFolder,
-            files: files,
+            files: orderedFiles,
             level: 1
         )]
     }
