@@ -211,7 +211,7 @@ final class FictionModelsTests: XCTestCase {
         let scene = StoryScene(name: "Scene 1")
         modelContext.insert(scene)
         
-        let location = Location(name: "Castle", description: "A medieval castle")
+        let location = Location(name: "Castle", detail: "A medieval castle")
         modelContext.insert(location)
         
         scene.location = location

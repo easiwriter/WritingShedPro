@@ -150,12 +150,13 @@ final class ExportOptionsTests: XCTestCase {
     func testExportFormatAllCases() {
         let allCases = ExportFormat.allCases
         
-        XCTAssertEqual(allCases.count, 6)
+        XCTAssertEqual(allCases.count, 7)
         XCTAssertTrue(allCases.contains(.pdf))
         XCTAssertTrue(allCases.contains(.rtf))
         XCTAssertTrue(allCases.contains(.plainText))
         XCTAssertTrue(allCases.contains(.word))
         XCTAssertTrue(allCases.contains(.html))
         XCTAssertTrue(allCases.contains(.epub))
+        XCTAssertTrue(allCases.contains(.markdown))
     }
 }
