@@ -35,8 +35,8 @@ final class CMUDictionaryTests: XCTestCase {
         PoetryPreferences.shared.englishDialect = .british
         CMUDictionary.shared.ensureLoaded()
         
-        // British dictionary should also have many entries
-        XCTAssertGreaterThan(CMUDictionary.shared.entryCount, 50000, "British dictionary should have many entries")
+        // British dictionary is CMU base + British overlay, so should have similar count
+        XCTAssertGreaterThan(CMUDictionary.shared.entryCount, 100000, "British dictionary should have CMU base + overlays")
         print("British Dictionary loaded \(CMUDictionary.shared.entryCount) entries")
         
         // Reset to American for other tests
@@ -182,9 +182,12 @@ final class CMUDictionaryTests: XCTestCase {
         XCTAssertEqual(cmu.currentDialect, .british)
         let britishCount = cmu.entryCount
         
-        // Both should have substantial entries
-        XCTAssertGreaterThan(americanCount, 50000)
-        XCTAssertGreaterThan(britishCount, 50000)
+        // Both should have substantial entries (British = CMU base + overlay)
+        XCTAssertGreaterThan(americanCount, 100000)
+        XCTAssertGreaterThan(britishCount, 100000)
+        
+        // British count might be slightly different due to overlay entries
+        print("American: \(americanCount), British: \(britishCount)")
         
         // Reset to American
         PoetryPreferences.shared.englishDialect = .american

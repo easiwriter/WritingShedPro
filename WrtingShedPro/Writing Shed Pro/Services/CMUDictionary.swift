@@ -114,47 +114,56 @@ final class CMUDictionary {
     private func loadDictionary(for dialect: EnglishDialect) {
         pronunciations.removeAll()
         
-        // Try to find the bundled dictionary file for this dialect
-        let fileName = dialect.dictionaryFileName
-        
         // Search in multiple bundles (main app bundle and the bundle containing this class)
         let bundlesToSearch = [Bundle.main, Bundle(for: CMUDictionary.self)]
-        var url: URL?
+        
+        // Always load the base CMU dictionary first
+        var cmuUrl: URL?
         for bundle in bundlesToSearch {
-            if let foundUrl = bundle.url(forResource: fileName, withExtension: "txt") {
-                url = foundUrl
+            if let foundUrl = bundle.url(forResource: "cmudict", withExtension: "txt") {
+                cmuUrl = foundUrl
                 break
             }
         }
         
-        guard let dictionaryUrl = url else {
-            print("CMUDictionary: \(fileName).txt not found in any bundle")
-            // Fall back to CMU dictionary if British dictionary not found
-            if dialect == .british {
-                print("CMUDictionary: Falling back to American English dictionary")
-                for bundle in bundlesToSearch {
-                    if let fallbackUrl = bundle.url(forResource: "cmudict", withExtension: "txt") {
-                        do {
-                            let content = try String(contentsOf: fallbackUrl, encoding: .utf8)
-                            parseDictionary(content)
-                            print("CMUDictionary: Loaded \(pronunciations.count) words (US fallback)")
-                        } catch {
-                            print("CMUDictionary: Error loading fallback dictionary: \(error)")
-                        }
-                        return
-                    }
-                }
+        if let url = cmuUrl {
+            do {
+                let content = try String(contentsOf: url, encoding: .utf8)
+                parseDictionary(content)
+                print("CMUDictionary: Loaded \(pronunciations.count) base words from CMU dictionary")
+            } catch {
+                print("CMUDictionary: Error loading CMU dictionary: \(error)")
             }
-            return
+        } else {
+            print("CMUDictionary: cmudict.txt not found in any bundle")
         }
         
-        do {
-            let content = try String(contentsOf: dictionaryUrl, encoding: .utf8)
-            parseDictionary(content)
-            print("CMUDictionary: Loaded \(pronunciations.count) words (\(dialect.displayName))")
-        } catch {
-            print("CMUDictionary: Error loading dictionary: \(error)")
+        // For British English, overlay the British-specific pronunciations
+        if dialect == .british {
+            var britUrl: URL?
+            for bundle in bundlesToSearch {
+                if let foundUrl = bundle.url(forResource: "britdict", withExtension: "txt") {
+                    britUrl = foundUrl
+                    break
+                }
+            }
+            
+            if let url = britUrl {
+                do {
+                    let content = try String(contentsOf: url, encoding: .utf8)
+                    let countBefore = pronunciations.count
+                    parseDictionary(content)  // This will add/override entries
+                    let newEntries = pronunciations.count - countBefore
+                    print("CMUDictionary: Overlaid \(newEntries) British pronunciations")
+                } catch {
+                    print("CMUDictionary: Error loading British dictionary: \(error)")
+                }
+            } else {
+                print("CMUDictionary: britdict.txt not found, using CMU pronunciations only")
+            }
         }
+        
+        print("CMUDictionary: Total \(pronunciations.count) words loaded (\(dialect.displayName))")
     }
     
     /// Parse the CMU dictionary content
