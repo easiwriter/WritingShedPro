@@ -58,14 +58,12 @@ struct ProseFilesView: View {
         }
         .navigationTitle(section.name ?? NSLocalizedString("prose.untitled", comment: "Untitled"))
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(true)
+        // Use native iOS back button - immune to SwiftUI render blocking
+        .navigationBarBackButtonHidden(false)
         .onPopToRoot {
             dismiss()
         }
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                PopToRootBackButton()
-            }
             ToolbarItemGroup(placement: .navigationBarTrailing) {
                 // Edit/Done button
                 if !sortedFiles.isEmpty {

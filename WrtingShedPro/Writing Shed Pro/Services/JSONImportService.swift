@@ -96,7 +96,7 @@ class JSONImportService {
         print("[JSONImport] Project Name: \(data.project.name)")
         print("[JSONImport] Format Version: \(data.formatVersion)")
         print("[JSONImport] Folders: \(data.folders.count)")
-        print("[JSONImport] Prose Sections: \(data.proseSections.count)")
+        print("[JSONImport] Prose Sections: \(data.proseSections?.count ?? 0)")
         #endif
         
         // Create project
@@ -125,7 +125,7 @@ class JSONImportService {
         var proseSectionMap: [String: ProseSection] = [:]
         
         // Import prose sections first (so text files can link to them)
-        for sectionData in data.proseSections {
+        for sectionData in data.proseSections ?? [] {
             let section = ProseSection(
                 name: sectionData.name,
                 synopsis: sectionData.synopsis,
@@ -253,8 +253,8 @@ class JSONImportService {
             textFile.section = proseSectionMap[sectionId]
         }
         
-        // Set manuscript inclusion flag
-        textFile.includedInManuscript = data.includedInManuscript
+        // Set manuscript inclusion flag (default to true for backward compatibility)
+        textFile.includedInManuscript = data.includedInManuscript ?? true
         
         // Clear auto-created version
         textFile.versions = []
@@ -288,7 +288,7 @@ class JSONImportService {
         }
         
         // Import comments
-        for cData in data.comments {
+        for cData in data.comments ?? [] {
             let comment = CommentModel(
                 id: generateNewUUIDs ? UUID() : (UUID(uuidString: cData.id) ?? UUID()),
                 version: version,
@@ -303,7 +303,7 @@ class JSONImportService {
         }
         
         // Import footnotes
-        for fData in data.footnotes {
+        for fData in data.footnotes ?? [] {
             let footnote = FootnoteModel(
                 id: generateNewUUIDs ? UUID() : (UUID(uuidString: fData.id) ?? UUID()),
                 version: version,

@@ -14,13 +14,15 @@ struct SubmissionPickerView: View {
     let project: Project
     let filesToSubmit: [TextFile]?
     let collectionToSubmit: Submission?
-    let onPublicationSelected: (Publication, String) -> Void  // Now includes submission name
+    let onPublicationSelected: (Publication, String, Date?) -> Void  // Includes submission name and optional expected response date
     let onCancel: () -> Void
     
     @Query private var allPublications: [Publication]
     @State private var showingNewPublicationSheet = false
     @State private var submissionName: String = ""
     @State private var selectedPublication: Publication? = nil
+    @State private var setExpectedResponseDate: Bool = false
+    @State private var expectedResponseDate: Date = Calendar.current.date(byAdding: .month, value: 3, to: Date()) ?? Date()
     
     // Filter publications for this project
     private var projectPublications: [Publication] {
@@ -63,6 +65,22 @@ struct SubmissionPickerView: View {
                 Text(NSLocalizedString("submissions.name.header", comment: "Submission Name"))
             }
             
+            // Expected response date section
+            Section {
+                Toggle(NSLocalizedString("submissions.setExpectedDate", comment: "Set expected response date"), isOn: $setExpectedResponseDate)
+                
+                if setExpectedResponseDate {
+                    DatePicker(
+                        NSLocalizedString("submissions.expectedBy.label", comment: "Expected by"),
+                        selection: $expectedResponseDate,
+                        in: Date()...,
+                        displayedComponents: .date
+                    )
+                }
+            } header: {
+                Text(NSLocalizedString("submissions.response.section", comment: "Response"))
+            }
+            
             // New Publication button section
             Section {
                 Button(action: { showingNewPublicationSheet = true }) {
@@ -78,7 +96,8 @@ struct SubmissionPickerView: View {
                     ForEach(projectPublications) { publication in
                         Button(action: {
                             let name = submissionName.trimmingCharacters(in: .whitespaces).isEmpty ? defaultSubmissionName : submissionName.trimmingCharacters(in: .whitespaces)
-                            onPublicationSelected(publication, name)
+                            let expectedDate = setExpectedResponseDate ? expectedResponseDate : nil
+                            onPublicationSelected(publication, name, expectedDate)
                         }) {
                             HStack {
                                 Text(publication.type?.icon ?? "")
@@ -143,7 +162,8 @@ struct SubmissionPickerView: View {
                     onPublicationCreated: { publication in
                         showingNewPublicationSheet = false
                         let name = submissionName.trimmingCharacters(in: .whitespaces).isEmpty ? defaultSubmissionName : submissionName.trimmingCharacters(in: .whitespaces)
-                        onPublicationSelected(publication, name)
+                        let expectedDate = setExpectedResponseDate ? expectedResponseDate : nil
+                        onPublicationSelected(publication, name, expectedDate)
                     },
                     onCancel: {
                         showingNewPublicationSheet = false
@@ -173,6 +193,11 @@ struct NewPublicationForSubmissionView: View {
     @State private var showingDuplicateWarning = false
     @State private var pendingSaveName: String = ""
     
+    /// Available publication types based on project type
+    private var availableTypes: [PublicationType] {
+        PublicationType.availableTypes(for: project.type)
+    }
+    
     var body: some View {
         Form {
             Section {
@@ -184,7 +209,7 @@ struct NewPublicationForSubmissionView: View {
             
             Section {
                 Picker("publications.form.type.label", selection: $selectedType) {
-                    ForEach([PublicationType.magazine, .competition, .commission, .other], id: \.self) { type in
+                    ForEach(availableTypes, id: \.self) { type in
                         Text(type.displayName).tag(type)
                     }
                 }
@@ -259,6 +284,10 @@ struct NewPublicationForSubmissionView: View {
             }
         } message: {
             Text("publications.duplicate.message")
+        }
+        .onAppear {
+            // Set default type for project
+            selectedType = availableTypes.first ?? .other
         }
     }
     

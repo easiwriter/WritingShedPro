@@ -36,7 +36,7 @@ struct SwiftUIFormattingToolbar: View {
                 #endif
                 
                 // Paragraph style (disabled when image selected)
-                toolbarButton(systemName: "text.square.filled", action: .paragraphStyle)
+                toolbarButton(systemName: "paragraph", action: .paragraphStyle)
                     .opacity(hasSelectedImage ? 0.3 : 1.0)
                     .disabled(hasSelectedImage)
                 

@@ -142,7 +142,7 @@ class JSONExportService {
         #if DEBUG
         print("[JSONExport] Built export data:")
         print("[JSONExport]   Folders: \(exportData.folders.count)")
-        print("[JSONExport]   Prose Sections: \(exportData.proseSections.count)")
+        print("[JSONExport]   Prose Sections: \(exportData.proseSections?.count ?? 0)")
         print("[JSONExport]   Publications: \(exportData.publications.count)")
         print("[JSONExport]   Submissions: \(exportData.submissions.count)")
         #endif
@@ -359,7 +359,7 @@ struct WSPExportData: Codable {
     var appVersion: String = "1.0"
     var project: WSPProjectData = WSPProjectData()
     var folders: [WSPFolderData] = []
-    var proseSections: [WSPProseSectionData] = []
+    var proseSections: [WSPProseSectionData]?  // Optional for backward compatibility
     var publications: [WSPPublicationData] = []
     var submissions: [WSPSubmissionData] = []
 }
@@ -407,7 +407,7 @@ struct WSPTextFileData: Codable {
     var poetryFormId: String?
     var poetryFormName: String?
     var sectionId: String?
-    var includedInManuscript: Bool = true
+    var includedInManuscript: Bool?  // Optional for backward compatibility, defaults to true
     var versions: [WSPVersionData] = []
 }
 
@@ -419,8 +419,8 @@ struct WSPVersionData: Codable {
     var versionNumber: Int = 1
     var comment: String?
     var notes: String?
-    var comments: [WSPCommentData] = []
-    var footnotes: [WSPFootnoteData] = []
+    var comments: [WSPCommentData]?  // Optional for backward compatibility
+    var footnotes: [WSPFootnoteData]?  // Optional for backward compatibility
 }
 
 struct WSPCommentData: Codable {

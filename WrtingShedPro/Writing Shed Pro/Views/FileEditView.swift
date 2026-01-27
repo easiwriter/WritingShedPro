@@ -88,6 +88,7 @@ struct FileEditView: View {
     @State private var showPoetryFormReference = false
     @State private var showPoetryMetrics = false
     @State private var showPoetryFormPicker = false
+    @State private var cachedValidationIssueCount: Int = 0  // Cached to avoid expensive recomputation on every render
     
     // Feature 022: Smart Fiction Creation
     @State private var selectedPlotElement: PlotElement?
@@ -712,19 +713,15 @@ struct FileEditView: View {
                         }) {
                             Image(systemName: "chart.bar")
                                 .overlay(alignment: .topTrailing) {
-                                    // Show badge with issue count when there are validation issues
-                                    if let form = file.poetryForm,
-                                       form.id != PoetryForm.freeVerseId {
-                                        let validation = PoetryValidator.shared.validate(text: attributedContent.string, against: form)
-                                        if validation.hasIssues {
-                                            Text("\(min(validation.issueCount, 99))")
-                                                .font(.system(size: 9, weight: .bold))
-                                                .foregroundColor(.white)
-                                                .padding(3)
-                                                .background(Color.red)
-                                                .clipShape(Circle())
-                                                .offset(x: 6, y: -6)
-                                        }
+                                    // Show badge with cached issue count (computed asynchronously)
+                                    if cachedValidationIssueCount > 0 {
+                                        Text("\(min(cachedValidationIssueCount, 99))")
+                                            .font(.system(size: 9, weight: .bold))
+                                            .foregroundColor(.white)
+                                            .padding(3)
+                                            .background(Color.red)
+                                            .clipShape(Circle())
+                                            .offset(x: 6, y: -6)
                                     }
                                 }
                         }
@@ -1346,14 +1343,12 @@ struct FileEditView: View {
             // For poetry projects, hide the navigation title since we use a custom title view
             .navigationTitle(isPoetryProject ? "" : file.name)
             .navigationBarTitleDisplayMode(.inline)
-            .navigationBarBackButtonHidden(true)
+            // Use native iOS back button - it's rendered by UIKit and immune to SwiftUI render blocking
+            .navigationBarBackButtonHidden(false)
             .onPopToRoot {
                 dismiss()
             }
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    PopToRootBackButton()
-                }
                 // Custom title with form subtitle for poetry projects
                 if isPoetryProject {
                     ToolbarItem(placement: .principal) {
@@ -2076,8 +2071,36 @@ struct FileEditView: View {
             }
         }
         
+        // Update poetry validation badge asynchronously to avoid blocking initial render
+        updateValidationBadgeAsync()
+        
         // Sync back matter settings with actual files (handles imported projects)
         syncBackMatterSettingsWithActualFiles()
+    }
+    
+    /// Update the cached validation issue count asynchronously
+    private func updateValidationBadgeAsync() {
+        // Only for poetry projects with a structured form
+        guard isPoetryProject,
+              let form = file.poetryForm,
+              form.id != PoetryForm.freeVerseId else {
+            cachedValidationIssueCount = 0
+            return
+        }
+        
+        // Capture the text for background processing
+        let text = attributedContent.string
+        
+        // Run validation on a background queue
+        DispatchQueue.global(qos: .userInitiated).async {
+            let validation = PoetryValidator.shared.validate(text: text, against: form)
+            let issueCount = validation.hasIssues ? validation.issueCount : 0
+            
+            // Update UI on main queue
+            DispatchQueue.main.async {
+                self.cachedValidationIssueCount = issueCount
+            }
+        }
     }
     
     private func handleImagePasted() {
@@ -2472,6 +2495,9 @@ struct FileEditView: View {
                 #endif
             }
         }
+        
+        // Update poetry validation badge asynchronously (debounced with save)
+        updateValidationBadgeAsync()
         
         // Force text view display refresh to ensure visual update
         // This is needed especially after undo/redo followed by replace operations

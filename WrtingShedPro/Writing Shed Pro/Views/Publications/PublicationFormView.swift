@@ -31,6 +31,11 @@ struct PublicationFormView: View {
     
     var isEditing: Bool { publication != nil }
     
+    /// Available publication types based on project type
+    private var availableTypes: [PublicationType] {
+        PublicationType.availableTypes(for: project.type)
+    }
+    
     var body: some View {
         NavigationStack {
             Form {
@@ -51,7 +56,7 @@ struct PublicationFormView: View {
                         NSLocalizedString("publications.form.type.label", comment: "Type label"),
                         selection: $selectedType
                     ) {
-                        ForEach([PublicationType.magazine, PublicationType.competition, PublicationType.commission, PublicationType.other], id: \.self) { type in
+                        ForEach(availableTypes, id: \.self) { type in
                             Text(type.displayName)
                                 .tag(type)
                         }
@@ -158,13 +163,23 @@ struct PublicationFormView: View {
     }
     
     private func loadPublication() {
-        guard let publication = publication else { return }
-        name = publication.name
-        selectedType = publication.type ?? .magazine
-        url = publication.url ?? ""
-        hasDeadline = publication.hasDeadline
-        deadline = publication.deadline ?? Date().addingTimeInterval(86400 * 30)
-        notes = publication.notes ?? ""
+        if let publication = publication {
+            // Editing existing publication
+            name = publication.name
+            // Use existing type if available for this project, otherwise use first available
+            if let existingType = publication.type, availableTypes.contains(existingType) {
+                selectedType = existingType
+            } else {
+                selectedType = availableTypes.first ?? .other
+            }
+            url = publication.url ?? ""
+            hasDeadline = publication.hasDeadline
+            deadline = publication.deadline ?? Date().addingTimeInterval(86400 * 30)
+            notes = publication.notes ?? ""
+        } else {
+            // Creating new publication - set default type for project
+            selectedType = availableTypes.first ?? .other
+        }
     }
     
     private func savePublication() {

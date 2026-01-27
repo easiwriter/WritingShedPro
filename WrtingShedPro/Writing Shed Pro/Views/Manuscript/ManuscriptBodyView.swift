@@ -321,7 +321,7 @@ struct ManuscriptBodyView: View {
                         let content = version.content
                         if !content.isEmpty {
                             // Create anchor ID from filename (without extension)
-                            let filename = file.name ?? "untitled"
+                            let filename = file.name
                             let anchorId = filename
                                 .replacingOccurrences(of: ".md", with: "")
                                 .lowercased()

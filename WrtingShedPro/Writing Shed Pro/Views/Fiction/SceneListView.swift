@@ -209,15 +209,13 @@ struct SceneListView: View {
         }
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(true)
+        // Use native iOS back button - immune to SwiftUI render blocking
+        .navigationBarBackButtonHidden(false)
         .onPopToRoot {
             dismiss()
         }
         .environment(\.editMode, $editMode)
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                PopToRootBackButton()
-            }
             ToolbarItemGroup(placement: .topBarTrailing) {
                 // Search button
                 if !sortedScenes.isEmpty {

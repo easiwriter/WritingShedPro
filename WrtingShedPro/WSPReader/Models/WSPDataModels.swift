@@ -17,7 +17,7 @@ struct WSPExportData: Codable {
     var appVersion: String = ""
     var project: WSPProjectData = WSPProjectData()
     var folders: [WSPFolderData] = []
-    var proseSections: [WSPProseSectionData] = []
+    var proseSections: [WSPProseSectionData]?  // Optional for backward compatibility
     var publications: [WSPPublicationData] = []
     var submissions: [WSPSubmissionData] = []
 }
@@ -73,7 +73,7 @@ struct WSPTextFileData: Codable {
     var poetryFormId: String?
     var poetryFormName: String?
     var sectionId: String?
-    var includedInManuscript: Bool = true
+    var includedInManuscript: Bool?  // Optional for backward compatibility
     var versions: [WSPVersionData] = []
 }
 
@@ -87,8 +87,8 @@ struct WSPVersionData: Codable {
     var versionNumber: Int = 1
     var comment: String?
     var notes: String?
-    var comments: [WSPCommentData] = []
-    var footnotes: [WSPFootnoteData] = []
+    var comments: [WSPCommentData]?  // Optional for backward compatibility
+    var footnotes: [WSPFootnoteData]?  // Optional for backward compatibility
 }
 
 // MARK: - Comment Data

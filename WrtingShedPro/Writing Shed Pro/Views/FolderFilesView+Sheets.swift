@@ -58,8 +58,8 @@ extension FolderFilesView {
                     project: project,
                     filesToSubmit: filesToSubmit,
                     collectionToSubmit: nil,
-                    onPublicationSelected: { publication, name in
-                        createSubmission(for: publication, name: name)
+                    onPublicationSelected: { publication, name, expectedDate in
+                        createSubmission(for: publication, name: name, expectedResponseDate: expectedDate)
                         showSubmissionPicker = false
                     },
                     onCancel: {

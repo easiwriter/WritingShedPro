@@ -163,18 +163,14 @@ struct FolderListView: View {
         }
         .navigationTitle(selectedFolder?.name ?? project.name ?? NSLocalizedString("folderList.title", comment: "Folders title"))
         .navigationBarTitleDisplayMode(selectedFolder == nil ? .large : .inline)
-        .navigationBarBackButtonHidden(selectedFolder != nil)
+        // Use native iOS back button - immune to SwiftUI render blocking
+        .navigationBarBackButtonHidden(false)
         .onPopToRoot {
             // Dismiss this view when pop-to-root is triggered
             dismiss()
         }
         .toolbar {
-            // Only show custom back button when viewing a subfolder
-            if selectedFolder != nil {
-                ToolbarItem(placement: .topBarLeading) {
-                    PopToRootBackButton()
-                }
-            }
+            // Trailing toolbar items only - no custom back button needed
         }
         .task {
             // Load folders asynchronously to avoid blocking navigation

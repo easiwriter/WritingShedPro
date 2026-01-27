@@ -118,6 +118,9 @@ struct FolderFilesView: View {
     @State var showMoveDestinationPicker = false
     @State var filesToMove: [TextFile] = []
     
+    // State for early dismissal - prevents continued rendering during navigation
+    @State var isDismissing = false
+    
     // Query all trash items (for trash count check)
     @Query private var allTrashItems: [TrashItem]
     
@@ -210,7 +213,14 @@ struct FolderFilesView: View {
     
     @ViewBuilder
     private var mainContent: some View {
-        if folder.name == "Trash" && trashItemCount == 0 {
+        // Skip rendering file list when navigating away to improve back button responsiveness
+        if isDismissing {
+            #if DEBUG
+            let _ = print("🔙 [FolderFilesView] isDismissing=true, rendering Color.clear instead of file list")
+            #endif
+            ProgressView()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if folder.name == "Trash" && trashItemCount == 0 {
             EmptyView()
         } else {
             VStack(spacing: 0) {
@@ -797,7 +807,7 @@ struct FolderFilesView: View {
         }
     }
     
-    func createSubmission(for publication: Publication, name: String) {
+    func createSubmission(for publication: Publication, name: String, expectedResponseDate: Date? = nil) {
         guard let project = folder.project else { return }
         
         // Create submission
@@ -809,6 +819,7 @@ struct FolderFilesView: View {
         )
         submission.name = name
         submission.isCollection = false  // This is a submission to a publication
+        submission.returnExpectedBy = expectedResponseDate
         modelContext.insert(submission)
         
         // Create submitted file records for each selected file

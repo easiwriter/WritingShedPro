@@ -29,6 +29,10 @@ struct ActListView: View {
     @State private var showRenameSheet = false
     @State private var actToRename: Act?
     @State private var newActName: String = ""
+    @State private var showCollectionPicker = false
+    @State private var showSubmissionPicker = false
+    @State private var filesToAddToCollection: [TextFile] = []
+    @State private var filesToSubmit: [TextFile] = []
     
     // MARK: - Computed
     
@@ -48,6 +52,17 @@ struct ActListView: View {
         isEditMode && !selectedActIDs.isEmpty
     }
     
+    /// Get all ready text files from selected acts' scenes
+    private var selectedActFiles: [TextFile] {
+        selectedActs.flatMap { act in
+            (act.scenes ?? []).compactMap { scene in
+                guard let textFile = scene.textFile,
+                      textFile.workflowStatus == .ready else { return nil }
+                return textFile
+            }
+        }
+    }
+    
     // MARK: - Body
     
     var body: some View {
@@ -60,14 +75,12 @@ struct ActListView: View {
         }
         .navigationTitle(NSLocalizedString("drama.acts.title", comment: "Acts"))
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(true)
+        // Use native iOS back button - immune to SwiftUI render blocking
+        .navigationBarBackButtonHidden(false)
         .onPopToRoot {
             dismiss()
         }
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                PopToRootBackButton()
-            }
             ToolbarItemGroup(placement: .navigationBarTrailing) {
                 Button {
                     showAddAct = true
@@ -136,6 +149,41 @@ struct ActListView: View {
             }
             .disabled(newActName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
+        .sheet(isPresented: $showCollectionPicker) {
+            NavigationStack {
+                CollectionPickerView(
+                    project: project,
+                    filesToAddToCollection: filesToAddToCollection,
+                    collectionsToAddToPublication: nil,
+                    mode: .addFilesToCollection,
+                    onCollectionSelected: { collection in
+                        addFilesToCollection(collection)
+                        showCollectionPicker = false
+                        exitEditMode()
+                    },
+                    onCancel: {
+                        showCollectionPicker = false
+                    }
+                )
+            }
+        }
+        .sheet(isPresented: $showSubmissionPicker) {
+            NavigationStack {
+                SubmissionPickerView(
+                    project: project,
+                    filesToSubmit: filesToSubmit,
+                    collectionToSubmit: nil,
+                    onPublicationSelected: { publication, name, expectedDate in
+                        createSubmission(for: publication, name: name, expectedResponseDate: expectedDate)
+                        showSubmissionPicker = false
+                        exitEditMode()
+                    },
+                    onCancel: {
+                        showSubmissionPicker = false
+                    }
+                )
+            }
+        }
         .onChange(of: editMode) { _, newValue in
             if newValue == .inactive {
                 selectedActIDs.removeAll()
@@ -157,6 +205,26 @@ struct ActListView: View {
                 }
             } label: {
                 Label(NSLocalizedString("button.rename", comment: "Rename"), systemImage: "pencil")
+            }
+        }
+        
+        // Add to Collection button
+        if !selectedActFiles.isEmpty {
+            Button {
+                filesToAddToCollection = selectedActFiles
+                showCollectionPicker = true
+            } label: {
+                Label(NSLocalizedString("button.addToCollection", comment: "Add to Collection"), systemImage: "folder.badge.plus")
+            }
+        }
+        
+        // Submit button
+        if !selectedActFiles.isEmpty {
+            Button {
+                filesToSubmit = selectedActFiles
+                showSubmissionPicker = true
+            } label: {
+                Label(NSLocalizedString("button.submit", comment: "Submit"), systemImage: "paperplane")
             }
         }
         
@@ -279,6 +347,64 @@ struct ActListView: View {
         withAnimation {
             editMode = .inactive
         }
+    }
+    
+    // MARK: - Collection & Submission Actions
+    
+    private func addFilesToCollection(_ collection: Submission) {
+        // Create SubmittedFile records for each file in the collection
+        for file in filesToAddToCollection {
+            // Check if file is already in collection
+            let alreadyInCollection = collection.submittedFiles?.contains { $0.textFile?.id == file.id } ?? false
+            guard !alreadyInCollection else { continue }
+            
+            if let currentVersion = file.currentVersion {
+                let submittedFile = SubmittedFile(
+                    submission: collection,
+                    textFile: file,
+                    version: currentVersion,
+                    status: .pending,
+                    statusDate: Date(),
+                    project: project
+                )
+                modelContext.insert(submittedFile)
+            }
+        }
+        
+        try? modelContext.save()
+        filesToAddToCollection = []
+    }
+    
+    private func createSubmission(for publication: Publication, name: String, expectedResponseDate: Date?) {
+        // Create submission
+        let submission = Submission(
+            publication: publication,
+            project: project,
+            submittedDate: Date(),
+            notes: nil
+        )
+        submission.name = name
+        submission.isCollection = false
+        submission.returnExpectedBy = expectedResponseDate
+        modelContext.insert(submission)
+        
+        // Create SubmittedFile records for each file
+        for file in filesToSubmit {
+            if let currentVersion = file.currentVersion {
+                let submittedFile = SubmittedFile(
+                    submission: submission,
+                    textFile: file,
+                    version: currentVersion,
+                    status: .pending,
+                    statusDate: Date(),
+                    project: project
+                )
+                modelContext.insert(submittedFile)
+            }
+        }
+        
+        try? modelContext.save()
+        filesToSubmit = []
     }
 }
 

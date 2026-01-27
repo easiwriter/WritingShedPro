@@ -253,9 +253,13 @@
 "fiction.chapters.empty.message" = "Add chapters to organize your novel's structure.";
 "fiction.chapters.deleteConfirm.title" = "Delete Chapter?";
 "fiction.chapters.deleteConfirm.message" = "Are you sure you want to delete \"%@\"? All scenes in this chapter will also be deleted.";
+"fiction.chapters.deleteMultiple.title" = "Delete %d Chapters?";
+"fiction.chapters.deleteMultiple.message" = "All scenes in these chapters will also be deleted.";
+"fiction.chapters.deleteCount" = "Delete %d";
 "fiction.chapter.title" = "Title";
 "fiction.chapter.title.accessibility" = "Chapter title";
 "fiction.chapter.number" = "Chapter %d";
+"fiction.chapter.rename.title" = "Rename Chapter";
 "fiction.chapter.section.basic" = "Basic Info";
 "fiction.chapter.summary" = "Summary";
 "fiction.chapter.summary.accessibility" = "Chapter summary";
@@ -272,10 +276,14 @@
 "fiction.stories.empty.message" = "Add stories to organize your short fiction collection.";
 "fiction.stories.deleteConfirm.title" = "Delete Story?";
 "fiction.stories.deleteConfirm.message" = "Are you sure you want to delete \"%@\"? Scenes will be unassigned but not deleted.";
+"fiction.stories.deleteMultiple.title" = "Delete %d Stories?";
+"fiction.stories.deleteMultiple.message" = "Scenes will be unassigned but not deleted.";
+"fiction.stories.deleteCount" = "Delete %d";
 "fiction.stories.picker.createHint" = "Create stories in the Stories folder.";
 "fiction.story.title" = "Title";
 "fiction.story.title.accessibility" = "Story title";
 "fiction.story.number" = "Story %d";
+"fiction.story.rename.title" = "Rename Story";
 "fiction.story.section.basic" = "Basic Info";
 "fiction.story.summary" = "Summary";
 "fiction.story.summary.accessibility" = "Story summary";
@@ -837,6 +845,8 @@
 "publications.type.magazine" = "Magazine";
 "publications.type.competition" = "Competition";
 "publications.type.commission" = "Commission";
+"publications.type.publisher" = "Publisher";
+"publications.type.agent" = "Agent";
 "publications.type.other" = "Other";
 
 /* Buttons */
@@ -911,6 +921,8 @@
 "publications.magazines.title" = "Magazines";
 "publications.competitions.title" = "Competitions";
 "publications.commissions.title" = "Commissions";
+"publications.publishers.title" = "Publishers";
+"publications.agents.title" = "Agents";
 "publications.other.title" = "Other";
 
 /* Submission Status */
@@ -934,6 +946,12 @@
 "submissions.button.submit" = "Submit";
 "submissions.submit.count" = "Submit %d file(s)";
 "submissions.submit.title" = "Submit Files";
+"submissions.name.header" = "Submission Name";
+"submissions.name.placeholder" = "Enter submission name";
+"submissions.name.label" = "Submission name";
+"submissions.setExpectedDate" = "Set expected response date";
+"submissions.expectedBy.label" = "Expected by";
+"submissions.response.section" = "Response";
 "submissions.delete.title" = "Delete Submission?";
 "submissions.delete.message" = "This will delete the submission record but not the files.";
 "submissions.details.label" = "Details";

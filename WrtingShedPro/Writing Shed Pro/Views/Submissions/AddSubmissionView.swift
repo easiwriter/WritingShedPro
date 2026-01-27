@@ -31,6 +31,12 @@ struct AddSubmissionView: View {
     }
     
     private func isFileEligibleForSubmission(_ file: TextFile) -> Bool {
+        // Exclude trashed files
+        guard file.trashItem == nil else { return false }
+        
+        // Exclude files without a parent folder (orphaned)
+        guard file.parentFolder != nil else { return false }
+        
         // Check if file belongs to project
         guard belongsToProject(file) else { return false }
         

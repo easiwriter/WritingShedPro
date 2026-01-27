@@ -4,9 +4,8 @@ extension FolderFilesView {
     
     @ToolbarContentBuilder
     var folderToolbar: some ToolbarContent {
-        ToolbarItem(placement: .topBarLeading) {
-            PopToRootBackButton()
-        }
+        // Using native iOS back button instead of custom PopToRootBackButton
+        // Native back button is rendered by UIKit and immune to SwiftUI render blocking
         ToolbarItemGroup(placement: .topBarTrailing) {
             // Settings gear for Front Matter / Back Matter folders
             if folder.isFrontMatterFolder {

@@ -9,12 +9,19 @@ extension FolderFilesView {
         content
             .navigationTitle(folder.name ?? "Files")
             .navigationBarTitleDisplayMode(.inline)
-            .navigationBarBackButtonHidden(true)
+            // Use native iOS back button - it's rendered by UIKit and immune to SwiftUI render blocking
+            .navigationBarBackButtonHidden(false)
             .navigationDestination(isPresented: $navigateToFile) {
                 navigationDestinationContent
             }
             .environment(\.editMode, $editMode)
-            .onPopToRoot { dismiss() }
+            .onPopToRoot {
+                #if DEBUG
+                print("🔙 [FolderFilesView+Modifiers] onPopToRoot received, setting isDismissing = true")
+                #endif
+                isDismissing = true
+                dismiss()
+            }
             .toolbar { folderToolbar }
     }
     

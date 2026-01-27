@@ -208,9 +208,9 @@ struct CollectionsView: View {
                         project: project,
                         filesToSubmit: nil,
                         collectionToSubmit: selectedCollections.first,
-                        onPublicationSelected: { publication, name in
+                        onPublicationSelected: { publication, name, expectedDate in
                             // Handle submission to publication
-                            submitCollectionsToPublication(publication, name: name)
+                            submitCollectionsToPublication(publication, name: name, expectedResponseDate: expectedDate)
                             showPublicationPicker = false
                         },
                         onCancel: {
@@ -548,7 +548,7 @@ struct CollectionsView: View {
         }
     }
     
-    private func submitCollectionsToPublication(_ publication: Publication, name: String) {
+    private func submitCollectionsToPublication(_ publication: Publication, name: String, expectedResponseDate: Date? = nil) {
         // For each selected collection, create ONE submission with all its files
         for collection in selectedCollections {
             // Create a single submission for this collection -> publication
@@ -561,6 +561,7 @@ struct CollectionsView: View {
             submission.isCollection = false  // This is a submission to publication, not a collection
             // Use provided name, or fall back to collection name
             submission.name = name.isEmpty ? collection.name : name
+            submission.returnExpectedBy = expectedResponseDate
             modelContext.insert(submission)
             
             // Add all files from the collection to this single submission
@@ -802,8 +803,8 @@ struct CollectionDetailView: View {
                         project: project,
                         filesToSubmit: nil,
                         collectionToSubmit: submission,
-                        onPublicationSelected: { publication, name in
-                            createSubmissionFromCollection(to: publication, name: name)
+                        onPublicationSelected: { publication, name, expectedDate in
+                            createSubmissionFromCollection(to: publication, name: name, expectedResponseDate: expectedDate)
                             showSubmissionPicker = false
                         },
                         onCancel: {
@@ -882,7 +883,7 @@ struct CollectionDetailView: View {
         }
     }
     
-    private func createSubmissionFromCollection(to publication: Publication, name: String) {
+    private func createSubmissionFromCollection(to publication: Publication, name: String, expectedResponseDate: Date? = nil) {
         guard let project = submission.project else { return }
         
         // Create new Submission as Publication Submission
@@ -894,6 +895,7 @@ struct CollectionDetailView: View {
         pubSubmission.name = name.isEmpty ? submission.name : name
         pubSubmission.collectionDescription = submission.collectionDescription
         pubSubmission.isCollection = false  // This is a submission to publication, not a collection
+        pubSubmission.returnExpectedBy = expectedResponseDate
         
         // Copy SubmittedFiles from Collection with preserved versions
         let copiedFiles = (submission.submittedFiles ?? []).map { original in

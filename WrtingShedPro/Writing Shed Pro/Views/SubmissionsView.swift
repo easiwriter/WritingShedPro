@@ -169,8 +169,8 @@ struct SubmissionsView: View {
                     project: project,
                     filesToSubmit: nil,
                     collectionToSubmit: nil,
-                    onPublicationSelected: { publication, name in
-                        submitSelectedToPublication(publication, name: name)
+                    onPublicationSelected: { publication, name, expectedDate in
+                        submitSelectedToPublication(publication, name: name, expectedResponseDate: expectedDate)
                         showPublicationPicker = false
                     },
                     onCancel: {
@@ -183,7 +183,7 @@ struct SubmissionsView: View {
     
     // MARK: - Submit to Publication
     
-    private func submitSelectedToPublication(_ publication: Publication, name: String) {
+    private func submitSelectedToPublication(_ publication: Publication, name: String, expectedResponseDate: Date? = nil) {
         let selectedSubmissions = sortedSubmissions.filter { selectedSubmissionIDs.contains($0.id) }
         
         for existingSubmission in selectedSubmissions {
@@ -197,6 +197,7 @@ struct SubmissionsView: View {
             // Use the provided name, or fall back to existing submission name
             newSubmission.name = name.isEmpty ? existingSubmission.name : name
             newSubmission.isCollection = false
+            newSubmission.returnExpectedBy = expectedResponseDate
             modelContext.insert(newSubmission)
             
             // Copy all files from the existing submission
