@@ -94,12 +94,17 @@ struct ProjectTemplateService {
         ]
         
         for (index, name) in subfolderNames.enumerated() {
+            // Subfolders should NOT have project set - they get linked via parentFolder only
             let subfolder = Folder(
                 name: name,
-                project: project,
+                project: nil,
                 userOrder: index
             )
             subfolder.parentFolder = manuscriptFolder
+            if manuscriptFolder.folders == nil {
+                manuscriptFolder.folders = []
+            }
+            manuscriptFolder.folders?.append(subfolder)
             context.insert(subfolder)
         }
         

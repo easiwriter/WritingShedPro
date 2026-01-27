@@ -21,6 +21,8 @@ struct SwiftUIFormattingToolbar: View {
         case numberedList
         case bulletedList
         case insertTab
+        case increaseIndent
+        case decreaseIndent
     }
     
     var body: some View {
@@ -67,6 +69,17 @@ struct SwiftUIFormattingToolbar: View {
                     .opacity(hasSelectedImage ? 0.3 : 1.0)
                     .disabled(hasSelectedImage)
                 toolbarButton(systemName: "strikethrough", action: .strikethrough)
+                    .opacity(hasSelectedImage ? 0.3 : 1.0)
+                    .disabled(hasSelectedImage)
+                
+                Divider()
+                    .frame(height: 24)
+                
+                // List indent/outdent buttons (disabled when image selected)
+                toolbarButton(systemName: "decrease.indent", action: .decreaseIndent)
+                    .opacity(hasSelectedImage ? 0.3 : 1.0)
+                    .disabled(hasSelectedImage)
+                toolbarButton(systemName: "increase.indent", action: .increaseIndent)
                     .opacity(hasSelectedImage ? 0.3 : 1.0)
                     .disabled(hasSelectedImage)
                 

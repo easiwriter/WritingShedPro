@@ -455,6 +455,10 @@ struct FileEditView: View {
                     applyNumberFormat(.bulletSymbols)
                 case .insertTab:
                     insertTab()
+                case .increaseIndent:
+                    increaseListIndent()
+                case .decreaseIndent:
+                    decreaseListIndent()
                 }
             },
             hasSelectedImage: selectedImage != nil,
@@ -1200,14 +1204,8 @@ struct FileEditView: View {
             return BackMatterSettings()
         }
         
-        // First try: Back Matter folder at project level (modern projects)
-        if let backMatterFolder = project.folders?.first(where: { $0.name == "Back Matter" }) {
-            return backMatterFolder.backMatterSettings
-        }
-        
-        // Second try: Back Matter folder inside Manuscript (legacy structure)
-        if let manuscriptFolder = project.folders?.first(where: { $0.name == "Manuscript" }),
-           let backMatterFolder = manuscriptFolder.folders?.first(where: { $0.isBackMatterFolder }) {
+        // Use the project helper to find back matter folder
+        if let backMatterFolder = project.findBackMatterFolder() {
             return backMatterFolder.backMatterSettings
         }
         
@@ -2959,9 +2957,10 @@ struct FileEditView: View {
         print("📁 Project folders: \(fileProject.folders?.map { $0.name } ?? [])")
         #endif
         
-        // Find or create the Back Matter folder for this project
-        var backMatterFolder = fileProject.folders?.first(where: { $0.name == "Back Matter" })
+        // Find the Back Matter folder for this project using helper
+        var backMatterFolder = fileProject.findBackMatterFolder()
         
+        // If still not found, create at root level as fallback
         if backMatterFolder == nil {
             #if DEBUG
             print("⚠️ No Back Matter folder found, creating one...")
@@ -3144,7 +3143,8 @@ struct FileEditView: View {
         }
         #endif
         
-        guard let backMatterFolder = project.folders?.first(where: { $0.name == "Back Matter" }) else {
+        // Find the Back Matter folder using project helper
+        guard let backMatterFolder = project.findBackMatterFolder() else {
             #if DEBUG
             print("🔄 syncBackMatterSettings: Could not find Back Matter folder")
             #endif
@@ -4607,8 +4607,8 @@ struct FileEditView: View {
     
     /// Regenerate back matter files after reference count changes
     private func regenerateBackMatterFilesForReferences(_ project: Project) {
-        // Find the Back Matter folder
-        guard let backMatterFolder = project.folders?.first(where: { $0.isBackMatterFolder }) else {
+        // Find the Back Matter folder using project helper
+        guard let backMatterFolder = project.findBackMatterFolder() else {
             return
         }
         
@@ -5064,8 +5064,25 @@ struct FileEditView: View {
     
     // MARK: - Tab Insertion
     
-    /// Insert a tab character at the current cursor position
+    /// Insert a tab character at the current cursor position, or increase indent if in a list
     private func insertTab() {
+        // Check if we're in a list paragraph - if so, increase indent instead of inserting tab
+        let paragraphRange = (attributedContent.string as NSString).paragraphRange(for: selectedRange)
+        
+        var currentStyleName: String?
+        attributedContent.enumerateAttribute(.textStyle, in: paragraphRange, options: []) { value, _, stop in
+            if let styleName = value as? String {
+                currentStyleName = styleName
+                stop.pointee = true
+            }
+        }
+        
+        // If in a list style, increase indent instead of inserting tab
+        if let styleName = currentStyleName, Self.listIndentMap[styleName] != nil {
+            increaseListIndent()
+            return
+        }
+        
         guard let textView = textViewCoordinator.textView else { return }
         
         // Insert tab character at current selection
@@ -5268,6 +5285,157 @@ struct FileEditView: View {
         // Create undo command
         let command = FormatApplyCommand(
             description: format == .bulletSymbols ? "Apply Bullet List" : "Apply Numbered List",
+            range: selectedRange,
+            beforeContent: beforeContent,
+            afterContent: attributedContent,
+            targetFile: file
+        )
+        
+        undoManager.execute(command)
+    }
+    
+    // MARK: - List Indent/Outdent
+    
+    /// Mapping of list styles to their indented versions
+    private static let listIndentMap: [String: String] = [
+        "list-bullet": "list-bullet-level-2",
+        "list-bullet-level-2": "list-bullet-level-3",
+        "list-numbered": "list-numbered-level-2",
+        "list-numbered-level-2": "list-numbered-level-3"
+    ]
+    
+    /// Mapping of list styles to their outdented versions
+    private static let listOutdentMap: [String: String] = [
+        "list-bullet-level-3": "list-bullet-level-2",
+        "list-bullet-level-2": "list-bullet",
+        "list-numbered-level-3": "list-numbered-level-2",
+        "list-numbered-level-2": "list-numbered"
+    ]
+    
+    /// Increase the indent level of the current paragraph (for nested lists)
+    private func increaseListIndent() {
+        guard let project = file.project else { return }
+        
+        // Get the range of the current paragraph
+        let paragraphRange = (attributedContent.string as NSString).paragraphRange(for: selectedRange)
+        
+        // Get the current style name
+        var currentStyleName: String?
+        attributedContent.enumerateAttribute(.textStyle, in: paragraphRange, options: []) { value, _, stop in
+            if let styleName = value as? String {
+                currentStyleName = styleName
+                stop.pointee = true
+            }
+        }
+        
+        guard let styleName = currentStyleName,
+              let nextStyleName = Self.listIndentMap[styleName],
+              let nextStyle = project.styleSheet?.style(named: nextStyleName) else {
+            // Not a list style or already at max indent level
+            return
+        }
+        
+        // Store before state for undo
+        let beforeContent = attributedContent
+        
+        // Apply the next level style
+        let mutableContent = NSMutableAttributedString(attributedString: attributedContent)
+        let styleAttributes = nextStyle.generateAttributes()
+        mutableContent.addAttributes(styleAttributes, range: paragraphRange)
+        
+        // Update content
+        attributedContent = mutableContent
+        
+        // Force a redraw
+        if let textView = textViewCoordinator.textView {
+            textView.setNeedsDisplay()
+            textView.layoutManager.invalidateDisplay(forCharacterRange: NSRange(location: 0, length: attributedContent.length))
+        }
+        
+        // Create undo command
+        let command = FormatApplyCommand(
+            description: "Increase List Indent",
+            range: selectedRange,
+            beforeContent: beforeContent,
+            afterContent: attributedContent,
+            targetFile: file
+        )
+        
+        undoManager.execute(command)
+    }
+    
+    /// Decrease the indent level of the current paragraph (for nested lists)
+    private func decreaseListIndent() {
+        guard let project = file.project else { return }
+        
+        // Get the range of the current paragraph
+        let paragraphRange = (attributedContent.string as NSString).paragraphRange(for: selectedRange)
+        
+        // Get the current style name
+        var currentStyleName: String?
+        attributedContent.enumerateAttribute(.textStyle, in: paragraphRange, options: []) { value, _, stop in
+            if let styleName = value as? String {
+                currentStyleName = styleName
+                stop.pointee = true
+            }
+        }
+        
+        guard let styleName = currentStyleName else { return }
+        
+        // Check if we can outdent (style is in the outdent map)
+        guard let prevStyleName = Self.listOutdentMap[styleName],
+              let prevStyle = project.styleSheet?.style(named: prevStyleName) else {
+            // If at base list level, convert back to body text
+            if styleName == "list-bullet" || styleName == "list-numbered" {
+                // Apply body style instead
+                if let bodyStyle = project.styleSheet?.style(named: "UICTFontTextStyleBody") {
+                    let beforeContent = attributedContent
+                    
+                    let mutableContent = NSMutableAttributedString(attributedString: attributedContent)
+                    let styleAttributes = bodyStyle.generateAttributes()
+                    mutableContent.addAttributes(styleAttributes, range: paragraphRange)
+                    
+                    attributedContent = mutableContent
+                    
+                    if let textView = textViewCoordinator.textView {
+                        textView.setNeedsDisplay()
+                        textView.layoutManager.invalidateDisplay(forCharacterRange: NSRange(location: 0, length: attributedContent.length))
+                    }
+                    
+                    let command = FormatApplyCommand(
+                        description: "Exit List",
+                        range: selectedRange,
+                        beforeContent: beforeContent,
+                        afterContent: attributedContent,
+                        targetFile: file
+                    )
+                    
+                    undoManager.execute(command)
+                }
+            }
+            return
+        }
+        
+        // Store before state for undo
+        let beforeContent = attributedContent
+        
+        // Apply the previous level style
+        let mutableContent = NSMutableAttributedString(attributedString: attributedContent)
+        let styleAttributes = prevStyle.generateAttributes()
+        mutableContent.addAttributes(styleAttributes, range: paragraphRange)
+        
+        // Update content
+        attributedContent = mutableContent
+        
+        // Force a redraw
+        if let textView = textViewCoordinator.textView {
+            textView.setNeedsDisplay()
+            textView.layoutManager.invalidateDisplay(forCharacterRange: NSRange(location: 0, length: attributedContent.length))
+        }
+        
+        // Create undo command
+        let command = FormatApplyCommand(
+            description: "Decrease List Indent",
             range: selectedRange,
             beforeContent: beforeContent,
             afterContent: attributedContent,

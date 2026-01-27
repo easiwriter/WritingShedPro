@@ -9,7 +9,66 @@ class MigrationService {
     /// Run all pending migrations
     /// - Parameter context: The model context to use for migrations
     static func runMigrations(context: ModelContext) {
+        cleanupOrphanedFolders(context: context)
         migrateManuscriptSubfolders(context: context)
+    }
+    
+    /// CRITICAL: Run this BEFORE any views load to prevent crashes from invalidated folder objects
+    /// Called from Write_App immediately after ModelContainer creation
+    static func cleanupOrphanedFoldersEarly(context: ModelContext) {
+        #if DEBUG
+        print("🧹 [MigrationService] Early cleanup: Checking for orphaned folder references...")
+        #endif
+        
+        // Fetch all folders directly - this uses the database, not relationships
+        let descriptor = FetchDescriptor<Folder>()
+        guard let allFolders = try? context.fetch(descriptor) else {
+            #if DEBUG
+            print("❌ [MigrationService] Failed to fetch folders for cleanup")
+            #endif
+            return
+        }
+        
+        var cleanedCount = 0
+        var deletedCount = 0
+        
+        for folder in allFolders {
+            // Check if folder has both project AND parentFolder set (should only have one)
+            if folder.project != nil && folder.parentFolder != nil {
+                #if DEBUG
+                print("🔧 Fixing folder '\(folder.name ?? "unnamed")' - removing project reference (is a subfolder)")
+                #endif
+                folder.project = nil
+                cleanedCount += 1
+            }
+            
+            // Check if folder has neither project NOR parentFolder (orphaned)
+            if folder.project == nil && folder.parentFolder == nil {
+                #if DEBUG
+                print("🗑️ Deleting orphaned folder '\(folder.name ?? "unnamed")'")
+                #endif
+                context.delete(folder)
+                deletedCount += 1
+            }
+        }
+        
+        if cleanedCount > 0 || deletedCount > 0 {
+            try? context.save()
+            #if DEBUG
+            print("✅ [MigrationService] Early cleanup: Fixed \(cleanedCount) folders, deleted \(deletedCount) orphaned folders")
+            #endif
+        } else {
+            #if DEBUG
+            print("✅ [MigrationService] Early cleanup: No orphaned folders found")
+            #endif
+        }
+    }
+    
+    /// Clean up folders with invalidated/orphaned relationships
+    /// This fixes crashes caused by accessing deleted folder objects
+    private static func cleanupOrphanedFolders(context: ModelContext) {
+        // Just call the early cleanup - it's the same logic
+        cleanupOrphanedFoldersEarly(context: context)
     }
     
     /// Feature 029: Add Front Matter, Body, Back Matter subfolders to existing Manuscript folders
@@ -97,9 +156,13 @@ class MigrationService {
             
             // Add only missing subfolders with correct userOrder
             for (name, order) in orderedSubfolders where missingNames.contains(name) {
-                let subfolder = Folder(name: name, project: project)
+                // Subfolders should NOT have project set - they get linked via parentFolder only
+                let subfolder = Folder(name: name, project: nil)
                 subfolder.parentFolder = manuscriptFolder
                 subfolder.userOrder = order
+                if manuscriptFolder.folders == nil {
+                    manuscriptFolder.folders = []
+                }
                 manuscriptFolder.folders?.append(subfolder)
                 context.insert(subfolder)
             }

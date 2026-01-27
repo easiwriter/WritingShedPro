@@ -70,18 +70,31 @@ struct StyleSheetService {
         }
         
         // Add specialized list styles
-        let listStyles: [(String, String, NumberFormat, Int)] = [
-            ("list-numbered", "Numbered List", .decimal, 11),
-            ("list-bullet", "Bullet List", .bulletSymbols, 12)
+        // Base indentation per level: 36 points (0.5 inches)
+        let listIndentPerLevel: CGFloat = 36.0
+        
+        // List styles: (name, displayName, numberFormat, order, level, bulletChar)
+        // Level 0 = base, Level 1 = first sub-level, Level 2 = second sub-level
+        let listStyles: [(String, String, NumberFormat, Int, Int, String?)] = [
+            // Numbered lists
+            ("list-numbered", "Numbered List", .decimal, 11, 0, nil),
+            ("list-numbered-level-2", "Numbered List Level 2", .lowercaseLetter, 12, 1, nil),
+            ("list-numbered-level-3", "Numbered List Level 3", .lowercaseRoman, 13, 2, nil),
+            // Bullet lists
+            ("list-bullet", "Bullet List", .bulletSymbols, 14, 0, "•"),
+            ("list-bullet-level-2", "Bullet List Level 2", .bulletSymbols, 15, 1, "◦"),
+            ("list-bullet-level-3", "Bullet List Level 3", .bulletSymbols, 16, 2, "▪")
         ]
         
-        for (name, displayName, numberFormat, order) in listStyles {
+        for (name, displayName, numberFormat, order, level, _) in listStyles {
+            let headIndent = listIndentPerLevel * CGFloat(level + 1)
             let style = TextStyleModel(
                 name: name,
                 displayName: displayName,
                 displayOrder: order,
                 fontSize: 17,  // Platform scaling now applied at render time in generateFont()
                 alignment: .left,  // Explicitly set left alignment for list styles
+                headIndent: headIndent,
                 numberFormat: numberFormat,
                 styleCategory: .list,
                 isSystemStyle: false
@@ -133,7 +146,11 @@ struct StyleSheetService {
             "UICTFontTextStyleCaption1": .text,         // Caption 1
             "UICTFontTextStyleCaption2": .text,         // Caption 2
             "list-numbered": .list,                      // Numbered List
-            "list-bullet": .list                         // Bullet List
+            "list-numbered-level-2": .list,              // Numbered List Level 2
+            "list-numbered-level-3": .list,              // Numbered List Level 3
+            "list-bullet": .list,                        // Bullet List
+            "list-bullet-level-2": .list,                // Bullet List Level 2
+            "list-bullet-level-3": .list                 // Bullet List Level 3
         ]
         
         // Obsolete styles to remove
@@ -141,6 +158,54 @@ struct StyleSheetService {
         
         var fixedCount = 0
         var deletedCount = 0
+        var addedCount = 0
+        
+        // Get existing style names for quick lookup
+        let existingStyleNames = Set(styles.map { $0.name })
+        
+        // Add missing nested list styles (Level 2 and 3)
+        let listIndentPerLevel: CGFloat = 36.0
+        let nestedListStyles: [(String, String, NumberFormat, Int, Int)] = [
+            // Base list styles (in case they're missing)
+            ("list-numbered", "Numbered List", .decimal, 11, 0),
+            ("list-bullet", "Bullet List", .bulletSymbols, 14, 0),
+            // Nested list styles
+            ("list-numbered-level-2", "Numbered List Level 2", .lowercaseLetter, 12, 1),
+            ("list-numbered-level-3", "Numbered List Level 3", .lowercaseRoman, 13, 2),
+            ("list-bullet-level-2", "Bullet List Level 2", .bulletSymbols, 15, 1),
+            ("list-bullet-level-3", "Bullet List Level 3", .bulletSymbols, 16, 2)
+        ]
+        
+        for (name, displayName, numberFormat, order, level) in nestedListStyles {
+            if !existingStyleNames.contains(name) {
+                let headIndent = listIndentPerLevel * CGFloat(level + 1)
+                let newStyle = TextStyleModel(
+                    name: name,
+                    displayName: displayName,
+                    displayOrder: order,
+                    fontSize: 17,
+                    alignment: .left,
+                    headIndent: headIndent,
+                    numberFormat: numberFormat,
+                    styleCategory: .list,
+                    isSystemStyle: false
+                )
+                newStyle.styleSheet = stylesheet
+                context.insert(newStyle)
+                
+                // Also append to the stylesheet's textStyles array explicitly
+                if stylesheet.textStyles == nil {
+                    stylesheet.textStyles = [newStyle]
+                } else {
+                    stylesheet.textStyles?.append(newStyle)
+                }
+                
+                addedCount += 1
+                #if DEBUG
+                print("➕ Added missing list style: \(displayName)")
+                #endif
+            }
+        }
         
         for style in styles {
             // Check if this is an obsolete style that should be deleted
@@ -174,9 +239,9 @@ struct StyleSheetService {
             }
         }
         
-        if fixedCount > 0 || deletedCount > 0 {
+        if fixedCount > 0 || deletedCount > 0 || addedCount > 0 {
             #if DEBUG
-            print("✅ Fixed \(fixedCount) style categories, deleted \(deletedCount) obsolete styles - saving...")
+            print("✅ Fixed \(fixedCount) style categories, deleted \(deletedCount) obsolete styles, added \(addedCount) missing styles - saving...")
             #endif
             do {
                 try context.save()
@@ -190,7 +255,7 @@ struct StyleSheetService {
             }
         } else {
             #if DEBUG
-            print("✅ All style categories are correct, no obsolete styles found")
+            print("✅ All style categories are correct, no obsolete styles found, no missing styles")
             #endif
         }
     }
@@ -216,6 +281,16 @@ struct StyleSheetService {
         // Fix categories in existing stylesheets
         for sheet in existingSystemSheets {
             fixStyleCategories(in: sheet, context: context)
+        }
+        
+        // Also fix all project stylesheets (not just system ones)
+        let allSheetsDescriptor = FetchDescriptor<StyleSheet>()
+        if let allSheets = try? context.fetch(allSheetsDescriptor) {
+            for sheet in allSheets {
+                if !existingSystemSheets.contains(where: { $0.id == sheet.id }) {
+                    fixStyleCategories(in: sheet, context: context)
+                }
+            }
         }
         
         // Remove duplicates if they exist

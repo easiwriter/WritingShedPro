@@ -173,7 +173,12 @@ class JSONExportService {
     private func buildFolderData(from project: Project) -> [WSPFolderData] {
         guard let folders = project.folders else { return [] }
         
-        return folders.compactMap { folder in
+        // Only export root-level folders (those without a parent folder) at the top level.
+        // Subfolders will be included recursively via their parent's folder.folders relationship.
+        // This prevents duplicates when a subfolder also has its project relationship set.
+        let rootFolders = folders.filter { $0.parentFolder == nil }
+        
+        return rootFolders.compactMap { folder in
             buildFolderData(from: folder, parentId: nil)
         }
     }

@@ -706,8 +706,8 @@ struct TextStyleEditorView: View {
         for project in projects {
             let generator = BackMatterGenerator(context: modelContext, project: project)
             
-            // Find the Back Matter folder
-            guard let backMatterFolder = project.folders?.first(where: { $0.name == "Back Matter" }) else {
+            // Find the Back Matter folder using project helper
+            guard let backMatterFolder = project.findBackMatterFolder() else {
                 continue
             }
             

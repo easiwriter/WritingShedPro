@@ -68,7 +68,8 @@ struct AddFolderSheet: View {
         }
         
         // Create folder with proper parent relationship
-        let newFolder = Folder(name: folderName, project: project, parentFolder: parentFolder)
+        // Only root-level folders should have project set; subfolders get linked via parentFolder
+        let newFolder = Folder(name: folderName, project: parentFolder == nil ? project : nil, parentFolder: parentFolder)
         modelContext.insert(newFolder)
         
         // If this is a subfolder, add it to parent's folders array

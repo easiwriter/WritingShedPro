@@ -133,6 +133,36 @@ Create lists by applying the appropriate paragraph style or typing:
 - Type `-` or `*` for bullets (if auto-formatting is enabled)
 - Type `1.` for numbered items
 
+### Nested Lists
+
+Create sub-lists (nested lists) to organize hierarchical information:
+
+#### Using the Toolbar (iPhone/iPad)
+1. Place cursor in a list item
+2. Tap the **Increase Indent** button (→|) to create a sub-list
+3. Tap the **Decrease Indent** button (|←) to promote an item back up
+
+#### Using Keyboard Shortcuts (External Keyboard)
+- Press **Tab** to increase indent level
+- Press **Shift+Tab** to decrease indent level
+
+#### Nested List Levels
+
+| Level | Bullet Style | Numbered Style |
+|-------|--------------|----------------|
+| 1 | • (bullet) | 1. 2. 3. |
+| 2 | ◦ (circle) | a. b. c. |
+| 3 | ▪ (square) | i. ii. iii. |
+
+**Example:**
+- Main item
+  - Sub-item (Level 2)
+    - Sub-sub-item (Level 3)
+  - Another sub-item
+- Another main item
+
+**Note**: To exit a list entirely, decrease indent when at Level 1, or apply a different paragraph style like Body.
+
 ## Block Quotes
 
 Format quotations as block quotes:

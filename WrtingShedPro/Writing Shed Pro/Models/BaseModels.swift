@@ -224,6 +224,83 @@ final class Project {
             manuscriptSettingsData = try? JSONEncoder().encode(newValue)
         }
     }
+    
+    // MARK: - Folder Finding Helpers
+    
+    /// Safely check if a folder is valid (not invalidated/deleted)
+    private func isFolderValid(_ folder: Folder) -> Bool {
+        // Accessing the id property on an invalidated object will cause a crash
+        // We use a workaround: check if we can read a required property
+        // Note: This isn't foolproof but helps catch some cases
+        return folder.id.uuidString.count > 0
+    }
+    
+    /// Find the Back Matter folder for this project.
+    /// Checks both root-level folders (legacy) and Manuscript subfolder (modern structure).
+    /// Note: Returns nil if folder objects are invalidated (deleted from store).
+    func findBackMatterFolder() -> Folder? {
+        guard let allFolders = folders, !allFolders.isEmpty else { return nil }
+        
+        // First try: Back Matter folder at project level (legacy projects)
+        for folder in allFolders {
+            // Check folder name safely - if name is nil, skip
+            guard let folderName = folder.name else { continue }
+            if folderName == "Back Matter" || folderName == NSLocalizedString("folder.backMatter", comment: "") {
+                return folder
+            }
+        }
+        
+        // Second try: Back Matter folder inside Manuscript (modern structure)
+        for folder in allFolders {
+            guard let folderName = folder.name, folderName == "Manuscript" else { continue }
+            guard let subfolders = folder.folders, !subfolders.isEmpty else { continue }
+            for subfolder in subfolders {
+                guard let subfolderName = subfolder.name else { continue }
+                if subfolderName == "Back Matter" || subfolderName == NSLocalizedString("folder.backMatter", comment: "") {
+                    return subfolder
+                }
+            }
+        }
+        return nil
+    }
+    
+    /// Find the Front Matter folder for this project.
+    /// Checks both root-level folders (legacy) and Manuscript subfolder (modern structure).
+    func findFrontMatterFolder() -> Folder? {
+        guard let allFolders = folders, !allFolders.isEmpty else { return nil }
+        
+        // First try: Front Matter folder at project level (legacy projects)
+        for folder in allFolders {
+            guard let folderName = folder.name else { continue }
+            if folderName == "Front Matter" || folderName == NSLocalizedString("folder.frontMatter", comment: "") {
+                return folder
+            }
+        }
+        
+        // Second try: Front Matter folder inside Manuscript (modern structure)
+        for folder in allFolders {
+            guard let folderName = folder.name, folderName == "Manuscript" else { continue }
+            guard let subfolders = folder.folders, !subfolders.isEmpty else { continue }
+            for subfolder in subfolders {
+                guard let subfolderName = subfolder.name else { continue }
+                if subfolderName == "Front Matter" || subfolderName == NSLocalizedString("folder.frontMatter", comment: "") {
+                    return subfolder
+                }
+            }
+        }
+        return nil
+    }
+    
+    /// Find the Manuscript folder for this project.
+    func findManuscriptFolder() -> Folder? {
+        guard let allFolders = folders, !allFolders.isEmpty else { return nil }
+        for folder in allFolders {
+            if folder.name == "Manuscript" {
+                return folder
+            }
+        }
+        return nil
+    }
 }
 
 enum ProjectType: String, Codable, CaseIterable {

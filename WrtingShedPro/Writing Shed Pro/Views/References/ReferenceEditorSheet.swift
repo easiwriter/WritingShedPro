@@ -175,8 +175,8 @@ struct ReferenceEditorSheet: View {
     }
     
     private func regenerateBackMatterFiles(_ project: Project) {
-        // Find the Back Matter folder
-        guard let backMatterFolder = project.folders?.first(where: { $0.isBackMatterFolder }) else {
+        // Find the Back Matter folder using project helper
+        guard let backMatterFolder = project.findBackMatterFolder() else {
             return
         }
         

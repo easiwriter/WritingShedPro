@@ -1185,6 +1185,10 @@
 "textStyleEditor.numberingNotAvailable" = "Numbering is only available for list and footnote styles";
 "textStyleEditor.footnoteNumberingInfo" = "Footnotes are automatically numbered 1, 2, 3...";
 "textStyleEditor.bulletListInfo" = "Bullet lists use standard bullet formatting";
+"textStyleEditor.bulletListLevel2Info" = "Second-level bullet list (◦)";
+"textStyleEditor.bulletListLevel3Info" = "Third-level bullet list (▪)";
+"textStyleEditor.numberedListLevel2Info" = "Second-level numbered list (a, b, c...)";
+"textStyleEditor.numberedListLevel3Info" = "Third-level numbered list (i, ii, iii...)";
 "textStyleEditor.footnoteFormat" = "Footnote Format";
 "textStyleEditor.bulletCharacter" = "Bullet Character";
 "textStyleEditor.adornment" = "Adornment";
@@ -1562,6 +1566,10 @@
 /* FormattingToolbar */
 "formattingToolbar.comingSoon.title" = "Coming Soon";
 "formattingToolbar.comingSoon.message" = "Page breaks, footnotes, index entries, and comments will be available in a future update.";
+"formattingToolbar.increaseIndent" = "Increase Indent";
+"formattingToolbar.decreaseIndent" = "Decrease Indent";
+"formattingToolbar.increaseIndent.accessibility" = "Increase list indent level";
+"formattingToolbar.decreaseIndent.accessibility" = "Decrease list indent level";
 
 /* ImageStyleEditorView */
 "imageStyleEditor.title" = "Image Properties";
