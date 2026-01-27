@@ -81,6 +81,14 @@
 			);
 			target = D76ABF572F260E6C002D8588 /* WSP Reader */;
 		};
+		D76ABF9C2F28C22E002D8588 /* Exceptions for "Writing Shed Pro" folder in "Writing Shed ProTests" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Resources/britdict.txt,
+				Resources/cmudict.txt,
+			);
+			target = D741DF7C2EA76295003629E8 /* Writing Shed ProTests */;
+		};
 		D7QLEXT0D2F05000000000001 /* Exceptions for "WSPQuickLook" folder in "WSPQuickLook" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -95,6 +103,7 @@
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				D741DF8F2EA76295003629E8 /* Exceptions for "Writing Shed Pro" folder in "Writing Shed Pro" target */,
+				D76ABF9C2F28C22E002D8588 /* Exceptions for "Writing Shed Pro" folder in "Writing Shed ProTests" target */,
 			);
 			path = "Writing Shed Pro";
 			sourceTree = "<group>";

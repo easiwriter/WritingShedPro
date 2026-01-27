@@ -116,18 +116,32 @@ final class CMUDictionary {
         
         // Try to find the bundled dictionary file for this dialect
         let fileName = dialect.dictionaryFileName
-        guard let url = Bundle.main.url(forResource: fileName, withExtension: "txt") else {
-            print("CMUDictionary: \(fileName).txt not found in bundle")
+        
+        // Search in multiple bundles (main app bundle and the bundle containing this class)
+        let bundlesToSearch = [Bundle.main, Bundle(for: CMUDictionary.self)]
+        var url: URL?
+        for bundle in bundlesToSearch {
+            if let foundUrl = bundle.url(forResource: fileName, withExtension: "txt") {
+                url = foundUrl
+                break
+            }
+        }
+        
+        guard let dictionaryUrl = url else {
+            print("CMUDictionary: \(fileName).txt not found in any bundle")
             // Fall back to CMU dictionary if British dictionary not found
             if dialect == .british {
                 print("CMUDictionary: Falling back to American English dictionary")
-                if let fallbackUrl = Bundle.main.url(forResource: "cmudict", withExtension: "txt") {
-                    do {
-                        let content = try String(contentsOf: fallbackUrl, encoding: .utf8)
-                        parseDictionary(content)
-                        print("CMUDictionary: Loaded \(pronunciations.count) words (US fallback)")
-                    } catch {
-                        print("CMUDictionary: Error loading fallback dictionary: \(error)")
+                for bundle in bundlesToSearch {
+                    if let fallbackUrl = bundle.url(forResource: "cmudict", withExtension: "txt") {
+                        do {
+                            let content = try String(contentsOf: fallbackUrl, encoding: .utf8)
+                            parseDictionary(content)
+                            print("CMUDictionary: Loaded \(pronunciations.count) words (US fallback)")
+                        } catch {
+                            print("CMUDictionary: Error loading fallback dictionary: \(error)")
+                        }
+                        return
                     }
                 }
             }
@@ -135,7 +149,7 @@ final class CMUDictionary {
         }
         
         do {
-            let content = try String(contentsOf: url, encoding: .utf8)
+            let content = try String(contentsOf: dictionaryUrl, encoding: .utf8)
             parseDictionary(content)
             print("CMUDictionary: Loaded \(pronunciations.count) words (\(dialect.displayName))")
         } catch {
