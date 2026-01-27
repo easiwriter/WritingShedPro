@@ -10,29 +10,14 @@ import XCTest
 
 final class PublicationTypeTests: XCTestCase {
     
-    // MARK: - All Cases
-    
-    func testAllCasesCount() {
-        // Should have 6 publication types: magazine, competition, commission, publisher, agent, other
-        XCTAssertEqual(PublicationType.allCases.count, 6)
-    }
-    
-    func testAllCasesContainsExpectedTypes() {
-        let allCases = PublicationType.allCases
-        
-        XCTAssertTrue(allCases.contains(.magazine))
-        XCTAssertTrue(allCases.contains(.competition))
-        XCTAssertTrue(allCases.contains(.commission))
-        XCTAssertTrue(allCases.contains(.publisher))
-        XCTAssertTrue(allCases.contains(.agent))
-        XCTAssertTrue(allCases.contains(.other))
-    }
+    // All publication types (PublicationType doesn't conform to CaseIterable)
+    private let allTypes: [PublicationType] = [.magazine, .competition, .commission, .publisher, .agent, .other]
     
     // MARK: - Display Names
     
     func testDisplayNames() {
         // Each type should have a non-empty display name
-        for type in PublicationType.allCases {
+        for type in allTypes {
             XCTAssertFalse(type.displayName.isEmpty, "\(type) should have a display name")
         }
     }
@@ -41,7 +26,7 @@ final class PublicationTypeTests: XCTestCase {
     
     func testIcons() {
         // Each type should have a non-empty icon
-        for type in PublicationType.allCases {
+        for type in allTypes {
             XCTAssertFalse(type.icon.isEmpty, "\(type) should have an icon")
         }
         
