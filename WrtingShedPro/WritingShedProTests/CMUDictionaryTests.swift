@@ -10,6 +10,15 @@ import XCTest
 
 final class CMUDictionaryTests: XCTestCase {
     
+    // MARK: - Setup
+    
+    override func setUp() {
+        super.setUp()
+        // Ensure American English dialect is loaded by default for consistent tests
+        PoetryPreferences.shared.englishDialect = .american
+        CMUDictionary.shared.ensureLoaded()
+    }
+    
     // MARK: - Dictionary Loading
     
     func testDictionaryLoads() {
@@ -17,31 +26,38 @@ final class CMUDictionaryTests: XCTestCase {
         cmu.ensureLoaded()
         
         // Should have loaded many entries (CMU dict has ~135,000 words)
-        // In case dictionary file isn't in test bundle, we skip this assertion
-        // and test the fallback behavior instead
+        XCTAssertGreaterThan(cmu.entryCount, 100000, "CMU dictionary should have over 100,000 entries")
         print("CMU Dictionary loaded \(cmu.entryCount) entries")
+    }
+    
+    func testBritishDictionaryLoads() {
+        // Switch to British English
+        PoetryPreferences.shared.englishDialect = .british
+        CMUDictionary.shared.ensureLoaded()
+        
+        // British dictionary should also have many entries
+        XCTAssertGreaterThan(CMUDictionary.shared.entryCount, 50000, "British dictionary should have many entries")
+        print("British Dictionary loaded \(CMUDictionary.shared.entryCount) entries")
+        
+        // Reset to American for other tests
+        PoetryPreferences.shared.englishDialect = .american
+        CMUDictionary.shared.ensureLoaded()
     }
     
     // MARK: - Word Lookup
     
-    func testLookupCommonWords() throws {
+    func testLookupCommonWords() {
         let cmu = CMUDictionary.shared
-        
-        // Skip if dictionary isn't loaded in test bundle
-        try XCTSkipIf(cmu.entryCount == 0, "CMU dictionary not available in test bundle")
         
         // Test words that should be in the dictionary
-        XCTAssertNotNil(cmu.lookup("sounds"))
-        XCTAssertNotNil(cmu.lookup("downs"))
-        XCTAssertNotNil(cmu.lookup("love"))
-        XCTAssertNotNil(cmu.lookup("heart"))
+        XCTAssertNotNil(cmu.lookup("sounds"), "sounds should be in dictionary")
+        XCTAssertNotNil(cmu.lookup("downs"), "downs should be in dictionary")
+        XCTAssertNotNil(cmu.lookup("love"), "love should be in dictionary")
+        XCTAssertNotNil(cmu.lookup("heart"), "heart should be in dictionary")
     }
     
-    func testLookupCaseInsensitive() throws {
+    func testLookupCaseInsensitive() {
         let cmu = CMUDictionary.shared
-        
-        // Skip if dictionary isn't loaded in test bundle
-        try XCTSkipIf(cmu.entryCount == 0, "CMU dictionary not available in test bundle")
         
         XCTAssertEqual(cmu.lookup("Love")?.first, cmu.lookup("love")?.first)
         XCTAssertEqual(cmu.lookup("HEART")?.first, cmu.lookup("heart")?.first)
@@ -49,11 +65,8 @@ final class CMUDictionaryTests: XCTestCase {
     
     // MARK: - Rhyme Detection
     
-    func testPerfectRhymes() throws {
+    func testPerfectRhymes() {
         let cmu = CMUDictionary.shared
-        
-        // Skip if dictionary isn't loaded in test bundle
-        try XCTSkipIf(cmu.entryCount == 0, "CMU dictionary not available in test bundle")
         
         // These should be perfect rhymes
         XCTAssertTrue(cmu.wordsRhyme("cat", "hat"), "cat/hat should rhyme")
@@ -63,11 +76,8 @@ final class CMUDictionaryTests: XCTestCase {
         XCTAssertTrue(cmu.wordsRhyme("night", "light"), "night/light should rhyme")
     }
     
-    func testNearRhymes() throws {
+    func testNearRhymes() {
         let cmu = CMUDictionary.shared
-        
-        // Skip if dictionary isn't loaded in test bundle
-        try XCTSkipIf(cmu.entryCount == 0, "CMU dictionary not available in test bundle")
         
         // The original issue: sounds/downs should rhyme (AW1 N D Z vs AW1 N Z)
         // These are "near rhymes" where a stop consonant is elided
@@ -76,11 +86,8 @@ final class CMUDictionaryTests: XCTestCase {
         XCTAssertTrue(cmu.wordsRhyme("mounds", "gowns"), "mounds/gowns should rhyme")
     }
     
-    func testNonRhymes() throws {
+    func testNonRhymes() {
         let cmu = CMUDictionary.shared
-        
-        // Skip if dictionary isn't loaded in test bundle
-        try XCTSkipIf(cmu.entryCount == 0, "CMU dictionary not available in test bundle")
         
         // These should NOT rhyme
         XCTAssertFalse(cmu.wordsRhyme("cat", "dog"), "cat/dog should not rhyme")
@@ -88,22 +95,16 @@ final class CMUDictionaryTests: XCTestCase {
         XCTAssertFalse(cmu.wordsRhyme("around", "down"), "around/down should not rhyme (different endings)")
     }
     
-    func testHeartStartRhyme() throws {
+    func testHeartStartRhyme() {
         let cmu = CMUDictionary.shared
-        
-        // Skip if dictionary isn't loaded in test bundle
-        try XCTSkipIf(cmu.entryCount == 0, "CMU dictionary not available in test bundle")
         
         // heart and start should rhyme (both end in -art)
         XCTAssertTrue(cmu.wordsRhyme("heart", "start"), "heart/start should rhyme")
         XCTAssertTrue(cmu.wordsRhyme("art", "cart"), "art/cart should rhyme")
     }
     
-    func testSameWordRhymes() throws {
+    func testSameWordRhymes() {
         let cmu = CMUDictionary.shared
-        
-        // Skip if dictionary isn't loaded in test bundle
-        try XCTSkipIf(cmu.entryCount == 0, "CMU dictionary not available in test bundle")
         
         XCTAssertTrue(cmu.wordsRhyme("love", "love"), "same word should rhyme with itself")
         XCTAssertTrue(cmu.wordsRhyme("LOVE", "love"), "case shouldn't matter")
@@ -111,18 +112,15 @@ final class CMUDictionaryTests: XCTestCase {
     
     // MARK: - Rhyme Ending Extraction
     
-    func testRhymeEndingExtraction() throws {
+    func testRhymeEndingExtraction() {
         let cmu = CMUDictionary.shared
-        
-        // Skip if dictionary isn't loaded in test bundle
-        try XCTSkipIf(cmu.entryCount == 0, "CMU dictionary not available in test bundle")
         
         // Test that rhyme endings are extracted from the stressed vowel
         let soundsEnding = cmu.rhymeEnding(for: "sounds")
         let downsEnding = cmu.rhymeEnding(for: "downs")
         
-        XCTAssertNotNil(soundsEnding)
-        XCTAssertNotNil(downsEnding)
+        XCTAssertNotNil(soundsEnding, "sounds should have a rhyme ending")
+        XCTAssertNotNil(downsEnding, "downs should have a rhyme ending")
         
         // Both should start with AW (the stressed vowel)
         if let ending = soundsEnding {
@@ -131,6 +129,66 @@ final class CMUDictionaryTests: XCTestCase {
         if let ending = downsEnding {
             XCTAssertEqual(ending.first?.base, "AW", "downs should have AW vowel")
         }
+    }
+    
+    // MARK: - British Dictionary Tests
+    
+    func testBritishDictionaryLookup() {
+        // Switch to British English
+        PoetryPreferences.shared.englishDialect = .british
+        CMUDictionary.shared.ensureLoaded()
+        
+        let cmu = CMUDictionary.shared
+        
+        // Common words should be in British dictionary too
+        XCTAssertNotNil(cmu.lookup("love"), "love should be in British dictionary")
+        XCTAssertNotNil(cmu.lookup("heart"), "heart should be in British dictionary")
+        XCTAssertNotNil(cmu.lookup("day"), "day should be in British dictionary")
+        
+        // Reset to American
+        PoetryPreferences.shared.englishDialect = .american
+        CMUDictionary.shared.ensureLoaded()
+    }
+    
+    func testBritishRhymeDetection() {
+        // Switch to British English
+        PoetryPreferences.shared.englishDialect = .british
+        CMUDictionary.shared.ensureLoaded()
+        
+        let cmu = CMUDictionary.shared
+        
+        // Basic rhymes should work in British English too
+        XCTAssertTrue(cmu.wordsRhyme("cat", "hat"), "cat/hat should rhyme in British English")
+        XCTAssertTrue(cmu.wordsRhyme("love", "dove"), "love/dove should rhyme in British English")
+        XCTAssertTrue(cmu.wordsRhyme("night", "light"), "night/light should rhyme in British English")
+        
+        // Reset to American
+        PoetryPreferences.shared.englishDialect = .american
+        CMUDictionary.shared.ensureLoaded()
+    }
+    
+    func testDialectSwitching() {
+        let cmu = CMUDictionary.shared
+        
+        // Start with American
+        PoetryPreferences.shared.englishDialect = .american
+        cmu.ensureLoaded()
+        XCTAssertEqual(cmu.currentDialect, .american)
+        let americanCount = cmu.entryCount
+        
+        // Switch to British
+        PoetryPreferences.shared.englishDialect = .british
+        cmu.ensureLoaded()
+        XCTAssertEqual(cmu.currentDialect, .british)
+        let britishCount = cmu.entryCount
+        
+        // Both should have substantial entries
+        XCTAssertGreaterThan(americanCount, 50000)
+        XCTAssertGreaterThan(britishCount, 50000)
+        
+        // Reset to American
+        PoetryPreferences.shared.englishDialect = .american
+        cmu.ensureLoaded()
     }
     
     // MARK: - Poetry Validator Integration
