@@ -2045,6 +2045,18 @@ struct FileEditView: View {
             }
         }
         
+        // Feature 031: TOC file detection and regeneration
+        // If this is a TOC file (flagged or by name), regenerate its content from manuscript headings
+        let isTOCByName = file.name == "Table of Contents" || file.name == "Contents"
+        let isInFrontMatter = file.parentFolder?.name == "Front Matter"
+        if (file.isTOCFile || (isTOCByName && isInFrontMatter)), let project = file.project {
+            // Mark as TOC file if detected by name
+            if !file.isTOCFile && isTOCByName {
+                file.isTOCFile = true
+            }
+            regenerateTOCContent(for: project)
+        }
+        
         // Show keyboard/cursor when opening file (only if not locked and not coming from search)
         if file.currentVersion?.isLocked != true && searchContext == nil {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
@@ -3271,6 +3283,43 @@ struct FileEditView: View {
         
         #if DEBUG
         print("✅ Back matter settings synced")
+        #endif
+    }
+    
+    // MARK: - Table of Contents (Feature 031)
+    
+    /// Regenerate TOC content from manuscript headings
+    /// Called when a TOC file is opened
+    private func regenerateTOCContent(for project: Project) {
+        #if DEBUG
+        print("📑 Regenerating TOC content...")
+        #endif
+        
+        let tocService = TOCGenerationService(context: modelContext)
+        
+        // Generate TOC entries (excluding this TOC file to avoid circular reference)
+        let entries = tocService.generateEntries(for: project, tocFile: file)
+        
+        #if DEBUG
+        print("📑 Found \(entries.count) TOC entries")
+        #endif
+        
+        // Get TOC settings
+        let settings = file.tocSettings
+        
+        // Render TOC to attributed string
+        let tocContent = tocService.renderTOC(entries: entries, settings: settings, project: project)
+        
+        // Update the content
+        attributedContent = tocContent
+        previousContent = attributedContent.string
+        previousAttributedContent = tocContent
+        
+        // Save the generated content
+        saveContent()
+        
+        #if DEBUG
+        print("📑 TOC content regenerated and saved")
         #endif
     }
 

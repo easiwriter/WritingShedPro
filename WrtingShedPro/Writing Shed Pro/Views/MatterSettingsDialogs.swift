@@ -163,6 +163,12 @@ struct FrontMatterSettingsDialog: View {
         
         let textFile = TextFile(name: item.fileName, initialContent: "", parentFolder: folder)
         textFile.userOrder = item.sortOrder
+        
+        // Feature 031: Mark Table of Contents files for auto-generation
+        if item == .tableOfContents {
+            textFile.isTOCFile = true
+        }
+        
         modelContext.insert(textFile)
         
         if folder.textFiles == nil {
