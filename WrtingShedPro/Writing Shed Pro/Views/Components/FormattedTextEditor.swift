@@ -2241,8 +2241,14 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
         print("   textContainerInset: \(textContainerInset)")
         #endif
         
+        // Determine bullet level from style name for bullet lists
+        let bulletLevel: Int
+        if style.name.contains("level-3") { bulletLevel = 2 }
+        else if style.name.contains("level-2") { bulletLevel = 1 }
+        else { bulletLevel = 0 }
+        
         // Format the number using the style's format and adornment
-        let formattedNumber = style.numberFormat.symbol(for: 0, adornment: style.numberAdornment)
+        let formattedNumber = style.numberFormat.symbol(for: 0, adornment: style.numberAdornment, level: bulletLevel)
         
         // Get font and color from style (matching NumberingLayoutManager approach)
         let font = style.generateFont(applyPlatformScaling: true)

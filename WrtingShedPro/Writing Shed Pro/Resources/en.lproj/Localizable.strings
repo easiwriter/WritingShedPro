@@ -2224,6 +2224,9 @@
 "insertMenu.index" = "Index";
 "insertMenu.addIndexEntry" = "Add Index Entry";
 "insertMenu.showIndex" = "Show Index";
+"insertMenu.list" = "List";
+"insertMenu.numberedList" = "Numbered List";
+"insertMenu.bulletList" = "Bullet List";
 "fileEdit.insertMenu.accessibility" = "Insert content menu";
 
 /* Back Matter Generated Content View */

@@ -560,6 +560,18 @@ struct FileEditView: View {
             compactIndexSubmenu()
         }
         
+        // Lists submenu
+        Menu {
+            Button(action: { insertList(numbered: true) }) {
+                Label(NSLocalizedString("insertMenu.numberedList", comment: "Numbered List"), systemImage: "list.number")
+            }
+            Button(action: { insertList(numbered: false) }) {
+                Label(NSLocalizedString("insertMenu.bulletList", comment: "Bullet List"), systemImage: "list.bullet")
+            }
+        } label: {
+            Label(NSLocalizedString("insertMenu.list", comment: "List"), systemImage: "list.bullet.rectangle")
+        }
+        
         // Section marking menu (poetry projects only)
         if isPoetryProject {
             sectionMarkingMenu
@@ -1056,6 +1068,18 @@ struct FileEditView: View {
                 Button(action: { showNewIndexEntryDialog = true }) {
                     Label(NSLocalizedString("insertMenu.addIndexEntry", comment: "Add Index Entry"), systemImage: "list.bullet.indent")
                 }
+            }
+
+            // Lists submenu
+            Menu {
+                Button(action: { insertList(numbered: true) }) {
+                    Label(NSLocalizedString("insertMenu.numberedList", comment: "Numbered List"), systemImage: "list.number")
+                }
+                Button(action: { insertList(numbered: false) }) {
+                    Label(NSLocalizedString("insertMenu.bulletList", comment: "Bullet List"), systemImage: "list.bullet")
+                }
+            } label: {
+                Label(NSLocalizedString("insertMenu.list", comment: "List"), systemImage: "list.bullet.rectangle")
             }
 
             if isPoetryProject {
@@ -5299,6 +5323,132 @@ struct FileEditView: View {
         
         // DON'T trigger refresh - it dismisses the keyboard
         // The toolbar will check typing attributes directly when selection changes
+    }
+    
+    /// Insert a new list at the current cursor position
+    /// Creates an empty paragraph with the appropriate list style
+    /// - Parameter numbered: If true, creates a numbered list; otherwise creates a bullet list
+    private func insertList(numbered: Bool) {
+        guard let project = file.project else { return }
+        
+        let listStyleName = numbered ? "list-numbered" : "list-bullet"
+        guard let listStyle = project.styleSheet?.style(named: listStyleName) else {
+            #if DEBUG
+            print("⚠️ insertList: Could not find style '\(listStyleName)'")
+            #endif
+            return
+        }
+        
+        #if DEBUG
+        print("📝 insertList: Creating \(numbered ? "numbered" : "bullet") list")
+        #endif
+        
+        // Get the style attributes for the list
+        let styleAttributes = listStyle.generateAttributes()
+        
+        // Set typing attributes so new text will use the list style
+        if let textView = textViewCoordinator.textView {
+            // Build typing attributes from the style
+            var typingAttrs = styleAttributes
+            typingAttrs[.textStyle] = listStyleName
+            
+            textView.typingAttributes = typingAttrs
+            
+            // Trigger redraw so the list number/bullet appears immediately
+            // Need both setNeedsDisplay and layoutManager invalidation for immediate update
+            textView.setNeedsDisplay()
+            textView.layoutManager.invalidateDisplay(forCharacterRange: NSRange(location: 0, length: max(1, textView.textStorage.length)))
+            
+            #if DEBUG
+            print("📝 insertList: Set typing attributes for \(listStyleName)")
+            #endif
+            
+            // If we're not at an empty paragraph, we may want to insert a newline first
+            // Check if current paragraph is empty
+            let paragraphRange = (attributedContent.string as NSString).paragraphRange(for: selectedRange)
+            let paragraphText = (attributedContent.string as NSString).substring(with: paragraphRange)
+            let trimmedParagraph = paragraphText.trimmingCharacters(in: .whitespacesAndNewlines)
+            
+            if !trimmedParagraph.isEmpty && paragraphRange.length > 0 {
+                // Current paragraph has content - insert newline first, then apply style
+                let insertLocation = NSMaxRange(paragraphRange) - (paragraphText.hasSuffix("\n") ? 1 : 0)
+                
+                // Get current paragraph attributes for the newline
+                let currentAttrs = attributedContent.attributes(at: max(0, insertLocation - 1), effectiveRange: nil)
+                
+                // Create attributed string: newline (with current style) + zero-width space (with list style)
+                // The zero-width space anchors the new paragraph's style so the number/bullet appears immediately
+                let mutableString = NSMutableAttributedString()
+                mutableString.append(NSAttributedString(string: "\n", attributes: currentAttrs))
+                mutableString.append(NSAttributedString(string: "\u{200B}", attributes: typingAttrs)) // Zero-width space with list style
+                
+                // Insert at end of current paragraph
+                let mutableContent = NSMutableAttributedString(attributedString: attributedContent)
+                mutableContent.insert(mutableString, at: insertLocation)
+                
+                attributedContent = mutableContent
+                
+                // Move cursor to after the zero-width space (so user types after it)
+                let newCursorPosition = insertLocation + 2
+                selectedRange = NSRange(location: newCursorPosition, length: 0)
+                textView.selectedRange = selectedRange
+                
+                // Re-set typingAttributes AFTER cursor move to ensure Tab/Shift+Tab can detect list style
+                textView.typingAttributes = typingAttrs
+                
+                // Force layout manager to redraw numbers
+                textView.setNeedsDisplay()
+                if let layoutManager = textView.layoutManager as? NumberingLayoutManager {
+                    layoutManager.invalidateDisplay(forCharacterRange: NSRange(location: 0, length: textView.textStorage.length))
+                }
+                
+                #if DEBUG
+                print("📝 insertList: Inserted newline + zero-width space at position \(insertLocation)")
+                #endif
+            } else {
+                // Empty paragraph - insert zero-width space with list style to anchor it
+                // This makes the number/bullet appear immediately
+                let mutableContent = NSMutableAttributedString(attributedString: attributedContent)
+                
+                if attributedContent.length == 0 {
+                    // Completely empty document - insert zero-width space with list style
+                    let zwsWithStyle = NSAttributedString(string: "\u{200B}", attributes: typingAttrs)
+                    mutableContent.insert(zwsWithStyle, at: 0)
+                    attributedContent = mutableContent
+                    
+                    // Move cursor after zero-width space
+                    selectedRange = NSRange(location: 1, length: 0)
+                    textView.selectedRange = selectedRange
+                    
+                    // Re-set typingAttributes AFTER cursor move
+                    textView.typingAttributes = typingAttrs
+                } else if paragraphRange.length > 0 {
+                    // Paragraph exists but is empty (just whitespace) - add attributes and zero-width space
+                    mutableContent.addAttributes(typingAttrs, range: paragraphRange)
+                    
+                    // Insert zero-width space at start of paragraph to anchor style
+                    let zwsWithStyle = NSAttributedString(string: "\u{200B}", attributes: typingAttrs)
+                    mutableContent.insert(zwsWithStyle, at: paragraphRange.location)
+                    attributedContent = mutableContent
+                    
+                    // Move cursor after zero-width space
+                    selectedRange = NSRange(location: paragraphRange.location + 1, length: 0)
+                    textView.selectedRange = selectedRange
+                    
+                    // Re-set typingAttributes AFTER cursor move
+                    textView.typingAttributes = typingAttrs
+                }
+                
+                // Force layout manager to redraw numbers
+                textView.setNeedsDisplay()
+                if let layoutManager = textView.layoutManager as? NumberingLayoutManager {
+                    layoutManager.invalidateDisplay(forCharacterRange: NSRange(location: 0, length: max(1, textView.textStorage.length)))
+                }
+            }
+            
+            // Make sure text view has focus
+            textView.becomeFirstResponder()
+        }
     }
     
     /// Apply number format to current paragraph or selection

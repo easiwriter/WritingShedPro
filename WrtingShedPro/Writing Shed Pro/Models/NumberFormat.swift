@@ -92,10 +92,11 @@ enum NumberFormat: String, Codable, CaseIterable {
     
     /// The actual character/string to display for a given index
     /// - Parameters:
-    ///   - index: Zero-based index (0, 1, 2...)
+    ///   - index: Zero-based index (0, 1, 2...) - used for numbered lists
     ///   - adornment: Optional adornment style (default: .period for backward compatibility)
+    ///   - level: Optional level for bullet lists (0, 1, 2) - determines bullet symbol
     /// - Returns: Formatted string for display
-    func symbol(for index: Int, adornment: NumberingAdornment = .period) -> String {
+    func symbol(for index: Int, adornment: NumberingAdornment = .period, level: Int = 0) -> String {
         switch self {
         case .none:
             return ""
@@ -113,8 +114,10 @@ enum NumberFormat: String, Codable, CaseIterable {
             let symbols = ["*", "†", "‡", "§", "¶"]
             return symbols[index % symbols.count]
         case .bulletSymbols:
-            let symbols = ["•", "◦", "▪", "▫", "▸"]
-            return symbols[index % symbols.count]
+            // Bullet lists use level to determine the symbol (same bullet for all items at a level)
+            // Level 0: •, Level 1: ◦, Level 2: ▪
+            let symbols = ["•", "◦", "▪"]
+            return symbols[min(level, symbols.count - 1)]
         }
     }
     

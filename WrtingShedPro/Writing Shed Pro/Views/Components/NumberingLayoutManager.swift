@@ -33,6 +33,14 @@ class NumberingLayoutManager: NSLayoutManager {
     /// Font size for poetry line numbers
     private let poetryLineNumberFontSize: CGFloat = 11
     
+    /// Determine the bullet level from a style name
+    /// Returns 0 for base level, 1 for level-2, 2 for level-3, etc.
+    private func bulletLevel(from styleName: String) -> Int {
+        if styleName.contains("level-3") { return 2 }
+        if styleName.contains("level-2") { return 1 }
+        return 0
+    }
+    
     /// Build a map of child style → parent style from parentStyleName relationships
     /// If Title2.parentStyleName == "Title1", then Title2's numbers are prefixed with Title1's
     private func buildParentStyleMap(from styleSheet: StyleSheet) -> [String: String] {
@@ -174,18 +182,20 @@ class NumberingLayoutManager: NSLayoutManager {
             
             // Build the formatted number, with parent prefix for hierarchical numbering
             let formattedNumber: String
+            let level = bulletLevel(from: styleName)
             if let parentName = parentStyleName,
                let parentStyle = styleSheet.style(named: parentName),
                parentStyle.numberFormat != .none,
                let parentNumber = lastNumberForStyle[parentName] {
                 // Hierarchical: format as "parentNumber.childNumber" (e.g., "1.1", "1.2")
-                let parentSymbol = parentStyle.numberFormat.symbol(for: parentNumber - 1, adornment: .plain)
-                let childSymbol = style.numberFormat.symbol(for: counter - 1, adornment: .plain)
+                let parentLevel = bulletLevel(from: parentName)
+                let parentSymbol = parentStyle.numberFormat.symbol(for: parentNumber - 1, adornment: .plain, level: parentLevel)
+                let childSymbol = style.numberFormat.symbol(for: counter - 1, adornment: .plain, level: level)
                 // Apply adornment to the final combined number
                 formattedNumber = style.numberAdornment.apply(to: "\(parentSymbol).\(childSymbol)")
             } else {
                 // No parent or parent has no numbering - use standard format
-                formattedNumber = style.numberFormat.symbol(for: counter - 1, adornment: style.numberAdornment)
+                formattedNumber = style.numberFormat.symbol(for: counter - 1, adornment: style.numberAdornment, level: level)
             }
             
             // Get the line fragment for this paragraph
@@ -237,15 +247,17 @@ class NumberingLayoutManager: NSLayoutManager {
                     
                     // Build the formatted number, with parent prefix for hierarchical numbering
                     let formattedNumber: String
+                    let level = bulletLevel(from: styleName)
                     if let parentName = parentStyleName,
                        let parentStyle = styleSheet.style(named: parentName),
                        parentStyle.numberFormat != .none,
                        let parentNumber = lastNumberForStyle[parentName] {
-                        let parentSymbol = parentStyle.numberFormat.symbol(for: parentNumber - 1, adornment: .plain)
-                        let childSymbol = style.numberFormat.symbol(for: counter - 1, adornment: .plain)
+                        let parentLevel = bulletLevel(from: parentName)
+                        let parentSymbol = parentStyle.numberFormat.symbol(for: parentNumber - 1, adornment: .plain, level: parentLevel)
+                        let childSymbol = style.numberFormat.symbol(for: counter - 1, adornment: .plain, level: level)
                         formattedNumber = style.numberAdornment.apply(to: "\(parentSymbol).\(childSymbol)")
                     } else {
-                        formattedNumber = style.numberFormat.symbol(for: counter - 1, adornment: style.numberAdornment)
+                        formattedNumber = style.numberFormat.symbol(for: counter - 1, adornment: style.numberAdornment, level: level)
                     }
                     
                     // Calculate Y position for empty paragraph (after last line)
