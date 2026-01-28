@@ -16,8 +16,8 @@ struct ProjectFolderMigrationService {
     // MARK: - Migration Version
     
     private static let migrationVersionKey = "projectFolderMigrationVersion"
-    // Version 13: Restore content folders incorrectly deleted by v10-12
-    private static let currentMigrationVersion = 13
+    // Version 16: Fix manuscript subfolder parent relationships
+    private static let currentMigrationVersion = 16
     
     // MARK: - Public Methods
     
@@ -115,8 +115,28 @@ struct ProjectFolderMigrationService {
             restoreRootLevelContentFolders(modelContext: modelContext)
         }
         
+        // Version 14: Re-run cleanup with corrected folder list
+        // v10-12 incorrectly included content folders in cleanup list
+        // Now cleanup only removes manuscript-only folders (Front Matter, Back Matter, All X)
+        if oldVersion < 14 {
+            cleanupRootLevelManuscriptFolders(modelContext: modelContext)
+        }
+        
+        // Version 15: Re-run cleanup - previous version had wrong property names
+        if oldVersion < 15 {
+            cleanupRootLevelManuscriptFolders(modelContext: modelContext)
+        }
+        
+        // Version 16: Fix parent relationships for manuscript subfolders
+        // Some folders appear in Manuscript's folders array but have parentFolder = nil
+        // This causes them to appear at both root level and inside Manuscript
+        if oldVersion < 16 {
+            fixManuscriptSubfolderRelationships(modelContext: modelContext)
+            cleanupRootLevelManuscriptFolders(modelContext: modelContext)
+        }
+        
         // Future migrations go here:
-        // if oldVersion < 14 { ... }
+        // if oldVersion < 17 { ... }
         
         do {
             try modelContext.save()
@@ -798,9 +818,9 @@ struct ProjectFolderMigrationService {
                 for folder in rootFolders {
                     let folderName = folder.name ?? ""
                     if manuscriptOnlyNames.contains(folderName) {
-                        // Only delete if folder is empty (no files)
-                        let fileCount = folder.files?.count ?? 0
-                        let subfolderCount = folder.subfolders?.count ?? 0
+                        // Only delete if folder is empty (no files and no subfolders)
+                        let fileCount = folder.textFiles?.count ?? 0
+                        let subfolderCount = folder.folders?.count ?? 0
                         
                         if fileCount == 0 && subfolderCount == 0 {
                             #if DEBUG
@@ -823,6 +843,49 @@ struct ProjectFolderMigrationService {
         } catch {
             #if DEBUG
             print("[ProjectFolderMigration] ❌ Cleanup failed: \(error)")
+            #endif
+        }
+    }
+    
+    /// Version 16 Migration: Fix parent relationships for manuscript subfolders
+    /// Some folders appear in Manuscript's folders array but have parentFolder = nil
+    /// This causes them to appear at both root level AND inside Manuscript
+    private static func fixManuscriptSubfolderRelationships(modelContext: ModelContext) {
+        #if DEBUG
+        print("[ProjectFolderMigration] 🔧 Starting fix for manuscript subfolder relationships")
+        #endif
+        
+        do {
+            let projectDescriptor = FetchDescriptor<Project>()
+            let projects = try modelContext.fetch(projectDescriptor)
+            
+            for project in projects {
+                // Find the Manuscript folder
+                guard let manuscriptFolder = project.folders?.first(where: { $0.name == "Manuscript" }) else {
+                    continue
+                }
+                
+                // Check each subfolder in Manuscript's folders array
+                guard let manuscriptSubfolders = manuscriptFolder.folders else { continue }
+                
+                for subfolder in manuscriptSubfolders {
+                    // If the subfolder's parentFolder is nil, set it to Manuscript
+                    if subfolder.parentFolder == nil {
+                        #if DEBUG
+                        print("[ProjectFolderMigration] 🔗 Fixing parent relationship for '\(subfolder.name ?? "")' in project '\(project.name ?? "")'")
+                        #endif
+                        subfolder.parentFolder = manuscriptFolder
+                    }
+                }
+            }
+            
+            try modelContext.save()
+            #if DEBUG
+            print("[ProjectFolderMigration] ✅ Parent relationship fix complete")
+            #endif
+        } catch {
+            #if DEBUG
+            print("[ProjectFolderMigration] ❌ Parent relationship fix failed: \(error)")
             #endif
         }
     }

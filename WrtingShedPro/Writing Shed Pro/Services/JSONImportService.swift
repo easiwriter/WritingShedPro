@@ -140,9 +140,9 @@ class JSONImportService {
         }
         
         // Import folders (includes text files and versions)
+        // Folders are now inserted inside importWSPFolder, so we don't insert them again here
         for folderData in data.folders {
-            let folder = importWSPFolder(folderData, project: project, parentFolder: nil, textFileMap: &textFileMap, versionMap: &versionMap, proseSectionMap: proseSectionMap)
-            modelContext.insert(folder)
+            _ = importWSPFolder(folderData, project: project, parentFolder: nil, textFileMap: &textFileMap, versionMap: &versionMap, proseSectionMap: proseSectionMap)
         }
         
         // Import publications
@@ -218,6 +218,10 @@ class JSONImportService {
         )
         folder.id = generateNewUUIDs ? UUID() : (UUID(uuidString: data.id) ?? UUID())
         
+        // Insert the folder into context BEFORE processing children
+        // This ensures parent-child relationships are properly established in SwiftData
+        modelContext.insert(folder)
+        
         // Import text files
         for tfData in data.textFiles {
             let textFile = importWSPTextFile(tfData, folder: folder, versionMap: &versionMap, proseSectionMap: proseSectionMap)
@@ -225,10 +229,10 @@ class JSONImportService {
             modelContext.insert(textFile)
         }
         
-        // Import subfolders recursively
+        // Import subfolders recursively - parent is already in context
         for subfolderData in data.subfolders {
-            let subfolder = importWSPFolder(subfolderData, project: project, parentFolder: folder, textFileMap: &textFileMap, versionMap: &versionMap, proseSectionMap: proseSectionMap)
-            modelContext.insert(subfolder)
+            // Subfolder is inserted inside this recursive call, we don't insert it again here
+            _ = importWSPFolder(subfolderData, project: project, parentFolder: folder, textFileMap: &textFileMap, versionMap: &versionMap, proseSectionMap: proseSectionMap)
         }
         
         return folder
