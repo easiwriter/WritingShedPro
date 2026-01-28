@@ -124,6 +124,12 @@ final class TextStyleModel {
     var styleCategoryRaw: String = "text"  // "text", "list", "footnote", "heading"
     var isSystemStyle: Bool = false  // true for built-in UIFont.TextStyle equivalents
     
+    // MARK: - Table of Contents
+    /// Whether paragraphs with this style should appear in the Table of Contents
+    var includeInTOC: Bool = false
+    /// Indent level in TOC (0-5), 0 = no indent
+    var tocLevel: Int = 0
+    
     // MARK: - Metadata
     var createdDate: Date = Date()
     var modifiedDate: Date = Date()

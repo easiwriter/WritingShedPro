@@ -58,6 +58,11 @@
 "manuscript.footnotes.perFile" = "Per File";
 "manuscript.footnotes.continuous" = "Continuous";
 "manuscript.footnotes.perSection" = "Per Section";
+
+/* Table of Contents - Feature 031 */
+"toc.noEntries" = "No headings are configured for the Table of Contents. Edit heading styles and enable \"Include in Table of Contents\" to add entries.";
+"toc.title.default" = "Contents";
+"toc.file.name" = "Table of Contents";
 "manuscript.progress.loading" = "Loading files...";
 "manuscript.progress.assembling" = "Assembling content...";
 "manuscript.progress.calculating" = "Calculating layout...";
@@ -1199,6 +1204,12 @@
 "textStyleEditor.followOnStyle.header" = "Follow-On Style";
 "textStyleEditor.followOnStyle.footer" = "The style to apply when you press Enter. For example, after a heading you might want to switch to Body style.";
 "textStyleEditor.followOnStyle.same" = "Same Style";
+
+/* Table of Contents Settings - Feature 031 */
+"textStyleEditor.toc.header" = "Table of Contents";
+"textStyleEditor.toc.include" = "Include in Table of Contents";
+"textStyleEditor.toc.level" = "Indent Level";
+"textStyleEditor.toc.footer" = "Paragraphs with this style will appear in the Table of Contents. Higher indent levels create sub-entries.";
 
 /* NumberFormat Display Names */
 "numberFormat.none" = "None";

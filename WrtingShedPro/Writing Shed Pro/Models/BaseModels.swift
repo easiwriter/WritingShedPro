@@ -689,6 +689,12 @@ final class TextFile {
     // Whether this file is included in manuscript assembly (default: true)
     var includedInManuscript: Bool = true
     
+    // Feature 031: Table of Contents
+    // Indicates this file is a TOC file (auto-generated content)
+    var isTOCFile: Bool = false
+    // JSON-encoded TOCSettings for TOC files
+    var tocSettingsData: Data?
+    
     /// Workflow status for this file (Draft, Ready, Submitted, etc.)
     var workflowStatus: WorkflowStatus? {
         get {
@@ -715,6 +721,21 @@ final class TextFile {
     var poetryForm: PoetryForm? {
         guard let formId = poetryFormId else { return nil }
         return PoetryFormService.shared.getForm(byId: formId)
+    }
+    
+    /// Get/set TOC settings (decoded from tocSettingsData)
+    var tocSettings: TOCSettings {
+        get {
+            guard let data = tocSettingsData,
+                  let settings = try? JSONDecoder().decode(TOCSettings.self, from: data) else {
+                return .default
+            }
+            return settings
+        }
+        set {
+            tocSettingsData = try? JSONEncoder().encode(newValue)
+            modifiedDate = Date()
+        }
     }
     
     init(name: String = "", initialContent: String = "", parentFolder: Folder? = nil, poetryFormId: UUID? = nil, poetryFormName: String? = nil) {

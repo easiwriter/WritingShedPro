@@ -73,6 +73,7 @@ struct TextStyleEditorView: View {
                 paragraphSettingsSection
                 numberingSection
                 followOnStyleSection
+                tocSection
             }
             .disabled(style.styleSheet?.isSystemStyleSheet == true)
         }
@@ -590,6 +591,50 @@ struct TextStyleEditorView: View {
             Text("textStyleEditor.followOnStyle.footer")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+        }
+    }
+    
+    /// Section for Table of Contents settings
+    /// Only shown for heading-category styles
+    private var tocSection: some View {
+        Group {
+            // Only show for heading category styles
+            if style.styleCategory == .heading {
+                Section {
+                    Toggle(isOn: Binding(
+                        get: { style.includeInTOC },
+                        set: { newValue in
+                            style.includeInTOC = newValue
+                            hasUnsavedChanges = true
+                        }
+                    )) {
+                        Text("textStyleEditor.toc.include")
+                    }
+                    
+                    if style.includeInTOC {
+                        Stepper(value: Binding(
+                            get: { style.tocLevel },
+                            set: { newValue in
+                                style.tocLevel = newValue
+                                hasUnsavedChanges = true
+                            }
+                        ), in: 0...5) {
+                            HStack {
+                                Text("textStyleEditor.toc.level")
+                                Spacer()
+                                Text("\(style.tocLevel)")
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                } header: {
+                    Text("textStyleEditor.toc.header")
+                } footer: {
+                    Text("textStyleEditor.toc.footer")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
     }
     
