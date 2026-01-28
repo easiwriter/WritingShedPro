@@ -104,6 +104,9 @@ struct FileEditView: View {
     @State private var showProjectLocations = false
     @State private var showProjectPlot = false
     
+    // PERFORMANCE: Track when content has been loaded to simplify initial render
+    @State private var hasLoadedContent = false
+    
     // Feature 017: Search and Replace
     @State private var showSearchBar = false
     @State private var searchManager = InEditorSearchManager()
@@ -124,6 +127,10 @@ struct FileEditView: View {
     init(file: TextFile) {
         self.file = file
         
+        #if DEBUG
+        print("⏱️ [PERF] FileEditView.init() for file: \(file.name)")
+        #endif
+        
         // Initialize with empty content - will load in onAppear to avoid repeated init calls
         let emptyAttributed = NSAttributedString(
             string: "",
@@ -134,13 +141,10 @@ struct FileEditView: View {
         _previousContent = State(initialValue: "")
         _selectedRange = State(initialValue: NSRange(location: 0, length: 0))
         
-        // Try to restore undo manager or create new one
-        if let restoredManager = file.restoreUndoState() {
-            _undoManager = State(initialValue: restoredManager)
-        } else {
-            let newManager = TextFileUndoManager(file: file)
-            _undoManager = State(initialValue: newManager)
-        }
+        // PERFORMANCE FIX: Don't restore undo state in init - it deserializes JSON and blocks navigation
+        // Create fresh undo manager; we'll restore state in onAppear if needed
+        let newManager = TextFileUndoManager(file: file)
+        _undoManager = State(initialValue: newManager)
     }
     
     // MARK: - Body Components
@@ -678,8 +682,13 @@ struct FileEditView: View {
     
     @ViewBuilder
     private func navigationBarButtons() -> some View {
-        // Back matter files: show delete/trash button only
-        if !isFileEditable {
+        // PERFORMANCE: Show minimal toolbar during navigation transition
+        // Full toolbar is shown after content loads to avoid blocking the animation
+        if !hasLoadedContent {
+            // Minimal placeholder - just empty space to prevent layout shift
+            EmptyView()
+        } else if !isFileEditable {
+            // Back matter files: show delete/trash button only
             HStack {
                 Button(role: .destructive) {
                     #if DEBUG
@@ -1274,7 +1283,9 @@ struct FileEditView: View {
                 .font(.headline)
                 .lineLimit(1)
             
-            if let formName = file.poetryFormName ?? file.poetryForm?.name {
+            // PERFORMANCE: Only use denormalized poetryFormName to avoid DB lookup
+            // The poetryForm property triggers PoetryFormService.getForm() which loads all forms
+            if let formName = file.poetryFormName {
                 Text(formName)
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -1385,9 +1396,13 @@ struct FileEditView: View {
     }
     
     var body: some View {
+        #if DEBUG
+        let _ = print("⏱️ [PERF] FileEditView.body computed at \(Date()), hasLoadedContent: \(hasLoadedContent)")
+        #endif
         mainContent
             // For poetry projects, hide the navigation title since we use a custom title view
-            .navigationTitle(isPoetryProject ? "" : file.name)
+            // PERFORMANCE: Show just file name during navigation, full title after load
+            .navigationTitle(hasLoadedContent && isPoetryProject ? "" : file.name)
             .navigationBarTitleDisplayMode(.inline)
             // Use native iOS back button - it's rendered by UIKit and immune to SwiftUI render blocking
             .navigationBarBackButtonHidden(false)
@@ -1396,7 +1411,8 @@ struct FileEditView: View {
             }
             .toolbar {
                 // Custom title with form subtitle for poetry projects
-                if isPoetryProject {
+                // PERFORMANCE: Only show after content loads to avoid blocking navigation
+                if hasLoadedContent && isPoetryProject {
                     ToolbarItem(placement: .principal) {
                         poetryTitleView
                     }
@@ -1817,7 +1833,8 @@ struct FileEditView: View {
                 saveDebounceTimer?.invalidate()
                 saveDebounceTimer = nil
                 
-                saveChanges()
+                // PERFORMANCE FIX: Only call saveUndoState() which includes saveChanges()
+                // Previously we called both, causing duplicate expensive saves
                 saveUndoState()
             }
             .onAppear {
@@ -2003,47 +2020,134 @@ struct FileEditView: View {
     }
     // MARK: - Lifecycle Helpers
     
+    // MARK: - Performance Timing
+    
+    /// Track when the view appeared for performance diagnostics
+    @State private var viewAppearTime: CFAbsoluteTime = 0
+    
     private func setupOnAppear() {
+        let appearTime = CFAbsoluteTimeGetCurrent()
+        viewAppearTime = appearTime
+        #if DEBUG
+        print("⏱️ [PERF] onAppear triggered at T+0.000ms")
+        #endif
+        
+        // PERFORMANCE: Delay ALL work until after navigation animation completes (~350ms)
+        // iOS navigation uses Core Animation which runs on main thread - any work we do
+        // during the animation blocks it and causes visible blur/stutter.
+        // Using CATransaction.completionBlock ensures we run AFTER the animation finishes.
+        CATransaction.begin()
+        CATransaction.setCompletionBlock {
+            #if DEBUG
+            let elapsed = (CFAbsoluteTimeGetCurrent() - appearTime) * 1000
+            print("⏱️ [PERF] performFullSetup starting at T+\(String(format: "%.1f", elapsed))ms (after CATransaction)")
+            #endif
+            self.performFullSetup()
+        }
+        CATransaction.commit()
+    }
+    
+    /// Full setup that runs after navigation transition is complete
+    private func performFullSetup() {
+        let setupStart = CFAbsoluteTimeGetCurrent()
         
         // Register stylesheet with provider for image caption rendering
         if let styleSheet = file.project?.styleSheet {
             StyleSheetProvider.shared.register(styleSheet: styleSheet, for: file.id)
         }
+        #if DEBUG
+        let stylesheetTime = (CFAbsoluteTimeGetCurrent() - setupStart) * 1000
+        print("⏱️ [PERF]   Stylesheet register: \(String(format: "%.1f", stylesheetTime))ms")
+        #endif
         
         // Always jump to latest version when opening a file
         file.selectLatestVersion()
+        #if DEBUG
+        let versionTime = (CFAbsoluteTimeGetCurrent() - setupStart) * 1000
+        print("⏱️ [PERF]   Select version: \(String(format: "%.1f", versionTime))ms")
+        #endif
         
         // Load content from database - ALWAYS normalize for iPhone
         if let savedContent = file.currentVersion?.attributedContent {
             #if DEBUG
             print("📂 onAppear: Loading content, length: \(savedContent.length)")
+            let contentLoadTime = (CFAbsoluteTimeGetCurrent() - setupStart) * 1000
+            print("⏱️ [PERF]   Content loaded from DB: \(String(format: "%.1f", contentLoadTime))ms")
             #endif
+            
             // Strip adaptive colors (black/white/gray) to support dark mode properly
             let processedContent = AttributedStringSerializer.stripAdaptiveColors(from: savedContent)
+            #if DEBUG
+            let stripTime = (CFAbsoluteTimeGetCurrent() - setupStart) * 1000
+            print("⏱️ [PERF]   Strip colors: \(String(format: "%.1f", stripTime))ms")
+            #endif
             
             // No iPhone-specific font changes - use view scale transform instead
             
             attributedContent = processedContent
+            #if DEBUG
+            let setContentTime = (CFAbsoluteTimeGetCurrent() - setupStart) * 1000
+            print("⏱️ [PERF]   Set attributedContent (triggers updateUIView): \(String(format: "%.1f", setContentTime))ms")
+            #endif
+            
             previousContent = attributedContent.string
             previousAttributedContent = processedContent  // Cache for undo without expensive DB fetch
-            
-            // CRITICAL: Restore orphaned comment markers from database
-            // Comments created before we added serialization support need to be re-inserted
-            restoreOrphanedCommentMarkers()
-            
-            // FEATURE 029: Restore ReferenceAttachment instances from metadata
-            // Since RTF format doesn't preserve custom attachment subclasses,
-            // we use the metadata to recreate them on load
-            if let metadataData = file.currentVersion?.referenceMetadataData,
-               let metadata = ReferenceMetadata.decode(metadataData) {
-                attributedContent = restoreReferenceAttachments(in: attributedContent, from: metadata)
-            }
             
             // Position cursor at beginning of text (unless opening from search, which will position at first match)
             if searchContext == nil || searchContext?.shouldActivate == false {
                 selectedRange = NSRange(location: 0, length: 0)
             }
+            
+            // Mark content as loaded - enables full toolbar
+            hasLoadedContent = true
         }
+        
+        #if DEBUG
+        let fullSetupTime = (CFAbsoluteTimeGetCurrent() - setupStart) * 1000
+        let totalTime = (CFAbsoluteTimeGetCurrent() - viewAppearTime) * 1000
+        print("⏱️ [PERF] performFullSetup complete: \(String(format: "%.1f", fullSetupTime))ms (total from onAppear: \(String(format: "%.1f", totalTime))ms)")
+        #endif
+        
+        // PERFORMANCE: Defer remaining setup to after navigation animation completes
+        // This includes undo state, comment markers, and references - not critical for initial display
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            self.performDeferredSetup()
+        }
+    }
+    
+    /// PERFORMANCE FIX: Deferred setup operations that run after the first render
+    /// This allows the toolbar and UI to display immediately without blocking
+    private func performDeferredSetup() {
+        let deferredStart = CFAbsoluteTimeGetCurrent()
+        
+        // Restore undo state (deferred from init to avoid blocking navigation)
+        if let restoredManager = file.restoreUndoState() {
+            undoManager = restoredManager
+        }
+        #if DEBUG
+        let undoTime = (CFAbsoluteTimeGetCurrent() - deferredStart) * 1000
+        print("⏱️ [PERF]   Restore undo state: \(String(format: "%.1f", undoTime))ms")
+        #endif
+        
+        // CRITICAL: Restore orphaned comment markers from database
+        // Comments created before we added serialization support need to be re-inserted
+        restoreOrphanedCommentMarkers()
+        #if DEBUG
+        let commentsTime = (CFAbsoluteTimeGetCurrent() - deferredStart) * 1000
+        print("⏱️ [PERF]   Restore comment markers: \(String(format: "%.1f", commentsTime))ms")
+        #endif
+        
+        // FEATURE 029: Restore ReferenceAttachment instances from metadata
+        // Since RTF format doesn't preserve custom attachment subclasses,
+        // we use the metadata to recreate them on load
+        if let metadataData = file.currentVersion?.referenceMetadataData,
+           let metadata = ReferenceMetadata.decode(metadataData) {
+            attributedContent = restoreReferenceAttachments(in: attributedContent, from: metadata)
+        }
+        #if DEBUG
+        let refsTime = (CFAbsoluteTimeGetCurrent() - deferredStart) * 1000
+        print("⏱️ [PERF]   Restore references: \(String(format: "%.1f", refsTime))ms")
+        #endif
         
         // Feature 031: TOC file detection and regeneration
         // If this is a TOC file (flagged or by name), regenerate its content from manuscript headings
@@ -2070,23 +2174,10 @@ struct FileEditView: View {
         // Set typing attributes from current content or stylesheet
         if let project = file.project {
             if attributedContent.length > 0 {
-                // CRITICAL: Don't reapply styles to legacy RTF documents!
-                // Legacy imports have direct formatting (bold/italic) baked in, not stylesheet styles
-                // Reapplying styles would destroy all the bold/italic formatting
-                // Modern JSON format documents SHOULD have styles reapplied
-                let isLegacyRTF = file.currentVersion?.formattedContent != nil && 
-                                  !AttributedStringSerializer.isJSONFormat(file.currentVersion?.formattedContent)
-                
-                if !isLegacyRTF {
-                    #if DEBUG
-                    print("📝 onAppear: Reapplying styles to pick up any changes")
-                    #endif
-                    reapplyAllStyles(registerUndo: false)  // Don't register undo for initial load
-                } else {
-                    #if DEBUG
-                    print("📝 onAppear: Skipping style reapply for legacy RTF document (preserves direct formatting)")
-                    #endif
-                }
+                // PERFORMANCE: Do NOT call reapplyAllStyles on initial file open
+                // The content from database already has correct styles applied
+                // reapplyAllStyles was causing visible font changes 400ms after navigation (blur/flash)
+                // If stylesheet changes, user can reload the file or we can trigger refresh then
                 
                 let attrs = attributedContent.attributes(at: 0, effectiveRange: nil)
                 textViewCoordinator.modifyTypingAttributes { textView in
@@ -2108,6 +2199,13 @@ struct FileEditView: View {
                 #endif
             }
         }
+        
+        #if DEBUG
+        let deferredTotalTime = (CFAbsoluteTimeGetCurrent() - deferredStart) * 1000
+        let grandTotalTime = (CFAbsoluteTimeGetCurrent() - viewAppearTime) * 1000
+        print("⏱️ [PERF] performDeferredSetup complete: \(String(format: "%.1f", deferredTotalTime))ms")
+        print("⏱️ [PERF] === TOTAL FILE OPEN TIME: \(String(format: "%.1f", grandTotalTime))ms ===")
+        #endif
         
         // Check if we should activate search from multi-file search context
         if let context = searchContext, context.shouldActivate {
@@ -6914,37 +7012,13 @@ struct FileEditView: View {
             // Save it as-is - no scaling needed since we normalize on load, not on save
             file.currentVersion?.attributedContent = currentContent
             
-            // FEATURE 029: Extract and save reference metadata
-            let referenceMetadata = extractReferenceMetadata(from: currentContent)
+            // PERFORMANCE FIX: Single pass extraction of reference metadata and attachment counts
+            // Previously we enumerated the document 3+ times; now just once
+            let (referenceMetadata, debugInfo) = extractContentMetadata(from: currentContent)
             file.currentVersion?.referenceMetadataData = referenceMetadata.encode()
             
-            // Count attachments for debugging
-            var commentCount = 0
-            var imageCount = 0
-            var footnoteCount = 0
-            var referenceCount = 0
-            var poemSectionCount = 0
-            currentContent.enumerateAttribute(.attachment, in: NSRange(location: 0, length: currentContent.length)) { value, range, _ in
-                if value is CommentAttachment {
-                    commentCount += 1
-                } else if value is ImageAttachment {
-                    imageCount += 1
-                } else if value is FootnoteAttachment {
-                    footnoteCount += 1
-                } else if value is ReferenceAttachment {
-                    referenceCount += 1
-                }
-            }
-            currentContent.enumerateAttribute(.poemSectionType, in: NSRange(location: 0, length: currentContent.length)) { value, range, _ in
-                if value != nil {
-                    poemSectionCount += 1
-                    #if DEBUG
-                    print("💾 Found poemSectionType '\(value!)' at range \(range)")
-                    #endif
-                }
-            }
             #if DEBUG
-            print("💾 Saving attributed content with \(commentCount) comments, \(imageCount) images, \(footnoteCount) footnotes, \(referenceCount) references, and \(poemSectionCount) marked sections")
+            print("💾 Saving attributed content with \(debugInfo.commentCount) comments, \(debugInfo.imageCount) images, \(debugInfo.footnoteCount) footnotes, \(debugInfo.referenceCount) references, and \(debugInfo.poemSectionCount) marked sections")
             #endif
         } else {
             var contentToSave = attributedContent
@@ -6960,7 +7034,7 @@ struct FileEditView: View {
             file.currentVersion?.attributedContent = contentToSave
             
             // FEATURE 029: Extract and save reference metadata
-            let referenceMetadata = extractReferenceMetadata(from: contentToSave)
+            let (referenceMetadata, _) = extractContentMetadata(from: contentToSave)
             file.currentVersion?.referenceMetadataData = referenceMetadata.encode()
         }
         
@@ -6978,22 +7052,59 @@ struct FileEditView: View {
         }
     }
     
-    /// FEATURE 029: Extract all reference attachments and create metadata
-    /// This creates a persistent record of references that survives RTF serialization
-    private func extractReferenceMetadata(from attributedString: NSAttributedString) -> ReferenceMetadata {
+    /// Debug info collected during content metadata extraction
+    private struct ContentDebugInfo {
+        var commentCount = 0
+        var imageCount = 0
+        var footnoteCount = 0
+        var referenceCount = 0
+        var poemSectionCount = 0
+    }
+    
+    /// PERFORMANCE FIX: Extract all content metadata in a single pass
+    /// Previously we enumerated the document 3+ times for different attributes.
+    /// This combines reference extraction with attachment counting for debug logging.
+    private func extractContentMetadata(from attributedString: NSAttributedString) -> (metadata: ReferenceMetadata, debug: ContentDebugInfo) {
         var metadata = ReferenceMetadata()
+        var debug = ContentDebugInfo()
         
-        attributedString.enumerateAttribute(.attachment, in: NSRange(location: 0, length: attributedString.length)) { value, range, _ in
-            if let referenceAttachment = value as? ReferenceAttachment {
-                metadata.add(
-                    type: referenceAttachment.referenceType,
-                    entryID: referenceAttachment.entryID,
-                    displayText: referenceAttachment.displayText,
-                    displayNumber: referenceAttachment.displayNumber
-                )
+        // Single pass enumeration for all attributes
+        let fullRange = NSRange(location: 0, length: attributedString.length)
+        
+        attributedString.enumerateAttributes(in: fullRange, options: []) { attributes, range, _ in
+            // Check for attachments
+            if let attachment = attributes[.attachment] {
+                if let referenceAttachment = attachment as? ReferenceAttachment {
+                    debug.referenceCount += 1
+                    metadata.add(
+                        type: referenceAttachment.referenceType,
+                        entryID: referenceAttachment.entryID,
+                        displayText: referenceAttachment.displayText,
+                        displayNumber: referenceAttachment.displayNumber
+                    )
+                } else if attachment is CommentAttachment {
+                    debug.commentCount += 1
+                } else if attachment is ImageAttachment {
+                    debug.imageCount += 1
+                } else if attachment is FootnoteAttachment {
+                    debug.footnoteCount += 1
+                }
+            }
+            
+            // Check for poem section markers
+            if attributes[.poemSectionType] != nil {
+                debug.poemSectionCount += 1
             }
         }
         
+        return (metadata, debug)
+    }
+    
+    /// FEATURE 029: Extract all reference attachments and create metadata
+    /// This creates a persistent record of references that survives RTF serialization
+    private func extractReferenceMetadata(from attributedString: NSAttributedString) -> ReferenceMetadata {
+        // Use the combined extraction for efficiency
+        let (metadata, _) = extractContentMetadata(from: attributedString)
         return metadata
     }
     

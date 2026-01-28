@@ -139,6 +139,11 @@ struct FormattedTextEditor: UIViewRepresentable {
     // MARK: - UIViewRepresentable
     
     func makeUIView(context: Context) -> UITextView {
+        let makeStart = CFAbsoluteTimeGetCurrent()
+        #if DEBUG
+        print("⏱️ [PERF] FormattedTextEditor.makeUIView starting...")
+        #endif
+        
         // Create text storage, layout manager, and text container
         let textStorage = NSTextStorage()
         let layoutManager = NumberingLayoutManager() // Use custom layout manager for dynamic paragraph numbering
@@ -360,8 +365,9 @@ struct FormattedTextEditor: UIViewRepresentable {
             }
         }
         
-        // Force layout before setting selection
-        textView.layoutManager.ensureLayout(for: textView.textContainer)
+        // PERFORMANCE: Don't force synchronous layout - let it happen naturally
+        // ensureLayout blocks the main thread and causes toolbar blur during navigation
+        // The layout will happen automatically when the view is displayed
         
         // Set initial selection
         if selectedRange.location != NSNotFound && selectedRange.location <= attributedText.length {
@@ -371,11 +377,18 @@ struct FormattedTextEditor: UIViewRepresentable {
         // Handle keyboard notifications
         setupKeyboardNotifications(for: textView, coordinator: context.coordinator)
         
+        #if DEBUG
+        let makeTime = (CFAbsoluteTimeGetCurrent() - makeStart) * 1000
+        print("⏱️ [PERF] FormattedTextEditor.makeUIView complete: \(String(format: "%.1f", makeTime))ms (content length: \(attributedText.length))")
+        #endif
+        
         return textView
     }
     
     func updateUIView(_ textView: UITextView, context: Context) {
         let updateStart = CFAbsoluteTimeGetCurrent()
+        var stringsMatch = true
+        var attributesChanged = false
         
         // CRITICAL: Update the coordinator's parent reference to ensure callbacks work
         // The FormattedTextEditor struct is recreated on each SwiftUI update with new callbacks
@@ -394,6 +407,10 @@ struct FormattedTextEditor: UIViewRepresentable {
         
         // Skip if we're already in the middle of an update to prevent feedback loops
         guard !context.coordinator.isUpdatingFromSwiftUI else {
+            #if DEBUG
+            let updateTime = (CFAbsoluteTimeGetCurrent() - updateStart) * 1000
+            print("⏱️ [PERF] FormattedTextEditor.updateUIView SKIPPED (already updating): \(String(format: "%.1f", updateTime))ms")
+            #endif
             return
         }
         
@@ -406,15 +423,19 @@ struct FormattedTextEditor: UIViewRepresentable {
                 context.coordinator.isUpdatingFromSwiftUI = false
             }
             textView.attributedText = attributedText
+            #if DEBUG
+            let updateTime = (CFAbsoluteTimeGetCurrent() - updateStart) * 1000
+            print("⏱️ [PERF] FormattedTextEditor.updateUIView complete (nil content): \(String(format: "%.1f", updateTime))ms")
+            #endif
             return
         }
         
         let textViewString = textViewAttrs.string
         let newString = attributedText.string
-        let stringsMatch = textViewString == newString
+        stringsMatch = textViewString == newString
         
         // If strings match, check if attributes changed
-        let attributesChanged = !stringsMatch || !textViewAttrs.isEqual(to: attributedText)
+        attributesChanged = !stringsMatch || !textViewAttrs.isEqual(to: attributedText)
         
         #if DEBUG
         print("📝 Strings match: \(stringsMatch)")
@@ -484,9 +505,12 @@ struct FormattedTextEditor: UIViewRepresentable {
             // Update previousTextLength after programmatic updates to avoid false paste detection
             context.coordinator.previousTextLength = attributedText.length
             
-            // Update caption numbers for image attachments (Feature 016)
-            // This must be done after setting the attributed string
-            ImageAttachment.updateCaptionNumbers(in: textView.textStorage, styleSheet: project?.styleSheet)
+            // PERFORMANCE FIX: Only update caption numbers when content structure changed
+            // When strings match (only attributes changed), no images were added/removed
+            // This avoids expensive document enumeration on every attribute change
+            if !stringsMatch {
+                ImageAttachment.updateCaptionNumbers(in: textView.textStorage, styleSheet: project?.styleSheet)
+            }
             
             // CRITICAL: Restore search highlights after updating attributes
             if !searchHighlights.isEmpty {
@@ -681,11 +705,9 @@ struct FormattedTextEditor: UIViewRepresentable {
         textView.autocorrectionType = .no
         textView.spellCheckingType = .yes
         
-        let updateTime = CFAbsoluteTimeGetCurrent() - updateStart
         #if DEBUG
-        if updateTime > 0.01 { // Only print if > 10ms
-            print("📝 updateUIView took: \(String(format: "%.3f", updateTime))s")
-        }
+        let updateTime = (CFAbsoluteTimeGetCurrent() - updateStart) * 1000
+        print("⏱️ [PERF] FormattedTextEditor.updateUIView complete: \(String(format: "%.1f", updateTime))ms (stringsMatch: \(stringsMatch), attributesChanged: \(attributesChanged), length: \(attributedText.length))")
         #endif
     }
     
