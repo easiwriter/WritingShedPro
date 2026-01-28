@@ -3316,7 +3316,7 @@ struct FileEditView: View {
         previousAttributedContent = tocContent
         
         // Save the generated content
-        saveContent()
+        saveChanges()
         
         #if DEBUG
         print("📑 TOC content regenerated and saved")
