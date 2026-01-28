@@ -16,8 +16,8 @@ struct ProjectFolderMigrationService {
     // MARK: - Migration Version
     
     private static let migrationVersionKey = "projectFolderMigrationVersion"
-    // Version 9: Safe migration - only renames Manuscript body folders, NO deletions
-    private static let currentMigrationVersion = 9
+    // Version 12: Only delete EMPTY root-level manuscript folders
+    private static let currentMigrationVersion = 12
     
     // MARK: - Public Methods
     
@@ -93,8 +93,23 @@ struct ProjectFolderMigrationService {
             safeRenameManuscriptBodyFolder(modelContext: modelContext)
         }
         
+        // Version 10: Clean up root-level manuscript folders (All Sections, Front Matter, etc.)
+        if oldVersion < 10 {
+            cleanupRootLevelManuscriptFolders(modelContext: modelContext)
+        }
+        
+        // Version 11: Clean up old body folder names at root (Poems, Chapters, etc.)
+        if oldVersion < 11 {
+            cleanupRootLevelManuscriptFolders(modelContext: modelContext)
+        }
+        
+        // Version 12: Re-run cleanup, now only deletes EMPTY folders
+        if oldVersion < 12 {
+            cleanupRootLevelManuscriptFolders(modelContext: modelContext)
+        }
+        
         // Future migrations go here:
-        // if oldVersion < 10 { ... }
+        // if oldVersion < 13 { ... }
         
         do {
             try modelContext.save()
@@ -392,8 +407,12 @@ struct ProjectFolderMigrationService {
                 #endif
                 
                 // Folder names that should ONLY exist inside Manuscript (not at root level)
-                // Only includes Body, Front Matter, Back Matter - NOT the content folders like Poems, Chapters
-                let manuscriptOnlyNames = ["Body", "Front Matter", "Back Matter"]
+                // Includes all variations of Body, Front Matter, Back Matter and "All X" folders
+                let manuscriptOnlyNames: Set<String> = [
+                    "Body", "Front Matter", "Back Matter",
+                    "All Acts", "All Poems", "All Sections", "All Chapters", "All Stories",
+                    "Acts", "Poems", "Sections", "Chapters", "Stories"
+                ]
                 
                 // Old body folder names (without "All" prefix) that should be renamed inside Manuscript
                 let oldBodyFolderNames: Set<String> = ["Acts", "Poems", "Sections", "Chapters", "Stories"]
@@ -728,6 +747,68 @@ struct ProjectFolderMigrationService {
         } catch {
             #if DEBUG
             print("[ProjectFolderMigration] ❌ Failed to rename folders: \(error)")
+            #endif
+        }
+    }
+    
+    // MARK: - Version 10: Cleanup root-level manuscript folders
+    
+    /// Removes folders at root level that should only exist inside Manuscript
+    /// This fixes a bug where "Front Matter", "Back Matter", "All Sections" etc. appeared at root
+    private static func cleanupRootLevelManuscriptFolders(modelContext: ModelContext) {
+        #if DEBUG
+        print("[ProjectFolderMigration] 🧹 Starting cleanup of root-level manuscript folders")
+        #endif
+        
+        // Names that should only exist inside Manuscript folder
+        // Only delete if the folder is EMPTY (no files and no subfolders with files)
+        let manuscriptOnlyNames: Set<String> = [
+            "Body", "Front Matter", "Back Matter",
+            "All Acts", "All Poems", "All Sections", "All Chapters", "All Stories",
+            "Acts", "Poems", "Sections", "Chapters", "Stories"
+        ]
+        
+        do {
+            // Fetch all projects
+            let projectDescriptor = FetchDescriptor<Project>()
+            let projects = try modelContext.fetch(projectDescriptor)
+            
+            for project in projects {
+                #if DEBUG
+                print("[ProjectFolderMigration] Checking project: \(project.name ?? "Untitled")")
+                #endif
+                
+                // Get root-level folders directly from project
+                let rootFolders = project.folders?.filter { $0.parentFolder == nil } ?? []
+                
+                for folder in rootFolders {
+                    let folderName = folder.name ?? ""
+                    if manuscriptOnlyNames.contains(folderName) {
+                        // Only delete if folder is empty (no files)
+                        let fileCount = folder.files?.count ?? 0
+                        let subfolderCount = folder.subfolders?.count ?? 0
+                        
+                        if fileCount == 0 && subfolderCount == 0 {
+                            #if DEBUG
+                            print("[ProjectFolderMigration] 🗑️ Deleting empty root-level folder: '\(folderName)' from project '\(project.name ?? "Untitled")'")
+                            #endif
+                            modelContext.delete(folder)
+                        } else {
+                            #if DEBUG
+                            print("[ProjectFolderMigration] ⚠️ Skipping root-level folder '\(folderName)' - has \(fileCount) files, \(subfolderCount) subfolders")
+                            #endif
+                        }
+                    }
+                }
+            }
+            
+            try modelContext.save()
+            #if DEBUG
+            print("[ProjectFolderMigration] ✅ Cleanup complete")
+            #endif
+        } catch {
+            #if DEBUG
+            print("[ProjectFolderMigration] ❌ Cleanup failed: \(error)")
             #endif
         }
     }

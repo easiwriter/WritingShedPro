@@ -101,8 +101,14 @@ A complete reference of keyboard shortcuts available in Writing Shed Pro. Works 
 
 | Shortcut | Action |
 |----------|--------|
-| Tab | Increase indent |
-| ⇧Tab | Decrease indent |
+| Tab | Increase list indent (create sub-list) |
+| ⇧Tab | Decrease list indent (promote item) |
+
+**Notes:**
+- Tab/Shift+Tab work when cursor is in a list item
+- Sub-lists use different numbering: 1→a→i for numbers, •→◦→▪ for bullets  
+- Sub-list numbering restarts when you return to a higher level
+- Shift+Tab at Level 1 exits the list (applies Body style)
 
 ## Gestures (Touch)
 

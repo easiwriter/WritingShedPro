@@ -73,20 +73,21 @@ struct StyleSheetService {
         // Base indentation per level: 36 points (0.5 inches)
         let listIndentPerLevel: CGFloat = 36.0
         
-        // List styles: (name, displayName, numberFormat, order, level, bulletChar)
+        // List styles: (name, displayName, numberFormat, order, level, bulletChar, parentStyleName)
         // Level 0 = base, Level 1 = first sub-level, Level 2 = second sub-level
-        let listStyles: [(String, String, NumberFormat, Int, Int, String?)] = [
+        // parentStyleName is used to reset sub-list numbering when parent changes
+        let listStyles: [(String, String, NumberFormat, Int, Int, String?, String?)] = [
             // Numbered lists
-            ("list-numbered", "Numbered List", .decimal, 11, 0, nil),
-            ("list-numbered-level-2", "Numbered List Level 2", .lowercaseLetter, 12, 1, nil),
-            ("list-numbered-level-3", "Numbered List Level 3", .lowercaseRoman, 13, 2, nil),
+            ("list-numbered", "Numbered List", .decimal, 11, 0, nil, nil),
+            ("list-numbered-level-2", "Numbered List Level 2", .lowercaseLetter, 12, 1, nil, "list-numbered"),
+            ("list-numbered-level-3", "Numbered List Level 3", .lowercaseRoman, 13, 2, nil, "list-numbered-level-2"),
             // Bullet lists
-            ("list-bullet", "Bullet List", .bulletSymbols, 14, 0, "•"),
-            ("list-bullet-level-2", "Bullet List Level 2", .bulletSymbols, 15, 1, "◦"),
-            ("list-bullet-level-3", "Bullet List Level 3", .bulletSymbols, 16, 2, "▪")
+            ("list-bullet", "Bullet List", .bulletSymbols, 14, 0, "•", nil),
+            ("list-bullet-level-2", "Bullet List Level 2", .bulletSymbols, 15, 1, "◦", "list-bullet"),
+            ("list-bullet-level-3", "Bullet List Level 3", .bulletSymbols, 16, 2, "▪", "list-bullet-level-2")
         ]
         
-        for (name, displayName, numberFormat, order, level, _) in listStyles {
+        for (name, displayName, numberFormat, order, level, _, parentStyle) in listStyles {
             let headIndent = listIndentPerLevel * CGFloat(level + 1)
             let style = TextStyleModel(
                 name: name,
@@ -99,6 +100,7 @@ struct StyleSheetService {
                 styleCategory: .list,
                 isSystemStyle: false
             )
+            style.parentStyleName = parentStyle
             styles.append(style)
         }
         

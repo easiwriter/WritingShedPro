@@ -27,8 +27,43 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         builder.remove(menu: .help)
         builder.remove(menu: .format)
         
+        // Add Format menu with indent commands for Tab/Shift+Tab handling
+        let increaseIndentCommand = UIKeyCommand(
+            title: NSLocalizedString("formattingToolbar.increaseIndent", comment: "Increase Indent"),
+            action: #selector(CustomTextViewActions.increaseIndent(_:)),
+            input: "\t",
+            modifierFlags: []
+        )
+        
+        let decreaseIndentCommand = UIKeyCommand(
+            title: NSLocalizedString("formattingToolbar.decreaseIndent", comment: "Decrease Indent"),
+            action: #selector(CustomTextViewActions.decreaseIndent(_:)),
+            input: "\t",
+            modifierFlags: .shift
+        )
+        
+        let indentMenu = UIMenu(
+            title: "Indentation",
+            options: .displayInline,
+            children: [increaseIndentCommand, decreaseIndentCommand]
+        )
+        
+        let formatMenu = UIMenu(
+            title: "Format",
+            identifier: .init("com.writingshed.format"),
+            children: [indentMenu]
+        )
+        
+        builder.insertSibling(formatMenu, afterMenu: .application)
+        
         super.buildMenu(with: builder)
     }
+}
+
+/// Protocol for indent actions - implemented by CustomTextView
+@objc protocol CustomTextViewActions {
+    func increaseIndent(_ sender: Any?)
+    func decreaseIndent(_ sender: Any?)
 }
 
 

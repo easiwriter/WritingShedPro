@@ -321,10 +321,17 @@ final class TextStyleModel {
         paragraphStyle.paragraphSpacingBefore = paragraphSpacingBefore
         paragraphStyle.paragraphSpacing = paragraphSpacingAfter
         
-        // Calculate first line indent, adding space for paragraph numbers if enabled
+        // Calculate first line indent
+        // For list styles (numberFormat != .none), the first line indent should match
+        // the head indent so all text aligns at the same position. The number/bullet
+        // is drawn separately by NumberingLayoutManager just before the text.
         var effectiveFirstLineIndent = firstLineIndent
-        if numberFormat != .none {
-            // Add automatic space for the paragraph number
+        if numberFormat != .none && styleCategory == .list {
+            // For list items, align first line with wrapped lines at headIndent
+            // The number/bullet will be drawn before this position by NumberingLayoutManager
+            effectiveFirstLineIndent = headIndent
+        } else if numberFormat != .none {
+            // For non-list numbered paragraphs (headings, etc.), add number width
             let font = generateFont()
             let hasParent = parentStyleName != nil && !parentStyleName!.isEmpty
             let numberWidth = numberFormat.estimatedWidth(for: font, adornment: numberAdornment, hasParent: hasParent)
@@ -332,7 +339,7 @@ final class TextStyleModel {
         }
         paragraphStyle.firstLineHeadIndent = effectiveFirstLineIndent
         
-        // Head indent for lines 2+ (also add number width to maintain alignment if desired)
+        // Head indent for lines 2+ 
         paragraphStyle.headIndent = headIndent
         paragraphStyle.tailIndent = tailIndent
         if lineHeightMultiple > 0 {

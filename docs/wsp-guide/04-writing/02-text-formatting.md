@@ -117,51 +117,103 @@ Change text color for emphasis or special purposes:
 
 ## Lists
 
-Create bulleted or numbered lists:
+Create bulleted or numbered lists to organize information clearly.
+
+### Creating Lists
+
+To start a list:
+1. Place your cursor on a blank line
+2. Tap the **¶** (paragraph style) button in the toolbar
+3. Select **Numbered List** or **Bullet List**
+
+The list marker (number or bullet) appears automatically. Each time you press Return, a new list item is created with the next number or bullet.
 
 ### Bulleted Lists
 - Item one
-- Item two
+- Item two  
 - Item three
+
+Use bullets for unordered items where sequence doesn't matter.
 
 ### Numbered Lists
 1. First item
 2. Second item
 3. Third item
 
-Create lists by applying the appropriate paragraph style or typing:
-- Type `-` or `*` for bullets (if auto-formatting is enabled)
-- Type `1.` for numbered items
+Use numbers when order or sequence is important. Numbers update automatically as you add, remove, or reorder items.
 
-### Nested Lists
+### Nested Lists (Multi-Level Lists)
 
-Create sub-lists (nested lists) to organize hierarchical information:
+Create sub-lists to organize hierarchical information. Sub-lists can be indented up to three levels deep.
 
-#### Using the Toolbar (iPhone/iPad)
+#### Creating Sub-Lists
+
+**Using the Toolbar (iPhone/iPad):**
 1. Place cursor in a list item
 2. Tap the **Increase Indent** button (→|) to create a sub-list
 3. Tap the **Decrease Indent** button (|←) to promote an item back up
 
-#### Using Keyboard Shortcuts (External Keyboard)
-- Press **Tab** to increase indent level
-- Press **Shift+Tab** to decrease indent level
+**Using Keyboard Shortcuts (External Keyboard):**
+- Press **Tab** to increase indent level (create sub-list)
+- Press **Shift+Tab** to decrease indent level (promote item)
 
-#### Nested List Levels
+#### How Numbering Works
 
-| Level | Bullet Style | Numbered Style |
-|-------|--------------|----------------|
-| 1 | • (bullet) | 1. 2. 3. |
-| 2 | ◦ (circle) | a. b. c. |
-| 3 | ▪ (square) | i. ii. iii. |
+Each sub-list level uses a different numbering style:
 
-**Example:**
-- Main item
-  - Sub-item (Level 2)
-    - Sub-sub-item (Level 3)
-  - Another sub-item
-- Another main item
+| Level | Numbered Style | Bullet Style |
+|-------|----------------|--------------|
+| 1 | 1. 2. 3. | • (bullet) |
+| 2 | a. b. c. | ◦ (circle) |
+| 3 | i. ii. iii. | ▪ (square) |
 
-**Note**: To exit a list entirely, decrease indent when at Level 1, or apply a different paragraph style like Body.
+**Important**: Sub-list numbering restarts when you return to a higher level. For example:
+
+```
+1. First main item
+   a. Sub-item under first
+   b. Another sub-item
+2. Second main item
+   a. Sub-item starts at 'a' again
+   b. Because we're under a new parent
+```
+
+#### Example Multi-Level List
+
+```
+1. Planning Phase
+   a. Define objectives
+   b. Identify stakeholders
+      i. Internal team
+      ii. External clients
+   c. Set timeline
+2. Execution Phase
+   a. Assign tasks
+   b. Monitor progress
+```
+
+### Exiting a List
+
+To stop the list and return to normal body text:
+
+**Method 1 - Decrease Indent:**
+- When at Level 1, press **Shift+Tab** (or tap Decrease Indent)
+- This applies the Body style
+
+**Method 2 - Change Style:**
+- Tap the **¶** button
+- Select **Body** or another non-list style
+
+**Method 3 - Empty Line:**
+- Press **Return** twice on an empty list item
+- The second Return may exit the list (behavior varies)
+
+### List Tips
+
+- **Start typing immediately** after the list marker appears
+- **Empty lines** within lists may cause numbering to restart
+- **Undo** (⌘Z) works if you accidentally change indent levels
+- **Copy/paste** list items preserves their formatting
 
 ## Block Quotes
 

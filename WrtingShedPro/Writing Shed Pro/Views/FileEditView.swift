@@ -246,6 +246,12 @@ struct FileEditView: View {
                                 },
                                 onGlossaryAddRequested: { selectedText in
                                     handleGlossaryAddRequested(selectedText)
+                                },
+                                onTabPressed: {
+                                    insertTab()
+                                },
+                                onShiftTabPressed: {
+                                    decreaseListIndent()
                                 }
                             )
                             .frame(width: geometry.size.width * inverseScale, height: geometry.size.height * inverseScale)
@@ -299,6 +305,12 @@ struct FileEditView: View {
                                 },
                                 onGlossaryAddRequested: { selectedText in
                                     handleGlossaryAddRequested(selectedText)
+                                },
+                                onTabPressed: {
+                                    insertTab()
+                                },
+                                onShiftTabPressed: {
+                                    decreaseListIndent()
                                 }
                             )
                             .frame(width: geometry.size.width * inverseScale, height: geometry.size.height * inverseScale)
@@ -356,6 +368,12 @@ struct FileEditView: View {
                                 },
                                 onMixedAttachmentsDeleted: { references, comments, footnotes, deletionRange in
                                     handleMixedAttachmentsDeleted(references, comments: comments, footnotes: footnotes, in: deletionRange)
+                                },
+                                onTabPressed: {
+                                    insertTab()
+                                },
+                                onShiftTabPressed: {
+                                    decreaseListIndent()
                                 }
                             )
                             .id(refreshTrigger)
@@ -403,6 +421,12 @@ struct FileEditView: View {
                                 },
                                 onMixedAttachmentsDeleted: { references, comments, footnotes, deletionRange in
                                     handleMixedAttachmentsDeleted(references, comments: comments, footnotes: footnotes, in: deletionRange)
+                                },
+                                onTabPressed: {
+                                    insertTab()
+                                },
+                                onShiftTabPressed: {
+                                    decreaseListIndent()
                                 }
                             )
                             .id(refreshTrigger)
@@ -5066,22 +5090,54 @@ struct FileEditView: View {
     
     /// Insert a tab character at the current cursor position, or increase indent if in a list
     private func insertTab() {
+        #if DEBUG
+        print("⌨️ insertTab() called")
+        #endif
+        
         // Check if we're in a list paragraph - if so, increase indent instead of inserting tab
         let paragraphRange = (attributedContent.string as NSString).paragraphRange(for: selectedRange)
         
+        #if DEBUG
+        print("⌨️ insertTab - paragraphRange: \(paragraphRange), selectedRange: \(selectedRange)")
+        #endif
+        
         var currentStyleName: String?
-        attributedContent.enumerateAttribute(.textStyle, in: paragraphRange, options: []) { value, _, stop in
-            if let styleName = value as? String {
-                currentStyleName = styleName
-                stop.pointee = true
+        if paragraphRange.length > 0 {
+            attributedContent.enumerateAttribute(.textStyle, in: paragraphRange, options: []) { value, _, stop in
+                if let styleName = value as? String {
+                    currentStyleName = styleName
+                    stop.pointee = true
+                }
             }
         }
         
+        // Also check typing attributes for empty paragraph case
+        if currentStyleName == nil {
+            if let typingStyle = textViewCoordinator.textView?.typingAttributes[.textStyle] as? String {
+                currentStyleName = typingStyle
+                #if DEBUG
+                print("⌨️ insertTab - found style from typingAttributes: \(typingStyle)")
+                #endif
+            }
+        }
+        
+        #if DEBUG
+        print("⌨️ insertTab - currentStyleName: \(currentStyleName ?? "nil")")
+        print("⌨️ insertTab - listIndentMap keys: \(Self.listIndentMap.keys)")
+        #endif
+        
         // If in a list style, increase indent instead of inserting tab
         if let styleName = currentStyleName, Self.listIndentMap[styleName] != nil {
+            #if DEBUG
+            print("⌨️ insertTab - calling increaseListIndent()")
+            #endif
             increaseListIndent()
             return
         }
+        
+        #if DEBUG
+        print("⌨️ insertTab - not in list, inserting tab character")
+        #endif
         
         guard let textView = textViewCoordinator.textView else { return }
         
@@ -5316,52 +5372,124 @@ struct FileEditView: View {
     private func increaseListIndent() {
         guard let project = file.project else { return }
         
+        #if DEBUG
+        print("⌨️ increaseListIndent() called")
+        #endif
+        
         // Get the range of the current paragraph
         let paragraphRange = (attributedContent.string as NSString).paragraphRange(for: selectedRange)
         
+        #if DEBUG
+        print("⌨️ increaseListIndent - paragraphRange: \(paragraphRange)")
+        #endif
+        
         // Get the current style name
         var currentStyleName: String?
-        attributedContent.enumerateAttribute(.textStyle, in: paragraphRange, options: []) { value, _, stop in
-            if let styleName = value as? String {
-                currentStyleName = styleName
-                stop.pointee = true
+        if paragraphRange.length > 0 {
+            attributedContent.enumerateAttribute(.textStyle, in: paragraphRange, options: []) { value, _, stop in
+                if let styleName = value as? String {
+                    currentStyleName = styleName
+                    stop.pointee = true
+                }
             }
         }
+        
+        // For empty paragraphs, check typing attributes
+        if currentStyleName == nil {
+            if let typingStyle = textViewCoordinator.textView?.typingAttributes[.textStyle] as? String {
+                currentStyleName = typingStyle
+                #if DEBUG
+                print("⌨️ increaseListIndent - found style from typingAttributes: \(typingStyle)")
+                #endif
+            }
+        }
+        
+        #if DEBUG
+        print("⌨️ increaseListIndent - currentStyleName: \(currentStyleName ?? "nil")")
+        #endif
         
         guard let styleName = currentStyleName,
               let nextStyleName = Self.listIndentMap[styleName],
               let nextStyle = project.styleSheet?.style(named: nextStyleName) else {
+            #if DEBUG
+            print("⌨️ increaseListIndent - cannot find next style, aborting")
+            #endif
             // Not a list style or already at max indent level
             return
         }
         
+        #if DEBUG
+        print("⌨️ increaseListIndent - changing from \(styleName) to \(nextStyleName)")
+        #endif
+        
         // Store before state for undo
         let beforeContent = attributedContent
         
-        // Apply the next level style
-        let mutableContent = NSMutableAttributedString(attributedString: attributedContent)
         let styleAttributes = nextStyle.generateAttributes()
-        mutableContent.addAttributes(styleAttributes, range: paragraphRange)
         
-        // Update content
-        attributedContent = mutableContent
-        
-        // Force a redraw
-        if let textView = textViewCoordinator.textView {
-            textView.setNeedsDisplay()
-            textView.layoutManager.invalidateDisplay(forCharacterRange: NSRange(location: 0, length: attributedContent.length))
+        // For empty paragraphs at the end (after a trailing newline), we need to:
+        // 1. Update the preceding newline character's style (so NumberingLayoutManager draws correct number)
+        // 2. Update typing attributes (for future typed text)
+        if paragraphRange.length == 0 {
+            #if DEBUG
+            print("⌨️ increaseListIndent - empty paragraph at position \(paragraphRange.location)")
+            #endif
+            
+            // Check if there's a preceding newline we need to update
+            if paragraphRange.location > 0, let textView = textViewCoordinator.textView {
+                let newlinePosition = paragraphRange.location - 1
+                let char = (attributedContent.string as NSString).character(at: newlinePosition)
+                
+                if char == 10 { // newline character
+                    #if DEBUG
+                    print("⌨️ increaseListIndent - updating newline at position \(newlinePosition)")
+                    #endif
+                    
+                    // Use proper NSTextStorage editing to trigger layout recalculation
+                    // This is the architectural way to update attributes and have caret reposition
+                    textView.textStorage.beginEditing()
+                    textView.textStorage.addAttributes(styleAttributes, range: NSRange(location: newlinePosition, length: 1))
+                    textView.textStorage.endEditing()
+                    
+                    // Also update our binding
+                    attributedContent = NSAttributedString(attributedString: textView.textStorage)
+                    
+                    // Force redraw so NumberingLayoutManager draws the new number
+                    textView.setNeedsDisplay()
+                }
+            }
+            
+            // Also update typing attributes for any new text
+            if let textView = textViewCoordinator.textView {
+                for (key, value) in styleAttributes {
+                    textView.typingAttributes[key] = value
+                }
+                #if DEBUG
+                print("⌨️ increaseListIndent - set typingAttributes to \(nextStyleName)")
+                #endif
+            }
+            return
         }
         
-        // Create undo command
-        let command = FormatApplyCommand(
-            description: "Increase List Indent",
-            range: selectedRange,
-            beforeContent: beforeContent,
-            afterContent: attributedContent,
-            targetFile: file
-        )
-        
-        undoManager.execute(command)
+        // Apply the next level style to non-empty paragraphs using proper editing
+        if let textView = textViewCoordinator.textView {
+            textView.textStorage.beginEditing()
+            textView.textStorage.addAttributes(styleAttributes, range: paragraphRange)
+            textView.textStorage.endEditing()
+            
+            // Sync with our binding
+            attributedContent = NSAttributedString(attributedString: textView.textStorage)
+            
+            // Create undo command
+            let command = FormatApplyCommand(
+                description: "Increase List Indent",
+                range: selectedRange,
+                beforeContent: beforeContent,
+                afterContent: attributedContent,
+                targetFile: file
+            )
+            undoManager.execute(command)
+        }
     }
     
     /// Decrease the indent level of the current paragraph (for nested lists)
@@ -5371,67 +5499,147 @@ struct FileEditView: View {
         // Get the range of the current paragraph
         let paragraphRange = (attributedContent.string as NSString).paragraphRange(for: selectedRange)
         
-        // Get the current style name
+        #if DEBUG
+        print("⌨️ decreaseListIndent - paragraphRange: \(paragraphRange)")
+        #endif
+        
+        // Get the current style name - check typingAttributes for empty paragraphs
         var currentStyleName: String?
-        attributedContent.enumerateAttribute(.textStyle, in: paragraphRange, options: []) { value, _, stop in
-            if let styleName = value as? String {
-                currentStyleName = styleName
-                stop.pointee = true
+        
+        if paragraphRange.length == 0 {
+            // Empty paragraph - check typingAttributes
+            if let textView = textViewCoordinator.textView {
+                currentStyleName = textView.typingAttributes[.textStyle] as? String
+                #if DEBUG
+                print("⌨️ decreaseListIndent - empty paragraph, typingAttributes style: \(currentStyleName ?? "nil")")
+                #endif
+            }
+        } else {
+            attributedContent.enumerateAttribute(.textStyle, in: paragraphRange, options: []) { value, _, stop in
+                if let styleName = value as? String {
+                    currentStyleName = styleName
+                    stop.pointee = true
+                }
             }
         }
         
         guard let styleName = currentStyleName else { return }
+        
+        #if DEBUG
+        print("⌨️ decreaseListIndent - current style: \(styleName)")
+        #endif
         
         // Check if we can outdent (style is in the outdent map)
         guard let prevStyleName = Self.listOutdentMap[styleName],
               let prevStyle = project.styleSheet?.style(named: prevStyleName) else {
             // If at base list level, convert back to body text
             if styleName == "list-bullet" || styleName == "list-numbered" {
+                #if DEBUG
+                print("⌨️ decreaseListIndent - at base level, converting to body text")
+                #endif
                 // Apply body style instead
-                if let bodyStyle = project.styleSheet?.style(named: "UICTFontTextStyleBody") {
+                if let bodyStyle = project.styleSheet?.style(named: "UICTFontTextStyleBody"),
+                   let textView = textViewCoordinator.textView {
                     let beforeContent = attributedContent
-                    
-                    let mutableContent = NSMutableAttributedString(attributedString: attributedContent)
                     let styleAttributes = bodyStyle.generateAttributes()
-                    mutableContent.addAttributes(styleAttributes, range: paragraphRange)
                     
-                    attributedContent = mutableContent
-                    
-                    if let textView = textViewCoordinator.textView {
-                        textView.setNeedsDisplay()
-                        textView.layoutManager.invalidateDisplay(forCharacterRange: NSRange(location: 0, length: attributedContent.length))
+                    if paragraphRange.length == 0 {
+                        // Empty paragraph - update preceding newline and typing attributes
+                        if paragraphRange.location > 0 {
+                            let newlinePosition = paragraphRange.location - 1
+                            let char = (attributedContent.string as NSString).character(at: newlinePosition)
+                            
+                            if char == 10 {
+                                textView.textStorage.beginEditing()
+                                textView.textStorage.addAttributes(styleAttributes, range: NSRange(location: newlinePosition, length: 1))
+                                textView.textStorage.endEditing()
+                                
+                                attributedContent = NSAttributedString(attributedString: textView.textStorage)
+                                
+                                // Force redraw
+                                textView.setNeedsDisplay()
+                            }
+                        }
+                        
+                        // Update typing attributes
+                        for (key, value) in styleAttributes {
+                            textView.typingAttributes[key] = value
+                        }
+                    } else {
+                        // Non-empty paragraph
+                        textView.textStorage.beginEditing()
+                        textView.textStorage.addAttributes(styleAttributes, range: paragraphRange)
+                        textView.textStorage.endEditing()
+                        
+                        attributedContent = NSAttributedString(attributedString: textView.textStorage)
+                        
+                        let command = FormatApplyCommand(
+                            description: "Exit List",
+                            range: selectedRange,
+                            beforeContent: beforeContent,
+                            afterContent: attributedContent,
+                            targetFile: file
+                        )
+                        undoManager.execute(command)
                     }
-                    
-                    let command = FormatApplyCommand(
-                        description: "Exit List",
-                        range: selectedRange,
-                        beforeContent: beforeContent,
-                        afterContent: attributedContent,
-                        targetFile: file
-                    )
-                    
-                    undoManager.execute(command)
                 }
             }
             return
         }
         
+        #if DEBUG
+        print("⌨️ decreaseListIndent - will apply style: \(prevStyleName)")
+        #endif
+        
         // Store before state for undo
         let beforeContent = attributedContent
-        
-        // Apply the previous level style
-        let mutableContent = NSMutableAttributedString(attributedString: attributedContent)
         let styleAttributes = prevStyle.generateAttributes()
-        mutableContent.addAttributes(styleAttributes, range: paragraphRange)
         
-        // Update content
-        attributedContent = mutableContent
+        guard let textView = textViewCoordinator.textView else { return }
         
-        // Force a redraw
-        if let textView = textViewCoordinator.textView {
-            textView.setNeedsDisplay()
-            textView.layoutManager.invalidateDisplay(forCharacterRange: NSRange(location: 0, length: attributedContent.length))
+        // Handle empty paragraphs (after trailing newline)
+        if paragraphRange.length == 0 {
+            #if DEBUG
+            print("⌨️ decreaseListIndent - empty paragraph at position \(paragraphRange.location)")
+            #endif
+            
+            // Update preceding newline character's style
+            if paragraphRange.location > 0 {
+                let newlinePosition = paragraphRange.location - 1
+                let char = (attributedContent.string as NSString).character(at: newlinePosition)
+                
+                if char == 10 {
+                    #if DEBUG
+                    print("⌨️ decreaseListIndent - updating newline at position \(newlinePosition)")
+                    #endif
+                    
+                    textView.textStorage.beginEditing()
+                    textView.textStorage.addAttributes(styleAttributes, range: NSRange(location: newlinePosition, length: 1))
+                    textView.textStorage.endEditing()
+                    
+                    attributedContent = NSAttributedString(attributedString: textView.textStorage)
+                    
+                    // Force redraw so NumberingLayoutManager draws the new number
+                    textView.setNeedsDisplay()
+                }
+            }
+            
+            // Update typing attributes for future typed text
+            for (key, value) in styleAttributes {
+                textView.typingAttributes[key] = value
+            }
+            #if DEBUG
+            print("⌨️ decreaseListIndent - set typingAttributes to \(prevStyleName)")
+            #endif
+            return
         }
+        
+        // Apply to non-empty paragraph using proper editing
+        textView.textStorage.beginEditing()
+        textView.textStorage.addAttributes(styleAttributes, range: paragraphRange)
+        textView.textStorage.endEditing()
+        
+        attributedContent = NSAttributedString(attributedString: textView.textStorage)
         
         // Create undo command
         let command = FormatApplyCommand(
@@ -5441,7 +5649,6 @@ struct FileEditView: View {
             afterContent: attributedContent,
             targetFile: file
         )
-        
         undoManager.execute(command)
     }
     
@@ -5873,6 +6080,8 @@ struct FileEditView: View {
                 
                 textViewCoordinator.modifyTypingAttributes { textView in
                     textView.typingAttributes = typingAttrs
+                    // Trigger redraw so the list number appears immediately
+                    textView.setNeedsDisplay()
                 }
                 
                 #if DEBUG
@@ -5981,6 +6190,8 @@ struct FileEditView: View {
             // Also set typing attributes for when user starts typing
             textViewCoordinator.modifyTypingAttributes { textView in
                 textView.typingAttributes = typingAttrs
+                // Trigger redraw so the list number appears immediately
+                textView.setNeedsDisplay()
             }
             
             #if DEBUG

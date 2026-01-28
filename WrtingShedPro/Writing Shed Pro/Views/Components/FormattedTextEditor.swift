@@ -50,6 +50,12 @@ struct FormattedTextEditor: UIViewRepresentable {
     /// Optional callback when user selects "Add to Glossary" from context menu (Feature 029)
     var onGlossaryAddRequested: ((String) -> Void)?
     
+    /// Optional callback when Tab key is pressed (Feature 016 - list indent)
+    var onTabPressed: (() -> Void)?
+    
+    /// Optional callback when Shift+Tab is pressed (Feature 016 - list outdent)
+    var onShiftTabPressed: (() -> Void)?
+    
     /// Coordinator for managing textView reference
     var textViewCoordinator: TextViewCoordinator?
     
@@ -100,7 +106,9 @@ struct FormattedTextEditor: UIViewRepresentable {
         onCommentDeleted: (([CommentAttachment], NSRange) -> Void)? = nil,
         onFootnoteDeleted: (([FootnoteAttachment], NSRange) -> Void)? = nil,
         onMixedAttachmentsDeleted: (([ReferenceAttachment], [CommentAttachment], [FootnoteAttachment], NSRange) -> Void)? = nil,
-        onGlossaryAddRequested: ((String) -> Void)? = nil
+        onGlossaryAddRequested: ((String) -> Void)? = nil,
+        onTabPressed: (() -> Void)? = nil,
+        onShiftTabPressed: (() -> Void)? = nil
     ) {
         self._attributedText = attributedText
         self._selectedRange = selectedRange
@@ -124,6 +132,8 @@ struct FormattedTextEditor: UIViewRepresentable {
         self.onFootnoteDeleted = onFootnoteDeleted
         self.onMixedAttachmentsDeleted = onMixedAttachmentsDeleted
         self.onGlossaryAddRequested = onGlossaryAddRequested
+        self.onTabPressed = onTabPressed
+        self.onShiftTabPressed = onShiftTabPressed
     }
     
     // MARK: - UIViewRepresentable
@@ -166,6 +176,14 @@ struct FormattedTextEditor: UIViewRepresentable {
         // Wire up glossary add requested callback (Feature 029)
         textView.onGlossaryAddRequested = { [weak coordinator] selectedText in
             coordinator?.parent.onGlossaryAddRequested?(selectedText)
+        }
+        
+        // Wire up Tab/Shift+Tab callbacks for list indent/outdent (Feature 016)
+        textView.onTabPressed = { [weak coordinator] in
+            coordinator?.parent.onTabPressed?()
+        }
+        textView.onShiftTabPressed = { [weak coordinator] in
+            coordinator?.parent.onShiftTabPressed?()
         }
         
         // Set input accessory view if provided
@@ -358,6 +376,21 @@ struct FormattedTextEditor: UIViewRepresentable {
     
     func updateUIView(_ textView: UITextView, context: Context) {
         let updateStart = CFAbsoluteTimeGetCurrent()
+        
+        // CRITICAL: Update the coordinator's parent reference to ensure callbacks work
+        // The FormattedTextEditor struct is recreated on each SwiftUI update with new callbacks
+        context.coordinator.parent = self
+        
+        // Also update the CustomTextView's callbacks to use the current parent
+        if let customTextView = textView as? CustomTextView {
+            let coordinator = context.coordinator
+            customTextView.onTabPressed = { [weak coordinator] in
+                coordinator?.parent.onTabPressed?()
+            }
+            customTextView.onShiftTabPressed = { [weak coordinator] in
+                coordinator?.parent.onShiftTabPressed?()
+            }
+        }
         
         // Skip if we're already in the middle of an update to prevent feedback loops
         guard !context.coordinator.isUpdatingFromSwiftUI else {
@@ -1653,6 +1686,10 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
     var onReferenceTapped: ((ReferenceAttachment, Int) -> Void)?
     var onGlossaryAddRequested: ((String) -> Void)?  // Called with selected text when user selects "Add to Glossary"
     
+    // Callbacks for list indent/outdent (Feature 016)
+    var onTabPressed: (() -> Void)?
+    var onShiftTabPressed: (() -> Void)?
+    
     // Selection border view for images
     private let selectionBorderView: UIView = {
         let view = UIView()
@@ -1677,6 +1714,152 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
         addSubview(selectionBorderView)
         setupCommentInteraction()
         setupTraitChangeObservation()
+    }
+    
+    // MARK: - Key Commands (Tab/Shift+Tab for list indent/outdent)
+    
+    override var keyCommands: [UIKeyCommand]? {
+        var commands = super.keyCommands ?? []
+        
+        // Tab key - increase list indent (or insert tab in non-list content)
+        let tabCommand = UIKeyCommand(
+            input: "\t",
+            modifierFlags: [],
+            action: #selector(handleTab)
+        )
+        tabCommand.title = NSLocalizedString("formattingToolbar.increaseIndent", comment: "Increase Indent")
+        commands.append(tabCommand)
+        
+        // Shift+Tab - decrease list indent
+        let shiftTabCommand = UIKeyCommand(
+            input: "\t",
+            modifierFlags: .shift,
+            action: #selector(handleShiftTab)
+        )
+        shiftTabCommand.title = NSLocalizedString("formattingToolbar.decreaseIndent", comment: "Decrease Indent")
+        commands.append(shiftTabCommand)
+        
+        return commands
+    }
+    
+    @objc private func handleTab() {
+        #if DEBUG
+        print("⌨️ handleTab() called - onTabPressed is \(onTabPressed != nil ? "set" : "nil")")
+        #endif
+        onTabPressed?()
+    }
+    
+    @objc private func handleShiftTab() {
+        #if DEBUG
+        print("⌨️ handleShiftTab() called - onShiftTabPressed is \(onShiftTabPressed != nil ? "set" : "nil")")
+        #endif
+        onShiftTabPressed?()
+    }
+    
+    // MARK: - Menu-based indent actions (for Mac Catalyst keyboard shortcuts)
+    
+    /// Increase indent - called from Format menu (Tab key)
+    @objc func increaseIndent(_ sender: Any?) {
+        #if DEBUG
+        print("⌨️ increaseIndent: called from menu - onTabPressed is \(onTabPressed != nil ? "set" : "nil")")
+        #endif
+        onTabPressed?()
+    }
+    
+    /// Decrease indent - called from Format menu (Shift+Tab key)
+    @objc func decreaseIndent(_ sender: Any?) {
+        #if DEBUG
+        print("⌨️ decreaseIndent: called from menu - onShiftTabPressed is \(onShiftTabPressed != nil ? "set" : "nil")")
+        #endif
+        onShiftTabPressed?()
+    }
+    
+    // MARK: - Mac Catalyst Shift+Tab handling
+    
+    /// On Mac Catalyst, Shift+Tab triggers insertBacktab: from AppKit bridging
+    /// This is the proper way to intercept Shift+Tab on Catalyst
+    @objc func insertBacktab(_ sender: Any?) {
+        #if DEBUG
+        print("⌨️ insertBacktab: called - onShiftTabPressed is \(onShiftTabPressed != nil ? "set" : "nil")")
+        #endif
+        if onShiftTabPressed != nil {
+            onShiftTabPressed?()
+        }
+        // Don't call super - we've handled it
+    }
+    
+    // MARK: - Keyboard Press Interception (Mac Catalyst)
+    
+    /// Override pressesBegan to intercept Shift+Tab on Mac Catalyst
+    /// UIKeyCommand doesn't reliably intercept modifier key combinations in UITextView on Catalyst
+    override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        for press in presses {
+            guard let key = press.key else { continue }
+            
+            #if DEBUG
+            print("⌨️ pressesBegan - keyCode: \(key.keyCode), modifiers: \(key.modifierFlags), characters: '\(key.characters)'")
+            #endif
+            
+            // Check for Shift+Tab (keyCode .keyboardTab with shift modifier)
+            if key.keyCode == .keyboardTab && key.modifierFlags.contains(.shift) {
+                #if DEBUG
+                print("⌨️ pressesBegan intercepted Shift+Tab - onShiftTabPressed is \(onShiftTabPressed != nil ? "set" : "nil")")
+                #endif
+                if onShiftTabPressed != nil {
+                    onShiftTabPressed?()
+                    return  // Don't call super, we handled it
+                }
+            }
+        }
+        super.pressesBegan(presses, with: event)
+    }
+    
+    // MARK: - Text Input Interception (Mac Catalyst Tab handling)
+    
+    /// Override insertText to intercept Tab key on Mac Catalyst
+    /// UIKeyCommand doesn't reliably intercept Tab in UITextView on Catalyst
+    override func insertText(_ text: String) {
+        #if DEBUG
+        // Log special characters
+        if text.count == 1, let scalar = text.unicodeScalars.first, scalar.value < 32 || scalar.value == 127 {
+            print("⌨️ insertText - control character: \\u{\(String(format: "%04X", scalar.value))}")
+        }
+        #endif
+        
+        // Check for backtab character (ASCII 25, sent by some systems for Shift+Tab)
+        if text == "\u{0019}" || text == "\u{000F}" {
+            #if DEBUG
+            print("⌨️ insertText intercepted backtab character - onShiftTabPressed is \(onShiftTabPressed != nil ? "set" : "nil")")
+            #endif
+            if onShiftTabPressed != nil {
+                onShiftTabPressed?()
+                return
+            }
+        }
+        
+        if text == "\t" {
+            #if DEBUG
+            print("⌨️ insertText intercepted Tab - onTabPressed is \(onTabPressed != nil ? "set" : "nil")")
+            #endif
+            // Call our Tab handler instead of inserting a tab character
+            if onTabPressed != nil {
+                onTabPressed?()
+                #if DEBUG
+                print("⌨️ insertText - returning WITHOUT inserting tab")
+                #endif
+                return
+            }
+            #if DEBUG
+            print("⌨️ WARNING: onTabPressed is nil, will insert tab!")
+            #endif
+        }
+        #if DEBUG
+        if text == "\t" {
+            print("⌨️ CRITICAL: super.insertText called for Tab - this is a bug!")
+        }
+        #endif
+        // For all other text, use default behavior
+        super.insertText(text)
     }
     
     // MARK: - Appearance Handling
@@ -1831,6 +2014,23 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
     
     // Hide the system formatting menu and selection grabbers/handles
     override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
+        #if DEBUG
+        // Log all actions being queried to help debug
+        let actionName = NSStringFromSelector(action)
+        if actionName.contains("indent") || actionName.contains("Indent") || actionName.contains("tab") || actionName.contains("Tab") {
+            print("⌨️ canPerformAction queried for: \(actionName)")
+        }
+        #endif
+        
+        // Always allow indent actions for menu commands and keyCommands
+        if action == #selector(increaseIndent(_:)) || action == #selector(decreaseIndent(_:)) ||
+           action == #selector(handleTab) || action == #selector(handleShiftTab) {
+            #if DEBUG
+            print("⌨️ canPerformAction returning TRUE for indent/tab action: \(NSStringFromSelector(action))")
+            #endif
+            return true
+        }
+        
         // Disable selection actions when image is selected (except cut/delete for removal)
         if isImageSelected {
             if action == #selector(UIResponderStandardEditActions.delete(_:)) ||
@@ -1847,7 +2047,9 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
             #selector(UIResponderStandardEditActions.copy(_:)),
             #selector(UIResponderStandardEditActions.paste(_:)),
             Selector(("_lookup:")),  // Look Up action - internal Apple selector
-            #selector(UIResponderStandardEditActions.delete(_:))  // Allow delete for image removal
+            #selector(UIResponderStandardEditActions.delete(_:)),  // Allow delete for image removal
+            #selector(increaseIndent(_:)),  // Tab - increase list indent
+            #selector(decreaseIndent(_:))   // Shift+Tab - decrease list indent
         ]
         
         // Check if action is in allowed list
@@ -1991,58 +2193,93 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
         print("🎨 CustomTextView.draw() called, textStorage.length: \(textStorage.length)")
         #endif
         
-        // For empty documents, manually draw the first number since layout manager won't be called
-        if textStorage.length == 0,
-           let numberingLayoutManager = layoutManager as? NumberingLayoutManager,
-           let project = numberingLayoutManager.project,
-           let styleSheet = project.styleSheet,
+        // For empty documents (or documents with only invisible chars like zero-width space),
+        // draw the number based on either the typingAttributes or the current style
+        guard textStorage.length == 0 || textStorage.string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return
+        }
+        
+        guard let numberingLayoutManager = layoutManager as? NumberingLayoutManager,
+              let project = numberingLayoutManager.project,
+              let styleSheet = project.styleSheet else {
+            return
+        }
+        
+        // First, check the typingAttributes for a numbered style (this handles the case
+        // where user just applied a list style to an empty paragraph)
+        var activeStyle: TextStyleModel? = nil
+        
+        if let styleName = typingAttributes[.textStyle] as? String,
+           let style = styleSheet.style(named: styleName),
+           style.numberFormat != .none {
+            activeStyle = style
+        }
+        
+        // If no numbered style in typing attributes, check the text storage attributes
+        if activeStyle == nil && textStorage.length > 0 {
+            let attrs = textStorage.attributes(at: 0, effectiveRange: nil)
+            if let styleName = attrs[.textStyle] as? String,
+               let style = styleSheet.style(named: styleName),
+               style.numberFormat != .none {
+                activeStyle = style
+            }
+        }
+        
+        // Finally, fall back to Body style (for legacy behavior)
+        if activeStyle == nil,
            let bodyStyle = styleSheet.style(named: "UICTFontTextStyleBody"),
            bodyStyle.numberFormat != .none {
-            
-            #if DEBUG
-            print("🎨 Drawing '1' for empty document with numbering enabled")
-            print("   textContainerInset: \(textContainerInset)")
-            #endif
-            
-            // Format the number using the style's format and adornment
-            let formattedNumber = bodyStyle.numberFormat.symbol(for: 0, adornment: bodyStyle.numberAdornment)
-            
-            // Get font and color from style (matching NumberingLayoutManager approach)
-            let font = bodyStyle.generateFont(applyPlatformScaling: true)
-            let color = bodyStyle.textColor ?? UIColor.label
-            
-            // Draw the number in the left margin, matching NumberingLayoutManager's approach
-            // NumberingLayoutManager draws from (origin.x - 60) with width 55
-            // In this view, text starts at textContainerInset.left, so draw number before that
-            let numberAttributes: [NSAttributedString.Key: Any] = [
-                .font: font,
-                .foregroundColor: color.withAlphaComponent(0.5) // Dimmed like in layout manager
-            ]
-            
-            let numberString = formattedNumber as NSString
-            let numberSize = numberString.size(withAttributes: numberAttributes)
-            
-            // Match NumberingLayoutManager: draw from (textContainerOrigin.x - 60) with width 55
-            let numberX = textContainerInset.left - 60
-            let numberRect = CGRect(
-                x: numberX,
-                y: textContainerInset.top,
-                width: 55, // Same width as NumberingLayoutManager uses
-                height: numberSize.height
-            )
-            
-            // Right-align the number (matching NumberingLayoutManager approach)
-            let paragraphStyle = NSMutableParagraphStyle()
-            paragraphStyle.alignment = .right
-            var drawAttributes = numberAttributes
-            drawAttributes[.paragraphStyle] = paragraphStyle
-            
-            numberString.draw(in: numberRect, withAttributes: drawAttributes)
-            
-            #if DEBUG
-            print("   Drew number '\(formattedNumber)' in rect: \(numberRect)")
-            #endif
+            activeStyle = bodyStyle
         }
+        
+        guard let style = activeStyle else {
+            return
+        }
+        
+        #if DEBUG
+        print("🎨 Drawing number for empty document with style: \(style.name)")
+        print("   textContainerInset: \(textContainerInset)")
+        #endif
+        
+        // Format the number using the style's format and adornment
+        let formattedNumber = style.numberFormat.symbol(for: 0, adornment: style.numberAdornment)
+        
+        // Get font and color from style (matching NumberingLayoutManager approach)
+        let font = style.generateFont(applyPlatformScaling: true)
+        let color = style.textColor ?? UIColor.label
+        
+        // Build number attributes
+        let numberAttributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: color
+        ]
+        
+        let numberString = formattedNumber as NSString
+        let numberSize = numberString.size(withAttributes: numberAttributes)
+        
+        // For list styles, position the number based on headIndent (matching NumberingLayoutManager)
+        let numberX: CGFloat
+        let gap: CGFloat = 4.0
+        if style.styleCategory == .list {
+            // List items: number goes just before headIndent position
+            numberX = textContainerInset.left + style.headIndent - numberSize.width - gap
+        } else {
+            // Non-list numbered styles: draw at the start
+            numberX = textContainerInset.left - 60
+        }
+        
+        let numberRect = CGRect(
+            x: numberX,
+            y: textContainerInset.top,
+            width: numberSize.width,
+            height: numberSize.height
+        )
+        
+        numberString.draw(in: numberRect, withAttributes: numberAttributes)
+        
+        #if DEBUG
+        print("   Drew number '\(formattedNumber)' in rect: \(numberRect)")
+        #endif
     }
     
     // Hide the system formatting menu on iPad with hardware keyboard (iOS 13+)

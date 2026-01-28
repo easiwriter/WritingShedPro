@@ -141,8 +141,15 @@ class NumberingLayoutManager: NSLayoutManager {
                 let currentParentNumber = lastNumberForStyle[parentName] ?? 0
                 let trackedParentNumber = lastNumberForStyle["\(styleName)_parentNum"] ?? 0
                 
+                #if DEBUG
+                print("   🔢 Child style '\(styleName)': currentParentNumber=\(currentParentNumber), trackedParentNumber=\(trackedParentNumber)")
+                #endif
+                
                 if currentParentNumber != trackedParentNumber {
                     // Parent number changed - reset this child's counter
+                    #if DEBUG
+                    print("   🔄 Parent changed! Resetting '\(styleName)' counter from \(styleCounters[styleName] ?? 0) to 0")
+                    #endif
                     styleCounters[styleName] = 0
                     lastNumberForStyle["\(styleName)_parentNum"] = currentParentNumber
                 }
@@ -363,8 +370,8 @@ class NumberingLayoutManager: NSLayoutManager {
     }
     
     /// Helper method to draw a number at the start of a paragraph's first line
-    /// The number is drawn at the beginning of the line, within the automatically-added
-    /// firstLineHeadIndent space that was created when the style has numbering enabled.
+    /// The number is drawn just before the text starts. For list styles, the text
+    /// starts at the style's headIndent, so the number is drawn at headIndent - numberWidth.
     /// - Parameters:
     ///   - formattedNumber: The number string to draw
     ///   - origin: The origin point for drawing (includes text container inset)
@@ -392,16 +399,23 @@ class NumberingLayoutManager: NSLayoutManager {
         let numberString = formattedNumber as NSString
         let numberSize = numberString.size(withAttributes: numberAttributes)
         
-        // The number is drawn at the very start of where the line fragment begins
-        // The text has been automatically indented by the number width in generateAttributes()
-        // So we draw at lineFragmentRect.origin.x which is position 0 of the text container
-        let numberX = origin.x + lineFragmentRect.origin.x
+        // For list styles, draw the number just before where the text starts (at headIndent)
+        // For other numbered styles, draw at the start of the line
+        let numberX: CGFloat
+        if style.styleCategory == .list {
+            // List items: number goes just before headIndent position
+            // Add a small gap between number and text
+            let gap: CGFloat = 4.0
+            numberX = origin.x + style.headIndent - numberSize.width - gap
+        } else {
+            // Non-list numbered paragraphs: number at the start of the line
+            numberX = origin.x + lineFragmentRect.origin.x
+        }
         
         // Calculate baseline-aligned Y position
         let baselineY = origin.y + lineFragmentRect.height - paragraphFont.descender - numberSize.height + paragraphFont.descender
         
-        // Draw number left-aligned at the start of the line
-        // The text will start after the number due to the automatic firstLineHeadIndent
+        // Draw number left-aligned at the calculated position
         let numberRect = CGRect(
             x: numberX,
             y: baselineY,
