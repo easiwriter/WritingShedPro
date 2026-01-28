@@ -16,8 +16,8 @@ struct ProjectFolderMigrationService {
     // MARK: - Migration Version
     
     private static let migrationVersionKey = "projectFolderMigrationVersion"
-    // Version 12: Only delete EMPTY root-level manuscript folders
-    private static let currentMigrationVersion = 12
+    // Version 13: Restore content folders incorrectly deleted by v10-12
+    private static let currentMigrationVersion = 13
     
     // MARK: - Public Methods
     
@@ -108,8 +108,15 @@ struct ProjectFolderMigrationService {
             cleanupRootLevelManuscriptFolders(modelContext: modelContext)
         }
         
+        // Version 13: Restore content folders incorrectly deleted by v10-12
+        // The cleanup was deleting Poems, Chapters, Sections, Acts, Stories at root
+        // but these ARE valid root-level folders for their project types
+        if oldVersion < 13 {
+            restoreRootLevelContentFolders(modelContext: modelContext)
+        }
+        
         // Future migrations go here:
-        // if oldVersion < 13 { ... }
+        // if oldVersion < 14 { ... }
         
         do {
             try modelContext.save()
@@ -760,12 +767,19 @@ struct ProjectFolderMigrationService {
         print("[ProjectFolderMigration] 🧹 Starting cleanup of root-level manuscript folders")
         #endif
         
-        // Names that should only exist inside Manuscript folder
-        // Only delete if the folder is EMPTY (no files and no subfolders with files)
+        // Names that should ONLY exist inside Manuscript folder, never at root
+        // NOTE: Do NOT include "Poems", "Chapters", "Sections", "Acts", "Stories" here
+        // - those are legitimate root-level content folders for their project types
+        // Only include folders that are exclusively Manuscript subfolders
         let manuscriptOnlyNames: Set<String> = [
-            "Body", "Front Matter", "Back Matter",
-            "All Acts", "All Poems", "All Sections", "All Chapters", "All Stories",
-            "Acts", "Poems", "Sections", "Chapters", "Stories"
+            "Body",                 // Old name, should have been renamed to "All X"
+            "Front Matter",         // Only exists inside Manuscript
+            "Back Matter",          // Only exists inside Manuscript
+            "All Acts",             // Renamed Body folder inside Manuscript
+            "All Poems",            // Renamed Body folder inside Manuscript
+            "All Sections",         // Renamed Body folder inside Manuscript
+            "All Chapters",         // Renamed Body folder inside Manuscript
+            "All Stories"           // Renamed Body folder inside Manuscript
         ]
         
         do {

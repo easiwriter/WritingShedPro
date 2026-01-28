@@ -70,12 +70,23 @@ final class NumberFormatTests: XCTestCase {
     func testBulletSymbols() {
         let format = NumberFormat.bulletSymbols
         
-        XCTAssertEqual(format.symbol(for: 0), "•")
-        XCTAssertEqual(format.symbol(for: 1), "◦")
-        XCTAssertEqual(format.symbol(for: 2), "▪")
-        XCTAssertEqual(format.symbol(for: 3), "▫")
-        XCTAssertEqual(format.symbol(for: 4), "▸")
-        XCTAssertEqual(format.symbol(for: 5), "•") // Wraps around
+        // Bullets use level-based selection (same symbol for all items at a level)
+        // Level 0 = •, Level 1 = ◦, Level 2 = ▪
+        // Index is ignored for bullets - all items at same level get same symbol
+        XCTAssertEqual(format.symbol(for: 0, adornment: .plain, level: 0), "•")
+        XCTAssertEqual(format.symbol(for: 1, adornment: .plain, level: 0), "•")
+        XCTAssertEqual(format.symbol(for: 5, adornment: .plain, level: 0), "•")
+        
+        // Level 1 bullets
+        XCTAssertEqual(format.symbol(for: 0, adornment: .plain, level: 1), "◦")
+        XCTAssertEqual(format.symbol(for: 1, adornment: .plain, level: 1), "◦")
+        
+        // Level 2 bullets
+        XCTAssertEqual(format.symbol(for: 0, adornment: .plain, level: 2), "▪")
+        XCTAssertEqual(format.symbol(for: 1, adornment: .plain, level: 2), "▪")
+        
+        // Level 3+ clamps to level 2
+        XCTAssertEqual(format.symbol(for: 0, adornment: .plain, level: 3), "▪")
     }
     
     func testNoneSymbol() {
