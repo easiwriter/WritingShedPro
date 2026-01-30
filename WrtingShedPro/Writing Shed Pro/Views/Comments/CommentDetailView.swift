@@ -77,13 +77,12 @@ struct CommentDetailView: View {
                 
                 Spacer()
                 
-                // Close button
+                // Done button
                 Button(action: {
                     onClose?()
                 }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.secondary)
-                        .font(.title3)
+                    Text("Done")
+                        .fontWeight(.medium)
                 }
             }
             

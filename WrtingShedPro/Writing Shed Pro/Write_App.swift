@@ -78,10 +78,11 @@ struct Write_App: App {
             print("✅ [Write_App] ModelContainer created successfully with CloudKit enabled")
             #endif
             
-            // IMPORTANT: Run critical cleanup BEFORE any views load to prevent crashes
+            // DISABLED: MigrationService was breaking CloudKit sync
+            // Run critical cleanup BEFORE any views load to prevent crashes
             // from invalidated folder objects
             let mainContext = container.mainContext
-            MigrationService.cleanupOrphanedFoldersEarly(context: mainContext)
+            // MigrationService.cleanupOrphanedFoldersEarly(context: mainContext)
             
             #if DEBUG
             print("✅ [Write_App] Main context ready")

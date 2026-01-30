@@ -2142,6 +2142,9 @@
 "referenceCreator.discard.title" = "Discard Changes?";
 "referenceCreator.discard.button" = "Discard";
 "referenceCreator.discard.message" = "Your changes will be lost.";
+"referenceCreator.duplicate.title" = "Duplicate Reference";
+"referenceCreator.duplicate.continue" = "Create Anyway";
+"referenceCreator.duplicate.message" = "A reference by '%@' (%@) already exists.";
 
 /* References List */
 "references.title" = "References";

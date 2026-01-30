@@ -994,7 +994,7 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
                 let numberString = "\(footnoteAttachment.number)"
                 let attributes: [NSAttributedString.Key: Any] = [
                     .font: UIFont.systemFont(ofSize: 11, weight: .medium),
-                    .foregroundColor: UIColor.systemBlue,
+                    .foregroundColor: UIColor.label,  // Use label color (black in light mode, white in dark)
                     .baselineOffset: 8
                 ]
                 replacements.append((range: range, replacement: NSAttributedString(string: numberString, attributes: attributes)))

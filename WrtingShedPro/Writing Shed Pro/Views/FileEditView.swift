@@ -1053,13 +1053,8 @@ struct FileEditView: View {
             
             // Reference - direct button, no submenu
             if backMatterSettings.isEnabled(.references) {
-                let referenceCount = file.project?.referenceEntries?.filter { $0.referenceCount > 0 }.count ?? 0
                 Button(action: { showNewReferenceDialog = true }) {
-                    if referenceCount > 0 {
-                        Label("\(NSLocalizedString("insertMenu.addReference", comment: "Add Reference")) (\(referenceCount))", systemImage: "books.vertical.fill")
-                    } else {
-                        Label(NSLocalizedString("insertMenu.addReference", comment: "Add Reference"), systemImage: "books.vertical.fill")
-                    }
+                    Label(NSLocalizedString("insertMenu.addReference", comment: "Add Reference"), systemImage: "books.vertical.fill")
                 }
             }
 
@@ -1477,13 +1472,6 @@ struct FileEditView: View {
                     )
                     .navigationBarTitleDisplayMode(.inline)
                     .navigationTitle(NSLocalizedString("fileEdit.commentSheet.title", comment: ""))
-                    .toolbar {
-                        ToolbarItem(placement: .confirmationAction) {
-                            Button("button.done") {
-                                selectedCommentForDetail = nil
-                            }
-                        }
-                    }
                 }
                 .presentationDetents([.medium, .large])
             }
@@ -4179,6 +4167,11 @@ struct FileEditView: View {
         // Save changes
         saveChanges()
         
+        // Regenerate back matter files to show the glossary entry
+        if let project = file.project {
+            regenerateBackMatterFilesForGlossary(project)
+        }
+        
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
             self.isPerformingUndoRedo = false
         }
@@ -4227,6 +4220,11 @@ struct FileEditView: View {
             textView.attributedText = mutableContent
             attributedContent = mutableContent
             saveChanges()
+            
+            // Regenerate back matter files to update the glossary
+            if let project = file.project {
+                regenerateBackMatterFilesForGlossary(project)
+            }
             
             #if DEBUG
             print("✅ Removed \(removedCount) markers for glossary term: \(term.term)")
@@ -4726,6 +4724,46 @@ struct FileEditView: View {
         if let backMatterFile = try? modelContext.fetch(descriptor).first {
             // Generate new content
             let generatedContent = backMatterGenerator.generateReferencesSection() ?? NSAttributedString()
+            
+            // Update or create current version
+            if backMatterFile.currentVersion == nil {
+                let newVersion = Version(versionNumber: 1)
+                newVersion.textFile = backMatterFile
+                newVersion.attributedContent = generatedContent
+                modelContext.insert(newVersion)
+                backMatterFile.currentVersionIndex = 0
+            } else {
+                backMatterFile.currentVersion?.attributedContent = generatedContent
+            }
+            
+            try? modelContext.save()
+        }
+    }
+    
+    /// Regenerate back matter files after glossary entry count changes
+    private func regenerateBackMatterFilesForGlossary(_ project: Project) {
+        // Find the Back Matter folder using project helper
+        guard let backMatterFolder = project.findBackMatterFolder() else {
+            return
+        }
+        
+        let backMatterGenerator = BackMatterGenerator(context: modelContext, project: project)
+        
+        // Only regenerate the Glossary section
+        guard backMatterFolder.backMatterSettings.isEnabled(.glossary) else { return }
+        
+        // Find or create the Glossary back matter file
+        let folderID = backMatterFolder.id
+        let fileName = BackMatterItem.glossary.fileName
+        let descriptor = FetchDescriptor<TextFile>(
+            predicate: #Predicate<TextFile> { file in
+                file.parentFolder?.id == folderID && file.name == fileName
+            }
+        )
+        
+        if let backMatterFile = try? modelContext.fetch(descriptor).first {
+            // Generate new content
+            let generatedContent = backMatterGenerator.generateGlossarySection() ?? NSAttributedString()
             
             // Update or create current version
             if backMatterFile.currentVersion == nil {
@@ -7214,18 +7252,6 @@ private struct NewCommentSheet: View {
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
-                }
-                
-                // Show Comments button (only if there are existing comments)
-                if hasExistingComments {
-                    Section {
-                        Button(action: {
-                            dismiss()
-                            onShowComments()
-                        }) {
-                            Label("Show Comments", systemImage: "bubble.left.and.bubble.right")
-                        }
-                    }
                 }
             }
             .navigationTitle("fileEdit.newComment.title")

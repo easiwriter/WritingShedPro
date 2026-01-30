@@ -29,8 +29,13 @@ class MigrationService {
             return
         }
         
+        #if DEBUG
+        print("🧹 [MigrationService] Found \(allFolders.count) total folders in database")
+        #endif
+        
         var cleanedCount = 0
-        var deletedCount = 0
+        // DISABLED: Don't delete orphaned folders - they may be waiting for CloudKit relationship sync
+        // var deletedCount = 0
         
         for folder in allFolders {
             // Check if folder has both project AND parentFolder set (should only have one)
@@ -42,20 +47,29 @@ class MigrationService {
                 cleanedCount += 1
             }
             
-            // Check if folder has neither project NOR parentFolder (orphaned)
+            // DISABLED: This was deleting folders before CloudKit synced their relationships!
+            // With CloudKit, a folder entity might sync before its project relationship,
+            // causing it to appear "orphaned" when it's actually just waiting for sync.
+            // if folder.project == nil && folder.parentFolder == nil {
+            //     #if DEBUG
+            //     print("🗑️ Deleting orphaned folder '\(folder.name ?? "unnamed")'")
+            //     #endif
+            //     context.delete(folder)
+            //     deletedCount += 1
+            // }
+            
+            #if DEBUG
+            // Log folder relationship status for debugging
             if folder.project == nil && folder.parentFolder == nil {
-                #if DEBUG
-                print("🗑️ Deleting orphaned folder '\(folder.name ?? "unnamed")'")
-                #endif
-                context.delete(folder)
-                deletedCount += 1
+                print("⚠️ [MigrationService] Folder '\(folder.name ?? "unnamed")' has no project or parent (possible CloudKit sync delay)")
             }
+            #endif
         }
         
-        if cleanedCount > 0 || deletedCount > 0 {
+        if cleanedCount > 0 {
             try? context.save()
             #if DEBUG
-            print("✅ [MigrationService] Early cleanup: Fixed \(cleanedCount) folders, deleted \(deletedCount) orphaned folders")
+            print("✅ [MigrationService] Early cleanup: Fixed \(cleanedCount) folders with dual relationships")
             #endif
         } else {
             #if DEBUG

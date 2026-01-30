@@ -39,6 +39,7 @@ struct ReferenceCreatorSheet: View {
     @State private var selectedExistingReferenceID: UUID?
     @State private var showingReferenceExistingList: Bool = false
     @State private var showDiscardConfirmation = false
+    @State private var showDuplicateWarning = false
     
     // MARK: - Computed Properties
     
@@ -72,6 +73,19 @@ struct ReferenceCreatorSheet: View {
     
     private var isReferencingExisting: Bool {
         showingReferenceExistingList && !existingReferences.isEmpty
+    }
+    
+    /// Check if a reference with the same author and date already exists
+    private var duplicateReference: ReferenceEntry? {
+        guard !isEditing else { return nil }
+        let trimmedAuthor = author.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let trimmedDate = publicationDate.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !trimmedAuthor.isEmpty && !trimmedDate.isEmpty else { return nil }
+        
+        return project.referenceEntries?.first { entry in
+            entry.author.lowercased() == trimmedAuthor &&
+            entry.publicationDate.lowercased() == trimmedDate
+        }
     }
     
     private var navigationTitle: String {
@@ -143,9 +157,27 @@ struct ReferenceCreatorSheet: View {
                 
                 ToolbarItem(placement: .confirmationAction) {
                     Button(NSLocalizedString("button.save", comment: "Save")) {
-                        saveReference()
+                        // Check for duplicates when creating new reference
+                        if !isEditing && !isReferencingExisting && duplicateReference != nil {
+                            showDuplicateWarning = true
+                        } else {
+                            saveReference()
+                        }
                     }
                     .disabled(!canSave)
+                }
+            }
+            .alert(
+                NSLocalizedString("referenceCreator.duplicate.title", comment: "Duplicate Reference"),
+                isPresented: $showDuplicateWarning
+            ) {
+                Button(NSLocalizedString("referenceCreator.duplicate.continue", comment: "Create Anyway")) {
+                    saveReference()
+                }
+                Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {}
+            } message: {
+                if let duplicate = duplicateReference {
+                    Text(String(format: NSLocalizedString("referenceCreator.duplicate.message", comment: "A reference by '%@' (%@) already exists."), duplicate.author, duplicate.publicationDate))
                 }
             }
             .confirmationDialog(

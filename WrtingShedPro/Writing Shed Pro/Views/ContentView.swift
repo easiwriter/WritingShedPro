@@ -22,16 +22,130 @@ struct ContentView: View {
     }
     
     /// Run data migrations for new features
+    /// DISABLED: MigrationService was breaking CloudKit sync
     private func runMigrations() {
-        Task(priority: .utility) {
-            MigrationService.runMigrations(context: modelContext)
-        }
+        // Task(priority: .utility) {
+        //     MigrationService.runMigrations(context: modelContext)
+        // }
     }
     
     /// Prefetch project relationships async to warm up Swift type system
     /// This prevents UI freeze when tapping first project after app launch
     private func prefetchProjectData() {
         guard !projects.isEmpty else { return }
+        
+        // DIAGNOSTIC: Log all data to understand sync issues
+        #if DEBUG
+        print("========================================")
+        print("📊 [SYNC DIAGNOSTIC] Starting data analysis...")
+        print("========================================")
+        
+        // Check project details to see what differentiates working vs broken
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd HH:mm"
+        
+        print("📋 [SYNC] PROJECT DETAILS (checking for differences):")
+        for project in projects.sorted(by: { ($0.creationDate ?? Date.distantPast) < ($1.creationDate ?? Date.distantPast) }) {
+            let folderCount = project.folders?.count ?? 0
+            let status = folderCount > 0 ? "✅" : "❌"
+            let created = project.creationDate.map { dateFormatter.string(from: $0) } ?? "nil"
+            let modified = project.modifiedDate.map { dateFormatter.string(from: $0) } ?? "nil"
+            print("   \(status) '\(project.name ?? "?")' type:\(project.typeRaw ?? "nil") created:\(created) modified:\(modified) folders:\(folderCount)")
+        }
+        print("")
+        
+        // First, do a direct database query for ALL folders regardless of relationships
+        let folderDescriptor = FetchDescriptor<Folder>()
+        if let allFolders = try? modelContext.fetch(folderDescriptor) {
+            print("📁 [SYNC] Total folders in database: \(allFolders.count)")
+            
+            var orphanedFolders: [Folder] = []
+            var foldersWithProject: [Folder] = []
+            var foldersWithParent: [Folder] = []
+            var foldersWithBoth: [Folder] = []
+            
+            for folder in allFolders {
+                let hasProject = folder.project != nil
+                let hasParent = folder.parentFolder != nil
+                
+                if !hasProject && !hasParent {
+                    orphanedFolders.append(folder)
+                } else if hasProject && hasParent {
+                    foldersWithBoth.append(folder)
+                } else if hasProject {
+                    foldersWithProject.append(folder)
+                } else {
+                    foldersWithParent.append(folder)
+                }
+            }
+            
+            print("   ├─ Folders with project relationship: \(foldersWithProject.count)")
+            print("   ├─ Folders with parentFolder (subfolders): \(foldersWithParent.count)")
+            print("   ├─ Folders with BOTH (error): \(foldersWithBoth.count)")
+            print("   └─ Folders with NEITHER (orphaned): \(orphanedFolders.count)")
+            
+            if !orphanedFolders.isEmpty {
+                print("⚠️ [SYNC] ORPHANED FOLDERS (no project, no parent):")
+                for folder in orphanedFolders.prefix(20) {
+                    print("   - '\(folder.name ?? "nil")' id:\(folder.persistentModelID)")
+                }
+                if orphanedFolders.count > 20 {
+                    print("   ... and \(orphanedFolders.count - 20) more")
+                }
+            }
+        }
+        
+        // Also query all files directly
+        let fileDescriptor = FetchDescriptor<TextFile>()
+        if let allFiles = try? modelContext.fetch(fileDescriptor) {
+            print("📄 [SYNC] Total files in database: \(allFiles.count)")
+            
+            let orphanedFiles = allFiles.filter { $0.parentFolder == nil }
+            print("   └─ Files with no folder (orphaned): \(orphanedFiles.count)")
+            
+            if !orphanedFiles.isEmpty {
+                print("⚠️ [SYNC] ORPHANED FILES (no folder):")
+                for file in orphanedFiles.prefix(10) {
+                    print("   - '\(file.name)'")
+                }
+            }
+        }
+        
+        print("----------------------------------------")
+        print("📊 [SYNC] Projects visible to @Query: \(projects.count)")
+        
+        for project in projects {
+            let folderCount = project.folders?.count ?? 0
+            let rootFolders = project.folders?.filter { $0.parentFolder == nil } ?? []
+            print("   📁 '\(project.name ?? "Untitled")' - \(folderCount) folders (\(rootFolders.count) root)")
+            
+            if folderCount == 0 {
+                print("      ⚠️ NO FOLDERS - this is the problem!")
+            } else {
+                // Show root folders
+                for folder in rootFolders.prefix(5) {
+                    let fileCount = folder.textFiles?.count ?? 0
+                    let subfolderCount = folder.folders?.count ?? 0
+                    print("      ├─ '\(folder.name ?? "nil")' (\(fileCount) files, \(subfolderCount) subfolders)")
+                }
+                if rootFolders.count > 5 {
+                    print("      └─ ... and \(rootFolders.count - 5) more root folders")
+                }
+            }
+        }
+        
+        print("========================================")
+        print("📊 [SYNC DIAGNOSTIC] Analysis complete")
+        print("========================================")
+        
+        // Schedule a delayed re-check to see if CloudKit sync fixes relationships
+        Task {
+            try? await Task.sleep(nanoseconds: 30_000_000_000) // 30 seconds
+            await MainActor.run {
+                runDelayedDiagnostic()
+            }
+        }
+        #endif
         
         // Only do expensive prefetch in Debug builds where it matters
         #if DEBUG
@@ -61,6 +175,40 @@ struct ContentView: View {
             
             print("[ContentView] ✅ Prefetch complete")
         }
+        #endif
+    }
+    
+    /// Delayed diagnostic to check if CloudKit sync has fixed relationships
+    private func runDelayedDiagnostic() {
+        #if DEBUG
+        print("")
+        print("========================================")
+        print("📊 [SYNC DIAGNOSTIC] 30-SECOND RECHECK")
+        print("========================================")
+        
+        let folderDescriptor = FetchDescriptor<Folder>()
+        let fileDescriptor = FetchDescriptor<TextFile>()
+        
+        if let allFolders = try? modelContext.fetch(folderDescriptor),
+           let allFiles = try? modelContext.fetch(fileDescriptor) {
+            
+            let orphanedFolders = allFolders.filter { $0.project == nil && $0.parentFolder == nil }
+            let orphanedFiles = allFiles.filter { $0.parentFolder == nil }
+            
+            print("📁 Folders: \(allFolders.count) total, \(orphanedFolders.count) orphaned")
+            print("📄 Files: \(allFiles.count) total, \(orphanedFiles.count) orphaned")
+            
+            // Check if situation improved
+            print("----------------------------------------")
+            print("📊 Projects status:")
+            for project in projects {
+                let folderCount = project.folders?.count ?? 0
+                let totalFiles = project.folders?.reduce(0) { $0 + ($1.textFiles?.count ?? 0) } ?? 0
+                print("   '\(project.name ?? "?")': \(folderCount) folders, \(totalFiles) files linked")
+            }
+        }
+        
+        print("========================================")
         #endif
     }
     
@@ -140,11 +288,12 @@ struct ContentView: View {
                         errorHandler.warnings.forEach { print("  - \($0)") }
                     }
 
+                    // DISABLED: MigrationService was breaking CloudKit sync
                     // Run migration after import to ensure manuscript subfolders are present
-                    MigrationService.runMigrations(context: modelContext)
-                    #if DEBUG
-                    print("[ContentView] Ran MigrationService after import")
-                    #endif
+                    // MigrationService.runMigrations(context: modelContext)
+                    // #if DEBUG
+                    // print("[ContentView] Ran MigrationService after import")
+                    // #endif
                 } catch ImportError.missingContent {
                     await MainActor.run {
                         state.importErrorMessage = NSLocalizedString("contentView.importError.emptyFile", comment: "The selected file is empty or corrupt")
@@ -171,8 +320,8 @@ struct ContentView: View {
     }
     
     private func initializeUserOrderIfNeeded() {
-        // Run folder migrations for existing projects
-        ProjectFolderMigrationService.migrateIfNeeded(modelContext: modelContext)
+        // DISABLED: All migrations disabled - breaking CloudKit sync
+        // ProjectFolderMigrationService.migrateIfNeeded(modelContext: modelContext)
         
         // Ensure all existing projects have a userOrder
         let projectsNeedingOrder = projects.filter { $0.userOrder == nil }
