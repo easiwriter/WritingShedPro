@@ -43,6 +43,40 @@ When creating SwiftData @Model classes with CloudKit integration:
 - Use optional properties (with `?`) or provide explicit default values in init
 - Example: `var id: UUID = UUID()` or `var name: String?`
 
+## CloudKit Sync: NEVER Delete Based on Missing Relationships
+**CRITICAL: CloudKit syncs entities and relationships SEPARATELY**
+
+This caused data loss on 2026-01-30. The MigrationService deleted folders that appeared "orphaned" (no project relationship) but were actually just waiting for CloudKit to sync the relationship.
+
+**What happens with CloudKit sync:**
+1. A `Folder` record syncs first with its properties (name, id, etc.)
+2. The `project` relationship syncs LATER in a separate transaction
+3. Between those moments: `folder.project == nil` even though it's NOT orphaned
+
+**NEVER DO THIS:**
+```swift
+// ❌ DANGEROUS - will delete valid data during CloudKit sync
+if folder.project == nil && folder.parentFolder == nil {
+    context.delete(folder)  // WRONG!
+}
+```
+
+**Rules for CloudKit-safe code:**
+1. **Never delete records just because a relationship is nil** - it may sync later
+2. **Never run cleanup/migration on app launch** - sync may be incomplete
+3. **If cleanup is truly needed**, require explicit user action (button press), not automatic
+4. **Log warnings instead of deleting** when relationships appear missing
+5. **Consider a "grace period"** - only flag records as orphaned if they've been relationless for days, not seconds
+
+**Safe alternative:**
+```swift
+// ✅ SAFE - just log, don't delete
+if folder.project == nil && folder.parentFolder == nil {
+    print("⚠️ Folder '\(folder.name)' has no relationships (may be syncing)")
+    // DO NOT DELETE
+}
+```
+
 ## Recent Changes
 - 001-project-management-ios-macos: Added
 - 014-comments: SwiftData/CloudKit requirements documented
