@@ -134,6 +134,23 @@ final class PageSetup {
             scaleFactor: PageSetupDefaults.scaleFactorInches
         )
     }
+    
+    // MARK: - Layout Comparison
+    
+    /// Check if two PageSetup instances have equivalent layout values
+    /// Used to avoid resetting scroll position when CloudKit syncs create new instances with same values
+    func isLayoutEquivalent(to other: PageSetup) -> Bool {
+        return paperName == other.paperName &&
+               orientation == other.orientation &&
+               marginTop == other.marginTop &&
+               marginBottom == other.marginBottom &&
+               marginLeft == other.marginLeft &&
+               marginRight == other.marginRight &&
+               headerDepth == other.headerDepth &&
+               footerDepth == other.footerDepth &&
+               headers == other.headers &&
+               footers == other.footers
+    }
 }
 
 // MARK: - PrinterPaper Model

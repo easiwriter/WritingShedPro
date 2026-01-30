@@ -352,143 +352,360 @@ class PaginatedTextLayoutManager {
         
         // Get all footnotes for this version
         let allFootnotes = FootnoteManager.shared.getActiveFootnotes(forVersion: version, context: context)
-        let maxIterations = 5  // Prevent infinite loops
+        let maxFootnoteSpace = containerSize.height * 0.5  // Max half page for footnotes
+        let totalCharacters = textStorage.length
+        let maxPagesPerFootnoteIteration = 5  // Max iterations per page for footnote space
         
-        var currentPageInfos: [PageInfo] = []
-        var previousPageRanges: [NSRange] = []
-        var iteration = 0
-        var hasConverged = false
+        // CRITICAL: Build a map of actual attachment positions from the text storage
+        // The stored characterPosition in FootnoteModel may be stale/incorrect
+        // We need to find where the FootnoteAttachment objects actually are in the text
+        var actualPositions: [UUID: Int] = [:]
+        textStorage.enumerateAttribute(.attachment, in: NSRange(location: 0, length: textStorage.length), options: []) { value, range, _ in
+            if let footnoteAttachment = value as? FootnoteAttachment {
+                actualPositions[footnoteAttachment.footnoteID] = range.location
+            }
+        }
         
-        while !hasConverged && iteration < maxIterations {
-            iteration += 1
-            #if DEBUG
-            print("🔄 Footnote layout iteration \(iteration)")
-            #endif
+        // Create footnote info with actual positions from text storage
+        struct FootnoteInfo {
+            let footnote: FootnoteModel
+            let actualPosition: Int
+        }
+        
+        let footnotesWithActualPositions: [FootnoteInfo] = allFootnotes.compactMap { footnote in
+            if let actualPos = actualPositions[footnote.attachmentID] {
+                return FootnoteInfo(footnote: footnote, actualPosition: actualPos)
+            } else {
+                // Footnote not found in text - use stored position as fallback
+                #if DEBUG
+                print("   ⚠️ Footnote #\(footnote.number) not found in text, using stored position \(footnote.characterPosition)")
+                #endif
+                return FootnoteInfo(footnote: footnote, actualPosition: footnote.characterPosition)
+            }
+        }.sorted { $0.actualPosition < $1.actualPosition }
+        
+        // TeX-like algorithm: Build pages SEQUENTIALLY in a single layout pass
+        // Each page's container stays in the layout manager as we build the next
+        // This ensures text flows correctly from page to page
+        
+        #if DEBUG
+        print("📐 Starting TeX-like sequential pagination for \(totalCharacters) characters")
+        print("   Container size: \(containerSize.width) x \(containerSize.height)")
+        print("   Total footnotes: \(allFootnotes.count)")
+        for fnInfo in footnotesWithActualPositions {
+            let storedPos = fnInfo.footnote.characterPosition
+            let actualPos = fnInfo.actualPosition
+            if storedPos != actualPos {
+                print("   📝 Footnote #\(fnInfo.footnote.number) at ACTUAL position \(actualPos) (stored: \(storedPos) - MISMATCH!)")
+            } else {
+                print("   📝 Footnote #\(fnInfo.footnote.number) at char position \(actualPos)")
+            }
+        }
+        #endif
+        
+        // Clear any existing containers
+        while !layoutManager.textContainers.isEmpty {
+            layoutManager.removeTextContainer(at: 0)
+        }
+        
+        var pageInfos: [PageInfo] = []
+        var pageIndex = 0
+        
+        while pageIndex < 1000 {
+            // Calculate footnote space needed for THIS page
+            // We need to iterate because footnote space affects which text fits,
+            // which affects which footnotes appear
             
-            // Calculate pagination with current footnote assignments
-            var pageInfos: [PageInfo] = []
-            var characterIndex = 0
-            let totalCharacters = textStorage.length
+            var reservedFootnoteSpace: CGFloat = 0
+            var converged = false
+            var previousFootnoteCount = -1
+            var oscillationDetected = false
+            var oscillatingFootnotePosition: Int = Int.max  // Position of the footnote that gets pushed in/out
             
-            while characterIndex < totalCharacters || pageInfos.isEmpty {
-                let pageIndex = pageInfos.count
-                
-                // For iteration 1, assume no footnotes (full height)
-                // For iterations 2+, check if previous iteration found footnotes on this page
-                let footnotesOnPreviousPage: [FootnoteModel]
-                if iteration == 1 || pageIndex >= currentPageInfos.count {
-                    footnotesOnPreviousPage = []
-                } else {
-                    let previousPageRange = currentPageInfos[pageIndex].characterRange
-                    footnotesOnPreviousPage = allFootnotes.filter { footnote in
-                        NSLocationInRange(footnote.characterPosition, previousPageRange)
-                    }
-                }
-                
-                // Calculate actual footnote height for this page
-                let footnoteHeight: CGFloat
-                if !footnotesOnPreviousPage.isEmpty {
-                    footnoteHeight = calculateFootnoteHeight(for: footnotesOnPreviousPage, pageWidth: containerSize.width)
+            for fnIteration in 0..<maxPagesPerFootnoteIteration {
+                // Calculate available text height
+                let textHeight = containerSize.height - reservedFootnoteSpace
+                if textHeight < 50 {
+                    // Not enough space for meaningful text
                     #if DEBUG
-                    print("   📏 Page \(pageIndex): \(footnotesOnPreviousPage.count) footnotes need \(footnoteHeight)pt")
+                    print("   ⚠️ Page \(pageIndex): Not enough text space (\(textHeight)pt)")
                     #endif
-                } else {
-                    footnoteHeight = 0
+                    break
                 }
                 
-                // Determine container size based on actual footnote height
-                let pageContainerSize: CGSize
-                if footnoteHeight > 0 {
-                    pageContainerSize = CGSize(
-                        width: containerSize.width,
-                        height: containerSize.height - footnoteHeight
-                    )
-                    #if DEBUG
-                    print("   📐 Container adjusted: \(containerSize.height)pt - \(footnoteHeight)pt = \(pageContainerSize.height)pt")
-                    #endif
-                } else {
-                    pageContainerSize = containerSize
+                // Remove previous test container for this page if exists
+                while layoutManager.textContainers.count > pageIndex {
+                    layoutManager.removeTextContainer(at: pageIndex)
                 }
                 
-                // Create container for this page
+                // Add container for this page with current reserved space
+                let pageContainerSize = CGSize(width: containerSize.width, height: textHeight)
                 let container = NSTextContainer(size: pageContainerSize)
                 container.lineFragmentPadding = 0
                 layoutManager.addTextContainer(container)
+                layoutManager.ensureLayout(for: container)
                 
                 let glyphRange = layoutManager.glyphRange(for: container)
-                let characterRange = layoutManager.characterRange(forGlyphRange: glyphRange, actualGlyphRange: nil)
-                let usedRect = layoutManager.usedRect(for: container)
-                
-                let pageInfo = PageInfo(
-                    pageIndex: pageIndex,
-                    glyphRange: glyphRange,
-                    characterRange: characterRange,
-                    usedRect: usedRect
-                )
-                pageInfos.append(pageInfo)
-                
-                // Update layoutResult incrementally during first iteration so pages can display
-                // Do this BEFORE break checks so first page is always published
-                if iteration == 1 && (pageInfos.count == 1 || pageInfos.count <= 5 || pageInfos.count % 10 == 0) {
-                    let currentHeight = CGFloat(pageInfos.count) * (pageHeight + pageSpacing) - pageSpacing
-                    let currentContentSize = CGSize(
-                        width: pageLayout.pageRect.width,
-                        height: max(currentHeight, estimatedHeight)
-                    )
-                    let intermediateResult = LayoutResult(
-                        totalPages: max(pageInfos.count, estimatedPages),
-                        pageInfos: pageInfos,
-                        contentSize: currentContentSize,
-                        calculationTime: Date().timeIntervalSince(startTime)
-                    )
-                    DispatchQueue.main.async {
-                        self.layoutResult = intermediateResult
-                    }
+                if glyphRange.length == 0 {
+                    // No more text
+                    layoutManager.removeTextContainer(at: pageIndex)
+                    converged = true
+                    break
                 }
                 
-                characterIndex = NSMaxRange(characterRange)
+                let charRange = layoutManager.characterRange(forGlyphRange: glyphRange, actualGlyphRange: nil)
                 
-                if characterIndex >= totalCharacters || characterRange.length == 0 {
+                // Find footnotes in this character range using ACTUAL positions from text
+                let footnotesOnPage = footnotesWithActualPositions.filter { fnInfo in
+                    NSLocationInRange(fnInfo.actualPosition, charRange)
+                }
+                
+                // Calculate actual footnote space needed
+                var neededSpace: CGFloat = 0
+                if !footnotesOnPage.isEmpty {
+                    let footnoteModels = footnotesOnPage.map { $0.footnote }
+                    neededSpace = calculateFootnoteHeight(for: footnoteModels, pageWidth: containerSize.width)
+                    neededSpace = min(neededSpace, maxFootnoteSpace)
+                }
+                
+                #if DEBUG
+                if fnIteration > 0 || neededSpace > 0 {
+                    print("     Page \(pageIndex) fn-iteration \(fnIteration + 1): chars \(charRange.location)-\(NSMaxRange(charRange)), \(footnotesOnPage.count) footnotes, reserved \(Int(reservedFootnoteSpace))pt, need \(Int(neededSpace))pt")
+                }
+                #endif
+                
+                // OSCILLATION DETECTION: If we had more footnotes in a previous iteration
+                // but now have fewer (because reserving space pushed some out), record
+                // the position of the footnote that got pushed out.
+                if previousFootnoteCount >= 0 && footnotesOnPage.count < previousFootnoteCount {
+                    oscillationDetected = true
+                    
+                    // Find the footnote(s) that got pushed out - they're in the full set but not on this page
+                    let footnotesNotOnPage = footnotesWithActualPositions.filter { fnInfo in
+                        !NSLocationInRange(fnInfo.actualPosition, charRange) && fnInfo.actualPosition > charRange.location
+                    }
+                    if let firstPushedOut = footnotesNotOnPage.first {
+                        oscillatingFootnotePosition = firstPushedOut.actualPosition
+                    }
+                    
+                    #if DEBUG
+                    print("     🔄 Oscillation detected: \(previousFootnoteCount) → \(footnotesOnPage.count) footnotes, footnote pushed out at position \(oscillatingFootnotePosition)")
+                    #endif
+                }
+                
+                previousFootnoteCount = footnotesOnPage.count
+                
+                // Check if converged
+                if abs(neededSpace - reservedFootnoteSpace) < 1 {
+                    converged = true
+                    
+                    // Store final page info
+                    let usedRect = layoutManager.usedRect(for: container)
+                    let pageInfo = PageInfo(
+                        pageIndex: pageIndex,
+                        glyphRange: glyphRange,
+                        characterRange: charRange,
+                        usedRect: usedRect
+                    )
+                    pageInfos.append(pageInfo)
+                    
+                    #if DEBUG
+                    print("   📄 Page \(pageIndex): chars \(charRange.location)-\(NSMaxRange(charRange)), \(footnotesOnPage.count) footnotes, text \(Int(usedRect.height))pt + fn \(Int(reservedFootnoteSpace))pt")
+                    #endif
+                    
+                    break
+                }
+                
+                // If oscillation was detected and we're about to go back up in footnotes,
+                // force convergence: limit text to exclude the oscillating footnote
+                if oscillationDetected && footnotesOnPage.count > previousFootnoteCount - 1 {
+                    // We know a footnote at 'oscillatingFootnotePosition' needs to be pushed out
+                    // Find the footnotes that should be on this page (positions before the oscillating one)
+                    let stableFootnotes = footnotesWithActualPositions.filter { fnInfo in
+                        fnInfo.actualPosition < oscillatingFootnotePosition
+                    }
+                    
+                    // Calculate space needed for stable footnotes only
+                    let stableNeededSpace: CGFloat
+                    if !stableFootnotes.isEmpty {
+                        let footnoteModels = stableFootnotes.map { $0.footnote }
+                        stableNeededSpace = min(calculateFootnoteHeight(for: footnoteModels, pageWidth: containerSize.width), maxFootnoteSpace)
+                    } else {
+                        stableNeededSpace = 0
+                    }
+                    
+                    // Re-layout with the stable footnote space
+                    while layoutManager.textContainers.count > pageIndex {
+                        layoutManager.removeTextContainer(at: pageIndex)
+                    }
+                    let stableTextHeight = containerSize.height - stableNeededSpace
+                    let stableContainer = NSTextContainer(size: CGSize(width: containerSize.width, height: stableTextHeight))
+                    stableContainer.lineFragmentPadding = 0
+                    layoutManager.addTextContainer(stableContainer)
+                    layoutManager.ensureLayout(for: stableContainer)
+                    
+                    var finalGlyphRange = layoutManager.glyphRange(for: stableContainer)
+                    var finalCharRange = layoutManager.characterRange(forGlyphRange: finalGlyphRange, actualGlyphRange: nil)
+                    var usedRect = layoutManager.usedRect(for: stableContainer)
+                    
+                    // CRITICAL: If this range would include the oscillating footnote, we need to
+                    // limit what's on this page. We'll shrink the container until the footnote is excluded.
+                    if NSMaxRange(finalCharRange) > oscillatingFootnotePosition {
+                        // The oscillating footnote is within reach - we need a tighter container
+                        // Binary search for the right container height that excludes the footnote
+                        var minHeight: CGFloat = 50
+                        var maxHeight = stableTextHeight
+                        var bestRange = finalCharRange
+                        var bestGlyphRange = finalGlyphRange
+                        var bestUsedRect = usedRect
+                        
+                        for _ in 0..<10 {  // Max 10 iterations of binary search
+                            let midHeight = (minHeight + maxHeight) / 2
+                            
+                            while layoutManager.textContainers.count > pageIndex {
+                                layoutManager.removeTextContainer(at: pageIndex)
+                            }
+                            let testContainer = NSTextContainer(size: CGSize(width: containerSize.width, height: midHeight))
+                            testContainer.lineFragmentPadding = 0
+                            layoutManager.addTextContainer(testContainer)
+                            layoutManager.ensureLayout(for: testContainer)
+                            
+                            let testGlyphRange = layoutManager.glyphRange(for: testContainer)
+                            let testCharRange = layoutManager.characterRange(forGlyphRange: testGlyphRange, actualGlyphRange: nil)
+                            
+                            if NSMaxRange(testCharRange) >= oscillatingFootnotePosition {
+                                // Still includes the footnote, need smaller container
+                                maxHeight = midHeight
+                            } else {
+                                // Doesn't include footnote, this is valid - try for larger
+                                minHeight = midHeight
+                                bestRange = testCharRange
+                                bestGlyphRange = testGlyphRange
+                                bestUsedRect = layoutManager.usedRect(for: testContainer)
+                            }
+                            
+                            // Close enough?
+                            if maxHeight - minHeight < 5 {
+                                break
+                            }
+                        }
+                        
+                        finalCharRange = bestRange
+                        finalGlyphRange = bestGlyphRange
+                        usedRect = bestUsedRect
+                        
+                        // Final container with the right size
+                        while layoutManager.textContainers.count > pageIndex {
+                            layoutManager.removeTextContainer(at: pageIndex)
+                        }
+                        let finalContainer = NSTextContainer(size: CGSize(width: containerSize.width, height: minHeight))
+                        finalContainer.lineFragmentPadding = 0
+                        layoutManager.addTextContainer(finalContainer)
+                        layoutManager.ensureLayout(for: finalContainer)
+                    }
+                    
+                    let pageInfo = PageInfo(
+                        pageIndex: pageIndex,
+                        glyphRange: finalGlyphRange,
+                        characterRange: finalCharRange,
+                        usedRect: usedRect
+                    )
+                    pageInfos.append(pageInfo)
+                    
+                    #if DEBUG
+                    print("   📄 Page \(pageIndex) (oscillation resolved): chars \(finalCharRange.location)-\(NSMaxRange(finalCharRange)), \(stableFootnotes.count) footnotes, text \(Int(usedRect.height))pt + fn \(Int(stableNeededSpace))pt")
+                    #endif
+                    
+                    converged = true
+                    break
+                }
+                
+                // Update reservation for next iteration
+                reservedFootnoteSpace = neededSpace
+            }
+            
+            if !converged {
+                // Didn't converge after max iterations - use current state
+                #if DEBUG
+                print("   ⚠️ Page \(pageIndex) didn't converge, using current state")
+                #endif
+                
+                if layoutManager.textContainers.count > pageIndex {
+                    let container = layoutManager.textContainers[pageIndex]
+                    let glyphRange = layoutManager.glyphRange(for: container)
+                    let charRange = layoutManager.characterRange(forGlyphRange: glyphRange, actualGlyphRange: nil)
+                    let usedRect = layoutManager.usedRect(for: container)
+                    
+                    if glyphRange.length > 0 {
+                        let pageInfo = PageInfo(
+                            pageIndex: pageIndex,
+                            glyphRange: glyphRange,
+                            characterRange: charRange,
+                            usedRect: usedRect
+                        )
+                        pageInfos.append(pageInfo)
+                    }
+                }
+            }
+            
+            // Check if all text has been placed
+            if let lastPageInfo = pageInfos.last {
+                if NSMaxRange(lastPageInfo.characterRange) >= totalCharacters {
                     break
                 }
             }
             
-            // Remove temporary containers
-            while !layoutManager.textContainers.isEmpty {
-                layoutManager.removeTextContainer(at: 0)
+            // Check if we added a page
+            if pageInfos.count <= pageIndex {
+                // No page was added - we're done or stuck
+                break
             }
             
-            // Check if page ranges have stabilized (converged)
-            let currentRanges = pageInfos.map { $0.characterRange }
-            if iteration > 1 && currentRanges == previousPageRanges {
-                hasConverged = true
-                #if DEBUG
-                print("✅ Footnote layout converged after \(iteration) iterations")
-                #endif
-            }
+            pageIndex += 1
+        }
+        
+        // Ensure at least one page
+        if pageInfos.isEmpty {
+            let emptyRange = NSRange(location: 0, length: 0)
+            pageInfos.append(PageInfo(
+                pageIndex: 0,
+                glyphRange: emptyRange,
+                characterRange: emptyRange,
+                usedRect: .zero
+            ))
             
-            currentPageInfos = pageInfos
-            previousPageRanges = currentRanges
+            // Add empty container
+            let container = NSTextContainer(size: containerSize)
+            container.lineFragmentPadding = 0
+            layoutManager.addTextContainer(container)
         }
         
-        if !hasConverged {
-            #if DEBUG
-            print("⚠️ Footnote layout did not converge after \(maxIterations) iterations, using last result")
-            #endif
+        #if DEBUG
+        print("✅ Pagination complete: \(pageInfos.count) pages")
+        #endif
+        
+        let currentPageInfos = pageInfos
+        
+        // Remove any temporary containers before creating final ones
+        while !layoutManager.textContainers.isEmpty {
+            layoutManager.removeTextContainer(at: 0)
         }
         
-        // Now add final containers based on converged page ranges with actual footnote heights
+        // Add final containers based on calculated page ranges with actual footnote heights
         var finalPageInfos: [PageInfo] = []
-        for (pageIndex, pageInfo) in currentPageInfos.enumerated() {
-            // Check if THIS page has footnotes in the converged layout
-            let footnotesOnPage = allFootnotes.filter { footnote in
-                NSLocationInRange(footnote.characterPosition, pageInfo.characterRange)
+        
+        for (idx, pageInfo) in currentPageInfos.enumerated() {
+            // Check if THIS page has footnotes in the calculated layout using ACTUAL positions
+            let footnotesOnPage = footnotesWithActualPositions.filter { fnInfo in
+                NSLocationInRange(fnInfo.actualPosition, pageInfo.characterRange)
             }
             
-            // Calculate actual footnote height for final container
+            // Calculate footnote height - capped to max
             let footnoteHeight: CGFloat
             if !footnotesOnPage.isEmpty {
-                footnoteHeight = calculateFootnoteHeight(for: footnotesOnPage, pageWidth: containerSize.width)
+                let footnoteModels = footnotesOnPage.map { $0.footnote }
+                let rawHeight = calculateFootnoteHeight(for: footnoteModels, pageWidth: containerSize.width)
+                footnoteHeight = min(rawHeight, maxFootnoteSpace)
             } else {
                 footnoteHeight = 0
             }
@@ -499,14 +716,8 @@ class PaginatedTextLayoutManager {
                     width: containerSize.width,
                     height: containerSize.height - footnoteHeight
                 )
-                #if DEBUG
-                print("📐 Final: Page \(pageIndex) has \(footnotesOnPage.count) footnotes, reserved \(footnoteHeight)pt")
-                #endif
             } else {
                 pageContainerSize = containerSize
-                #if DEBUG
-                print("📐 Final: Page \(pageIndex) has no footnotes, full height")
-                #endif
             }
             
             let container = NSTextContainer(size: pageContainerSize)
@@ -659,9 +870,19 @@ class PaginatedTextLayoutManager {
         // Get all active footnotes for version
         let allFootnotes = FootnoteManager.shared.getActiveFootnotes(forVersion: version, context: context)
         
-        // Filter to footnotes within this page's text range
+        // CRITICAL: Build a map of actual attachment positions from the text storage
+        // The stored characterPosition in FootnoteModel may be stale/incorrect
+        var actualPositions: [UUID: Int] = [:]
+        textStorage.enumerateAttribute(.attachment, in: NSRange(location: 0, length: textStorage.length), options: []) { value, range, _ in
+            if let footnoteAttachment = value as? FootnoteAttachment {
+                actualPositions[footnoteAttachment.footnoteID] = range.location
+            }
+        }
+        
+        // Filter to footnotes within this page's text range using ACTUAL positions
         return allFootnotes.filter { footnote in
-            NSLocationInRange(footnote.characterPosition, textRange)
+            let actualPosition = actualPositions[footnote.attachmentID] ?? footnote.characterPosition
+            return NSLocationInRange(actualPosition, textRange)
         }
     }
     

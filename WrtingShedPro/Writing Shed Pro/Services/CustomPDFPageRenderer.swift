@@ -100,16 +100,21 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
         
         // Get footnotes for this page
         let footnotes: [FootnoteModel]
-        let footnoteHeight: CGFloat
+        var footnoteHeight: CGFloat
+        
+        // Maximum footnote height - must match PaginatedTextLayoutManager
+        let maxFootnoteHeight = contentRect.height * 0.5
         
         if let version = version, let modelContext = modelContext {
             footnotes = layoutManager.getFootnotesForPage(pageIndex, version: version, context: modelContext)
             
             if !footnotes.isEmpty {
-                footnoteHeight = layoutManager.calculateFootnoteHeight(
+                let rawFootnoteHeight = layoutManager.calculateFootnoteHeight(
                     for: footnotes,
                     pageWidth: contentRect.width
                 )
+                // Cap footnote height to ensure minimum text space
+                footnoteHeight = min(rawFootnoteHeight, maxFootnoteHeight)
             } else {
                 footnoteHeight = 0
             }
@@ -178,7 +183,8 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
             drawFootnotes(
                 footnotes: footnotes,
                 in: footnoteRect,
-                context: context
+                context: context,
+                maxHeight: footnoteHeight
             )
         }
     }
@@ -299,11 +305,12 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
             
             if let footnoteAttachment = attachment as? FootnoteAttachment {
                 // Replace footnote marker with superscript number
+                // Use baselineOffset: 2 to match FootnoteAttachment.superscriptOffset for consistent line height
                 let numberString = "\(footnoteAttachment.number)"
                 let attributes: [NSAttributedString.Key: Any] = [
                     .font: UIFont.systemFont(ofSize: 11, weight: .medium),
                     .foregroundColor: UIColor.systemBlue,
-                    .baselineOffset: 8
+                    .baselineOffset: 2
                 ]
                 replacements.append((range: range, replacement: NSAttributedString(string: numberString, attributes: attributes)))
             } else if attachment is CommentAttachment {
@@ -366,15 +373,17 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
     
     private func drawFootnotes(footnotes: [FootnoteModel],
                               in rect: CGRect,
-                              context: CGContext) {
+                              context: CGContext,
+                              maxHeight: CGFloat) {
         // Get stylesheet from project
         let stylesheet = project.styleSheet
         
-        // Create footnote renderer view
+        // Create footnote renderer view with max height for clipping
         let footnoteView = FootnoteRenderer(
             footnotes: footnotes,
             pageWidth: rect.width,
-            stylesheet: stylesheet
+            stylesheet: stylesheet,
+            maxHeight: maxHeight
         )
         
         // Wrap in hosting controller for rendering

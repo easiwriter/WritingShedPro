@@ -13,6 +13,8 @@ struct FootnoteRenderer: View {
     let footnotes: [FootnoteModel]
     let pageWidth: CGFloat
     let stylesheet: StyleSheet?
+    /// Maximum height available for footnotes (nil = no limit)
+    var maxHeight: CGFloat? = nil
     
     // Get the footnote style from stylesheet
     private var footnoteStyle: TextStyleModel? {
@@ -60,6 +62,9 @@ struct FootnoteRenderer: View {
         }
         .frame(width: pageWidth)
         .background(Color(UIColor.systemBackground))
+        // If maxHeight specified, clip content that overflows
+        .frame(maxHeight: maxHeight, alignment: .top)
+        .clipped()
     }
     
     @ViewBuilder

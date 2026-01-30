@@ -379,7 +379,20 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
     
     func updateLayout(layoutManager: PaginatedTextLayoutManager, pageSetup: PageSetup, version: Version?, modelContext: ModelContext, project: Project?, showActualPageNumbers: Bool = false) {
         let isNewLayoutManager = self.layoutManager !== layoutManager
-        let pageSetupChanged = self.pageSetup != pageSetup
+        // Compare page setup VALUES that affect layout, not the ID
+        // CloudKit sync can create new PageSetup instances with different IDs but same values
+        let pageSetupChanged = !self.pageSetup.isLayoutEquivalent(to: pageSetup)
+        
+        #if DEBUG
+        if isNewLayoutManager || pageSetupChanged {
+            print("⚠️ [VirtualPageScrollView] Reset triggered!")
+            print("   - isNewLayoutManager: \(isNewLayoutManager)")
+            print("   - pageSetupChanged: \(pageSetupChanged)")
+            print("   - current pageSetup.id: \(self.pageSetup.id)")
+            print("   - new pageSetup.id: \(pageSetup.id)")
+            print("   - current contentOffset: \(contentOffset)")
+        }
+        #endif
         
         // Update references
         self.layoutManager = layoutManager
@@ -626,14 +639,18 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         var footnoteController: UIHostingController<FootnoteRenderer>? = nil
         var footnoteHeight: CGFloat = 0
         
+        // Maximum footnote height - must match PaginatedTextLayoutManager
+        let maxFootnoteHeight = pageLayout.contentRect.height * 0.5
+        
         if let version = version {
             let footnotes = layoutManager.getFootnotesForPage(pageIndex, version: version, context: modelContext)
             
             #if DEBUG
             if !footnotes.isEmpty {
-                #if DEBUG
                 print("📄 Page \(pageIndex): Found \(footnotes.count) footnotes")
-                #endif
+                for fn in footnotes {
+                    print("   📝 Footnote #\(fn.number) at pos \(fn.characterPosition): '\(fn.text.prefix(50))...'")
+                }
             }
             #endif
             
@@ -641,18 +658,26 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
             if !footnotes.isEmpty {
                 // Use contentRect width for footnotes (respects page margins)
                 let contentWidth = pageLayout.contentRect.width
+                
+                // Calculate footnote height for text area adjustment, capped to max
+                let rawFootnoteHeight = layoutManager.calculateFootnoteHeight(for: footnotes, pageWidth: contentWidth)
+                footnoteHeight = min(rawFootnoteHeight, maxFootnoteHeight)
+                
+                // Pass maxHeight to renderer so it clips overflow
                 let renderer = FootnoteRenderer(
                     footnotes: footnotes,
                     pageWidth: contentWidth,
-                    stylesheet: project?.styleSheet
+                    stylesheet: project?.styleSheet,
+                    maxHeight: footnoteHeight
                 )
                 footnoteController = UIHostingController(rootView: renderer)
                 
-                // Calculate footnote height for text area adjustment
-                footnoteHeight = layoutManager.calculateFootnoteHeight(for: footnotes, pageWidth: contentWidth)
-                
                 #if DEBUG
-                print("📏 Footnote height for page \(pageIndex): \(footnoteHeight)pt")
+                if rawFootnoteHeight > maxFootnoteHeight {
+                    print("📏 Footnote height for page \(pageIndex): \(rawFootnoteHeight)pt, CAPPED to \(footnoteHeight)pt")
+                } else {
+                    print("📏 Footnote height for page \(pageIndex): \(footnoteHeight)pt")
+                }
                 #endif
             }
         }
@@ -991,11 +1016,14 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
             
             if let footnoteAttachment = attachment as? FootnoteAttachment {
                 // Replace footnote marker with superscript number
+                // CRITICAL: Use the same vertical offset as FootnoteAttachment (superscriptOffset = 2)
+                // to ensure line heights match pagination calculation. A higher baselineOffset
+                // would increase line height and cause text to overflow to the next page.
                 let numberString = "\(footnoteAttachment.number)"
                 let attributes: [NSAttributedString.Key: Any] = [
                     .font: UIFont.systemFont(ofSize: 11, weight: .medium),
                     .foregroundColor: UIColor.label,  // Use label color (black in light mode, white in dark)
-                    .baselineOffset: 8
+                    .baselineOffset: 2  // Match FootnoteAttachment.superscriptOffset for consistent line height
                 ]
                 replacements.append((range: range, replacement: NSAttributedString(string: numberString, attributes: attributes)))
             } else if attachment is CommentAttachment {

@@ -56,13 +56,22 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
         // When: Accessing folders directly from project
         let projectFolders = project.folders ?? []
         
-        // Then: Can access each folder (10 root + 3 Manuscript subfolders = 13 total)
-        XCTAssertEqual(projectFolders.count, 13, "Prose project should have 13 folders (10 root + 3 manuscript subfolders)")
+        // Then: Root folders are accessible directly from project
+        // Note: Manuscript subfolders are NOT in project.folders - they're linked via parentFolder only
+        // This is by design for CloudKit sync (see ProjectTemplateService line 97)
+        XCTAssertEqual(projectFolders.count, 10, "Prose project should have 10 root folders")
         
         for folder in projectFolders {
             XCTAssertNotNil(folder.name, "Folder should have name")
-            XCTAssertEqual(folder.project, project, "Folder should reference project")
+            XCTAssertEqual(folder.project, project, "Root folder should reference project")
         }
+        
+        // Verify Manuscript subfolders are accessible via the Manuscript folder
+        let manuscriptFolder = projectFolders.first { $0.name == "Manuscript" }
+        XCTAssertNotNil(manuscriptFolder, "Should have Manuscript folder")
+        
+        let subfolders = manuscriptFolder?.folders ?? []
+        XCTAssertEqual(subfolders.count, 3, "Manuscript should have 3 subfolders")
     }
     
     func testProjectFoldersAreQueryable() throws {
