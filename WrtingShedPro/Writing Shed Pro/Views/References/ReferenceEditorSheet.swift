@@ -217,6 +217,8 @@ struct ReferenceEditorSheet: View {
                 generatedContent = backMatterGenerator.generateReferencesSection() ?? NSAttributedString()
             case .index:
                 generatedContent = backMatterGenerator.generateIndexSection(pageMap: [:]) ?? NSAttributedString()
+            case .contributors:
+                generatedContent = backMatterGenerator.generateContributorsSection() ?? NSAttributedString()
             }
             
             // Update the file's content

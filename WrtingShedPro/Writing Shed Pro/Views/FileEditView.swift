@@ -3081,6 +3081,8 @@ struct FileEditView: View {
                 generatedContent = backMatterGenerator.generateReferencesSection() ?? NSAttributedString()
             case .index:
                 generatedContent = backMatterGenerator.generateIndexSection(pageMap: [:]) ?? NSAttributedString()
+            case .contributors:
+                generatedContent = backMatterGenerator.generateContributorsSection() ?? NSAttributedString()
             }
             
             // Update or create the file's current version with the generated content

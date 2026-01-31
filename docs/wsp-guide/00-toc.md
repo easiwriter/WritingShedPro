@@ -66,6 +66,7 @@
 - [Collections](10-advanced-features/104-collections.md)
 - [Keyboard Shortcuts](10-advanced-features/105-keyboard-shortcuts.md)
 - [Tips and Tricks](10-advanced-features/106-tips-and-tricks.md)
+- [Contributors](10-advanced-features/107-contributors.md)
 
 ## 11. Reference
 - [Keyboard Shortcut List](11-reference/111-keyboard-shortcut-list.md)

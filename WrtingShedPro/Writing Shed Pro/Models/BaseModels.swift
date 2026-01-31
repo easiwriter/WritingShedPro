@@ -116,6 +116,9 @@ final class Project {
     @Relationship(deleteRule: .cascade, inverse: \IndexEntry.project)
     var indexEntries: [IndexEntry]? = []
     
+    @Relationship(deleteRule: .cascade, inverse: \ContributorEntry.project)
+    var contributorEntries: [ContributorEntry]? = []
+    
     // Fiction relationships
     @Relationship(deleteRule: .cascade, inverse: \StoryScene.project)
     var scenes: [StoryScene]? = []

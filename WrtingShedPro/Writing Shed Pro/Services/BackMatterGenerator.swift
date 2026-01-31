@@ -106,6 +106,7 @@ final class BackMatterGenerator {
     ///   - includeGlossary: Include Glossary section
     ///   - includeBibliography: Include Bibliography section
     ///   - includeIndex: Include Index section (requires page map)
+    ///   - includeContributors: Include Contributors section
     ///   - pageMap: Map of reference ID to page number (for index)
     /// - Returns: Attributed string with all requested back matter sections
     func generateBackMatter(
@@ -113,6 +114,7 @@ final class BackMatterGenerator {
         includeGlossary: Bool = true,
         includeBibliography: Bool = true,
         includeIndex: Bool = true,
+        includeContributors: Bool = true,
         pageMap: [UUID: [Int]] = [:]
     ) -> NSAttributedString {
         let result = NSMutableAttributedString()
@@ -138,6 +140,12 @@ final class BackMatterGenerator {
         if includeIndex {
             if let indexSection = generateIndexSection(pageMap: pageMap) {
                 result.append(indexSection)
+            }
+        }
+        
+        if includeContributors {
+            if let contributorsSection = generateContributorsSection() {
+                result.append(contributorsSection)
             }
         }
         
@@ -687,6 +695,52 @@ final class BackMatterGenerator {
         
         return result.joined(separator: ", ")
     }
+    
+    // MARK: - Contributors Section
+    
+    /// Generate the Contributors section
+    /// - Returns: Attributed string with contributors section, or nil if no contributors
+    func generateContributorsSection() -> NSAttributedString? {
+        // Get contributors for this project, sorted by surname
+        let contributors = (project.contributorEntries ?? []).sorted()
+        
+        guard !contributors.isEmpty else { return nil }
+        
+        let result = NSMutableAttributedString()
+        
+        // Section heading
+        let heading = NSLocalizedString("backMatter.contributors.header", comment: "CONTRIBUTORS")
+        result.append(NSAttributedString(string: "\n\n"))
+        result.append(NSAttributedString(string: heading.uppercased(), attributes: headingAttributes))
+        result.append(NSAttributedString(string: "\n\n"))
+        
+        // Add each contributor
+        for contributor in contributors {
+            result.append(formatContributor(contributor))
+        }
+        
+        return result
+    }
+    
+    /// Format a single contributor entry
+    private func formatContributor(_ contributor: ContributorEntry) -> NSAttributedString {
+        let result = NSMutableAttributedString()
+        
+        // Name (bold)
+        let name = contributor.displayName
+        result.append(NSAttributedString(string: name, attributes: entryHeadingAttributes))
+        result.append(NSAttributedString(string: "\n"))
+        
+        // Biography
+        if !contributor.biography.isEmpty {
+            result.append(NSAttributedString(string: contributor.biography, attributes: bodyAttributes))
+            result.append(NSAttributedString(string: "\n"))
+        }
+        
+        result.append(NSAttributedString(string: "\n"))
+        
+        return result
+    }
 }
 
 // MARK: - Plain Text Back Matter
@@ -698,11 +752,13 @@ extension BackMatterGenerator {
     ///   - includeNotes: Include Notes/Endnotes section
     ///   - includeGlossary: Include Glossary section
     ///   - includeBibliography: Include Bibliography section
+    ///   - includeContributors: Include Contributors section
     /// - Returns: Plain text string with back matter
     func generatePlainTextBackMatter(
         includeNotes: Bool = true,
         includeGlossary: Bool = true,
-        includeBibliography: Bool = true
+        includeBibliography: Bool = true,
+        includeContributors: Bool = true
     ) -> String {
         var result = ""
         
@@ -721,6 +777,12 @@ extension BackMatterGenerator {
         if includeBibliography {
             if let bibliographySection = generatePlainTextBibliographySection() {
                 result += bibliographySection
+            }
+        }
+        
+        if includeContributors {
+            if let contributorsSection = generatePlainTextContributorsSection() {
+                result += contributorsSection
             }
         }
         
@@ -852,4 +914,23 @@ extension BackMatterGenerator {
         
         return result
     }
-}
+    
+    /// Generate plain text contributors section
+    private func generatePlainTextContributorsSection() -> String? {
+        let contributors = (project.contributorEntries ?? []).sorted()
+        
+        guard !contributors.isEmpty else { return nil }
+        
+        var result = "\n\n" + NSLocalizedString("backMatter.contributors.header", comment: "Contributors").uppercased() + "\n"
+        result += String(repeating: "-", count: 40) + "\n\n"
+        
+        for contributor in contributors {
+            result += contributor.displayName + "\n"
+            if !contributor.biography.isEmpty {
+                result += contributor.biography + "\n"
+            }
+            result += "\n"
+        }
+        
+        return result
+    }}

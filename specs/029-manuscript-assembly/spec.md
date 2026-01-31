@@ -401,6 +401,68 @@ Each reference marker in the text carries:
 
 ---
 
+### Phase 19: Contributors Section
+**Priority:** Medium | **Estimated Effort:** 1 day | **Status:** Complete
+
+**Overview:**
+The Contributors section is a back matter file that allows magazine/anthology publishers to list contributors to a publication. Each contributor entry consists of their name (first name and surname) and a biographical note.
+
+**Features:**
+- User-created entries (not auto-generated from references)
+- Add (+) button to create new contributor entries
+- Each entry has: first name, surname, and biography text
+- List is displayed sorted alphabetically by surname, then first name
+- Entries are editable and deletable via swipe actions or context menu
+- Export includes Contributors section with formatted entries
+
+**Data Model (`ContributorEntry`):**
+| Property | Type | Description |
+|----------|------|-------------|
+| `id` | UUID | Unique identifier |
+| `project` | Project? | Parent project relationship |
+| `firstName` | String | Contributor's first name |
+| `surname` | String | Contributor's surname/last name |
+| `biography` | String | Biographical note |
+| `userOrder` | Int | User-defined order (optional, surname sort is default) |
+| `createdAt` | Date | When entry was created |
+| `modifiedAt` | Date | When entry was last modified |
+
+**UI Components:**
+1. `ContributorEditorSheet.swift` - Add/edit contributor form
+   - First Name field
+   - Surname field
+   - Biography text editor (multi-line)
+   - Save/Cancel buttons
+   
+2. Contributors section in `BackMatterGeneratedContentView.swift`
+   - List of contributors sorted by surname
+   - Each row shows: "Surname, First Name" with biography below
+   - Add (+) button in toolbar
+   - Swipe to delete
+   - Tap to edit
+
+**Export Format:**
+```
+CONTRIBUTORS
+
+Surname, First Name
+Biography text here spanning multiple lines as needed.
+
+Surname, First Name  
+Another biography entry.
+```
+
+**Files:**
+- Modified: `Models/ReferenceModels.swift` (ContributorEntry model)
+- Modified: `Models/MatterSettingsModels.swift` (BackMatterItem.contributors)
+- Modified: `Models/BaseModels.swift` (Project.contributorEntries)
+- New: `Views/Sheets/ContributorEditorSheet.swift`
+- Modified: `Views/BackMatter/BackMatterGeneratedContentView.swift`
+- Modified: `Services/BackMatterGenerator.swift` (generateContributorsSection)
+- Modified: `Resources/en.lproj/Localizable.strings`
+
+---
+
 ### Phase 18: Back Matter Management UI
 **Priority:** Medium | **Estimated Effort:** 1-2 days
 

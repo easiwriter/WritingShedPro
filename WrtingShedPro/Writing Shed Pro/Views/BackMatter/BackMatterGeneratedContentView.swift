@@ -31,7 +31,10 @@ struct BackMatterGeneratedContentView: View {
     @State private var previousGlossaryCount: Int = 0
     @State private var previousReferencesCount: Int = 0
     @State private var previousIndexCount: Int = 0
+    @State private var previousContributorsCount: Int = 0
     @State private var refreshTrigger = UUID()
+    @State private var showAddContributorSheet = false
+    @State private var contributorToEdit: ContributorEntry?
     
     // MARK: - Computed Properties
     
@@ -61,6 +64,8 @@ struct BackMatterGeneratedContentView: View {
                     referencesContent
                 case .index:
                     indexContent
+                case .contributors:
+                    contributorsContent
                 case nil:
                     emptyContent
                 }
@@ -70,6 +75,29 @@ struct BackMatterGeneratedContentView: View {
         .navigationTitle(file.name)
         .navigationBarTitleDisplayMode(.inline)
         .id(refreshTrigger)
+        .toolbar {
+            // Add button for contributors
+            if backMatterType == .contributors {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        showAddContributorSheet = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                    .accessibilityLabel(NSLocalizedString("contributor.add.button", comment: "Add Contributor"))
+                }
+            }
+        }
+        .sheet(isPresented: $showAddContributorSheet) {
+            ContributorEditorSheet(project: project, existingContributor: nil) {
+                refreshTrigger = UUID()
+            }
+        }
+        .sheet(item: $contributorToEdit) { contributor in
+            ContributorEditorSheet(project: project, existingContributor: contributor) {
+                refreshTrigger = UUID()
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
             // Refresh when app returns to foreground (handles changes from other views)
             refreshTrigger = UUID()
@@ -348,6 +376,91 @@ struct BackMatterGeneratedContentView: View {
             }
         }
         .padding(.vertical, 2)
+    }
+    
+    // MARK: - Contributors Content
+    
+    @ViewBuilder
+    private var contributorsContent: some View {
+        let contributors = (project.contributorEntries ?? []).sorted()
+        
+        if contributors.isEmpty {
+            // Check if we just deleted all contributors
+            if previousContributorsCount > 0 {
+                VStack {}
+                    .onAppear {
+                        showDeletedAlert = true
+                        deletedItemName = NSLocalizedString("backMatter.contributors", comment: "Contributors")
+                    }
+            } else {
+                emptyStateView(
+                    title: NSLocalizedString("backMatter.contributors.empty.title", comment: "No Contributors"),
+                    description: NSLocalizedString("backMatter.contributors.empty.description", comment: "Tap + to add contributors to your publication."),
+                    systemImage: "person.2"
+                )
+            }
+        } else {
+            Text(NSLocalizedString("backMatter.contributors.header", comment: "Contributors"))
+                .font(.title2)
+                .fontWeight(.bold)
+            
+            ForEach(contributors) { contributor in
+                contributorRow(contributor)
+            }
+            .onAppear {
+                previousContributorsCount = contributors.count
+            }
+        }
+    }
+    
+    private func contributorRow(_ contributor: ContributorEntry) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // Name
+            Text(contributor.displayName)
+                .font(.headline)
+            
+            // Biography
+            if !contributor.biography.isEmpty {
+                Text(contributor.biography)
+                    .font(.body)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 8)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            contributorToEdit = contributor
+        }
+        .contextMenu {
+            Button {
+                contributorToEdit = contributor
+            } label: {
+                Label(NSLocalizedString("button.edit", comment: "Edit"), systemImage: "pencil")
+            }
+            
+            Button(role: .destructive) {
+                deleteContributor(contributor)
+            } label: {
+                Label(NSLocalizedString("button.delete", comment: "Delete"), systemImage: "trash")
+            }
+        }
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            Button(role: .destructive) {
+                deleteContributor(contributor)
+            } label: {
+                Label(NSLocalizedString("button.delete", comment: "Delete"), systemImage: "trash")
+            }
+        }
+    }
+    
+    private func deleteContributor(_ contributor: ContributorEntry) {
+        withAnimation {
+            project.contributorEntries?.removeAll { $0.id == contributor.id }
+            modelContext.delete(contributor)
+            try? modelContext.save()
+            refreshTrigger = UUID()
+        }
     }
     
     // MARK: - Empty Content

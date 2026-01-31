@@ -2267,3 +2267,20 @@
 "backMatter.index.columns" = "Index Columns";
 "backMatter.index.settings.header" = "Index Settings";
 "backMatter.index.columns.footer" = "Number of columns to display the index in when exported.";
+
+// Contributors (Back Matter)
+"backMatter.contributors" = "Contributors";
+"backMatter.contributors.header" = "Contributors";
+"backMatter.contributors.empty.title" = "No Contributors";
+"backMatter.contributors.empty.description" = "Tap + to add contributors to your publication.";
+"contributor.add.title" = "Add Contributor";
+"contributor.edit.title" = "Edit Contributor";
+"contributor.add.button" = "Add Contributor";
+"contributor.firstName" = "First Name";
+"contributor.surname" = "Surname";
+"contributor.section.name" = "Name";
+"contributor.section.biography" = "Biography";
+"contributor.biography.hint" = "Write a brief biographical note about this contributor.";
+"contributor.validation.title" = "Validation Error";
+"contributor.validation.nameRequired" = "Please enter at least a first name or surname.";
+"contributor.unnamed" = "Unnamed Contributor";

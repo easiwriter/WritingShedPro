@@ -413,29 +413,13 @@ struct FormattedTextEditor: UIViewRepresentable {
         let newString = attributedText.string
         let stringsMatch = textViewString == newString
         
-        // If strings match, check if attributes changed
-        let attributesChanged = !stringsMatch || !textViewAttrs.isEqual(to: attributedText)
-        
-        #if DEBUG
-        print("📝 Strings match: \(stringsMatch)")
-        print("📝 Attributes changed: \(attributesChanged)")
-        if stringsMatch && attributesChanged && textViewAttrs.length > 0 && attributedText.length > 0 {
-            print("📝 Current attributes at 0: \(textViewAttrs.attributes(at: 0, effectiveRange: nil))")
-            print("📝 New attributes at 0: \(attributedText.attributes(at: 0, effectiveRange: nil))")
-            if attributedText.length >= 11 {
-                print("📝 New attributes at 10: \(attributedText.attributes(at: 10, effectiveRange: nil))")
-            }
-            // Log paragraph styles specifically
-            if let currentPS = textViewAttrs.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle {
-                print("📝 Current paragraph style at 0: alignment=\(currentPS.alignment.rawValue)")
-            }
-            if let newPS = attributedText.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle {
-                print("📝 New paragraph style at 0: alignment=\(newPS.alignment.rawValue)")
-            }
-        }
-        #endif
-        
-        if attributesChanged {
+        // PERFORMANCE FIX: Only update text storage if text content actually changed
+        // The expensive isEqual(to:) comparison was causing update loops with large documents
+        // because it compares every attribute of every character (O(n) where n = length × attributes)
+        // and dictionary key ordering differences caused false positives.
+        // For attribute-only updates from formatting, textViewDidChange will handle it.
+        if !stringsMatch {
+            // Text content changed - need to update
             
             // Set flag to prevent feedback from delegate
             context.coordinator.isUpdatingFromSwiftUI = true
@@ -452,7 +436,7 @@ struct FormattedTextEditor: UIViewRepresentable {
             }
             
             var searchHighlights: [SearchHighlight] = []
-            if stringsMatch && textView.textStorage.length > 0 {
+            if textView.textStorage.length > 0 {
                 let fullRange = NSRange(location: 0, length: textView.textStorage.length)
                 
                 // Enumerate all background colors (search highlights)
@@ -509,41 +493,6 @@ struct FormattedTextEditor: UIViewRepresentable {
                 #endif
             }
             
-            #if DEBUG
-            // Check if paragraph style survived the setAttributedString
-            if textView.textStorage.length > 0 {
-                if let ps = textView.textStorage.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle {
-                    print("📝 After setAttributedString, paragraph style at 0: alignment=\(ps.alignment.rawValue)")
-                } else {
-                    print("⚠️ After setAttributedString, NO paragraph style at 0!")
-                }
-                
-                // Log font information for diagnostics
-                print("🔤 Font diagnostics for document:")
-                var index = 0
-                var uniqueFonts: [String: (font: UIFont, firstLine: Int)] = [:]
-                let nsString = textView.textStorage.string as NSString
-                while index < textView.textStorage.length {
-                    var effectiveRange = NSRange()
-                    if let font = textView.textStorage.attribute(.font, at: index, effectiveRange: &effectiveRange) as? UIFont {
-                        let lineNumber = nsString.substring(to: index).components(separatedBy: "\n").count
-                        let key = "\(font.fontName)@\(font.pointSize)"
-                        if uniqueFonts[key] == nil {
-                            uniqueFonts[key] = (font, lineNumber)
-                        }
-                    }
-                    index = NSMaxRange(effectiveRange)
-                }
-                for (_, value) in uniqueFonts.sorted(by: { $0.value.firstLine < $1.value.firstLine }) {
-                    let font = value.font
-                    let traits = font.fontDescriptor.symbolicTraits
-                    let isBold = traits.contains(.traitBold)
-                    let isItalic = traits.contains(.traitItalic)
-                    print("   Line \(value.firstLine): \(font.fontName) @ \(font.pointSize)pt (bold:\(isBold), italic:\(isItalic))")
-                }
-            }
-            #endif
-            
             // Critical: Tell text storage that attributes changed
             textView.textStorage.edited(.editedAttributes, range: NSRange(location: 0, length: textView.textStorage.length), changeInLength: 0)
             
@@ -554,17 +503,6 @@ struct FormattedTextEditor: UIViewRepresentable {
             
             // THEN force layout update - this makes UITextView recalculate paragraph layout
             textView.layoutManager.ensureLayout(for: textView.textContainer)
-            
-            #if DEBUG
-            // Check if paragraph style survived the layout operations
-            if textView.textStorage.length > 0 {
-                if let ps = textView.textStorage.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle {
-                    print("📝 After layout operations, paragraph style at 0: alignment=\(ps.alignment.rawValue)")
-                } else {
-                    print("⚠️ After layout operations, NO paragraph style at 0!")
-                }
-            }
-            #endif
             
             // Force the text view itself to update its display
             textView.setNeedsDisplay()
@@ -590,13 +528,6 @@ struct FormattedTextEditor: UIViewRepresentable {
                     if AttributedStringSerializer.isAdaptiveSystemColor(color) || 
                        AttributedStringSerializer.isFixedBlackOrWhite(color) {
                         attrs.removeValue(forKey: .foregroundColor)
-                        #if DEBUG
-                        print("📝 Removed adaptive color \(color.toHex() ?? "nil") from typing attributes at position \(textView.selectedRange.location - 1)")
-                        #endif
-                    } else {
-                        #if DEBUG
-                        print("📝 Keeping explicit color \(color.toHex() ?? "nil") in typing attributes")
-                        #endif
                     }
                 }
                 
@@ -610,9 +541,6 @@ struct FormattedTextEditor: UIViewRepresentable {
                     if AttributedStringSerializer.isAdaptiveSystemColor(color) || 
                        AttributedStringSerializer.isFixedBlackOrWhite(color) {
                         attrs.removeValue(forKey: .foregroundColor)
-                        #if DEBUG
-                        print("📝 Removed adaptive color from typing attributes at document start")
-                        #endif
                     }
                 }
                 
@@ -638,11 +566,6 @@ struct FormattedTextEditor: UIViewRepresentable {
                     height: imageSize.height
                 )
                 
-                #if DEBUG
-                print("🖼️ Recalculating selection border after content update")
-                print("🖼️ New frame: \(adjustedBounds)")
-                #endif
-                
                 // Update the selection border with the new frame (visual only, don't trigger state changes)
                 customTextView.showSelectionBorder(at: adjustedBounds)
             }
@@ -658,12 +581,9 @@ struct FormattedTextEditor: UIViewRepresentable {
                     textView.selectedRange = selectedRange
                 }
             }
-        } else {
-            // IMPORTANT: If content unchanged, DON'T update selection
-            // User is typing normally - let UITextView handle cursor naturally
-        }
+        } // End of if !stringsMatch
         
-        // Update appearance properties
+        // Update appearance properties (always, regardless of content changes)
         // NOTE: Don't set textView.textColor - it overrides attributed string colors!
         // Colors should come from the attributed string's .foregroundColor attribute
         textView.backgroundColor = backgroundColor

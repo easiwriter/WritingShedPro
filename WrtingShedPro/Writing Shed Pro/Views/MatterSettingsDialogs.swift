@@ -281,6 +281,9 @@ struct BackMatterSettingsDialog: View {
             print("📊 Index: \(entries.count) with references, hasReferences=\(result)")
             #endif
             return result
+        case .contributors:
+            // Contributors are user-created, not reference-based - always allow toggling
+            return false
         }
     }
     

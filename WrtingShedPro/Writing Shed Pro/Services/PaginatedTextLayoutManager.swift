@@ -694,7 +694,7 @@ class PaginatedTextLayoutManager {
         // Add final containers based on calculated page ranges with actual footnote heights
         var finalPageInfos: [PageInfo] = []
         
-        for (idx, pageInfo) in currentPageInfos.enumerated() {
+        for (_, pageInfo) in currentPageInfos.enumerated() {
             // Check if THIS page has footnotes in the calculated layout using ACTUAL positions
             let footnotesOnPage = footnotesWithActualPositions.filter { fnInfo in
                 NSLocationInRange(fnInfo.actualPosition, pageInfo.characterRange)

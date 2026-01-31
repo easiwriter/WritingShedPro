@@ -753,3 +753,93 @@ extension IndexEntry: Comparable {
         lhs.keyword.localizedCaseInsensitiveCompare(rhs.keyword) == .orderedAscending
     }
 }
+// MARK: - Contributor Entry Model
+
+/// Represents a contributor to a publication (magazine, anthology, etc.)
+/// Used in the Contributors section of back matter
+/// Note: This is user-created content, not auto-generated from references
+@Model
+final class ContributorEntry {
+    /// Unique identifier
+    var id: UUID = UUID()
+    
+    /// The Project this contributor belongs to
+    var project: Project?
+    
+    /// Contributor's first name / given name
+    var firstName: String = ""
+    
+    /// Contributor's surname / family name / last name
+    var surname: String = ""
+    
+    /// Biographical note about the contributor
+    var biography: String = ""
+    
+    /// User-defined sort order (optional - surname is default sort)
+    var userOrder: Int = 0
+    
+    /// When the entry was created
+    var createdAt: Date = Date()
+    
+    /// When the entry was last modified
+    var modifiedAt: Date = Date()
+    
+    init(
+        id: UUID = UUID(),
+        project: Project? = nil,
+        firstName: String = "",
+        surname: String = "",
+        biography: String = "",
+        userOrder: Int = 0
+    ) {
+        self.id = id
+        self.project = project
+        self.firstName = firstName
+        self.surname = surname
+        self.biography = biography
+        self.userOrder = userOrder
+        self.createdAt = Date()
+        self.modifiedAt = Date()
+    }
+    
+    /// Full name in "Surname, First Name" format for display
+    var displayName: String {
+        if surname.isEmpty && firstName.isEmpty {
+            return NSLocalizedString("contributor.unnamed", comment: "Unnamed Contributor")
+        }
+        if surname.isEmpty {
+            return firstName
+        }
+        if firstName.isEmpty {
+            return surname
+        }
+        return "\(surname), \(firstName)"
+    }
+    
+    /// Full name in "First Name Surname" format (for natural reading)
+    var fullName: String {
+        if surname.isEmpty && firstName.isEmpty {
+            return NSLocalizedString("contributor.unnamed", comment: "Unnamed Contributor")
+        }
+        return [firstName, surname].filter { !$0.isEmpty }.joined(separator: " ")
+    }
+    
+    /// Update contributor details
+    func update(firstName: String, surname: String, biography: String) {
+        self.firstName = firstName
+        self.surname = surname
+        self.biography = biography
+        self.modifiedAt = Date()
+    }
+}
+
+extension ContributorEntry: Comparable {
+    static func < (lhs: ContributorEntry, rhs: ContributorEntry) -> Bool {
+        // Sort by surname first, then first name
+        let surnameCompare = lhs.surname.localizedCaseInsensitiveCompare(rhs.surname)
+        if surnameCompare != .orderedSame {
+            return surnameCompare == .orderedAscending
+        }
+        return lhs.firstName.localizedCaseInsensitiveCompare(rhs.firstName) == .orderedAscending
+    }
+}

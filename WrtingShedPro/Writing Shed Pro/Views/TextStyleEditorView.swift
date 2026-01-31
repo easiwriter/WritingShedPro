@@ -791,6 +791,8 @@ struct TextStyleEditorView: View {
                     generatedContent = generator.generateReferencesSection() ?? NSAttributedString()
                 case .index:
                     generatedContent = generator.generateIndexSection(pageMap: [:]) ?? NSAttributedString()
+                case .contributors:
+                    generatedContent = generator.generateContributorsSection() ?? NSAttributedString()
                 }
                 
                 // Update the file's content
