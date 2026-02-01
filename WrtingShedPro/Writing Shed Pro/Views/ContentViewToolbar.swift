@@ -24,6 +24,10 @@ struct ContentViewToolbar: ToolbarContent {
                     Label("About Writing Shed Pro", systemImage: "info.circle")
                 }
                 
+                Button(action: { state.showStore = true }) {
+                    Label("Manage Purchases", systemImage: "cart")
+                }
+                
                 Button(action: { state.showManageStyles = true }) {
                     Label("Stylesheet Editor", systemImage: "paintbrush")
                 }

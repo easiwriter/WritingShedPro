@@ -98,6 +98,9 @@ struct FolderFilesView: View {
     @State var showFrontMatterSettings = false
     @State var showBackMatterSettings = false
     
+    // State for upgrade prompt when export is blocked
+    @State var upgradePromptReason: UpgradePromptReason?
+    
     // Available elements for header/footer insertion
     var headerFooterElements: [String] {
         ["Page Number", "Total Pages", "Date", "Time", "Title", "Author"]
@@ -187,10 +190,10 @@ struct FolderFilesView: View {
     @ViewBuilder
     var navigationDestinationContent: some View {
         if let file = selectedFile {
-            if let project = folder.project, project.type == .drama,
+            if let project = folder.resolvedProject, project.type == .drama,
                FolderCapabilityService.isContentFolder(folder) {
                 DramaSceneEditorView(file: file, project: project)
-            } else if let project = folder.project,
+            } else if let project = folder.resolvedProject,
                       BackMatterGeneratedContentView.isGeneratedBackMatterFile(file) {
                 // Feature 029: Show generated content for back matter files
                 BackMatterGeneratedContentView(file: file, project: project)
@@ -230,6 +233,8 @@ struct FolderFilesView: View {
                 Group {
                     if isMixedContentFolder {
                         mixedContentBody
+                    } else if isMatterFolder && !sortedFiles.isEmpty {
+                        matterFolderBody
                     } else if !sortedFiles.isEmpty {
                         fileListSection
                     } else {
@@ -381,6 +386,60 @@ struct FolderFilesView: View {
                 selectedFileIDs.removeAll()
                 selectedFolderIDs.removeAll()
             }
+        }
+    }
+    
+    // MARK: - Matter Folder View (Front Matter / Back Matter with drag-to-reorder)
+    
+    /// View for Front Matter and Back Matter folders with drag-to-reorder support
+    @ViewBuilder
+    private var matterFolderBody: some View {
+        List {
+            ForEach(sortedFiles) { file in
+                matterFileRow(file)
+            }
+            .onMove(perform: moveMatterFiles)
+        }
+        .listStyle(.plain)
+        .environment(\.editMode, $editMode)
+    }
+    
+    /// Row view for matter folder files
+    private func matterFileRow(_ file: TextFile) -> some View {
+        Button {
+            selectedFile = file
+            navigateToFile = true
+        } label: {
+            HStack {
+                Image(systemName: "doc.text")
+                    .foregroundColor(.secondary)
+                Text(file.name)
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .buttonStyle(.plain)
+    }
+    
+    /// Reorder matter folder files
+    private func moveMatterFiles(from source: IndexSet, to destination: Int) {
+        var files = sortedFiles
+        files.move(fromOffsets: source, toOffset: destination)
+        
+        // Update userOrder for all files
+        for (index, file) in files.enumerated() {
+            file.userOrder = index
+        }
+        
+        // Save context
+        do {
+            try modelContext.save()
+        } catch {
+            #if DEBUG
+            print("Error saving reordered matter files: \(error)")
+            #endif
         }
     }
     
@@ -1050,6 +1109,14 @@ struct FolderFilesView: View {
     }
     
     func exportCombinedFolder(format: ExportFormat) {
+        // Check entitlement for export
+        if let projectType = folder.project?.type {
+            if !EntitlementManager.shared.canExport(projectType: projectType) {
+                upgradePromptReason = .exportBlocked(projectType: projectType)
+                return
+            }
+        }
+        
         // ALWAYS print, not just in DEBUG
         #if DEBUG
         print("📁 exportCombinedFolder() called with format: \(format)")
@@ -1150,6 +1217,14 @@ struct FolderFilesView: View {
     }
     
     func exportFiles(format: ExportFormat) {
+        // Check entitlement for export
+        if let projectType = folder.project?.type {
+            if !EntitlementManager.shared.canExport(projectType: projectType) {
+                upgradePromptReason = .exportBlocked(projectType: projectType)
+                return
+            }
+        }
+        
         // Set the export format
         self.exportFormat = format
         

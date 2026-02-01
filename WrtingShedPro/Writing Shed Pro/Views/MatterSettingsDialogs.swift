@@ -234,6 +234,9 @@ struct BackMatterSettingsDialog: View {
     // Index settings
     @State private var indexColumnCount: Int = 2
     @State private var isProcessing = false
+    // Alert for items with entries
+    @State private var showHasEntriesAlert = false
+    @State private var alertItemName: String = ""
     
     private var isDrama: Bool {
         folder.isDramaProject
@@ -298,7 +301,6 @@ struct BackMatterSettingsDialog: View {
                     } else {
                         ForEach(BackMatterItem.allCases) { item in
                             Toggle(item.localizedName, isOn: binding(for: item))
-                                .disabled(hasReferences(for: item))
                         }
                     }
                 } header: {
@@ -360,6 +362,14 @@ struct BackMatterSettingsDialog: View {
                 }
             }
         }
+        .alert(
+            NSLocalizedString("backMatter.hasEntries.title", comment: "Cannot Disable"),
+            isPresented: $showHasEntriesAlert
+        ) {
+            Button(NSLocalizedString("button.ok", comment: "OK")) { }
+        } message: {
+            Text(String(format: NSLocalizedString("backMatter.hasEntries.message", comment: "The %@ section contains entries that are referenced in your manuscript. Remove these references before disabling."), alertItemName))
+        }
         #if os(macOS)
         .frame(minWidth: 400, minHeight: isDrama ? 280 : 300)
         #endif
@@ -372,7 +382,14 @@ struct BackMatterSettingsDialog: View {
                 if isEnabled {
                     enabledItems.insert(item)
                 } else {
-                    enabledItems.remove(item)
+                    // Check if item has entries before allowing disable
+                    if hasReferences(for: item) {
+                        alertItemName = item.localizedName
+                        showHasEntriesAlert = true
+                        // Don't remove - keep it enabled
+                    } else {
+                        enabledItems.remove(item)
+                    }
                 }
             }
         )

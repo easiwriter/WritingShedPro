@@ -114,6 +114,9 @@ struct ContentViewBody: View {
             .sheet(isPresented: $state.showAbout) {
                 AboutView()
             }
+            .sheet(isPresented: $state.showStore) {
+                StoreView()
+            }
             .sheet(item: $state.projectForPageSetup) { project in
                 PageSetupForm(project: project)
             }

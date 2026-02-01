@@ -27,6 +27,7 @@ struct PaginatedDocumentView: View {
     @State private var lastZoomScale: CGFloat = 1.0
     @State private var showPrintError = false
     @State private var printErrorMessage = ""
+    @State private var upgradePromptReason: UpgradePromptReason?
     
     // No longer using global page setup; use per-project pageSetup
     
@@ -125,6 +126,7 @@ struct PaginatedDocumentView: View {
         } message: {
             Text(printErrorMessage)
         }
+        .upgradePrompt(reason: $upgradePromptReason)
     }
     
     // MARK: - Page Indicator Toolbar
@@ -437,6 +439,12 @@ struct PaginatedDocumentView: View {
         #if DEBUG
         print("🖨️ Print button tapped from pagination view")
         #endif
+        
+        // Check entitlement for printing
+        if !EntitlementManager.shared.canPrint(projectType: project.type) {
+            upgradePromptReason = .printBlocked(projectType: project.type)
+            return
+        }
         
         // Get the view controller to present from
         guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,

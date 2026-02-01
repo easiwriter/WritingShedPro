@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		D79879872F2F4874007DE592 /* StoreKitManager in Frameworks */ = {isa = PBXBuildFile; productRef = D79879862F2F4874007DE592 /* StoreKitManager */; };
+		D7987A922F2F7B67007DE592 /* Products.storekit in Resources */ = {isa = PBXBuildFile; fileRef = D7987A912F2F7B67007DE592 /* Products.storekit */; };
 		D7B1F4D72EACFFE400B7F3C8 /* ToolbarSUI in Frameworks */ = {isa = PBXBuildFile; productRef = D7B1F4D62EACFFE400B7F3C8 /* ToolbarSUI */; };
 		D7QLEXT012F05000000000001 /* WSPQuickLook.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = D7QLEXT002F05000000000001 /* WSPQuickLook.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
@@ -62,6 +64,7 @@
 		D76ABF582F260E6C002D8588 /* WSP Reader.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "WSP Reader.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		D76ABF682F260E6F002D8588 /* WSP ReaderTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "WSP ReaderTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		D76ABF722F260E70002D8588 /* WSP ReaderUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "WSP ReaderUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		D7987A912F2F7B67007DE592 /* Products.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = Products.storekit; sourceTree = "<group>"; };
 		D7FF9B742F0D553600FDC047 /* Writing Shed Pro.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = "Writing Shed Pro.xctestplan"; sourceTree = "<group>"; };
 		D7QLEXT002F05000000000001 /* WSPQuickLook.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = WSPQuickLook.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -147,6 +150,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				D7B1F4D72EACFFE400B7F3C8 /* ToolbarSUI in Frameworks */,
+				D79879872F2F4874007DE592 /* StoreKitManager in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -185,6 +189,7 @@
 			isa = PBXGroup;
 			children = (
 				D7FF9B742F0D553600FDC047 /* Writing Shed Pro.xctestplan */,
+				D7987A912F2F7B67007DE592 /* Products.storekit */,
 				D741DF6E2EA76292003629E8 /* Writing Shed Pro */,
 				D741DF802EA76295003629E8 /* WritingShedProTests */,
 				D7QLEXT052F05000000000001 /* WSPQuickLook */,
@@ -231,6 +236,7 @@
 			name = "Writing Shed Pro";
 			packageProductDependencies = (
 				D7B1F4D62EACFFE400B7F3C8 /* ToolbarSUI */,
+				D79879862F2F4874007DE592 /* StoreKitManager */,
 			);
 			productName = "Write!";
 			productReference = D741DF6C2EA76292003629E8 /* Writing Shed Pro.app */;
@@ -392,6 +398,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				D7B1F4D52EACFFE400B7F3C8 /* XCRemoteSwiftPackageReference "ToolbarSUI" */,
+				D79879852F2F4874007DE592 /* XCRemoteSwiftPackageReference "StoreKitManager" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = D741DF6D2EA76292003629E8 /* Products */;
@@ -427,6 +434,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D7987A922F2F7B67007DE592 /* Products.storekit in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1122,6 +1130,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		D79879852F2F4874007DE592 /* XCRemoteSwiftPackageReference "StoreKitManager" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/easiwriter/StoreKitManager";
+			requirement = {
+				branch = master;
+				kind = branch;
+			};
+		};
 		D7B1F4D52EACFFE400B7F3C8 /* XCRemoteSwiftPackageReference "ToolbarSUI" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/easiwriter/ToolbarSUI";
@@ -1133,6 +1149,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		D79879862F2F4874007DE592 /* StoreKitManager */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D79879852F2F4874007DE592 /* XCRemoteSwiftPackageReference "StoreKitManager" */;
+			productName = StoreKitManager;
+		};
 		D7B1F4D62EACFFE400B7F3C8 /* ToolbarSUI */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = D7B1F4D52EACFFE400B7F3C8 /* XCRemoteSwiftPackageReference "ToolbarSUI" */;

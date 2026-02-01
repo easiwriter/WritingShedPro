@@ -78,6 +78,9 @@ struct DramaSceneEditorView: View {
     /// Print error message
     @State private var printErrorMessage: String?
     
+    /// Upgrade prompt reason
+    @State private var upgradePromptReason: UpgradePromptReason?
+    
     /// Show print error alert
     @State private var showPrintError = false
     
@@ -215,6 +218,7 @@ struct DramaSceneEditorView: View {
         } message: {
             Text(printErrorMessage ?? NSLocalizedString("print.error.unknown", comment: "Unknown error"))
         }
+        .upgradePrompt(reason: $upgradePromptReason)
     }
     
     // MARK: - Navigation Toolbar Content
@@ -482,6 +486,12 @@ struct DramaSceneEditorView: View {
     
     /// Print the script
     private func printScript() {
+        // Check entitlement for printing
+        if !EntitlementManager.shared.canPrint(projectType: project.type) {
+            upgradePromptReason = .printBlocked(projectType: project.type)
+            return
+        }
+        
         // Check if printing is available
         guard UIPrintInteractionController.isPrintingAvailable else {
             printErrorMessage = NSLocalizedString("print.error.notAvailable", comment: "Printing is not available on this device")

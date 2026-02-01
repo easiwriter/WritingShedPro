@@ -26,7 +26,7 @@ extension FolderFilesView {
                 .help(NSLocalizedString("backMatter.settings.help", comment: "Configure back matter items"))
             }
             
-            // Hide all other buttons for Front/Back Matter folders
+            // Hide all other buttons for Front/Back Matter folders (except Edit for reordering)
             if !isMatterFolder {
                 if !sortedFiles.isEmpty {
                     Button {
@@ -86,14 +86,16 @@ extension FolderFilesView {
                         .disabled(editMode == .active)
                     }
                 }
-                if !sortedFiles.isEmpty || (isMixedContentFolder && !sortedSubfolders.isEmpty) {
-                    Button {
-                        withAnimation {
-                            editMode = editMode == .inactive ? .active : .inactive
-                        }
-                    } label: {
-                        Text(editMode == .inactive ? "button.edit" : "button.done")
+            }
+            
+            // Edit/Done button for reordering (for all folders with files, including matter folders)
+            if !sortedFiles.isEmpty || (isMixedContentFolder && !sortedSubfolders.isEmpty) {
+                Button {
+                    withAnimation {
+                        editMode = editMode == .inactive ? .active : .inactive
                     }
+                } label: {
+                    Text(editMode == .inactive ? "button.edit" : "button.done")
                 }
             }
         }

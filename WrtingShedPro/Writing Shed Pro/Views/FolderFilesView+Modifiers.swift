@@ -44,6 +44,7 @@ extension FolderFilesView {
             .sheet(isPresented: $showBackMatterSettings) {
                 BackMatterSettingsDialog(folder: folder)
             }
+            .upgradePrompt(reason: $upgradePromptReason)
     }
     
     // MARK: - File Import/Export Modifiers

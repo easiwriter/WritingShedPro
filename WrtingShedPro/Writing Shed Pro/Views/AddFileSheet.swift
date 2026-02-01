@@ -10,6 +10,7 @@ struct AddFileSheet: View {
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
     @State private var selectedPoetryForm: PoetryForm?
+    @State private var upgradePromptReason: UpgradePromptReason?
     @Environment(\.modelContext) var modelContext
     
     /// Whether this file is being created in a Poetry project
@@ -68,6 +69,7 @@ struct AddFileSheet: View {
             } message: {
                 Text(errorMessage)
             }
+            .upgradePrompt(reason: $upgradePromptReason)
         }
         .navigationViewStyle(.stack)
     }
@@ -86,6 +88,15 @@ struct AddFileSheet: View {
             errorMessage = NSLocalizedString("addFile.nameRequired", comment: "File name is required")
             showErrorAlert = true
             return
+        }
+        
+        // Check entitlement for free tier limits
+        if let projectType = parentFolder.project?.type {
+            let existingFileCount = countFilesInProject()
+            if !EntitlementManager.shared.canCreateFile(forProjectType: projectType, existingCount: existingFileCount) {
+                upgradePromptReason = .fileLimit(projectType: projectType)
+                return
+            }
         }
         
         // Check if folder allows files
@@ -160,5 +171,31 @@ struct AddFileSheet: View {
         }
         
         isPresented = false
+    }
+    
+    /// Count all non-trashed files across all folders in the project
+    private func countFilesInProject() -> Int {
+        guard let project = parentFolder.project else { return 0 }
+        
+        var count = 0
+        func countInFolder(_ folder: Folder) {
+            if let files = folder.files {
+                // Files are trashed if they have a trashItem relationship
+                count += files.filter { $0.trashItem == nil }.count
+            }
+            if let subfolders = folder.subfolders {
+                for subfolder in subfolders {
+                    countInFolder(subfolder)
+                }
+            }
+        }
+        
+        if let folders = project.folders {
+            for folder in folders {
+                countInFolder(folder)
+            }
+        }
+        
+        return count
     }
 }

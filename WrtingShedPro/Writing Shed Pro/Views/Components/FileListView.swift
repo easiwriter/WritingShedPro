@@ -373,7 +373,7 @@ struct FileListView: View {
                 SubmissionsButton(file: file)
                 
                 // Ellipsis menu button (hidden for back matter files)
-                let isBackMatterFile = ["Endnotes", "Glossary", "References", "Index"].contains(file.name)
+                let isBackMatterFile = ["Endnotes", "Glossary", "References", "Index", "Contributors"].contains(file.name)
                 if !isBackMatterFile {
                     fileOptionsMenu(for: file)
                 }

@@ -15,6 +15,9 @@ struct AddProjectSheet: View {
     @State private var selectedFictionClass: FictionClass = .novel
     @State private var selectedStoryStructure: StoryStructure = .freeform
     
+    // Upgrade prompt state
+    @State private var upgradePromptReason: UpgradePromptReason?
+    
     @Environment(\.modelContext) var modelContext
     @Query private var allProjects: [Project]
     
@@ -101,6 +104,7 @@ struct AddProjectSheet: View {
             } message: {
                 Text(errorMessage)
             }
+            .upgradePrompt(reason: $upgradePromptReason)
         }
         .navigationViewStyle(.stack)
     }
@@ -119,6 +123,13 @@ struct AddProjectSheet: View {
         if !UniquenessChecker.isProjectNameUnique(projectName, in: allProjects) {
             errorMessage = NSLocalizedString("addProject.duplicateName", comment: "Error when project name already exists")
             showErrorAlert = true
+            return
+        }
+        
+        // Check entitlement for free tier limits
+        let existingProjectsOfType = allProjects.filter { $0.type == selectedType }.count
+        if !EntitlementManager.shared.canCreateProject(ofType: selectedType, existingCount: existingProjectsOfType) {
+            upgradePromptReason = .projectLimit(projectType: selectedType)
             return
         }
         

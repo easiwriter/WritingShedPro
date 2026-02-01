@@ -404,6 +404,12 @@ final class Folder {
         name == "Back Matter" || name == NSLocalizedString("folder.backMatter", comment: "Back Matter")
     }
     
+    /// Get the project for this folder, traversing parent chain if needed
+    /// For subfolders (like Back Matter inside Manuscript), the direct project link may be nil
+    var resolvedProject: Project? {
+        project ?? parentFolder?.resolvedProject
+    }
+    
     init(name: String?, project: Project? = nil, parentFolder: Folder? = nil, userOrder: Int? = nil) {
         self.name = name
         self.project = project

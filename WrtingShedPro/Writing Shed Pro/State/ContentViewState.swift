@@ -47,6 +47,9 @@ final class ContentViewState {
     // Debug
     var showSyncDiagnostics = false
     
+    // Store
+    var showStore = false
+    
     // Appearance preferences
     var appearancePreferences = AppearancePreferences.shared
     

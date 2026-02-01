@@ -210,6 +210,11 @@ struct Write_App: App {
                     // Configure PoetryFormService with model context for database access
                     PoetryFormService.shared.configureWithContext(sharedModelContainer.mainContext)
                     
+                    // Configure EntitlementManager for in-app purchases
+                    if #available(macCatalyst 15, macOS 14.4, iOS 17.4, *) {
+                        await EntitlementManager.shared.configure()
+                    }
+                    
                     // Defer CloudKit status check to avoid blocking app launch
                     try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
                     checkCloudKitStatus()

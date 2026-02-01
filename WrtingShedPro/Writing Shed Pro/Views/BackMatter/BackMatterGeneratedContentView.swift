@@ -35,6 +35,11 @@ struct BackMatterGeneratedContentView: View {
     @State private var refreshTrigger = UUID()
     @State private var showAddContributorSheet = false
     @State private var contributorToEdit: ContributorEntry?
+    @State private var editMode: EditMode = .inactive
+    @State private var selectedContributorIDs: Set<UUID> = []
+    @State private var contributorToDelete: ContributorEntry?
+    @State private var showDeleteConfirmation = false
+    @State private var contributorsToDelete: [ContributorEntry] = []
     
     // MARK: - Computed Properties
     
@@ -53,38 +58,67 @@ struct BackMatterGeneratedContentView: View {
     // MARK: - Body
     
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                switch backMatterType {
-                case .endnotes:
-                    endnotesContent
-                case .glossary:
-                    glossaryContent
-                case .references:
-                    referencesContent
-                case .index:
-                    indexContent
-                case .contributors:
-                    contributorsContent
-                case nil:
-                    emptyContent
+        Group {
+            // Contributors uses List for swipe actions and edit mode
+            if backMatterType == .contributors {
+                contributorsListContent
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        switch backMatterType {
+                        case .endnotes:
+                            endnotesContent
+                        case .glossary:
+                            glossaryContent
+                        case .references:
+                            referencesContent
+                        case .index:
+                            indexContent
+                        case .contributors:
+                            EmptyView() // Handled above
+                        case nil:
+                            emptyContent
+                        }
+                    }
+                    .padding()
                 }
             }
-            .padding()
         }
         .navigationTitle(file.name)
         .navigationBarTitleDisplayMode(.inline)
         .id(refreshTrigger)
+        .environment(\.editMode, $editMode)
         .toolbar {
-            // Add button for contributors
+            // Edit and Add buttons for contributors
             if backMatterType == .contributors {
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        showAddContributorSheet = true
-                    } label: {
-                        Image(systemName: "plus")
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    HStack {
+                        // Edit/Done button
+                        if !(project.contributorEntries ?? []).isEmpty {
+                            Button {
+                                withAnimation {
+                                    if editMode == .active {
+                                        editMode = .inactive
+                                        selectedContributorIDs.removeAll()
+                                    } else {
+                                        editMode = .active
+                                    }
+                                }
+                            } label: {
+                                Text(editMode == .active ? NSLocalizedString("button.done", comment: "Done") : NSLocalizedString("button.edit", comment: "Edit"))
+                            }
+                        }
+                        
+                        // Add button (only when not in edit mode)
+                        if editMode != .active {
+                            Button {
+                                showAddContributorSheet = true
+                            } label: {
+                                Image(systemName: "plus")
+                            }
+                            .accessibilityLabel(NSLocalizedString("contributor.add.button", comment: "Add Contributor"))
+                        }
                     }
-                    .accessibilityLabel(NSLocalizedString("contributor.add.button", comment: "Add Contributor"))
                 }
             }
         }
@@ -98,8 +132,64 @@ struct BackMatterGeneratedContentView: View {
                 refreshTrigger = UUID()
             }
         }
+        .alert(
+            deleteAlertTitle,
+            isPresented: $showDeleteConfirmation
+        ) {
+            Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
+                contributorToDelete = nil
+                contributorsToDelete = []
+            }
+            Button(NSLocalizedString("button.delete", comment: "Delete"), role: .destructive) {
+                performDeleteContributors()
+            }
+        } message: {
+            Text(deleteAlertMessage)
+        }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
             // Refresh when app returns to foreground (handles changes from other views)
+            refreshTrigger = UUID()
+        }
+    }
+    
+    // MARK: - Delete Alert Helpers
+    
+    private var deleteAlertTitle: String {
+        if contributorsToDelete.count > 1 {
+            return String(format: NSLocalizedString("contributor.deleteMultiple.title", comment: "Delete Contributors"), contributorsToDelete.count)
+        } else {
+            return NSLocalizedString("contributor.delete.title", comment: "Delete Contributor")
+        }
+    }
+    
+    private var deleteAlertMessage: String {
+        if contributorsToDelete.count > 1 {
+            return String(format: NSLocalizedString("contributor.deleteMultiple.message", comment: "Are you sure?"), contributorsToDelete.count)
+        } else if let contributor = contributorToDelete {
+            return String(format: NSLocalizedString("contributor.delete.message", comment: "Are you sure you want to delete %@?"), contributor.displayName)
+        } else if let first = contributorsToDelete.first {
+            return String(format: NSLocalizedString("contributor.delete.message", comment: "Are you sure you want to delete %@?"), first.displayName)
+        }
+        return ""
+    }
+    
+    /// Actually perform the deletion after confirmation
+    private func performDeleteContributors() {
+        withAnimation {
+            // Handle batch delete
+            if !contributorsToDelete.isEmpty {
+                for contributor in contributorsToDelete {
+                    modelContext.delete(contributor)
+                }
+                contributorsToDelete = []
+                selectedContributorIDs.removeAll()
+                editMode = .inactive
+            }
+            // Handle single delete
+            else if let contributor = contributorToDelete {
+                modelContext.delete(contributor)
+                contributorToDelete = nil
+            }
             refreshTrigger = UUID()
         }
     }
@@ -380,8 +470,9 @@ struct BackMatterGeneratedContentView: View {
     
     // MARK: - Contributors Content
     
+    /// List-based view for contributors with swipe-to-delete and edit mode support
     @ViewBuilder
-    private var contributorsContent: some View {
+    private var contributorsListContent: some View {
         let contributors = (project.contributorEntries ?? []).sorted()
         
         if contributors.isEmpty {
@@ -400,15 +491,36 @@ struct BackMatterGeneratedContentView: View {
                 )
             }
         } else {
-            Text(NSLocalizedString("backMatter.contributors.header", comment: "Contributors"))
-                .font(.title2)
-                .fontWeight(.bold)
-            
-            ForEach(contributors) { contributor in
-                contributorRow(contributor)
+            List(selection: $selectedContributorIDs) {
+                ForEach(contributors) { contributor in
+                    contributorRow(contributor)
+                        .tag(contributor.id)
+                }
             }
+            .listStyle(.plain)
+            .environment(\.editMode, $editMode)
             .onAppear {
                 previousContributorsCount = contributors.count
+            }
+            // Bottom toolbar when in edit mode with selections
+            .safeAreaInset(edge: .bottom) {
+                if editMode == .active && !selectedContributorIDs.isEmpty {
+                    HStack {
+                        Spacer()
+                        
+                        // Trash button
+                        Button(role: .destructive) {
+                            let selected = contributors.filter { selectedContributorIDs.contains($0.id) }
+                            contributorsToDelete = selected
+                            showDeleteConfirmation = true
+                        } label: {
+                            Image(systemName: "trash")
+                        }
+                        .accessibilityLabel(String(format: NSLocalizedString("contributor.deleteCount", comment: "Delete count"), selectedContributorIDs.count))
+                    }
+                    .padding()
+                    .background(.regularMaterial)
+                }
             }
         }
     }
@@ -440,26 +552,19 @@ struct BackMatterGeneratedContentView: View {
             }
             
             Button(role: .destructive) {
-                deleteContributor(contributor)
+                contributorToDelete = contributor
+                showDeleteConfirmation = true
             } label: {
                 Label(NSLocalizedString("button.delete", comment: "Delete"), systemImage: "trash")
             }
         }
-        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             Button(role: .destructive) {
-                deleteContributor(contributor)
+                contributorToDelete = contributor
+                showDeleteConfirmation = true
             } label: {
                 Label(NSLocalizedString("button.delete", comment: "Delete"), systemImage: "trash")
             }
-        }
-    }
-    
-    private func deleteContributor(_ contributor: ContributorEntry) {
-        withAnimation {
-            project.contributorEntries?.removeAll { $0.id == contributor.id }
-            modelContext.delete(contributor)
-            try? modelContext.save()
-            refreshTrigger = UUID()
         }
     }
     

@@ -1918,6 +1918,8 @@
 "backMatter.settings.footer" = "Enabled items will appear as files in your Back Matter folder.";
 "backMatter.settings.accessibility" = "Back Matter settings";
 "backMatter.settings.help" = "Configure back matter items";
+"backMatter.hasEntries.title" = "Cannot Disable";
+"backMatter.hasEntries.message" = "The %@ section contains entries that are referenced in your manuscript. Remove these references before disabling.";
 "backMatter.endnotes" = "Endnotes";
 "backMatter.notes" = "Notes";
 "backMatter.glossary" = "Glossary";
@@ -2284,3 +2286,8 @@
 "contributor.validation.title" = "Validation Error";
 "contributor.validation.nameRequired" = "Please enter at least a first name or surname.";
 "contributor.unnamed" = "Unnamed Contributor";
+"contributor.delete.title" = "Delete Contributor";
+"contributor.delete.message" = "Are you sure you want to delete %@?";
+"contributor.deleteMultiple.title" = "Delete %d Contributors";
+"contributor.deleteMultiple.message" = "Are you sure you want to delete %d contributors?";
+"contributor.deleteCount" = "Delete %d contributors";
