@@ -1248,6 +1248,31 @@
 "textStyleEditor.toc.level" = "Indent Level";
 "textStyleEditor.toc.footer" = "Paragraphs with this style will appear in the Table of Contents. Higher indent levels create sub-entries.";
 
+/* TOC Settings View - Feature 031 */
+"toc.settings.navigationTitle" = "TOC Settings";
+"toc.settings.button.accessibility" = "Table of Contents Settings";
+"toc.settings.titleSection" = "Title";
+"toc.settings.titlePlaceholder" = "Contents";
+"toc.settings.title.accessibility" = "Table of Contents title";
+"toc.settings.titleFooter" = "The heading displayed at the top of the Table of Contents";
+"toc.settings.formattingSection" = "Formatting";
+"toc.settings.separator" = "Separator";
+"toc.settings.separator.space" = "Space";
+"toc.settings.separator.none" = "None";
+"toc.settings.separator.accessibility" = "Separator character between heading and page number";
+"toc.settings.useDotLeaders" = "Use dot leaders";
+"toc.settings.useDotLeaders.hint" = "Repeat separator character to fill space between heading and page number";
+"toc.settings.showPageNumbers" = "Show page numbers";
+"toc.settings.indentSection" = "Indentation";
+"toc.settings.indent" = "Indent per level";
+"toc.settings.indent.accessibility" = "Indent amount for each heading level";
+"toc.settings.indentFooter" = "Indent amount for each heading level in points";
+"toc.settings.stylesSection" = "Styles";
+"toc.settings.titleStyle" = "Title style";
+"toc.settings.entryStyle" = "Entry style";
+"toc.settings.stylesFooter" = "Styles applied to the TOC title and entries";
+"toc.settings.previewSection" = "Preview";
+
 /* NumberFormat Display Names */
 "numberFormat.none" = "None";
 "numberFormat.decimal" = "1, 2, 3...";

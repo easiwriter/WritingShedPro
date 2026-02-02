@@ -113,6 +113,9 @@ struct FileEditView: View {
     // Markdown Support
     @State private var showMarkdownPreview = false
     
+    // Feature 031: Table of Contents
+    @State private var showTOCSettings = false
+    
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Environment(SearchContext.self) private var searchContext: SearchContext?
@@ -765,6 +768,16 @@ struct FileEditView: View {
                     }
                     .accessibilityLabel("Find and Replace")
                     .keyboardShortcut("f", modifiers: .command)
+                }
+                
+                // TOC settings button (only for TOC files)
+                if file.isTOCFile && !isPaginationMode {
+                    Button(action: {
+                        showTOCSettings = true
+                    }) {
+                        Image(systemName: "gearshape")
+                    }
+                    .accessibilityLabel(NSLocalizedString("toc.settings.button.accessibility", comment: "TOC Settings"))
                 }
                 
                 // Poetry form reference button (only for poetry projects)
@@ -1806,6 +1819,14 @@ struct FileEditView: View {
                 } else {
                     // Default to free verse reference if no form set
                     FreeVerseReference()
+                }
+            }
+            .sheet(isPresented: $showTOCSettings) {
+                TOCSettingsView(file: file) {
+                    // Regenerate TOC when settings change
+                    if let project = file.project {
+                        regenerateTOCContent(for: project)
+                    }
                 }
             }
             .sheet(isPresented: $showPoetryMetrics) {

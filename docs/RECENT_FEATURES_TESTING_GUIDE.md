@@ -1,7 +1,7 @@
 # Recent Features Testing Guide
 ## Collections/Submissions Fix, Version Notes, & Text View Enhancements
 
-**Date**: 13 December 2025  
+**Date**: 2 February 2026 (Updated)  
 **Status**: Ready for Testing  
 **Platform**: iOS (Notes: Pinch zoom and drag scroll are iOS-only)
 
@@ -13,6 +13,7 @@
 2. **Version Notes** (New Feature)
 3. **Pinch Zoom** (iOS Text View Enhancement)
 4. **Two-Finger Drag Scroll** (iOS Text View Enhancement)
+5. **Collections/Submissions UI Enhancements** (NEW - 2 Feb 2026)
 
 ---
 
@@ -100,6 +101,106 @@ Before starting manual tests:
 - **All items in Submissions**: Verify legacy JSON structure
 - **Wrong counts**: Check console logs for import errors
 - **Unsorted lists**: Verify `localizedCaseInsensitiveCompare` is working
+
+---
+
+## Feature 5: Collections/Submissions UI Enhancements (NEW)
+
+### Background
+**Date Added**: 2 February 2026
+
+UI improvements to the collections and submissions workflow:
+
+1. **Fixed Localization**: "Record Response" button now displays correctly (was showing key `submissions.recordResponse`)
+2. **Icon Consistency**: Submit/Add to Publication buttons now use `book.badge.plus` icon instead of `paperplane`
+3. **Publication Submissions Button**: New button on collection/submission rows shows which publications the files have been submitted to
+
+### UI Elements
+- **Submit Button Icon**: `book.badge.plus` (open book with plus badge) - consistent across all views
+- **Publications Button**: `book.badge.plus` icon appears on collection/submission rows when files have been submitted to publications
+- **Record Response**: Properly localized button text in Submission Details view
+
+### Test Steps
+
+#### Test 5.1: Icon Consistency
+1. **Open File List in Edit Mode**
+   - Navigate to any folder with files
+   - Tap "Edit" to enter selection mode
+   - Select one or more files
+   - ✓ Submit button in toolbar shows `book.badge.plus` icon (open book with + badge)
+
+2. **Check Collections View Toolbar**
+   - Navigate to Collections folder
+   - Tap "Edit" to enter selection mode
+   - Select one or more collections
+   - ✓ Submit to Publication button shows `book.badge.plus` icon
+
+3. **Check Submissions View Toolbar**
+   - Navigate to Submissions folder
+   - Tap "Edit" to enter selection mode
+   - Select one or more submissions
+   - ✓ Submit button shows `book.badge.plus` icon
+
+#### Test 5.2: Record Response Localization
+1. **Open a Submission**
+   - Navigate to Submissions folder
+   - Tap on any pending submission
+   - Scroll to "Response" section
+   - ✓ Button displays "Record Response" (not `submissions.recordResponse`)
+   - ✓ Button has calendar with checkmark icon
+
+2. **Test Record Response Flow**
+   - Tap "Record Response"
+   - ✓ Date picker appears with label "Response Received"
+   - ✓ "Save Response Date" button appears
+   - Select a date and tap Save
+   - ✓ Response section updates to show the recorded date
+
+#### Test 5.3: Publication Submissions Button
+1. **Create Test Data**
+   - Create a collection with some files
+   - Submit the collection to a publication
+   - Navigate back to Collections folder
+
+2. **Verify Button Appears**
+   - ✓ Collection row now shows `book.badge.plus` button (between name and ellipsis menu)
+   - ✓ Button only appears if files have been submitted to publications
+   - ✓ Tapping button opens sheet showing publication submissions
+
+3. **Check Submissions View**
+   - Navigate to Submissions folder
+   - ✓ Submission rows also show the `book.badge.plus` button when applicable
+   - ✓ Tapping shows same publication submissions sheet
+
+4. **Verify Sheet Content**
+   - Tap the `book.badge.plus` button on a collection
+   - ✓ Sheet title is "Submissions"
+   - ✓ List shows publications the files were submitted to
+   - ✓ Each row shows publication name, date, file count, and status indicator
+   - ✓ Tapping a publication navigates to submission details
+
+#### Test 5.4: Empty State
+1. **Collection Without Submissions**
+   - Create a new collection with files
+   - Do NOT submit to any publication
+   - ✓ `book.badge.plus` button should NOT appear on the row
+   - ✓ Only appears when files have publication submissions
+
+### Expected Results
+| Element | Expected Behavior |
+|---------|-------------------|
+| Submit button icon | `book.badge.plus` (open book with + badge) |
+| Record Response button | Displays "Record Response" text |
+| Publication submissions button | Appears only when files submitted to publications |
+| Publications sheet | Shows list of publication submissions with status |
+
+### Files Changed
+- `Localizable.strings` - Added `submissions.recordResponse`, `submissions.returnedOn.label`, `submissions.saveResponse`
+- `FileListView.swift` - Changed submit icon to `book.badge.plus`
+- `FolderFilesView.swift` - Changed submit icon to `book.badge.plus`
+- `SubmissionsView.swift` - Changed icon and added `CollectionSubmissionsButton`
+- `CollectionsView.swift` - Added `CollectionSubmissionsButton`
+- `CollectionSubmissionsView.swift` - NEW: View showing publication submissions for collection files
 
 ---
 
@@ -643,10 +744,11 @@ If you encounter issues, use this template:
 
 ## Testing Completion Checklist
 
-- [ ] All Feature 1 tests completed (Collections/Submissions)
+- [ ] All Feature 1 tests completed (Collections/Submissions Separation)
 - [ ] All Feature 2 tests completed (Version Notes)
 - [ ] All Feature 3 tests completed (Pinch Zoom)
 - [ ] All Feature 4 tests completed (Two-Finger Scroll)
+- [ ] All Feature 5 tests completed (Collections/Submissions UI Enhancements)
 - [ ] Integration tests completed
 - [ ] Performance tests completed
 - [ ] Regression tests completed
@@ -667,4 +769,4 @@ After testing:
 
 **Questions or Issues?**
 Contact: [Your contact method]
-Document Version: 1.0 (13 December 2025)
+Document Version: 1.1 (2 February 2026)

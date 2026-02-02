@@ -1,0 +1,218 @@
+//
+//  TOCSettingsView.swift
+//  Writing Shed Pro
+//
+//  Feature 031: Table of Contents Settings UI
+//
+
+import SwiftUI
+import SwiftData
+
+/// Sheet view for configuring Table of Contents settings
+struct TOCSettingsView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+    
+    @Bindable var file: TextFile
+    
+    // Local state for editing (copied from file on appear)
+    @State private var title: String = "Contents"
+    @State private var separator: String = "."
+    @State private var indentPoints: CGFloat = 20
+    @State private var showPageNumbers: Bool = true
+    @State private var useDotLeaders: Bool = true
+    @State private var titleStyleName: String = "title"
+    @State private var entryStyleName: String = "body"
+    
+    // Callback to regenerate TOC after settings change
+    var onSettingsChanged: (() -> Void)?
+    
+    // Available styles from project stylesheet
+    private var availableStyles: [String] {
+        guard let project = file.project,
+              let styleSheet = StyleSheetService.getStyleSheet(for: project, context: modelContext) else {
+            return ["title", "heading1", "heading2", "heading3", "body"]
+        }
+        return styleSheet.allStyles.map { $0.name }.sorted()
+    }
+    
+    var body: some View {
+        NavigationStack {
+            Form {
+                // Title Section
+                Section {
+                    TextField(NSLocalizedString("toc.settings.titlePlaceholder", comment: "Table of Contents title"), text: $title)
+                        .accessibilityLabel(NSLocalizedString("toc.settings.title.accessibility", comment: "TOC title"))
+                } header: {
+                    Text(NSLocalizedString("toc.settings.titleSection", comment: "Title"))
+                } footer: {
+                    Text(NSLocalizedString("toc.settings.titleFooter", comment: "The heading displayed at the top of the Table of Contents"))
+                }
+                
+                // Formatting Section
+                Section {
+                    // Separator character
+                    HStack {
+                        Text(NSLocalizedString("toc.settings.separator", comment: "Separator"))
+                        Spacer()
+                        Picker("", selection: $separator) {
+                            Text(".").tag(".")
+                            Text("-").tag("-")
+                            Text("_").tag("_")
+                            Text(NSLocalizedString("toc.settings.separator.space", comment: "Space")).tag(" ")
+                            Text(NSLocalizedString("toc.settings.separator.none", comment: "None")).tag("")
+                        }
+                        .pickerStyle(.menu)
+                        .accessibilityLabel(NSLocalizedString("toc.settings.separator.accessibility", comment: "Separator character"))
+                    }
+                    
+                    // Dot leaders toggle
+                    Toggle(NSLocalizedString("toc.settings.useDotLeaders", comment: "Use dot leaders"), isOn: $useDotLeaders)
+                        .accessibilityHint(NSLocalizedString("toc.settings.useDotLeaders.hint", comment: "Repeat separator character to fill space"))
+                    
+                    // Show page numbers
+                    Toggle(NSLocalizedString("toc.settings.showPageNumbers", comment: "Show page numbers"), isOn: $showPageNumbers)
+                    
+                } header: {
+                    Text(NSLocalizedString("toc.settings.formattingSection", comment: "Formatting"))
+                }
+                
+                // Indentation Section
+                Section {
+                    Stepper(value: $indentPoints, in: 0...60, step: 5) {
+                        HStack {
+                            Text(NSLocalizedString("toc.settings.indent", comment: "Indent per level"))
+                            Spacer()
+                            Text("\(Int(indentPoints)) pt")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .accessibilityLabel(NSLocalizedString("toc.settings.indent.accessibility", comment: "Indent amount per TOC level"))
+                } header: {
+                    Text(NSLocalizedString("toc.settings.indentSection", comment: "Indentation"))
+                } footer: {
+                    Text(NSLocalizedString("toc.settings.indentFooter", comment: "Indent amount for each heading level in points"))
+                }
+                
+                // Styles Section
+                Section {
+                    // Title style
+                    Picker(NSLocalizedString("toc.settings.titleStyle", comment: "Title style"), selection: $titleStyleName) {
+                        ForEach(availableStyles, id: \.self) { style in
+                            Text(style).tag(style)
+                        }
+                    }
+                    
+                    // Entry style
+                    Picker(NSLocalizedString("toc.settings.entryStyle", comment: "Entry style"), selection: $entryStyleName) {
+                        ForEach(availableStyles, id: \.self) { style in
+                            Text(style).tag(style)
+                        }
+                    }
+                } header: {
+                    Text(NSLocalizedString("toc.settings.stylesSection", comment: "Styles"))
+                } footer: {
+                    Text(NSLocalizedString("toc.settings.stylesFooter", comment: "Styles applied to the TOC title and entries"))
+                }
+                
+                // Preview Section
+                Section {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(title)
+                            .font(.headline)
+                        
+                        previewEntry(text: "Chapter One", level: 0, pageNumber: 1)
+                        previewEntry(text: "Scene One", level: 1, pageNumber: 3)
+                        previewEntry(text: "Scene Two", level: 1, pageNumber: 7)
+                        previewEntry(text: "Chapter Two", level: 0, pageNumber: 15)
+                    }
+                    .padding(.vertical, 4)
+                } header: {
+                    Text(NSLocalizedString("toc.settings.previewSection", comment: "Preview"))
+                }
+            }
+            .navigationTitle(NSLocalizedString("toc.settings.navigationTitle", comment: "TOC Settings"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(NSLocalizedString("button.cancel", comment: "Cancel")) {
+                        dismiss()
+                    }
+                }
+                
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(NSLocalizedString("button.save", comment: "Save")) {
+                        saveSettings()
+                        dismiss()
+                    }
+                }
+            }
+            .onAppear {
+                loadSettings()
+            }
+        }
+    }
+    
+    // MARK: - Preview Entry
+    
+    @ViewBuilder
+    private func previewEntry(text: String, level: Int, pageNumber: Int) -> some View {
+        HStack(spacing: 0) {
+            // Indent
+            if level > 0 {
+                Text(String(repeating: " ", count: level * 4))
+            }
+            
+            // Heading text
+            Text(text)
+                .font(.subheadline)
+            
+            // Separator
+            if useDotLeaders && !separator.isEmpty {
+                Text(String(repeating: separator, count: 10))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            } else {
+                Spacer()
+            }
+            
+            // Page number
+            if showPageNumbers {
+                Text("\(pageNumber)")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.leading, CGFloat(level) * 12)
+    }
+    
+    // MARK: - Settings Management
+    
+    private func loadSettings() {
+        let settings = file.tocSettings
+        title = settings.title
+        separator = settings.separator
+        indentPoints = settings.indentPoints
+        showPageNumbers = settings.showPageNumbers
+        useDotLeaders = settings.useDotLeaders
+        titleStyleName = settings.titleStyleName
+        entryStyleName = settings.entryStyleName
+    }
+    
+    private func saveSettings() {
+        var settings = TOCSettings()
+        settings.title = title
+        settings.separator = separator
+        settings.indentPoints = indentPoints
+        settings.showPageNumbers = showPageNumbers
+        settings.useDotLeaders = useDotLeaders
+        settings.titleStyleName = titleStyleName
+        settings.entryStyleName = entryStyleName
+        
+        file.tocSettings = settings
+        
+        // Trigger TOC regeneration
+        onSettingsChanged?()
+    }
+}
