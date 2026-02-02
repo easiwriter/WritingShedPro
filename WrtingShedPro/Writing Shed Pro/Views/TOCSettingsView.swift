@@ -33,7 +33,7 @@ struct TOCSettingsView: View {
               let styleSheet = StyleSheetService.getStyleSheet(for: project, context: modelContext) else {
             return ["title", "heading1", "heading2", "heading3", "body"]
         }
-        return styleSheet.allStyles.map { $0.name }.sorted()
+        return styleSheet.sortedStyles.map { $0.name }
     }
     
     var body: some View {
