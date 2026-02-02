@@ -531,7 +531,7 @@ struct FileListView: View {
             } label: {
                 Label(
                     NSLocalizedString("fileList.submit", comment: "Submit files"),
-                    systemImage: "paperplane"
+                    systemImage: "book.badge.plus"
                 )
             }
             .disabled(selectedFiles.isEmpty)

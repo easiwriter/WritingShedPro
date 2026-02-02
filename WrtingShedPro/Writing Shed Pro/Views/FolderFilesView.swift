@@ -662,7 +662,7 @@ struct FolderFilesView: View {
                 filesToSubmit = selectedFiles
                 showSubmissionPicker = true
             } label: {
-                Image(systemName: "paperplane")
+                Image(systemName: "book.badge.plus")
             }
             .accessibilityLabel(NSLocalizedString("fileList.submit", comment: "Submit files"))
             

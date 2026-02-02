@@ -1001,6 +1001,16 @@
 "submissions.updated.on" = "Updated: %@";
 "submissions.version.label" = "Version %d";
 "submissions.no.files.project" = "No files in this project";
+"submissions.recordResponse" = "Record Response";
+"submissions.returnedOn.label" = "Response Received";
+"submissions.saveResponse" = "Save Response Date";
+
+/* Collection Submissions */
+"collections.submissions.title" = "Submissions";
+"collections.submissions.empty.title" = "No Submissions";
+"collections.submissions.empty.message" = "Files in this collection have not been submitted to any publications yet.";
+"collections.submissions.fileCount" = "%d file(s) from collection";
+"accessibility.collection.submissions" = "%d submission(s) to publications";
 
 /* Accessibility - Submissions */
 "accessibility.add.submission" = "Add submission";

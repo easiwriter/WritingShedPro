@@ -317,6 +317,9 @@ struct CollectionsView: View {
                     }
                 }
                 
+                // Show submissions button if collection has publication submissions
+                CollectionSubmissionsButton(collection: collection)
+                
                 // Ellipsis menu for collection options
                 collectionOptionsMenu(for: collection)
             }

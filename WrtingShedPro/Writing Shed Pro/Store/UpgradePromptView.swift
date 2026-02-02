@@ -93,6 +93,21 @@ struct UpgradePromptView: View {
         .fullScreenCover(isPresented: $showStore) {
             StoreView(highlightedProduct: reason.requiredProduct)
         }
+        .onChange(of: showStore) { _, isShowing in
+            // When store closes, check if user now has the entitlement
+            if !isShowing {
+                // Give a moment for entitlements to refresh
+                Task {
+                    try? await Task.sleep(for: .milliseconds(500))
+                    await MainActor.run {
+                        if EntitlementManager.shared.isProjectTypeUnlocked(reason.projectType) {
+                            // User purchased! Dismiss the upgrade prompt
+                            isPresented = false
+                        }
+                    }
+                }
+            }
+        }
     }
     
     // MARK: - Helper Views

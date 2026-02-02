@@ -111,7 +111,7 @@ struct SubmissionsView: View {
                             Button {
                                 showPublicationPicker = true
                             } label: {
-                                Image(systemName: "paperplane")
+                                Image(systemName: "book.badge.plus")
                             }
                             .accessibilityLabel(NSLocalizedString("submissions.submit", comment: "Submit to publication"))
                             
@@ -250,19 +250,24 @@ struct SubmissionsView: View {
     
     @ViewBuilder
     private func submissionRow(for submission: Submission) -> some View {
-        NavigationLink(destination: CollectionDetailView(submission: submission)) {
-            VStack(alignment: .leading, spacing: 4) {
-                // Submission name
-                Text(submission.name ?? "Untitled Submission")
-                    .font(.headline)
-                
-                // File count
-                let fileCount = submission.submittedFiles?.count ?? 0
-                Text("\(fileCount) \(fileCount == 1 ? "file" : "files")")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
+        HStack {
+            NavigationLink(destination: CollectionDetailView(submission: submission)) {
+                VStack(alignment: .leading, spacing: 4) {
+                    // Submission name
+                    Text(submission.name ?? "Untitled Submission")
+                        .font(.headline)
+                    
+                    // File count
+                    let fileCount = submission.submittedFiles?.count ?? 0
+                    Text("\(fileCount) \(fileCount == 1 ? "file" : "files")")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.vertical, 4)
             }
-            .padding(.vertical, 4)
+            
+            // Show submissions button if collection has publication submissions
+            CollectionSubmissionsButton(collection: submission)
         }
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             Button(role: .destructive) {
