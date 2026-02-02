@@ -495,6 +495,33 @@
 "addFile.duplicateNameInTrash" = "A file with this name exists in Trash. Restore or permanently delete it first, or use a different name.";
 "addFile.poetryFormHeader" = "Poetry Form";
 "addFile.poetryFormFooter" = "Choose a form to get a template with structure guidelines, or leave as Free Verse for no constraints.";
+"addFile.contentType" = "Content Type";
+"addFile.contentTypeHeader" = "Content Type";
+"addFile.nameRequired" = "Please enter a file name.";
+
+/* Content Type */
+"contentType.richText" = "Rich Text";
+"contentType.markdown" = "Markdown";
+"contentType.richText.description" = "Formatted text with styles, images, and rich formatting.";
+"contentType.markdown.description" = "Plain text with Markdown syntax. Preview available.";
+"contentType.switchToRichText" = "Switch to Rich Text";
+"contentType.switchToMarkdown" = "Switch to Markdown";
+
+/* Markdown */
+"markdown.mode.indicator" = "Markdown";
+"markdown.preview.button" = "Preview";
+"markdown.preview.buttonAccessibility" = "Show Markdown Preview";
+"markdown.preview.title" = "Markdown Preview";
+"markdown.preview.loading" = "Loading preview...";
+"markdown.preview.empty" = "No Content";
+"markdown.preview.emptyDescription" = "The markdown content is empty.";
+"markdown.preview.issuesFound" = "%d issues found";
+"markdown.preview.showIssues" = "Show";
+"markdown.validation.unclosedCode" = "Unclosed inline code";
+"markdown.validation.unclosedBold" = "Unclosed bold text";
+"markdown.validation.headingSpace" = "Heading should have space after #";
+"markdown.validation.emptyLink" = "Empty link URL";
+"markdown.validation.unclosedCodeBlock" = "Unclosed code block";
 
 /* Poetry Form Picker */
 "poetryForm.selectForm" = "Select Poetry Form";
@@ -2291,3 +2318,8 @@
 "contributor.deleteMultiple.title" = "Delete %d Contributors";
 "contributor.deleteMultiple.message" = "Are you sure you want to delete %d contributors?";
 "contributor.deleteCount" = "Delete %d contributors";
+
+
+// Poetry Settings - Dialect
+"dialect.american" = "American English";
+"dialect.british" = "British English";

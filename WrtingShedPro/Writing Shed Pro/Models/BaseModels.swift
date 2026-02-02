@@ -59,6 +59,43 @@ enum WorkflowStatus: String, Codable, CaseIterable {
     }
 }
 
+/// Content type for text files
+/// Determines editing mode and available features
+enum FileContentType: String, Codable, CaseIterable {
+    case richText   // Default rich text editing with formatting
+    case markdown   // Plain text markdown editing with preview
+    
+    /// Localized display name for the content type
+    var localizedName: String {
+        switch self {
+        case .richText:
+            return NSLocalizedString("contentType.richText", comment: "Rich Text")
+        case .markdown:
+            return NSLocalizedString("contentType.markdown", comment: "Markdown")
+        }
+    }
+    
+    /// System image for the content type
+    var systemImage: String {
+        switch self {
+        case .richText:
+            return "doc.richtext"
+        case .markdown:
+            return "text.badge.checkmark"
+        }
+    }
+    
+    /// Short description of the content type
+    var description: String {
+        switch self {
+        case .richText:
+            return NSLocalizedString("contentType.richText.description", comment: "Formatted text with styles")
+        case .markdown:
+            return NSLocalizedString("contentType.markdown.description", comment: "Plain text with markdown syntax")
+        }
+    }
+}
+
 @Model
 final class Project {
         // Trash support
@@ -704,6 +741,9 @@ final class TextFile {
     // JSON-encoded TOCSettings for TOC files
     var tocSettingsData: Data?
     
+    // Content type: richText (default) or markdown
+    var contentTypeRaw: String = "richText"
+    
     /// Workflow status for this file (Draft, Ready, Submitted, etc.)
     var workflowStatus: WorkflowStatus? {
         get {
@@ -714,6 +754,22 @@ final class TextFile {
             workflowStatusRaw = newValue?.rawValue
             modifiedDate = Date()
         }
+    }
+    
+    /// Content type for this file (Rich Text or Markdown)
+    var contentType: FileContentType {
+        get {
+            return FileContentType(rawValue: contentTypeRaw) ?? .richText
+        }
+        set {
+            contentTypeRaw = newValue.rawValue
+            modifiedDate = Date()
+        }
+    }
+    
+    /// Whether this file is a markdown file
+    var isMarkdown: Bool {
+        return contentType == .markdown
     }
     
     /// Get the project this file belongs to (via parent folder or scene)

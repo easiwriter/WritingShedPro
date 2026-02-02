@@ -128,7 +128,6 @@ def create_flyer():
     
     # Platform badges
     c.setFont("Helvetica", 9)
-    c.setFillColor(white)
     badge_y = HEIGHT - 42*mm
     platforms = ["iPhone", "iPad", "Mac"]
     badge_width = 28*mm
@@ -137,8 +136,8 @@ def create_flyer():
     for i, platform in enumerate(platforms):
         x = start_x + i * (badge_width + 3*mm)
         draw_rounded_rect(c, x, badge_y - 4*mm, badge_width, 8*mm, 3*mm, 
-                         fill_color=HexColor('#FFFFFF30'))
-        c.setFillColor(white)
+                         fill_color=WARM_GOLD)
+        c.setFillColor(DEEP_PURPLE)
         c.setFont("Helvetica-Bold", 9)
         c.drawCentredString(x + badge_width/2, badge_y - 1*mm, platform)
     
@@ -246,20 +245,15 @@ def create_flyer():
                      fill_color=WARM_ORANGE)
     
     c.setFillColor(white)
-    c.setFont("Helvetica-Bold", 12)
-    c.drawCentredString(WIDTH/2, cta_y + 8*mm, "Coming Soon")
-    c.setFont("Helvetica", 9)
+    c.setFont("Helvetica-Bold", 16)
+    c.drawCentredString(WIDTH/2, cta_y + 9*mm, "Coming Soon")
+    c.setFont("Helvetica", 11)
     c.drawCentredString(WIDTH/2, cta_y + 3*mm, "For macOS & iOS")
     
     # Footer
     c.setFillColor(white)
-    c.setFont("Helvetica", 8)
+    c.setFont("Helvetica-Bold", 11)
     c.drawCentredString(WIDTH/2, 6*mm, "writingshedpro.com")
-    
-    # Decorative elements
-    c.setFillColor(HexColor('#FFFFFF20'))
-    c.circle(WIDTH - 15*mm, 10*mm, 20*mm, fill=1, stroke=0)
-    c.circle(15*mm, 10*mm, 15*mm, fill=1, stroke=0)
     
     c.save()
     print(f"✅ Flyer created successfully: {output_path}")

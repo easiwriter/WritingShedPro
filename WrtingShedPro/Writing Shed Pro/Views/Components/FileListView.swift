@@ -338,8 +338,9 @@ struct FileListView: View {
                         .imageScale(.large)
                 }
                 
-                Image(systemName: "doc.text")
-                    .foregroundStyle(.secondary)
+                // File icon - different for markdown files
+                Image(systemName: file.isMarkdown ? "text.badge.checkmark" : "doc.text")
+                    .foregroundStyle(file.isMarkdown ? .orange : .secondary)
                 
                 Text(file.name)
                     .foregroundColor(file.workflowStatus.map { Color($0.color) } ?? .primary)

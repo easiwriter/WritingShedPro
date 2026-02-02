@@ -91,33 +91,13 @@ struct Write_App: App {
             // Monitor CloudKit sync errors at the transaction level
             mainContext.autosaveEnabled = true
             
-            // Add observer for sync errors - runs asynchronously, won't block app launch
-            NotificationCenter.default.addObserver(
-                forName: NSNotification.Name("NSPersistentStoreRemoteChangeNotification"),
-                object: nil,
-                queue: OperationQueue()  // Run on background queue
-            ) { notification in
-                DispatchQueue.main.async {
-                    #if DEBUG
-                    print("🔄 [CloudKit] Remote change notification received")
-                    #endif
-                    Write_App.logErrorToFile("🔄 [CloudKit] Remote change notification received")
-                }
-            }
+            // Initialize the sync throttler early - it will observe CloudKit notifications
+            // and coalesce rapid-fire events to prevent UI disruption
+            _ = CloudKitSyncThrottler.shared
             
-            // Monitor for CloudKit errors through transaction notifications - also async
-            NotificationCenter.default.addObserver(
-                forName: NSNotification.Name("NSPersistentStoreCoordinatorStoresDidChangeNotification"),
-                object: nil,
-                queue: OperationQueue()  // Run on background queue
-            ) { notification in
-                DispatchQueue.main.async {
-                    #if DEBUG
-                    print("🔄 [CloudKit] Stores changed - possible sync event")
-                    #endif
-                    Write_App.logErrorToFile("🔄 [CloudKit] Stores changed - possible sync event")
-                }
-            }
+            #if DEBUG
+            print("✅ [Write_App] CloudKitSyncThrottler initialized")
+            #endif
             
             // Check the actual store URL and configuration
             #if DEBUG

@@ -56,46 +56,60 @@ final class PoetryPreferences {
     
     private let store = UserDefaults.standard
     
+    // Backing stored properties for @Observable to track changes
+    private var _showMetricsBar: Bool
+    private var _showStressAnalysis: Bool
+    private var _autoOpenFormReference: Bool
+    private var _showSyllableHints: Bool
+    private var _englishDialect: EnglishDialect
+    
     /// Whether to show the metrics bar in the editor for Poetry projects
     /// Default: true
     var showMetricsBar: Bool {
-        get { store.object(forKey: Keys.showMetricsBar) as? Bool ?? true }
-        set { store.set(newValue, forKey: Keys.showMetricsBar) }
+        get { _showMetricsBar }
+        set {
+            _showMetricsBar = newValue
+            store.set(newValue, forKey: Keys.showMetricsBar)
+        }
     }
     
     /// Whether to show stress pattern analysis (more detailed, can be toggled off for simplicity)
     /// Default: false (opt-in feature)
     var showStressAnalysis: Bool {
-        get { store.object(forKey: Keys.showStressAnalysis) as? Bool ?? false }
-        set { store.set(newValue, forKey: Keys.showStressAnalysis) }
+        get { _showStressAnalysis }
+        set {
+            _showStressAnalysis = newValue
+            store.set(newValue, forKey: Keys.showStressAnalysis)
+        }
     }
     
     /// Whether to automatically show form reference when creating a new poetry file
     /// Default: false
     var autoOpenFormReference: Bool {
-        get { store.object(forKey: Keys.autoOpenFormReference) as? Bool ?? false }
-        set { store.set(newValue, forKey: Keys.autoOpenFormReference) }
+        get { _autoOpenFormReference }
+        set {
+            _autoOpenFormReference = newValue
+            store.set(newValue, forKey: Keys.autoOpenFormReference)
+        }
     }
     
     /// Whether to show inline syllable hints during editing
     /// Default: true
     var showSyllableHints: Bool {
-        get { store.object(forKey: Keys.showSyllableHints) as? Bool ?? true }
-        set { store.set(newValue, forKey: Keys.showSyllableHints) }
+        get { _showSyllableHints }
+        set {
+            _showSyllableHints = newValue
+            store.set(newValue, forKey: Keys.showSyllableHints)
+        }
     }
     
     /// English dialect for pronunciation and stress analysis
     /// Default: .american (CMU dictionary)
     var englishDialect: EnglishDialect {
-        get {
-            guard let rawValue = store.string(forKey: Keys.englishDialect),
-                  let dialect = EnglishDialect(rawValue: rawValue) else {
-                return .american
-            }
-            return dialect
-        }
+        get { _englishDialect }
         set {
-            let oldValue = englishDialect
+            let oldValue = _englishDialect
+            _englishDialect = newValue
             store.set(newValue.rawValue, forKey: Keys.englishDialect)
             // Notify dictionary services to reload if dialect changed
             if oldValue != newValue {
@@ -109,13 +123,30 @@ final class PoetryPreferences {
     static let shared = PoetryPreferences()
     
     private init() {
-        // Defaults are handled via nil-coalescing in getters
+        // Load from UserDefaults or use defaults
+        _showMetricsBar = store.object(forKey: Keys.showMetricsBar) as? Bool ?? true
+        _showStressAnalysis = store.object(forKey: Keys.showStressAnalysis) as? Bool ?? false
+        _autoOpenFormReference = store.object(forKey: Keys.autoOpenFormReference) as? Bool ?? false
+        _showSyllableHints = store.object(forKey: Keys.showSyllableHints) as? Bool ?? true
+        
+        if let rawValue = store.string(forKey: Keys.englishDialect),
+           let dialect = EnglishDialect(rawValue: rawValue) {
+            _englishDialect = dialect
+        } else {
+            _englishDialect = .american
+        }
     }
     
     // MARK: - Reset
     
     /// Reset all poetry preferences to defaults
     func resetToDefaults() {
+        showMetricsBar = true
+        showStressAnalysis = false
+        autoOpenFormReference = false
+        showSyllableHints = true
+        englishDialect = .american
+        
         store.removeObject(forKey: Keys.showMetricsBar)
         store.removeObject(forKey: Keys.showStressAnalysis)
         store.removeObject(forKey: Keys.autoOpenFormReference)

@@ -17,6 +17,7 @@ final class ContentViewState {
     // UI State
     var showAddProject = false
     var showManageStyles = false
+    var showSettings = false  // Settings sheet
     var isImporting = false
     var showingJSONImportPicker = false
     var showImportError = false
@@ -52,6 +53,9 @@ final class ContentViewState {
     
     // Appearance preferences
     var appearancePreferences = AppearancePreferences.shared
+    
+    // Poetry preferences (observed for UI updates)
+    var poetryPreferences = PoetryPreferences.shared
     
     init() {
         // Load saved sort order from UserDefaults

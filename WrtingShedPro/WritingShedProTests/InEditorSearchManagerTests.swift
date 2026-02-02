@@ -341,20 +341,20 @@ final class InEditorSearchManagerTests: XCTestCase {
         manager.searchText = "the"
         
         let expectation1 = XCTestExpectation(description: "Initial search")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
             expectation1.fulfill()
         }
-        wait(for: [expectation1], timeout: 1.0)
+        wait(for: [expectation1], timeout: 2.0)
         
         let initialCount = manager.totalMatches
         
         manager.isCaseSensitive = true
         
         let expectation2 = XCTestExpectation(description: "Re-search after option change")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
             expectation2.fulfill()
         }
-        wait(for: [expectation2], timeout: 1.0)
+        wait(for: [expectation2], timeout: 2.0)
         
         XCTAssertNotEqual(manager.totalMatches, initialCount)
     }

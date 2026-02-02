@@ -22,7 +22,7 @@ struct UpgradePromptView: View {
         VStack(spacing: 20) {
             // Icon
             Image(systemName: iconName)
-                .font(.system(size: 50))
+                .font(.system(size: 32))
                 .foregroundStyle(iconGradient)
             
             // Title

@@ -31,6 +31,7 @@ struct AddSceneSheet: View {
     @State private var selectedThreeActStage: ThreeActStage?
     @State private var selectedLocation: Location?
     @State private var selectedCharacters: Set<Character> = []
+    @State private var selectedContentType: FileContentType = .richText
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
     
@@ -86,6 +87,21 @@ struct AddSceneSheet: View {
                     Text(NSLocalizedString("fiction.scene.summary", comment: "Summary"))
                 } footer: {
                     Text(NSLocalizedString("fiction.scene.summary.footer", comment: "Brief description of what happens"))
+                }
+                
+                // Content type picker
+                Section {
+                    Picker(NSLocalizedString("addFile.contentType", comment: "Content Type"), selection: $selectedContentType) {
+                        ForEach(FileContentType.allCases, id: \.self) { contentType in
+                            Label(contentType.localizedName, systemImage: contentType.systemImage)
+                                .tag(contentType)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                } header: {
+                    Text(NSLocalizedString("addFile.contentTypeHeader", comment: "Content Type section header"))
+                } footer: {
+                    Text(selectedContentType.description)
                 }
                 
                 // Location (optional)
@@ -280,6 +296,7 @@ struct AddSceneSheet: View {
         
         // Create TextFile for scene content in Draft folder
         let textFile = TextFile(name: trimmedTitle, initialContent: "", parentFolder: scenesFolder)
+        textFile.contentType = selectedContentType
         textFile.workflowStatus = .draft  // New scenes start as drafts
         textFile.scene = scene
         scene.textFile = textFile

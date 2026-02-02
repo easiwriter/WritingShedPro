@@ -147,19 +147,55 @@ extension TextFile {
     func deleteVersion() {
         guard let versions = versions, versions.count > 1 else { return }
         
-        let currentIndex = currentVersionIndex
+        // CRITICAL: Sort versions to match navigation - currentVersionIndex refers to sorted position
+        let sortedVersions = versions.sorted { $0.versionNumber < $1.versionNumber }
         
-        // Remove current version
-        if currentIndex < versions.count {
-            self.versions?.remove(at: currentIndex)
+        #if DEBUG
+        print("📝 deleteVersion called:")
+        print("   currentVersionIndex: \(currentVersionIndex)")
+        print("   versions count: \(versions.count)")
+        print("   unsorted versions: \(versions.map { "v\($0.versionNumber)" })")
+        print("   sorted versions: \(sortedVersions.map { "v\($0.versionNumber)" })")
+        #endif
+        
+        guard currentVersionIndex >= 0 && currentVersionIndex < sortedVersions.count else { 
+            #if DEBUG
+            print("   ❌ currentVersionIndex out of bounds")
+            #endif
+            return 
         }
         
-        // Adjust current version index
-        if currentIndex > 0 {
-            self.currentVersionIndex = currentIndex - 1
+        // Get the actual version object to delete
+        let versionToDelete = sortedVersions[currentVersionIndex]
+        
+        #if DEBUG
+        print("   versionToDelete: v\(versionToDelete.versionNumber) (id: \(versionToDelete.id))")
+        #endif
+        
+        // Find its index in the unsorted array and remove it
+        if let actualIndex = self.versions?.firstIndex(where: { $0.id == versionToDelete.id }) {
+            #if DEBUG
+            print("   actualIndex in unsorted array: \(actualIndex)")
+            #endif
+            self.versions?.remove(at: actualIndex)
+            #if DEBUG
+            print("   ✅ Removed version at index \(actualIndex)")
+            print("   remaining versions: \(self.versions?.map { "v\($0.versionNumber)" } ?? [])")
+            #endif
         } else {
-            self.currentVersionIndex = 0
+            #if DEBUG
+            print("   ❌ Could not find version in array")
+            #endif
         }
+        
+        // Adjust current version index to stay in bounds
+        let newCount = (self.versions?.count ?? 0)
+        if currentVersionIndex >= newCount {
+            self.currentVersionIndex = max(0, newCount - 1)
+        }
+        #if DEBUG
+        print("   new currentVersionIndex: \(currentVersionIndex)")
+        #endif
     }
     
     /// Jump to the latest version (highest version number)

@@ -108,6 +108,13 @@ struct ContentViewBody: View {
             .sheet(isPresented: $showProjectTrash) {
                 ProjectTrashBinView()
             }
+            .sheet(isPresented: $state.showSettings) {
+                SettingsSheet(
+                    isPresented: $state.showSettings,
+                    state: state,
+                    onImport: onHandleImportMenu
+                )
+            }
             .sheet(isPresented: $state.showManageStyles) {
                 StyleSheetListView()
             }

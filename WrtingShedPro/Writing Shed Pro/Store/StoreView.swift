@@ -76,6 +76,15 @@ struct StoreView: View {
             .task {
                 await loadProducts()
             }
+            .task {
+                // Listen for transaction updates (required by StoreKit to catch completed purchases)
+                for await result in Transaction.updates {
+                    if case .verified(let transaction) = result {
+                        await transaction.finish()
+                        await EntitlementManager.shared.refreshEntitlements()
+                    }
+                }
+            }
             .alert("Purchases Restored", isPresented: $showRestoreSuccess) {
                 Button("OK", role: .cancel) { }
             } message: {
@@ -134,7 +143,8 @@ struct StoreView: View {
                     product: bundleProduct,
                     isPurchased: EntitlementManager.shared.hasBundle,
                     isLoading: purchaseInProgress == bundleProduct.id,
-                    onPurchase: { await purchase(bundleProduct) }
+                    onPurchase: { await purchase(bundleProduct) },
+                    onRedeemCode: { presentOfferCodeRedemption() }
                 )
             }
             
@@ -190,7 +200,8 @@ struct StoreView: View {
                         isPurchased: EntitlementManager.shared.isModulePurchased(wspProduct),
                         isHighlighted: highlightedProduct == wspProduct,
                         isLoading: purchaseInProgress == storeProduct.id,
-                        onPurchase: { await purchase(storeProduct) }
+                        onPurchase: { await purchase(storeProduct) },
+                        onRedeemCode: { presentOfferCodeRedemption() }
                     )
                 }
             }
@@ -239,8 +250,49 @@ struct StoreView: View {
             Text("Already purchased? Restore your previous purchases here.")
                 .font(.caption)
                 .foregroundColor(.secondary)
+            
+            Divider()
+                .padding(.vertical, 8)
+            
+            // Offer code redemption
+            Button {
+                presentOfferCodeRedemption()
+            } label: {
+                Label("Redeem Offer Code", systemImage: "ticket")
+                    .font(.subheadline)
+            }
+            
+            Text("Have an offer code? Redeem it here for free or discounted access.")
+                .font(.caption)
+                .foregroundColor(.secondary)
         }
         .padding(.top, 20)
+    }
+    
+    /// Present the App Store offer code redemption sheet
+    private func presentOfferCodeRedemption() {
+        #if !targetEnvironment(macCatalyst)
+        // On iOS, use the offer code redemption sheet
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene else {
+            return
+        }
+        Task {
+            do {
+                try await AppStore.presentOfferCodeRedeemSheet(in: windowScene)
+                
+                // Refresh entitlements after redemption
+                try? await Task.sleep(for: .seconds(2))
+                await EntitlementManager.shared.refreshEntitlements()
+            } catch {
+                print("Failed to present offer code sheet: \(error)")
+            }
+        }
+        #else
+        // On Mac Catalyst, direct users to the App Store
+        if let url = URL(string: "https://apps.apple.com/redeem") {
+            UIApplication.shared.open(url)
+        }
+        #endif
     }
     
     private var legalSection: some View {
@@ -307,6 +359,10 @@ struct StoreView: View {
                 if case .verified(let transaction) = verification {
                     await transaction.finish()
                     await EntitlementManager.shared.refreshEntitlements()
+                    // Dismiss the store after successful purchase
+                    await MainActor.run {
+                        dismiss()
+                    }
                 }
             case .userCancelled:
                 break
@@ -347,51 +403,67 @@ struct ModuleCardView: View {
     let isHighlighted: Bool
     let isLoading: Bool
     let onPurchase: () async -> Void
+    let onRedeemCode: () -> Void
     
     var body: some View {
-        HStack(spacing: 16) {
-            // Icon
-            Image(systemName: wspProduct.iconName)
-                .font(.title)
-                .foregroundColor(wspProduct.themeColor)
-                .frame(width: 50, height: 50)
-                .background(wspProduct.themeColor.opacity(0.1))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-            
-            // Info
-            VStack(alignment: .leading, spacing: 4) {
-                Text(wspProduct.displayName)
-                    .font(.headline)
-                Text(wspProduct.shortDescription)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            
-            Spacer()
-            
-            // Price / Status
-            if isPurchased {
-                Label("Owned", systemImage: "checkmark.circle.fill")
-                    .font(.subheadline)
-                    .foregroundColor(.green)
-            } else if isLoading {
-                ProgressView()
-            } else {
-                Button {
-                    Task { await onPurchase() }
-                } label: {
-                    Text(storeProduct.displayPrice)
+        VStack(spacing: 0) {
+            HStack(spacing: 16) {
+                // Icon
+                Image(systemName: wspProduct.iconName)
+                    .font(.title)
+                    .foregroundColor(wspProduct.themeColor)
+                    .frame(width: 50, height: 50)
+                    .background(wspProduct.themeColor.opacity(0.1))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                
+                // Info
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(wspProduct.displayName)
+                        .font(.headline)
+                    Text(wspProduct.shortDescription)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+                
+                // Price / Status
+                if isPurchased {
+                    Label("Owned", systemImage: "checkmark.circle.fill")
                         .font(.subheadline)
-                        .fontWeight(.semibold)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(wspProduct.themeColor)
-                        .foregroundColor(.white)
-                        .clipShape(Capsule())
+                        .foregroundColor(.green)
+                } else if isLoading {
+                    ProgressView()
+                } else {
+                    Button {
+                        Task { await onPurchase() }
+                    } label: {
+                        Text(storeProduct.displayPrice)
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(wspProduct.themeColor)
+                            .foregroundColor(.white)
+                            .clipShape(Capsule())
+                    }
                 }
             }
+            .padding()
+            
+            // Offer code link (only show if not purchased)
+            if !isPurchased {
+                Divider()
+                Button {
+                    onRedeemCode()
+                } label: {
+                    Label("Have an offer code?", systemImage: "ticket")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.vertical, 8)
+            }
         }
-        .padding()
         .background(Color(uiColor: .secondarySystemGroupedBackground))
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay(
@@ -409,6 +481,7 @@ struct BundleCardView: View {
     let isPurchased: Bool
     let isLoading: Bool
     let onPurchase: () async -> Void
+    let onRedeemCode: () -> Void
     
     var body: some View {
         VStack(spacing: 16) {
@@ -481,6 +554,16 @@ struct BundleCardView: View {
                         )
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
+                
+                // Offer code link
+                Button {
+                    onRedeemCode()
+                } label: {
+                    Label("Have an offer code?", systemImage: "ticket")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.top, 4)
             }
         }
         .padding()

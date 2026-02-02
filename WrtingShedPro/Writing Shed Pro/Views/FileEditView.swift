@@ -110,6 +110,9 @@ struct FileEditView: View {
     @State private var isSimplifiedSearchMode = false  // True when opened from multi-file search with replace
     @State private var isFromMultiFileSearch = false  // True when opened from any multi-file search
     
+    // Markdown Support
+    @State private var showMarkdownPreview = false
+    
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Environment(SearchContext.self) private var searchContext: SearchContext?
@@ -146,6 +149,8 @@ struct FileEditView: View {
     // MARK: - Body Components
     
     private func versionToolbar() -> some View {
+        // Access version count directly to ensure UI updates when versions change
+        let versionCount = file.versions?.count ?? 0
         let versionItems: [SUIToolbarItem] = [
             SUIToolbarItem(
                 icon: "chevron.left.circle",
@@ -165,7 +170,7 @@ struct FileEditView: View {
             SUIToolbarItem(
                 icon: "trash.circle",
                 title: "Delete this version",
-                disabled: (file.versions?.count ?? 0) <= 1
+                disabled: versionCount <= 1
             )
         ]
         
@@ -173,24 +178,16 @@ struct FileEditView: View {
             label: file.versionLabel(),
             items: versionItems
         ) { action in
+            #if DEBUG
+            print("📝 ToolbarView action callback: \(action)")
+            #endif
             handleVersionAction(VersionAction(rawValue: action) ?? .next)
-        }
-        .alert(isPresented: $presentDeleteAlert) {
-            Alert(
-                title: Text(NSLocalizedString("fileEdit.deleteVersionTitle", comment: "Delete Version?")),
-                message: Text(NSLocalizedString("fileEdit.deleteVersionMessage", comment: "Please confirm that you want to delete this version")),
-                primaryButton: .destructive(Text(NSLocalizedString("contentView.delete", comment: "Delete"))) {
-                    file.deleteVersion()
-                    loadCurrentVersion()
-                    saveChanges()
-                },
-                secondaryButton: .cancel()
-            )
         }
         .padding(.horizontal, 8)
         .padding(.top, 8)
         .padding(.bottom, 8)
         .zIndex(100)  // Ensure toolbar is above any overlays
+        .id(refreshTrigger)  // Force re-render when versions change
     }
     
     private func textEditorSection() -> some View {
@@ -507,6 +504,28 @@ struct FileEditView: View {
         }
     }
     
+    /// Indicator bar shown at the bottom for markdown files
+    @ViewBuilder
+    private func markdownIndicatorBar() -> some View {
+        HStack {
+            Label(NSLocalizedString("markdown.mode.indicator", comment: "Markdown"), systemImage: "text.badge.checkmark")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+            
+            Spacer()
+            
+            Button(action: {
+                showMarkdownPreview = true
+            }) {
+                Label(NSLocalizedString("markdown.preview.button", comment: "Preview"), systemImage: "eye")
+                    .font(.subheadline)
+            }
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 8)
+        .background(Color(.secondarySystemBackground))
+    }
+    
     /// iPhone menu content for insert and actions
     @ViewBuilder
     private func compactInsertMenuContent() -> some View {
@@ -517,6 +536,20 @@ struct FileEditView: View {
             }
         }) {
             Label(isPaginationMode ? "Edit Mode" : "Page Preview", systemImage: isPaginationMode ? "pencil" : "document.on.document")
+        }
+        
+        // Content type toggle (Rich Text / Markdown) - not for poetry projects
+        if !isPoetryProject {
+            Button(action: {
+                toggleContentType()
+            }) {
+                Label(
+                    file.isMarkdown 
+                        ? NSLocalizedString("contentType.switchToRichText", comment: "Switch to Rich Text")
+                        : NSLocalizedString("contentType.switchToMarkdown", comment: "Switch to Markdown"),
+                    systemImage: file.isMarkdown ? "doc.richtext" : "text.badge.checkmark"
+                )
+            }
         }
         
         Divider()
@@ -575,6 +608,14 @@ struct FileEditView: View {
         // Section marking menu (poetry projects only)
         if isPoetryProject {
             sectionMarkingMenu
+        }
+        
+        Divider()
+        
+        Button(action: {
+            insertPageBreak()
+        }) {
+            Label("Insert Page Break", systemImage: "arrow.up.and.line.horizontal.and.arrow.down")
         }
         
         Divider()
@@ -675,7 +716,7 @@ struct FileEditView: View {
             Label(NSLocalizedString("insertMenu.addReference", comment: "Add Reference"), systemImage: "books.vertical.fill")
         }
     }
-    
+
     @ViewBuilder
     private func navigationBarButtons() -> some View {
         // Back matter files: show delete/trash button only
@@ -832,6 +873,18 @@ struct FileEditView: View {
                         Image(systemName: isPaginationMode ? "document.on.document.fill" : "document.on.document")
                     }
                     .accessibilityLabel(isPaginationMode ? "fileEdit.switchToEditMode.accessibility" : "fileEdit.switchToPaginationPreview.accessibility")
+                    
+                    // Content type toggle (Rich Text / Markdown) - not for poetry or drama projects
+                    if supportsMarkdown && !isPaginationMode {
+                        Button(action: {
+                            toggleContentType()
+                        }) {
+                            Image(systemName: file.isMarkdown ? "text.badge.checkmark" : "doc.richtext")
+                        }
+                        .accessibilityLabel(file.isMarkdown 
+                            ? NSLocalizedString("contentType.switchToRichText", comment: "Switch to Rich Text")
+                            : NSLocalizedString("contentType.switchToMarkdown", comment: "Switch to Markdown"))
+                    }
                     
                     // Insert menu (only in edit mode)
                     if !isPaginationMode {
@@ -1241,6 +1294,16 @@ struct FileEditView: View {
         file.project?.type == .poetry
     }
     
+    /// Whether this file belongs to a Drama project
+    private var isDramaProject: Bool {
+        file.project?.type == .drama
+    }
+    
+    /// Whether markdown content type is available (not for Poetry or Drama)
+    private var supportsMarkdown: Bool {
+        !isPoetryProject && !isDramaProject
+    }
+    
     /// Get the Back Matter settings from the project's Back Matter folder
     private var backMatterSettings: BackMatterSettings {
         guard let project = file.project else {
@@ -1302,9 +1365,13 @@ struct FileEditView: View {
                 paginationSection()
             } else {
                 textEditorSection()
-                // Formatting toolbar (only shown for editable files)
-                if isFileEditable {
+                // Formatting toolbar (only shown for editable rich text files, not markdown)
+                if isFileEditable && !file.isMarkdown {
                     formattingToolbar()
+                }
+                // Markdown indicator bar (only for markdown files)
+                if file.isMarkdown {
+                    markdownIndicatorBar()
                 }
             }
         }
@@ -1423,6 +1490,24 @@ struct FileEditView: View {
                     message: Text("This will remove all references to its contents and the referenced items themselves. This cannot be undone. Continue?"),
                     primaryButton: .destructive(Text("Delete")) {
                         deleteBackMatterFileAndCleanup()
+                    },
+                    secondaryButton: .cancel()
+                )
+            }
+            .alert(isPresented: $presentDeleteAlert) {
+                Alert(
+                    title: Text(NSLocalizedString("fileEdit.deleteVersionTitle", comment: "Delete Version?")),
+                    message: Text(NSLocalizedString("fileEdit.deleteVersionMessage", comment: "Please confirm that you want to delete this version")),
+                    primaryButton: .destructive(Text(NSLocalizedString("contentView.delete", comment: "Delete"))) {
+                        #if DEBUG
+                        print("📝 Delete version confirmed, deleting...")
+                        #endif
+                        file.deleteVersion()
+                        loadCurrentVersion()
+                        // NOTE: Do NOT call saveChanges() here - the editor still has the deleted version's content
+                        // and calling save would overwrite the new current version with the old content
+                        // Force toolbar to re-render with updated version count
+                        refreshTrigger = UUID()
                     },
                     secondaryButton: .cancel()
                 )
@@ -1751,6 +1836,13 @@ struct FileEditView: View {
             }
             .sheet(isPresented: $showPoetryFormPicker) {
                 PoetryFormPickerSheet(file: file)
+            }
+            .fullScreenCover(isPresented: $showMarkdownPreview) {
+                MarkdownPreviewView(
+                    markdownContent: attributedContent.string,
+                    styleSheet: file.project?.styleSheet,
+                    fileName: file.name
+                )
             }
             .sheet(isPresented: $showProjectCharacters) {
                 NavigationStack {
@@ -6829,6 +6921,10 @@ struct FileEditView: View {
 
     
     private func handleVersionAction(_ action: VersionAction) {
+        #if DEBUG
+        print("📝 handleVersionAction called with action: \(action) (rawValue: \(action.rawValue))")
+        print("   Version count: \(file.versions?.count ?? 0)")
+        #endif
         switch action {
         case .previous:
             file.changeVersion(by: -1)
@@ -6840,6 +6936,8 @@ struct FileEditView: View {
             file.addVersion()
             loadCurrentVersion()
             saveChanges()
+            // Force UI refresh to update delete button state
+            refreshTrigger = UUID()
         case .delete:
             presentDeleteAlert = true
         }
@@ -6942,6 +7040,22 @@ struct FileEditView: View {
         undoManager.flushTypingBuffer()
         file.saveUndoState(undoManager)
         saveChanges()
+    }
+    
+    /// Toggle between Rich Text and Markdown content types
+    private func toggleContentType() {
+        if file.isMarkdown {
+            file.contentType = .richText
+        } else {
+            file.contentType = .markdown
+        }
+        
+        // Force UI refresh
+        refreshTrigger = UUID()
+        
+        #if DEBUG
+        print("📝 Content type toggled to: \(file.contentType.localizedName)")
+        #endif
     }
     
     private func saveChanges() {

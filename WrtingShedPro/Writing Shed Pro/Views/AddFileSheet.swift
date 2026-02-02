@@ -10,12 +10,23 @@ struct AddFileSheet: View {
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
     @State private var selectedPoetryForm: PoetryForm?
+    @State private var selectedContentType: FileContentType = .richText
     @State private var upgradePromptReason: UpgradePromptReason?
     @Environment(\.modelContext) var modelContext
     
     /// Whether this file is being created in a Poetry project
     private var isPoetryProject: Bool {
         parentFolder.project?.type == .poetry
+    }
+    
+    /// Whether this file is being created in a Drama project
+    private var isDramaProject: Bool {
+        parentFolder.project?.type == .drama
+    }
+    
+    /// Whether markdown content type is available (not for Poetry or Drama)
+    private var supportsMarkdown: Bool {
+        !isPoetryProject && !isDramaProject
     }
     
     /// Whether the device is set to an English locale
@@ -45,6 +56,23 @@ struct AddFileSheet: View {
                         Text(NSLocalizedString("addFile.poetryFormHeader", comment: "Poetry Form section header"))
                     } footer: {
                         Text(NSLocalizedString("addFile.poetryFormFooter", comment: "Poetry Form section footer"))
+                    }
+                }
+                
+                // Content type picker (not for Poetry or Drama projects - they require rich text)
+                if supportsMarkdown {
+                    Section {
+                        Picker(NSLocalizedString("addFile.contentType", comment: "Content Type"), selection: $selectedContentType) {
+                            ForEach(FileContentType.allCases, id: \.self) { contentType in
+                                Label(contentType.localizedName, systemImage: contentType.systemImage)
+                                    .tag(contentType)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                    } header: {
+                        Text(NSLocalizedString("addFile.contentTypeHeader", comment: "Content Type section header"))
+                    } footer: {
+                        Text(selectedContentType.description)
                     }
                 }
             }
@@ -146,6 +174,11 @@ struct AddFileSheet: View {
             poetryFormId: poetryFormId,
             poetryFormName: poetryFormName
         )
+        
+        // Set content type (Poetry and Drama projects always use rich text)
+        if supportsMarkdown {
+            newFile.contentType = selectedContentType
+        }
         
         // Set initial workflow status for content folders (Poems, Scenes, Scripts)
         if FolderCapabilityService.isContentFolder(parentFolder) {

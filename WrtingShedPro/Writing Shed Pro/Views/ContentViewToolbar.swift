@@ -14,126 +14,14 @@ struct ContentViewToolbar: ToolbarContent {
     
     @Environment(\.requestReview) var requestReview
     
-    private let poetryPrefs = PoetryPreferences.shared
+    /// Poetry preferences accessed via state for proper observation in ToolbarContent
+    private var poetryPrefs: PoetryPreferences { state.poetryPreferences }
     
     var body: some ToolbarContent {
-        // Settings menu (leading)
+        // Settings button (leading) - opens settings sheet
         ToolbarItem(placement: .navigationBarLeading) {
-            Menu {
-                Button(action: { state.showAbout = true }) {
-                    Label("About Writing Shed Pro", systemImage: "info.circle")
-                }
-                
-                Button(action: { state.showStore = true }) {
-                    Label("Manage Purchases", systemImage: "cart")
-                }
-                
-                Button(action: { state.showManageStyles = true }) {
-                    Label("Stylesheet Editor", systemImage: "paintbrush")
-                }
-                
-                Button(action: { onHandleImportMenu() }) {
-                    Label("Import", systemImage: "arrow.down.doc")
-                }
-                
-                Button(action: { state.showManualImportConfirmation = true }) {
-                    Label("Import User Guide", systemImage: "book.closed")
-                }
-                
-                // Poetry preferences submenu
-                Menu {
-                    Toggle(isOn: Binding(
-                        get: { poetryPrefs.showMetricsBar },
-                        set: { poetryPrefs.showMetricsBar = $0 }
-                    )) {
-                        Label("Show Metrics Bar", systemImage: "chart.bar")
-                    }
-                    
-                    Toggle(isOn: Binding(
-                        get: { poetryPrefs.showStressAnalysis },
-                        set: { poetryPrefs.showStressAnalysis = $0 }
-                    )) {
-                        Label("Enable Stress Analysis", systemImage: "waveform.path")
-                    }
-                    
-                    Toggle(isOn: Binding(
-                        get: { poetryPrefs.showSyllableHints },
-                        set: { poetryPrefs.showSyllableHints = $0 }
-                    )) {
-                        Label("Show Syllable Hints", systemImage: "textformat.123")
-                    }
-                    
-                    Toggle(isOn: Binding(
-                        get: { poetryPrefs.autoOpenFormReference },
-                        set: { poetryPrefs.autoOpenFormReference = $0 }
-                    )) {
-                        Label("Auto-Open Form Reference", systemImage: "book")
-                    }
-                    
-                    Divider()
-                    
-                    // English dialect picker for pronunciation/stress analysis
-                    Menu {
-                        ForEach(EnglishDialect.allCases, id: \.self) { dialect in
-                            Button {
-                                poetryPrefs.englishDialect = dialect
-                            } label: {
-                                HStack {
-                                    Text(dialect.displayName)
-                                    if poetryPrefs.englishDialect == dialect {
-                                        Spacer()
-                                        Image(systemName: "checkmark")
-                                    }
-                                }
-                            }
-                        }
-                    } label: {
-                        Label("Pronunciation: \(poetryPrefs.englishDialect.shortName)", systemImage: "globe")
-                    }
-                } label: {
-                    Label("Poetry Settings", systemImage: "text.quote")
-                }
-                
-                #if !targetEnvironment(macCatalyst)
-                Menu {
-                    ForEach(AppearanceMode.allCases) { mode in
-                        Button(action: {
-                            state.appearancePreferences.appearanceMode = mode
-                        }) {
-                            HStack {
-                                Label(mode.displayName, systemImage: mode.icon)
-                                if state.appearancePreferences.appearanceMode == mode {
-                                    Spacer()
-                                    Image(systemName: "checkmark")
-                                }
-                            }
-                        }
-                    }
-                } label: {
-                    Label("Appearance", systemImage: state.appearancePreferences.appearanceMode.icon)
-                }
-                #endif
-                
-                Divider()
-                
-                Button(action: { state.showSyncDiagnostics = true }) {
-                    Label("Sync Diagnostics", systemImage: "arrow.triangle.2.circlepath")
-                }
-                
-                Button(action: { state.showContactSupport = true }) {
-                    Label("Contact Support", systemImage: "envelope")
-                }
-                
-                Button(action: { 
-                    Task {
-                        ReviewManager.shared.requestReviewManually()
-                        await MainActor.run {
-                            requestReview()
-                        }
-                    }
-                }) {
-                    Label("Rate This App", systemImage: "star.fill")
-                }
+            Button {
+                state.showSettings = true
             } label: {
                 Image(systemName: "gearshape")
             }

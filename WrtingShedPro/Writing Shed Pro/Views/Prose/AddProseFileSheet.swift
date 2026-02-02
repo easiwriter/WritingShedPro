@@ -17,6 +17,7 @@ struct AddProseFileSheet: View {
     @State private var fileName = ""
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
+    @State private var selectedContentType: FileContentType = .richText
     
     /// Get the Prose folder for this project
     private var proseFolder: Folder? {
@@ -34,6 +35,21 @@ struct AddProseFileSheet: View {
                                 addFile()
                             }
                         }
+                }
+                
+                // Content type picker (Prose projects support markdown)
+                Section {
+                    Picker(NSLocalizedString("addFile.contentType", comment: "Content Type"), selection: $selectedContentType) {
+                        ForEach(FileContentType.allCases, id: \.self) { contentType in
+                            Label(contentType.localizedName, systemImage: contentType.systemImage)
+                                .tag(contentType)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                } header: {
+                    Text(NSLocalizedString("addFile.contentTypeHeader", comment: "Content Type section header"))
+                } footer: {
+                    Text(selectedContentType.description)
                 }
             }
             .navigationTitle(NSLocalizedString("prose.files.add.title", comment: "Add File"))
@@ -94,6 +110,9 @@ struct AddProseFileSheet: View {
             initialContent: "",
             parentFolder: folder
         )
+        
+        // Set content type
+        newFile.contentType = selectedContentType
         
         // Set initial workflow status
         newFile.workflowStatus = .draft
