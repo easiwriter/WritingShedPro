@@ -722,8 +722,17 @@ struct FileEditView: View {
 
     @ViewBuilder
     private func navigationBarButtons() -> some View {
+        // TOC files: show only settings button
+        if file.isTOCFile {
+            Button(action: {
+                showTOCSettings = true
+            }) {
+                Image(systemName: "gearshape")
+            }
+            .accessibilityLabel(NSLocalizedString("toc.settings.button.accessibility", comment: "TOC Settings"))
+        }
         // Back matter files: show delete/trash button only
-        if !isFileEditable {
+        else if !isFileEditable {
             HStack {
                 Button(role: .destructive) {
                     #if DEBUG
@@ -768,16 +777,6 @@ struct FileEditView: View {
                     }
                     .accessibilityLabel("Find and Replace")
                     .keyboardShortcut("f", modifiers: .command)
-                }
-                
-                // TOC settings button (only for TOC files)
-                if file.isTOCFile && !isPaginationMode {
-                    Button(action: {
-                        showTOCSettings = true
-                    }) {
-                        Image(systemName: "gearshape")
-                    }
-                    .accessibilityLabel(NSLocalizedString("toc.settings.button.accessibility", comment: "TOC Settings"))
                 }
                 
                 // Poetry form reference button (only for poetry projects)
@@ -1454,9 +1453,9 @@ struct FileEditView: View {
     // MARK: - Computed Properties
     
     /// Check if the current file should be editable
-    /// Back matter files are read-only
+    /// Back matter files and TOC files are read-only
     private var isFileEditable: Bool {
-        return !file.isBackMatterFile
+        return !file.isBackMatterFile && !file.isTOCFile
     }
     
     var body: some View {
