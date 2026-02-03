@@ -80,7 +80,7 @@ final class TOCGenerationService {
         #if DEBUG
         print("[TOCGeneration] Found \(sections.count) manuscript sections")
         for section in sections {
-            print("[TOCGeneration]   Section: \(section.name ?? "unnamed") with \(section.files.count) files")
+            print("[TOCGeneration]   Section: \(section.title) with \(section.files.count) files")
         }
         
         // If no sections, check if there are any files in the project at all
