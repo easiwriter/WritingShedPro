@@ -251,24 +251,28 @@ final class TOCGenerationService {
         print("[TOCGeneration]   Version \(version.versionNumber), hasFormattedContent: \(version.formattedContent != nil)")
         #endif
         
-        // Try to get formatted content first, fall back to plain text
+        // Use AttributedStringSerializer to properly decode the content (preserves .textStyle attributes)
         let attributedString: NSAttributedString
         if let formattedData = version.formattedContent {
-            do {
-                attributedString = try NSAttributedString(
-                    data: formattedData,
-                    options: [.documentType: NSAttributedString.DocumentType.rtf],
-                    documentAttributes: nil
-                )
+            // Check if it's JSON format (which is what we use now)
+            if AttributedStringSerializer.isJSONFormat(formattedData) {
+                attributedString = AttributedStringSerializer.decode(formattedData, text: version.content)
                 #if DEBUG
-                print("[TOCGeneration]   Loaded RTF content: \(attributedString.length) chars")
+                print("[TOCGeneration]   Loaded JSON content: \(attributedString.length) chars")
                 #endif
-            } catch {
-                #if DEBUG
-                print("[TOCGeneration]   ⚠️ RTF parse error: \(error), using plain text")
-                #endif
-                // Fall back to plain text if RTF parsing fails
-                attributedString = NSAttributedString(string: version.content)
+            } else {
+                // Try legacy RTF format
+                if let rtfString = AttributedStringSerializer.fromRTF(formattedData) {
+                    attributedString = rtfString
+                    #if DEBUG
+                    print("[TOCGeneration]   Loaded legacy RTF content: \(attributedString.length) chars")
+                    #endif
+                } else {
+                    #if DEBUG
+                    print("[TOCGeneration]   ⚠️ Could not parse formatted content, using plain text")
+                    #endif
+                    attributedString = NSAttributedString(string: version.content)
+                }
             }
         } else {
             #if DEBUG
