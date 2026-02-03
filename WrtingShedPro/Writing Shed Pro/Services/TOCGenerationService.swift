@@ -362,16 +362,21 @@ final class TOCGenerationService {
         let titleFont = titleStyle?.generateFont(applyPlatformScaling: false) ?? UIFont.boldSystemFont(ofSize: 24)
         let entryFont = entryStyle?.generateFont(applyPlatformScaling: false) ?? UIFont.systemFont(ofSize: 12)
         
-        // Add title
+        // Add title using the title style's attributes if available
         let titlePara = NSMutableParagraphStyle()
-        titlePara.alignment = .center
-        titlePara.paragraphSpacing = 24
+        if let style = titleStyle {
+            titlePara.alignment = NSTextAlignment(rawValue: style.alignment) ?? .center
+            titlePara.paragraphSpacing = style.spaceAfter
+        } else {
+            titlePara.alignment = .center
+            titlePara.paragraphSpacing = 12
+        }
         
         let titleAttrs: [NSAttributedString.Key: Any] = [
             .font: titleFont,
             .paragraphStyle: titlePara
         ]
-        result.append(NSAttributedString(string: settings.title + "\n\n", attributes: titleAttrs))
+        result.append(NSAttributedString(string: settings.title + "\n", attributes: titleAttrs))
         
         // Handle empty TOC with context-aware message
         if entries.isEmpty {
@@ -406,65 +411,45 @@ final class TOCGenerationService {
         // Calculate indent
         let indent = CGFloat(entry.indentLevel) * settings.indentPoints
         
-        // Use a reasonable page width for TOC (standard letter width minus margins)
-        // 612 points = 8.5 inches, minus 1 inch margins on each side = 540 points
-        let lineWidth: CGFloat = 540
+        // Use a fixed line width for consistent right-alignment
+        // This should match typical page width minus margins
+        let lineWidth: CGFloat = 500
         
-        // Create paragraph style
+        // Create paragraph style with tab stops for consistent alignment
         let para = NSMutableParagraphStyle()
         para.firstLineHeadIndent = indent
         para.headIndent = indent
-        para.paragraphSpacing = 6
+        para.paragraphSpacing = 4
         
-        // Build entry text
-        let result = NSMutableAttributedString()
+        if settings.showPageNumbers {
+            // Create a right-aligned tab stop for page numbers
+            para.tabStops = [
+                NSTextTab(textAlignment: .right, location: lineWidth - indent, options: [:])
+            ]
+        }
         
-        // Add the heading text
         let textAttrs: [NSAttributedString.Key: Any] = [
             .font: font,
             .paragraphStyle: para
         ]
-        result.append(NSAttributedString(string: entry.headingText, attributes: textAttrs))
+        
+        // Build entry text
+        var entryText = entry.headingText
         
         if settings.showPageNumbers {
-            // Calculate space needed for page number
-            let pageNumString = "\(entry.pageNumber)"
-            let pageNumWidth = (pageNumString as NSString).size(withAttributes: [.font: font]).width
-            
-            // Calculate space available for leaders
-            let headingWidth = (entry.headingText as NSString).size(withAttributes: [.font: font]).width
-            let availableWidth = lineWidth - indent - headingWidth - pageNumWidth - 20 // 20pt padding
-            
-            if settings.useDotLeaders && availableWidth > 20 {
-                // Create dot leaders
-                let dotWidth = (settings.separator as NSString).size(withAttributes: [.font: font]).width
-                let spaceBetweenDots: CGFloat = 3
-                let dotsNeeded = Int(availableWidth / (dotWidth + spaceBetweenDots))
-                
-                var leaders = " "
-                for _ in 0..<max(3, dotsNeeded) {
-                    leaders += settings.separator + " "
-                }
-                
-                // Add leaders with secondary color
-                let leaderAttrs: [NSAttributedString.Key: Any] = [
-                    .font: font,
-                    .foregroundColor: UIColor.tertiaryLabel
-                ]
-                result.append(NSAttributedString(string: leaders, attributes: leaderAttrs))
+            if settings.useDotLeaders && !settings.separator.isEmpty {
+                // Add leader character hint for tab
+                // Unfortunately NSAttributedString doesn't support true dot leaders easily
+                // So we'll use a manual approach: heading + tab + page number
+                entryText += "\t\(entry.pageNumber)"
             } else {
-                // Just add spacing
-                result.append(NSAttributedString(string: "  ", attributes: textAttrs))
+                entryText += "\t\(entry.pageNumber)"
             }
-            
-            // Add page number
-            result.append(NSAttributedString(string: pageNumString, attributes: textAttrs))
         }
         
-        // Add newline
-        result.append(NSAttributedString(string: "\n", attributes: textAttrs))
+        entryText += "\n"
         
-        return result
+        return NSAttributedString(string: entryText, attributes: textAttrs)
     }
 }
 
