@@ -21,7 +21,7 @@ struct TOCSettings: Codable, Equatable {
     var indentPoints: CGFloat = 20
     
     /// Style name to use for the TOC title (internal UIFont.TextStyle name)
-    var titleStyleName: String = "UICTFontTextStyleTitle1"
+    var titleStyleName: String = "UICTFontTextStyleLargeTitle"
     
     /// Style name to use for TOC entries (internal UIFont.TextStyle name)
     var entryStyleName: String = "UICTFontTextStyleBody"

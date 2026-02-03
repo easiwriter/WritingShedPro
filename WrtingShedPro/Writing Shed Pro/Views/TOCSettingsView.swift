@@ -19,9 +19,9 @@ struct TOCSettingsView: View {
     @State private var title: String = "Contents"
     @State private var separator: String = "."
     @State private var indentPoints: CGFloat = 20
-    @State private var showPageNumbers: Bool = true
+    @State private var showPageNumbers: Bool = false
     @State private var useDotLeaders: Bool = true
-    @State private var titleStyleName: String = "UICTFontTextStyleTitle1"
+    @State private var titleStyleName: String = "UICTFontTextStyleLargeTitle"
     @State private var entryStyleName: String = "UICTFontTextStyleBody"
     
     // Callback to regenerate TOC after settings change
