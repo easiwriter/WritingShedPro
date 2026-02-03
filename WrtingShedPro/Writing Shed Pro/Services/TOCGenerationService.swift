@@ -198,10 +198,25 @@ final class TOCGenerationService {
     
     /// Get all styles configured for TOC from project's stylesheet
     private func getTOCStyles(for project: Project) -> [TextStyleModel] {
-        guard let styleSheet = project.styleSheet,
+        // Use StyleSheetService to get the stylesheet (handles fallback to default)
+        guard let styleSheet = StyleSheetService.getStyleSheet(for: project, context: context),
               let styles = styleSheet.textStyles else {
+            #if DEBUG
+            print("[TOCGeneration] getTOCStyles: No stylesheet or styles found")
+            print("[TOCGeneration]   project.styleSheet: \(project.styleSheet?.name ?? "nil")")
+            #endif
             return []
         }
+        
+        #if DEBUG
+        print("[TOCGeneration] getTOCStyles: Using stylesheet '\(styleSheet.name)'")
+        print("[TOCGeneration]   Total styles: \(styles.count)")
+        let tocEnabled = styles.filter { $0.includeInTOC }
+        print("[TOCGeneration]   Styles with includeInTOC=true: \(tocEnabled.count)")
+        for style in styles.prefix(15) {
+            print("[TOCGeneration]     - \(style.displayName): includeInTOC=\(style.includeInTOC), tocLevel=\(style.tocLevel)")
+        }
+        #endif
         
         return styles.filter { $0.includeInTOC }
             .sorted { $0.tocLevel < $1.tocLevel }  // Sort by level
