@@ -6482,11 +6482,20 @@ struct FileEditView: View {
             }
             #endif
             
-            // Update local state immediately for instant UI feedback
+            // CRITICAL: Update the text view's textStorage first for immediate visual feedback
+            // Then update the binding to keep them in sync
+            let cursorPosition = selectedRange
+            textViewCoordinator.modifyTypingAttributes { textView in
+                textView.textStorage.setAttributedString(newAttributedContent)
+                // Restore cursor position
+                textView.selectedRange = cursorPosition
+            }
+            
+            // Update local state
             attributedContent = newAttributedContent
             currentParagraphStyle = style
             
-            // Update typing attributes
+            // Update typing attributes for new text
             let typingAttrs = TextFormatter.getTypingAttributes(
                 forStyleNamed: style.rawValue,
                 project: project,
@@ -6497,7 +6506,7 @@ struct FileEditView: View {
             }
             
             #if DEBUG
-            print("📝 Updated local state with styled content (model-based)")
+            print("📝 Updated text view and local state with styled content (model-based)")
             #endif
             
             // Create formatting command for undo/redo
