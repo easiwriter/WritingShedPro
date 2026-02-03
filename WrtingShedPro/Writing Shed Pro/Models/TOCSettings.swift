@@ -20,11 +20,11 @@ struct TOCSettings: Codable, Equatable {
     /// Indent amount per TOC level in points
     var indentPoints: CGFloat = 20
     
-    /// Style name to use for the TOC title
-    var titleStyleName: String = "title"
+    /// Style name to use for the TOC title (internal UIFont.TextStyle name)
+    var titleStyleName: String = "UICTFontTextStyleTitle1"
     
-    /// Style name to use for TOC entries
-    var entryStyleName: String = "body"
+    /// Style name to use for TOC entries (internal UIFont.TextStyle name)
+    var entryStyleName: String = "UICTFontTextStyleBody"
     
     /// Whether to show page numbers
     var showPageNumbers: Bool = true

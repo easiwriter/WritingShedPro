@@ -21,19 +21,27 @@ struct TOCSettingsView: View {
     @State private var indentPoints: CGFloat = 20
     @State private var showPageNumbers: Bool = true
     @State private var useDotLeaders: Bool = true
-    @State private var titleStyleName: String = "title"
-    @State private var entryStyleName: String = "body"
+    @State private var titleStyleName: String = "UICTFontTextStyleTitle1"
+    @State private var entryStyleName: String = "UICTFontTextStyleBody"
     
     // Callback to regenerate TOC after settings change
     var onSettingsChanged: (() -> Void)?
     
-    // Available styles from project stylesheet
-    private var availableStyles: [String] {
-        guard let project = file.project,
-              let styleSheet = StyleSheetService.getStyleSheet(for: project, context: modelContext) else {
-            return ["title", "heading1", "heading2", "heading3", "body"]
+    // Available styles from project stylesheet (name -> displayName pairs)
+    private var availableStyles: [(name: String, displayName: String)] {
+        guard let project = file.project ?? file.parentFolder?.project,
+              let styleSheet = StyleSheetService.getStyleSheet(for: project, context: modelContext),
+              let styles = styleSheet.textStyles else {
+            // Fallback defaults if no stylesheet found
+            return [
+                ("UICTFontTextStyleTitle1", "Title 1"),
+                ("UICTFontTextStyleTitle2", "Title 2"),
+                ("UICTFontTextStyleHeadline", "Headline"),
+                ("UICTFontTextStyleBody", "Body")
+            ]
         }
-        return styleSheet.sortedStyles.map { $0.name }
+        return styles.sorted { $0.displayOrder < $1.displayOrder }
+            .map { (name: $0.name, displayName: $0.displayName) }
     }
     
     var body: some View {
@@ -98,15 +106,15 @@ struct TOCSettingsView: View {
                 Section {
                     // Title style
                     Picker(NSLocalizedString("toc.settings.titleStyle", comment: "Title style"), selection: $titleStyleName) {
-                        ForEach(availableStyles, id: \.self) { style in
-                            Text(style).tag(style)
+                        ForEach(availableStyles, id: \.name) { style in
+                            Text(style.displayName).tag(style.name)
                         }
                     }
                     
                     // Entry style
                     Picker(NSLocalizedString("toc.settings.entryStyle", comment: "Entry style"), selection: $entryStyleName) {
-                        ForEach(availableStyles, id: \.self) { style in
-                            Text(style).tag(style)
+                        ForEach(availableStyles, id: \.name) { style in
+                            Text(style.displayName).tag(style.name)
                         }
                     }
                 } header: {
