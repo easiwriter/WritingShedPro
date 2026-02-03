@@ -196,6 +196,15 @@ final class TOCGenerationService {
         return allFiles
     }
     
+    /// Count how many styles are configured for TOC (public for display purposes)
+    func countConfiguredTOCStyles(for project: Project) -> Int {
+        guard let styleSheet = StyleSheetService.getStyleSheet(for: project, context: context),
+              let styles = styleSheet.textStyles else {
+            return 0
+        }
+        return styles.filter { $0.includeInTOC }.count
+    }
+    
     /// Get all styles configured for TOC from project's stylesheet
     private func getTOCStyles(for project: Project) -> [TextStyleModel] {
         // Use StyleSheetService to get the stylesheet (handles fallback to default)
@@ -336,8 +345,9 @@ final class TOCGenerationService {
     ///   - entries: TOC entries to render
     ///   - settings: TOC formatting settings
     ///   - project: The project (for style lookup)
+    ///   - stylesConfigured: Number of styles configured for TOC (for appropriate empty message)
     /// - Returns: Formatted attributed string
-    func renderTOC(entries: [TOCEntry], settings: TOCSettings, project: Project) -> NSAttributedString {
+    func renderTOC(entries: [TOCEntry], settings: TOCSettings, project: Project, stylesConfigured: Int = 0) -> NSAttributedString {
         let result = NSMutableAttributedString()
         
         // Get styles for TOC formatting
@@ -359,9 +369,17 @@ final class TOCGenerationService {
         ]
         result.append(NSAttributedString(string: settings.title + "\n\n", attributes: titleAttrs))
         
-        // Handle empty TOC
+        // Handle empty TOC with context-aware message
         if entries.isEmpty {
-            let emptyMessage = NSLocalizedString("toc.noEntries", comment: "No headings configured for TOC")
+            // Different message depending on whether styles are configured
+            let emptyMessage: String
+            if stylesConfigured > 0 {
+                // Styles are configured but no content uses them
+                emptyMessage = NSLocalizedString("toc.noEntriesStyled", comment: "No styled headings found")
+            } else {
+                // No styles configured for TOC
+                emptyMessage = NSLocalizedString("toc.noEntries", comment: "No headings configured for TOC")
+            }
             let emptyAttrs: [NSAttributedString.Key: Any] = [
                 .font: entryFont,
                 .foregroundColor: UIColor.secondaryLabel

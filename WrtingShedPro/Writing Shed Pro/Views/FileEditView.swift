@@ -3452,6 +3452,9 @@ struct FileEditView: View {
         
         let tocService = TOCGenerationService(context: modelContext)
         
+        // Check how many styles are configured for TOC (for appropriate empty message)
+        let stylesConfigured = tocService.countConfiguredTOCStyles(for: project)
+        
         // Generate TOC entries (excluding this TOC file to avoid circular reference)
         let entries = tocService.generateEntries(for: project, tocFile: file)
         
@@ -3469,7 +3472,7 @@ struct FileEditView: View {
         #endif
         
         // Render TOC to attributed string
-        let tocContent = tocService.renderTOC(entries: entries, settings: settings, project: project)
+        let tocContent = tocService.renderTOC(entries: entries, settings: settings, project: project, stylesConfigured: stylesConfigured)
         
         #if DEBUG
         print("📑 Rendered TOC content length: \(tocContent.length) chars")

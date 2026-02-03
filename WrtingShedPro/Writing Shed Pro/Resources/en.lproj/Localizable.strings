@@ -60,7 +60,8 @@
 "manuscript.footnotes.perSection" = "Per Section";
 
 /* Table of Contents - Feature 031 */
-"toc.noEntries" = "No headings are configured for the Table of Contents. Edit heading styles and enable \"Include in Table of Contents\" to add entries.";
+"toc.noEntries" = "No heading styles are configured for the Table of Contents. Edit heading styles and enable \"Include in Table of Contents\" to add entries.";
+"toc.noEntriesStyled" = "No headings found. Apply heading styles (Title 1, Title 2, etc.) to your text using the paragraph style menu to create TOC entries.";
 "toc.title.default" = "Contents";
 "toc.file.name" = "Table of Contents";
 "manuscript.progress.loading" = "Loading files...";
