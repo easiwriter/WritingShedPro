@@ -2149,12 +2149,37 @@ struct FileEditView: View {
         // If this is a TOC file (flagged or by name), regenerate its content from manuscript headings
         let isTOCByName = file.name == "Table of Contents" || file.name == "Contents"
         let isInFrontMatter = file.parentFolder?.name == "Front Matter"
+        
+        #if DEBUG
+        print("📑 TOC Detection check:")
+        print("   File name: '\(file.name)'")
+        print("   isTOCByName: \(isTOCByName)")
+        print("   Parent folder: '\(file.parentFolder?.name ?? "nil")'")
+        print("   isInFrontMatter: \(isInFrontMatter)")
+        print("   file.isTOCFile: \(file.isTOCFile)")
+        print("   file.project: \(file.project != nil ? "✅ \(file.project?.name ?? "")" : "❌ nil")")
+        #endif
+        
         if (file.isTOCFile || (isTOCByName && isInFrontMatter)), let project = file.project {
+            #if DEBUG
+            print("📑 ✅ TOC file detected! Regenerating content...")
+            #endif
             // Mark as TOC file if detected by name
             if !file.isTOCFile && isTOCByName {
                 file.isTOCFile = true
             }
             regenerateTOCContent(for: project)
+        } else {
+            #if DEBUG
+            print("📑 ❌ Not detected as TOC file")
+            if !file.isTOCFile && !isTOCByName {
+                print("   Reason: Name doesn't match 'Table of Contents' or 'Contents'")
+            } else if isTOCByName && !isInFrontMatter {
+                print("   Reason: Not in 'Front Matter' folder")
+            } else if file.project == nil {
+                print("   Reason: file.project is nil")
+            }
+            #endif
         }
         
         // Show keyboard/cursor when opening file (only if not locked and not coming from search)
