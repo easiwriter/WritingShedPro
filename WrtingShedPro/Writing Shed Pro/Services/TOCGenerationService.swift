@@ -356,19 +356,17 @@ final class TOCGenerationService {
         
         // Get styles for TOC formatting
         let titleStyle = project.styleSheet?.style(named: settings.titleStyleName)
-        let entryStyle = project.styleSheet?.style(named: settings.entryStyleName)
         
         // Default fonts if styles not found
-        let titleFont = titleStyle?.generateFont(applyPlatformScaling: false) ?? UIFont.boldSystemFont(ofSize: 24)
-        let entryFont = entryStyle?.generateFont(applyPlatformScaling: false) ?? UIFont.systemFont(ofSize: 12)
+        let titleFont = titleStyle?.generateFont(applyPlatformScaling: false) ?? UIFont.boldSystemFont(ofSize: 28)
         
         // Add title using the title style's attributes if available
         let titlePara = NSMutableParagraphStyle()
         if let style = titleStyle {
             titlePara.alignment = style.alignment
-            titlePara.paragraphSpacing = style.paragraphSpacingAfter
+            titlePara.paragraphSpacing = style.paragraphSpacingAfter > 0 ? style.paragraphSpacingAfter : 12
         } else {
-            titlePara.alignment = .center
+            titlePara.alignment = .natural
             titlePara.paragraphSpacing = 12
         }
         
@@ -382,6 +380,7 @@ final class TOCGenerationService {
         if entries.isEmpty {
             // Different message depending on whether styles are configured
             let emptyMessage: String
+            let defaultEntryFont = UIFont.systemFont(ofSize: 14)
             if stylesConfigured > 0 {
                 // Styles are configured but no content uses them
                 emptyMessage = NSLocalizedString("toc.noEntriesStyled", comment: "No styled headings found")
@@ -390,84 +389,61 @@ final class TOCGenerationService {
                 emptyMessage = NSLocalizedString("toc.noEntries", comment: "No headings configured for TOC")
             }
             let emptyAttrs: [NSAttributedString.Key: Any] = [
-                .font: entryFont,
+                .font: defaultEntryFont,
                 .foregroundColor: UIColor.secondaryLabel
             ]
             result.append(NSAttributedString(string: emptyMessage, attributes: emptyAttrs))
             return result
         }
         
-        // Add entries
+        // Add entries with per-level styles
         for entry in entries {
-            let entryString = formatEntry(entry, settings: settings, font: entryFont)
+            let entryString = formatEntry(entry, settings: settings, project: project)
             result.append(entryString)
         }
         
         return result
     }
     
-    /// Format a single TOC entry
-    private func formatEntry(_ entry: TOCEntry, settings: TOCSettings, font: UIFont) -> NSAttributedString {
+    /// Format a single TOC entry with per-level styling
+    private func formatEntry(_ entry: TOCEntry, settings: TOCSettings, project: Project) -> NSAttributedString {
+        // Get the font for this entry's level
+        let styleName = settings.styleName(forLevel: entry.indentLevel)
+        let entryStyle = project.styleSheet?.style(named: styleName)
+        let font = entryStyle?.generateFont(applyPlatformScaling: false) ?? UIFont.systemFont(ofSize: 14)
+        
         // Calculate indent
         let indent = CGFloat(entry.indentLevel) * settings.indentPoints
         
-        // Use a fixed line width for consistent right-alignment
-        let lineWidth: CGFloat = 500
+        // Fixed line width for consistent alignment
+        let lineWidth = settings.lineWidth
         
-        // Create paragraph style
+        // Create paragraph style with right-aligned tab for page number
         let para = NSMutableParagraphStyle()
         para.firstLineHeadIndent = indent
         para.headIndent = indent
         para.paragraphSpacing = 4
+        
+        // Use tab stop for consistent page number alignment
+        if settings.showPageNumbers {
+            para.tabStops = [
+                NSTextTab(textAlignment: .right, location: lineWidth, options: [:])
+            ]
+        }
         
         let textAttrs: [NSAttributedString.Key: Any] = [
             .font: font,
             .paragraphStyle: para
         ]
         
-        let result = NSMutableAttributedString()
-        
-        // Add the heading text
-        result.append(NSAttributedString(string: entry.headingText, attributes: textAttrs))
+        // Build entry string
+        var entryText = entry.headingText
         
         if settings.showPageNumbers {
-            // Calculate widths for proper dot leader spacing
-            let headingWidth = (entry.headingText as NSString).size(withAttributes: [.font: font]).width
-            let pageNumString = "\(entry.pageNumber)"
-            let pageNumWidth = (pageNumString as NSString).size(withAttributes: [.font: font]).width
-            let availableWidth = lineWidth - indent - headingWidth - pageNumWidth - 16 // padding
-            
-            if settings.useDotLeaders && !settings.separator.isEmpty && availableWidth > 20 {
-                // Create dot leaders that fill the space
-                let separatorWithSpace = settings.separator + " "
-                let sepWidth = (separatorWithSpace as NSString).size(withAttributes: [.font: font]).width
-                let leaderCount = max(3, Int(availableWidth / sepWidth))
-                
-                var leaders = " "
-                for _ in 0..<leaderCount {
-                    leaders += separatorWithSpace
-                }
-                
-                // Add leaders with lighter color
-                let leaderAttrs: [NSAttributedString.Key: Any] = [
-                    .font: font,
-                    .foregroundColor: UIColor.tertiaryLabel,
-                    .paragraphStyle: para
-                ]
-                result.append(NSAttributedString(string: leaders, attributes: leaderAttrs))
-            } else {
-                // Just add some spacing
-                result.append(NSAttributedString(string: "  ", attributes: textAttrs))
-            }
-            
-            // Add page number
-            result.append(NSAttributedString(string: pageNumString, attributes: textAttrs))
+            // Add tab and page number - the tab expands to fill space
+            entryText += "\t\(entry.pageNumber)"
         }
         
-        // Add newline
-        result.append(NSAttributedString(string: "\n", attributes: textAttrs))
+        entryText += "\n"
         
-        return result
-    }
-}
-
+        return NSAttributedString(string: entryText, attributes: textAttrs)

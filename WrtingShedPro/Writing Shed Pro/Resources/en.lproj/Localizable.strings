@@ -1272,6 +1272,12 @@
 "toc.settings.titleStyle" = "Title style";
 "toc.settings.entryStyle" = "Entry style";
 "toc.settings.stylesFooter" = "Styles applied to the TOC title and entries";
+"toc.settings.entryStylesSection" = "Entry Styles";
+"toc.settings.entryStylesFooter" = "Style for each heading level in the Table of Contents";
+"toc.settings.level0" = "Level 1";
+"toc.settings.level1" = "Level 2";
+"toc.settings.level2" = "Level 3";
+"toc.settings.level3" = "Level 4";
 "toc.settings.previewSection" = "Preview";
 
 /* NumberFormat Display Names */

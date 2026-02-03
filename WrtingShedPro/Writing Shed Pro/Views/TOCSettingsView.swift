@@ -22,7 +22,17 @@ struct TOCSettingsView: View {
     @State private var showPageNumbers: Bool = false
     @State private var useDotLeaders: Bool = true
     @State private var titleStyleName: String = "UICTFontTextStyleLargeTitle"
-    @State private var entryStyleName: String = "UICTFontTextStyleBody"
+    @State private var lineWidth: CGFloat = 480
+    
+    // Per-level entry styles (Level 0-5)
+    @State private var levelStyleNames: [String] = [
+        "UICTFontTextStyleBody",
+        "UICTFontTextStyleBody",
+        "UICTFontTextStyleBody",
+        "UICTFontTextStyleBody",
+        "UICTFontTextStyleBody",
+        "UICTFontTextStyleBody"
+    ]
     
     // Callback to regenerate TOC after settings change
     var onSettingsChanged: (() -> Void)?
@@ -34,8 +44,10 @@ struct TOCSettingsView: View {
               let styles = styleSheet.textStyles else {
             // Fallback defaults if no stylesheet found
             return [
+                ("UICTFontTextStyleLargeTitle", "Large Title"),
                 ("UICTFontTextStyleTitle1", "Title 1"),
                 ("UICTFontTextStyleTitle2", "Title 2"),
+                ("UICTFontTextStyleTitle3", "Title 3"),
                 ("UICTFontTextStyleHeadline", "Headline"),
                 ("UICTFontTextStyleBody", "Body")
             ]
@@ -51,36 +63,59 @@ struct TOCSettingsView: View {
                 Section {
                     TextField(NSLocalizedString("toc.settings.titlePlaceholder", comment: "Table of Contents title"), text: $title)
                         .accessibilityLabel(NSLocalizedString("toc.settings.title.accessibility", comment: "TOC title"))
+                    
+                    // Title style picker
+                    Picker(NSLocalizedString("toc.settings.titleStyle", comment: "Title style"), selection: $titleStyleName) {
+                        ForEach(availableStyles, id: \.name) { style in
+                            Text(style.displayName).tag(style.name)
+                        }
+                    }
                 } header: {
                     Text(NSLocalizedString("toc.settings.titleSection", comment: "Title"))
                 } footer: {
                     Text(NSLocalizedString("toc.settings.titleFooter", comment: "The heading displayed at the top of the Table of Contents"))
                 }
                 
+                // Entry Styles Section - Per level
+                Section {
+                    ForEach(0..<4, id: \.self) { level in
+                        Picker(levelLabel(for: level), selection: $levelStyleNames[level]) {
+                            ForEach(availableStyles, id: \.name) { style in
+                                Text(style.displayName).tag(style.name)
+                            }
+                        }
+                    }
+                } header: {
+                    Text(NSLocalizedString("toc.settings.entryStylesSection", comment: "Entry Styles"))
+                } footer: {
+                    Text(NSLocalizedString("toc.settings.entryStylesFooter", comment: "Style for each heading level in the Table of Contents"))
+                }
+                
                 // Formatting Section
                 Section {
-                    // Separator character
-                    HStack {
-                        Text(NSLocalizedString("toc.settings.separator", comment: "Separator"))
-                        Spacer()
-                        Picker("", selection: $separator) {
-                            Text(".").tag(".")
-                            Text("-").tag("-")
-                            Text("_").tag("_")
-                            Text(NSLocalizedString("toc.settings.separator.space", comment: "Space")).tag(" ")
-                            Text(NSLocalizedString("toc.settings.separator.none", comment: "None")).tag("")
-                        }
-                        .pickerStyle(.menu)
-                        .accessibilityLabel(NSLocalizedString("toc.settings.separator.accessibility", comment: "Separator character"))
-                    }
-                    
-                    // Dot leaders toggle
-                    Toggle(NSLocalizedString("toc.settings.useDotLeaders", comment: "Use dot leaders"), isOn: $useDotLeaders)
-                        .accessibilityHint(NSLocalizedString("toc.settings.useDotLeaders.hint", comment: "Repeat separator character to fill space"))
-                    
                     // Show page numbers
                     Toggle(NSLocalizedString("toc.settings.showPageNumbers", comment: "Show page numbers"), isOn: $showPageNumbers)
                     
+                    // Separator character (only visible if page numbers enabled)
+                    if showPageNumbers {
+                        HStack {
+                            Text(NSLocalizedString("toc.settings.separator", comment: "Separator"))
+                            Spacer()
+                            Picker("", selection: $separator) {
+                                Text(".").tag(".")
+                                Text("-").tag("-")
+                                Text("_").tag("_")
+                                Text(NSLocalizedString("toc.settings.separator.space", comment: "Space")).tag(" ")
+                                Text(NSLocalizedString("toc.settings.separator.none", comment: "None")).tag("")
+                            }
+                            .pickerStyle(.menu)
+                            .accessibilityLabel(NSLocalizedString("toc.settings.separator.accessibility", comment: "Separator character"))
+                        }
+                        
+                        // Dot leaders toggle
+                        Toggle(NSLocalizedString("toc.settings.useDotLeaders", comment: "Use dot leaders"), isOn: $useDotLeaders)
+                            .accessibilityHint(NSLocalizedString("toc.settings.useDotLeaders.hint", comment: "Repeat separator character to fill space"))
+                    }
                 } header: {
                     Text(NSLocalizedString("toc.settings.formattingSection", comment: "Formatting"))
                 }
@@ -102,32 +137,12 @@ struct TOCSettingsView: View {
                     Text(NSLocalizedString("toc.settings.indentFooter", comment: "Indent amount for each heading level in points"))
                 }
                 
-                // Styles Section
-                Section {
-                    // Title style
-                    Picker(NSLocalizedString("toc.settings.titleStyle", comment: "Title style"), selection: $titleStyleName) {
-                        ForEach(availableStyles, id: \.name) { style in
-                            Text(style.displayName).tag(style.name)
-                        }
-                    }
-                    
-                    // Entry style
-                    Picker(NSLocalizedString("toc.settings.entryStyle", comment: "Entry style"), selection: $entryStyleName) {
-                        ForEach(availableStyles, id: \.name) { style in
-                            Text(style.displayName).tag(style.name)
-                        }
-                    }
-                } header: {
-                    Text(NSLocalizedString("toc.settings.stylesSection", comment: "Styles"))
-                } footer: {
-                    Text(NSLocalizedString("toc.settings.stylesFooter", comment: "Styles applied to the TOC title and entries"))
-                }
-                
                 // Preview Section
                 Section {
                     VStack(alignment: .leading, spacing: 8) {
                         Text(title)
-                            .font(.headline)
+                            .font(.largeTitle)
+                            .fontWeight(.bold)
                         
                         previewEntry(text: "Chapter One", level: 0, pageNumber: 1)
                         previewEntry(text: "Scene One", level: 1, pageNumber: 3)
@@ -161,38 +176,45 @@ struct TOCSettingsView: View {
         }
     }
     
+    // MARK: - Helper Methods
+    
+    private func levelLabel(for level: Int) -> String {
+        switch level {
+        case 0: return NSLocalizedString("toc.settings.level0", comment: "Level 1")
+        case 1: return NSLocalizedString("toc.settings.level1", comment: "Level 2")
+        case 2: return NSLocalizedString("toc.settings.level2", comment: "Level 3")
+        case 3: return NSLocalizedString("toc.settings.level3", comment: "Level 4")
+        default: return "Level \(level + 1)"
+        }
+    }
+    
     // MARK: - Preview Entry
     
     @ViewBuilder
     private func previewEntry(text: String, level: Int, pageNumber: Int) -> some View {
         HStack(spacing: 0) {
-            // Indent
-            if level > 0 {
-                Text(String(repeating: " ", count: level * 4))
-            }
-            
             // Heading text
             Text(text)
                 .font(.subheadline)
             
-            // Separator
-            if useDotLeaders && !separator.isEmpty {
-                Text(String(repeating: separator, count: 10))
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            } else {
-                Spacer()
-            }
-            
-            // Page number
+            // Separator/Leaders
             if showPageNumbers {
+                if useDotLeaders && !separator.isEmpty {
+                    Text(" " + String(repeating: separator + " ", count: 15))
+                        .font(.subheadline)
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                } else {
+                    Spacer()
+                }
+                
+                // Page number
                 Text("\(pageNumber)")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
         }
-        .padding(.leading, CGFloat(level) * 12)
+        .padding(.leading, CGFloat(level) * indentPoints)
     }
     
     // MARK: - Settings Management
@@ -205,7 +227,12 @@ struct TOCSettingsView: View {
         showPageNumbers = settings.showPageNumbers
         useDotLeaders = settings.useDotLeaders
         titleStyleName = settings.titleStyleName
-        entryStyleName = settings.entryStyleName
+        lineWidth = settings.lineWidth
+        
+        // Load per-level styles
+        for i in 0..<min(levelStyleNames.count, settings.levelStyleNames.count) {
+            levelStyleNames[i] = settings.levelStyleNames[i]
+        }
     }
     
     private func saveSettings() {
@@ -216,7 +243,8 @@ struct TOCSettingsView: View {
         settings.showPageNumbers = showPageNumbers
         settings.useDotLeaders = useDotLeaders
         settings.titleStyleName = titleStyleName
-        settings.entryStyleName = entryStyleName
+        settings.lineWidth = lineWidth
+        settings.levelStyleNames = levelStyleNames
         
         file.tocSettings = settings
         
