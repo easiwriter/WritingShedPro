@@ -2150,6 +2150,20 @@ struct FileEditView: View {
         let isTOCByName = file.name == "Table of Contents" || file.name == "Contents"
         let isInFrontMatter = file.parentFolder?.name == "Front Matter"
         
+        // Try to find project - first directly, then by traversing folder hierarchy
+        var projectForTOC: Project? = file.project
+        if projectForTOC == nil {
+            // Traverse up the folder tree to find the project
+            var currentFolder = file.parentFolder
+            while let folder = currentFolder {
+                if let proj = folder.project {
+                    projectForTOC = proj
+                    break
+                }
+                currentFolder = folder.parentFolder
+            }
+        }
+        
         #if DEBUG
         print("📑 TOC Detection check:")
         print("   File name: '\(file.name)'")
@@ -2157,10 +2171,11 @@ struct FileEditView: View {
         print("   Parent folder: '\(file.parentFolder?.name ?? "nil")'")
         print("   isInFrontMatter: \(isInFrontMatter)")
         print("   file.isTOCFile: \(file.isTOCFile)")
-        print("   file.project: \(file.project != nil ? "✅ \(file.project?.name ?? "")" : "❌ nil")")
+        print("   file.project (direct): \(file.project != nil ? "✅ \(file.project?.name ?? "")" : "❌ nil")")
+        print("   projectForTOC (traversed): \(projectForTOC != nil ? "✅ \(projectForTOC?.name ?? "")" : "❌ nil")")
         #endif
         
-        if (file.isTOCFile || (isTOCByName && isInFrontMatter)), let project = file.project {
+        if (file.isTOCFile || (isTOCByName && isInFrontMatter)), let project = projectForTOC {
             #if DEBUG
             print("📑 ✅ TOC file detected! Regenerating content...")
             #endif
@@ -2176,8 +2191,8 @@ struct FileEditView: View {
                 print("   Reason: Name doesn't match 'Table of Contents' or 'Contents'")
             } else if isTOCByName && !isInFrontMatter {
                 print("   Reason: Not in 'Front Matter' folder")
-            } else if file.project == nil {
-                print("   Reason: file.project is nil")
+            } else if projectForTOC == nil {
+                print("   Reason: Could not find project (neither direct nor via folder traversal)")
             }
             #endif
         }
