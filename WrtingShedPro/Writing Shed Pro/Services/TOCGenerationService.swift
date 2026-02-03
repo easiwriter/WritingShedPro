@@ -447,3 +447,5 @@ final class TOCGenerationService {
         entryText += "\n"
         
         return NSAttributedString(string: entryText, attributes: textAttrs)
+    }
+}
