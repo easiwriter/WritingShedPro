@@ -365,8 +365,8 @@ final class TOCGenerationService {
         // Add title using the title style's attributes if available
         let titlePara = NSMutableParagraphStyle()
         if let style = titleStyle {
-            titlePara.alignment = NSTextAlignment(rawValue: style.alignment) ?? .center
-            titlePara.paragraphSpacing = style.spaceAfter
+            titlePara.alignment = style.alignment
+            titlePara.paragraphSpacing = style.paragraphSpacingAfter
         } else {
             titlePara.alignment = .center
             titlePara.paragraphSpacing = 12
