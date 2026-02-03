@@ -2355,6 +2355,16 @@
 "contributor.deleteCount" = "Delete %d contributors";
 
 
-// Poetry Settings - Dialect
+// Poetry Settings
+"settings.poetrySettings" = "Poetry Settings";
+"settings.poetry.showMetricsBar" = "Show Metrics Bar";
+"settings.poetry.enableStressAnalysis" = "Enable Stress Analysis";
+"settings.poetry.showSyllableHints" = "Show Syllable Hints";
+"settings.poetry.autoOpenFormReference" = "Auto-Open Form Reference";
+"settings.poetry.pronunciation" = "Pronunciation";
+"settings.poetry.displaySection" = "Display";
+"settings.poetry.displayFooter" = "Control which poetry analysis features are shown in the editor.";
+"settings.poetry.dialectSection" = "Dialect";
+"settings.poetry.dialectFooter" = "Affects syllable counting and stress patterns. American and British English have different pronunciations for some words.";
 "dialect.american" = "American English";
 "dialect.british" = "British English";

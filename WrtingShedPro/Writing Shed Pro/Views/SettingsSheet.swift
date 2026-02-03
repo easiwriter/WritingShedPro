@@ -15,8 +15,6 @@ struct SettingsSheet: View {
     
     @Environment(\.requestReview) var requestReview
     
-    private var poetryPrefs: PoetryPreferences { state.poetryPreferences }
-    
     var body: some View {
         NavigationStack {
             List {
@@ -58,49 +56,6 @@ struct SettingsSheet: View {
                         state.showManualImportConfirmation = true
                     } label: {
                         Label("Import User Guide", systemImage: "book.closed")
-                    }
-                }
-                
-                // MARK: - Poetry Settings Section
-                Section("Poetry Settings") {
-                    Toggle(isOn: Binding(
-                        get: { poetryPrefs.showMetricsBar },
-                        set: { poetryPrefs.showMetricsBar = $0 }
-                    )) {
-                        Label("Show Metrics Bar", systemImage: "chart.bar")
-                    }
-                    
-                    Toggle(isOn: Binding(
-                        get: { poetryPrefs.showStressAnalysis },
-                        set: { poetryPrefs.showStressAnalysis = $0 }
-                    )) {
-                        Label("Enable Stress Analysis", systemImage: "waveform.path")
-                    }
-                    
-                    Toggle(isOn: Binding(
-                        get: { poetryPrefs.showSyllableHints },
-                        set: { poetryPrefs.showSyllableHints = $0 }
-                    )) {
-                        Label("Show Syllable Hints", systemImage: "textformat.123")
-                    }
-                    
-                    Toggle(isOn: Binding(
-                        get: { poetryPrefs.autoOpenFormReference },
-                        set: { poetryPrefs.autoOpenFormReference = $0 }
-                    )) {
-                        Label("Auto-Open Form Reference", systemImage: "book")
-                    }
-                    
-                    // Dialect picker
-                    Picker(selection: Binding(
-                        get: { poetryPrefs.englishDialect },
-                        set: { poetryPrefs.englishDialect = $0 }
-                    )) {
-                        ForEach(EnglishDialect.allCases, id: \.self) { dialect in
-                            Text(dialect.displayName).tag(dialect)
-                        }
-                    } label: {
-                        Label("Pronunciation", systemImage: "globe")
                     }
                 }
                 

@@ -6,6 +6,7 @@ struct ProjectItemView: View {
     let onInfoTapped: () -> Void
     let onPageSetupTapped: () -> Void
     var onManageFormsTapped: (() -> Void)? = nil
+    var onPoetrySettingsTapped: (() -> Void)? = nil
     var onExportTapped: (() -> Void)? = nil
     
     @Environment(\.modelContext) var modelContext
@@ -41,6 +42,12 @@ struct ProjectItemView: View {
                 if project.type == .poetry, let onManageFormsTapped = onManageFormsTapped {
                     Button(action: onManageFormsTapped) {
                         Label(NSLocalizedString("poetryForms.picker.manageButton", comment: "Manage Forms"), systemImage: "slider.horizontal.3")
+                    }
+                }
+                
+                if project.type == .poetry, let onPoetrySettingsTapped = onPoetrySettingsTapped {
+                    Button(action: onPoetrySettingsTapped) {
+                        Label(NSLocalizedString("settings.poetrySettings", comment: "Poetry Settings"), systemImage: "waveform.path")
                     }
                 }
                 

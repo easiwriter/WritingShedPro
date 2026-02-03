@@ -11,6 +11,7 @@ struct ProjectEditableList: View {
     @State private var selectedProjectForInfo: Project?
     @State private var selectedProjectForPageSetup: Project?
     @State private var showingManageForms = false
+    @State private var showingPoetrySettings = false
     @State private var showDeleteConfirmation = false
     @State private var projectsToDelete: IndexSet?
     @State private var deleteInfo: (count: Int, firstName: String)?
@@ -41,6 +42,9 @@ struct ProjectEditableList: View {
                         },
                         onManageFormsTapped: project.type == .poetry ? {
                             showingManageForms = true
+                        } : nil,
+                        onPoetrySettingsTapped: project.type == .poetry ? {
+                            showingPoetrySettings = true
                         } : nil,
                         onExportTapped: {
                             exportProject(project)
@@ -90,6 +94,9 @@ struct ProjectEditableList: View {
         }
         .sheet(isPresented: $showingManageForms) {
             PoetryFormManagementView()
+        }
+        .sheet(isPresented: $showingPoetrySettings) {
+            PoetrySettingsSheet()
         }
         .fileExporter(
             isPresented: Binding(
