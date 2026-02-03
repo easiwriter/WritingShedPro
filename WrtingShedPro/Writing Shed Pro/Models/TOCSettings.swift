@@ -26,8 +26,8 @@ struct TOCSettings: Codable, Equatable {
     /// Style name to use for TOC entries (internal UIFont.TextStyle name)
     var entryStyleName: String = "UICTFontTextStyleBody"
     
-    /// Whether to show page numbers
-    var showPageNumbers: Bool = true
+    /// Whether to show page numbers (disabled by default until page calculation is implemented)
+    var showPageNumbers: Bool = false
     
     /// Whether to use dot leaders (repeated separator)
     var useDotLeaders: Bool = true

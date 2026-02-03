@@ -406,34 +406,65 @@ final class TOCGenerationService {
         // Calculate indent
         let indent = CGFloat(entry.indentLevel) * settings.indentPoints
         
-        // Create paragraph style with tabs for right-aligned page numbers
+        // Use a reasonable page width for TOC (standard letter width minus margins)
+        // 612 points = 8.5 inches, minus 1 inch margins on each side = 540 points
+        let lineWidth: CGFloat = 540
+        
+        // Create paragraph style
         let para = NSMutableParagraphStyle()
         para.firstLineHeadIndent = indent
         para.headIndent = indent
-        para.tabStops = [
-            NSTextTab(textAlignment: .right, location: 450, options: [:])  // Right tab for page number
-        ]
-        para.paragraphSpacing = 4
+        para.paragraphSpacing = 6
         
         // Build entry text
-        var entryText = entry.headingText
+        let result = NSMutableAttributedString()
         
-        if settings.showPageNumbers && settings.useDotLeaders {
-            // Add dot leaders and page number
-            entryText += "\t\(entry.pageNumber)\n"
-        } else if settings.showPageNumbers {
-            // Just add page number with tab
-            entryText += "\t\(entry.pageNumber)\n"
-        } else {
-            entryText += "\n"
-        }
-        
-        let attrs: [NSAttributedString.Key: Any] = [
+        // Add the heading text
+        let textAttrs: [NSAttributedString.Key: Any] = [
             .font: font,
             .paragraphStyle: para
         ]
+        result.append(NSAttributedString(string: entry.headingText, attributes: textAttrs))
         
-        return NSAttributedString(string: entryText, attributes: attrs)
+        if settings.showPageNumbers {
+            // Calculate space needed for page number
+            let pageNumString = "\(entry.pageNumber)"
+            let pageNumWidth = (pageNumString as NSString).size(withAttributes: [.font: font]).width
+            
+            // Calculate space available for leaders
+            let headingWidth = (entry.headingText as NSString).size(withAttributes: [.font: font]).width
+            let availableWidth = lineWidth - indent - headingWidth - pageNumWidth - 20 // 20pt padding
+            
+            if settings.useDotLeaders && availableWidth > 20 {
+                // Create dot leaders
+                let dotWidth = (settings.separator as NSString).size(withAttributes: [.font: font]).width
+                let spaceBetweenDots: CGFloat = 3
+                let dotsNeeded = Int(availableWidth / (dotWidth + spaceBetweenDots))
+                
+                var leaders = " "
+                for _ in 0..<max(3, dotsNeeded) {
+                    leaders += settings.separator + " "
+                }
+                
+                // Add leaders with secondary color
+                let leaderAttrs: [NSAttributedString.Key: Any] = [
+                    .font: font,
+                    .foregroundColor: UIColor.tertiaryLabel
+                ]
+                result.append(NSAttributedString(string: leaders, attributes: leaderAttrs))
+            } else {
+                // Just add spacing
+                result.append(NSAttributedString(string: "  ", attributes: textAttrs))
+            }
+            
+            // Add page number
+            result.append(NSAttributedString(string: pageNumString, attributes: textAttrs))
+        }
+        
+        // Add newline
+        result.append(NSAttributedString(string: "\n", attributes: textAttrs))
+        
+        return result
     }
 }
 
