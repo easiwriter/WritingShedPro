@@ -40,11 +40,29 @@ final class TOCGenerationService {
     func generateEntries(for project: Project, tocFile: TextFile? = nil) -> [TOCEntry] {
         var entries: [TOCEntry] = []
         
+        #if DEBUG
+        print("[TOCGeneration] Starting entry generation for project: \(project.name ?? "unnamed")")
+        #endif
+        
         // Get styles that should appear in TOC
         let tocStyles = getTOCStyles(for: project)
         guard !tocStyles.isEmpty else {
             #if DEBUG
-            print("[TOCGeneration] No styles configured for TOC")
+            print("[TOCGeneration] ❌ No styles configured for TOC")
+            print("[TOCGeneration] Checking stylesheet...")
+            if let sheet = project.styleSheet {
+                print("[TOCGeneration]   StyleSheet: \(sheet.name)")
+                if let styles = sheet.textStyles {
+                    print("[TOCGeneration]   Total styles: \(styles.count)")
+                    for style in styles {
+                        print("[TOCGeneration]     - \(style.displayName): includeInTOC=\(style.includeInTOC), tocLevel=\(style.tocLevel)")
+                    }
+                } else {
+                    print("[TOCGeneration]   ❌ No textStyles array")
+                }
+            } else {
+                print("[TOCGeneration]   ❌ No stylesheet assigned to project")
+            }
             #endif
             return []
         }
@@ -52,32 +70,130 @@ final class TOCGenerationService {
         #if DEBUG
         print("[TOCGeneration] Found \(tocStyles.count) styles configured for TOC:")
         for style in tocStyles {
-            print("  - \(style.displayName) (level \(style.tocLevel))")
+            print("[TOCGeneration]   - \(style.displayName) (name: '\(style.name)', level \(style.tocLevel))")
         }
         #endif
         
         // Get all manuscript sections in order
         let sections = assemblyService.getSections(for: project)
         
+        #if DEBUG
+        print("[TOCGeneration] Found \(sections.count) manuscript sections")
+        for section in sections {
+            print("[TOCGeneration]   Section: \(section.name ?? "unnamed") with \(section.files.count) files")
+        }
+        
+        // If no sections, check if there are any files in the project at all
+        if sections.isEmpty {
+            print("[TOCGeneration] ⚠️ No sections found - checking project structure...")
+            if let folders = project.folders {
+                print("[TOCGeneration]   Project has \(folders.count) top-level folders")
+                for folder in folders {
+                    print("[TOCGeneration]     - \(folder.name ?? "unnamed")")
+                    if let files = folder.files {
+                        print("[TOCGeneration]       Files: \(files.count)")
+                    }
+                }
+            }
+        }
+        #endif
+        
         // Process each file in order
         for section in sections {
             for file in section.files {
                 // Skip the TOC file itself to avoid circular reference
                 if let tocFile = tocFile, file.id == tocFile.id {
+                    #if DEBUG
+                    print("[TOCGeneration] Skipping TOC file: \(file.name)")
+                    #endif
                     continue
                 }
                 
+                #if DEBUG
+                print("[TOCGeneration] Scanning file: \(file.name)")
+                #endif
+                
                 // Find TOC entries in this file
                 let fileEntries = findEntriesInFile(file, tocStyles: tocStyles)
+                
+                #if DEBUG
+                print("[TOCGeneration]   Found \(fileEntries.count) entries in \(file.name)")
+                #endif
+                
                 entries.append(contentsOf: fileEntries)
             }
         }
         
+        // If no entries found via manuscript sections, try scanning all project files directly
+        if entries.isEmpty {
+            #if DEBUG
+            print("[TOCGeneration] ⚠️ No entries from sections, trying direct file scan...")
+            #endif
+            let allFiles = getAllFilesInProject(project, excluding: tocFile)
+            for file in allFiles {
+                let fileEntries = findEntriesInFile(file, tocStyles: tocStyles)
+                entries.append(contentsOf: fileEntries)
+            }
+            #if DEBUG
+            print("[TOCGeneration] Direct scan found \(entries.count) entries from \(allFiles.count) files")
+            #endif
+        }
+        
         #if DEBUG
-        print("[TOCGeneration] Generated \(entries.count) TOC entries")
+        print("[TOCGeneration] Generated \(entries.count) TOC entries total")
         #endif
         
         return entries
+    }
+    
+    /// Get all files in project by traversing folder hierarchy
+    private func getAllFilesInProject(_ project: Project, excluding tocFile: TextFile?) -> [TextFile] {
+        var allFiles: [TextFile] = []
+        
+        guard let folders = project.folders else {
+            #if DEBUG
+            print("[TOCGeneration] Project has no folders")
+            #endif
+            return []
+        }
+        
+        func collectFiles(from folder: Folder) {
+            if let files = folder.files {
+                for file in files {
+                    // Skip the TOC file
+                    if let tocFile = tocFile, file.id == tocFile.id {
+                        continue
+                    }
+                    // Skip TOC files by name/flag
+                    if file.isTOCFile || file.name == "Table of Contents" || file.name == "Contents" {
+                        continue
+                    }
+                    allFiles.append(file)
+                }
+            }
+            // Recurse into subfolders
+            if let subfolders = folder.subfolders {
+                for subfolder in subfolders {
+                    collectFiles(from: subfolder)
+                }
+            }
+        }
+        
+        for folder in folders {
+            collectFiles(from: folder)
+        }
+        
+        #if DEBUG
+        print("[TOCGeneration] getAllFilesInProject found \(allFiles.count) files")
+        for file in allFiles.prefix(10) {
+            print("[TOCGeneration]   - \(file.name)")
+        }
+        if allFiles.count > 10 {
+            print("[TOCGeneration]   ... and \(allFiles.count - 10) more")
+        }
+        #endif
+        
+        return allFiles
     }
     
     /// Get all styles configured for TOC from project's stylesheet
@@ -99,10 +215,17 @@ final class TOCGenerationService {
         guard let versions = file.versions,
               file.currentVersionIndex >= 0,
               file.currentVersionIndex < versions.count else {
+            #if DEBUG
+            print("[TOCGeneration]   ⚠️ No valid version for file: \(file.name)")
+            #endif
             return []
         }
         
         let version = versions.sorted { $0.versionNumber < $1.versionNumber }[file.currentVersionIndex]
+        
+        #if DEBUG
+        print("[TOCGeneration]   Version \(version.versionNumber), hasFormattedContent: \(version.formattedContent != nil)")
+        #endif
         
         // Try to get formatted content first, fall back to plain text
         let attributedString: NSAttributedString
@@ -113,11 +236,20 @@ final class TOCGenerationService {
                     options: [.documentType: NSAttributedString.DocumentType.rtf],
                     documentAttributes: nil
                 )
+                #if DEBUG
+                print("[TOCGeneration]   Loaded RTF content: \(attributedString.length) chars")
+                #endif
             } catch {
+                #if DEBUG
+                print("[TOCGeneration]   ⚠️ RTF parse error: \(error), using plain text")
+                #endif
                 // Fall back to plain text if RTF parsing fails
                 attributedString = NSAttributedString(string: version.content)
             }
         } else {
+            #if DEBUG
+            print("[TOCGeneration]   No formatted content, using plain text: \(version.content.count) chars")
+            #endif
             attributedString = NSAttributedString(string: version.content)
         }
         
@@ -127,9 +259,27 @@ final class TOCGenerationService {
             styleNameToTOCInfo[style.name] = (level: style.tocLevel, displayName: style.displayName)
         }
         
+        #if DEBUG
+        print("[TOCGeneration]   Looking for styles: \(styleNameToTOCInfo.keys.joined(separator: ", "))")
+        #endif
+        
         // Scan paragraphs for TOC-enabled styles
         let fullString = attributedString.string as NSString
         let fullRange = NSRange(location: 0, length: attributedString.length)
+        
+        #if DEBUG
+        // Check what .textStyle attributes exist in this content
+        var foundTextStyles: Set<String> = []
+        attributedString.enumerateAttribute(.textStyle, in: fullRange, options: []) { value, _, _ in
+            if let styleName = value as? String {
+                foundTextStyles.insert(styleName)
+            }
+        }
+        print("[TOCGeneration]   Found .textStyle attributes in file: \(foundTextStyles.sorted().joined(separator: ", "))")
+        if foundTextStyles.isEmpty {
+            print("[TOCGeneration]   ⚠️ No .textStyle attributes found - content may be plain text or missing style markers")
+        }
+        #endif
         
         fullString.enumerateSubstrings(in: fullRange, options: .byParagraphs) { substring, substringRange, _, _ in
             guard let paragraphText = substring, !paragraphText.isEmpty else { return }

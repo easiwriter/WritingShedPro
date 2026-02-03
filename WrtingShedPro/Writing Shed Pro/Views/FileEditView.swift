@@ -3394,7 +3394,20 @@ struct FileEditView: View {
     /// Called when a TOC file is opened
     private func regenerateTOCContent(for project: Project) {
         #if DEBUG
-        print("📑 Regenerating TOC content...")
+        print("📑 ========== TOC REGENERATION START ==========")
+        print("📑 Project: \(project.name ?? "unnamed")")
+        print("📑 Project type: \(project.type.rawValue)")
+        print("📑 StyleSheet: \(project.styleSheet?.name ?? "none")")
+        if let sheet = project.styleSheet {
+            print("📑 StyleSheet has \(sheet.textStyles?.count ?? 0) text styles")
+            if let styles = sheet.textStyles {
+                let tocStyles = styles.filter { $0.includeInTOC }
+                print("📑 Styles with includeInTOC=true: \(tocStyles.count)")
+                for style in tocStyles {
+                    print("📑   - \(style.displayName) (name: \(style.name), level: \(style.tocLevel))")
+                }
+            }
+        }
         #endif
         
         let tocService = TOCGenerationService(context: modelContext)
@@ -3404,13 +3417,24 @@ struct FileEditView: View {
         
         #if DEBUG
         print("📑 Found \(entries.count) TOC entries")
+        for entry in entries {
+            print("📑   Entry: '\(entry.headingText)' level=\(entry.indentLevel) from file=\(entry.sourceFile.name)")
+        }
         #endif
         
         // Get TOC settings
         let settings = file.tocSettings
+        #if DEBUG
+        print("📑 TOC Settings: title='\(settings.title)', titleStyle=\(settings.titleStyleName), entryStyle=\(settings.entryStyleName)")
+        #endif
         
         // Render TOC to attributed string
         let tocContent = tocService.renderTOC(entries: entries, settings: settings, project: project)
+        
+        #if DEBUG
+        print("📑 Rendered TOC content length: \(tocContent.length) chars")
+        print("📑 Rendered TOC preview: '\(tocContent.string.prefix(200))...'")
+        #endif
         
         // Update the content
         attributedContent = tocContent
@@ -3421,7 +3445,7 @@ struct FileEditView: View {
         saveChanges()
         
         #if DEBUG
-        print("📑 TOC content regenerated and saved")
+        print("📑 ========== TOC REGENERATION END ==========")
         #endif
     }
 
