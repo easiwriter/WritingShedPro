@@ -21,8 +21,8 @@ struct TOCSettingsView: View {
     @State private var indentPoints: CGFloat = 20
     @State private var showPageNumbers: Bool = false
     @State private var useDotLeaders: Bool = true
-    @State private var titleStyleName: String = "UICTFontTextStyleLargeTitle"
-    @State private var lineWidth: CGFloat = 480
+    @State private var titleStyleName: String = "UICTFontTextStyleTitle0"
+    @State private var pageNumberPosition: CGFloat = 480
     
     // Per-level entry styles (Level 0-5)
     @State private var levelStyleNames: [String] = [
@@ -44,7 +44,7 @@ struct TOCSettingsView: View {
               let styles = styleSheet.textStyles else {
             // Fallback defaults if no stylesheet found
             return [
-                ("UICTFontTextStyleLargeTitle", "Large Title"),
+                ("UICTFontTextStyleTitle0", "Large Title"),
                 ("UICTFontTextStyleTitle1", "Title 1"),
                 ("UICTFontTextStyleTitle2", "Title 2"),
                 ("UICTFontTextStyleTitle3", "Title 3"),
@@ -115,6 +115,16 @@ struct TOCSettingsView: View {
                         // Dot leaders toggle
                         Toggle(NSLocalizedString("toc.settings.useDotLeaders", comment: "Use dot leaders"), isOn: $useDotLeaders)
                             .accessibilityHint(NSLocalizedString("toc.settings.useDotLeaders.hint", comment: "Repeat separator character to fill space"))
+                        
+                        // Page number position
+                        Stepper(value: $pageNumberPosition, in: 300...600, step: 20) {
+                            HStack {
+                                Text(NSLocalizedString("toc.settings.pageNumberPosition", comment: "Page number position"))
+                                Spacer()
+                                Text("\(Int(pageNumberPosition)) pt")
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
                     }
                 } header: {
                     Text(NSLocalizedString("toc.settings.formattingSection", comment: "Formatting"))
@@ -227,7 +237,7 @@ struct TOCSettingsView: View {
         showPageNumbers = settings.showPageNumbers
         useDotLeaders = settings.useDotLeaders
         titleStyleName = settings.titleStyleName
-        lineWidth = settings.lineWidth
+        pageNumberPosition = settings.pageNumberPosition
         
         // Load per-level styles
         for i in 0..<min(levelStyleNames.count, settings.levelStyleNames.count) {
@@ -243,7 +253,7 @@ struct TOCSettingsView: View {
         settings.showPageNumbers = showPageNumbers
         settings.useDotLeaders = useDotLeaders
         settings.titleStyleName = titleStyleName
-        settings.lineWidth = lineWidth
+        settings.pageNumberPosition = pageNumberPosition
         settings.levelStyleNames = levelStyleNames
         
         file.tocSettings = settings

@@ -115,6 +115,7 @@ struct FileEditView: View {
     
     // Feature 031: Table of Contents
     @State private var showTOCSettings = false
+    @State private var isCalculatingTOCPages = false  // Progress indicator for page calculation
     
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -1418,6 +1419,26 @@ struct FileEditView: View {
             .frame(width: 0, height: 0)
             .opacity(0)
         }
+        // Progress overlay for TOC page calculation
+        .overlay {
+            if isCalculatingTOCPages {
+                ZStack {
+                    Color.black.opacity(0.3)
+                        .ignoresSafeArea()
+                    VStack(spacing: 12) {
+                        ProgressView()
+                            .scaleEffect(1.5)
+                        Text(NSLocalizedString("toc.calculatingPages", comment: "Calculating page numbers..."))
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(24)
+                    .background(Color(.systemBackground))
+                    .cornerRadius(12)
+                    .shadow(radius: 10)
+                }
+            }
+        }
         .sheet(isPresented: $showStylePicker) {
             StylePickerSheet(
                 currentStyle: $currentParagraphStyle,
@@ -1823,7 +1844,19 @@ struct FileEditView: View {
             .sheet(isPresented: $showTOCSettings) {
                 TOCSettingsView(file: file) {
                     // Regenerate TOC when settings change
-                    if let project = file.project {
+                    // Need to traverse folder hierarchy since file.project may be nil
+                    var project: Project? = file.project
+                    if project == nil {
+                        var currentFolder = file.parentFolder
+                        while let folder = currentFolder {
+                            if let proj = folder.project {
+                                project = proj
+                                break
+                            }
+                            currentFolder = folder.parentFolder
+                        }
+                    }
+                    if let project = project {
                         regenerateTOCContent(for: project)
                     }
                 }
@@ -3471,25 +3504,77 @@ struct FileEditView: View {
         print("📑 TOC Settings: title='\(settings.title)', titleStyle=\(settings.titleStyleName), entryStyle=\(settings.entryStyleName)")
         #endif
         
-        // Render TOC to attributed string
-        let tocContent = tocService.renderTOC(entries: entries, settings: settings, project: project, stylesConfigured: stylesConfigured)
-        
-        #if DEBUG
-        print("📑 Rendered TOC content length: \(tocContent.length) chars")
-        print("📑 Rendered TOC preview: '\(tocContent.string.prefix(200))...'")
-        #endif
-        
-        // Update the content
-        attributedContent = tocContent
-        previousContent = attributedContent.string
-        previousAttributedContent = tocContent
-        
-        // Save the generated content
-        saveChanges()
-        
-        #if DEBUG
-        print("📑 ========== TOC REGENERATION END ==========")
-        #endif
+        // If showing page numbers, calculate them (this may take a moment)
+        if settings.showPageNumbers && !entries.isEmpty {
+            isCalculatingTOCPages = true
+            
+            Task {
+                #if DEBUG
+                print("📑 Calculating page numbers...")
+                #endif
+                
+                let entriesWithPages = await tocService.calculatePageNumbers(
+                    for: entries,
+                    project: project,
+                    tocFile: file
+                )
+                
+                await MainActor.run {
+                    // Render TOC with calculated page numbers
+                    let tocContent = tocService.renderTOC(
+                        entries: entriesWithPages,
+                        settings: settings,
+                        project: project,
+                        stylesConfigured: stylesConfigured
+                    )
+                    
+                    #if DEBUG
+                    print("📑 Rendered TOC content length: \(tocContent.length) chars")
+                    print("📑 Rendered TOC preview: '\(tocContent.string.prefix(200))...'")
+                    #endif
+                    
+                    // Update the content
+                    attributedContent = tocContent
+                    previousContent = attributedContent.string
+                    previousAttributedContent = tocContent
+                    
+                    // Force view refresh to show new content
+                    forceRefresh.toggle()
+                    
+                    // Save the generated content
+                    saveChanges()
+                    
+                    isCalculatingTOCPages = false
+                    
+                    #if DEBUG
+                    print("📑 ========== TOC REGENERATION END ==========")
+                    #endif
+                }
+            }
+        } else {
+            // No page numbers needed, render immediately
+            let tocContent = tocService.renderTOC(entries: entries, settings: settings, project: project, stylesConfigured: stylesConfigured)
+            
+            #if DEBUG
+            print("📑 Rendered TOC content length: \(tocContent.length) chars")
+            print("📑 Rendered TOC preview: '\(tocContent.string.prefix(200))...'")
+            #endif
+            
+            // Update the content
+            attributedContent = tocContent
+            previousContent = attributedContent.string
+            previousAttributedContent = tocContent
+            
+            // Force view refresh to show new content
+            forceRefresh.toggle()
+            
+            // Save the generated content
+            saveChanges()
+            
+            #if DEBUG
+            print("📑 ========== TOC REGENERATION END ==========")
+            #endif
+        }
     }
 
     private func deleteBackMatterFileAndCleanup() {

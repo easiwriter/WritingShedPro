@@ -21,7 +21,7 @@ struct TOCSettings: Codable, Equatable {
     var indentPoints: CGFloat = 20
     
     /// Style name to use for the TOC title (internal UIFont.TextStyle name)
-    var titleStyleName: String = "UICTFontTextStyleLargeTitle"
+    var titleStyleName: String = "UICTFontTextStyleTitle0"
     
     /// Style names for each TOC level (0-5)
     /// Level 0 = top-level headings, Level 1 = sub-headings, etc.
@@ -40,8 +40,15 @@ struct TOCSettings: Codable, Equatable {
     /// Whether to use dot leaders (repeated separator)
     var useDotLeaders: Bool = true
     
-    /// Fixed line width for TOC entries (for consistent alignment)
-    var lineWidth: CGFloat = 480
+    /// Tab stop position for page numbers (in points from left margin)
+    /// Default is 480 points, typical range 300-600
+    var pageNumberPosition: CGFloat = 480
+    
+    /// Legacy alias for pageNumberPosition
+    var lineWidth: CGFloat {
+        get { pageNumberPosition }
+        set { pageNumberPosition = newValue }
+    }
     
     // MARK: - Legacy property for backward compatibility
     

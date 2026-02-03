@@ -146,3 +146,38 @@ Files within each folder ordered by `userOrder`.
 - VirtualPageScrollView pagination engine
 - ManuscriptAssemblyService for file ordering
 - TextStyleModel and StyleSheet system
+
+## Future Enhancements
+
+### Front Matter Roman Numerals
+When generating a complete document (PDF/print export), front matter pages should be numbered using **lowercase roman numerals** (i, ii, iii, iv, ...). The body content starts at page 1 with Arabic numerals. The TOC should reflect this:
+
+```
+Contents
+
+Preface.............................iii
+Acknowledgments......................iv
+
+Chapter One...........................1
+Chapter Two..........................15
+```
+
+Implementation notes:
+- Page numbering style is a property of the manuscript section
+- Front Matter = lowercase roman (i, ii, iii)
+- Body = Arabic (1, 2, 3)
+- Back Matter = continues Arabic numbering from body
+
+### Back Matter in TOC
+Back matter files (Endnotes, Glossary, Bibliography, Index) should:
+1. **Appear in the Table of Contents** - scanned and included like body files
+2. **Include page numbers** - calculated as part of complete manuscript pagination
+3. Be listed after body content entries
+
+The TOC generation should include Back Matter section when scanning for headings:
+- Endnotes file (if exists and enabled)
+- Glossary file (if exists and enabled)
+- Bibliography/References file (if exists and enabled)
+- Index file (if exists and enabled)
+
+This means `calculatePageNumbers()` must assemble the complete manuscript including back matter to get accurate page positions for all entries.

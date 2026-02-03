@@ -1264,6 +1264,8 @@
 "toc.settings.useDotLeaders" = "Use dot leaders";
 "toc.settings.useDotLeaders.hint" = "Repeat separator character to fill space between heading and page number";
 "toc.settings.showPageNumbers" = "Show page numbers";
+"toc.settings.pageNumberPosition" = "Page number position";
+"toc.settings.pageNumberPosition.hint" = "Tab stop position in points for right-aligned page numbers";
 "toc.settings.indentSection" = "Indentation";
 "toc.settings.indent" = "Indent per level";
 "toc.settings.indent.accessibility" = "Indent amount for each heading level";
@@ -1279,6 +1281,7 @@
 "toc.settings.level2" = "Level 3";
 "toc.settings.level3" = "Level 4";
 "toc.settings.previewSection" = "Preview";
+"toc.calculatingPages" = "Calculating page numbers...";
 
 /* NumberFormat Display Names */
 "numberFormat.none" = "None";

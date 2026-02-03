@@ -14,10 +14,21 @@ import UIKit
 struct TOCEntry: Identifiable {
     let id = UUID()
     let headingText: String
-    let pageNumber: Int
+    var pageNumber: Int  // Mutable - calculated during pagination
     let indentLevel: Int
     let sourceFile: TextFile
     let characterPosition: Int  // Position in source file for navigation
+    let globalCharacterPosition: Int  // Position in assembled manuscript (for page calculation)
+    
+    /// Create entry with just source file position (page number calculated later)
+    init(headingText: String, indentLevel: Int, sourceFile: TextFile, characterPosition: Int, globalCharacterPosition: Int = 0) {
+        self.headingText = headingText
+        self.pageNumber = 0
+        self.indentLevel = indentLevel
+        self.sourceFile = sourceFile
+        self.characterPosition = characterPosition
+        self.globalCharacterPosition = globalCharacterPosition
+    }
 }
 
 /// Service for generating Table of Contents from manuscript content
@@ -144,6 +155,125 @@ final class TOCGenerationService {
         #endif
         
         return entries
+    }
+    
+    // MARK: - Page Number Calculation
+    
+    /// Calculate page numbers for TOC entries by paginating the manuscript
+    /// - Parameters:
+    ///   - entries: TOC entries to update with page numbers
+    ///   - project: The project to paginate
+    ///   - tocFile: The TOC file to exclude from pagination
+    /// - Returns: Updated entries with calculated page numbers
+    func calculatePageNumbers(for entries: [TOCEntry], project: Project, tocFile: TextFile?) async -> [TOCEntry] {
+        #if DEBUG
+        print("[TOCGeneration] ========== PAGE NUMBER CALCULATION START ==========")
+        #endif
+        
+        // Build assembled content EXCLUDING the TOC file for accurate page numbers
+        // The TOC file won't be part of the printed/exported manuscript body
+        
+        var fileOffsets: [UUID: Int] = [:]
+        let assembledContent = NSMutableAttributedString()
+        var isFirstFile = true
+        
+        // Check if page breaks between files are enabled (use project setting, not global)
+        let pageSetup = project.pageSetup ?? PageSetup()
+        let usePageBreaks = pageSetup.hasPageBreakBetweenFiles
+        let pageBreak = NSAttributedString(string: "\u{0C}") // Form feed character
+        
+        #if DEBUG
+        print("[TOCGeneration] Page break between files: \(usePageBreaks ? "ENABLED" : "disabled")")
+        #endif
+        
+        let sections = assemblyService.getSections(for: project)
+        
+        // Assemble content excluding the TOC file
+        for section in sections {
+            for file in section.files {
+                // Skip the TOC file - it's not part of the main manuscript
+                if let tocFile = tocFile, file.id == tocFile.id {
+                    continue
+                }
+                
+                // Add section/page break between files (not before first)
+                if !isFirstFile {
+                    if usePageBreaks {
+                        assembledContent.append(pageBreak)
+                    } else {
+                        assembledContent.append(NSAttributedString(string: "\n\n"))
+                    }
+                }
+                isFirstFile = false
+                
+                // Record offset before adding
+                fileOffsets[file.id] = assembledContent.length
+                
+                // Add file content
+                if let version = file.currentVersion, let content = version.attributedContent {
+                    assembledContent.append(content)
+                }
+            }
+        }
+        
+        #if DEBUG
+        print("[TOCGeneration] File offsets calculated (excluding TOC):")
+        for (fileId, offset) in fileOffsets {
+            print("[TOCGeneration]   \(fileId.uuidString.prefix(8)): offset \(offset)")
+        }
+        print("[TOCGeneration] Assembled content (excluding TOC): \(assembledContent.length) characters")
+        #endif
+        
+        // Create text storage and paginate
+        let textStorage = NSTextStorage(attributedString: assembledContent)
+        let layoutManager = PaginatedTextLayoutManager(textStorage: textStorage, pageSetup: pageSetup)
+        
+        // Calculate layout
+        let layoutResult = layoutManager.calculateLayout()
+        
+        #if DEBUG
+        print("[TOCGeneration] Pagination complete: \(layoutResult.totalPages) pages")
+        #endif
+        
+        // Now update entries with page numbers
+        var updatedEntries: [TOCEntry] = []
+        
+        for var entry in entries {
+            // Calculate global position from file offset + local position
+            let fileOffset = fileOffsets[entry.sourceFile.id] ?? 0
+            let globalPosition = fileOffset + entry.characterPosition
+            
+            // Find which page this position falls on
+            let pageNumber = findPageForCharacterPosition(globalPosition, in: layoutResult)
+            entry.pageNumber = pageNumber
+            
+            #if DEBUG
+            print("[TOCGeneration]   '\(entry.headingText.prefix(30))': pos \(globalPosition) -> page \(pageNumber)")
+            #endif
+            
+            updatedEntries.append(entry)
+        }
+        
+        #if DEBUG
+        print("[TOCGeneration] ========== PAGE NUMBER CALCULATION END ==========")
+        #endif
+        
+        return updatedEntries
+    }
+    
+    /// Find which page a character position falls on
+    private func findPageForCharacterPosition(_ position: Int, in layoutResult: PaginatedTextLayoutManager.LayoutResult) -> Int {
+        for pageInfo in layoutResult.pageInfos {
+            if position >= pageInfo.characterRange.location &&
+               position < pageInfo.characterRange.location + pageInfo.characterRange.length {
+                return pageInfo.pageIndex + 1  // 1-based page numbers
+            }
+        }
+        // If not found, estimate based on position
+        if let lastPage = layoutResult.pageInfos.last {
+            return lastPage.pageIndex + 1
+        }
+        return 1
     }
     
     /// Get all files in project by traversing folder hierarchy
@@ -329,7 +459,6 @@ final class TOCGenerationService {
                     
                     let entry = TOCEntry(
                         headingText: headingText,
-                        pageNumber: 0,  // Will be calculated during rendering
                         indentLevel: tocInfo.level,
                         sourceFile: file,
                         characterPosition: substringRange.location
@@ -354,13 +483,46 @@ final class TOCGenerationService {
     func renderTOC(entries: [TOCEntry], settings: TOCSettings, project: Project, stylesConfigured: Int = 0) -> NSAttributedString {
         let result = NSMutableAttributedString()
         
-        // Get styles for TOC formatting
-        let titleStyle = project.styleSheet?.style(named: settings.titleStyleName)
+        // Get stylesheet using the service (handles fallback to default)
+        let styleSheet = StyleSheetService.getStyleSheet(for: project, context: context)
         
-        // Default fonts if styles not found
-        let titleFont = titleStyle?.generateFont(applyPlatformScaling: false) ?? UIFont.boldSystemFont(ofSize: 28)
+        #if DEBUG
+        print("📑 [TOC Render] Project: \(project.name ?? "unknown")")
+        print("📑 [TOC Render] StyleSheet: \(styleSheet?.name ?? "nil")")
+        print("📑 [TOC Render] Title style name in settings: '\(settings.titleStyleName)'")
+        #endif
         
-        // Add title using the title style's attributes if available
+        // Get title style and generate full attributes
+        let titleStyle = styleSheet?.style(named: settings.titleStyleName)
+        
+        #if DEBUG
+        if let style = titleStyle {
+            print("📑 [TOC Render] Found title style: \(style.displayName)")
+            print("📑 [TOC Render]   textColor: \(style.textColor?.description ?? "nil")")
+            print("📑 [TOC Render]   textColorHex: \(style.textColorHex ?? "nil")")
+        } else {
+            print("📑 [TOC Render] ❌ Title style NOT FOUND!")
+            if let styles = styleSheet?.textStyles {
+                print("📑 [TOC Render] Available style names:")
+                for s in styles.prefix(10) {
+                    print("📑 [TOC Render]   - '\(s.name)' (\(s.displayName))")
+                }
+            }
+        }
+        #endif
+        
+        var titleAttrs = titleStyle?.generateAttributes() ?? [
+            .font: UIFont.boldSystemFont(ofSize: 28),
+            .foregroundColor: UIColor.label
+        ]
+        
+        #if DEBUG
+        if let color = titleAttrs[.foregroundColor] as? UIColor {
+            print("📑 [TOC Render] Title foreground color: \(color)")
+        }
+        #endif
+        
+        // Override paragraph style for TOC-specific formatting
         let titlePara = NSMutableParagraphStyle()
         if let style = titleStyle {
             titlePara.alignment = style.alignment
@@ -369,11 +531,8 @@ final class TOCGenerationService {
             titlePara.alignment = .natural
             titlePara.paragraphSpacing = 12
         }
+        titleAttrs[.paragraphStyle] = titlePara
         
-        let titleAttrs: [NSAttributedString.Key: Any] = [
-            .font: titleFont,
-            .paragraphStyle: titlePara
-        ]
         result.append(NSAttributedString(string: settings.title + "\n", attributes: titleAttrs))
         
         // Handle empty TOC with context-aware message
@@ -398,7 +557,7 @@ final class TOCGenerationService {
         
         // Add entries with per-level styles
         for entry in entries {
-            let entryString = formatEntry(entry, settings: settings, project: project)
+            let entryString = formatEntry(entry, settings: settings, styleSheet: styleSheet)
             result.append(entryString)
         }
         
@@ -406,46 +565,77 @@ final class TOCGenerationService {
     }
     
     /// Format a single TOC entry with per-level styling
-    private func formatEntry(_ entry: TOCEntry, settings: TOCSettings, project: Project) -> NSAttributedString {
-        // Get the font for this entry's level
+    private func formatEntry(_ entry: TOCEntry, settings: TOCSettings, styleSheet: StyleSheet?) -> NSAttributedString {
+        // Get the style for this entry's level and generate full attributes
         let styleName = settings.styleName(forLevel: entry.indentLevel)
-        let entryStyle = project.styleSheet?.style(named: styleName)
-        let font = entryStyle?.generateFont(applyPlatformScaling: false) ?? UIFont.systemFont(ofSize: 14)
+        let entryStyle = styleSheet?.style(named: styleName)
+        var textAttrs = entryStyle?.generateAttributes() ?? [
+            .font: UIFont.systemFont(ofSize: 14),
+            .foregroundColor: UIColor.label
+        ]
         
         // Calculate indent
         let indent = CGFloat(entry.indentLevel) * settings.indentPoints
         
-        // Fixed line width for consistent alignment
-        let lineWidth = settings.lineWidth
+        // Tab stop position for page numbers (absolute from left margin)
+        let tabPosition = settings.pageNumberPosition
         
-        // Create paragraph style with right-aligned tab for page number
-        let para = NSMutableParagraphStyle()
-        para.firstLineHeadIndent = indent
-        para.headIndent = indent
-        para.paragraphSpacing = 4
+        // Build the result
+        let result = NSMutableAttributedString()
         
-        // Use tab stop for consistent page number alignment
+        // Add heading text
+        let headingText = entry.headingText
+        
         if settings.showPageNumbers {
+            let font = textAttrs[.font] as? UIFont ?? UIFont.systemFont(ofSize: 14)
+            let pageNumberText = "\(entry.pageNumber)"
+            
+            // Always use tab stop for consistent page number alignment
+            let para = NSMutableParagraphStyle()
+            para.firstLineHeadIndent = indent
+            para.headIndent = indent
+            para.paragraphSpacing = 4
             para.tabStops = [
-                NSTextTab(textAlignment: .right, location: lineWidth, options: [:])
+                NSTextTab(textAlignment: .right, location: tabPosition - indent, options: [:])
             ]
+            textAttrs[.paragraphStyle] = para
+            
+            result.append(NSAttributedString(string: headingText, attributes: textAttrs))
+            
+            if settings.useDotLeaders && !settings.separator.isEmpty {
+                // Calculate available width for dot leaders (before the tab stop)
+                let headingWidth = (headingText as NSString).size(withAttributes: [.font: font]).width
+                let pageNumberWidth = (pageNumberText as NSString).size(withAttributes: [.font: font]).width
+                let availableWidth = tabPosition - indent - headingWidth - pageNumberWidth - 16 // padding
+                
+                if availableWidth > 20 {
+                    // Calculate how many separator units fit
+                    let separatorUnit = settings.separator + " "
+                    let unitWidth = (separatorUnit as NSString).size(withAttributes: [.font: font]).width
+                    let numUnits = max(3, Int(availableWidth / unitWidth))
+                    
+                    // Add dots (in secondary color), then tab, then page number
+                    let leaderString = " " + String(repeating: separatorUnit, count: numUnits)
+                    var leaderAttrs = textAttrs
+                    leaderAttrs[.foregroundColor] = UIColor.secondaryLabel
+                    result.append(NSAttributedString(string: leaderString, attributes: leaderAttrs))
+                }
+            }
+            
+            // Tab to align page number, then page number
+            result.append(NSAttributedString(string: "\t", attributes: textAttrs))
+            result.append(NSAttributedString(string: pageNumberText + "\n", attributes: textAttrs))
+        } else {
+            // No page numbers
+            let para = NSMutableParagraphStyle()
+            para.firstLineHeadIndent = indent
+            para.headIndent = indent
+            para.paragraphSpacing = 4
+            textAttrs[.paragraphStyle] = para
+            
+            result.append(NSAttributedString(string: headingText + "\n", attributes: textAttrs))
         }
         
-        let textAttrs: [NSAttributedString.Key: Any] = [
-            .font: font,
-            .paragraphStyle: para
-        ]
-        
-        // Build entry string
-        var entryText = entry.headingText
-        
-        if settings.showPageNumbers {
-            // Add tab and page number - the tab expands to fill space
-            entryText += "\t\(entry.pageNumber)"
-        }
-        
-        entryText += "\n"
-        
-        return NSAttributedString(string: entryText, attributes: textAttrs)
+        return result
     }
 }
