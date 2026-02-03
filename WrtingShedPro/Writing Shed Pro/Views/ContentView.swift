@@ -220,6 +220,12 @@ struct ContentView: View {
             #if DEBUG
             print("✅ [ContentView] Stylesheets initialized")
             #endif
+            
+            // Migrate heading styles to include TOC settings (for existing stylesheets)
+            StyleSheetService.migrateHeadingStylesToTOC(context: modelContext)
+            #if DEBUG
+            print("✅ [ContentView] TOC migration complete")
+            #endif
         }
     }
     

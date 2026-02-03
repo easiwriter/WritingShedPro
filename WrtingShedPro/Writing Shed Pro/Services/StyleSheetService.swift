@@ -18,23 +18,24 @@ struct StyleSheetService {
         let sheet = StyleSheet(name: "Default", isSystemStyleSheet: true)
         
         // System text styles based on UIFont.TextStyle
-        let systemStyles: [(UIFont.TextStyle, String, StyleCategory, Int, CGFloat?)] = [
-            (.largeTitle, "Large Title", .heading, 0, nil),
-            (.title1, "Title 1", .heading, 1, nil),
-            (.title2, "Title 2", .heading, 2, nil),
-            (.title3, "Title 3", .heading, 3, nil),
-            (.headline, "Headline", .heading, 4, nil),
-            (.body, "Body", .text, 5, nil),
-            (.callout, "Body 1", .text, 6, 16),  // Renamed to Body 1, set to 16pt
-            (.subheadline, "Body 2", .text, 7, 14),  // Renamed to Body 2, set to 14pt
-            (.footnote, "Footnote", .footnote, 8, nil),  // Keep for pagination but hidden from picker
-            (.caption1, "Caption 1", .text, 9, nil),
-            (.caption2, "Caption 2", .text, 10, nil)
+        // Format: (textStyle, displayName, category, order, customFontSize, includeInTOC, tocLevel)
+        let systemStyles: [(UIFont.TextStyle, String, StyleCategory, Int, CGFloat?, Bool, Int)] = [
+            (.largeTitle, "Large Title", .heading, 0, nil, true, 0),   // TOC Level 0 (no indent)
+            (.title1, "Title 1", .heading, 1, nil, true, 0),           // TOC Level 0 (no indent)
+            (.title2, "Title 2", .heading, 2, nil, true, 1),           // TOC Level 1 (first indent)
+            (.title3, "Title 3", .heading, 3, nil, true, 2),           // TOC Level 2 (second indent)
+            (.headline, "Headline", .heading, 4, nil, true, 3),        // TOC Level 3 (third indent)
+            (.body, "Body", .text, 5, nil, false, 0),
+            (.callout, "Body 1", .text, 6, 16, false, 0),  // Renamed to Body 1, set to 16pt
+            (.subheadline, "Body 2", .text, 7, 14, false, 0),  // Renamed to Body 2, set to 14pt
+            (.footnote, "Footnote", .footnote, 8, nil, false, 0),  // Keep for pagination but hidden from picker
+            (.caption1, "Caption 1", .text, 9, nil, false, 0),
+            (.caption2, "Caption 2", .text, 10, nil, false, 0)
         ]
         
         var styles: [TextStyleModel] = []
         
-        for (textStyle, displayName, category, order, customFontSize) in systemStyles {
+        for (textStyle, displayName, category, order, customFontSize, includeInTOC, tocLevel) in systemStyles {
             let font = UIFont.preferredFont(forTextStyle: textStyle)
             
             // Set bold/italic explicitly based on style type
@@ -65,6 +66,10 @@ struct StyleSheetService {
             
             // Set adornment after initialization
             style.numberAdornment = numberAdornment
+            
+            // Set TOC properties for heading styles
+            style.includeInTOC = includeInTOC
+            style.tocLevel = tocLevel
             
             styles.append(style)
         }
@@ -378,6 +383,54 @@ struct StyleSheetService {
         } catch {
             #if DEBUG
             print("❌ Error saving default stylesheet: \(error)")
+            #endif
+        }
+    }
+    
+    // MARK: - Style Migration
+    
+    /// Update existing stylesheets to enable TOC for heading styles
+    /// Called during app launch to ensure existing data has TOC settings
+    static func migrateHeadingStylesToTOC(context: ModelContext) {
+        // Define which styles should be in TOC and their levels
+        let tocConfig: [String: (includeInTOC: Bool, tocLevel: Int)] = [
+            "UICTFontTextStyleLargeTitle": (true, 0),  // Large Title - no indent
+            "UICTFontTextStyleTitle1": (true, 0),      // Title 1 - no indent
+            "UICTFontTextStyleTitle2": (true, 1),      // Title 2 - level 1
+            "UICTFontTextStyleTitle3": (true, 2),      // Title 3 - level 2
+            "UICTFontTextStyleHeadline": (true, 3)     // Headline - level 3
+        ]
+        
+        // Get all stylesheets
+        let descriptor = FetchDescriptor<StyleSheet>()
+        guard let sheets = try? context.fetch(descriptor) else {
+            return
+        }
+        
+        var updated = false
+        
+        for sheet in sheets {
+            guard let styles = sheet.textStyles else { continue }
+            
+            for style in styles {
+                if let config = tocConfig[style.name] {
+                    // Only update if not already configured for TOC
+                    if !style.includeInTOC {
+                        style.includeInTOC = config.includeInTOC
+                        style.tocLevel = config.tocLevel
+                        updated = true
+                        #if DEBUG
+                        print("[StyleSheet Migration] Enabled TOC for style: \(style.displayName) at level \(config.tocLevel)")
+                        #endif
+                    }
+                }
+            }
+        }
+        
+        if updated {
+            try? context.save()
+            #if DEBUG
+            print("[StyleSheet Migration] TOC settings migration complete")
             #endif
         }
     }
