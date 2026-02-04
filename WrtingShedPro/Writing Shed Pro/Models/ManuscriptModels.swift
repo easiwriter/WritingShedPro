@@ -276,7 +276,7 @@ enum ExportFormat: String, CaseIterable, Identifiable {
         case .word: return "doc"
         case .html: return "chevron.left.slash.chevron.right"
         case .epub: return "book"
-        case .markdown: return "text.badge.checkmark"
+        case .markdown: return "number.square"
         }
     }
 }

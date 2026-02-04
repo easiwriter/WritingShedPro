@@ -339,7 +339,7 @@ struct FileListView: View {
                 }
                 
                 // File icon - different for markdown files
-                Image(systemName: file.isMarkdown ? "text.badge.checkmark" : "doc.text")
+                Image(systemName: file.isMarkdown ? "number.square" : "doc.text")
                     .foregroundStyle(file.isMarkdown ? .orange : .secondary)
                 
                 Text(file.name)

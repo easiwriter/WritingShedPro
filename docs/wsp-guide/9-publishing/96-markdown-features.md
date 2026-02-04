@@ -1,6 +1,6 @@
-# Markdown Import and Export
+# Markdown Features
 
-Writing Shed Pro supports Markdown (.md) files for both import and export, making it easy to work with plain text formats while preserving document structure.
+Writing Shed Pro offers comprehensive Markdown support, including native Markdown editing, rich text preview, and import/export capabilities.
 
 ## What is Markdown?
 
@@ -11,6 +11,53 @@ Markdown is a lightweight markup language that uses simple symbols to indicate f
 - `[link](url)` becomes a hyperlink
 
 Markdown files are plain text, readable by any text editor, yet carry formatting information that apps can interpret.
+
+## Creating Markdown Files
+
+Writing Shed Pro lets you create and edit files in either Rich Text or Markdown mode. Markdown mode is ideal for writers who prefer plain text with simple formatting syntax.
+
+### Switching Between Modes
+
+Any file can be switched between Rich Text and Markdown modes using the toggle button in the toolbar:
+
+1. Open a file in the editor
+2. Look for the **content type toggle** button in the toolbar:
+   - **# icon** (number square): Currently in Markdown mode - tap to switch to Rich Text
+   - **Document icon** (richtext.page): Currently in Rich Text mode - tap to switch to Markdown
+3. Tapping the button converts the content and switches mode
+
+**Note**: Switching modes converts the content. Going from Rich Text to Markdown converts formatting to Markdown syntax. Going from Markdown to Rich Text renders the Markdown as formatted text.
+
+### Markdown Mode Features
+
+When editing in Markdown mode:
+- A **Markdown indicator bar** appears at the bottom of the editor showing "Markdown"
+- Type using standard Markdown syntax
+- Tap the toggle button to preview your content as formatted Rich Text
+- All standard Markdown formatting is supported
+
+### Previewing Markdown
+
+To see how your Markdown will look when rendered:
+
+1. Tap the **content type toggle** button in the toolbar (switches to Rich Text mode)
+2. Your Markdown is converted and displayed with:
+   - Headings rendered with appropriate sizes
+   - Bold, italic, and other formatting applied
+   - Links displayed as clickable text
+3. Tap the toggle again to return to Markdown editing mode
+
+The preview uses your project's stylesheet, so headings and text styles match your document formatting.
+
+### When to Use Markdown Mode
+
+Markdown mode is particularly useful for:
+- Writers comfortable with Markdown syntax
+- Content destined for blogs or GitHub
+- Quick drafting without formatting distractions
+- Files you plan to export as Markdown
+
+**Note**: Markdown mode is not available for Poetry or Drama projects, which require specialized formatting features.
 
 ## Exporting to Markdown
 

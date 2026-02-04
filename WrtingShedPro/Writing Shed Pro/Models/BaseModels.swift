@@ -79,9 +79,9 @@ enum FileContentType: String, Codable, CaseIterable {
     var systemImage: String {
         switch self {
         case .richText:
-            return "doc.richtext"
+            return "richtext.page.fill"
         case .markdown:
-            return "text.badge.checkmark"
+            return "number.square"
         }
     }
     

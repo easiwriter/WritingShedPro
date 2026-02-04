@@ -128,6 +128,43 @@ class MarkdownExportService {
     
     // MARK: - Private Conversion Methods
     
+    /// Detect heading level from font text style or font characteristics
+    private static func detectHeadingLevel(from font: UIFont) -> Int {
+        // First, try to detect from font descriptor's text style (most reliable)
+        if let textStyleRaw = font.fontDescriptor.object(forKey: .textStyle) as? String {
+            switch textStyleRaw {
+            case "UICTFontTextStyleLargeTitle", "UICTFontTextStyleTitle0":
+                return 1
+            case "UICTFontTextStyleTitle1":
+                return 2
+            case "UICTFontTextStyleTitle2":
+                return 3
+            case "UICTFontTextStyleTitle3":
+                return 4
+            case "UICTFontTextStyleHeadline":
+                return 5
+            case "UICTFontTextStyleSubhead", "UICTFontTextStyleSubheadline":
+                return 6
+            default:
+                break
+            }
+        }
+        
+        // Fallback: Check font size and weight heuristics
+        let pointSize = font.pointSize
+        let isBold = font.fontDescriptor.symbolicTraits.contains(.traitBold)
+        
+        if isBold || pointSize >= 17 {
+            if pointSize >= 34 { return 1 }       // Large Title ~34pt
+            if pointSize >= 28 { return 2 }       // Title 1 ~28pt
+            if pointSize >= 22 { return 3 }       // Title 2 ~22pt
+            if pointSize >= 20 { return 4 }       // Title 3 ~20pt
+            if pointSize >= 17 && isBold { return 5 }  // Headline ~17pt bold
+        }
+        
+        return 0  // Not a heading
+    }
+    
     /// Convert a paragraph's attributed string to Markdown
     private static func convertParagraphToMarkdown(_ attributedString: NSAttributedString) -> String {
         let string = attributedString.string
@@ -144,22 +181,10 @@ class MarkdownExportService {
         var isHeader = false
         var headerLevel = 0
         
-        // Check font attributes to detect headers (larger/bolder fonts)
+        // Detect heading from font text style
         if let font = attributedString.attribute(.font, at: 0, effectiveRange: nil) as? UIFont {
-            let pointSize = font.pointSize
-            let isBold = font.fontDescriptor.symbolicTraits.contains(.traitBold)
-            
-            // Heuristic: Large bold text is likely a header
-            if isBold && pointSize >= 24 {
-                headerLevel = 1
-                isHeader = true
-            } else if isBold && pointSize >= 20 {
-                headerLevel = 2
-                isHeader = true
-            } else if isBold && pointSize >= 18 {
-                headerLevel = 3
-                isHeader = true
-            }
+            headerLevel = detectHeadingLevel(from: font)
+            isHeader = headerLevel > 0
         }
         
         // Process inline formatting

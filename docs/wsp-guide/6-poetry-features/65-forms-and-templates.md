@@ -45,10 +45,11 @@ Templates show structure—they don't enforce it. You can:
 - **Subject**: Human nature, humor, irony
 - **Special**: Haiku structure, different focus
 
-### Renga/Renku
-- **Lines**: Variable (linked verses)
-- **Structure**: Alternating 5-7-5 and 7-7 sections
-- **Special**: Collaborative form
+### Cinquain
+- **Lines**: 5
+- **Syllables**: 2-4-6-8-2 (22 total)
+- **Structure**: Diamond-shaped syllable pattern
+- **Special**: American form inspired by haiku
 
 ## Sonnets
 
@@ -64,7 +65,7 @@ Templates show structure—they don't enforce it. You can:
 - **Rhyme**: ABBAABBA CDECDE (or CDCDCD)
 - **Structure**: Octave + sestet with volta
 
-### Spenserian
+### Spenserian Sonnet
 - **Lines**: 14
 - **Meter**: Iambic pentameter
 - **Rhyme**: ABAB BCBC CDCD EE
@@ -138,6 +139,26 @@ Templates show structure—they don't enforce it. You can:
 - **Meter**: Iambic pentameter
 - **Rhyme**: AA BB CC...
 - **Special**: Augustan poetry, wit
+
+## Italian Forms
+
+### Ottava Rima
+- **Lines**: 8
+- **Meter**: Iambic pentameter
+- **Rhyme**: ABABABCC
+- **Special**: Six alternating rhymes + couplet
+
+### Terza Rima
+- **Lines**: Variable (tercets)
+- **Meter**: Iambic pentameter
+- **Rhyme**: ABA BCB CDC...
+- **Special**: Interlocking rhymes, Dante's form
+
+### Spenserian Stanza
+- **Lines**: 9
+- **Meter**: Iambic pentameter + alexandrine
+- **Rhyme**: ABABBCBCC
+- **Special**: Final line has 12 syllables
 
 ## Modern Forms
 

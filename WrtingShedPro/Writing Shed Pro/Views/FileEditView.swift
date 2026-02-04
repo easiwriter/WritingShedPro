@@ -110,9 +110,6 @@ struct FileEditView: View {
     @State private var isSimplifiedSearchMode = false  // True when opened from multi-file search with replace
     @State private var isFromMultiFileSearch = false  // True when opened from any multi-file search
     
-    // Markdown Support
-    @State private var showMarkdownPreview = false
-    
     // Feature 031: Table of Contents
     @State private var showTOCSettings = false
     @State private var isCalculatingTOCPages = false  // Progress indicator for page calculation
@@ -512,18 +509,11 @@ struct FileEditView: View {
     @ViewBuilder
     private func markdownIndicatorBar() -> some View {
         HStack {
-            Label(NSLocalizedString("markdown.mode.indicator", comment: "Markdown"), systemImage: "text.badge.checkmark")
+            Label(NSLocalizedString("markdown.mode.indicator", comment: "Markdown"), systemImage: "number.square")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
             
             Spacer()
-            
-            Button(action: {
-                showMarkdownPreview = true
-            }) {
-                Label(NSLocalizedString("markdown.preview.button", comment: "Preview"), systemImage: "eye")
-                    .font(.subheadline)
-            }
         }
         .padding(.horizontal)
         .padding(.vertical, 8)
@@ -551,7 +541,7 @@ struct FileEditView: View {
                     file.isMarkdown 
                         ? NSLocalizedString("contentType.switchToRichText", comment: "Switch to Rich Text")
                         : NSLocalizedString("contentType.switchToMarkdown", comment: "Switch to Markdown"),
-                    systemImage: file.isMarkdown ? "doc.richtext" : "text.badge.checkmark"
+                    systemImage: file.isMarkdown ? "richtext.page.fill" : "number.square"
                 )
             }
         }
@@ -892,7 +882,7 @@ struct FileEditView: View {
                         Button(action: {
                             toggleContentType()
                         }) {
-                            Image(systemName: file.isMarkdown ? "text.badge.checkmark" : "doc.richtext")
+                            Image(systemName: file.isMarkdown ? "richtext.page.fill" : "number.square")
                         }
                         .accessibilityLabel(file.isMarkdown 
                             ? NSLocalizedString("contentType.switchToRichText", comment: "Switch to Rich Text")
@@ -1415,6 +1405,14 @@ struct FileEditView: View {
                     applyNumberFormat(.bulletSymbols)
                 }
                 .keyboardShortcut("8", modifiers: [.command, .shift])
+                
+                // Select All: Cmd+A
+                Button("") {
+                    if let textView = textViewCoordinator.textView {
+                        textView.selectAll(nil)
+                    }
+                }
+                .keyboardShortcut("a", modifiers: .command)
             }
             .frame(width: 0, height: 0)
             .opacity(0)
@@ -1889,13 +1887,6 @@ struct FileEditView: View {
             }
             .sheet(isPresented: $showPoetryFormPicker) {
                 PoetryFormPickerSheet(file: file)
-            }
-            .fullScreenCover(isPresented: $showMarkdownPreview) {
-                MarkdownPreviewView(
-                    markdownContent: attributedContent.string,
-                    styleSheet: file.project?.styleSheet,
-                    fileName: file.name
-                )
             }
             .sheet(isPresented: $showProjectCharacters) {
                 NavigationStack {
@@ -7224,19 +7215,86 @@ struct FileEditView: View {
     }
     
     /// Toggle between Rich Text and Markdown content types
+    /// Converts the content when switching modes
     private func toggleContentType() {
-        if file.isMarkdown {
-            file.contentType = .richText
-        } else {
-            file.contentType = .markdown
+        // Get current content from the text view
+        guard let textView = textViewCoordinator.textView else {
+            #if DEBUG
+            print("⚠️ toggleContentType: No text view available")
+            #endif
+            return
         }
+        
+        let currentContent = textView.attributedText ?? NSAttributedString()
+        
+        if file.isMarkdown {
+            // Converting Markdown → Rich Text
+            // Parse the plain text markdown and render it as formatted text
+            do {
+                let markdownText = currentContent.string
+                let styleSheet = file.project?.styleSheet
+                let renderedContent = try MarkdownImportService.importMarkdown(from: markdownText, styleSheet: styleSheet)
+                
+                // Update the text view with rendered content
+                textView.attributedText = renderedContent
+                attributedContent = renderedContent
+                
+                // Save the converted content
+                file.currentVersion?.attributedContent = renderedContent
+                file.contentType = .richText
+                
+                #if DEBUG
+                print("📝 Converted Markdown to Rich Text (\(markdownText.count) chars → \(renderedContent.length) styled)")
+                #endif
+            } catch {
+                #if DEBUG
+                print("❌ Failed to convert Markdown to Rich Text: \(error)")
+                #endif
+                // Just switch the mode without converting if parsing fails
+                file.contentType = .richText
+            }
+        } else {
+            // Converting Rich Text → Markdown
+            // Export the formatted content as Markdown syntax
+            do {
+                let filename = file.name
+                let markdownString = try MarkdownExportService.exportToMarkdown(currentContent, filename: filename)
+                
+                // Create plain text attributed string with markdown content
+                let markdownContent = NSAttributedString(
+                    string: markdownString,
+                    attributes: [
+                        .font: UIFont.systemFont(ofSize: 17),
+                        .foregroundColor: UIColor.label
+                    ]
+                )
+                
+                // Update the text view with markdown content
+                textView.attributedText = markdownContent
+                attributedContent = markdownContent
+                
+                // Save the converted content
+                file.currentVersion?.attributedContent = markdownContent
+                file.contentType = .markdown
+                
+                #if DEBUG
+                print("📝 Converted Rich Text to Markdown (\(currentContent.length) styled → \(markdownString.count) chars)")
+                #endif
+            } catch {
+                #if DEBUG
+                print("❌ Failed to convert Rich Text to Markdown: \(error)")
+                #endif
+                // Just switch the mode without converting if export fails
+                file.contentType = .markdown
+            }
+        }
+        
+        // Save changes and refresh UI
+        file.modifiedDate = Date()
+        try? modelContext.save()
         
         // Force UI refresh
         refreshTrigger = UUID()
-        
-        #if DEBUG
-        print("📝 Content type toggled to: \(file.contentType.localizedName)")
-        #endif
     }
     
     private func saveChanges() {

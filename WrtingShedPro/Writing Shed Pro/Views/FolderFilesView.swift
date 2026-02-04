@@ -1228,10 +1228,35 @@ struct FolderFilesView: View {
         // Set the export format
         self.exportFormat = format
         
-        // If multiple files, export them one at a time
+        // Get the first file to export
         guard let firstFile = filesToExport.first,
-              let version = firstFile.currentVersion,
-              let attributedString = version.attributedContent else {
+              let version = firstFile.currentVersion else {
+            #if DEBUG
+            print("❌ Export failed: No file or version available")
+            #endif
+            filesToExport = []
+            return
+        }
+        
+        // Get content - try formatted content first, fall back to plain text
+        let attributedString: NSAttributedString
+        if let formattedContent = version.attributedContent {
+            attributedString = formattedContent
+        } else if !version.content.isEmpty {
+            // Create attributed string from plain text
+            attributedString = NSAttributedString(
+                string: version.content,
+                attributes: [.font: UIFont.preferredFont(forTextStyle: .body)]
+            )
+            #if DEBUG
+            print("📝 Export: Using plain text content for '\(firstFile.name)'")
+            #endif
+        } else {
+            #if DEBUG
+            print("❌ Export failed: No content available for '\(firstFile.name)'")
+            #endif
+            importErrorMessage = NSLocalizedString("export.error.noContent", comment: "No content to export")
+            showImportError = true
             filesToExport = []
             return
         }
@@ -1249,6 +1274,13 @@ struct FolderFilesView: View {
     }
     
     func performSingleFileExport(format: ExportFormat, content: NSAttributedString, filename: String) {
+        #if DEBUG
+        print("📤 performSingleFileExport called")
+        print("   format: \(format)")
+        print("   filename: \(filename)")
+        print("   content length: \(content.length)")
+        #endif
+        
         // Prepare export data based on format
         do {
             switch format {
@@ -1266,13 +1298,26 @@ struct FolderFilesView: View {
                 exportData = try MarkdownExportService.exportToMarkdownData(content, filename: filename)
             case .pdf, .plainText:
                 // Not supported for single file export from this view
+                #if DEBUG
+                print("   ❌ Format not supported for single file export")
+                #endif
                 return
             }
             
-            exportFilename = filename
+            // Set filename with proper extension for the file save dialog
+            exportFilename = "\(filename).\(format.fileExtension)"
+            
+            #if DEBUG
+            print("   ✅ Export data prepared: \(exportData?.count ?? 0) bytes")
+            print("   Setting showExportSaveDialog = true")
+            #endif
+            
             showExportSaveDialog = true
             
         } catch {
+            #if DEBUG
+            print("   ❌ Export error: \(error)")
+            #endif
             importErrorMessage = NSLocalizedString("export.error.failed", comment: "Export failed") + ": \(error.localizedDescription)"
             showImportError = true
             filesToExport = []

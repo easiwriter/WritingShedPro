@@ -31,6 +31,19 @@ struct StoreView: View {
     @State private var loadedProducts: [Product] = []
     @State private var selectedTab: PurchaseTab = .bundle
     
+    /// Available tabs - excludes bundle if user has purchased any individual module
+    private var availableTabs: [PurchaseTab] {
+        if EntitlementManager.shared.hasAnyIndividualModulePurchase {
+            return [.individual]  // Only show individual tab
+        }
+        return PurchaseTab.allCases
+    }
+    
+    /// Whether to show the tab picker (only if more than one tab available)
+    private var showTabPicker: Bool {
+        availableTabs.count > 1
+    }
+    
     var body: some View {
         NavigationView {
             ScrollView {
@@ -43,8 +56,10 @@ struct StoreView: View {
                     } else if let error = errorMessage {
                         errorView(error)
                     } else {
-                        // Tab picker to switch between views
-                        purchaseTabPicker
+                        // Tab picker to switch between views (hidden if only one tab available)
+                        if showTabPicker {
+                            purchaseTabPicker
+                        }
                         
                         // Content based on selected tab
                         switch selectedTab {
@@ -93,6 +108,11 @@ struct StoreView: View {
             .onAppear {
                 // If a specific product is highlighted, switch to individual tab
                 if highlightedProduct != nil {
+                    selectedTab = .individual
+                }
+                // If user has purchased any individual module, default to individual tab
+                // (bundle is no longer a good deal for them)
+                if EntitlementManager.shared.hasAnyIndividualModulePurchase {
                     selectedTab = .individual
                 }
             }
@@ -168,8 +188,8 @@ struct StoreView: View {
     
     private var individualTabContent: some View {
         VStack(spacing: 16) {
-            // Quick link back to bundle
-            if !EntitlementManager.shared.hasBundle {
+            // Quick link back to bundle (hidden if user already has bundle or any individual purchase)
+            if !EntitlementManager.shared.hasBundle && !EntitlementManager.shared.hasAnyIndividualModulePurchase {
                 Button {
                     withAnimation {
                         selectedTab = .bundle

@@ -85,6 +85,14 @@ final class EntitlementManager {
         purchaseManager.isEntitled(to: WSPProduct.allInBundle.rawValue)
     }
     
+    /// Check if user has purchased at least one individual module (not via bundle)
+    var hasAnyIndividualModulePurchase: Bool {
+        guard !hasBundle else { return false }  // Bundle doesn't count as individual
+        return WSPProduct.individualModules.contains { product in
+            purchaseManager.isEntitled(to: product.rawValue)
+        }
+    }
+    
     /// Get list of all purchased modules (excluding bundle)
     var purchasedModules: [WSPProduct] {
         WSPProduct.individualModules.filter { isModulePurchased($0) }

@@ -50,7 +50,13 @@ extension FolderFilesView {
     // MARK: - File Import/Export Modifiers
     
     func applyFileModifiers<V: View>(_ content: V) -> some View {
-        content
+        let document = ExportDocument(
+            data: exportData ?? Data(),
+            filename: exportFilename,
+            contentType: contentTypeForFormat(exportFormat)
+        )
+        
+        return content
             .fileImporter(
                 isPresented: $showImportPicker,
                 allowedContentTypes: [.rtf, UTType("org.openxmlformats.wordprocessingml.document") ?? .data, UTType(filenameExtension: "md") ?? .plainText],
@@ -59,11 +65,19 @@ extension FolderFilesView {
             )
             .fileExporter(
                 isPresented: $showExportSaveDialog,
-                document: ExportDocument(data: exportData ?? Data(), filename: exportFilename, contentType: contentTypeForFormat(exportFormat)),
+                document: document,
                 contentType: contentTypeForFormat(exportFormat),
                 defaultFilename: exportFilename,
                 onCompletion: handleExportResult
             )
+            .onChange(of: showExportSaveDialog) { oldValue, newValue in
+                #if DEBUG
+                print("📤 showExportSaveDialog changed: \(oldValue) → \(newValue)")
+                print("   exportData: \(exportData != nil ? "\(exportData!.count) bytes" : "nil")")
+                print("   exportFilename: \(exportFilename)")
+                print("   exportFormat: \(exportFormat)")
+                #endif
+            }
     }
     
     // MARK: - Alert Modifiers

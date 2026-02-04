@@ -126,7 +126,7 @@ final class ExportOptionsTests: XCTestCase {
         XCTAssertEqual(ExportFormat.word.icon, "doc")
         XCTAssertEqual(ExportFormat.html.icon, "chevron.left.slash.chevron.right")
         XCTAssertEqual(ExportFormat.epub.icon, "book")
-        XCTAssertEqual(ExportFormat.markdown.icon, "text.badge.checkmark")
+        XCTAssertEqual(ExportFormat.markdown.icon, "number.square")
     }
     
     func testExportFormatLocalizedNames() {

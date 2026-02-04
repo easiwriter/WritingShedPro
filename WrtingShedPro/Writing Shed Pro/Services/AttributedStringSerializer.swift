@@ -249,6 +249,12 @@ struct AttributedStringSerializer {
                             attributes.fontName = font?.fontName ?? "Helvetica"
                         }
                         
+                        // CRITICAL: Extract textStyle from font descriptor if present
+                        // This preserves heading styles for markdown round-trip
+                        if let textStyleRaw = desc?.object(forKey: .textStyle) as? String {
+                            attributes.textStyle = textStyleRaw
+                        }
+                        
                         attributes.fontSize = font?.pointSize ?? 17
                         let isBold = desc?.symbolicTraits.contains(.traitBold) ?? false
                         let isItalic = desc?.symbolicTraits.contains(.traitItalic) ?? false
@@ -445,8 +451,19 @@ struct AttributedStringSerializer {
                     let isBold = jsonAttributes.bold ?? false
                     let isItalic = jsonAttributes.italic ?? false
                     
-                    // Check if this is a dynamic type font (UICTFont)
-                    if fontName.contains("UICT") || fontName.contains("TextStyle") {
+                    // CRITICAL: If we have a textStyle, use it to get the correct preferredFont
+                    // This preserves heading detection for markdown export
+                    if let textStyleValue = jsonAttributes.textStyle {
+                        // Use the stored text style to get a proper preferredFont with correct descriptor
+                        let textStyle = UIFont.TextStyle(rawValue: textStyleValue)
+                        let baseFont = UIFont.preferredFont(forTextStyle: textStyle)
+                        // Apply traits (bold/italic) if needed
+                        if isBold || isItalic {
+                            font = UIFont.fontWithNameAndTraits(baseFont.familyName, size: baseFont.pointSize, bold: isBold, italic: isItalic)
+                        } else {
+                            font = baseFont
+                        }
+                    } else if fontName.contains("UICT") || fontName.contains("TextStyle") {
                         // Use dynamic type font - preserves size category preferences
                         let baseFont = UIFont.preferredFont(forTextStyle: .body)
                         // Adjust size if it differs from the default

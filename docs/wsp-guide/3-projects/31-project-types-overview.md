@@ -1,3 +1,4 @@
+
 # Project Types Overview
 
 Writing Shed Pro offers four project types, each designed for a specific kind of writing. Choosing the right type gives you access to specialized tools that make your writing process more efficient.

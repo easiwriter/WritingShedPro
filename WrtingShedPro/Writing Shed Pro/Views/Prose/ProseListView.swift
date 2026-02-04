@@ -63,6 +63,10 @@ struct ProseListView: View {
     /// Export state
     @State private var showExportMenu = false
     @State private var filesToExport: [TextFile] = []
+    @State private var showExportSaveDialog = false
+    @State private var exportFormat: ExportFormat = .rtf
+    @State private var exportData: Data?
+    @State private var exportFilename: String = ""
     
     /// Search state
     @State private var showSearchView = false
@@ -247,6 +251,17 @@ struct ProseListView: View {
             ) {
                 exportDialogButtons
             }
+            .fileExporter(
+                isPresented: $showExportSaveDialog,
+                document: ExportDocument(
+                    data: exportData ?? Data(),
+                    filename: exportFilename,
+                    contentType: contentTypeForFormat(exportFormat)
+                ),
+                contentType: contentTypeForFormat(exportFormat),
+                defaultFilename: exportFilename,
+                onCompletion: handleExportResult
+            )
             .confirmationDialog(
                 deleteConfirmationTitle,
                 isPresented: $showDeleteConfirmation,
@@ -883,15 +898,124 @@ struct ProseListView: View {
     }
     
     private func exportFiles(_ files: [TextFile], format: ExportFormat) {
-        // TODO: Implement export using ExportService
-        // For now, this is a placeholder that matches the FolderFilesView pattern
         guard let file = files.first else { return }
         
         #if DEBUG
         print("[ProseListView] Export requested for '\(file.name)' as \(format.rawValue)")
         #endif
         
+        exportFormat = format
+        
+        // Get the current version to access content
+        guard let version = file.currentVersion else {
+            importErrorMessage = NSLocalizedString("export.error.noContent", comment: "File has no content to export")
+            showImportError = true
+            filesToExport = []
+            return
+        }
+        
+        // Get the content to export
+        let content: NSAttributedString
+        if let attributedContent = version.attributedContent {
+            content = attributedContent
+        } else if !version.content.isEmpty {
+            content = NSAttributedString(
+                string: version.content,
+                attributes: [.font: UIFont.preferredFont(forTextStyle: .body)]
+            )
+        } else {
+            importErrorMessage = NSLocalizedString("export.error.noContent", comment: "File has no content to export")
+            showImportError = true
+            filesToExport = []
+            return
+        }
+        
+        performSingleFileExport(format: format, content: content, filename: file.name)
         filesToExport = []
+    }
+    
+    private func performSingleFileExport(format: ExportFormat, content: NSAttributedString, filename: String) {
+        #if DEBUG
+        print("📤 [ProseListView] performSingleFileExport called")
+        print("   format: \(format)")
+        print("   filename: \(filename)")
+        print("   content length: \(content.length)")
+        #endif
+        
+        do {
+            switch format {
+            case .rtf:
+                exportData = try WordDocumentService.exportToRTF(content, filename: filename)
+            case .html:
+                exportData = try HTMLExportService.exportToHTMLData(content, filename: filename)
+            case .epub:
+                exportData = try EPUBExportService.exportToEPUB(content, filename: filename)
+            case .word:
+                let exportService = DOCXExportService(modelContext: modelContext)
+                exportData = try exportService.exportToDOCX(content, filename: filename)
+            case .markdown:
+                exportData = try MarkdownExportService.exportToMarkdownData(content, filename: filename)
+            case .pdf, .plainText:
+                #if DEBUG
+                print("   ❌ Format not supported for single file export")
+                #endif
+                return
+            }
+            
+            exportFilename = "\(filename).\(format.fileExtension)"
+            
+            #if DEBUG
+            print("   ✅ Export data prepared: \(exportData?.count ?? 0) bytes")
+            print("   Setting showExportSaveDialog = true")
+            #endif
+            
+            showExportSaveDialog = true
+            
+        } catch {
+            #if DEBUG
+            print("   ❌ Export error: \(error)")
+            #endif
+            importErrorMessage = NSLocalizedString("export.error.failed", comment: "Export failed") + ": \(error.localizedDescription)"
+            showImportError = true
+        }
+    }
+    
+    private func handleExportResult(_ result: Result<URL, Error>) {
+        switch result {
+        case .success(let url):
+            #if DEBUG
+            print("📤 [ProseListView] Export successful: \(url)")
+            #endif
+        case .failure(let error):
+            #if DEBUG
+            print("📤 [ProseListView] Export failed: \(error)")
+            #endif
+            importErrorMessage = NSLocalizedString("export.error.failed", comment: "Export failed") + ": \(error.localizedDescription)"
+            showImportError = true
+        }
+        
+        // Reset export state
+        exportData = nil
+        exportFilename = ""
+    }
+    
+    private func contentTypeForFormat(_ format: ExportFormat) -> UTType {
+        switch format {
+        case .rtf:
+            return .rtf
+        case .html:
+            return .html
+        case .epub:
+            return UTType(filenameExtension: "epub") ?? .data
+        case .word:
+            return UTType("org.openxmlformats.wordprocessingml.document") ?? .data
+        case .markdown:
+            return UTType(filenameExtension: "md") ?? .plainText
+        case .pdf:
+            return .pdf
+        case .plainText:
+            return .plainText
+        }
     }
     
     private func assignFilesToSection(_ files: [TextFile], section: ProseSection?) {
