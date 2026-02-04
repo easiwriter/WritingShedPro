@@ -122,7 +122,7 @@ Syllable count differs from meter:
 - **Syllables**: How many beats
 - **Meter**: Which beats are stressed
 
-For metered verse, see [Verse Highlighting](04-verse-highlighting.md) for stress pattern analysis.
+For metered verse, see [Verse Highlighting](64-verse-highlighting.md) for stress pattern analysis.
 
 ### Example
 "To be or not to be" has 6 syllables with alternating stress (iambic trimeter):
@@ -140,8 +140,8 @@ If you find the counts distracting:
 The feature is there to help—use it when helpful, hide it when not.
 
 ## See Also
-- [Poetry Mode Overview](01-poetry-mode-overview.md)
-- [Verse Highlighting](04-verse-highlighting.md)
-- [Forms and Templates](05-forms-and-templates.md)
+- [Poetry Mode Overview](61-poetry-mode-overview.md)
+- [Verse Highlighting](64-verse-highlighting.md)
+- [Forms and Templates](65-forms-and-templates.md)
 
 ---

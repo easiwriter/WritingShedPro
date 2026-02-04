@@ -211,9 +211,9 @@ Learn the form first, then decide when to deviate. Informed rule-breaking is cre
 Write many poems in a form to truly learn it. One sonnet is practice; twenty is mastery.
 
 ## See Also
-- [Poetry Mode Overview](01-poetry-mode-overview.md)
-- [Syllable Counting](02-syllable-counting.md)
-- [Rhyme Tools](03-rhyme-tools.md)
-- [Verse Highlighting](04-verse-highlighting.md)
+- [Poetry Mode Overview](61-poetry-mode-overview.md)
+- [Syllable Counting](62-syllable-counting.md)
+- [Rhyme Tools](63-rhyme-tools.md)
+- [Verse Highlighting](64-verse-highlighting.md)
 
 ---

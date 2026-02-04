@@ -190,8 +190,8 @@ You can export to Markdown, edit externally, and reimport:
 - Import applies the default stylesheet mapping
 
 ## See Also
-- [Export Options](01-export-options.md)
-- [RTF Export](03-rtf-export.md)
+- [Export Options](91-export-options.md)
+- [RTF Export](93-rtf-export.md)
 - [Stylesheet Editor](../10-advanced-features/02-stylesheet-editor.md)
 
 ---

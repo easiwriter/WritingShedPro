@@ -115,8 +115,8 @@ To delete a project:
 **Warning**: Deleting a project removes all its files. This action cannot be undone. Consider exporting important work before deleting.
 
 ## See Also
-- [Project Types Overview](../03-projects/01-project-types-overview.md)
-- [Folders and Files](../03-projects/04-folders-and-files.md)
-- [The Interface Tour](03-the-interface-tour.md)
+- [Project Types Overview](../3-projects/31-project-types-overview.md)
+- [Folders and Files](../3-projects/34-folders-and-files.md)
+- [The Interface Tour](23-the-interface-tour.md)
 
 ---

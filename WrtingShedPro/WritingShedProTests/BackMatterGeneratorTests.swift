@@ -285,9 +285,9 @@ final class BackMatterGeneratorTests: XCTestCase {
         modelContext.insert(entry2)
         try? modelContext.save()
         
-        let pageMap: [UUID: [Int]] = [
-            entry1.id: [1, 5, 10],
-            entry2.id: [3, 4]
+        let pageMap: [UUID: [IndexPageReference]] = [
+            entry1.id: [IndexPageReference(pageNumber: 1, isPrimary: false), IndexPageReference(pageNumber: 5, isPrimary: false), IndexPageReference(pageNumber: 10, isPrimary: false)],
+            entry2.id: [IndexPageReference(pageNumber: 3, isPrimary: false), IndexPageReference(pageNumber: 4, isPrimary: false)]
         ]
         
         let result = generator.generateIndexSection(pageMap: pageMap)
@@ -305,8 +305,15 @@ final class BackMatterGeneratorTests: XCTestCase {
         modelContext.insert(entry)
         try? modelContext.save()
         
-        let pageMap: [UUID: [Int]] = [
-            entry.id: [1, 3, 5, 6, 7, 12]
+        let pageMap: [UUID: [IndexPageReference]] = [
+            entry.id: [
+                IndexPageReference(pageNumber: 1, isPrimary: false),
+                IndexPageReference(pageNumber: 3, isPrimary: false),
+                IndexPageReference(pageNumber: 5, isPrimary: false),
+                IndexPageReference(pageNumber: 6, isPrimary: false),
+                IndexPageReference(pageNumber: 7, isPrimary: false),
+                IndexPageReference(pageNumber: 12, isPrimary: false)
+            ]
         ]
         
         let result = generator.generateIndexSection(pageMap: pageMap)
@@ -371,7 +378,7 @@ final class BackMatterGeneratorTests: XCTestCase {
             includeGlossary: true,
             includeBibliography: true,
             includeIndex: true,
-            pageMap: [index.id: [1, 2, 3]]
+            pageMap: [index.id: [IndexPageReference(pageNumber: 1, isPrimary: false), IndexPageReference(pageNumber: 2, isPrimary: false), IndexPageReference(pageNumber: 3, isPrimary: false)]]
         )
         
         let text = result.string

@@ -10,6 +10,12 @@ import Foundation
 import SwiftData
 import UIKit
 
+/// Represents a page reference with primary indicator for index generation
+struct IndexPageReference: Hashable {
+    let pageNumber: Int
+    let isPrimary: Bool
+}
+
 /// Service for generating back matter sections for manuscript export
 final class BackMatterGenerator {
     
@@ -107,7 +113,7 @@ final class BackMatterGenerator {
     ///   - includeBibliography: Include Bibliography section
     ///   - includeIndex: Include Index section (requires page map)
     ///   - includeContributors: Include Contributors section
-    ///   - pageMap: Map of reference ID to page number (for index)
+    ///   - pageMap: Map of reference ID to page numbers with primary indicators (for index)
     /// - Returns: Attributed string with all requested back matter sections
     func generateBackMatter(
         includeNotes: Bool = true,
@@ -115,7 +121,7 @@ final class BackMatterGenerator {
         includeBibliography: Bool = true,
         includeIndex: Bool = true,
         includeContributors: Bool = true,
-        pageMap: [UUID: [Int]] = [:]
+        pageMap: [UUID: [IndexPageReference]] = [:]
     ) -> NSAttributedString {
         let result = NSMutableAttributedString()
         
@@ -562,7 +568,7 @@ final class BackMatterGenerator {
     /// Generate the Index section with page numbers
     /// - Parameter pageMap: Map of index entry ID to page numbers where it appears
     /// - Returns: Attributed string with index section, or nil if no entries
-    func generateIndexSection(pageMap: [UUID: [Int]]) -> NSAttributedString? {
+    func generateIndexSection(pageMap: [UUID: [IndexPageReference]]) -> NSAttributedString? {
         // Fetch index entries for this project (top-level only) that have active references (refCount > 0)
         let projectID = project.id
         let descriptor = FetchDescriptor<IndexEntry>(
@@ -620,7 +626,8 @@ final class BackMatterGenerator {
     }
     
     /// Format a single index entry with its sub-entries
-    private func formatIndexEntry(_ entry: IndexEntry, pageMap: [UUID: [Int]], indentLevel: Int) -> NSAttributedString {
+    /// - Note: Primary page references are displayed in bold
+    private func formatIndexEntry(_ entry: IndexEntry, pageMap: [UUID: [IndexPageReference]], indentLevel: Int) -> NSAttributedString {
         let result = NSMutableAttributedString()
         
         // Determine paragraph style based on indent level
@@ -639,15 +646,44 @@ final class BackMatterGenerator {
         )
         result.append(keywordAttr)
         
-        // Page numbers
+        // Page numbers with primary references in bold
         if let pages = pageMap[entry.id], !pages.isEmpty {
-            // Format page numbers (consolidate ranges)
-            let formattedPages = formatPageNumbers(pages)
-            let pagesAttr = NSAttributedString(
-                string: ", \(formattedPages)",
-                attributes: secondaryAttributes
-            )
-            result.append(pagesAttr)
+            result.append(NSAttributedString(string: ", ", attributes: secondaryAttributes))
+            let formattedPages = formatPageReferencesWithPrimary(pages)
+            result.append(formattedPages)
+        }
+        
+        // Cross-references ("see" and "see also")
+        // Look up "see" entry by ID
+        if let seeEntryID = entry.seeEntryID {
+            let allEntries = project.indexEntries ?? []
+            if let seeEntry = allEntries.first(where: { $0.id == seeEntryID }) {
+                result.append(NSAttributedString(string: ". ", attributes: secondaryAttributes))
+                result.append(NSAttributedString(
+                    string: NSLocalizedString("index.see", comment: "See"),
+                    attributes: [.font: UIFont.italicSystemFont(ofSize: 12), .foregroundColor: UIColor.secondaryLabel]
+                ))
+                result.append(NSAttributedString(string: " \(seeEntry.keyword)", attributes: secondaryAttributes))
+            }
+        }
+        
+        // "See also" references - look up entries by ID
+        let seeAlsoIDs = entry.seeAlsoEntryIDs
+        if !seeAlsoIDs.isEmpty {
+            // Fetch the referenced entries from the project's index entries
+            let allEntries = project.indexEntries ?? []
+            let seeAlsoKeywords = seeAlsoIDs.compactMap { id in
+                allEntries.first { $0.id == id }?.keyword
+            }.joined(separator: ", ")
+            
+            if !seeAlsoKeywords.isEmpty {
+                result.append(NSAttributedString(string: ". ", attributes: secondaryAttributes))
+                result.append(NSAttributedString(
+                    string: NSLocalizedString("index.seeAlso", comment: "See also"),
+                    attributes: [.font: UIFont.italicSystemFont(ofSize: 12), .foregroundColor: UIColor.secondaryLabel]
+                ))
+                result.append(NSAttributedString(string: " \(seeAlsoKeywords)", attributes: secondaryAttributes))
+            }
         }
         
         result.append(NSAttributedString(string: "\n"))
@@ -694,6 +730,59 @@ final class BackMatterGenerator {
         }
         
         return result.joined(separator: ", ")
+    }
+    
+    /// Format page references with ranges and bold for primary references
+    /// Example: [1, 2, 3, 5 (primary), 7, 8] → "1-3, **5**, 7-8"
+    private func formatPageReferencesWithPrimary(_ refs: [IndexPageReference]) -> NSAttributedString {
+        guard !refs.isEmpty else { return NSAttributedString() }
+        
+        let sorted = refs.sorted { $0.pageNumber < $1.pageNumber }
+        
+        // Build ranges with primary tracking
+        struct PageRange {
+            var start: Int
+            var end: Int
+            var hasPrimary: Bool
+        }
+        var ranges: [PageRange] = []
+        
+        for ref in sorted {
+            if let lastIndex = ranges.indices.last,
+               ranges[lastIndex].end == ref.pageNumber - 1 {
+                ranges[lastIndex].end = ref.pageNumber
+                ranges[lastIndex].hasPrimary = ranges[lastIndex].hasPrimary || ref.isPrimary
+            } else {
+                ranges.append(PageRange(start: ref.pageNumber, end: ref.pageNumber, hasPrimary: ref.isPrimary))
+            }
+        }
+        
+        let result = NSMutableAttributedString()
+        
+        for (index, range) in ranges.enumerated() {
+            if index > 0 {
+                result.append(NSAttributedString(string: ", ", attributes: secondaryAttributes))
+            }
+            
+            let text: String
+            if range.start == range.end {
+                text = "\(range.start)"
+            } else {
+                text = "\(range.start)–\(range.end)"
+            }
+            
+            // Apply bold if this range includes a primary reference
+            var attrs = secondaryAttributes
+            if range.hasPrimary {
+                if let font = attrs[.font] as? UIFont {
+                    attrs[.font] = UIFont.boldSystemFont(ofSize: font.pointSize)
+                }
+            }
+            
+            result.append(NSAttributedString(string: text, attributes: attrs))
+        }
+        
+        return result
     }
     
     // MARK: - Contributors Section

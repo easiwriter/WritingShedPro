@@ -50,6 +50,9 @@ struct FormattedTextEditor: UIViewRepresentable {
     /// Optional callback when user selects "Add to Glossary" from context menu (Feature 029)
     var onGlossaryAddRequested: ((String) -> Void)?
     
+    /// Optional callback when user selects "Add to Index" from context menu (Feature 033)
+    var onIndexAddRequested: ((String) -> Void)?
+    
     /// Optional callback when Tab key is pressed (Feature 016 - list indent)
     var onTabPressed: (() -> Void)?
     
@@ -107,6 +110,7 @@ struct FormattedTextEditor: UIViewRepresentable {
         onFootnoteDeleted: (([FootnoteAttachment], NSRange) -> Void)? = nil,
         onMixedAttachmentsDeleted: (([ReferenceAttachment], [CommentAttachment], [FootnoteAttachment], NSRange) -> Void)? = nil,
         onGlossaryAddRequested: ((String) -> Void)? = nil,
+        onIndexAddRequested: ((String) -> Void)? = nil,
         onTabPressed: (() -> Void)? = nil,
         onShiftTabPressed: (() -> Void)? = nil
     ) {
@@ -132,6 +136,7 @@ struct FormattedTextEditor: UIViewRepresentable {
         self.onFootnoteDeleted = onFootnoteDeleted
         self.onMixedAttachmentsDeleted = onMixedAttachmentsDeleted
         self.onGlossaryAddRequested = onGlossaryAddRequested
+        self.onIndexAddRequested = onIndexAddRequested
         self.onTabPressed = onTabPressed
         self.onShiftTabPressed = onShiftTabPressed
     }
@@ -176,6 +181,11 @@ struct FormattedTextEditor: UIViewRepresentable {
         // Wire up glossary add requested callback (Feature 029)
         textView.onGlossaryAddRequested = { [weak coordinator] selectedText in
             coordinator?.parent.onGlossaryAddRequested?(selectedText)
+        }
+        
+        // Wire up index add requested callback (Feature 033)
+        textView.onIndexAddRequested = { [weak coordinator] selectedText in
+            coordinator?.parent.onIndexAddRequested?(selectedText)
         }
         
         // Wire up Tab/Shift+Tab callbacks for list indent/outdent (Feature 016)
@@ -1605,6 +1615,7 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
     var onFootnoteTapped: ((FootnoteAttachment, Int) -> Void)?
     var onReferenceTapped: ((ReferenceAttachment, Int) -> Void)?
     var onGlossaryAddRequested: ((String) -> Void)?  // Called with selected text when user selects "Add to Glossary"
+    var onIndexAddRequested: ((String) -> Void)?  // Called with selected text when user selects "Add to Index" (Feature 033)
     
     // Callbacks for list indent/outdent (Feature 016)
     var onTabPressed: (() -> Void)?
@@ -2089,6 +2100,16 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
                     }
                 )
                 menuChildren.append(addToGlossaryAction)
+                
+                // Feature 033: Add "Add to Index" action
+                let addToIndexAction = UIAction(
+                    title: NSLocalizedString("insertMenu.addIndexEntry", comment: "Add to Index"),
+                    image: UIImage(systemName: "list.number"),
+                    handler: { [weak self] _ in
+                        self?.onIndexAddRequested?(selectedText)
+                    }
+                )
+                menuChildren.append(addToIndexAction)
             }
         }
         

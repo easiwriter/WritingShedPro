@@ -125,7 +125,7 @@ From any nested view, long-press the back button to see the navigation stack. Ta
 - **⌘I**: Italic
 - **⌘U**: Underline
 
-See [Keyboard Shortcuts](../09-reference/01-keyboard-shortcut-list.md) for the complete list.
+See [Keyboard Shortcuts](../11-reference/111-keyboard-shortcut-list.md) for the complete list.
 
 ## Customizing the Interface
 
@@ -139,8 +139,8 @@ Writing Shed Pro follows your system's appearance settings:
 Text in the editor respects your system's Dynamic Type settings. Increase system text size in Settings → Accessibility → Display & Text Size for larger editor text.
 
 ## See Also
-- [The Editor](../04-writing/01-the-editor.md)
-- [Keyboard Shortcuts](../09-reference/01-keyboard-shortcut-list.md)
-- [Creating Your First Project](02-creating-your-first-project.md)
+- [The Editor](../4-writing/41-the-editor.md)
+- [Keyboard Shortcuts](../11-reference/111-keyboard-shortcut-list.md)
+- [Creating Your First Project](22-creating-your-first-project.md)
 
 ---

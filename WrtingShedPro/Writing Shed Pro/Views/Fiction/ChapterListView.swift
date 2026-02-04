@@ -457,25 +457,26 @@ struct ChapterRowView: View {
     var isShortFiction: Bool = false
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 3) {
             HStack {
                 // Chapter/Story number
                 if let userOrder = chapter.userOrder {
                     Text(String(format: isShortFiction 
                         ? NSLocalizedString("fiction.story.number", comment: "Story X")
                         : NSLocalizedString("fiction.chapter.number", comment: "Chapter X"), userOrder + 1))
-                        .font(.subheadline)
+                        .font(.callout)
                         .foregroundColor(.secondary)
                 }
             }
             
             Text(chapter.name ?? NSLocalizedString("fiction.untitled", comment: "Untitled"))
-                .font(.headline)
+                .font(.body)
+                .fontWeight(.semibold)
             
             // Summary preview
             if let synopsis = chapter.synopsis, !synopsis.isEmpty {
                 Text(synopsis)
-                    .font(.subheadline)
+                    .font(.callout)
                     .foregroundColor(.secondary)
                     .lineLimit(2)
             }
@@ -484,14 +485,14 @@ struct ChapterRowView: View {
             let sceneCount = chapter.scenes?.count ?? 0
             HStack(spacing: 4) {
                 Image(systemName: "film")
-                    .font(.caption)
+                    .font(.footnote)
                 Text(String(format: isShortFiction
                     ? NSLocalizedString("fiction.story.sceneCount", comment: "Scene count")
                     : NSLocalizedString("fiction.chapter.sceneCount", comment: "Scene count"), sceneCount))
-                    .font(.caption)
+                    .font(.footnote)
             }
             .foregroundColor(.secondary)
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 2)
     }
 }

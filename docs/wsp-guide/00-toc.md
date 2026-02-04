@@ -17,6 +17,7 @@
 - [Project Settings](3-projects/33-project-settings.md)
 - [Folders and Files](3-projects/34-folders-and-files.md)
 - [Organizing Your Work](3-projects/35-organizing-your-work.md)
+- [Manuscript Structure](3-projects/36-manuscript-structure.md)
 
 ## 4. Writing
 - [The Editor](4-writing/41-the-editor.md)
@@ -57,7 +58,7 @@
 - [RTF Export](9-publishing/93-rtf-export.md)
 - [Printing](9-publishing/94-printing.md)
 - [Submission Tracking](9-publishing/95-submission-tracking.md)
-- [Markdown Import/Export](9-publishing/96-markdown-import-export.md)
+- [Markdown Features](9-publishing/96-markdown-features.md)
 
 ## 10. Advanced Features
 - [Search and Replace](10-advanced-features/101-search-and-replace.md)
@@ -67,6 +68,7 @@
 - [Keyboard Shortcuts](10-advanced-features/105-keyboard-shortcuts.md)
 - [Tips and Tricks](10-advanced-features/106-tips-and-tricks.md)
 - [Contributors](10-advanced-features/107-contributors.md)
+- [Index Generation](10-advanced-features/108-index-generation.md)
 
 ## 11. Reference
 - [Keyboard Shortcut List](11-reference/111-keyboard-shortcut-list.md)

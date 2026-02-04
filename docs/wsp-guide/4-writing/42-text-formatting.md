@@ -55,7 +55,7 @@ Paragraph formatting applies to entire paragraphs. Tap the **¶** button to see 
 4. The entire paragraph updates
 
 ### Custom Styles
-You can create and modify styles in the Stylesheet Editor. See [Stylesheet Editor](../08-advanced-features/02-stylesheet-editor.md).
+You can create and modify styles in the Stylesheet Editor. See [Stylesheet Editor](../10-advanced-features/102-stylesheet-editor.md).
 
 ## Text Alignment
 
@@ -258,8 +258,8 @@ When formatting:
 - Keep text readable (not too small)
 
 ## See Also
-- [Headings and Styles](03-headings-and-styles.md)
-- [Stylesheet Editor](../08-advanced-features/02-stylesheet-editor.md)
-- [The Editor](01-the-editor.md)
+- [Headings and Styles](43-headings-and-styles.md)
+- [Stylesheet Editor](../10-advanced-features/102-stylesheet-editor.md)
+- [The Editor](41-the-editor.md)
 
 ---

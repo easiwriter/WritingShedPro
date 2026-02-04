@@ -581,7 +581,8 @@ extension CitationEntry: ReferenceEntryProtocol {}
 
 // MARK: - Index Entry Model
 
-/// Represents an index entry with optional sub-entries
+/// Represents an index entry with optional sub-entries (max 3 levels)
+/// Supports "See" and "See also" cross-references
 @Model
 final class IndexEntry {
     /// Unique identifier
@@ -594,14 +595,28 @@ final class IndexEntry {
     var keyword: String = ""
     
     /// Parent entry for sub-entries (e.g., "Dogs" under "Animals")
+    /// Max 3 levels: entry → sub-entry → sub-sub-entry
     var parentEntry: IndexEntry?
     
     /// Child entries (inverse of parentEntry)
     @Relationship(deleteRule: .cascade, inverse: \IndexEntry.parentEntry)
     var childEntries: [IndexEntry]? = []
     
+    /// "See" cross-reference - redirects to another entry (e.g., "Dogs. See Animals")
+    /// When set, this entry has no page numbers, only points to seeEntry
+    /// Stored as UUID for CloudKit compatibility (relationships require inverses)
+    var seeEntryID: UUID?
+    
+    /// "See also" cross-references - additional related entries
+    /// Stored as JSON-encoded array of UUIDs for CloudKit compatibility
+    var seeAlsoEntryIDsData: Data?
+    
     /// Number of references to this entry in the document
     var referenceCount: Int = 0
+    
+    /// List of file IDs that contain references to this entry (for efficient deletion)
+    /// Stored as JSON-encoded array for CloudKit compatibility
+    var referencingFileIDsData: Data?
     
     /// When the entry was created
     var createdAt: Date = Date()
@@ -612,6 +627,12 @@ final class IndexEntry {
     /// Page numbers where this entry appears (calculated at export time)
     /// Stored as JSON-encoded array for CloudKit compatibility
     var pageNumbersData: Data?
+    
+    /// Primary page numbers (displayed bold in index)
+    /// Stored as JSON-encoded array for CloudKit compatibility
+    var primaryPageNumbersData: Data?
+    
+    // MARK: - Computed Properties
     
     /// Computed property for page numbers
     var pageNumbers: [Int] {
@@ -624,6 +645,48 @@ final class IndexEntry {
         }
         set {
             pageNumbersData = try? JSONEncoder().encode(newValue)
+        }
+    }
+    
+    /// Computed property for primary page numbers (displayed bold)
+    var primaryPageNumbers: [Int] {
+        get {
+            guard let data = primaryPageNumbersData,
+                  let decoded = try? JSONDecoder().decode([Int].self, from: data) else {
+                return []
+            }
+            return decoded
+        }
+        set {
+            primaryPageNumbersData = try? JSONEncoder().encode(newValue)
+        }
+    }
+    
+    /// Computed property for file IDs containing references
+    var referencingFileIDs: [UUID] {
+        get {
+            guard let data = referencingFileIDsData,
+                  let decoded = try? JSONDecoder().decode([UUID].self, from: data) else {
+                return []
+            }
+            return decoded
+        }
+        set {
+            referencingFileIDsData = try? JSONEncoder().encode(newValue)
+        }
+    }
+    
+    /// Computed property for "See also" entry IDs
+    var seeAlsoEntryIDs: [UUID] {
+        get {
+            guard let data = seeAlsoEntryIDsData,
+                  let decoded = try? JSONDecoder().decode([UUID].self, from: data) else {
+                return []
+            }
+            return decoded
+        }
+        set {
+            seeAlsoEntryIDsData = try? JSONEncoder().encode(newValue)
         }
     }
     
@@ -718,6 +781,97 @@ final class IndexEntry {
         }
         
         return result.joined(separator: ", ")
+    }
+    
+    // MARK: - Depth & Hierarchy
+    
+    /// Maximum allowed depth for index entries (entry → sub-entry → sub-sub-entry)
+    static let maxDepth = 3
+    
+    /// Calculate the depth level of this entry (1 = top-level, 2 = sub-entry, 3 = sub-sub-entry)
+    var depth: Int {
+        if let parent = parentEntry {
+            return parent.depth + 1
+        }
+        return 1
+    }
+    
+    /// Check if a new child can be added (respects max depth of 3)
+    var canHaveChildren: Bool {
+        depth < IndexEntry.maxDepth
+    }
+    
+    /// Check if this entry can be moved under a potential parent
+    func canBeChildOf(_ potentialParent: IndexEntry?) -> Bool {
+        guard let parent = potentialParent else {
+            return true  // Can always be moved to top level
+        }
+        // Check that adding under this parent wouldn't exceed max depth
+        return parent.depth < IndexEntry.maxDepth
+    }
+    
+    // MARK: - File Reference Tracking
+    
+    /// Add a file ID to the referencing files list
+    func addReferencingFile(_ fileID: UUID) {
+        var fileIDs = referencingFileIDs
+        if !fileIDs.contains(fileID) {
+            fileIDs.append(fileID)
+            referencingFileIDs = fileIDs
+        }
+    }
+    
+    /// Remove a file ID from the referencing files list
+    func removeReferencingFile(_ fileID: UUID) {
+        var fileIDs = referencingFileIDs
+        fileIDs.removeAll { $0 == fileID }
+        referencingFileIDs = fileIDs
+    }
+    
+    /// Check if a specific file references this entry
+    func isReferencedBy(fileID: UUID) -> Bool {
+        referencingFileIDs.contains(fileID)
+    }
+    
+    // MARK: - Cross-References
+    
+    /// Whether this entry is a "See" reference (no page numbers, just points to another entry)
+    var isSeeReference: Bool {
+        seeEntryID != nil
+    }
+    
+    /// Add a "See also" reference to another entry
+    func addSeeAlso(_ entryID: UUID) {
+        var ids = seeAlsoEntryIDs
+        if !ids.contains(entryID) {
+            ids.append(entryID)
+            seeAlsoEntryIDs = ids
+        }
+        modifiedAt = Date()
+    }
+    
+    /// Remove a "See also" reference
+    func removeSeeAlso(_ entryID: UUID) {
+        var ids = seeAlsoEntryIDs
+        ids.removeAll { $0 == entryID }
+        seeAlsoEntryIDs = ids
+        modifiedAt = Date()
+    }
+    
+    // MARK: - Primary Reference Tracking
+    
+    /// Add a page number as a primary reference (displayed bold)
+    func addPrimaryPageNumber(_ pageNumber: Int) {
+        var pages = primaryPageNumbers
+        if !pages.contains(pageNumber) {
+            pages.append(pageNumber)
+            primaryPageNumbers = pages
+        }
+    }
+    
+    /// Check if a page number is a primary reference
+    func isPrimaryPageNumber(_ pageNumber: Int) -> Bool {
+        primaryPageNumbers.contains(pageNumber)
     }
 }
 

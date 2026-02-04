@@ -46,6 +46,9 @@ final class ReferenceAttachment: NSTextAttachment {
         }
     }
     
+    /// For index markers: whether this is a primary reference (shown bold in index)
+    var isPrimaryReference: Bool = false
+    
     /// Whether this attachment is being rendered for the page/print view (as opposed to edit view)
     /// When true: render in black. When false: render in blue
     var isForPageView: Bool = false {
@@ -138,10 +141,13 @@ final class ReferenceAttachment: NSTextAttachment {
     }
     
     /// Convenience initializer for index markers (invisible)
-    /// - Parameter entryID: UUID of the IndexEntry
-    convenience init(indexEntryID: UUID) {
+    /// - Parameters:
+    ///   - entryID: UUID of the IndexEntry
+    ///   - isPrimary: Whether this is a primary reference (shown bold in generated index)
+    convenience init(indexEntryID: UUID, isPrimary: Bool = false) {
         // Index markers use a zero-width space for invisibility
         self.init(referenceType: .index, entryID: indexEntryID, displayText: "\u{200B}")
+        self.isPrimaryReference = isPrimary
     }
     
     required init?(coder: NSCoder) {
@@ -175,6 +181,7 @@ final class ReferenceAttachment: NSTextAttachment {
         self.entryID = entryID
         self.displayText = displayText
         self.displayNumber = coder.decodeInteger(forKey: "displayNumber")
+        self.isPrimaryReference = coder.decodeBool(forKey: "isPrimaryReference")
         
         #if DEBUG
         print("✅ ReferenceAttachment decoded: type=\(type), entryID=\(entryID), displayText=\(displayText)")
@@ -189,6 +196,7 @@ final class ReferenceAttachment: NSTextAttachment {
         coder.encode(entryID.uuidString, forKey: "entryID")
         coder.encode(displayText, forKey: "displayText")
         coder.encode(displayNumber, forKey: "displayNumber")
+        coder.encode(isPrimaryReference, forKey: "isPrimaryReference")
         
         #if DEBUG
         print("💾 ReferenceAttachment encoding: type=\(referenceType), entryID=\(entryID)")

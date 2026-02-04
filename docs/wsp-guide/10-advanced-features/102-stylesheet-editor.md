@@ -166,8 +166,8 @@ For submissions, check guidelines and configure styles to match.
 - New text will also use updated style
 
 ## See Also
-- [Text Formatting](../04-writing/02-text-formatting.md)
-- [Headings and Styles](../04-writing/03-headings-and-styles.md)
-- [Page Setup](03-page-setup.md)
+- [Text Formatting](../4-writing/42-text-formatting.md)
+- [Headings and Styles](../4-writing/43-headings-and-styles.md)
+- [Page Setup](103-page-setup.md)
 
 ---

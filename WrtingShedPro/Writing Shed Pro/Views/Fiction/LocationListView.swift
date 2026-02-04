@@ -148,13 +148,14 @@ struct LocationRowView: View {
     let location: Location
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 3) {
             Text(location.name ?? NSLocalizedString("fiction.untitled", comment: "Untitled"))
-                .font(.headline)
+                .font(.body)
+                .fontWeight(.semibold)
             
             if let detail = location.detail, !detail.isEmpty {
                 Text(detail)
-                    .font(.subheadline)
+                    .font(.callout)
                     .foregroundColor(.secondary)
                     .lineLimit(2)
             }
@@ -163,14 +164,14 @@ struct LocationRowView: View {
             if let scenes = location.scenes, !scenes.isEmpty {
                 HStack(spacing: 4) {
                     Image(systemName: "film")
-                        .font(.caption)
+                        .font(.footnote)
                     Text(String(format: NSLocalizedString("fiction.location.sceneCount", comment: "Scene count"), scenes.count))
-                        .font(.caption)
+                        .font(.footnote)
                 }
                 .foregroundColor(.secondary)
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 2)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

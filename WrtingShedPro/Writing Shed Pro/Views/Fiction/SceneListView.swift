@@ -795,24 +795,25 @@ struct SceneRowView: View {
     let scene: StoryScene
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 3) {
             HStack {
                 // Scene number
                 if let userOrder = scene.userOrder {
                     Text("\(userOrder + 1).")
-                        .font(.subheadline)
+                        .font(.callout)
                         .foregroundColor(.secondary)
                         .frame(width: 30, alignment: .leading)
                 }
                 
                 Text(scene.name ?? NSLocalizedString("fiction.untitled", comment: "Untitled"))
-                    .font(.headline)
+                    .font(.body)
+                    .fontWeight(.semibold)
             }
             
             // Summary preview
             if let synopsis = scene.synopsis, !synopsis.isEmpty {
                 Text(synopsis)
-                    .font(.subheadline)
+                    .font(.callout)
                     .foregroundColor(.secondary)
                     .lineLimit(2)
             }
@@ -822,9 +823,9 @@ struct SceneRowView: View {
                 if let characters = scene.characters, !characters.isEmpty {
                     HStack(spacing: 2) {
                         Image(systemName: "person.2")
-                            .font(.caption2)
+                            .font(.footnote)
                         Text("\(characters.count)")
-                            .font(.caption2)
+                            .font(.footnote)
                     }
                     .foregroundColor(.secondary)
                 }
@@ -832,15 +833,15 @@ struct SceneRowView: View {
                 if let location = scene.location {
                     HStack(spacing: 2) {
                         Image(systemName: "mappin")
-                            .font(.caption2)
+                            .font(.footnote)
                         Text(location.name ?? "")
-                            .font(.caption2)
+                            .font(.footnote)
                             .lineLimit(1)
                     }
                     .foregroundColor(.secondary)
                 }
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 2)
     }
 }

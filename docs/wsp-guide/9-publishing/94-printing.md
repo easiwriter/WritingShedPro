@@ -94,7 +94,7 @@ Before printing, ensure your page setup matches:
 4. Set headers/footers if wanted
 5. Check in Pagination View
 
-See [Page Setup](../08-advanced-features/03-page-setup.md) for details.
+See [Page Setup](../10-advanced-features/103-page-setup.md) for details.
 
 ## Printing Tips
 
@@ -168,8 +168,8 @@ If direct printing isn't working:
 3. Use a different printer or print service
 
 ## See Also
-- [Export Options](01-export-options.md)
-- [PDF Export](02-pdf-export.md)
-- [Page Setup](../08-advanced-features/03-page-setup.md)
+- [Export Options](91-export-options.md)
+- [PDF Export](92-pdf-export.md)
+- [Page Setup](../10-advanced-features/103-page-setup.md)
 
 ---

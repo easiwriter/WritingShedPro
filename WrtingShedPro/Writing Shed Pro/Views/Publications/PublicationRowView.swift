@@ -17,10 +17,11 @@ struct PublicationRowView: View {
                 .font(.title2)
                 .accessibilityHidden(true) // Announced in label
             
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 3) {
                 // Name
                 Text(publication.name)
-                    .font(.headline)
+                    .font(.body)
+                    .fontWeight(.semibold)
                 
                 // Deadline status
                 if publication.hasDeadline {
@@ -36,7 +37,7 @@ struct PublicationRowView: View {
                 .foregroundStyle(.tertiary)
                 .accessibilityHidden(true)
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 2)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityHint(Text(NSLocalizedString("accessibility.publication.tap.hint", comment: "Tap to view hint")))
@@ -45,10 +46,10 @@ struct PublicationRowView: View {
     private var deadlineView: some View {
         HStack(spacing: 4) {
             Image(systemName: deadlineIcon)
-                .font(.caption)
+                .font(.footnote)
             
             Text(deadlineText)
-                .font(.caption)
+                .font(.footnote)
         }
         .foregroundStyle(deadlineColor)
     }

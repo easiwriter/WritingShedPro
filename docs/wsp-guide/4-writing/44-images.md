@@ -179,8 +179,8 @@ When you export your document:
 - Check default image style settings
 
 ## See Also
-- [The Editor](01-the-editor.md)
-- [Stylesheet Editor](../08-advanced-features/02-stylesheet-editor.md)
-- [PDF Export](../07-publishing/02-pdf-export.md)
+- [The Editor](41-the-editor.md)
+- [Stylesheet Editor](../10-advanced-features/102-stylesheet-editor.md)
+- [PDF Export](../9-publishing/92-pdf-export.md)
 
 ---

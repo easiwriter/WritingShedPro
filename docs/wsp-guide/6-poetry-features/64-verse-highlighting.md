@@ -59,7 +59,7 @@ Writing Shed Pro uses:
 - High accuracy for standard pronunciation in your selected dialect
 
 ### Dialect Selection
-Stress patterns can differ significantly between American and British English. See [Syllable Counting](02-syllable-counting.md#selecting-your-dialect) for how to switch between dialects.
+Stress patterns can differ significantly between American and British English. See [Syllable Counting](62-syllable-counting.md#selecting-your-dialect) for how to switch between dialects.
 
 #### Stress Differences by Dialect
 | Word | American | British |
@@ -160,8 +160,8 @@ If the stress marks distract you:
 3. Use as a tool, not a constant presence
 
 ## See Also
-- [Poetry Mode Overview](01-poetry-mode-overview.md)
-- [Syllable Counting](02-syllable-counting.md)
-- [Forms and Templates](05-forms-and-templates.md)
+- [Poetry Mode Overview](61-poetry-mode-overview.md)
+- [Syllable Counting](62-syllable-counting.md)
+- [Forms and Templates](65-forms-and-templates.md)
 
 ---

@@ -125,10 +125,10 @@ Writing Shed Pro offers multiple ways to export your work for sharing, submissio
 - Check file isn't corrupted
 
 ## See Also
-- [PDF Export](02-pdf-export.md)
-- [RTF Export](03-rtf-export.md)
-- [Markdown Import and Export](06-markdown-import-export.md)
-- [Printing](04-printing.md)
-- [Page Setup](../08-advanced-features/03-page-setup.md)
+- [PDF Export](92-pdf-export.md)
+- [RTF Export](93-rtf-export.md)
+- [Markdown Import and Export](96-markdown-import-export.md)
+- [Printing](94-printing.md)
+- [Page Setup](../10-advanced-features/103-page-setup.md)
 
 ---

@@ -184,8 +184,8 @@ Only when truly needed:
 - Review parenthetical placement
 
 ## See Also
-- [Drama Mode Overview](01-drama-mode-overview.md)
-- [Film vs Stage Formats](03-film-vs-stage-formats.md)
-- [DML Reference](04-dml-reference.md)
+- [Drama Mode Overview](81-drama-mode-overview.md)
+- [Film vs Stage Formats](83-film-vs-stage-formats.md)
+- [DML Reference](84-dml-reference.md)
 
 ---

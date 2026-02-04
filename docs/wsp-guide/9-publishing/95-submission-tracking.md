@@ -170,8 +170,8 @@ Use this data to:
 - You can see what was actually sent
 
 ## See Also
-- [Collections](../08-advanced-features/04-collections.md)
-- [Organizing Your Work](../03-projects/05-organizing-your-work.md)
-- [Export Options](01-export-options.md)
+- [Collections](../10-advanced-features/104-collections.md)
+- [Organizing Your Work](../3-projects/35-organizing-your-work.md)
+- [Export Options](91-export-options.md)
 
 ---

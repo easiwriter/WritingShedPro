@@ -219,8 +219,8 @@ The current content becomes a new version, so nothing is lost.
 - Track submissions through the Submissions folder
 
 ## See Also
-- [Organizing Your Work](05-organizing-your-work.md)
-- [The Editor](../04-writing/01-the-editor.md)
-- [Collections](../08-advanced-features/04-collections.md)
+- [Organizing Your Work](35-organizing-your-work.md)
+- [The Editor](../4-writing/41-the-editor.md)
+- [Collections](../10-advanced-features/104-collections.md)
 
 ---

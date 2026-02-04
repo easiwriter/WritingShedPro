@@ -136,8 +136,8 @@ Write exercises focusing on specific sounds.
 Find synonyms that offer better rhymes.
 
 ## See Also
-- [Poetry Mode Overview](01-poetry-mode-overview.md)
-- [Syllable Counting](02-syllable-counting.md)
-- [Forms and Templates](05-forms-and-templates.md)
+- [Poetry Mode Overview](61-poetry-mode-overview.md)
+- [Syllable Counting](62-syllable-counting.md)
+- [Forms and Templates](65-forms-and-templates.md)
 
 ---

@@ -262,8 +262,8 @@ Same DML produces different formatting:
 5. **Consistency**: Same format throughout
 
 ## See Also
-- [DML Reference](../08-drama-features/04-dml-reference.md)
-- [Script Formatting](../08-drama-features/02-script-formatting.md)
-- [Film vs Stage](../08-drama-features/03-film-vs-stage.md)
+- [DML Reference](../8-drama-features/84-dml-reference.md)
+- [Script Formatting](../8-drama-features/82-script-formatting.md)
+- [Film vs Stage](../8-drama-features/83-film-vs-stage.md)
 
 ---

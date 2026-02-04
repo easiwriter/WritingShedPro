@@ -159,8 +159,7 @@ Check footnotes in pagination view before exporting to ensure they appear correc
 - They're tappable despite small size
 
 ## See Also
-- [The Editor](01-the-editor.md)
-- [Pagination](../07-publishing/05-pagination.md)
-- [PDF Export](../07-publishing/02-pdf-export.md)
+- [The Editor](41-the-editor.md)
+- [PDF Export](../9-publishing/92-pdf-export.md)
 
 ---

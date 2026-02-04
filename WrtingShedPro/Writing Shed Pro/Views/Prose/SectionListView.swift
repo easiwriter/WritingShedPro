@@ -412,23 +412,24 @@ struct SectionRowView: View {
     let section: ProseSection
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 3) {
             HStack {
                 // Section number
                 if let userOrder = section.userOrder {
                     Text(String(format: NSLocalizedString("prose.section.number", comment: "Section X"), userOrder + 1))
-                        .font(.subheadline)
+                        .font(.callout)
                         .foregroundColor(.secondary)
                 }
             }
             
             Text(section.name ?? NSLocalizedString("prose.untitled", comment: "Untitled"))
-                .font(.headline)
+                .font(.body)
+                .fontWeight(.semibold)
             
             // Synopsis preview
             if let synopsis = section.synopsis, !synopsis.isEmpty {
                 Text(synopsis)
-                    .font(.subheadline)
+                    .font(.callout)
                     .foregroundColor(.secondary)
                     .lineLimit(2)
             }
@@ -437,12 +438,12 @@ struct SectionRowView: View {
             let fileCount = section.textFiles?.count ?? 0
             HStack(spacing: 4) {
                 Image(systemName: "doc.text")
-                    .font(.caption)
+                    .font(.footnote)
                 Text(String(format: NSLocalizedString("prose.section.fileCount", comment: "File count"), fileCount))
-                    .font(.caption)
+                    .font(.footnote)
             }
             .foregroundColor(.secondary)
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 2)
     }
 }

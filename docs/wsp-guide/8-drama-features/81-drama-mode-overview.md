@@ -82,7 +82,7 @@ We don't have a choice.
 
 This renders as professional script format based on your settings.
 
-See [DML Reference](04-dml-reference.md) for complete syntax.
+See [DML Reference](84-dml-reference.md) for complete syntax.
 
 ## Core Concepts
 
@@ -175,8 +175,8 @@ Try rendering in both film and stage:
 - Choose appropriately for your target
 
 ## See Also
-- [Script Formatting](02-script-formatting.md)
-- [Film vs Stage Formats](03-film-vs-stage-formats.md)
-- [DML Reference](04-dml-reference.md)
+- [Script Formatting](82-script-formatting.md)
+- [Film vs Stage Formats](83-film-vs-stage-formats.md)
+- [DML Reference](84-dml-reference.md)
 
 ---

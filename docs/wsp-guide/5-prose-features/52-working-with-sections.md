@@ -147,8 +147,8 @@ Periodically check the Unassigned group—these files may need to be organized o
 When exporting, you can choose to export individual sections as separate documents.
 
 ## See Also
-- [Prose Mode Overview](01-prose-mode-overview.md)
-- [File Organization](03-file-organization.md)
-- [Folders and Files](../03-projects/04-folders-and-files.md)
+- [Prose Mode Overview](51-prose-mode-overview.md)
+- [File Organization](53-file-organization.md)
+- [Folders and Files](../3-projects/34-folders-and-files.md)
 
 ---

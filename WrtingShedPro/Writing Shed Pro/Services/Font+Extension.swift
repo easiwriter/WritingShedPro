@@ -203,11 +203,13 @@ extension UIFont {
         }
         symbolicTraits = CTFontSymbolicTraits(rawValue: traits)
         if traits == 0 {
-            newFontRef = CTFontCreateCopyWithAttributes(fontWithoutTrait, 0.0, nil, nil)
+            // Use size (not 0.0) to preserve the font size
+            newFontRef = CTFontCreateCopyWithAttributes(fontWithoutTrait, size, nil, nil)
         } else {
-            newFontRef = CTFontCreateCopyWithSymbolicTraits(fontWithoutTrait, 0.0, nil, symbolicTraits, symbolicTraits)
+            // Use size (not 0.0) to preserve the font size
+            newFontRef = CTFontCreateCopyWithSymbolicTraits(fontWithoutTrait, size, nil, symbolicTraits, symbolicTraits)
             if newFontRef == nil {
-                newFontRef = CTFontCreateCopyWithAttributes(fontWithoutTrait, 0.0, nil, nil)
+                newFontRef = CTFontCreateCopyWithAttributes(fontWithoutTrait, size, nil, nil)
             }
         }
         guard let newFont = newFontRef else {

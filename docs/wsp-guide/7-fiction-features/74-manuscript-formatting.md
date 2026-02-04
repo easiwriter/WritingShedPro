@@ -91,7 +91,7 @@ Once assembled, export your manuscript:
 - Some formatting may vary
 - Good for editor collaboration
 
-See [Publishing](../07-publishing/01-export-options.md) for full export details.
+See [Publishing](../9-publishing/91-export-options.md) for full export details.
 
 ## Formatting for Different Purposes
 
@@ -160,9 +160,9 @@ See [Publishing](../07-publishing/01-export-options.md) for full export details.
 - When in doubt, ask
 
 ## See Also
-- [Fiction Mode Overview](01-fiction-mode-overview.md)
-- [Chapter Management](02-chapter-management.md)
-- [Export Options](../07-publishing/01-export-options.md)
-- [PDF Export](../07-publishing/02-pdf-export.md)
+- [Fiction Mode Overview](71-fiction-mode-overview.md)
+- [Chapter Management](72-chapter-management.md)
+- [Export Options](../9-publishing/91-export-options.md)
+- [PDF Export](../9-publishing/92-pdf-export.md)
 
 ---

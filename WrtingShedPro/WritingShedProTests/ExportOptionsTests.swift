@@ -59,8 +59,8 @@ final class ExportOptionsTests: XCTestCase {
         options.format = .plainText
         XCTAssertEqual(options.format, .plainText)
         
-        options.format = .epub
-        XCTAssertEqual(options.format, .epub)
+        options.format = .word
+        XCTAssertEqual(options.format, .word)
     }
     
     // MARK: - Equatable Tests
@@ -105,7 +105,8 @@ final class ExportOptionsTests: XCTestCase {
         XCTAssertEqual(ExportFormat.plainText.fileExtension, "txt")
         XCTAssertEqual(ExportFormat.word.fileExtension, "docx")
         XCTAssertEqual(ExportFormat.html.fileExtension, "html")
-        XCTAssertEqual(ExportFormat.epub.fileExtension, "epub")
+        // EPUB reserved for future release
+        // XCTAssertEqual(ExportFormat.epub.fileExtension, "epub")
         XCTAssertEqual(ExportFormat.markdown.fileExtension, "md")
     }
     
@@ -115,7 +116,8 @@ final class ExportOptionsTests: XCTestCase {
         XCTAssertEqual(ExportFormat.plainText.mimeType, "text/plain")
         XCTAssertEqual(ExportFormat.word.mimeType, "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
         XCTAssertEqual(ExportFormat.html.mimeType, "text/html")
-        XCTAssertEqual(ExportFormat.epub.mimeType, "application/epub+zip")
+        // EPUB reserved for future release
+        // XCTAssertEqual(ExportFormat.epub.mimeType, "application/epub+zip")
         XCTAssertEqual(ExportFormat.markdown.mimeType, "text/markdown")
     }
     
@@ -125,7 +127,8 @@ final class ExportOptionsTests: XCTestCase {
         XCTAssertEqual(ExportFormat.plainText.icon, "doc.text")
         XCTAssertEqual(ExportFormat.word.icon, "doc")
         XCTAssertEqual(ExportFormat.html.icon, "chevron.left.slash.chevron.right")
-        XCTAssertEqual(ExportFormat.epub.icon, "book")
+        // EPUB reserved for future release
+        // XCTAssertEqual(ExportFormat.epub.icon, "book")
         XCTAssertEqual(ExportFormat.markdown.icon, "number.square")
     }
     
@@ -136,7 +139,9 @@ final class ExportOptionsTests: XCTestCase {
         XCTAssertFalse(ExportFormat.plainText.localizedName.isEmpty)
         XCTAssertFalse(ExportFormat.word.localizedName.isEmpty)
         XCTAssertFalse(ExportFormat.html.localizedName.isEmpty)
-        XCTAssertFalse(ExportFormat.epub.localizedName.isEmpty)
+        // EPUB reserved for future release
+        // XCTAssertFalse(ExportFormat.epub.localizedName.isEmpty)
+        XCTAssertFalse(ExportFormat.markdown.localizedName.isEmpty)
     }
     
     func testExportFormatIdentifiable() {
@@ -150,13 +155,14 @@ final class ExportOptionsTests: XCTestCase {
     func testExportFormatAllCases() {
         let allCases = ExportFormat.allCases
         
-        XCTAssertEqual(allCases.count, 7)
+        XCTAssertEqual(allCases.count, 6)  // EPUB reserved for future release
         XCTAssertTrue(allCases.contains(.pdf))
         XCTAssertTrue(allCases.contains(.rtf))
         XCTAssertTrue(allCases.contains(.plainText))
         XCTAssertTrue(allCases.contains(.word))
         XCTAssertTrue(allCases.contains(.html))
-        XCTAssertTrue(allCases.contains(.epub))
+        // EPUB reserved for future release
+        // XCTAssertTrue(allCases.contains(.epub))
         XCTAssertTrue(allCases.contains(.markdown))
     }
 }

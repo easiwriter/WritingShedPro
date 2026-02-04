@@ -92,7 +92,7 @@ You can modify any style to match your preferences:
 
 Changes apply to all paragraphs using that style.
 
-See [Stylesheet Editor](../08-advanced-features/02-stylesheet-editor.md) for complete details.
+See [Stylesheet Editor](../10-advanced-features/102-stylesheet-editor.md) for complete details.
 
 ## Creating New Styles
 
@@ -176,8 +176,8 @@ Each part title might be Heading 1, each chapter Heading 2.
 - Or manually adjust to desired settings
 
 ## See Also
-- [Text Formatting](02-text-formatting.md)
-- [Stylesheet Editor](../08-advanced-features/02-stylesheet-editor.md)
-- [The Editor](01-the-editor.md)
+- [Text Formatting](42-text-formatting.md)
+- [Stylesheet Editor](../10-advanced-features/102-stylesheet-editor.md)
+- [The Editor](41-the-editor.md)
 
 ---

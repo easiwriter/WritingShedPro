@@ -151,7 +151,7 @@ If something seems broken, try force-quitting and reopening the app.
 Found a real bug? Report it through the app or support channels.
 
 ## See Also
-- [Keyboard Shortcuts](05-keyboard-shortcuts.md)
+- [Keyboard Shortcuts](105-keyboard-shortcuts.md)
 - [Troubleshooting](../11-reference/03-troubleshooting.md)
 - [FAQ](../11-reference/04-faq.md)
 

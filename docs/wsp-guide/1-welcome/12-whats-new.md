@@ -56,7 +56,7 @@ We're continually improving Writing Shed Pro. Features in development include:
 - Additional export formats
 
 ## See Also
-- [Introduction](01-introduction.md)
-- [Quick Start Guide](03-quick-start-guide.md)
+- [Introduction](11-introduction.md)
+- [Quick Start Guide](13-quick-start-guide.md)
 
 ---

@@ -63,7 +63,7 @@ Poetry projects include specialized tools for writing verse in both free and for
 - **Collections**: Group related poems together
 - **Submissions**: Track where you've sent your work
 
-See [Poetry Mode Overview](../06-poetry-features/01-poetry-mode-overview.md) for details.
+See [Poetry Mode Overview](../6-poetry-features/61-poetry-mode-overview.md) for details.
 
 ## Fiction Projects
 
@@ -102,7 +102,7 @@ Choose a story structure to help organize your plot:
 - **Scene-Plot Linking**: Connect scenes to plot elements
 - **Manuscript Assembly**: Combine chapters into a complete manuscript
 
-See [Fiction Mode Overview](../07-fiction-features/01-fiction-mode-overview.md) for details.
+See [Fiction Mode Overview](../7-fiction-features/71-fiction-mode-overview.md) for details.
 
 ## Drama Projects
 
@@ -137,7 +137,7 @@ Choose how your script is formatted:
 - **Scene Headings**: INT./EXT. or Act/Scene formats
 - **Transitions**: CUT TO, FADE OUT, BLACKOUT
 
-See [Drama Mode Overview](../08-drama-features/01-drama-mode-overview.md) for details.
+See [Drama Mode Overview](../8-drama-features/81-drama-mode-overview.md) for details.
 
 ## Choosing a Project Type
 
@@ -161,9 +161,9 @@ If you realize you need a different type:
 3. Delete the old project if no longer needed
 
 ## See Also
-- [Creating Projects](02-creating-projects.md)
-- [Poetry Mode Overview](../06-poetry-features/01-poetry-mode-overview.md)
-- [Fiction Mode Overview](../07-fiction-features/01-fiction-mode-overview.md)
-- [Drama Mode Overview](../08-drama-features/01-drama-mode-overview.md)
+- [Creating Projects](32-creating-projects.md)
+- [Poetry Mode Overview](../6-poetry-features/61-poetry-mode-overview.md)
+- [Fiction Mode Overview](../7-fiction-features/71-fiction-mode-overview.md)
+- [Drama Mode Overview](../8-drama-features/81-drama-mode-overview.md)
 
 ---

@@ -69,6 +69,7 @@ struct FileEditView: View {
     @State private var showIndexList = false
     @State private var showNewIndexEntryDialog = false
     @State private var selectedIndexEntry: IndexEntry?
+    @State private var indexKeywordFromContextMenu: String?  // Keyword selected from context menu "Add to Index"
     
     // Feature 029: References (Back Matter)
     @State private var showReferencesList = false
@@ -245,6 +246,9 @@ struct FileEditView: View {
                                 onGlossaryAddRequested: { selectedText in
                                     handleGlossaryAddRequested(selectedText)
                                 },
+                                onIndexAddRequested: { selectedText in
+                                    handleIndexAddRequested(selectedText)
+                                },
                                 onTabPressed: {
                                     insertTab()
                                 },
@@ -303,6 +307,9 @@ struct FileEditView: View {
                                 },
                                 onGlossaryAddRequested: { selectedText in
                                     handleGlossaryAddRequested(selectedText)
+                                },
+                                onIndexAddRequested: { selectedText in
+                                    handleIndexAddRequested(selectedText)
                                 },
                                 onTabPressed: {
                                     insertTab()
@@ -514,6 +521,22 @@ struct FileEditView: View {
                 .foregroundColor(.secondary)
             
             Spacer()
+            
+            #if !targetEnvironment(macCatalyst)
+            // Keyboard dismiss button (iOS only - Mac has physical keyboard)
+            Button {
+                if let textView = textViewCoordinator.textView {
+                    if textView.isFirstResponder {
+                        textView.resignFirstResponder()
+                    } else {
+                        textView.becomeFirstResponder()
+                    }
+                }
+            } label: {
+                Image(systemName: "keyboard.chevron.compact.down")
+                    .font(.system(size: 17))
+            }
+            #endif
         }
         .padding(.horizontal)
         .padding(.vertical, 8)
@@ -1119,6 +1142,7 @@ struct FileEditView: View {
                 Button(action: { showNewIndexEntryDialog = true }) {
                     Label(NSLocalizedString("insertMenu.addIndexEntry", comment: "Add Index Entry"), systemImage: "list.bullet.indent")
                 }
+                .keyboardShortcut("x", modifiers: [.command, .shift])
             }
 
             // Lists submenu
@@ -1765,8 +1789,13 @@ struct FileEditView: View {
                 if let project = file.project {
                     IndexEditorSheet(
                         project: project,
-                        onSave: { entry in
-                            insertIndexMarker(for: entry)
+                        prefilledKeyword: indexKeywordFromContextMenu,
+                        onSave: { entry, isPrimary in
+                            insertIndexMarker(for: entry, isPrimary: isPrimary)
+                            indexKeywordFromContextMenu = nil
+                        },
+                        onCancel: {
+                            indexKeywordFromContextMenu = nil
                         }
                     )
                 }
@@ -1776,7 +1805,7 @@ struct FileEditView: View {
                     IndexEditorSheet(
                         project: project,
                         existingEntry: entry,
-                        onSave: { _ in
+                        onSave: { _, _ in
                             forceRefresh.toggle()
                         },
                         onCancel: {
@@ -4673,9 +4702,41 @@ struct FileEditView: View {
     
     // MARK: - Index (Feature 029)
     
+    /// Handle "Add to Index" from context menu with selected text (Feature 033)
+    private func handleIndexAddRequested(_ selectedText: String) {
+        let trimmedText = selectedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedText.isEmpty else { return }
+        
+        guard let project = file.project else { return }
+        
+        // Check if this index entry already exists (case-insensitive)
+        if let existingEntry = project.indexEntries?.first(where: { 
+            $0.keyword.lowercased() == trimmedText.lowercased() 
+        }) {
+            // Entry exists - insert marker directly
+            #if DEBUG
+            print("📑 Index entry '\(trimmedText)' already exists, inserting marker directly")
+            #endif
+            insertIndexMarker(for: existingEntry)
+            
+            // Track the file reference
+            existingEntry.addReferencingFile(file.id)
+        } else {
+            // Entry is new - show editor with pre-filled keyword
+            #if DEBUG
+            print("📑 New index entry '\(trimmedText)' - showing editor")
+            #endif
+            indexKeywordFromContextMenu = trimmedText
+            showNewIndexEntryDialog = true
+        }
+    }
+    
     /// Insert an index marker at the current cursor position
     /// Note: Index markers are invisible in the editor
-    private func insertIndexMarker(for entry: IndexEntry) {
+    /// - Parameters:
+    ///   - entry: The index entry to create a marker for
+    ///   - isPrimary: Whether this is a primary reference (displayed bold in generated index)
+    private func insertIndexMarker(for entry: IndexEntry, isPrimary: Bool = false) {
         guard let textView = textViewCoordinator.textView else {
             #if DEBUG
             print("❌ Cannot insert index marker: no text view")
@@ -4684,7 +4745,7 @@ struct FileEditView: View {
         }
         
         #if DEBUG
-        print("📑 Inserting index marker for: \(entry.keyword)")
+        print("📑 Inserting index marker for: \(entry.keyword) (primary: \(isPrimary))")
         #endif
         
         // Get current cursor position
@@ -4692,7 +4753,8 @@ struct FileEditView: View {
         
         // Create the reference attachment using the convenience init for index
         let attachment = ReferenceAttachment(
-            indexEntryID: entry.id
+            indexEntryID: entry.id,
+            isPrimary: isPrimary
         )
         
         // Create attributed string with the attachment
@@ -4708,6 +4770,9 @@ struct FileEditView: View {
         
         // Increment reference count
         entry.referenceCount += 1
+        
+        // Track file reference
+        entry.addReferencingFile(file.id)
         
         // Update the attributed content binding
         attributedContent = textView.attributedText ?? NSAttributedString()
@@ -5532,10 +5597,16 @@ struct FileEditView: View {
     private func applyFormatting(_ formatType: FormatType) {
         #if DEBUG
         print("🎨 applyFormatting(\(formatType)) called")
-        #if DEBUG
         print("🎨 selectedRange: {\(selectedRange.location), \(selectedRange.length)}")
         #endif
-        #endif
+        
+        // Don't apply rich text formatting to markdown files
+        if file.isMarkdown {
+            #if DEBUG
+            print("⚠️ Skipping rich text formatting for markdown file")
+            #endif
+            return
+        }
         
         // Ensure we have a valid selection
         guard selectedRange.location != NSNotFound else {
@@ -5585,6 +5656,17 @@ struct FileEditView: View {
         
         // Update local state immediately for instant UI feedback
         attributedContent = newAttributedContent
+        
+        // CRITICAL: Also update the UITextView directly since state binding is one-way
+        if let textView = textViewCoordinator.textView {
+            // Preserve selection range
+            let currentSelection = textView.selectedRange
+            textView.attributedText = newAttributedContent
+            // Restore selection (if valid)
+            if currentSelection.location + currentSelection.length <= newAttributedContent.length {
+                textView.selectedRange = currentSelection
+            }
+        }
         
         #if DEBUG
         print("🎨 Updated local state with formatted content")

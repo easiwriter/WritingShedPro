@@ -200,8 +200,8 @@ Establish naming conventions early and stick to them.
 Add synopses to sections to remember what each contains.
 
 ## See Also
-- [Prose Mode Overview](01-prose-mode-overview.md)
-- [Working with Sections](02-working-with-sections.md)
-- [Organizing Your Work](../03-projects/05-organizing-your-work.md)
+- [Prose Mode Overview](51-prose-mode-overview.md)
+- [Working with Sections](52-working-with-sections.md)
+- [Organizing Your Work](../3-projects/35-organizing-your-work.md)
 
 ---

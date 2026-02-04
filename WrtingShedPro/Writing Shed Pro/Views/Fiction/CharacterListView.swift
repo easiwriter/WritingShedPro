@@ -183,27 +183,28 @@ struct CharacterRowView: View {
     let character: Character
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 3) {
                 Text(character.name ?? NSLocalizedString("fiction.untitled", comment: "Untitled"))
-                .font(.headline)
+                .font(.body)
+                .fontWeight(.semibold)
             
             if let role = character.role, !role.isEmpty {
                 Text(role)
-                    .font(.subheadline)
+                    .font(.callout)
                     .foregroundColor(.secondary)
             }
             
             if let archetype = character.archetype {
                 HStack(spacing: 4) {
                     Image(systemName: archetypeIcon(for: archetype))
-                        .font(.caption)
+                        .font(.footnote)
                     Text(NSLocalizedString("archetype.\(archetype.rawValue)", comment: "Archetype"))
-                        .font(.caption)
+                        .font(.footnote)
                 }
                 .foregroundColor(.blue)
             }
         }
-            .padding(.vertical, 4)
+            .padding(.vertical, 2)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
     

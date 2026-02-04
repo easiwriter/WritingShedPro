@@ -119,7 +119,7 @@ Collections let you group files without moving them. A file can belong to multip
 - Create a reading order for an event
 - Organize by publication targets
 
-See [Collections](../08-advanced-features/04-collections.md) for more details.
+See [Collections](../10-advanced-features/104-collections.md) for more details.
 
 ## Searching
 
@@ -197,8 +197,8 @@ Keep your project healthy:
 - Export and proof
 
 ## See Also
-- [Folders and Files](04-folders-and-files.md)
-- [Collections](../08-advanced-features/04-collections.md)
-- [Search and Replace](../08-advanced-features/01-search-and-replace.md)
+- [Folders and Files](34-folders-and-files.md)
+- [Collections](../10-advanced-features/104-collections.md)
+- [Search and Replace](../10-advanced-features/101-search-and-replace.md)
 
 ---

@@ -27,8 +27,11 @@ struct IndexEditorSheet: View {
     /// Existing entry to edit (nil for new entry)
     let existingEntry: IndexEntry?
     
+    /// Keyword pre-filled from context menu selection
+    let prefilledKeyword: String?
+    
     /// Callback when entry is saved, returns the entry for marker insertion
-    var onSave: ((IndexEntry) -> Void)?
+    var onSave: ((IndexEntry, Bool) -> Void)?  // Bool is isPrimaryReference
     
     /// Callback when cancelled
     var onCancel: (() -> Void)?
@@ -36,6 +39,10 @@ struct IndexEditorSheet: View {
     // MARK: - State
     
     @State private var keyword: String = ""
+    @State private var selectedParent: IndexEntry? = nil
+    @State private var isPrimaryReference: Bool = false
+    @State private var selectedSeeEntry: IndexEntry? = nil  // "see" cross-reference entry
+    @State private var selectedSeeAlsoEntries: Set<UUID> = []  // "see also" entry IDs
     @State private var showDiscardConfirmation = false
     
     // MARK: - Computed Properties
@@ -46,9 +53,14 @@ struct IndexEditorSheet: View {
     
     private var hasChanges: Bool {
         if let existing = existingEntry {
-            return keyword != existing.keyword
+            let existingSeeAlsoIDs = Set(existing.seeAlsoEntryIDs)
+            return keyword != existing.keyword ||
+                   selectedParent?.id != existing.parentEntry?.id ||
+                   selectedSeeEntry?.id != existing.seeEntryID ||
+                   selectedSeeAlsoEntries != existingSeeAlsoIDs
         }
-        return !keyword.isEmpty
+        return !keyword.isEmpty || selectedParent != nil || isPrimaryReference ||
+               selectedSeeEntry != nil || !selectedSeeAlsoEntries.isEmpty
     }
     
     private var canSave: Bool {
@@ -66,8 +78,48 @@ struct IndexEditorSheet: View {
         let trimmedKeyword = keyword.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         return project.indexEntries?.contains { entry in
             entry.id != existingEntry?.id &&
-            entry.keyword.lowercased() == trimmedKeyword
+            entry.keyword.lowercased() == trimmedKeyword &&
+            entry.parentEntry?.id == selectedParent?.id  // Same parent = duplicate
         } ?? false
+    }
+    
+    /// Keyword suggestions based on partial input (for autocomplete)
+    private var keywordSuggestions: [IndexEntry] {
+        guard !keyword.isEmpty, keyword.count >= 2, existingEntry == nil else { return [] }
+        let searchTerm = keyword.lowercased()
+        guard let entries = project.indexEntries else { return [] }
+        return entries.filter { entry in
+            entry.keyword.lowercased().contains(searchTerm) &&
+            entry.keyword.lowercased() != searchTerm  // Don't suggest exact match
+        }
+        .sorted { $0.keyword.localizedCaseInsensitiveCompare($1.keyword) == .orderedAscending }
+        .prefix(5)
+        .map { $0 }
+    }
+    
+    /// Available parent entries (only show entries that can have children - depth < 3)
+    private var availableParents: [IndexEntry] {
+        guard let entries = project.indexEntries else { return [] }
+        return entries.filter { entry in
+            entry.id != existingEntry?.id &&  // Can't be parent of itself
+            entry.canHaveChildren &&  // Respects max depth
+            !isDescendant(entry, of: existingEntry)  // Prevent circular references
+        }.sorted { $0.keyword.localizedCaseInsensitiveCompare($1.keyword) == .orderedAscending }
+    }
+    
+    /// Available entries for "see also" cross-references (exclude self)
+    private var availableSeeAlsoEntries: [IndexEntry] {
+        guard let entries = project.indexEntries else { return [] }
+        return entries.filter { entry in
+            entry.id != existingEntry?.id  // Can't reference itself
+        }.sorted { $0.keyword.localizedCaseInsensitiveCompare($1.keyword) == .orderedAscending }
+    }
+    
+    /// Check if potentialDescendant is a descendant of ancestor (for circular reference prevention)
+    private func isDescendant(_ potentialDescendant: IndexEntry, of ancestor: IndexEntry?) -> Bool {
+        guard let ancestor = ancestor else { return false }
+        if potentialDescendant.id == ancestor.id { return true }
+        return isDescendant(potentialDescendant, of: ancestor.parentEntry)
     }
     
     // MARK: - Initialization
@@ -75,17 +127,28 @@ struct IndexEditorSheet: View {
     init(
         project: Project,
         existingEntry: IndexEntry? = nil,
-        onSave: ((IndexEntry) -> Void)? = nil,
+        prefilledKeyword: String? = nil,
+        onSave: ((IndexEntry, Bool) -> Void)? = nil,
         onCancel: (() -> Void)? = nil
     ) {
         self.project = project
         self.existingEntry = existingEntry
+        self.prefilledKeyword = prefilledKeyword
         self.onSave = onSave
         self.onCancel = onCancel
         
-        // Initialize state from existing entry
+        // Initialize state from existing entry or prefilled keyword
         if let existing = existingEntry {
             _keyword = State(initialValue: existing.keyword)
+            _selectedParent = State(initialValue: existing.parentEntry)
+            // Look up the see entry from its ID
+            let seeEntry: IndexEntry? = existing.seeEntryID.flatMap { seeID in
+                project.indexEntries?.first { $0.id == seeID }
+            }
+            _selectedSeeEntry = State(initialValue: seeEntry)
+            _selectedSeeAlsoEntries = State(initialValue: Set(existing.seeAlsoEntryIDs))
+        } else if let prefilled = prefilledKeyword {
+            _keyword = State(initialValue: prefilled)
         }
     }
     
@@ -96,11 +159,23 @@ struct IndexEditorSheet: View {
             Form {
                 // Keyword section
                 Section {
-                    TextField(
-                        NSLocalizedString("indexEditor.keyword.placeholder", comment: "Index keyword"),
-                        text: $keyword
-                    )
-                    .autocapitalization(.words)
+                    if prefilledKeyword != nil && existingEntry == nil {
+                        // When pre-filled from context menu, show as read-only
+                        HStack {
+                            Text(keyword)
+                                .font(.body)
+                            Spacer()
+                            Image(systemName: "lock.fill")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                        }
+                    } else {
+                        TextField(
+                            NSLocalizedString("indexEditor.keyword.placeholder", comment: "Index keyword"),
+                            text: $keyword
+                        )
+                        .autocapitalization(.words)
+                    }
                     
                     if termExists {
                         HStack {
@@ -111,10 +186,128 @@ struct IndexEditorSheet: View {
                                 .foregroundColor(.orange)
                         }
                     }
+                    
+                    // Keyword suggestions (autocomplete)
+                    if !keywordSuggestions.isEmpty {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(NSLocalizedString("indexEditor.suggestions", comment: "Suggestions:"))
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            ForEach(keywordSuggestions) { suggestion in
+                                Button {
+                                    keyword = suggestion.keyword
+                                    selectedParent = suggestion.parentEntry
+                                } label: {
+                                    HStack {
+                                        Text(suggestion.keyword)
+                                            .foregroundColor(.primary)
+                                        if suggestion.parentEntry != nil {
+                                            Text("(\(NSLocalizedString("indexEditor.suggestion.subEntry", comment: "sub-entry")))")
+                                                .font(.caption)
+                                                .foregroundColor(.secondary)
+                                        }
+                                        Spacer()
+                                        Image(systemName: "arrow.up.left")
+                                            .font(.caption)
+                                            .foregroundColor(.accentColor)
+                                    }
+                                }
+                            }
+                        }
+                    }
                 } header: {
                     Text(NSLocalizedString("indexEditor.keyword.header", comment: "Keyword"))
                 } footer: {
                     Text(NSLocalizedString("indexEditor.keyword.footer", comment: "The word or phrase to add to the index"))
+                }
+                
+                // Parent entry section (for hierarchical index)
+                if !availableParents.isEmpty || selectedParent != nil {
+                    Section {
+                        Picker(
+                            NSLocalizedString("indexEditor.parent.label", comment: "Parent Entry"),
+                            selection: $selectedParent
+                        ) {
+                            Text(NSLocalizedString("indexEditor.parent.none", comment: "None (Top Level)"))
+                                .tag(IndexEntry?.none)
+                            
+                            ForEach(availableParents) { parent in
+                                HStack {
+                                    Text(String(repeating: "  ", count: parent.depth - 1))
+                                    Text(parent.keyword)
+                                    if parent.depth == IndexEntry.maxDepth - 1 {
+                                        Text("(max)")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                                .tag(Optional(parent))
+                            }
+                        }
+                    } header: {
+                        Text(NSLocalizedString("indexEditor.parent.header", comment: "Hierarchy"))
+                    } footer: {
+                        Text(NSLocalizedString("indexEditor.parent.footer", comment: "Place this entry under a parent for nested index entries (max 3 levels)"))
+                    }
+                }
+                
+                // Primary reference toggle (only for new entries from context menu)
+                if existingEntry == nil && prefilledKeyword != nil {
+                    Section {
+                        Toggle(
+                            NSLocalizedString("indexEditor.primary.label", comment: "Primary Reference"),
+                            isOn: $isPrimaryReference
+                        )
+                    } footer: {
+                        Text(NSLocalizedString("indexEditor.primary.footer", comment: "Primary references are shown in bold in the generated index"))
+                    }
+                }
+                
+                // Cross-references section (for editing or advanced mode)
+                if existingEntry != nil || !availableSeeAlsoEntries.isEmpty {
+                    Section {
+                        // "See" cross-reference (redirects to another term)
+                        Picker(
+                            NSLocalizedString("indexEditor.see.label", comment: "See"),
+                            selection: $selectedSeeEntry
+                        ) {
+                            Text(NSLocalizedString("indexEditor.see.none", comment: "None"))
+                                .tag(nil as IndexEntry?)
+                            ForEach(availableSeeAlsoEntries) { entry in
+                                Text(entry.keyword)
+                                    .tag(Optional(entry))
+                            }
+                        }
+                    } header: {
+                        Text(NSLocalizedString("indexEditor.see.header", comment: "See Reference"))
+                    } footer: {
+                        Text(NSLocalizedString("indexEditor.see.footer", comment: "Redirects reader to another term (e.g., 'Dogs, see Animals')"))
+                    }
+                    
+                    // "See also" cross-references
+                    if !availableSeeAlsoEntries.isEmpty {
+                        Section {
+                            ForEach(availableSeeAlsoEntries) { entry in
+                                Button {
+                                    toggleSeeAlsoEntry(entry)
+                                } label: {
+                                    HStack {
+                                        Text(entry.keyword)
+                                            .foregroundColor(.primary)
+                                        Spacer()
+                                        if selectedSeeAlsoEntries.contains(entry.id) {
+                                            Image(systemName: "checkmark")
+                                                .foregroundColor(.accentColor)
+                                        }
+                                    }
+                                }
+                            }
+                        } header: {
+                            Text(NSLocalizedString("indexEditor.seeAlso.header", comment: "See Also"))
+                        } footer: {
+                            Text(NSLocalizedString("indexEditor.seeAlso.footer", comment: "Related terms shown after page numbers"))
+                        }
+                    }
                 }
                 
                 // Preview section
@@ -225,6 +418,14 @@ struct IndexEditorSheet: View {
     
     // MARK: - Actions
     
+    private func toggleSeeAlsoEntry(_ entry: IndexEntry) {
+        if selectedSeeAlsoEntries.contains(entry.id) {
+            selectedSeeAlsoEntries.remove(entry.id)
+        } else {
+            selectedSeeAlsoEntries.insert(entry.id)
+        }
+    }
+    
     private func handleCancel() {
         if hasChanges {
             showDiscardConfirmation = true
@@ -243,18 +444,27 @@ struct IndexEditorSheet: View {
         if let existing = existingEntry {
             // Update existing entry
             existing.keyword = trimmedKeyword
+            existing.parentEntry = selectedParent
+            existing.seeEntryID = selectedSeeEntry?.id
+            // Update see also entry IDs
+            existing.seeAlsoEntryIDs = Array(selectedSeeAlsoEntries)
             existing.modifiedAt = Date()
             entry = existing
             
             #if DEBUG
-            print("📑 Updated index entry: \(entry.keyword)")
+            print("📑 Updated index entry: \(entry.keyword) (parent: \(selectedParent?.keyword ?? "none"), see: \(selectedSeeEntry?.keyword ?? "none"), seeAlso: \(selectedSeeAlsoEntries.count))")
             #endif
         } else {
             // Create new entry
             entry = IndexEntry(
                 project: project,
-                keyword: trimmedKeyword
+                keyword: trimmedKeyword,
+                parentEntry: selectedParent
             )
+            
+            // Set cross-references for new entry
+            entry.seeEntryID = selectedSeeEntry?.id
+            entry.seeAlsoEntryIDs = Array(selectedSeeAlsoEntries)
             
             // Add to project's index entries
             if project.indexEntries == nil {
@@ -263,7 +473,7 @@ struct IndexEditorSheet: View {
             project.indexEntries?.append(entry)
             
             #if DEBUG
-            print("📑 Created new index entry: \(entry.keyword)")
+            print("📑 Created new index entry: \(entry.keyword) (parent: \(selectedParent?.keyword ?? "none"), primary: \(isPrimaryReference))")
             #endif
         }
         
@@ -276,7 +486,7 @@ struct IndexEditorSheet: View {
             #endif
         }
         
-        onSave?(entry)
+        onSave?(entry, isPrimaryReference)
         dismiss()
     }
 }

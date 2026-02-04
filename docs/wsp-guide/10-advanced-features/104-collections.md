@@ -180,8 +180,8 @@ Collect all poems about nature, all stories about love, etc.
 - Check collection exists
 
 ## See Also
-- [Organizing Your Work](../03-projects/05-organizing-your-work.md)
-- [Submission Tracking](../09-publishing/05-submission-tracking.md)
-- [Folders and Files](../03-projects/04-folders-and-files.md)
+- [Organizing Your Work](../3-projects/35-organizing-your-work.md)
+- [Submission Tracking](../9-publishing/95-submission-tracking.md)
+- [Folders and Files](../3-projects/34-folders-and-files.md)
 
 ---

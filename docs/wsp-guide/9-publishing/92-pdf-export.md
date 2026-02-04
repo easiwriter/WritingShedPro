@@ -158,8 +158,8 @@ Always read submission guidelines. Some specify:
 - Some PDF viewers handle links differently
 
 ## See Also
-- [Export Options](01-export-options.md)
-- [Page Setup](../08-advanced-features/03-page-setup.md)
-- [Printing](04-printing.md)
+- [Export Options](91-export-options.md)
+- [Page Setup](../10-advanced-features/103-page-setup.md)
+- [Printing](94-printing.md)
 
 ---

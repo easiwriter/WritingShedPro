@@ -65,6 +65,8 @@ struct IndexListView: View {
     @State private var showDeleteConfirmation: IndexEntry?
     @State private var showAddEntrySheet = false
     @State private var expandedEntryID: UUID?
+    @State private var mergingEntry: IndexEntry?  // Entry to merge from
+    @State private var showMergeSheet = false
     
     // MARK: - Computed Properties
     
@@ -171,7 +173,7 @@ struct IndexListView: View {
         .sheet(isPresented: $showAddEntrySheet) {
             IndexEditorSheet(
                 project: project,
-                onSave: { _ in
+                onSave: { _, _ in
                     loadEntries()
                     onEntryChanged?()
                 }
@@ -181,7 +183,7 @@ struct IndexListView: View {
             IndexEditorSheet(
                 project: project,
                 existingEntry: entry,
-                onSave: { _ in
+                onSave: { _, _ in
                     loadEntries()
                     onEntryChanged?()
                 }
@@ -206,6 +208,24 @@ struct IndexListView: View {
                 Text(String(format: NSLocalizedString("indexList.confirmDelete.messageWithRefs", comment: ""), entry.referenceCount))
             } else {
                 Text(NSLocalizedString("indexList.confirmDelete.message", comment: "This entry will be permanently deleted."))
+            }
+        }
+        .sheet(isPresented: $showMergeSheet) {
+            if let sourceEntry = mergingEntry {
+                IndexMergeSheet(
+                    project: project,
+                    sourceEntry: sourceEntry,
+                    availableTargets: entries.filter { $0.id != sourceEntry.id },
+                    onMerge: { targetEntry in
+                        mergeEntry(sourceEntry, into: targetEntry)
+                        showMergeSheet = false
+                        mergingEntry = nil
+                    },
+                    onCancel: {
+                        showMergeSheet = false
+                        mergingEntry = nil
+                    }
+                )
             }
         }
     }
@@ -311,14 +331,47 @@ struct IndexListView: View {
                     if childCount > 0 {
                         if expandedEntryID == entry.id || childCount <= 2 {
                             ForEach(entry.childEntries ?? [], id: \.id) { child in
-                                Text("  • \(child.keyword)")
-                                    .font(.body)
-                                    .foregroundStyle(.secondary)
+                                childEntryRow(child, level: 1)
                             }
                         } else {
                             Text("  \(childCount) sub-terms")
                                 .font(.body)
                                 .foregroundStyle(.secondary)
+                        }
+                    }
+                    
+                    // Cross-references - look up "see" entry by ID
+                    if let seeEntryID = entry.seeEntryID {
+                        let allEntries = project.indexEntries ?? []
+                        if let seeEntry = allEntries.first(where: { $0.id == seeEntryID }) {
+                            HStack(spacing: 4) {
+                                Text(NSLocalizedString("indexList.see", comment: "see"))
+                                    .italic()
+                                Text(seeEntry.keyword)
+                                    .fontWeight(.medium)
+                            }
+                            .font(.caption)
+                            .foregroundStyle(.purple)
+                        }
+                    }
+                    
+                    // "See also" cross-references - look up keywords from IDs
+                    let seeAlsoIDs = entry.seeAlsoEntryIDs
+                    if !seeAlsoIDs.isEmpty {
+                        let allEntries = project.indexEntries ?? []
+                        let seeAlsoKeywords = seeAlsoIDs.compactMap { id in
+                            allEntries.first { $0.id == id }?.keyword
+                        }.joined(separator: ", ")
+                        
+                        if !seeAlsoKeywords.isEmpty {
+                            HStack(spacing: 4) {
+                                Text(NSLocalizedString("indexList.seeAlso", comment: "see also"))
+                                    .italic()
+                                Text(seeAlsoKeywords)
+                                    .fontWeight(.medium)
+                            }
+                            .font(.caption)
+                            .foregroundStyle(.purple)
                         }
                     }
                     
@@ -373,6 +426,19 @@ struct IndexListView: View {
                             Label(
                                 NSLocalizedString("indexList.jumpToText", comment: "Jump to Reference"),
                                 systemImage: "arrow.right"
+                            )
+                        }
+                    }
+                    
+                    // Merge option (only if other entries exist)
+                    if entries.count > 1 {
+                        Button {
+                            mergingEntry = entry
+                            showMergeSheet = true
+                        } label: {
+                            Label(
+                                NSLocalizedString("indexList.merge", comment: "Merge Into..."),
+                                systemImage: "arrow.triangle.merge"
                             )
                         }
                     }
@@ -438,6 +504,55 @@ struct IndexListView: View {
         }
     }
     
+    /// Display a child entry row with proper indentation (supports up to 3 levels)
+    private func childEntryRow(_ entry: IndexEntry, level: Int) -> AnyView {
+        let indent = String(repeating: "  ", count: level)
+        let childCount = entry.childEntries?.count ?? 0
+        
+        return AnyView(
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 4) {
+                    Text("\(indent)• \(entry.keyword)")
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                    
+                    if entry.referenceCount > 0 {
+                        Text("(\(entry.referenceCount))")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+                
+                // Show cross-references for child entries too
+                if let seeEntryID = entry.seeEntryID {
+                    let allEntries = project.indexEntries ?? []
+                    if let seeEntry = allEntries.first(where: { $0.id == seeEntryID }) {
+                        HStack(spacing: 4) {
+                            Text("\(indent)  ")
+                            Text(NSLocalizedString("indexList.see", comment: "see"))
+                                .italic()
+                            Text(seeEntry.keyword)
+                                .fontWeight(.medium)
+                        }
+                        .font(.caption)
+                        .foregroundStyle(.purple)
+                    }
+                }
+                
+                // Recursively show grandchildren (up to max depth 3)
+                if childCount > 0 && level < IndexEntry.maxDepth - 1 {
+                    ForEach(entry.childEntries ?? [], id: \.id) { child in
+                        childEntryRow(child, level: level + 1)
+                    }
+                } else if childCount > 0 {
+                    Text("\(indent)  (\(childCount) more)")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
+            }
+        )
+    }
+    
     // MARK: - Actions
     
     private func loadEntries() {
@@ -474,6 +589,54 @@ struct IndexListView: View {
         
         #if DEBUG
         print("🗑️ Deleted index entry: \(entry.keyword)")
+        #endif
+    }
+    
+    private func mergeEntry(_ source: IndexEntry, into target: IndexEntry) {
+        // Transfer reference count
+        target.referenceCount += source.referenceCount
+        
+        // Merge referencing file IDs
+        for fileID in source.referencingFileIDs {
+            target.addReferencingFile(fileID)
+        }
+        
+        // Reparent children from source to target
+        if let children = source.childEntries {
+            for child in children {
+                if target.canHaveChildren {
+                    child.parentEntry = target
+                } else {
+                    // Make child a sibling of target instead
+                    child.parentEntry = target.parentEntry
+                }
+            }
+        }
+        
+        // Merge "see also" references
+        for seeAlsoID in source.seeAlsoEntryIDs {
+            target.addSeeAlso(seeAlsoID)
+        }
+        
+        // Delete source entry
+        modelContext.delete(source)
+        
+        do {
+            try modelContext.save()
+        } catch {
+            #if DEBUG
+            print("❌ Error merging index entry: \(error)")
+            #endif
+        }
+        
+        loadEntries()
+        onEntryChanged?()
+        
+        // Notify that markers need to be updated (source ID -> target ID)
+        // This is handled by the calling view which has access to the text
+        
+        #if DEBUG
+        print("🔀 Merged index entry '\(source.keyword)' into '\(target.keyword)'")
         #endif
     }
 }

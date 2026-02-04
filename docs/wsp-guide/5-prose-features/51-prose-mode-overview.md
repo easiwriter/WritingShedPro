@@ -76,7 +76,7 @@ When files are assigned to sections, the main file list groups them by section:
 - Use the expand/collapse button to show/hide all sections
 - File count displayed in each section header
 
-See [Working with Sections](02-working-with-sections.md) for detailed instructions.
+See [Working with Sections](52-working-with-sections.md) for detailed instructions.
 
 ## Key Features
 
@@ -127,9 +127,9 @@ Use Draft → Ready → Published to track progress. Filter by status to focus o
 Export finished work to PDF or other formats for backup and sharing.
 
 ## See Also
-- [Working with Sections](02-working-with-sections.md)
-- [File Organization](03-file-organization.md)
-- [Project Types Overview](../03-projects/01-project-types-overview.md)
-- [The Editor](../04-writing/01-the-editor.md)
+- [Working with Sections](52-working-with-sections.md)
+- [File Organization](53-file-organization.md)
+- [Project Types Overview](../3-projects/31-project-types-overview.md)
+- [The Editor](../4-writing/41-the-editor.md)
 
 ---

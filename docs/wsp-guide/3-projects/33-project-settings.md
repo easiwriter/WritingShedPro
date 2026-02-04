@@ -73,7 +73,7 @@ Each project has a stylesheet that defines text formatting:
 2. Tap **Stylesheet**
 3. View and edit paragraph styles
 
-See [Stylesheet Editor](../08-advanced-features/02-stylesheet-editor.md) for details.
+See [Stylesheet Editor](../10-advanced-features/102-stylesheet-editor.md) for details.
 
 ## Page Setup
 
@@ -87,7 +87,7 @@ Configure how pages are formatted for export and printing:
    - Margins
    - Headers and footers
 
-See [Page Setup](../08-advanced-features/03-page-setup.md) for details.
+See [Page Setup](../10-advanced-features/103-page-setup.md) for details.
 
 ## Danger Zone
 
@@ -112,8 +112,8 @@ All project settings sync across your devices via iCloud:
 - Page setup
 
 ## See Also
-- [Project Types Overview](01-project-types-overview.md)
-- [Stylesheet Editor](../08-advanced-features/02-stylesheet-editor.md)
-- [Page Setup](../08-advanced-features/03-page-setup.md)
+- [Project Types Overview](31-project-types-overview.md)
+- [Stylesheet Editor](../10-advanced-features/102-stylesheet-editor.md)
+- [Page Setup](../10-advanced-features/103-page-setup.md)
 
 ---

@@ -414,23 +414,24 @@ struct ActRowView: View {
     let act: Act
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 3) {
             HStack {
                 // Act number
                 if let userOrder = act.userOrder {
                     Text(String(format: NSLocalizedString("drama.act.number", comment: "Act X"), userOrder + 1))
-                        .font(.subheadline)
+                        .font(.callout)
                         .foregroundColor(.secondary)
                 }
             }
             
             Text(act.name ?? NSLocalizedString("drama.untitled", comment: "Untitled"))
-                .font(.headline)
+                .font(.body)
+                .fontWeight(.semibold)
             
             // Synopsis preview
             if let synopsis = act.synopsis, !synopsis.isEmpty {
                 Text(synopsis)
-                    .font(.subheadline)
+                    .font(.callout)
                     .foregroundColor(.secondary)
                     .lineLimit(2)
             }
@@ -439,12 +440,12 @@ struct ActRowView: View {
             let sceneCount = act.scenes?.count ?? 0
             HStack(spacing: 4) {
                 Image(systemName: "film")
-                    .font(.caption)
+                    .font(.footnote)
                 Text(String(format: NSLocalizedString("drama.act.sceneCount", comment: "Scene count"), sceneCount))
-                    .font(.caption)
+                    .font(.footnote)
             }
             .foregroundColor(.secondary)
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 2)
     }
 }

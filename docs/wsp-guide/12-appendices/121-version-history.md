@@ -68,7 +68,7 @@ Enable automatic updates in App Store settings to always have the latest version
 3. If an update is available, tap Update
 
 ## See Also
-- [What's New](../01-welcome/02-whats-new.md)
+- [What's New](../1-welcome/12-whats-new.md)
 - [Contact Support](../11-reference/05-contact-support.md)
 
 ---

@@ -12,17 +12,18 @@ struct SubmissionRowView: View {
     let submission: Submission
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 3) {
             // File names
             Text(fileNames)
-                .font(.headline)
+                .font(.body)
+                .fontWeight(.semibold)
             
             // Submission date
             HStack(spacing: 4) {
                 Image(systemName: "calendar")
-                    .font(.caption)
+                    .font(.footnote)
                 Text(String(format: NSLocalizedString("submissions.submitted.on", comment: "Submitted on"), submission.submittedDate.formatted(date: .abbreviated, time: .omitted)))
-                    .font(.caption)
+                    .font(.footnote)
             }
             .foregroundStyle(.secondary)
             
@@ -33,7 +34,7 @@ struct SubmissionRowView: View {
                 }
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 2)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)
     }

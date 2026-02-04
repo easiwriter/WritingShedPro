@@ -203,8 +203,8 @@ Some stories work both ways:
 - Often more flexible than film
 
 ## See Also
-- [Drama Mode Overview](01-drama-mode-overview.md)
-- [Script Formatting](02-script-formatting.md)
-- [DML Reference](04-dml-reference.md)
+- [Drama Mode Overview](81-drama-mode-overview.md)
+- [Script Formatting](82-script-formatting.md)
+- [DML Reference](84-dml-reference.md)
 
 ---

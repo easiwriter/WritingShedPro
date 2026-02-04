@@ -61,6 +61,65 @@ struct AttributeValues: Codable {
 /// Service for converting between NSAttributedString and storable formats
 struct AttributedStringSerializer {
     
+    // MARK: - System Font Detection
+    
+    /// Check if a font name is a system font that requires special handling
+    /// System font names (starting with "." or containing SF variants) can't be used
+    /// directly with CTFontCreateWithName and require UIFont.systemFont APIs
+    /// - Parameter fontName: The font name to check
+    /// - Returns: true if this is a system font name
+    static func isSystemFontName(_ fontName: String) -> Bool {
+        // System fonts typically start with "." (internal names)
+        if fontName.hasPrefix(".") {
+            return true
+        }
+        
+        // San Francisco font variants (Apple's system font)
+        let systemFontPatterns = [
+            "AppleSystemUI",
+            "SFUI",           // SF UI (older iOS)
+            "SFPro",          // SF Pro (newer iOS/macOS)
+            "SFNS",           // SF NS (macOS)
+            "SFCompact",      // SF Compact (watchOS/small displays)
+            "SFMono",         // SF Mono (monospace system font)
+            "NewYork",        // New York (serif system font)
+            "SystemFont",     // Generic system font reference
+            "HelveticaNeue",  // Legacy system font fallback
+        ]
+        
+        for pattern in systemFontPatterns {
+            if fontName.contains(pattern) {
+                return true
+            }
+        }
+        
+        return false
+    }
+    
+    /// Create a system font with the specified traits
+    /// - Parameters:
+    ///   - size: The font size
+    ///   - bold: Whether to apply bold trait
+    ///   - italic: Whether to apply italic trait
+    /// - Returns: A system font with the requested size and traits
+    static func createSystemFont(size: CGFloat, bold: Bool, italic: Bool) -> UIFont {
+        if bold && italic {
+            // System font doesn't have built-in bold+italic, use descriptor
+            let baseFont = UIFont.systemFont(ofSize: size)
+            if let descriptor = baseFont.fontDescriptor.withSymbolicTraits([.traitBold, .traitItalic]) {
+                return UIFont(descriptor: descriptor, size: size)
+            } else {
+                return UIFont.boldSystemFont(ofSize: size)
+            }
+        } else if bold {
+            return UIFont.boldSystemFont(ofSize: size)
+        } else if italic {
+            return UIFont.italicSystemFont(ofSize: size)
+        } else {
+            return UIFont.systemFont(ofSize: size)
+        }
+    }
+    
     // MARK: - Adaptive Color Detection
     
     /// Check if a color is an adaptive system color that should not be serialized
@@ -447,13 +506,20 @@ struct AttributedStringSerializer {
                 if let fontName = jsonAttributes.fontName,
                    let fontSize = jsonAttributes.fontSize {
                     
+                    #if DEBUG
+                    print("🔍 DECODE font: '\(fontName)' size:\(fontSize) bold:\(jsonAttributes.bold ?? false) italic:\(jsonAttributes.italic ?? false) textStyle:\(jsonAttributes.textStyle ?? "nil")")
+                    #endif
+                    
                     var font: UIFont
                     let isBold = jsonAttributes.bold ?? false
                     let isItalic = jsonAttributes.italic ?? false
                     
-                    // CRITICAL: If we have a textStyle, use it to get the correct preferredFont
+                    // CRITICAL: If we have a valid UIKit textStyle, use it to get the correct preferredFont
                     // This preserves heading detection for markdown export
-                    if let textStyleValue = jsonAttributes.textStyle {
+                    // Must check for "UICTFontTextStyle" prefix - Core Text usage constants like
+                    // "CTFontObliqueUsage" are NOT valid UIKit text styles and will cause wrong sizes
+                    if let textStyleValue = jsonAttributes.textStyle,
+                       textStyleValue.hasPrefix("UICTFontTextStyle") {
                         // Use the stored text style to get a proper preferredFont with correct descriptor
                         let textStyle = UIFont.TextStyle(rawValue: textStyleValue)
                         let baseFont = UIFont.preferredFont(forTextStyle: textStyle)
@@ -470,9 +536,35 @@ struct AttributedStringSerializer {
                         let adjustedFont = abs(baseFont.pointSize - fontSize) > 0.5 ? baseFont.withSize(fontSize) : baseFont
                         // Apply traits using the proven method
                         font = UIFont.fontWithNameAndTraits(adjustedFont.familyName, size: fontSize, bold: isBold, italic: isItalic)
+                    } else if isSystemFontName(fontName) {
+                        // System font with internal name (e.g., ".SFUI-Regular", ".AppleSystemUIFont", ".SFUIText")
+                        // These internal names can't be used with CTFontCreateWithName directly
+                        // Must use UIFont.systemFont to get them
+                        font = createSystemFont(size: fontSize, bold: isBold, italic: isItalic)
                     } else {
-                        // Use the font name directly with traits
-                        font = UIFont.fontWithNameAndTraits(fontName, size: fontSize, bold: isBold, italic: isItalic)
+                        // The font name is a PostScript name (like "TimesNewRomanPS-ItalicMT")
+                        // which already includes the trait suffix. Try to use it directly first.
+                        if let directFont = UIFont(name: fontName, size: fontSize) {
+                            // Successfully created font with PostScript name - check if size matches
+                            if abs(directFont.pointSize - fontSize) < 0.5 {
+                                font = directFont
+                                #if DEBUG
+                                print("✅ Direct font creation succeeded: \(fontName) at \(fontSize)pt")
+                                #endif
+                            } else {
+                                // Font created but wrong size - fallback to system font
+                                #if DEBUG
+                                print("⚠️ Direct font wrong size: expected \(fontSize), got \(directFont.pointSize) for '\(fontName)'. Using system font.")
+                                #endif
+                                font = createSystemFont(size: fontSize, bold: isBold, italic: isItalic)
+                            }
+                        } else {
+                            // UIFont(name:size:) failed - font not available, use system font
+                            #if DEBUG
+                            print("⚠️ Font '\(fontName)' not available. Falling back to system font at \(fontSize)pt.")
+                            #endif
+                            font = createSystemFont(size: fontSize, bold: isBold, italic: isItalic)
+                        }
                     }
                     
                     attributes[.font] = font

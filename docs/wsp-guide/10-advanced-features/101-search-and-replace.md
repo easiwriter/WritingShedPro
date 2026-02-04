@@ -195,7 +195,7 @@ For complex changes, consider replacing in steps rather than one massive operati
 - Use Find/Replace one at a time for sensitive changes
 
 ## See Also
-- [The Editor](../04-writing/01-the-editor.md)
-- [Keyboard Shortcuts](../09-reference/01-keyboard-shortcut-list.md)
+- [The Editor](../4-writing/41-the-editor.md)
+- [Keyboard Shortcuts](../11-reference/111-keyboard-shortcut-list.md)
 
 ---

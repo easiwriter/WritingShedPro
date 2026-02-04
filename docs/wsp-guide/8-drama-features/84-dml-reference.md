@@ -287,9 +287,9 @@ Hi.
 ```
 
 ## See Also
-- [Drama Mode Overview](01-drama-mode-overview.md)
-- [Script Formatting](02-script-formatting.md)
-- [Film vs Stage Formats](03-film-vs-stage-formats.md)
-- [DML Quick Reference](../09-reference/02-dml-quick-reference.md)
+- [Drama Mode Overview](81-drama-mode-overview.md)
+- [Script Formatting](82-script-formatting.md)
+- [Film vs Stage Formats](83-film-vs-stage-formats.md)
+- [DML Quick Reference](../11-reference/112-dml-quick-reference.md)
 
 ---

@@ -152,8 +152,8 @@ If RTF doesn't meet your needs:
 - Exact appearance
 
 ## See Also
-- [Export Options](01-export-options.md)
-- [PDF Export](02-pdf-export.md)
-- [Printing](04-printing.md)
+- [Export Options](91-export-options.md)
+- [PDF Export](92-pdf-export.md)
+- [Printing](94-printing.md)
 
 ---

@@ -6,8 +6,8 @@ Need help with Writing Shed Pro? Here's how to reach us.
 
 ### Check the Documentation
 Many questions are answered in this guide:
-- [FAQ](04-faq.md) - Common questions
-- [Troubleshooting](03-troubleshooting.md) - Solutions to known issues
+- [FAQ](114-faq.md) - Common questions
+- [Troubleshooting](113-troubleshooting.md) - Solutions to known issues
 
 ### Gather Information
 Having this information ready helps us help you faster:
@@ -136,7 +136,7 @@ If you have a deadline:
 Your feedback makes Writing Shed Pro better. Whether it's a bug report, feature request, or question, we appreciate you taking the time to reach out.
 
 ## See Also
-- [Troubleshooting](03-troubleshooting.md)
-- [FAQ](04-faq.md)
+- [Troubleshooting](113-troubleshooting.md)
+- [FAQ](114-faq.md)
 
 ---

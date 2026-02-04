@@ -219,15 +219,15 @@ private struct FileRowView: View {
     let file: TextFile
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 3) {
             Text(file.name.isEmpty ? NSLocalizedString("prose.untitled", comment: "Untitled") : file.name)
-                .font(.headline)
+                .font(.body)
             
             // Modified date
             Text(file.modifiedDate, style: .date)
-                .font(.caption)
+                .font(.footnote)
                 .foregroundColor(.secondary)
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 2)
     }
 }

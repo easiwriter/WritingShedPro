@@ -162,8 +162,8 @@ Pagination engine handles this automatically.
 - Verify in Pagination View
 
 ## See Also
-- [Export Options](../09-publishing/01-export-options.md)
-- [Printing](../09-publishing/04-printing.md)
-- [Stylesheet Editor](02-stylesheet-editor.md)
+- [Export Options](../9-publishing/91-export-options.md)
+- [Printing](../9-publishing/94-printing.md)
+- [Stylesheet Editor](102-stylesheet-editor.md)
 
 ---

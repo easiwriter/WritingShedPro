@@ -622,12 +622,20 @@ final class FormattingCommandTests: XCTestCase {
             string: "Hello World",
             attributes: [.font: largeFont]
         )
-        testFile.currentVersion?.attributedContent = originalContent
         
-        // When: Apply italic
+        // Verify the original font
+        XCTAssertEqual(largeFont.pointSize, 24, "Original font should be 24pt")
+        
+        // When: Apply italic using TextFormatter
         let range = NSRange(location: 6, length: 5)
         let formattedContent = TextFormatter.toggleItalic(in: originalContent, range: range)
         
+        // Verify toggleItalic preserved font size
+        let formattedFont = formattedContent.attribute(.font, at: 6, effectiveRange: nil) as? UIFont
+        XCTAssertNotNil(formattedFont, "Formatted content should have font")
+        XCTAssertEqual(formattedFont?.pointSize, 24, "toggleItalic should preserve 24pt size, got \(formattedFont?.pointSize ?? 0)")
+        
+        // Store in file via command
         let command = FormatApplyCommand(
             description: "Italic",
             range: range,
@@ -637,13 +645,13 @@ final class FormattingCommandTests: XCTestCase {
         )
         command.execute()
         
-        // Then: Font size should still be 24
+        // Then: Font size should still be 24 after encode/decode
         let result = testFile.currentVersion?.attributedContent ?? NSAttributedString()
         let attributes = result.attributes(at: 6, effectiveRange: nil)
         let resultFont = attributes[.font] as? UIFont
         
         XCTAssertNotNil(resultFont, "Font should exist")
-        XCTAssertEqual(resultFont!.pointSize, 24, "Font size should be preserved at 24")
+        XCTAssertEqual(resultFont!.pointSize, 24, "Font size should be preserved at 24, got \(resultFont!.pointSize). Font name: \(resultFont!.fontName)")
         XCTAssertTrue(isItalic(in: result, range: range), "Text should be italic")
     }
     

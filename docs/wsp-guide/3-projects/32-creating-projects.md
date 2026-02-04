@@ -27,7 +27,7 @@ Choose from:
 - **Fiction**: Novels and short stories
 - **Drama**: Scripts and plays
 
-See [Project Types Overview](01-project-types-overview.md) for details on each type.
+See [Project Types Overview](31-project-types-overview.md) for details on each type.
 
 #### Fiction Class (Fiction Only)
 When creating a Fiction project, also select:
@@ -114,8 +114,8 @@ You can import content into Writing Shed Pro from:
 4. The project is added to your list
 
 ## See Also
-- [Project Types Overview](01-project-types-overview.md)
-- [Project Settings](03-project-settings.md)
-- [Folders and Files](04-folders-and-files.md)
+- [Project Types Overview](31-project-types-overview.md)
+- [Project Settings](33-project-settings.md)
+- [Folders and Files](34-folders-and-files.md)
 
 ---

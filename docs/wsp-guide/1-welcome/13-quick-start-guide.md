@@ -92,10 +92,10 @@ As you write more, keep things organized:
 
 You've learned the basics! Here's where to go next:
 
-- **[The Interface Tour](../02-getting-started/03-the-interface-tour.md)** – Explore all the views and controls
-- **[Text Formatting](../04-writing/02-text-formatting.md)** – Master styles and formatting
-- **[Poetry Mode Overview](../06-poetry-features/01-poetry-mode-overview.md)** – If you're a poet
-- **[Fiction Mode Overview](../07-fiction-features/01-fiction-mode-overview.md)** – If you're writing fiction
+- **[The Interface Tour](../2-getting-started/23-the-interface-tour.md)** – Explore all the views and controls
+- **[Text Formatting](../4-writing/42-text-formatting.md)** – Master styles and formatting
+- **[Poetry Mode Overview](../6-poetry-features/61-poetry-mode-overview.md)** – If you're a poet
+- **[Fiction Mode Overview](../7-fiction-features/71-fiction-mode-overview.md)** – If you're writing fiction
 
 ## Tips for New Users
 
@@ -105,8 +105,8 @@ You've learned the basics! Here's where to go next:
 4. **Check the reference section** – Quick answers when you need them
 
 ## See Also
-- [Introduction](01-introduction.md)
-- [Creating Your First Project](../02-getting-started/02-creating-your-first-project.md)
-- [The Editor](../04-writing/01-the-editor.md)
+- [Introduction](11-introduction.md)
+- [Creating Your First Project](../2-getting-started/22-creating-your-first-project.md)
+- [The Editor](../4-writing/41-the-editor.md)
 
 ---

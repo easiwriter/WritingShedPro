@@ -147,7 +147,7 @@ Your writing in iCloud is protected by:
 Writing Shed Pro never has access to your Apple ID password. All sync is handled securely by the system.
 
 ## See Also
-- [Installation](01-installation.md)
-- [Troubleshooting](../09-reference/03-troubleshooting.md)
+- [Installation](21-installation.md)
+- [Troubleshooting](../11-reference/113-troubleshooting.md)
 
 ---

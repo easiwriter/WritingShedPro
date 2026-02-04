@@ -686,13 +686,15 @@ struct ProseListView: View {
                 
                 Image(systemName: "folder")
                     .foregroundStyle(.secondary)
+                    .font(.title3)
                 
                 Text(group.name)
-                    .font(.headline)
+                    .font(.title3)
+                    .fontWeight(.semibold)
                     .foregroundStyle(.primary)
                 
                 Text("(\(group.count))")
-                    .font(.subheadline)
+                    .font(.body)
                     .foregroundStyle(.secondary)
                 
                 Spacer()
@@ -948,8 +950,9 @@ struct ProseListView: View {
                 exportData = try WordDocumentService.exportToRTF(content, filename: filename)
             case .html:
                 exportData = try HTMLExportService.exportToHTMLData(content, filename: filename)
-            case .epub:
-                exportData = try EPUBExportService.exportToEPUB(content, filename: filename)
+            // EPUB reserved for future release
+            // case .epub:
+            //     exportData = try EPUBExportService.exportToEPUB(content, filename: filename)
             case .word:
                 let exportService = DOCXExportService(modelContext: modelContext)
                 exportData = try exportService.exportToDOCX(content, filename: filename)
@@ -1005,8 +1008,9 @@ struct ProseListView: View {
             return .rtf
         case .html:
             return .html
-        case .epub:
-            return UTType(filenameExtension: "epub") ?? .data
+        // EPUB reserved for future release
+        // case .epub:
+        //     return UTType(filenameExtension: "epub") ?? .data
         case .word:
             return UTType("org.openxmlformats.wordprocessingml.document") ?? .data
         case .markdown:
@@ -1175,19 +1179,19 @@ private struct FileRowView: View {
     let file: TextFile
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 3) {
             HStack {
                 Text(file.name.isEmpty ? NSLocalizedString("prose.untitled", comment: "Untitled") : file.name)
-                    .font(.subheadline)
+                    .font(.body)
                 
                 Spacer()
                 
                 // Workflow status indicator
                 if let status = file.workflowStatus {
                     Text(status.localizedName)
-                        .font(.caption2)
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 1)
+                        .font(.caption)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
                         .background(Color(status.color).opacity(0.2))
                         .foregroundColor(Color(status.color))
                         .clipShape(Capsule())
@@ -1196,15 +1200,15 @@ private struct FileRowView: View {
             
             // Section assignment
             if let section = file.section {
-                HStack(spacing: 3) {
+                HStack(spacing: 4) {
                     Image(systemName: "doc.text")
-                        .font(.caption2)
+                        .font(.footnote)
                     Text(section.name ?? NSLocalizedString("prose.untitled", comment: "Untitled"))
-                        .font(.caption2)
+                        .font(.footnote)
                 }
                 .foregroundColor(.secondary)
             }
         }
-        .padding(.vertical, 1)
+        .padding(.vertical, 2)
     }
 }

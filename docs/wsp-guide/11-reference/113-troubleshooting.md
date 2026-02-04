@@ -236,8 +236,8 @@ Collect this information:
 Check the app's website for known issues and workarounds.
 
 ## See Also
-- [FAQ](04-faq.md)
-- [Contact Support](05-contact-support.md)
-- [iCloud Sync](../02-getting-started/04-icloud-sync.md)
+- [FAQ](114-faq.md)
+- [Contact Support](115-contact-support.md)
+- [iCloud Sync](../2-getting-started/24-icloud-sync.md)
 
 ---

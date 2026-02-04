@@ -57,7 +57,7 @@ This guide is organized into sections that mirror your writing workflow:
 You can read straight through or jump to the sections most relevant to your needs.
 
 ## See Also
-- [Quick Start Guide](03-quick-start-guide.md) - Get writing in five minutes
-- [Creating Your First Project](../02-getting-started/02-creating-your-first-project.md)
+- [Quick Start Guide](13-quick-start-guide.md) - Get writing in five minutes
+- [Creating Your First Project](../2-getting-started/22-creating-your-first-project.md)
 
 ---

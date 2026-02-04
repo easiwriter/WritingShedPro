@@ -2026,6 +2026,8 @@
 "backMatter.bibliography.heading" = "Bibliography";
 "backMatter.references.heading" = "References";
 "backMatter.index.heading" = "Index";
+"index.see" = "See";
+"index.seeAlso" = "See also";
 
 /* Citation Types */
 "citation.type.article" = "Article";
@@ -2239,6 +2241,17 @@
 "indexEditor.keyword.header" = "Keyword";
 "indexEditor.keyword.footer" = "The word or phrase to add to the index";
 "indexEditor.keyword.exists" = "This keyword already exists";
+"indexEditor.parent.label" = "Parent Entry";
+"indexEditor.parent.header" = "Hierarchy";
+"indexEditor.parent.none" = "None (Top Level)";
+"indexEditor.parent.footer" = "Place this entry under a parent for nested index entries (max 3 levels)";
+"indexEditor.primary.label" = "Primary Reference";
+"indexEditor.primary.footer" = "Primary references are shown in bold in the generated index";
+"indexEditor.see.header" = "See Reference";
+"indexEditor.see.placeholder" = "e.g., Animals";
+"indexEditor.see.footer" = "Redirects reader to another term (e.g., 'Dogs, see Animals')";
+"indexEditor.seeAlso.header" = "See Also";
+"indexEditor.seeAlso.footer" = "Related terms shown after page numbers";
 "indexEditor.preview.header" = "Preview";
 "indexEditor.preview.marker" = "Marker:";
 "indexEditor.preview.invisible" = "(invisible in text)";
@@ -2251,6 +2264,8 @@
 "indexEditor.discard.title" = "Discard Changes?";
 "indexEditor.discard.button" = "Discard";
 "indexEditor.discard.message" = "Your changes will be lost.";
+"indexEditor.suggestions" = "Suggestions:";
+"indexEditor.suggestion.subEntry" = "sub-entry";
 
 /* Index List */
 "indexList.title" = "Index";
@@ -2276,6 +2291,17 @@
 "indexList.confirmDelete.button" = "Delete";
 "indexList.confirmDelete.message" = "This entry will be permanently deleted.";
 "indexList.confirmDelete.messageWithRefs" = "This entry is referenced %d times. The markers will be removed.";
+"indexList.see" = "see";
+"indexList.seeAlso" = "see also";
+"indexList.merge" = "Merge Into...";
+
+/* Index Merge Sheet */
+"indexMerge.title" = "Merge Entry";
+"indexMerge.merging" = "Merging:";
+"indexMerge.description" = "References will be transferred to the target entry.";
+"indexMerge.selectTarget" = "Select Target Entry";
+"indexMerge.search" = "Search entries";
+"indexMerge.merge" = "Merge";
 
 /* Reference Popover */
 "reference.note.title" = "Note %d";

@@ -171,8 +171,8 @@ Where your story happens:
 - Share or submit
 
 ## See Also
-- [Chapter Management](02-chapter-management.md)
-- [Scene Organization](03-scene-organization.md)
-- [Manuscript Formatting](04-manuscript-formatting.md)
+- [Chapter Management](72-chapter-management.md)
+- [Scene Organization](73-scene-organization.md)
+- [Manuscript Formatting](74-manuscript-formatting.md)
 
 ---

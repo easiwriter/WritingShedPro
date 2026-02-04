@@ -126,7 +126,7 @@ When you assemble or export your manuscript:
 - Scenes within chapters appear in order
 - Chapter titles become headings
 
-See [Manuscript Formatting](04-manuscript-formatting.md) for export details.
+See [Manuscript Formatting](74-manuscript-formatting.md) for export details.
 
 ## Troubleshooting
 
@@ -144,8 +144,8 @@ See [Manuscript Formatting](04-manuscript-formatting.md) for export details.
 - Check for app issues (restart if needed)
 
 ## See Also
-- [Fiction Mode Overview](01-fiction-mode-overview.md)
-- [Scene Organization](03-scene-organization.md)
-- [Manuscript Formatting](04-manuscript-formatting.md)
+- [Fiction Mode Overview](71-fiction-mode-overview.md)
+- [Scene Organization](73-scene-organization.md)
+- [Manuscript Formatting](74-manuscript-formatting.md)
 
 ---

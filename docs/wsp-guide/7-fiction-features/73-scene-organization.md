@@ -104,7 +104,7 @@ Each scene can store metadata:
 3. Tap **Done**
 
 ### In Chapters
-Scene order within chapters determines manuscript order. See [Chapter Management](02-chapter-management.md).
+Scene order within chapters determines manuscript order. See [Chapter Management](72-chapter-management.md).
 
 ## Finding Scenes
 
@@ -170,8 +170,8 @@ Move scenes through the workflow as you complete them. It's motivating to see Re
 - Look in Trash if deleted
 
 ## See Also
-- [Fiction Mode Overview](01-fiction-mode-overview.md)
-- [Chapter Management](02-chapter-management.md)
-- [Manuscript Formatting](04-manuscript-formatting.md)
+- [Fiction Mode Overview](71-fiction-mode-overview.md)
+- [Chapter Management](72-chapter-management.md)
+- [Manuscript Formatting](74-manuscript-formatting.md)
 
 ---

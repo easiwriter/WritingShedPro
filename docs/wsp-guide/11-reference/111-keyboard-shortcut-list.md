@@ -96,6 +96,7 @@ A complete reference of keyboard shortcuts available in Writing Shed Pro. Works 
 | ⇧Return | Line break (soft return) |
 | Tab | Insert tab (in code/tables) |
 | ⌘⇧C | Insert comment |
+| ⌘⇧X | Add index entry |
 
 ## Lists and Indentation
 
@@ -174,6 +175,6 @@ ZOOM
 
 ## See Also
 - [Keyboard Shortcuts](../10-advanced-features/05-keyboard-shortcuts.md)
-- [The Editor](../04-writing/01-the-editor.md)
+- [The Editor](../4-writing/41-the-editor.md)
 
 ---

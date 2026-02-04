@@ -19,6 +19,9 @@ extension NSAttributedString.Key {
     
     /// The UUID of the referenced entry (NoteEntry, GlossaryEntry, etc.)
     static let referenceID = NSAttributedString.Key("com.writingshed.referenceID")
+    
+    /// Whether this is a primary reference (Bool) - displayed bold in index
+    static let referencePrimary = NSAttributedString.Key("com.writingshed.referencePrimary")
 }
 
 // MARK: - Reference Marker Info
@@ -30,13 +33,15 @@ struct ReferenceMarkerInfo: Identifiable, Equatable {
     let entryID: UUID  // ID of the referenced entry
     let range: NSRange
     let markerText: String
+    let isPrimary: Bool  // For index entries: whether this is a primary reference (shown bold)
     
-    init(type: ReferenceType, entryID: UUID, range: NSRange, markerText: String) {
+    init(type: ReferenceType, entryID: UUID, range: NSRange, markerText: String, isPrimary: Bool = false) {
         self.id = UUID()
         self.type = type
         self.entryID = entryID
         self.range = range
         self.markerText = markerText
+        self.isPrimary = isPrimary
     }
     
     static func == (lhs: ReferenceMarkerInfo, rhs: ReferenceMarkerInfo) -> Bool {
@@ -60,11 +65,13 @@ extension NSAttributedString {
                let idString = attributes[.referenceID] as? String,
                let entryID = UUID(uuidString: idString) {
                 let markerText = (string as NSString).substring(with: range)
+                let isPrimary = attributes[.referencePrimary] as? Bool ?? false
                 markers.append(ReferenceMarkerInfo(
                     type: type,
                     entryID: entryID,
                     range: range,
-                    markerText: markerText
+                    markerText: markerText,
+                    isPrimary: isPrimary
                 ))
             }
         }
@@ -88,11 +95,13 @@ extension NSAttributedString {
                let idString = attributes[.referenceID] as? String,
                let entryID = UUID(uuidString: idString) {
                 let markerText = (string as NSString).substring(with: attrRange)
+                let isPrimary = attributes[.referencePrimary] as? Bool ?? false
                 markers.append(ReferenceMarkerInfo(
                     type: type,
                     entryID: entryID,
                     range: attrRange,
-                    markerText: markerText
+                    markerText: markerText,
+                    isPrimary: isPrimary
                 ))
             }
         }

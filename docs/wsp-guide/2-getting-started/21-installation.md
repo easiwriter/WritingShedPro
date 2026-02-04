@@ -98,10 +98,10 @@ If you edit the same file on two devices simultaneously:
 - Delete and reinstall the app (if iCloud is enabled, no data is lost)
 
 ### iCloud Sync Not Working
-See [iCloud Sync](04-icloud-sync.md) for detailed troubleshooting.
+See [iCloud Sync](24-icloud-sync.md) for detailed troubleshooting.
 
 ## See Also
-- [Creating Your First Project](02-creating-your-first-project.md)
-- [iCloud Sync](04-icloud-sync.md)
+- [Creating Your First Project](22-creating-your-first-project.md)
+- [iCloud Sync](24-icloud-sync.md)
 
 ---

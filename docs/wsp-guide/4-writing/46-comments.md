@@ -161,8 +161,8 @@ Use footnotes for reader-facing notes; use comments for behind-the-scenes notes.
 - Consider converting to footnotes if readers should see them
 
 ## See Also
-- [The Editor](01-the-editor.md)
-- [Footnotes](05-footnotes.md)
-- [Organizing Your Work](../03-projects/05-organizing-your-work.md)
+- [The Editor](41-the-editor.md)
+- [Footnotes](45-footnotes.md)
+- [Organizing Your Work](../3-projects/35-organizing-your-work.md)
 
 ---

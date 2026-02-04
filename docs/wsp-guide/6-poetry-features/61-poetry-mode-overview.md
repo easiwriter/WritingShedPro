@@ -77,7 +77,7 @@ Writing Shed Pro includes templates for 30+ traditional forms:
 - **Ode** (varied structure)
 - **Free Verse** (no constraints)
 
-See [Forms and Templates](05-forms-and-templates.md) for the complete list.
+See [Forms and Templates](65-forms-and-templates.md) for the complete list.
 
 ## Poetry Tools in the Editor
 
@@ -114,7 +114,7 @@ When seeking rhymes:
 - Access rhyme tools
 - See suggested rhyming words
 
-See [Rhyme Tools](03-rhyme-tools.md) for details.
+See [Rhyme Tools](63-rhyme-tools.md) for details.
 
 ## Poetry Workflow
 
@@ -154,9 +154,9 @@ Use subfolders or collections to group poems:
 - By submission target
 
 ## See Also
-- [Syllable Counting](02-syllable-counting.md)
-- [Rhyme Tools](03-rhyme-tools.md)
-- [Verse Highlighting](04-verse-highlighting.md)
-- [Forms and Templates](05-forms-and-templates.md)
+- [Syllable Counting](62-syllable-counting.md)
+- [Rhyme Tools](63-rhyme-tools.md)
+- [Verse Highlighting](64-verse-highlighting.md)
+- [Forms and Templates](65-forms-and-templates.md)
 
 ---

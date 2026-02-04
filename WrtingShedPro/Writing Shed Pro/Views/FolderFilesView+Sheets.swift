@@ -151,9 +151,10 @@ extension FolderFilesView {
         Button(ExportFormat.html.localizedName) {
             exportFiles(format: .html)
         }
-        Button(ExportFormat.epub.localizedName) {
-            exportFiles(format: .epub)
-        }
+        // EPUB reserved for future release
+        // Button(ExportFormat.epub.localizedName) {
+        //     exportFiles(format: .epub)
+        // }
         Button(ExportFormat.word.localizedName) {
             exportFiles(format: .word)
         }
@@ -177,9 +178,10 @@ extension FolderFilesView {
         Button(ExportFormat.html.localizedName) {
             exportCombinedFolder(format: .html)
         }
-        Button(ExportFormat.epub.localizedName) {
-            exportCombinedFolder(format: .epub)
-        }
+        // EPUB reserved for future release
+        // Button(ExportFormat.epub.localizedName) {
+        //     exportCombinedFolder(format: .epub)
+        // }
         Button(ExportFormat.word.localizedName) {
             exportCombinedFolder(format: .word)
         }

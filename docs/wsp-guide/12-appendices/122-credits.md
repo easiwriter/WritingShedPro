@@ -49,6 +49,6 @@ The best features often come from user suggestions. If you have ideas for improv
 
 ## See Also
 - [Contact Support](../11-reference/05-contact-support.md)
-- [Legal](03-legal.md)
+- [Legal](123-legal.md)
 
 ---

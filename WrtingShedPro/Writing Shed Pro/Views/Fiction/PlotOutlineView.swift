@@ -259,13 +259,14 @@ struct PlotElementRowView: View {
     let showStage: Bool
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 3) {
             Text(element.name ?? NSLocalizedString("fiction.untitled", comment: "Untitled"))
-                .font(.headline)
+                .font(.body)
+                .fontWeight(.semibold)
             
             if let notes = element.notes, !notes.isEmpty {
                 Text(notes)
-                    .font(.subheadline)
+                    .font(.callout)
                     .foregroundColor(.secondary)
                     .lineLimit(2)
             }
@@ -274,14 +275,14 @@ struct PlotElementRowView: View {
             if showStage, let stage = element.monomythStage {
                 HStack(spacing: 4) {
                     Image(systemName: "circle.grid.3x3")
-                        .font(.caption)
+                        .font(.footnote)
                     Text(NSLocalizedString("monomyth.\(stage.rawValue)", comment: "Stage"))
-                        .font(.caption)
+                        .font(.footnote)
                 }
                 .foregroundColor(.purple)
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 2)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

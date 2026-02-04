@@ -147,7 +147,7 @@ The editor shows a live word count:
 - Updates as you type
 - Shows words, characters, and paragraphs
 
-See [Word Count and Statistics](07-word-count-and-statistics.md) for detailed statistics.
+See [Word Count and Statistics](47-word-count-and-statistics.md) for detailed statistics.
 
 ## Tips for Effective Editing
 
@@ -161,7 +161,7 @@ Instead of manual formatting, use paragraph styles. This ensures consistency and
 Focus on words during your first draft. Return for formatting during revision.
 
 ### Learn the Shortcuts
-Keyboard shortcuts dramatically speed up your workflow. See [Keyboard Shortcuts](../09-reference/01-keyboard-shortcut-list.md).
+Keyboard shortcuts dramatically speed up your workflow. See [Keyboard Shortcuts](../11-reference/111-keyboard-shortcut-list.md).
 
 ## Platform Differences
 
@@ -178,8 +178,8 @@ Keyboard shortcuts dramatically speed up your workflow. See [Keyboard Shortcuts]
 - Trackpad and mouse input
 
 ## See Also
-- [Text Formatting](02-text-formatting.md)
-- [Headings and Styles](03-headings-and-styles.md)
-- [Keyboard Shortcuts](../09-reference/01-keyboard-shortcut-list.md)
+- [Text Formatting](42-text-formatting.md)
+- [Headings and Styles](43-headings-and-styles.md)
+- [Keyboard Shortcuts](../11-reference/111-keyboard-shortcut-list.md)
 
 ---

@@ -336,7 +336,8 @@ struct ManuscriptBodyView: View {
                 }
             }
             
-            let combinedMarkdown = allMarkdown.joined(separator: "\n\n---\n\n")
+            // Files already end with --- so just join with newlines
+            let combinedMarkdown = allMarkdown.joined(separator: "\n\n")
             
             #if DEBUG
             print("🌐 [ManuscriptBodyView] Exporting HTML from Markdown, total length: \(combinedMarkdown.count)")

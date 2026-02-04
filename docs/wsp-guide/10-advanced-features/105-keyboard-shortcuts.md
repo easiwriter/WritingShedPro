@@ -140,7 +140,7 @@ See [Keyboard Shortcut List](../11-reference/01-keyboard-shortcut-list.md) for a
 
 ## See Also
 - [Keyboard Shortcut List](../11-reference/01-keyboard-shortcut-list.md)
-- [The Editor](../04-writing/01-the-editor.md)
-- [The Interface Tour](../02-getting-started/03-the-interface-tour.md)
+- [The Editor](../4-writing/41-the-editor.md)
+- [The Interface Tour](../2-getting-started/23-the-interface-tour.md)
 
 ---
