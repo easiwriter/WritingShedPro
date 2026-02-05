@@ -226,6 +226,69 @@ struct ContentView: View {
             #if DEBUG
             print("✅ [ContentView] TOC migration complete")
             #endif
+            
+            // One-time fix: Convert user guide files to markdown mode
+            migrateUserGuideToMarkdown()
+        }
+    }
+    
+    /// One-time migration: Convert Writing Shed Pro Guide files to markdown mode
+    /// These files were imported as markdown but contentType was not set correctly
+    private func migrateUserGuideToMarkdown() {
+        let migrationKey = "userGuideMarkdownMigrationComplete"
+        guard !UserDefaults.standard.bool(forKey: migrationKey) else {
+            #if DEBUG
+            print("✅ [ContentView] User guide markdown migration already complete")
+            #endif
+            return
+        }
+        
+        do {
+            // Find the Writing Shed Pro Guide project
+            let projectDescriptor = FetchDescriptor<Project>(
+                predicate: #Predicate { $0.name == "Writing Shed Pro Guide" }
+            )
+            guard let guideProject = try modelContext.fetch(projectDescriptor).first else {
+                #if DEBUG
+                print("ℹ️ [ContentView] No 'Writing Shed Pro Guide' project found, skipping markdown migration")
+                #endif
+                // Mark as complete so we don't keep checking
+                UserDefaults.standard.set(true, forKey: migrationKey)
+                return
+            }
+            
+            // Get all files in this project's folders
+            var migratedCount = 0
+            if let folders = guideProject.folders {
+                for folder in folders {
+                    if let files = folder.textFiles {
+                        for file in files {
+                            // Only convert files that are currently richText
+                            if file.contentTypeRaw == "richText" {
+                                file.contentTypeRaw = "markdown"
+                                migratedCount += 1
+                            }
+                        }
+                    }
+                }
+            }
+            
+            if migratedCount > 0 {
+                try modelContext.save()
+                #if DEBUG
+                print("✅ [ContentView] Migrated \(migratedCount) files to markdown mode in 'Writing Shed Pro Guide'")
+                #endif
+            } else {
+                #if DEBUG
+                print("ℹ️ [ContentView] No files needed markdown migration")
+                #endif
+            }
+            
+            UserDefaults.standard.set(true, forKey: migrationKey)
+        } catch {
+            #if DEBUG
+            print("❌ [ContentView] User guide markdown migration failed: \(error)")
+            #endif
         }
     }
     
