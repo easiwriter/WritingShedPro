@@ -1122,6 +1122,7 @@
 /* FolderFilesView - New Keys */
 "folderFiles.noFiles" = "No Files";
 "folderFiles.noFiles.hint" = "Tap + to create your first file";
+"folderFiles.noFiles.matterHint" = "Tap the gear icon to configure";
 "folderFiles.sort.accessibility" = "Sort files";
 "folderFiles.addFile.accessibility" = "Add file";
 "folderFiles.addFile" = "Add File";

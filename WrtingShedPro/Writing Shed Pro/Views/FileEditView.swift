@@ -37,6 +37,7 @@ struct FileEditView: View {
     @State private var showDocumentPicker = false // For UIViewControllerRepresentable picker
     @State private var showImageSourcePicker = false // Show Photos vs Files chooser
     @State private var isPaginationMode = false // Toggle between edit and pagination preview modes
+    @State private var isPreviewingAsAlternateFormat = false // When true, showing file in opposite format (non-destructive preview)
     @State private var undoManager: TextFileUndoManager
     @StateObject private var textViewCoordinator = TextViewCoordinator()
     
@@ -561,10 +562,10 @@ struct FileEditView: View {
                 toggleContentType()
             }) {
                 Label(
-                    file.isMarkdown 
+                    isDisplayingAsMarkdown 
                         ? NSLocalizedString("contentType.switchToRichText", comment: "Switch to Rich Text")
                         : NSLocalizedString("contentType.switchToMarkdown", comment: "Switch to Markdown"),
-                    systemImage: file.isMarkdown ? "richtext.page.fill" : "number.square"
+                    systemImage: isDisplayingAsMarkdown ? "richtext.page.fill" : "number.square"
                 )
             }
         }
@@ -905,9 +906,9 @@ struct FileEditView: View {
                         Button(action: {
                             toggleContentType()
                         }) {
-                            Image(systemName: file.isMarkdown ? "richtext.page.fill" : "number.square")
+                            Image(systemName: isDisplayingAsMarkdown ? "richtext.page.fill" : "number.square")
                         }
-                        .accessibilityLabel(file.isMarkdown 
+                        .accessibilityLabel(isDisplayingAsMarkdown 
                             ? NSLocalizedString("contentType.switchToRichText", comment: "Switch to Rich Text")
                             : NSLocalizedString("contentType.switchToMarkdown", comment: "Switch to Markdown"))
                     }
@@ -1331,6 +1332,12 @@ struct FileEditView: View {
         !isPoetryProject && !isDramaProject
     }
     
+    /// Whether the editor is currently displaying content as markdown (may differ from file's actual type in preview mode)
+    /// When isPreviewingAsAlternateFormat is true, we show the opposite of the file's actual format
+    private var isDisplayingAsMarkdown: Bool {
+        isPreviewingAsAlternateFormat ? !file.isMarkdown : file.isMarkdown
+    }
+    
     /// Get the Back Matter settings from the project's Back Matter folder
     private var backMatterSettings: BackMatterSettings {
         guard let project = file.project else {
@@ -1392,12 +1399,12 @@ struct FileEditView: View {
                 paginationSection()
             } else {
                 textEditorSection()
-                // Formatting toolbar (only shown for editable rich text files, not markdown)
-                if isFileEditable && !file.isMarkdown {
+                // Formatting toolbar (only shown for editable rich text files, not when displaying as markdown)
+                if isFileEditable && !isDisplayingAsMarkdown {
                     formattingToolbar()
                 }
-                // Markdown indicator bar (only for markdown files)
-                if file.isMarkdown {
+                // Markdown indicator bar (only when displaying as markdown)
+                if isDisplayingAsMarkdown {
                     markdownIndicatorBar()
                 }
             }
@@ -1497,7 +1504,12 @@ struct FileEditView: View {
     
     /// Check if the current file should be editable
     /// Back matter files and TOC files are read-only
+    /// Also read-only when previewing in alternate format (to prevent accidental edits to preview content)
     private var isFileEditable: Bool {
+        // Don't allow editing while previewing in alternate format
+        if isPreviewingAsAlternateFormat {
+            return false
+        }
         return !file.isBackMatterFile && !file.isTOCFile
     }
     
@@ -2229,14 +2241,24 @@ struct FileEditView: View {
         #endif
         
         if (file.isTOCFile || (isTOCByName && isInFrontMatter)), let project = projectForTOC {
-            #if DEBUG
-            print("📑 ✅ TOC file detected! Regenerating content...")
-            #endif
-            // Mark as TOC file if detected by name
-            if !file.isTOCFile && isTOCByName {
-                file.isTOCFile = true
+            // CRITICAL: Do NOT regenerate TOC for markdown files!
+            // Markdown TOC files have manually-crafted links that would be destroyed by regeneration.
+            // The regeneration service only produces rich text, not markdown.
+            if file.isMarkdown {
+                #if DEBUG
+                print("📑 ⚠️ TOC file detected but skipping regeneration - file is markdown mode")
+                print("📑 Markdown TOC files use manual link syntax that must be preserved")
+                #endif
+            } else {
+                #if DEBUG
+                print("📑 ✅ TOC file detected! Regenerating content...")
+                #endif
+                // Mark as TOC file if detected by name
+                if !file.isTOCFile && isTOCByName {
+                    file.isTOCFile = true
+                }
+                regenerateTOCContent(for: project)
             }
-            regenerateTOCContent(for: project)
         } else {
             #if DEBUG
             print("📑 ❌ Not detected as TOC file")
@@ -5600,10 +5622,10 @@ struct FileEditView: View {
         print("🎨 selectedRange: {\(selectedRange.location), \(selectedRange.length)}")
         #endif
         
-        // Don't apply rich text formatting to markdown files
-        if file.isMarkdown {
+        // Don't apply rich text formatting when displaying as markdown
+        if isDisplayingAsMarkdown {
             #if DEBUG
-            print("⚠️ Skipping rich text formatting for markdown file")
+            print("⚠️ Skipping rich text formatting - displaying as markdown")
             #endif
             return
         }
@@ -7296,10 +7318,11 @@ struct FileEditView: View {
         saveChanges()
     }
     
-    /// Toggle between Rich Text and Markdown content types
-    /// Converts the content when switching modes
+    /// Toggle between Rich Text and Markdown display modes (non-destructive preview)
+    /// This only changes how content is displayed - it does NOT permanently convert the file.
+    /// The file's actual contentType is preserved. Users can view their content in either format
+    /// without risk of data loss.
     private func toggleContentType() {
-        // Get current content from the text view
         guard let textView = textViewCoordinator.textView else {
             #if DEBUG
             print("⚠️ toggleContentType: No text view available")
@@ -7307,79 +7330,95 @@ struct FileEditView: View {
             return
         }
         
-        let currentContent = textView.attributedText ?? NSAttributedString()
-        
-        if file.isMarkdown {
-            // Converting Markdown → Rich Text
-            // Parse the plain text markdown and render it as formatted text
-            do {
-                let markdownText = currentContent.string
-                let styleSheet = file.project?.styleSheet
-                let renderedContent = try MarkdownImportService.importMarkdown(from: markdownText, styleSheet: styleSheet)
-                
-                // Update the text view with rendered content
-                textView.attributedText = renderedContent
-                attributedContent = renderedContent
-                
-                // Save the converted content
-                file.currentVersion?.attributedContent = renderedContent
-                file.contentType = .richText
+        if isPreviewingAsAlternateFormat {
+            // Toggling BACK from preview mode → restore original content from file
+            if let savedContent = file.currentVersion?.attributedContent {
+                textView.attributedText = savedContent
+                attributedContent = savedContent
                 
                 #if DEBUG
-                print("📝 Converted Markdown to Rich Text (\(markdownText.count) chars → \(renderedContent.length) styled)")
+                print("📝 Restored original \(file.isMarkdown ? "Markdown" : "Rich Text") content from file")
                 #endif
-            } catch {
-                #if DEBUG
-                print("❌ Failed to convert Markdown to Rich Text: \(error)")
-                #endif
-                // Just switch the mode without converting if parsing fails
-                file.contentType = .richText
             }
+            isPreviewingAsAlternateFormat = false
         } else {
-            // Converting Rich Text → Markdown
-            // Export the formatted content as Markdown syntax
-            do {
-                let filename = file.name
-                let markdownString = try MarkdownExportService.exportToMarkdown(currentContent, filename: filename)
-                
-                // Create plain text attributed string with markdown content
-                let markdownContent = NSAttributedString(
-                    string: markdownString,
-                    attributes: [
-                        .font: UIFont.systemFont(ofSize: 17),
-                        .foregroundColor: UIColor.label
-                    ]
-                )
-                
-                // Update the text view with markdown content
-                textView.attributedText = markdownContent
-                attributedContent = markdownContent
-                
-                // Save the converted content
-                file.currentVersion?.attributedContent = markdownContent
-                file.contentType = .markdown
-                
-                #if DEBUG
-                print("📝 Converted Rich Text to Markdown (\(currentContent.length) styled → \(markdownString.count) chars)")
-                #endif
-            } catch {
-                #if DEBUG
-                print("❌ Failed to convert Rich Text to Markdown: \(error)")
-                #endif
-                // Just switch the mode without converting if export fails
-                file.contentType = .markdown
+            // Toggling INTO preview mode → convert for display only (don't save)
+            // First, save any pending changes to the file so we can restore them later
+            if let currentContent = textView.attributedText {
+                file.currentVersion?.attributedContent = currentContent
+                try? modelContext.save()
             }
+            
+            let currentContent = textView.attributedText ?? NSAttributedString()
+            
+            if file.isMarkdown {
+                // Markdown file → show as Rich Text preview
+                do {
+                    let markdownText = currentContent.string
+                    let styleSheet = file.project?.styleSheet
+                    let renderedContent = try MarkdownImportService.importMarkdown(from: markdownText, styleSheet: styleSheet)
+                    
+                    // Update display only - do NOT save to file
+                    textView.attributedText = renderedContent
+                    attributedContent = renderedContent
+                    
+                    #if DEBUG
+                    print("📝 Preview: Markdown → Rich Text (\(markdownText.count) chars → \(renderedContent.length) styled)")
+                    #endif
+                } catch {
+                    #if DEBUG
+                    print("❌ Failed to render Markdown as Rich Text: \(error)")
+                    #endif
+                    // Don't enter preview mode if conversion fails
+                    return
+                }
+            } else {
+                // Rich Text file → show as Markdown preview
+                do {
+                    let filename = file.name
+                    let markdownString = try MarkdownExportService.exportToMarkdown(currentContent, filename: filename)
+                    
+                    let markdownContent = NSAttributedString(
+                        string: markdownString,
+                        attributes: [
+                            .font: UIFont.systemFont(ofSize: 17),
+                            .foregroundColor: UIColor.label
+                        ]
+                    )
+                    
+                    // Update display only - do NOT save to file
+                    textView.attributedText = markdownContent
+                    attributedContent = markdownContent
+                    
+                    #if DEBUG
+                    print("📝 Preview: Rich Text → Markdown (\(currentContent.length) styled → \(markdownString.count) chars)")
+                    #endif
+                } catch {
+                    #if DEBUG
+                    print("❌ Failed to export Rich Text as Markdown: \(error)")
+                    #endif
+                    // Don't enter preview mode if conversion fails
+                    return
+                }
+            }
+            isPreviewingAsAlternateFormat = true
         }
-        
-        // Save changes and refresh UI
-        file.modifiedDate = Date()
-        try? modelContext.save()
         
         // Force UI refresh
         refreshTrigger = UUID()
     }
     
     private func saveChanges() {
+        // IMPORTANT: Do NOT save while previewing in alternate format!
+        // The textView contains converted preview content, not the actual file content.
+        // Saving now would corrupt the file by overwriting the original with preview content.
+        if isPreviewingAsAlternateFormat {
+            #if DEBUG
+            print("⚠️ saveChanges skipped - currently in preview mode (alternate format)")
+            #endif
+            return
+        }
+        
         // Save the current attributed content to the model
         // IMPORTANT: Get the current content from the textView to include all attachments (comments, images)
         if let textView = textViewCoordinator.textView {

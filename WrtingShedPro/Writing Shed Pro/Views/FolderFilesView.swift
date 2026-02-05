@@ -237,6 +237,13 @@ struct FolderFilesView: View {
                         matterFolderBody
                     } else if !sortedFiles.isEmpty {
                         fileListSection
+                    } else if isMatterFolder {
+                        // Special empty state for Front/Back Matter folders
+                        ContentUnavailableView {
+                            Label("folderFiles.noFiles", systemImage: "doc.text")
+                        } description: {
+                            Text("folderFiles.noFiles.matterHint")
+                        }
                     } else {
                         ContentUnavailableView {
                             Label("folderFiles.noFiles", systemImage: "doc.text")

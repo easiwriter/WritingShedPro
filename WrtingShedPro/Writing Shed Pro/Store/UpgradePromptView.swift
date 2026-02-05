@@ -64,8 +64,9 @@ struct UpgradePromptView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
                 
-                // Also show bundle option if not already requesting it
-                if reason.requiredProduct != .allInBundle {
+                // Also show bundle option if not already requesting it AND user has no purchases yet
+                // (Bundle not worth showing if they already bought individual modules)
+                if reason.requiredProduct != .allInBundle && !EntitlementManager.shared.hasAnyPurchase {
                     Button {
                         showStore = true
                     } label: {

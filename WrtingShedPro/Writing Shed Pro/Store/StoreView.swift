@@ -83,7 +83,7 @@ struct StoreView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") {
+                    Button("Not Now") {
                         dismiss()
                     }
                 }
