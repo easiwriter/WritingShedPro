@@ -2393,6 +2393,46 @@
 "backMatter.index.settings.header" = "Index Settings";
 "backMatter.index.columns.footer" = "Number of columns to display the index in when exported.";
 
+// Table of Figures (Back Matter)
+"backMatter.tableOfFigures" = "Table of Figures";
+"backMatter.tableOfFigures.empty.title" = "No Images";
+"backMatter.tableOfFigures.empty.description" = "Images in your manuscript will appear here.";
+
+// Table of Figures Settings
+"tof.settings.navigationTitle" = "Table of Figures Settings";
+"tof.settings.button.accessibility" = "Table of Figures Settings";
+"tof.settings.titleSection" = "Title";
+"tof.settings.titlePlaceholder" = "List of Figures";
+"tof.settings.title.accessibility" = "Table of Figures title";
+"tof.settings.titleFooter" = "The heading displayed at the top of the Table of Figures";
+"tof.settings.titleStyle" = "Title style";
+"tof.settings.entryStyleSection" = "Entry Style";
+"tof.settings.entryStyle" = "Entry style";
+"tof.settings.entryStyleFooter" = "Style for figure entries in the list";
+"tof.settings.prefixSection" = "Numbering";
+"tof.settings.useCaptionPrefix" = "Use caption prefix";
+"tof.settings.prefixPlaceholder" = "Figure";
+"tof.settings.prefix.accessibility" = "Caption prefix text";
+"tof.settings.prefixFooter" = "Entries will appear as \"Figure 1: Caption text\"";
+"tof.settings.noPrefixFooter" = "Entries will show caption text only";
+"tof.settings.formattingSection" = "Formatting";
+"tof.settings.showPageNumbers" = "Show page numbers";
+"tof.settings.separator" = "Separator";
+"tof.settings.separator.space" = "Space";
+"tof.settings.separator.none" = "None";
+"tof.settings.separator.accessibility" = "Separator character between caption and page number";
+"tof.settings.useDotLeaders" = "Use dot leaders";
+"tof.settings.useDotLeaders.hint" = "Repeat separator character to fill space between caption and page number";
+"tof.settings.pageNumberPosition" = "Page number position";
+"tof.settings.missingCaptionSection" = "Missing Captions";
+"tof.settings.showMissingCaption" = "Show uncaptioned images";
+"tof.settings.missingCaptionFooter.show" = "Images without captions will appear with \"Missing caption\" text";
+"tof.settings.missingCaptionFooter.hide" = "Images without captions will be skipped, with a summary shown at the end";
+"tof.settings.previewSection" = "Preview";
+"tof.missingCaption" = "Missing caption";
+"tof.missingCaption.summary" = "%d images without captions";
+"tof.missingCaption.summary.withPages" = "%d images without captions on pages: %@";
+
 // Contributors (Back Matter)
 "backMatter.contributors" = "Contributors";
 "backMatter.contributors.header" = "Contributors";

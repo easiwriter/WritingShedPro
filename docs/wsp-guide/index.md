@@ -71,6 +71,9 @@ Welcome to the official user guide for Writing Shed Pro, the professional writin
 - [Keyboard Shortcuts](10-advanced-features/105-keyboard-shortcuts.md)
 - [Tips and Tricks](10-advanced-features/106-tips-and-tricks.md)
 - [Contributors](10-advanced-features/107-contributors.md)
+- [Index Generation](10-advanced-features/108-index-generation.md)
+- [List of Figures](10-advanced-features/109-list-of-figures.md)
+- [Table of Contents](10-advanced-features/110-table-of-contents.md)
 
 ### 11. Reference
 - [Keyboard Shortcut List](11-reference/111-keyboard-shortcut-list.md)

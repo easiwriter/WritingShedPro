@@ -215,6 +215,9 @@ struct ReferenceEditorSheet: View {
                 generatedContent = backMatterGenerator.generateGlossarySection() ?? NSAttributedString()
             case .references:
                 generatedContent = backMatterGenerator.generateReferencesSection() ?? NSAttributedString()
+            case .tableOfFigures:
+                // Table of Figures is generated dynamically in BackMatterGeneratedContentView
+                continue
             case .index:
                 generatedContent = backMatterGenerator.generateIndexSection(pageMap: [:]) ?? NSAttributedString()
             case .contributors:

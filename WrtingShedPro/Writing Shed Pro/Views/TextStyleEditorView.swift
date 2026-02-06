@@ -789,6 +789,9 @@ struct TextStyleEditorView: View {
                     generatedContent = generator.generateGlossarySection() ?? NSAttributedString()
                 case .references:
                     generatedContent = generator.generateReferencesSection() ?? NSAttributedString()
+                case .tableOfFigures:
+                    // Table of Figures is generated dynamically, skip
+                    continue
                 case .index:
                     generatedContent = generator.generateIndexSection(pageMap: [:]) ?? NSAttributedString()
                 case .contributors:

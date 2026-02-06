@@ -124,6 +124,9 @@ struct FileEditView: View {
     @State private var showTOCSettings = false
     @State private var isCalculatingTOCPages = false  // Progress indicator for page calculation
     
+    // Feature 112: Table of Figures
+    @State private var showTableOfFiguresSettings = false
+    
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Environment(SearchContext.self) private var searchContext: SearchContext?
@@ -743,6 +746,15 @@ struct FileEditView: View {
                 Image(systemName: "gearshape")
             }
             .accessibilityLabel(NSLocalizedString("toc.settings.button.accessibility", comment: "TOC Settings"))
+        }
+        // Table of Figures files: show settings button
+        else if file.isTableOfFiguresFile {
+            Button(action: {
+                showTableOfFiguresSettings = true
+            }) {
+                Image(systemName: "gearshape")
+            }
+            .accessibilityLabel(NSLocalizedString("tof.settings.button.accessibility", comment: "Table of Figures Settings"))
         }
         // Preview mode: show toggle button to exit preview (plus info about preview state)
         else if isPreviewingAsAlternateFormat {
@@ -1918,6 +1930,12 @@ struct FileEditView: View {
                     if let project = project {
                         regenerateTOCContent(for: project)
                     }
+                }
+            }
+            .sheet(isPresented: $showTableOfFiguresSettings) {
+                TableOfFiguresSettingsView(file: file) {
+                    // Refresh content when settings change
+                    // Content is dynamically generated in BackMatterGeneratedContentView
                 }
             }
             .sheet(isPresented: $showPoetryMetrics) {
@@ -3326,6 +3344,9 @@ struct FileEditView: View {
                 generatedContent = backMatterGenerator.generateGlossarySection() ?? NSAttributedString()
             case .references:
                 generatedContent = backMatterGenerator.generateReferencesSection() ?? NSAttributedString()
+            case .tableOfFigures:
+                // Table of Figures is generated dynamically in BackMatterGeneratedContentView
+                continue
             case .index:
                 generatedContent = backMatterGenerator.generateIndexSection(pageMap: [:]) ?? NSAttributedString()
             case .contributors:

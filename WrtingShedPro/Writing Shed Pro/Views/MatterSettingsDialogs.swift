@@ -284,6 +284,9 @@ struct BackMatterSettingsDialog: View {
             print("📊 Index: \(entries.count) with references, hasReferences=\(result)")
             #endif
             return result
+        case .tableOfFigures:
+            // Table of Figures is based on images in manuscript, not reference-based
+            return false
         case .contributors:
             // Contributors are user-created, not reference-based - always allow toggling
             return false
@@ -480,6 +483,12 @@ struct BackMatterSettingsDialog: View {
         
         let textFile = TextFile(name: item.fileName, initialContent: "", parentFolder: folder)
         textFile.userOrder = item.sortOrder
+        
+        // Feature 112: Mark Table of Figures files for auto-generation
+        if item == .tableOfFigures {
+            textFile.isTableOfFiguresFile = true
+        }
+        
         modelContext.insert(textFile)
         
         if folder.textFiles == nil {
@@ -568,6 +577,9 @@ struct BackMatterSettingsDialog: View {
             #if DEBUG
             print("✅ Removed all index entries")
             #endif
+        case .tableOfFigures:
+            // Table of Figures is generated from images, nothing to remove
+            return
         case .contributors:
             // Contributors are not reference-based, nothing to remove
             return

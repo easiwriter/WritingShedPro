@@ -75,6 +75,7 @@ enum BackMatterItem: String, CaseIterable, Codable, Identifiable {
     case endnotes = "Endnotes"
     case glossary = "Glossary"
     case references = "References"
+    case tableOfFigures = "Table of Figures"
     case index = "Index"
     case contributors = "Contributors"
     
@@ -89,6 +90,8 @@ enum BackMatterItem: String, CaseIterable, Codable, Identifiable {
             return NSLocalizedString("backMatter.glossary", comment: "Glossary")
         case .references:
             return NSLocalizedString("backMatter.references", comment: "References")
+        case .tableOfFigures:
+            return NSLocalizedString("backMatter.tableOfFigures", comment: "Table of Figures")
         case .index:
             return NSLocalizedString("backMatter.index", comment: "Index")
         case .contributors:
@@ -105,8 +108,9 @@ enum BackMatterItem: String, CaseIterable, Codable, Identifiable {
         case .endnotes: return 0
         case .glossary: return 1
         case .references: return 2
-        case .index: return 3
-        case .contributors: return 4
+        case .tableOfFigures: return 3
+        case .index: return 4
+        case .contributors: return 5
         }
     }
 }

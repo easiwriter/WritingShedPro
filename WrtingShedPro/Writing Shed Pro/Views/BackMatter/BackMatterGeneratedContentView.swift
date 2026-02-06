@@ -50,6 +50,13 @@ struct BackMatterGeneratedContentView: View {
     @State private var pageCalcTrigger = UUID()
     @State private var indexEntryToFindOccurrences: IndexEntry?
     
+    // Table of Figures state
+    @State private var figureEntries: [FigureEntry] = []
+    @State private var previousFiguresCount: Int = 0
+    @State private var isCalculatingFigurePageNumbers = false
+    @State private var figurePageCalcTrigger = UUID()
+    @State private var showTableOfFiguresSettings = false
+    
     // MARK: - Computed Properties
     
     /// Determine the back matter type based on file name
@@ -81,6 +88,8 @@ struct BackMatterGeneratedContentView: View {
                             glossaryContent
                         case .references:
                             referencesContent
+                        case .tableOfFigures:
+                            tableOfFiguresContent
                         case .index:
                             indexContent
                         case .contributors:
@@ -97,6 +106,18 @@ struct BackMatterGeneratedContentView: View {
         .navigationBarTitleDisplayMode(.inline)
         .environment(\.editMode, $editMode)
         .toolbar {
+            // Settings button for Table of Figures
+            if backMatterType == .tableOfFigures {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        showTableOfFiguresSettings = true
+                    } label: {
+                        Image(systemName: "gearshape")
+                    }
+                    .accessibilityLabel(NSLocalizedString("tof.settings.button.accessibility", comment: "Table of Figures Settings"))
+                }
+            }
+            
             // Edit and Add buttons for contributors
             if backMatterType == .contributors {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -128,6 +149,12 @@ struct BackMatterGeneratedContentView: View {
                         }
                     }
                 }
+            }
+        }
+        .sheet(isPresented: $showTableOfFiguresSettings) {
+            TableOfFiguresSettingsView(file: file) {
+                // Refresh content when settings change
+                figurePageCalcTrigger = UUID()
             }
         }
         .sheet(isPresented: $showAddContributorSheet) {
@@ -211,10 +238,20 @@ struct BackMatterGeneratedContentView: View {
                 await calculateIndexPageNumbers()
             }
         }
+        .task(id: figurePageCalcTrigger) {
+            #if DEBUG
+            print("📑 BackMatter .task (figures) fired: backMatterType=\(String(describing: backMatterType)), fileName='\(file.name)'")
+            #endif
+            if backMatterType == .tableOfFigures {
+                await loadAndCalculateFigureEntries()
+            }
+        }
         .onChange(of: refreshTrigger) { _, _ in
             // When data changes (edit/delete), recalculate page numbers
             if backMatterType == .index {
                 pageCalcTrigger = UUID()
+            } else if backMatterType == .tableOfFigures {
+                figurePageCalcTrigger = UUID()
             }
         }
         .onAppear {
@@ -395,6 +432,46 @@ struct BackMatterGeneratedContentView: View {
         #endif
         
         indexPageMap = result
+    }
+    
+    // MARK: - Table of Figures Page Number Calculation
+    
+    /// Load figure entries and calculate their page numbers
+    @MainActor
+    private func loadAndCalculateFigureEntries() async {
+        guard !isCalculatingFigurePageNumbers else { return }
+        isCalculatingFigurePageNumbers = true
+        defer { isCalculatingFigurePageNumbers = false }
+        
+        #if DEBUG
+        print("📷 Starting figure entries calculation...")
+        #endif
+        
+        // Use the TableOfFiguresGenerationService
+        let service = TableOfFiguresGenerationService(context: modelContext)
+        
+        // Generate entries (scans manuscript for images)
+        var entries = service.generateEntries(for: project, tofFile: file)
+        
+        #if DEBUG
+        print("📷 Found \(entries.count) figures in manuscript")
+        #endif
+        
+        // Calculate page numbers
+        if !entries.isEmpty {
+            entries = await service.calculatePageNumbers(for: entries, project: project, tofFile: file)
+        }
+        
+        // Update state
+        figureEntries = entries
+        previousFiguresCount = entries.count
+        
+        #if DEBUG
+        print("📷 Figure calculation complete: \(entries.count) entries")
+        for entry in entries {
+            print("   Figure \(entry.figureNumber): '\(entry.captionText ?? "no caption")' -> page \(entry.pageNumber)")
+        }
+        #endif
     }
     
     /// Format page references for display, collapsing consecutive pages into ranges
@@ -679,6 +756,123 @@ struct BackMatterGeneratedContentView: View {
         }
         
         return parts.joined(separator: ". ") + "."
+    }
+    
+    // MARK: - Table of Figures Content
+    
+    /// Entries to show in the Table of Figures (filtered based on settings)
+    private var figuresToShow: [FigureEntry] {
+        let settings = file.tableOfFiguresSettings
+        if settings.showMissingCaption {
+            return figureEntries
+        } else {
+            return figureEntries.filter { $0.hasCaption }
+        }
+    }
+    
+    /// Entries with missing captions (for summary when not shown inline)
+    private var figuresWithMissingCaptions: [FigureEntry] {
+        let settings = file.tableOfFiguresSettings
+        if settings.showMissingCaption {
+            return []
+        } else {
+            return figureEntries.filter { !$0.hasCaption }
+        }
+    }
+    
+    @ViewBuilder
+    private var tableOfFiguresContent: some View {
+        if figureEntries.isEmpty {
+            emptyStateView(
+                title: NSLocalizedString("backMatter.tableOfFigures.empty.title", comment: "No Images"),
+                description: NSLocalizedString("backMatter.tableOfFigures.empty.description", comment: "Images in your manuscript will appear here."),
+                systemImage: "photo.stack"
+            )
+        } else {
+            VStack(alignment: .leading, spacing: 12) {
+                // Header with page calculation status
+                HStack {
+                    Text(file.tableOfFiguresSettings.title)
+                        .font(.title2)
+                        .fontWeight(.bold)
+                    
+                    if isCalculatingFigurePageNumbers {
+                        ProgressView()
+                            .controlSize(.small)
+                    }
+                }
+                
+                // Display entries
+                ForEach(figuresToShow) { entry in
+                    figureEntryRow(entry, settings: file.tableOfFiguresSettings)
+                }
+                
+                // Show summary of missing captions if not displayed inline
+                if !figuresWithMissingCaptions.isEmpty {
+                    missingCaptionsSummary
+                }
+            }
+        }
+    }
+    
+    /// Summary view for figures with missing captions
+    @ViewBuilder
+    private var missingCaptionsSummary: some View {
+        Divider()
+            .padding(.vertical, 4)
+        
+        Text(missingCaptionsSummaryText)
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .italic()
+    }
+    
+    /// Text for the missing captions summary
+    private var missingCaptionsSummaryText: String {
+        let missingEntries = figuresWithMissingCaptions
+        let pageNumbers = missingEntries.map { $0.pageNumber }.sorted()
+        let pagesList = pageNumbers.prefix(5).map { String($0) }.joined(separator: ", ")
+        
+        if pageNumbers.count <= 5 {
+            return String(format: NSLocalizedString("tof.missingCaption.summary.withPages", comment: "%d images without captions on pages: %@"), missingEntries.count, pagesList)
+        } else {
+            return String(format: NSLocalizedString("tof.missingCaption.summary", comment: "%d images without captions"), missingEntries.count)
+        }
+    }
+    
+    /// Renders a single figure entry row
+    private func figureEntryRow(_ entry: FigureEntry, settings: TableOfFiguresSettings) -> some View {
+        HStack(spacing: 0) {
+            // Build entry text
+            if let prefix = settings.captionPrefix {
+                Text("\(prefix) \(entry.figureNumber): ")
+                    .fontWeight(.medium)
+            }
+            
+            if let caption = entry.captionText, !caption.isEmpty {
+                Text(caption)
+            } else {
+                Text(NSLocalizedString("tof.missingCaption", comment: "Missing caption"))
+                    .italic()
+                    .foregroundStyle(.secondary)
+            }
+            
+            // Separator and page number
+            if settings.showPageNumbers {
+                if settings.useDotLeaders && !settings.separator.isEmpty {
+                    Text(" " + String(repeating: settings.separator + " ", count: 30))
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                } else {
+                    Spacer()
+                }
+                
+                Text("\(entry.pageNumber)")
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .font(.body)
+        .padding(.vertical, 2)
     }
     
     // MARK: - Index Content

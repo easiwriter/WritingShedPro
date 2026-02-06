@@ -191,12 +191,11 @@ struct IndexOccurrenceFinderSheet: View {
         isSearching = true
         searchError = nil
         
-        do {
-            var found: [IndexOccurrence] = []
-            let keyword = entry.keyword
-            
-            // Get all body files from the project
-            let bodyFiles = getBodyFiles()
+        var found: [IndexOccurrence] = []
+        let keyword = entry.keyword
+        
+        // Get all body files from the project
+        let bodyFiles = getBodyFiles()
             
             for file in bodyFiles {
                 guard let version = file.currentVersion,
@@ -263,12 +262,8 @@ struct IndexOccurrenceFinderSheet: View {
                 }
             }
             
-            occurrences = found
-            markedCount = found.filter { $0.isAlreadyMarked }.count
-            
-        } catch {
-            searchError = error.localizedDescription
-        }
+        occurrences = found
+        markedCount = found.filter { $0.isAlreadyMarked }.count
         
         isSearching = false
     }

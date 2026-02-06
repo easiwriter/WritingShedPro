@@ -741,6 +741,12 @@ final class TextFile {
     // JSON-encoded TOCSettings for TOC files
     var tocSettingsData: Data?
     
+    // Feature 112: Table of Figures
+    // Indicates this file is a Table of Figures file (auto-generated content)
+    var isTableOfFiguresFile: Bool = false
+    // JSON-encoded TableOfFiguresSettings for Table of Figures files
+    var tofSettingsData: Data?
+    
     // Content type: richText (default) or markdown
     var contentTypeRaw: String = "richText"
     
@@ -799,6 +805,21 @@ final class TextFile {
         }
         set {
             tocSettingsData = try? JSONEncoder().encode(newValue)
+            modifiedDate = Date()
+        }
+    }
+    
+    /// Get/set Table of Figures settings (decoded from tofSettingsData)
+    var tableOfFiguresSettings: TableOfFiguresSettings {
+        get {
+            guard let data = tofSettingsData,
+                  let settings = try? JSONDecoder().decode(TableOfFiguresSettings.self, from: data) else {
+                return .default
+            }
+            return settings
+        }
+        set {
+            tofSettingsData = try? JSONEncoder().encode(newValue)
             modifiedDate = Date()
         }
     }
