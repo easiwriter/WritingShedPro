@@ -8,6 +8,7 @@
 
 import Foundation
 import SwiftData
+import UIKit
 
 /// Service for managing file movement operations between folders
 /// Handles move, delete to trash, and put back operations
@@ -184,14 +185,70 @@ class FileMoveService {
     }
     
     /// Permanently deletes multiple files without moving to Trash
+    /// Also cleans up any index entry references in those files
     /// - Parameter files: Array of TextFiles to permanently delete
     /// - Throws: FileMoveError if any file is invalid
     func deleteFilesPermanently(_ files: [TextFile]) throws {
         for file in files {
+            // Clean up index entry references before deleting
+            cleanupIndexReferences(for: file)
             modelContext.delete(file)
         }
         
         try modelContext.save()
+    }
+    
+    /// Cleans up index entry references when a file is deleted
+    /// Call this BEFORE deleting a file to maintain index integrity
+    /// - Parameters:
+    ///   - file: The file being deleted
+    ///   - context: The model context to use for fetching/updating
+    static func cleanupIndexReferences(for file: TextFile, context: ModelContext) {
+        guard let project = file.parentFolder?.project ?? file.trashItem?.project else {
+            return
+        }
+        
+        // Get the file's content to find index markers
+        guard let content = file.currentVersion?.attributedContent else {
+            return
+        }
+        
+        // Find all index entry IDs referenced in this file's content
+        var indexEntryIDs: Set<UUID> = []
+        var referenceCountByEntry: [UUID: Int] = [:]
+        
+        content.enumerateAttribute(.attachment, in: NSRange(location: 0, length: content.length)) { value, _, _ in
+            if let attachment = value as? ReferenceAttachment,
+               attachment.referenceType == .index {
+                let entryID = attachment.entryID
+                indexEntryIDs.insert(entryID)
+                referenceCountByEntry[entryID, default: 0] += 1
+            }
+        }
+        
+        // Update each referenced index entry
+        if !indexEntryIDs.isEmpty {
+            // Get index entries directly from the project relationship
+            let entries = project.indexEntries ?? []
+            
+            for entry in entries where indexEntryIDs.contains(entry.id) {
+                // Remove file from referencing files list
+                entry.removeReferencingFile(file.id)
+                
+                // Decrement reference count by the number of markers in this file
+                let countToRemove = referenceCountByEntry[entry.id] ?? 0
+                entry.referenceCount = max(0, entry.referenceCount - countToRemove)
+                
+                #if DEBUG
+                print("📑 Cleaned up index entry '\(entry.keyword)': removed \(countToRemove) references from file '\(file.name)'")
+                #endif
+            }
+        }
+    }
+    
+    /// Instance method wrapper for cleanupIndexReferences
+    private func cleanupIndexReferences(for file: TextFile) {
+        Self.cleanupIndexReferences(for: file, context: modelContext)
     }
     
     // MARK: - Put Back from Trash Operations

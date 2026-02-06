@@ -6,6 +6,7 @@ struct SwiftUIFormattingToolbar: View {
     let onFormatAction: (FormattingAction) -> Void
     let hasSelectedImage: Bool
     let notesExist: Bool
+    let indexEnabled: Bool
     @State private var hasHardwareKeyboard = false
     @State private var isKeyboardVisible = false
     
@@ -23,6 +24,7 @@ struct SwiftUIFormattingToolbar: View {
         case insertTab
         case increaseIndent
         case decreaseIndent
+        case addIndex
     }
     
     var body: some View {
@@ -82,6 +84,16 @@ struct SwiftUIFormattingToolbar: View {
                 toolbarButton(systemName: "increase.indent", action: .increaseIndent)
                     .opacity(hasSelectedImage ? 0.3 : 1.0)
                     .disabled(hasSelectedImage)
+                
+                // Index button (only shown when index is enabled in back matter)
+                if indexEnabled {
+                    Divider()
+                        .frame(height: 24)
+                    
+                    toolbarButton(systemName: "list.bullet.indent", action: .addIndex)
+                        .opacity(hasSelectedImage ? 0.3 : 1.0)
+                        .disabled(hasSelectedImage)
+                }
                 
                 #if !targetEnvironment(macCatalyst)
                 if !hasHardwareKeyboard {

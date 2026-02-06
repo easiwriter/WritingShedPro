@@ -4,6 +4,14 @@ import ToolbarSUI
 import UniformTypeIdentifiers
 import PhotosUI
 
+/// Data for presenting the new index entry dialog
+/// Using Identifiable allows us to use sheet(item:) pattern which is more reliable than sheet(isPresented:)
+struct NewIndexEntryData: Identifiable {
+    let id = UUID()
+    let project: Project
+    let prefilledKeyword: String?
+}
+
 struct FileEditView: View {
         @State private var presentDeleteBackMatterAlert = false
     @Bindable var file: TextFile
@@ -38,6 +46,7 @@ struct FileEditView: View {
     @State private var showImageSourcePicker = false // Show Photos vs Files chooser
     @State private var isPaginationMode = false // Toggle between edit and pagination preview modes
     @State private var isPreviewingAsAlternateFormat = false // When true, showing file in opposite format (non-destructive preview)
+    @State private var prePreviewContent: NSAttributedString? // Stores original content before entering preview mode
     @State private var undoManager: TextFileUndoManager
     @StateObject private var textViewCoordinator = TextViewCoordinator()
     
@@ -68,9 +77,8 @@ struct FileEditView: View {
     
     // Feature 029: Index (Back Matter)
     @State private var showIndexList = false
-    @State private var showNewIndexEntryDialog = false
+    @State private var newIndexEntryData: NewIndexEntryData?  // Data for new index entry dialog (using sheet(item:) pattern)
     @State private var selectedIndexEntry: IndexEntry?
-    @State private var indexKeywordFromContextMenu: String?  // Keyword selected from context menu "Add to Index"
     
     // Feature 029: References (Back Matter)
     @State private var showReferencesList = false
@@ -451,6 +459,7 @@ struct FileEditView: View {
     private func formattingToolbar() -> some View {
         // Pure SwiftUI toolbar that respects iOS 26.2+ button styling
         let notesExist = file.currentVersion?.notes?.isEmpty == false
+        let indexEnabled = backMatterSettings.isEnabled(.index)
         SwiftUIFormattingToolbar(
             onFormatAction: { action in
                 switch action {
@@ -489,10 +498,13 @@ struct FileEditView: View {
                     increaseListIndent()
                 case .decreaseIndent:
                     decreaseListIndent()
+                case .addIndex:
+                    showIndexEntryDialogWithSelectedText()
                 }
             },
             hasSelectedImage: selectedImage != nil,
-            notesExist: notesExist
+            notesExist: notesExist,
+            indexEnabled: indexEnabled
         )
     }
     
@@ -606,11 +618,6 @@ struct FileEditView: View {
             compactReferenceSubmenu()
         }
         
-        // Index (top-level)
-        if backMatterSettings.isEnabled(.index) {
-            compactIndexSubmenu()
-        }
-        
         // Lists submenu
         Menu {
             Button(action: { insertList(numbered: true) }) {
@@ -717,16 +724,7 @@ struct FileEditView: View {
             Label(NSLocalizedString("insertMenu.addGlossaryTerm", comment: "Add Glossary Term"), systemImage: "text.book.closed.fill")
         }
     }
-    
-    
-    /// Index button for compact mode
-    @ViewBuilder
-    private func compactIndexSubmenu() -> some View {
-        Button(action: { showNewIndexEntryDialog = true }) {
-            Label(NSLocalizedString("insertMenu.addIndexEntry", comment: "Add Index Entry"), systemImage: "list.bullet.indent")
-        }
-    }
-    
+
     /// Reference button for compact mode
     @ViewBuilder
     private func compactReferenceSubmenu() -> some View {
@@ -746,8 +744,29 @@ struct FileEditView: View {
             }
             .accessibilityLabel(NSLocalizedString("toc.settings.button.accessibility", comment: "TOC Settings"))
         }
+        // Preview mode: show toggle button to exit preview (plus info about preview state)
+        else if isPreviewingAsAlternateFormat {
+            HStack(spacing: 16) {
+                // Show preview indicator
+                Text(isDisplayingAsMarkdown 
+                    ? NSLocalizedString("preview.markdownMode", comment: "Markdown Preview")
+                    : NSLocalizedString("preview.richTextMode", comment: "Rich Text Preview"))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                
+                // Toggle button to exit preview
+                Button(action: {
+                    toggleContentType()
+                }) {
+                    Image(systemName: isDisplayingAsMarkdown ? "richtext.page.fill" : "number.square")
+                }
+                .accessibilityLabel(isDisplayingAsMarkdown 
+                    ? NSLocalizedString("contentType.switchToRichText", comment: "Switch to Rich Text")
+                    : NSLocalizedString("contentType.switchToMarkdown", comment: "Switch to Markdown"))
+            }
+        }
         // Back matter files: show delete/trash button only
-        else if !isFileEditable {
+        else if file.isBackMatterFile {
             HStack {
                 Button(role: .destructive) {
                     #if DEBUG
@@ -1138,14 +1157,6 @@ struct FileEditView: View {
                 }
             }
 
-            // Index - direct button, no submenu
-            if backMatterSettings.isEnabled(.index) {
-                Button(action: { showNewIndexEntryDialog = true }) {
-                    Label(NSLocalizedString("insertMenu.addIndexEntry", comment: "Add Index Entry"), systemImage: "list.bullet.indent")
-                }
-                .keyboardShortcut("x", modifiers: [.command, .shift])
-            }
-
             // Lists submenu
             Menu {
                 Button(action: { insertList(numbered: true) }) {
@@ -1444,6 +1455,14 @@ struct FileEditView: View {
                     }
                 }
                 .keyboardShortcut("a", modifiers: .command)
+                
+                // Add Index Entry: Cmd+Shift+X
+                Button("") {
+                    if backMatterSettings.isEnabled(.index) {
+                        showIndexEntryDialogWithSelectedText()
+                    }
+                }
+                .keyboardShortcut("x", modifiers: [.command, .shift])
             }
             .frame(width: 0, height: 0)
             .opacity(0)
@@ -1797,20 +1816,21 @@ struct FileEditView: View {
                     )
                 }
             }
-            .sheet(isPresented: $showNewIndexEntryDialog) {
-                if let project = file.project {
-                    IndexEditorSheet(
-                        project: project,
-                        prefilledKeyword: indexKeywordFromContextMenu,
-                        onSave: { entry, isPrimary in
-                            insertIndexMarker(for: entry, isPrimary: isPrimary)
-                            indexKeywordFromContextMenu = nil
-                        },
-                        onCancel: {
-                            indexKeywordFromContextMenu = nil
-                        }
-                    )
-                }
+            .sheet(item: $newIndexEntryData) { data in
+                IndexEditorSheet(
+                    project: data.project,
+                    prefilledKeyword: data.prefilledKeyword,
+                    onSave: { entry, isPrimary in
+                        #if DEBUG
+                        print("📑 Index onSave callback: entry='\(entry.keyword)', isPrimary=\(isPrimary)")
+                        #endif
+                        insertIndexMarker(for: entry, isPrimary: isPrimary)
+                        newIndexEntryData = nil
+                    },
+                    onCancel: {
+                        newIndexEntryData = nil
+                    }
+                )
             }
             .sheet(item: $selectedIndexEntry) { entry in
                 if let project = file.project {
@@ -4724,6 +4744,39 @@ struct FileEditView: View {
     
     // MARK: - Index (Feature 029)
     
+    /// Show the index entry dialog, pre-filling with selected text if any
+    private func showIndexEntryDialogWithSelectedText() {
+        #if DEBUG
+        print("📑 showIndexEntryDialogWithSelectedText called")
+        #endif
+        
+        // Capture any selected text to use as the keyword
+        if let textView = textViewCoordinator.textView {
+            let selectedRange = textView.selectedRange
+            #if DEBUG
+            print("📑 selectedRange: location=\(selectedRange.location), length=\(selectedRange.length)")
+            #endif
+            
+            if selectedRange.length > 0,
+               let selectedText = textView.textStorage.attributedSubstring(from: selectedRange).string.trimmingCharacters(in: .whitespacesAndNewlines) as String?,
+               !selectedText.isEmpty {
+                #if DEBUG
+                print("📑 Selected text: '\(selectedText)'")
+                #endif
+                // Use the context menu handler which handles existing entry detection
+                handleIndexAddRequested(selectedText)
+                return
+            }
+        }
+        // No selection - just show the dialog with no pre-filled keyword
+        #if DEBUG
+        print("📑 No selection, showing empty dialog")
+        #endif
+        if let project = file.project {
+            newIndexEntryData = NewIndexEntryData(project: project, prefilledKeyword: nil)
+        }
+    }
+    
     /// Handle "Add to Index" from context menu with selected text (Feature 033)
     private func handleIndexAddRequested(_ selectedText: String) {
         let trimmedText = selectedText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -4746,10 +4799,9 @@ struct FileEditView: View {
         } else {
             // Entry is new - show editor with pre-filled keyword
             #if DEBUG
-            print("📑 New index entry '\(trimmedText)' - showing editor")
+            print("📑 New index entry '\(trimmedText)' - showing editor with prefilledKeyword='\(trimmedText)'")
             #endif
-            indexKeywordFromContextMenu = trimmedText
-            showNewIndexEntryDialog = true
+            newIndexEntryData = NewIndexEntryData(project: project, prefilledKeyword: trimmedText)
         }
     }
     
@@ -4782,9 +4834,22 @@ struct FileEditView: View {
         // Create attributed string with the attachment
         let attachmentString = NSAttributedString(attachment: attachment)
         
+        // Suppress autocomplete/OTP suggestions during insertion
+        // This prevents the "Refusing to display OTP completion list relative to null rect" flash
+        // We need to temporarily resign first responder to fully clear the input system state
+        let wasFirstResponder = textView.isFirstResponder
+        if wasFirstResponder {
+            textView.resignFirstResponder()
+        }
+        
+        // Use beginEditing/endEditing to batch the change
+        textView.textStorage.beginEditing()
+        
         // Insert at cursor
         isPerformingUndoRedo = true
         textView.textStorage.insert(attachmentString, at: currentRange.location)
+        
+        textView.textStorage.endEditing()
         
         // Move cursor after the marker
         let newLocation = currentRange.location + attachmentString.length
@@ -4802,7 +4867,11 @@ struct FileEditView: View {
         // Save changes
         saveChanges()
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+        // Restore first responder after a brief delay to let the input system settle
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            if wasFirstResponder {
+                textView.becomeFirstResponder()
+            }
             self.isPerformingUndoRedo = false
         }
         
@@ -7331,25 +7400,22 @@ struct FileEditView: View {
         }
         
         if isPreviewingAsAlternateFormat {
-            // Toggling BACK from preview mode → restore original content from file
-            if let savedContent = file.currentVersion?.attributedContent {
+            // Toggling BACK from preview mode → restore original content from memory
+            if let savedContent = prePreviewContent {
                 textView.attributedText = savedContent
                 attributedContent = savedContent
                 
                 #if DEBUG
-                print("📝 Restored original \(file.isMarkdown ? "Markdown" : "Rich Text") content from file")
+                print("📝 Restored original \(file.isMarkdown ? "Markdown" : "Rich Text") content from prePreviewContent")
                 #endif
             }
+            prePreviewContent = nil
             isPreviewingAsAlternateFormat = false
         } else {
             // Toggling INTO preview mode → convert for display only (don't save)
-            // First, save any pending changes to the file so we can restore them later
-            if let currentContent = textView.attributedText {
-                file.currentVersion?.attributedContent = currentContent
-                try? modelContext.save()
-            }
-            
+            // Store the current content so we can restore it later (NOT from file, from memory)
             let currentContent = textView.attributedText ?? NSAttributedString()
+            prePreviewContent = currentContent
             
             if file.isMarkdown {
                 // Markdown file → show as Rich Text preview

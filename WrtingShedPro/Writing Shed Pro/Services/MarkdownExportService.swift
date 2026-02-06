@@ -174,6 +174,12 @@ class MarkdownExportService {
             return string
         }
         
+        // Check for horizontal rule (visual representation from MarkdownImportService)
+        // The import converts --- to ────────────────────────────────
+        if isVisualHorizontalRule(string) {
+            return "---\n"
+        }
+        
         var result = ""
         let fullRange = NSRange(location: 0, length: attributedString.length)
         
@@ -279,5 +285,24 @@ class MarkdownExportService {
         }
         
         return images
+    }
+    
+    // MARK: - Horizontal Rule Detection
+    
+    /// Check if a string is a visual horizontal rule (from MarkdownImportService)
+    /// The import service converts markdown --- to visual ──────────────────────── characters
+    private static func isVisualHorizontalRule(_ text: String) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // Must have at least 3 characters
+        guard trimmed.count >= 3 else { return false }
+        
+        // Check for box-drawing horizontal line characters (U+2500, U+2501, U+2504, etc.)
+        // MarkdownImportService uses "─" (U+2500 BOX DRAWINGS LIGHT HORIZONTAL)
+        if trimmed.allSatisfy({ $0 == "─" || $0 == "━" || $0 == "—" || $0 == "-" }) {
+            return true
+        }
+        
+        return false
     }
 }

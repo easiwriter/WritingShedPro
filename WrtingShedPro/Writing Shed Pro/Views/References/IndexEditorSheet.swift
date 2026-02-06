@@ -44,6 +44,8 @@ struct IndexEditorSheet: View {
     @State private var selectedSeeEntry: IndexEntry? = nil  // "see" cross-reference entry
     @State private var selectedSeeAlsoEntries: Set<UUID> = []  // "see also" entry IDs
     @State private var showDiscardConfirmation = false
+    @State private var showSaveError = false
+    @State private var saveErrorMessage = ""
     
     // MARK: - Computed Properties
     
@@ -122,6 +124,13 @@ struct IndexEditorSheet: View {
         return isDescendant(potentialDescendant, of: ancestor.parentEntry)
     }
     
+    /// Generate a display label for a parent entry in the picker
+    private func parentEntryLabel(for entry: IndexEntry) -> String {
+        let indent = String(repeating: "  ", count: entry.depth - 1)
+        let maxIndicator = entry.depth == IndexEntry.maxDepth - 1 ? " (max)" : ""
+        return "\(indent)\(entry.keyword)\(maxIndicator)"
+    }
+    
     // MARK: - Initialization
     
     init(
@@ -137,29 +146,56 @@ struct IndexEditorSheet: View {
         self.onSave = onSave
         self.onCancel = onCancel
         
-        // Initialize state from existing entry or prefilled keyword
+        // Initialize state values directly in init
         if let existing = existingEntry {
             _keyword = State(initialValue: existing.keyword)
             _selectedParent = State(initialValue: existing.parentEntry)
-            // Look up the see entry from its ID
-            let seeEntry: IndexEntry? = existing.seeEntryID.flatMap { seeID in
-                project.indexEntries?.first { $0.id == seeID }
+            if let seeID = existing.seeEntryID {
+                _selectedSeeEntry = State(initialValue: project.indexEntries?.first { $0.id == seeID })
             }
-            _selectedSeeEntry = State(initialValue: seeEntry)
             _selectedSeeAlsoEntries = State(initialValue: Set(existing.seeAlsoEntryIDs))
-        } else if let prefilled = prefilledKeyword {
+            
+            #if DEBUG
+            print("📑 IndexEditorSheet init: EDITING existing entry")
+            print("   - entry.id: \(existing.id)")
+            print("   - entry.keyword: '\(existing.keyword)'")
+            print("   - entry.parentEntry: \(existing.parentEntry?.keyword ?? "nil")")
+            #endif
+        } else if let prefilled = prefilledKeyword, !prefilled.isEmpty {
             _keyword = State(initialValue: prefilled)
+            #if DEBUG
+            print("📑 IndexEditorSheet init: Pre-filled keyword from selection: '\(prefilled)'")
+            #endif
         }
+        
+        #if DEBUG
+        print("📑 IndexEditorSheet init: project.indexEntries count = \(project.indexEntries?.count ?? 0)")
+        if let entries = project.indexEntries {
+            for entry in entries {
+                print("   - '\(entry.keyword)' (depth: \(entry.depth), canHaveChildren: \(entry.canHaveChildren))")
+            }
+        }
+        #endif
     }
     
     // MARK: - Body
+    
+    /// Whether the keyword field should be locked (pre-filled from selection)
+    private var isKeywordLocked: Bool {
+        if let prefilled = prefilledKeyword, 
+           !prefilled.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+           existingEntry == nil {
+            return true
+        }
+        return false
+    }
     
     var body: some View {
         NavigationView {
             Form {
                 // Keyword section
                 Section {
-                    if prefilledKeyword != nil && existingEntry == nil {
+                    if isKeywordLocked {
                         // When pre-filled from context menu, show as read-only
                         HStack {
                             Text(keyword)
@@ -222,37 +258,33 @@ struct IndexEditorSheet: View {
                 }
                 
                 // Parent entry section (for hierarchical index)
-                if !availableParents.isEmpty || selectedParent != nil {
-                    Section {
-                        Picker(
-                            NSLocalizedString("indexEditor.parent.label", comment: "Parent Entry"),
-                            selection: $selectedParent
-                        ) {
-                            Text(NSLocalizedString("indexEditor.parent.none", comment: "None (Top Level)"))
-                                .tag(IndexEntry?.none)
-                            
-                            ForEach(availableParents) { parent in
-                                HStack {
-                                    Text(String(repeating: "  ", count: parent.depth - 1))
-                                    Text(parent.keyword)
-                                    if parent.depth == IndexEntry.maxDepth - 1 {
-                                        Text("(max)")
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
-                                    }
-                                }
-                                .tag(Optional(parent))
-                            }
+                // Always show the section so users can see the hierarchy option
+                Section {
+                    Picker(
+                        NSLocalizedString("indexEditor.parent.label", comment: "Parent Entry"),
+                        selection: $selectedParent
+                    ) {
+                        Text(NSLocalizedString("indexEditor.parent.none", comment: "None (Top Level)"))
+                            .tag(nil as IndexEntry?)
+                        
+                        ForEach(availableParents) { parent in
+                            Text(parentEntryLabel(for: parent))
+                                .tag(parent as IndexEntry?)
                         }
-                    } header: {
-                        Text(NSLocalizedString("indexEditor.parent.header", comment: "Hierarchy"))
-                    } footer: {
-                        Text(NSLocalizedString("indexEditor.parent.footer", comment: "Place this entry under a parent for nested index entries (max 3 levels)"))
                     }
+                    .onChange(of: selectedParent) { oldValue, newValue in
+                        #if DEBUG
+                        print("📑 Parent changed: \(oldValue?.keyword ?? "nil") → \(newValue?.keyword ?? "nil")")
+                        #endif
+                    }
+                } header: {
+                    Text(NSLocalizedString("indexEditor.parent.header", comment: "Hierarchy"))
+                } footer: {
+                    Text(NSLocalizedString("indexEditor.parent.footer", comment: "Place this entry under a parent for nested index entries (max 3 levels)"))
                 }
                 
-                // Primary reference toggle (only for new entries from context menu)
-                if existingEntry == nil && prefilledKeyword != nil {
+                // Primary reference toggle (only for new entries with pre-filled keyword from selection)
+                if existingEntry == nil && isKeywordLocked {
                     Section {
                         Toggle(
                             NSLocalizedString("indexEditor.primary.label", comment: "Primary Reference"),
@@ -342,6 +374,21 @@ struct IndexEditorSheet: View {
                     .disabled(!canSave || termExists)
                 }
             }
+            .onAppear {
+                #if DEBUG
+                print("📑 IndexEditorSheet onAppear: keyword='\(keyword)', prefilledKeyword='\(prefilledKeyword ?? "nil")'")
+                print("   availableParents count: \(availableParents.count)")
+                print("   project.indexEntries count: \(project.indexEntries?.count ?? 0)")
+                #endif
+            }
+            .alert(
+                NSLocalizedString("indexEditor.error.save", comment: "Failed to save index entry"),
+                isPresented: $showSaveError
+            ) {
+                Button(NSLocalizedString("button.ok", comment: "OK"), role: .cancel) {}
+            } message: {
+                Text(saveErrorMessage)
+            }
             .confirmationDialog(
                 NSLocalizedString("indexEditor.discard.title", comment: "Discard Changes?"),
                 isPresented: $showDiscardConfirmation,
@@ -363,31 +410,31 @@ struct IndexEditorSheet: View {
     @ViewBuilder
     private var previewSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            // How marker appears (invisible in document)
-            HStack {
-                Text(NSLocalizedString("indexEditor.preview.marker", comment: "Marker:"))
-                    .foregroundColor(.secondary)
-                
-                Text(NSLocalizedString("indexEditor.preview.invisible", comment: "(invisible in text)"))
-                    .font(.caption)
-                    .foregroundColor(.purple)
-                    .italic()
-            }
-            
-            Divider()
-            
             // How it appears in the index
-            HStack {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(NSLocalizedString("indexEditor.preview.indexAppearance", comment: "In index:"))
                     .foregroundColor(.secondary)
                 
-                Text(keyword.isEmpty ? "Keyword" : keyword)
-                    .font(.body)
-                    .foregroundColor(keyword.isEmpty ? .secondary : .primary)
-                
-                Text("... 12, 45, 78")
-                    .font(.body)
-                    .foregroundColor(.secondary)
+                if let parent = selectedParent {
+                    // Show as sub-entry
+                    HStack(alignment: .top, spacing: 4) {
+                        Text(parent.keyword)
+                            .font(.body)
+                            .foregroundColor(.secondary)
+                        Text("/")
+                            .foregroundColor(.secondary)
+                        Text(keyword.isEmpty ? NSLocalizedString("indexEditor.preview.keyword", comment: "keyword") : keyword)
+                            .font(.body)
+                            .fontWeight(isPrimaryReference ? .bold : .regular)
+                            .foregroundColor(keyword.isEmpty ? .secondary : .primary)
+                    }
+                } else {
+                    // Top-level entry
+                    Text(keyword.isEmpty ? NSLocalizedString("indexEditor.preview.keyword", comment: "keyword") : keyword)
+                        .font(.body)
+                        .fontWeight(isPrimaryReference ? .bold : .regular)
+                        .foregroundColor(keyword.isEmpty ? .secondary : .primary)
+                }
             }
         }
     }
@@ -436,6 +483,12 @@ struct IndexEditorSheet: View {
     }
     
     private func saveEntry() {
+        #if DEBUG
+        print("📑 saveEntry() called")
+        print("   existingEntry: \(existingEntry?.keyword ?? "nil")")
+        print("   keyword field: '\(keyword)'")
+        #endif
+        
         let trimmedKeyword = keyword.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedKeyword.isEmpty else { return }
         
@@ -452,15 +505,39 @@ struct IndexEditorSheet: View {
             entry = existing
             
             #if DEBUG
-            print("📑 Updated index entry: \(entry.keyword) (parent: \(selectedParent?.keyword ?? "none"), see: \(selectedSeeEntry?.keyword ?? "none"), seeAlso: \(selectedSeeAlsoEntries.count))")
+            print("📑 Updated index entry: \(entry.keyword)")
+            print("   - parent: \(selectedParent?.keyword ?? "none")")
+            print("   - see: \(selectedSeeEntry?.keyword ?? "none")")
+            print("   - seeAlso count: \(selectedSeeAlsoEntries.count)")
+            print("   - entry.id: \(entry.id)")
             #endif
         } else {
             // Create new entry
+            #if DEBUG
+            print("📑 Creating new entry with keyword: '\(trimmedKeyword)', selectedParent: \(selectedParent?.keyword ?? "nil")")
+            #endif
+            
             entry = IndexEntry(
                 project: project,
                 keyword: trimmedKeyword,
                 parentEntry: selectedParent
             )
+            
+            // Insert into model context first
+            modelContext.insert(entry)
+            
+            // For SwiftData + CloudKit: set relationships from BOTH sides
+            entry.parentEntry = selectedParent
+            if let parent = selectedParent {
+                // Also add to parent's childEntries to ensure inverse relationship is established
+                if parent.childEntries == nil {
+                    parent.childEntries = []
+                }
+                parent.childEntries?.append(entry)
+                #if DEBUG
+                print("📑 Added entry to parent's childEntries. Parent now has \(parent.childEntries?.count ?? 0) children")
+                #endif
+            }
             
             // Set cross-references for new entry
             entry.seeEntryID = selectedSeeEntry?.id
@@ -473,21 +550,36 @@ struct IndexEditorSheet: View {
             project.indexEntries?.append(entry)
             
             #if DEBUG
-            print("📑 Created new index entry: \(entry.keyword) (parent: \(selectedParent?.keyword ?? "none"), primary: \(isPrimaryReference))")
+            print("📑 Created new index entry: \(entry.keyword) (parent: \(entry.parentEntry?.keyword ?? "none"), primary: \(isPrimaryReference))")
             #endif
         }
         
         // Save context
         do {
             try modelContext.save()
+            #if DEBUG
+            print("✅ Index entry saved successfully")
+            // Verify the relationship persisted
+            print("📑 POST-SAVE verification:")
+            print("   entry.parentEntry = \(entry.parentEntry?.keyword ?? "nil")")
+            print("   entry.isTopLevel = \(entry.isTopLevel)")
+            if let parent = entry.parentEntry {
+                print("   parent.childEntries = \(parent.childEntries?.map { $0.keyword } ?? [])")
+            }
+            #endif
+            
+            // Only dismiss and call onSave after successful save
+            onSave?(entry, isPrimaryReference)
+            dismiss()
         } catch {
             #if DEBUG
             print("❌ Error saving index entry: \(error)")
+            print("   Error details: \(error.localizedDescription)")
             #endif
+            saveErrorMessage = error.localizedDescription
+            showSaveError = true
+            // Don't dismiss - let user see the error and try again
         }
-        
-        onSave?(entry, isPrimaryReference)
-        dismiss()
     }
 }
 

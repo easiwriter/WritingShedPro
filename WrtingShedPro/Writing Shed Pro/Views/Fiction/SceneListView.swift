@@ -645,6 +645,8 @@ struct SceneListView: View {
         for scene in scenes {
             // Delete associated TextFile if exists
             if let textFile = scene.textFile {
+                // Clean up index references before deleting
+                FileMoveService.cleanupIndexReferences(for: textFile, context: modelContext)
                 modelContext.delete(textFile)
             }
             // Delete the scene

@@ -234,9 +234,9 @@ struct BackMatterSettingsDialog: View {
     // Index settings
     @State private var indexColumnCount: Int = 2
     @State private var isProcessing = false
-    // Alert for items with entries
-    @State private var showHasEntriesAlert = false
-    @State private var alertItemName: String = ""
+    // Confirmation alert for items with entries
+    @State private var showRemoveEntriesConfirmation = false
+    @State private var pendingItemToDisable: BackMatterItem?
     
     private var isDrama: Bool {
         folder.isDramaProject
@@ -362,13 +362,25 @@ struct BackMatterSettingsDialog: View {
                 }
             }
         }
-        .alert(
-            NSLocalizedString("backMatter.hasEntries.title", comment: "Cannot Disable"),
-            isPresented: $showHasEntriesAlert
+        .confirmationDialog(
+            NSLocalizedString("backMatter.removeEntries.title", comment: "Remove Entries?"),
+            isPresented: $showRemoveEntriesConfirmation,
+            titleVisibility: .visible
         ) {
-            Button(NSLocalizedString("button.ok", comment: "OK")) { }
+            Button(NSLocalizedString("backMatter.removeEntries.removeAndDisable", comment: "Remove All & Disable"), role: .destructive) {
+                if let item = pendingItemToDisable {
+                    removeAllEntriesAndReferences(for: item)
+                    enabledItems.remove(item)
+                    pendingItemToDisable = nil
+                }
+            }
+            Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
+                pendingItemToDisable = nil
+            }
         } message: {
-            Text(String(format: NSLocalizedString("backMatter.hasEntries.message", comment: "The %@ section contains entries that are referenced in your manuscript. Remove these references before disabling."), alertItemName))
+            if let item = pendingItemToDisable {
+                Text(String(format: NSLocalizedString("backMatter.removeEntries.message", comment: "The %@ section contains entries that are referenced in your manuscript. Removing will delete all entries and their references from your document."), item.localizedName))
+            }
         }
         #if os(macOS)
         .frame(minWidth: 400, minHeight: isDrama ? 280 : 300)
@@ -382,11 +394,11 @@ struct BackMatterSettingsDialog: View {
                 if isEnabled {
                     enabledItems.insert(item)
                 } else {
-                    // Check if item has entries before allowing disable
+                    // Check if item has entries - if so, ask user to confirm removal
                     if hasReferences(for: item) {
-                        alertItemName = item.localizedName
-                        showHasEntriesAlert = true
-                        // Don't remove - keep it enabled
+                        pendingItemToDisable = item
+                        showRemoveEntriesConfirmation = true
+                        // Don't remove yet - wait for user confirmation
                     } else {
                         enabledItems.remove(item)
                     }
@@ -513,6 +525,126 @@ struct BackMatterSettingsDialog: View {
                 return
             }
             modelContext.delete(file)
+        }
+    }
+    
+    /// Remove all entries and inline references for a back matter type
+    private func removeAllEntriesAndReferences(for item: BackMatterItem) {
+        guard let project = folder.parentFolder?.project else {
+            #if DEBUG
+            print("⚠️ removeAllEntriesAndReferences: Could not access project")
+            #endif
+            return
+        }
+        
+        #if DEBUG
+        print("🗑️ Removing all entries and references for: \(item.rawValue)")
+        #endif
+        
+        var referenceTypeToRemove: ReferenceType?
+        
+        switch item {
+        case .endnotes:
+            referenceTypeToRemove = .note
+            project.noteEntries?.removeAll(where: { $0.isEndnote })
+            #if DEBUG
+            print("✅ Removed all endnote entries")
+            #endif
+        case .glossary:
+            referenceTypeToRemove = .glossary
+            project.glossaryEntries?.removeAll()
+            #if DEBUG
+            print("✅ Removed all glossary entries")
+            #endif
+        case .references:
+            referenceTypeToRemove = .reference
+            project.referenceEntries?.removeAll()
+            #if DEBUG
+            print("✅ Removed all reference entries")
+            #endif
+        case .index:
+            referenceTypeToRemove = .index
+            project.indexEntries?.removeAll()
+            #if DEBUG
+            print("✅ Removed all index entries")
+            #endif
+        case .contributors:
+            // Contributors are not reference-based, nothing to remove
+            return
+        }
+        
+        // Remove all inline references from all files in the project
+        if let refType = referenceTypeToRemove {
+            #if DEBUG
+            print("🔍 Scanning project files to remove \(refType) references...")
+            #endif
+            removeReferenceAttachmentsFromProject(project: project, referenceType: refType)
+        }
+        
+        #if DEBUG
+        print("✅ Removal complete for \(item.rawValue)")
+        #endif
+    }
+    
+    /// Scan all project files and remove reference attachments of the specified type
+    private func removeReferenceAttachmentsFromProject(project: Project, referenceType: ReferenceType) {
+        func scanFolderForFiles(_ folder: Folder) {
+            // Process files in this folder
+            if let files = folder.files {
+                for textFile in files {
+                    removeReferenceAttachmentsFromFile(textFile, referenceType: referenceType)
+                }
+            }
+            
+            // Recurse into subfolders
+            if let subfolders = folder.folders {
+                for subfolder in subfolders {
+                    scanFolderForFiles(subfolder)
+                }
+            }
+        }
+        
+        // Start scanning from project folders
+        if let folders = project.folders {
+            for folder in folders {
+                scanFolderForFiles(folder)
+            }
+        }
+    }
+    
+    /// Remove reference attachments from a single file
+    private func removeReferenceAttachmentsFromFile(_ textFile: TextFile, referenceType: ReferenceType) {
+        // Get the current version's content
+        guard let versions = textFile.versions, versions.count > textFile.currentVersionIndex else {
+            return
+        }
+        
+        let currentVersion = versions[textFile.currentVersionIndex]
+        guard let attributedText = currentVersion.attributedContent else {
+            return
+        }
+        
+        let mutableText = NSMutableAttributedString(attributedString: attributedText)
+        var rangesToRemove: [NSRange] = []
+        
+        // Find all reference attachments of the specified type
+        mutableText.enumerateAttribute(.attachment, in: NSRange(location: 0, length: mutableText.length), options: .reverse) { value, range, _ in
+            if let attachment = value as? ReferenceAttachment, attachment.referenceType == referenceType {
+                rangesToRemove.append(range)
+            }
+        }
+        
+        // Remove from end to start to preserve ranges
+        for range in rangesToRemove {
+            mutableText.deleteCharacters(in: range)
+        }
+        
+        // Only update if we removed something
+        if !rangesToRemove.isEmpty {
+            currentVersion.attributedContent = mutableText
+            #if DEBUG
+            print("  ✅ Removed \(rangesToRemove.count) \(referenceType) references from: \(textFile.name)")
+            #endif
         }
     }
 }

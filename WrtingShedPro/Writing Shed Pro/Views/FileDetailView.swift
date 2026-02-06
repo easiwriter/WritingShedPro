@@ -118,6 +118,8 @@ struct FileDetailView: View {
     }
     
     private func deleteFile() {
+        // Clean up index references before deleting
+        FileMoveService.cleanupIndexReferences(for: file, context: modelContext)
         modelContext.delete(file)
         dismiss()
     }

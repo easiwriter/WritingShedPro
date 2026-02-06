@@ -41,6 +41,15 @@ struct BackMatterGeneratedContentView: View {
     @State private var showDeleteConfirmation = false
     @State private var contributorsToDelete: [ContributorEntry] = []
     
+    // Index management state
+    @State private var indexEntryToEdit: IndexEntry?
+    @State private var indexEntryToDelete: IndexEntry?
+    @State private var showIndexDeleteConfirmation = false
+    @State private var indexPageMap: [UUID: [IndexPageReference]] = [:]
+    @State private var isCalculatingPageNumbers = false
+    @State private var pageCalcTrigger = UUID()
+    @State private var indexEntryToFindOccurrences: IndexEntry?
+    
     // MARK: - Computed Properties
     
     /// Determine the back matter type based on file name
@@ -86,7 +95,6 @@ struct BackMatterGeneratedContentView: View {
         }
         .navigationTitle(file.name)
         .navigationBarTitleDisplayMode(.inline)
-        .id(refreshTrigger)
         .environment(\.editMode, $editMode)
         .toolbar {
             // Edit and Add buttons for contributors
@@ -132,6 +140,51 @@ struct BackMatterGeneratedContentView: View {
                 refreshTrigger = UUID()
             }
         }
+        // Index entry edit sheet
+        .sheet(item: $indexEntryToEdit) { entry in
+            IndexEditorSheet(
+                project: project,
+                existingEntry: entry,
+                onSave: { _, _ in
+                    refreshTrigger = UUID()
+                }
+            )
+        }
+        // Index occurrence finder sheet
+        .sheet(item: $indexEntryToFindOccurrences) { entry in
+            IndexOccurrenceFinderSheet(
+                entry: entry,
+                project: project,
+                onMarkersAdded: {
+                    refreshTrigger = UUID()
+                }
+            )
+        }
+        // Index entry delete confirmation
+        .confirmationDialog(
+            NSLocalizedString("indexList.confirmDelete.title", comment: "Delete Index Entry?"),
+            isPresented: $showIndexDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button(NSLocalizedString("button.delete", comment: "Delete"), role: .destructive) {
+                if let entry = indexEntryToDelete {
+                    deleteIndexEntry(entry)
+                }
+                showIndexDeleteConfirmation = false
+            }
+            Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
+                indexEntryToDelete = nil
+                showIndexDeleteConfirmation = false
+            }
+        } message: {
+            if let entry = indexEntryToDelete {
+                if entry.referenceCount > 0 {
+                    Text(String(format: NSLocalizedString("indexList.confirmDelete.messageWithRefs", comment: ""), entry.referenceCount))
+                } else {
+                    Text(NSLocalizedString("indexList.confirmDelete.message", comment: "This entry will be permanently deleted."))
+                }
+            }
+        }
         .alert(
             deleteAlertTitle,
             isPresented: $showDeleteConfirmation
@@ -150,6 +203,226 @@ struct BackMatterGeneratedContentView: View {
             // Refresh when app returns to foreground (handles changes from other views)
             refreshTrigger = UUID()
         }
+        .task(id: pageCalcTrigger) {
+            #if DEBUG
+            print("📑 BackMatter .task fired: backMatterType=\(String(describing: backMatterType)), fileName='\(file.name)'")
+            #endif
+            if backMatterType == .index {
+                await calculateIndexPageNumbers()
+            }
+        }
+        .onChange(of: refreshTrigger) { _, _ in
+            // When data changes (edit/delete), recalculate page numbers
+            if backMatterType == .index {
+                pageCalcTrigger = UUID()
+            }
+        }
+        .onAppear {
+            #if DEBUG
+            print("📑 BackMatter .onAppear: backMatterType=\(String(describing: backMatterType)), fileName='\(file.name)'")
+            #endif
+        }
+        .id(refreshTrigger)
+    }
+    
+    // MARK: - Index Entry Actions
+    
+    private func deleteIndexEntry(_ entry: IndexEntry) {
+        modelContext.delete(entry)
+        do {
+            try modelContext.save()
+            refreshTrigger = UUID()
+        } catch {
+            #if DEBUG
+            print("❌ Error deleting index entry: \(error)")
+            #endif
+        }
+        indexEntryToDelete = nil
+    }
+    
+    // MARK: - Index Page Number Calculation
+    
+    /// Calculate page numbers for index entries using the same pagination engine as TOC
+    @MainActor
+    private func calculateIndexPageNumbers() async {
+        guard !isCalculatingPageNumbers else { return }
+        isCalculatingPageNumbers = true
+        defer { isCalculatingPageNumbers = false }
+        
+        // Step 1: Gather all data on the main thread (SwiftData models aren't thread-safe)
+        let assemblyService = ManuscriptAssemblyService(context: modelContext)
+        let sections = assemblyService.getSections(for: project)
+        let pageSetup = project.pageSetup ?? PageSetup()
+        let usePageBreaks = pageSetup.hasPageBreakBetweenFiles
+        
+        // Assemble manuscript and collect file contents (all on main thread)
+        let assembledContent = NSMutableAttributedString()
+        var fileContents: [(fileID: UUID, offset: Int, content: NSAttributedString)] = []
+        var isFirstFile = true
+        let pageBreak = NSAttributedString(string: "\u{0C}")
+        
+        for section in sections {
+            // Skip back matter files
+            if section.sectionType == .backMatter {
+                continue
+            }
+            
+            for file in section.files {
+                if !isFirstFile {
+                    if usePageBreaks {
+                        assembledContent.append(pageBreak)
+                    } else {
+                        assembledContent.append(NSAttributedString(string: "\n\n"))
+                    }
+                }
+                
+                let offset = assembledContent.length
+                
+                if let version = file.currentVersion, let content = version.attributedContent {
+                    #if DEBUG
+                    if isFirstFile && content.length > 0 {
+                        let firstChar = (content.string as NSString).substring(with: NSRange(location: 0, length: min(1, content.length)))
+                        let charCode = firstChar.unicodeScalars.first?.value ?? 0
+                        print("📑 First file '\(file.name)' first char: '\\u{\(String(format: "%04X", charCode))}' (length: \(content.length))")
+                    }
+                    #endif
+                    assembledContent.append(content)
+                    fileContents.append((fileID: file.id, offset: offset, content: content))
+                }
+                isFirstFile = false
+            }
+        }
+        
+        guard assembledContent.length > 0 else {
+            #if DEBUG
+            print("📑 Index page calc: No assembled content")
+            #endif
+            return
+        }
+        
+        #if DEBUG
+        print("📑 Index page calc: Assembled \(assembledContent.length) chars from \(fileContents.count) files")
+        #endif
+        
+        // Step 2: Paginate (this is the heavy work, but TextKit 1 requires main thread)
+        let textStorage = NSTextStorage(attributedString: assembledContent)
+        let layoutManager = PaginatedTextLayoutManager(textStorage: textStorage, pageSetup: pageSetup)
+        let layoutResult = layoutManager.calculateLayout()
+        
+        #if DEBUG
+        print("📑 Index page calc: Paginated into \(layoutResult.totalPages) pages")
+        #endif
+        
+        // Step 3: Scan for index markers in each file's content
+        var result: [UUID: [IndexPageReference]] = [:]
+        
+        #if DEBUG
+        var totalAttachments = 0
+        var indexAttachments = 0
+        var otherAttachments = 0
+        #endif
+        
+        for (fileID, offset, content) in fileContents {
+            #if DEBUG
+            var fileAttachmentCount = 0
+            #endif
+            content.enumerateAttribute(.attachment, in: NSRange(location: 0, length: content.length)) { value, range, _ in
+                if let refAttachment = value as? ReferenceAttachment {
+                    #if DEBUG
+                    totalAttachments += 1
+                    fileAttachmentCount += 1
+                    #endif
+                    guard refAttachment.referenceType == .index else {
+                        #if DEBUG
+                        otherAttachments += 1
+                        #endif
+                        return
+                    }
+                    #if DEBUG
+                    indexAttachments += 1
+                    #endif
+                    
+                    let globalPosition = offset + range.location
+                    
+                    // Find which page this position falls on
+                    var pageNumber = 1
+                    for pageInfo in layoutResult.pageInfos {
+                        if globalPosition >= pageInfo.characterRange.location &&
+                           globalPosition < pageInfo.characterRange.location + pageInfo.characterRange.length {
+                            pageNumber = pageInfo.pageIndex + 1
+                            break
+                        }
+                    }
+                    // If past the last page range, use last page
+                    if let lastPage = layoutResult.pageInfos.last,
+                       globalPosition >= lastPage.characterRange.location + lastPage.characterRange.length {
+                        pageNumber = lastPage.pageIndex + 1
+                    }
+                    
+                    let ref = IndexPageReference(
+                        pageNumber: pageNumber,
+                        isPrimary: refAttachment.isPrimaryReference
+                    )
+                    
+                    if result[refAttachment.entryID] == nil {
+                        result[refAttachment.entryID] = []
+                    }
+                    // Avoid duplicate page numbers
+                    if !result[refAttachment.entryID]!.contains(ref) {
+                        result[refAttachment.entryID]!.append(ref)
+                    }
+                }
+            }
+            #if DEBUG
+            if fileAttachmentCount > 0 {
+                print("📑 File \(fileID.uuidString.prefix(8)): \(fileAttachmentCount) reference attachments found")
+            }
+            #endif
+        }
+        
+        #if DEBUG
+        print("📑 Attachment scan: \(totalAttachments) total, \(indexAttachments) index, \(otherAttachments) other types")
+        #endif
+        
+        #if DEBUG
+        print("📑 Index page map calculated: \(result.count) entries with page numbers")
+        for (id, pages) in result {
+            print("   \(id.uuidString.prefix(8)): pages \(pages.map { "\($0.pageNumber)\($0.isPrimary ? "*" : "")" })")
+        }
+        if result.isEmpty {
+            print("📑 ⚠️ No index markers found in any files! Check that markers are persisted correctly.")
+        }
+        #endif
+        
+        indexPageMap = result
+    }
+    
+    /// Format page references for display, collapsing consecutive pages into ranges
+    /// Primary references are shown in bold
+    private func formatIndexPageNumbers(_ pages: [IndexPageReference]) -> String {
+        let sorted = pages.sorted { $0.pageNumber < $1.pageNumber }
+        var result: [String] = []
+        var i = 0
+        
+        while i < sorted.count {
+            let start = sorted[i].pageNumber
+            var end = start
+            
+            // Find consecutive range
+            while i + 1 < sorted.count && sorted[i + 1].pageNumber == end + 1 {
+                i += 1
+                end = sorted[i].pageNumber
+            }
+            
+            if start == end {
+                result.append("\(start)")
+            } else {
+                result.append("\(start)–\(end)")
+            }
+            i += 1
+        }
+        
+        return result.joined(separator: ", ")
     }
     
     // MARK: - Delete Alert Helpers
@@ -412,33 +685,43 @@ struct BackMatterGeneratedContentView: View {
     
     @ViewBuilder
     private var indexContent: some View {
-        let indexEntries = (project.indexEntries ?? [])
+        let allEntries = (project.indexEntries ?? [])
+        // Only show top-level entries; children are displayed nested under their parent
+        let topLevelEntries = allEntries
+            .filter { $0.isTopLevel }
             .sorted { $0.keyword.lowercased() < $1.keyword.lowercased() }
         
-        if indexEntries.isEmpty {
+        if allEntries.isEmpty {
             emptyStateView(
                 title: NSLocalizedString("backMatter.index.empty.title", comment: "No Index Entries"),
                 description: NSLocalizedString("backMatter.index.empty.description", comment: "Index entries added to your manuscript will appear here."),
                 systemImage: "list.bullet.indent"
             )
         } else {
-            Text(NSLocalizedString("backMatter.index.header", comment: "Index"))
-                .font(.title2)
-                .fontWeight(.bold)
+            HStack {
+                Text(NSLocalizedString("backMatter.index.header", comment: "Index"))
+                    .font(.title2)
+                    .fontWeight(.bold)
+                
+                if isCalculatingPageNumbers {
+                    ProgressView()
+                        .controlSize(.small)
+                }
+            }
             
-            // Group by first letter
-            let grouped = Dictionary(grouping: indexEntries) { entry -> String in
+            // Group top-level entries by first letter
+            let grouped = Dictionary(grouping: topLevelEntries) { entry -> String in
                 let firstChar = entry.keyword.first?.uppercased() ?? "#"
                 return firstChar.first?.isLetter == true ? firstChar : "#"
             }
             
             ForEach(grouped.keys.sorted(), id: \.self) { letter in
-                indexSection(letter: letter, entries: grouped[letter] ?? [])
+                indexSection(letter: letter, entries: grouped[letter] ?? [], allEntries: allEntries)
             }
         }
     }
     
-    private func indexSection(letter: String, entries: [IndexEntry]) -> some View {
+    private func indexSection(letter: String, entries: [IndexEntry], allEntries: [IndexEntry]) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(letter)
                 .font(.title3)
@@ -446,26 +729,118 @@ struct BackMatterGeneratedContentView: View {
                 .foregroundColor(.accentColor)
             
             ForEach(entries) { entry in
-                indexRow(entry)
+                indexEntryView(entry, allEntries: allEntries, indentLevel: 0)
             }
         }
         .padding(.vertical, 8)
     }
     
-    private func indexRow(_ entry: IndexEntry) -> some View {
-        HStack {
-            Text(entry.keyword)
-                .font(.body)
-            
-            Spacer()
-            
-            if entry.referenceCount > 0 {
-                Text("(\(entry.referenceCount))")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+    /// Renders a single index entry with its cross-references and children
+    private func indexEntryView(_ entry: IndexEntry, allEntries: [IndexEntry], indentLevel: Int) -> AnyView {
+        AnyView(
+            VStack(alignment: .leading, spacing: 2) {
+                // Main entry row with keyword + actions
+                HStack {
+                    HStack(spacing: 4) {
+                        if indentLevel > 0 {
+                            Text(String(repeating: "    ", count: indentLevel))
+                                .fixedSize()
+                        }
+                        
+                        Text(entry.keyword)
+                            .font(indentLevel == 0 ? .body : .callout)
+                            .fontWeight(indentLevel == 0 ? .regular : .regular)
+                            .foregroundStyle(indentLevel == 0 ? .primary : .secondary)
+                    }
+                    
+                    // Show "see" cross-reference inline
+                    if let seeEntryID = entry.seeEntryID,
+                       let seeEntry = allEntries.first(where: { $0.id == seeEntryID }) {
+                        Text(NSLocalizedString("indexList.see", comment: "see"))
+                            .italic()
+                            .font(.callout)
+                            .foregroundStyle(.purple)
+                        Text(seeEntry.keyword)
+                            .font(.callout)
+                            .fontWeight(.medium)
+                            .foregroundStyle(.purple)
+                    }
+                    
+                    // Show page numbers if calculated, otherwise show reference count
+                    if let pages = indexPageMap[entry.id], !pages.isEmpty {
+                        Text(formatIndexPageNumbers(pages))
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    } else if entry.referenceCount > 0 {
+                        Label("\(entry.referenceCount)", systemImage: "mappin.and.ellipse")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    
+                    Spacer()
+                    
+                    // Actions menu
+                    Menu {
+                        Button {
+                            indexEntryToEdit = entry
+                        } label: {
+                            Label(NSLocalizedString("indexList.edit", comment: "Edit"), systemImage: "pencil.circle")
+                        }
+                        
+                        Button {
+                            indexEntryToFindOccurrences = entry
+                        } label: {
+                            Label(NSLocalizedString("indexList.findOccurrences", comment: "Find Occurrences"), systemImage: "doc.text.magnifyingglass")
+                        }
+                        
+                        Divider()
+                        
+                        Button(role: .destructive) {
+                            indexEntryToDelete = entry
+                            showIndexDeleteConfirmation = true
+                        } label: {
+                            Label(NSLocalizedString("indexList.delete", comment: "Delete"), systemImage: "trash")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                            .imageScale(.large)
+                            .foregroundStyle(.blue)
+                    }
+                }
+                .padding(.vertical, 2)
+                
+                // Show "see also" cross-references
+                if !entry.seeAlsoEntryIDs.isEmpty {
+                    let seeAlsoKeywords = entry.seeAlsoEntryIDs.compactMap { id in
+                        allEntries.first(where: { $0.id == id })?.keyword
+                    }
+                    if !seeAlsoKeywords.isEmpty {
+                        HStack(spacing: 4) {
+                            if indentLevel > 0 {
+                                Text(String(repeating: "    ", count: indentLevel))
+                                    .fixedSize()
+                            }
+                            Text("    ")
+                            Text(NSLocalizedString("indexList.seeAlso", comment: "See also"))
+                                .italic()
+                            Text(seeAlsoKeywords.joined(separator: ", "))
+                        }
+                        .font(.caption)
+                        .foregroundStyle(.purple)
+                        .padding(.leading, indentLevel > 0 ? 4 : 0)
+                    }
+                }
+                
+                // Show child entries (sub-entries) indented
+                let children = (entry.childEntries ?? [])
+                    .sorted { $0.keyword.lowercased() < $1.keyword.lowercased() }
+                if !children.isEmpty {
+                    ForEach(children) { child in
+                        indexEntryView(child, allEntries: allEntries, indentLevel: indentLevel + 1)
+                    }
+                }
             }
-        }
-        .padding(.vertical, 2)
+        )
     }
     
     // MARK: - Contributors Content

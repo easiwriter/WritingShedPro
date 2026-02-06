@@ -566,6 +566,8 @@ struct TrashView: View {
         for item in itemsToDelete {
             // Delete the text file
             if let textFile = item.textFile {
+                // Clean up index references before deleting
+                FileMoveService.cleanupIndexReferences(for: textFile, context: modelContext)
                 modelContext.delete(textFile)
             }
             // Delete the trash item
@@ -607,6 +609,8 @@ struct TrashView: View {
         for scene in scenesToDelete {
             // Delete associated TextFile if exists
             if let textFile = scene.textFile {
+                // Clean up index references before deleting
+                FileMoveService.cleanupIndexReferences(for: textFile, context: modelContext)
                 modelContext.delete(textFile)
             }
             // Delete the scene

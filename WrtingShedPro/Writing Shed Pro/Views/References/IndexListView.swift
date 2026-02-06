@@ -118,11 +118,14 @@ struct IndexListView: View {
     // MARK: - Body
     
     var body: some View {
+        let _ = print("📑 INDEX BODY: entries.count=\(entries.count), isEmpty=\(entries.isEmpty)")
         NavigationView {
             Group {
                 if entries.isEmpty {
+                    let _ = print("📑 INDEX BODY: Showing emptyState")
                     emptyState
                 } else {
+                    let _ = print("📑 INDEX BODY: Showing entriesList with \(entries.count) entries")
                     entriesList
                 }
             }
@@ -291,6 +294,7 @@ struct IndexListView: View {
             ForEach(groupedEntries, id: \.letter) { group in
                 Section {
                     ForEach(group.entries) { entry in
+                        let _ = print("📑 INDEX ROW: Rendering entry '\(entry.keyword)'")
                         entryRow(entry)
                     }
                 } header: {
@@ -301,6 +305,12 @@ struct IndexListView: View {
             }
         }
         .listStyle(.insetGrouped)
+        .onAppear {
+            print("📑 INDEX LIST: entriesList appeared, entries.count=\(entries.count), groupedEntries.count=\(groupedEntries.count)")
+            for group in groupedEntries {
+                print("   Group '\(group.letter)': \(group.entries.map { $0.keyword })")
+            }
+        }
     }
     
     // MARK: - Entry Row
@@ -308,198 +318,84 @@ struct IndexListView: View {
     @ViewBuilder
     private func entryRow(_ entry: IndexEntry) -> some View {
         let childCount = entry.childEntries?.count ?? 0
+        let _ = print("📑 ENTRY ROW BODY: '\(entry.keyword)' childCount=\(childCount)")
         
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .top, spacing: 12) {
-                // Entry badge
-                ZStack {
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(Color.purple.opacity(0.1))
-                        .frame(width: 36, height: 36)
-                    
-                    Image(systemName: "list.bullet.indent")
-                        .font(.system(size: 14))
-                        .foregroundColor(.purple)
-                }
+        HStack {
+            // Entry badge
+            Image(systemName: "list.bullet.indent")
+                .imageScale(.large)
+                .foregroundStyle(.purple)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                // Main keyword
+                Text(entry.keyword)
+                    .font(.headline)
                 
-                VStack(alignment: .leading, spacing: 4) {
-                    // Main keyword
-                    Text(entry.keyword)
-                        .font(.headline)
-                    
-                    // Child entries (if expanded or few)
-                    if childCount > 0 {
-                        if expandedEntryID == entry.id || childCount <= 2 {
-                            ForEach(entry.childEntries ?? [], id: \.id) { child in
-                                childEntryRow(child, level: 1)
-                            }
-                        } else {
-                            Text("  \(childCount) sub-terms")
-                                .font(.body)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    
-                    // Cross-references - look up "see" entry by ID
-                    if let seeEntryID = entry.seeEntryID {
-                        let allEntries = project.indexEntries ?? []
-                        if let seeEntry = allEntries.first(where: { $0.id == seeEntryID }) {
-                            HStack(spacing: 4) {
-                                Text(NSLocalizedString("indexList.see", comment: "see"))
-                                    .italic()
-                                Text(seeEntry.keyword)
-                                    .fontWeight(.medium)
-                            }
-                            .font(.caption)
-                            .foregroundStyle(.purple)
-                        }
-                    }
-                    
-                    // "See also" cross-references - look up keywords from IDs
-                    let seeAlsoIDs = entry.seeAlsoEntryIDs
-                    if !seeAlsoIDs.isEmpty {
-                        let allEntries = project.indexEntries ?? []
-                        let seeAlsoKeywords = seeAlsoIDs.compactMap { id in
-                            allEntries.first { $0.id == id }?.keyword
-                        }.joined(separator: ", ")
-                        
-                        if !seeAlsoKeywords.isEmpty {
-                            HStack(spacing: 4) {
-                                Text(NSLocalizedString("indexList.seeAlso", comment: "see also"))
-                                    .italic()
-                                Text(seeAlsoKeywords)
-                                    .fontWeight(.medium)
-                            }
-                            .font(.caption)
-                            .foregroundStyle(.purple)
-                        }
-                    }
-                    
-                    // Metadata
-                    HStack(spacing: 8) {
-                        // Reference count
-                        Label("\(entry.referenceCount)", systemImage: "mappin.and.ellipse")
-                            .font(.caption2)
-                            .foregroundStyle(entry.referenceCount == 0 ? .orange : .secondary)
-                        
-                        if childCount > 0 {
-                            Label("\(childCount)", systemImage: "list.bullet")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
-                
-                Spacer()
-                
-                // Actions menu
-                Menu {
-                    Button {
-                        editingEntry = entry
-                    } label: {
-                        Label(
-                            NSLocalizedString("indexList.edit", comment: "Edit"),
-                            systemImage: "pencil.circle"
-                        )
-                    }
+                // Metadata line
+                HStack(spacing: 8) {
+                    Label("\(entry.referenceCount)", systemImage: "mappin.and.ellipse")
+                        .font(.caption)
+                        .foregroundStyle(entry.referenceCount == 0 ? .orange : .secondary)
                     
                     if childCount > 0 {
-                        Button {
-                            withAnimation {
-                                expandedEntryID = expandedEntryID == entry.id ? nil : entry.id
-                            }
-                        } label: {
-                            Label(
-                                expandedEntryID == entry.id
-                                    ? NSLocalizedString("indexList.collapse", comment: "Collapse")
-                                    : NSLocalizedString("indexList.expand", comment: "Expand"),
-                                systemImage: expandedEntryID == entry.id ? "chevron.up" : "chevron.down"
-                            )
-                        }
+                        Label("\(childCount) sub-entries", systemImage: "list.bullet")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
-                    
-                    if entry.referenceCount > 0 {
-                        Button {
-                            onJumpToEntry?(entry)
-                            dismiss()
-                        } label: {
-                            Label(
-                                NSLocalizedString("indexList.jumpToText", comment: "Jump to Reference"),
-                                systemImage: "arrow.right"
-                            )
-                        }
-                    }
-                    
-                    // Merge option (only if other entries exist)
-                    if entries.count > 1 {
-                        Button {
-                            mergingEntry = entry
-                            showMergeSheet = true
-                        } label: {
-                            Label(
-                                NSLocalizedString("indexList.merge", comment: "Merge Into..."),
-                                systemImage: "arrow.triangle.merge"
-                            )
-                        }
-                    }
-                    
-                    Divider()
-                    
-                    Button(role: .destructive) {
-                        showDeleteConfirmation = entry
-                    } label: {
-                        Label(
-                            NSLocalizedString("indexList.delete", comment: "Delete"),
-                            systemImage: "trash"
-                        )
-                    }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                        .foregroundStyle(.secondary)
-                        .font(.title3)
                 }
-            }
-        }
-        .contentShape(Rectangle())
-        .onTapGesture {
-            if childCount > 0 {
-                withAnimation {
-                    expandedEntryID = expandedEntryID == entry.id ? nil : entry.id
-                }
-            }
-        }
-        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-            Button(role: .destructive) {
-                showDeleteConfirmation = entry
-            } label: {
-                Label(
-                    NSLocalizedString("indexList.delete", comment: "Delete"),
-                    systemImage: "trash"
-                )
             }
             
-            Button {
-                editingEntry = entry
-            } label: {
-                Label(
-                    NSLocalizedString("indexList.edit", comment: "Edit"),
-                    systemImage: "pencil.circle"
-                )
-            }
-            .tint(.blue)
-        }
-        .swipeActions(edge: .leading, allowsFullSwipe: true) {
-            if entry.referenceCount > 0 {
+            Spacer()
+            
+            // Actions menu - matching ProjectItemView pattern exactly
+            Menu {
                 Button {
-                    onJumpToEntry?(entry)
-                    dismiss()
+                    editingEntry = entry
                 } label: {
                     Label(
-                        NSLocalizedString("indexList.jump", comment: "Jump"),
-                        systemImage: "arrow.right"
+                        NSLocalizedString("indexList.edit", comment: "Edit"),
+                        systemImage: "pencil.circle"
                     )
                 }
-                .tint(.green)
+                
+                if entry.referenceCount > 0 {
+                    Button {
+                        onJumpToEntry?(entry)
+                        dismiss()
+                    } label: {
+                        Label(
+                            NSLocalizedString("indexList.jumpToText", comment: "Jump to Reference"),
+                            systemImage: "arrow.right"
+                        )
+                    }
+                }
+                
+                if entries.count > 1 {
+                    Button {
+                        mergingEntry = entry
+                        showMergeSheet = true
+                    } label: {
+                        Label(
+                            NSLocalizedString("indexList.merge", comment: "Merge Into..."),
+                            systemImage: "arrow.triangle.merge"
+                        )
+                    }
+                }
+                
+                Divider()
+                
+                Button(role: .destructive) {
+                    showDeleteConfirmation = entry
+                } label: {
+                    Label(
+                        NSLocalizedString("indexList.delete", comment: "Delete"),
+                        systemImage: "trash"
+                    )
+                }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+                    .imageScale(.large)
+                    .foregroundStyle(.blue)
             }
         }
     }

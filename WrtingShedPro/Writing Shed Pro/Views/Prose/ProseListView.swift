@@ -881,6 +881,8 @@ struct ProseListView: View {
     
     private func deleteFilesPermanently(_ files: [TextFile]) {
         for file in files {
+            // Clean up index references before deleting
+            FileMoveService.cleanupIndexReferences(for: file, context: modelContext)
             modelContext.delete(file)
         }
         try? modelContext.save()

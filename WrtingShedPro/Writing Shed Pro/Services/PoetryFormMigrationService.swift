@@ -16,7 +16,7 @@ struct PoetryFormMigrationService {
     // MARK: - UserDefaults Keys
     
     private static let migrationVersionKey = "poetryFormMigrationVersion"
-    private static let currentMigrationVersion = 3  // Bumped to add Triolet, Ballad, Ottava Rima, Terza Rima, Spenserian Stanza
+    private static let currentMigrationVersion = 4  // Added Senryū, Spenserian Sonnet, Rondeau, Ballade, Cywydd, Englyn, Heroic Couplets, Prose Poetry, Concrete Poetry, Crown of Sonnets
     
     // MARK: - Public Methods
     
@@ -223,6 +223,16 @@ struct PoetryFormMigrationService {
             // Fix duplicate forms bug and add any new predefined forms
             removeDuplicatePredefinedForms(modelContext: modelContext)
             addMissingPredefinedForms(modelContext: modelContext)
+            
+        case 2, 3:
+            // Version 4: Full reset to fix duplicate forms issue and add new forms
+            // (Senryū, Spenserian Sonnet, Rondeau, Ballade, Cywydd, Englyn, 
+            // Heroic Couplets, Prose Poetry, Concrete Poetry, Crown of Sonnets)
+            #if DEBUG
+            print("[PoetryFormMigration] Version 4: Full reset of predefined forms to fix duplicates")
+            #endif
+            resetPredefinedForms(modelContext: modelContext)
+            seedPredefinedForms(modelContext: modelContext)
             
         default:
             // Future versions: add incremental migrations here

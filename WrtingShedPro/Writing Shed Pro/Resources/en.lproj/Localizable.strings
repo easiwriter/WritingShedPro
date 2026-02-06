@@ -508,6 +508,10 @@
 "contentType.switchToRichText" = "Switch to Rich Text";
 "contentType.switchToMarkdown" = "Switch to Markdown";
 
+/* Preview Mode */
+"preview.markdownMode" = "Markdown Preview";
+"preview.richTextMode" = "Rich Text Preview";
+
 /* Markdown */
 "markdown.mode.indicator" = "Markdown";
 "markdown.preview.button" = "Preview";
@@ -1991,8 +1995,9 @@
 "backMatter.settings.footer" = "Enabled items will appear as files in your Back Matter folder.";
 "backMatter.settings.accessibility" = "Back Matter settings";
 "backMatter.settings.help" = "Configure back matter items";
-"backMatter.hasEntries.title" = "Cannot Disable";
-"backMatter.hasEntries.message" = "The %@ section contains entries that are referenced in your manuscript. Remove these references before disabling.";
+"backMatter.removeEntries.title" = "Remove Entries?";
+"backMatter.removeEntries.message" = "The %@ section contains entries that are referenced in your manuscript. Removing will delete all entries and their references from your document.";
+"backMatter.removeEntries.removeAndDisable" = "Remove All & Disable";
 "backMatter.endnotes" = "Endnotes";
 "backMatter.notes" = "Notes";
 "backMatter.glossary" = "Glossary";
@@ -2249,6 +2254,8 @@
 "indexEditor.primary.label" = "Primary Reference";
 "indexEditor.primary.footer" = "Primary references are shown in bold in the generated index";
 "indexEditor.see.header" = "See Reference";
+"indexEditor.see.label" = "See";
+"indexEditor.see.none" = "None";
 "indexEditor.see.placeholder" = "e.g., Animals";
 "indexEditor.see.footer" = "Redirects reader to another term (e.g., 'Dogs, see Animals')";
 "indexEditor.seeAlso.header" = "See Also";
@@ -2257,6 +2264,7 @@
 "indexEditor.preview.marker" = "Marker:";
 "indexEditor.preview.invisible" = "(invisible in text)";
 "indexEditor.preview.indexAppearance" = "In index:";
+"indexEditor.preview.keyword" = "keyword";
 "indexEditor.info.header" = "Information";
 "indexEditor.info.references" = "References";
 "indexEditor.info.subEntries" = "Sub-entries";
@@ -2267,6 +2275,7 @@
 "indexEditor.discard.message" = "Your changes will be lost.";
 "indexEditor.suggestions" = "Suggestions:";
 "indexEditor.suggestion.subEntry" = "sub-entry";
+"indexEditor.error.save" = "Failed to save index entry";
 
 /* Index List */
 "indexList.title" = "Index";
@@ -2283,6 +2292,7 @@
 "indexList.summary.unreferenced" = "Unreferenced";
 "indexList.summary.footer" = "Index markers are invisible in text. Page numbers are calculated at export.";
 "indexList.edit" = "Edit";
+"indexList.findOccurrences" = "Find Occurrences";
 "indexList.expand" = "Expand";
 "indexList.collapse" = "Collapse";
 "indexList.jumpToText" = "Jump to Reference";
@@ -2295,6 +2305,20 @@
 "indexList.see" = "see";
 "indexList.seeAlso" = "see also";
 "indexList.merge" = "Merge Into...";
+
+/* Index Occurrence Finder */
+"indexOccurrences.title" = "Find Occurrences";
+"indexOccurrences.searching" = "Searching for occurrences…";
+"indexOccurrences.error.title" = "Search Error";
+"indexOccurrences.none.title" = "No Occurrences Found";
+"indexOccurrences.none.message" = "No occurrences of \"%@\" were found in the manuscript.";
+"indexOccurrences.found" = "Found %d occurrences";
+"indexOccurrences.selected" = "%d selected";
+"indexOccurrences.alreadyMarked" = "%d already marked";
+"indexOccurrences.alreadyMarkedLabel" = "Already marked";
+"indexOccurrences.selectAll" = "Select All";
+"indexOccurrences.deselectAll" = "Deselect All";
+"indexOccurrences.markSelected" = "Mark Selected";
 
 /* Index Merge Sheet */
 "indexMerge.title" = "Merge Entry";

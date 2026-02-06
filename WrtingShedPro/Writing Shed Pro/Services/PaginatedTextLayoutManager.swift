@@ -199,7 +199,9 @@ class PaginatedTextLayoutManager {
             // Check for form feed character (\u{000C}) in this range
             // If found, truncate the page at that point and start next page after it
             let pageText = (textStorage.string as NSString).substring(with: characterRange)
+            var foundFormFeed = false
             if let formFeedIndex = pageText.firstIndex(of: "\u{000C}") {
+                foundFormFeed = true
                 let offsetInPage = pageText.distance(from: pageText.startIndex, to: formFeedIndex)
                 let formFeedLocation = characterRange.location + offsetInPage
                 
@@ -208,6 +210,9 @@ class PaginatedTextLayoutManager {
                 
                 // Convert back to glyph range
                 glyphRange = layoutManager.glyphRange(forCharacterRange: characterRange, actualCharacterRange: nil)
+                
+                // Set characterIndex to skip past the form feed for next iteration
+                characterIndex = formFeedLocation + 1
                 
                 #if DEBUG
                 print("   📄 Page break found at character \(formFeedLocation), ending page \(pageIndex)")
@@ -247,24 +252,26 @@ class PaginatedTextLayoutManager {
             }
             
             // Move to next page
-            // If we truncated at a form feed, skip past it
-            if characterRange.length > 0 {
-                let nextChar = NSMaxRange(characterRange)
-                if nextChar < totalCharacters {
-                    let nextCharString = (textStorage.string as NSString).substring(with: NSRange(location: nextChar, length: 1))
-                    if nextCharString == "\u{000C}" {
-                        characterIndex = nextChar + 1  // Skip the form feed character
-                        #if DEBUG
-                        print("   ⏭️  Skipping form feed character at \(nextChar)")
-                        #endif
+            // If we found a form feed, characterIndex was already set to skip past it
+            if !foundFormFeed {
+                if characterRange.length > 0 {
+                    let nextChar = NSMaxRange(characterRange)
+                    if nextChar < totalCharacters {
+                        let nextCharString = (textStorage.string as NSString).substring(with: NSRange(location: nextChar, length: 1))
+                        if nextCharString == "\u{000C}" {
+                            characterIndex = nextChar + 1  // Skip the form feed character
+                            #if DEBUG
+                            print("   ⏭️  Skipping form feed character at \(nextChar)")
+                            #endif
+                        } else {
+                            characterIndex = nextChar
+                        }
                     } else {
                         characterIndex = nextChar
                     }
                 } else {
-                    characterIndex = nextChar
+                    characterIndex = NSMaxRange(characterRange)
                 }
-            } else {
-                characterIndex = NSMaxRange(characterRange)
             }
             
             // If we've processed all text, we're done
@@ -272,8 +279,11 @@ class PaginatedTextLayoutManager {
                 break
             }
             
-            // Safety check: if no characters were processed, break to avoid infinite loop
-            if characterRange.length == 0 {
+            // Safety check: if no characters were processed AND we didn't skip a form feed, break to avoid infinite loop
+            if characterRange.length == 0 && !foundFormFeed {
+                #if DEBUG
+                print("   ⚠️ Zero-length page with no form feed detected, breaking to avoid infinite loop")
+                #endif
                 break
             }
         }
