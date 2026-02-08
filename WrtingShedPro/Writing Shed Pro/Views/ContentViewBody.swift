@@ -7,6 +7,7 @@
 
 import SwiftUI
 import UniformTypeIdentifiers
+import TipKit
 
 // MARK: - Custom UTTypes for Writing Shed files
 extension UTType {
@@ -43,11 +44,23 @@ struct ContentViewBody: View {
         projects.filter { $0.isTrashed == true }
     }
 
+    private let firstProjectTip = FirstProjectTip()
+
     var body: some View {
         NavigationStack(path: $state.navigationPath) {
             VStack(spacing: 0) {
+                // FR-2.1: First Project tip — shown when no projects exist
+                let activeProjects = projects.filter { !$0.isTrashed }
+                if activeProjects.isEmpty {
+                    TipView(firstProjectTip) { action in
+                        TipActionHandler.handle(action, guideSection: FirstProjectTip.guideSection, modelContext: modelContext)
+                    }
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+                }
+                
                 ProjectEditableList(
-                    projects: projects.filter { !$0.isTrashed },
+                    projects: activeProjects,
                     selectedSortOrder: $state.selectedSortOrder,
                     isEditMode: Binding(
                         get: { state.editMode == .active },
@@ -68,6 +81,9 @@ struct ContentViewBody: View {
             #endif
             .onAppear {
                 onInitialize()
+                
+                // Update TipKit parameter for First Project tip
+                FirstProjectTip.hasNoProjects = projects.filter { !$0.isTrashed }.isEmpty
                 
                 // Initialize stylesheets in background (moved from Write_App)
                 onInitializeStyleSheets()
@@ -92,6 +108,9 @@ struct ContentViewBody: View {
                 }
             }
             .onChange(of: projects.isEmpty) { _, isEmpty in
+                // Update TipKit parameter
+                FirstProjectTip.hasNoProjects = projects.filter { !$0.isTrashed }.isEmpty
+                
                 if isEmpty && state.editMode == .active {
                     withAnimation {
                         state.editMode = .inactive

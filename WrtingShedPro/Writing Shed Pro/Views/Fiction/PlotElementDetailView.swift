@@ -55,6 +55,10 @@ struct PlotElementDetailView: View {
         }
     }
     
+    private var isVerseNovel: Bool {
+        project.fictionClass == .verseNovel
+    }
+    
     private var availableScenes: [StoryScene] {
         // Scenes are attached to TextFiles in folders, not directly in project.scenes
         var scenes: [StoryScene] = []
@@ -183,7 +187,7 @@ struct PlotElementDetailView: View {
             }
         }
         
-        // Linked Scenes
+        // Linked Scenes/Episodes
         Section {
             if !linkedScenes.isEmpty {
                 ForEach(linkedScenes) { scene in
@@ -206,13 +210,19 @@ struct PlotElementDetailView: View {
             Button {
                 showCreateSceneSheet = true
             } label: {
-                Label(NSLocalizedString("fiction.plot.element.createScene", comment: "Create Scene"), systemImage: "plus.circle")
+                Label(isVerseNovel
+                    ? NSLocalizedString("fiction.plot.element.createEpisode", comment: "Create Episode")
+                    : NSLocalizedString("fiction.plot.element.createScene", comment: "Create Scene"), systemImage: "plus.circle")
             }
         } header: {
-            Text(NSLocalizedString("fiction.plot.element.section.scenes", comment: "Scenes"))
+            Text(isVerseNovel
+                ? NSLocalizedString("fiction.plot.element.section.linkedEpisodes", comment: "Linked Episodes")
+                : NSLocalizedString("fiction.plot.element.section.scenes", comment: "Scenes"))
         } footer: {
             if linkedScenes.isEmpty {
-                Text(NSLocalizedString("fiction.plot.element.scenes.empty", comment: "No scenes linked to this plot element"))
+                Text(isVerseNovel
+                    ? NSLocalizedString("fiction.plot.element.episodes.empty", comment: "No episodes linked to this plot element")
+                    : NSLocalizedString("fiction.plot.element.scenes.empty", comment: "No scenes linked to this plot element"))
             }
         }
         
@@ -371,7 +381,7 @@ struct PlotElementDetailView: View {
             }
         }
         
-        // Linked Scenes (multi-select)
+        // Linked Scenes/Episodes (multi-select)
         if !availableScenes.isEmpty {
             Section {
                 ForEach(availableScenes) { scene in
@@ -383,7 +393,7 @@ struct PlotElementDetailView: View {
                                 Text(scene.name ?? NSLocalizedString("fiction.untitled", comment: "Untitled"))
                                     .foregroundColor(.primary)
                                 if let order = scene.userOrder {
-                                    Text(String(format: NSLocalizedString("fiction.scene.orderLabel", comment: "Scene #"), order + 1))
+                                    Text(String(format: NSLocalizedString(isVerseNovel ? "fiction.episode.orderLabel" : "fiction.scene.orderLabel", comment: "Scene/Episode #"), order + 1))
                                         .font(.caption)
                                         .foregroundColor(.secondary)
                                 }
@@ -397,9 +407,9 @@ struct PlotElementDetailView: View {
                     }
                 }
             } header: {
-                Text(NSLocalizedString("fiction.plot.element.section.linkedScenes", comment: "Linked Scenes"))
+                Text(NSLocalizedString(isVerseNovel ? "fiction.plot.element.section.linkedEpisodes" : "fiction.plot.element.section.linkedScenes", comment: "Linked Scenes/Episodes"))
             } footer: {
-                Text(NSLocalizedString("fiction.plot.element.linkedScenes.footer", comment: "Scenes that implement this plot beat"))
+                Text(NSLocalizedString(isVerseNovel ? "fiction.plot.element.linkedEpisodes.footer" : "fiction.plot.element.linkedScenes.footer", comment: "Scenes/Episodes that implement this plot beat"))
             }
         }
     }
@@ -494,7 +504,7 @@ struct PlotElementDetailView: View {
 
 // MARK: - Create Scene for Plot Element Sheet
 
-/// Sheet for creating a scene linked to a specific plot element
+/// Sheet for creating a scene/episode linked to a specific plot element
 struct CreateSceneForPlotElementSheet: View {
     
     @Environment(\.modelContext) private var modelContext
@@ -507,6 +517,10 @@ struct CreateSceneForPlotElementSheet: View {
     @State private var summary: String = ""
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
+    
+    private var isVerseNovel: Bool {
+        project.fictionClass == .verseNovel
+    }
     
     private var isValid: Bool {
         !sceneName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -521,16 +535,22 @@ struct CreateSceneForPlotElementSheet: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField(NSLocalizedString("fiction.scene.title", comment: "Title"), text: $sceneName)
+                    TextField(isVerseNovel
+                        ? NSLocalizedString("fiction.episode.title", comment: "Title")
+                        : NSLocalizedString("fiction.scene.title", comment: "Title"), text: $sceneName)
                 } header: {
-                    Text(NSLocalizedString("fiction.scene.section.basic", comment: "Basic Info"))
+                    Text(isVerseNovel
+                        ? NSLocalizedString("fiction.episode.section.basic", comment: "Basic Info")
+                        : NSLocalizedString("fiction.scene.section.basic", comment: "Basic Info"))
                 }
                 
                 Section {
                     TextEditor(text: $summary)
                         .frame(minHeight: 80)
                 } header: {
-                    Text(NSLocalizedString("fiction.scene.summary", comment: "Summary"))
+                    Text(isVerseNovel
+                        ? NSLocalizedString("fiction.episode.summary", comment: "Summary")
+                        : NSLocalizedString("fiction.scene.summary", comment: "Summary"))
                 }
                 
                 // Show what will be inherited from plot element
@@ -558,7 +578,9 @@ struct CreateSceneForPlotElementSheet: View {
                     Text(NSLocalizedString("fiction.scene.inheritedFromPlot.footer", comment: "Characters and location will be copied from the plot element"))
                 }
             }
-            .navigationTitle(NSLocalizedString("fiction.plot.element.createScene", comment: "Create Scene"))
+            .navigationTitle(isVerseNovel
+                ? NSLocalizedString("fiction.plot.element.createEpisode", comment: "Create Episode")
+                : NSLocalizedString("fiction.plot.element.createScene", comment: "Create Scene"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -586,13 +608,16 @@ struct CreateSceneForPlotElementSheet: View {
         let trimmedName = sceneName.trimmingCharacters(in: .whitespacesAndNewlines)
         
         guard !trimmedName.isEmpty else {
-            errorMessage = NSLocalizedString("fiction.scene.error.titleRequired", comment: "Title required")
+            errorMessage = isVerseNovel
+                ? NSLocalizedString("fiction.episode.error.titleRequired", comment: "Title required")
+                : NSLocalizedString("fiction.scene.error.titleRequired", comment: "Title required")
             showErrorAlert = true
             return
         }
         
-        // Find Draft folder
-        let scenesFolder = project.folders?.first { $0.name == "Scenes" }
+        // Find appropriate folder (Episodes for verse novel, Scenes otherwise)
+        let folderName = isVerseNovel ? "Episodes" : "Scenes"
+        let scenesFolder = project.folders?.first { $0.name == folderName }
         
         let scene = StoryScene(
             name: trimmedName,
@@ -615,9 +640,22 @@ struct CreateSceneForPlotElementSheet: View {
         scene.plotElements = [plotElement]
         plotElement.linkedScenes = (plotElement.linkedScenes ?? []) + [scene]
         
-        // Create TextFile for scene content in Draft folder
-        let textFile = TextFile(name: trimmedName, initialContent: "", parentFolder: scenesFolder)
-        textFile.workflowStatus = .draft  // New scenes start as drafts
+        // Create TextFile for scene/episode content
+        let textFile: TextFile
+        if isVerseNovel {
+            // Verse Novel episodes use poetry editor with free verse by default
+            textFile = TextFile(
+                name: trimmedName,
+                initialContent: "",
+                parentFolder: scenesFolder,
+                poetryFormId: PoetryForm.freeVerseId,
+                poetryFormName: "Free Verse"
+            )
+            textFile.contentType = .richText
+        } else {
+            textFile = TextFile(name: trimmedName, initialContent: "", parentFolder: scenesFolder)
+        }
+        textFile.workflowStatus = .draft  // New scenes/episodes start as drafts
         textFile.scene = scene
         scene.textFile = textFile
         

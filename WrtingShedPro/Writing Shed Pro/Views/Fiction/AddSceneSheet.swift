@@ -32,10 +32,16 @@ struct AddSceneSheet: View {
     @State private var selectedLocation: Location?
     @State private var selectedCharacters: Set<Character> = []
     @State private var selectedContentType: FileContentType = .richText
+    @State private var selectedPoetryForm: PoetryForm?
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
     
     // MARK: - Computed
+    
+    /// Whether this is a verse novel project (episodes use poetry editor)
+    private var isVerseNovel: Bool {
+        project.fictionClass == .verseNovel
+    }
     
     private var isValid: Bool {
         !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -72,36 +78,61 @@ struct AddSceneSheet: View {
             Form {
                 // Basic Info
                 Section {
-                    TextField(NSLocalizedString("fiction.scene.title", comment: "Title"), text: $title)
-                        .accessibilityLabel(NSLocalizedString("fiction.scene.title.accessibility", comment: "Scene title"))
+                    TextField(isVerseNovel
+                        ? NSLocalizedString("fiction.episode.title", comment: "Title")
+                        : NSLocalizedString("fiction.scene.title", comment: "Title"), text: $title)
+                        .accessibilityLabel(isVerseNovel
+                            ? NSLocalizedString("fiction.episode.title.accessibility", comment: "Episode title")
+                            : NSLocalizedString("fiction.scene.title.accessibility", comment: "Scene title"))
                 } header: {
-                    Text(NSLocalizedString("fiction.scene.section.basic", comment: "Basic Info"))
+                    Text(isVerseNovel
+                        ? NSLocalizedString("fiction.episode.section.basic", comment: "Basic Info")
+                        : NSLocalizedString("fiction.scene.section.basic", comment: "Basic Info"))
+                }
+                
+                // Poetry Form picker (Verse Novel only)
+                if isVerseNovel {
+                    Section {
+                        PoetryFormPickerCompact(selectedForm: $selectedPoetryForm)
+                    } header: {
+                        Text(NSLocalizedString("fiction.episode.poetryForm", comment: "Poetry Form"))
+                    } footer: {
+                        Text(NSLocalizedString("fiction.episode.poetryFormFooter", comment: "Select a poetry form for this episode"))
+                    }
                 }
                 
                 // Summary
                 Section {
                     TextEditor(text: $summary)
                         .frame(minHeight: 80)
-                        .accessibilityLabel(NSLocalizedString("fiction.scene.summary.accessibility", comment: "Scene summary"))
+                        .accessibilityLabel(isVerseNovel
+                            ? NSLocalizedString("fiction.episode.summary.accessibility", comment: "Episode summary")
+                            : NSLocalizedString("fiction.scene.summary.accessibility", comment: "Scene summary"))
                 } header: {
-                    Text(NSLocalizedString("fiction.scene.summary", comment: "Summary"))
+                    Text(isVerseNovel
+                        ? NSLocalizedString("fiction.episode.summary", comment: "Summary")
+                        : NSLocalizedString("fiction.scene.summary", comment: "Summary"))
                 } footer: {
-                    Text(NSLocalizedString("fiction.scene.summary.footer", comment: "Brief description of what happens"))
+                    Text(isVerseNovel
+                        ? NSLocalizedString("fiction.episode.summary.footer", comment: "Brief description of what happens")
+                        : NSLocalizedString("fiction.scene.summary.footer", comment: "Brief description of what happens"))
                 }
                 
-                // Content type picker
-                Section {
-                    Picker(NSLocalizedString("addFile.contentType", comment: "Content Type"), selection: $selectedContentType) {
-                        ForEach(FileContentType.allCases, id: \.self) { contentType in
-                            Label(contentType.localizedName, systemImage: contentType.systemImage)
-                                .tag(contentType)
+                // Content type picker (not for Verse Novel - they use rich text for poetry)
+                if !isVerseNovel {
+                    Section {
+                        Picker(NSLocalizedString("addFile.contentType", comment: "Content Type"), selection: $selectedContentType) {
+                            ForEach(FileContentType.allCases, id: \.self) { contentType in
+                                Label(contentType.localizedName, systemImage: contentType.systemImage)
+                                    .tag(contentType)
+                            }
                         }
+                        .pickerStyle(.menu)
+                    } header: {
+                        Text(NSLocalizedString("addFile.contentTypeHeader", comment: "Content Type section header"))
+                    } footer: {
+                        Text(selectedContentType.description)
                     }
-                    .pickerStyle(.menu)
-                } header: {
-                    Text(NSLocalizedString("addFile.contentTypeHeader", comment: "Content Type section header"))
-                } footer: {
-                    Text(selectedContentType.description)
                 }
                 
                 // Location (optional)
@@ -216,7 +247,9 @@ struct AddSceneSheet: View {
                     }
                 }
             }
-            .navigationTitle(NSLocalizedString("fiction.scene.add.title", comment: "Add Scene"))
+            .navigationTitle(isVerseNovel
+                ? NSLocalizedString("fiction.episode.add.title", comment: "Add Episode")
+                : NSLocalizedString("fiction.scene.add.title", comment: "Add Scene"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -255,7 +288,9 @@ struct AddSceneSheet: View {
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         
         guard !trimmedTitle.isEmpty else {
-            errorMessage = NSLocalizedString("fiction.scene.error.titleRequired", comment: "Title required")
+            errorMessage = isVerseNovel
+                ? NSLocalizedString("fiction.episode.error.titleRequired", comment: "Title required")
+                : NSLocalizedString("fiction.scene.error.titleRequired", comment: "Title required")
             showErrorAlert = true
             return
         }
@@ -295,8 +330,26 @@ struct AddSceneSheet: View {
         }
         
         // Create TextFile for scene content in Draft folder
-        let textFile = TextFile(name: trimmedTitle, initialContent: "", parentFolder: scenesFolder)
-        textFile.contentType = selectedContentType
+        let textFile: TextFile
+        
+        if isVerseNovel {
+            // Verse Novel episodes always use poetry editor
+            // Use selected form, or free verse if none selected
+            let formId = selectedPoetryForm?.id ?? PoetryForm.freeVerseId
+            let formName = selectedPoetryForm?.name ?? "Free Verse"
+            textFile = TextFile(
+                name: trimmedTitle,
+                initialContent: "",
+                parentFolder: scenesFolder,
+                poetryFormId: formId,
+                poetryFormName: formName
+            )
+            textFile.contentType = .richText  // Poetry always uses rich text
+        } else {
+            textFile = TextFile(name: trimmedTitle, initialContent: "", parentFolder: scenesFolder)
+            textFile.contentType = selectedContentType
+        }
+        
         textFile.workflowStatus = .draft  // New scenes start as drafts
         textFile.scene = scene
         scene.textFile = textFile

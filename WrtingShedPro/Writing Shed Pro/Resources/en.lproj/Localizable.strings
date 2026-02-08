@@ -18,10 +18,11 @@
 /* Fiction Classes (Feature 022) */
 "fictionClass.novel" = "Novel";
 "fictionClass.shortFiction" = "Short Fiction";
+"fictionClass.verseNovel" = "Verse Novel";
 "fictionClass.label" = "Fiction Class";
-"fictionClass.accessibilityLabel" = "Select whether this is a novel or short fiction";
+"fictionClass.accessibilityLabel" = "Select whether this is a novel, short fiction, or verse novel";
 "addProject.fictionClass" = "Fiction Class";
-"addProject.fictionClassFooter" = "Novel includes chapters containing scenes. Short Fiction has scenes only.";
+"addProject.fictionClassFooter" = "Novel includes chapters containing scenes. Short Fiction has scenes only. Verse Novel uses books and episodes written as poetry.";
 "fiction.useMonomyth" = "Use Hero's Journey Structure";
 "fiction.useMonomythAccessibility" = "Toggle to structure your plot using the 12-stage monomyth";
 "addProject.useMonomyth" = "Use Monomyth Structure";
@@ -30,8 +31,10 @@
 "folder.manuscript" = "Manuscript";
 "folder.chapters" = "Chapters";
 "folder.stories" = "Stories";
+"folder.books" = "Books";
 "folder.acts" = "Acts";
 "folder.scenes" = "Scenes";
+"folder.episodes" = "Episodes";
 "folder.characters" = "Characters";
 "folder.locations" = "Locations";
 "folder.plot" = "Plot";
@@ -303,6 +306,66 @@
 "fiction.scenes.assignedToStory" = "Currently assigned to \"%@\".";
 "fiction.scenes.storyAssignment" = "Story Assignment";
 
+/* Fiction Books View (Verse Novel - Feature 022) */
+"fiction.books.title" = "Books";
+"fiction.books.add" = "Add Book";
+"fiction.books.empty.title" = "No Books Yet";
+"fiction.books.empty.message" = "Add books to organize your verse novel.";
+"fiction.books.deleteConfirm.title" = "Delete Book?";
+"fiction.books.deleteConfirm.message" = "Are you sure you want to delete \"%@\"? Episodes will be unassigned but not deleted.";
+"fiction.books.deleteMultiple.title" = "Delete %d Books?";
+"fiction.books.deleteMultiple.message" = "Episodes will be unassigned but not deleted.";
+"fiction.books.deleteCount" = "Delete %d";
+"fiction.books.picker.createHint" = "Create books in the Books folder.";
+"fiction.book.title" = "Title";
+"fiction.book.title.accessibility" = "Book title";
+"fiction.book.number" = "Book %d";
+"fiction.book.rename.title" = "Rename Book";
+"fiction.book.section.basic" = "Basic Info";
+"fiction.book.summary" = "Summary";
+"fiction.book.summary.accessibility" = "Book summary";
+"fiction.book.summary.footer" = "Brief overview of this book.";
+"fiction.book.add.title" = "Add Book";
+"fiction.book.defaultTitle" = "Book %d";
+"fiction.book.error.titleRequired" = "Book title is required.";
+"fiction.book.episodeCount" = "%d episodes";
+
+/* Fiction Episodes View (Verse Novel - Feature 022) */
+"fiction.episodes.title" = "Episodes";
+"fiction.episodes.add" = "Add Episode";
+"fiction.episodes.empty.title" = "No Episodes Yet";
+"fiction.episodes.empty.message" = "Add episodes to write your verse novel. Episodes are written as poetry.";
+"fiction.episodes.deleteConfirm.title" = "Delete Episode?";
+"fiction.episodes.deleteConfirm.message" = "Are you sure you want to delete \"%@\"?";
+"fiction.episodes.deleteConfirm.message.enhanced" = "Move to Trash keeps the episode's file for later recovery. Delete Forever is permanent.";
+"fiction.episodes.deleteMultiple.title" = "Delete %d Episodes?";
+"fiction.episodes.deleteMultiple.message" = "This action cannot be undone.";
+"fiction.episodes.deleteCount" = "Delete (%d)";
+"fiction.episodes.deleteSelected" = "Delete selected episodes";
+"fiction.episodes.edit" = "Edit episodes";
+"fiction.episodes.addToBook" = "Add to Book";
+"fiction.episodes.removeFromBookNamed" = "Remove from \"%@\"";
+"fiction.episodes.assignedToBook" = "Currently assigned to \"%@\".";
+"fiction.episodes.bookAssignment" = "Book Assignment";
+"fiction.episode.title" = "Title";
+"fiction.episode.title.accessibility" = "Episode title";
+"fiction.episode.summary" = "Summary";
+"fiction.episode.summary.accessibility" = "Episode summary";
+"fiction.episode.summary.footer" = "Brief description of what happens in this episode.";
+"fiction.episode.section.basic" = "Basic Info";
+"fiction.episode.add.title" = "Add Episode";
+"fiction.episode.error.titleRequired" = "Episode title is required.";
+"fiction.episode.poetryForm" = "Poetry Form";
+"fiction.episode.poetryFormFooter" = "Select a poetry form for this episode. You can write free verse or follow a structured form.";
+"fiction.episode.number" = "Episode #";
+"fiction.episode.orderLabel" = "Episode #%d";
+"fiction.episode.file" = "Episode File";
+"fiction.episode.delete" = "Delete Episode";
+"fiction.episode.section.location" = "Location";
+"fiction.episode.section.characters" = "Characters";
+"fiction.episode.section.plotElements" = "Plot Elements";
+"fiction.episode.section.monomyth" = "Hero's Journey";
+
 /* Fiction Plot View (Feature 022) */
 "fiction.plot.title" = "Plot Outline";
 "fiction.plot.add" = "Add Plot Element";
@@ -329,22 +392,32 @@
 "fiction.plot.element.section.locations" = "Locations";
 "fiction.plot.element.section.scenes" = "Scenes";
 "fiction.plot.element.section.createScene" = "Create Scene";
+"fiction.plot.element.section.createEpisode" = "Create Episode";
 "fiction.plot.element.characters.footer" = "Characters involved in this plot beat.";
 "fiction.plot.element.locations.footer" = "Where this plot beat takes place.";
 "fiction.plot.element.section.linkedScenes" = "Linked Scenes";
+"fiction.plot.element.section.linkedEpisodes" = "Linked Episodes";
 "fiction.plot.element.linkedScenes.footer" = "Scenes that implement this plot beat.";
+"fiction.plot.element.linkedEpisodes.footer" = "Episodes that implement this plot beat.";
 "fiction.plot.element.section.linkScenes" = "Link Existing Scenes";
+"fiction.plot.element.section.linkEpisodes" = "Link Existing Episodes";
 "fiction.plot.element.linkScenes.footer" = "Select scenes to associate with this plot beat.";
+"fiction.plot.element.linkEpisodes.footer" = "Select episodes to associate with this plot beat.";
 "fiction.plot.noDetails.title" = "No Details";
 "fiction.plot.noDetails.message" = "No description, characters, or locations have been added for this plot element.";
 "fiction.plot.element.add.title" = "Add Plot Element";
 "fiction.plot.element.error.titleRequired" = "Plot element title is required.";
 "fiction.plot.element.delete" = "Delete Plot Element";
 "fiction.plot.element.createScene" = "Create Scene";
+"fiction.plot.element.createEpisode" = "Create Episode";
 "fiction.plot.element.scenes.empty" = "No scenes linked to this plot element.";
+"fiction.plot.element.episodes.empty" = "No episodes linked to this plot element.";
 "fiction.plot.element.sceneName" = "Scene Name (Optional)";
+"fiction.plot.element.episodeName" = "Episode Name (Optional)";
 "fiction.plot.element.sceneName.accessibility" = "Scene name to create";
+"fiction.plot.element.episodeName.accessibility" = "Episode name to create";
 "fiction.plot.element.sceneName.footer" = "Optionally name a scene to auto-create for this plot beat.";
+"fiction.plot.element.episodeName.footer" = "Optionally name an episode to auto-create for this plot beat.";
 "fiction.scene.orderLabel" = "Scene %d";
 
 /* Scene - Plot Element Integration */
@@ -728,6 +801,7 @@
 "folder.novel" = "Novel";
 "folder.chapters" = "Chapters";
 "folder.scenes" = "Scenes";
+"folder.episodes" = "Episodes";
 "folder.characters" = "Characters";
 "folder.locations" = "Locations";
 "folder.script" = "Script";
@@ -1887,6 +1961,7 @@
 "fiction.scenes.assignedToChapter" = "Currently assigned to %@";
 "fiction.scenes.assignCount" = "Assigning %d scene(s)";
 "fiction.chapters.picker.createHint" = "Create chapters in the Chapters folder first.";
+"fiction.episodes.assignCount" = "Assigning %d episode(s)";
 
 // Story Structure (Feature 022/023 - expanded)
 "storyStructure.freeform" = "Freeform";

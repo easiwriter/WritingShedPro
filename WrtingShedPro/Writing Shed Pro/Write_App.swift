@@ -8,6 +8,7 @@
 import SwiftUI
 import SwiftData
 import CloudKit
+import TipKit
 import os
 
 @main
@@ -181,6 +182,21 @@ struct Write_App: App {
         Write_App.logToFile("✅ [CloudKit Config] Container: iCloud.com.appworks.writingshedpro")
         Write_App.logToFile("✅ [CloudKit Config] Database: private")
         Write_App.logToFile("✅ [CloudKit Config] aps-environment: production")
+        
+        // Configure TipKit for contextual tips (Feature 035)
+        do {
+            try Tips.configure([
+                .displayFrequency(.weekly),
+                .datastoreLocation(.applicationDefault)
+            ])
+            #if DEBUG
+            print("✅ [TipKit] Configured successfully")
+            #endif
+        } catch {
+            #if DEBUG
+            print("⚠️ [TipKit] Configuration failed: \(error.localizedDescription)")
+            #endif
+        }
     }
 
     var body: some Scene {

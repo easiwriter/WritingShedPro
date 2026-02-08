@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import TipKit
 import UniformTypeIdentifiers
 
 /// List view showing scenes - either for entire project (Short Fiction) or within a chapter (Novel)
@@ -147,12 +148,22 @@ struct SceneListView: View {
     
     private var title: String {
         if let chapter = chapter {
-            return chapter.name ?? NSLocalizedString("fiction.scenes.title", comment: "Scenes")
+            return chapter.name ?? fictionClass.sceneDisplayName
         }
         if let act = act {
             return act.name ?? NSLocalizedString("fiction.scenes.title", comment: "Scenes")
         }
-        return NSLocalizedString("fiction.scenes.title", comment: "Scenes")
+        return fictionClass.sceneDisplayName
+    }
+    
+    /// The fiction class for this project (for verse novel episode labeling)
+    private var fictionClass: FictionClass {
+        project.fictionClass ?? .novel
+    }
+    
+    /// Whether this is a verse novel project
+    private var isVerseNovel: Bool {
+        fictionClass == .verseNovel
     }
     
     /// Whether edit mode is currently active
@@ -255,7 +266,9 @@ struct SceneListView: View {
                     } label: {
                         Image(systemName: "plus")
                     }
-                    .accessibilityLabel(NSLocalizedString("fiction.scenes.add", comment: "Add scene"))
+                    .accessibilityLabel(isVerseNovel
+                        ? NSLocalizedString("fiction.episodes.add", comment: "Add episode")
+                        : NSLocalizedString("fiction.scenes.add", comment: "Add scene"))
                     .disabled(editMode == .active)
                 }
                 
@@ -273,7 +286,9 @@ struct SceneListView: View {
                     } label: {
                         Text(isEditMode ? NSLocalizedString("button.done", comment: "Done") : NSLocalizedString("button.edit", comment: "Edit"))
                     }
-                    .accessibilityLabel(isEditMode ? NSLocalizedString("button.done", comment: "Done") : NSLocalizedString("fiction.scenes.edit", comment: "Edit scenes"))
+                    .accessibilityLabel(isEditMode ? NSLocalizedString("button.done", comment: "Done") : (isVerseNovel
+                        ? NSLocalizedString("fiction.episodes.edit", comment: "Edit episodes")
+                        : NSLocalizedString("fiction.scenes.edit", comment: "Edit scenes")))
                 }
             }
             
@@ -347,8 +362,12 @@ struct SceneListView: View {
         }
         .confirmationDialog(
             scenesToDelete.count == 1
-                ? NSLocalizedString("fiction.scenes.deleteConfirm.title", comment: "Delete scene?")
-                : String(format: NSLocalizedString("fiction.scenes.deleteMultiple.title", comment: "Delete scenes?"), scenesToDelete.count),
+                ? (isVerseNovel
+                    ? NSLocalizedString("fiction.episodes.deleteConfirm.title", comment: "Delete episode?")
+                    : NSLocalizedString("fiction.scenes.deleteConfirm.title", comment: "Delete scene?"))
+                : (isVerseNovel
+                    ? String(format: NSLocalizedString("fiction.episodes.deleteMultiple.title", comment: "Delete episodes?"), scenesToDelete.count)
+                    : String(format: NSLocalizedString("fiction.scenes.deleteMultiple.title", comment: "Delete scenes?"), scenesToDelete.count)),
             isPresented: $showDeleteConfirmation,
             titleVisibility: .visible
         ) {
@@ -366,7 +385,9 @@ struct SceneListView: View {
                 scenesToDelete = []
             }
         } message: {
-            Text(NSLocalizedString("fiction.scenes.deleteConfirm.message.enhanced", comment: "Move to Trash keeps the scene's file, Delete Forever is permanent"))
+            Text(isVerseNovel
+                ? NSLocalizedString("fiction.episodes.deleteConfirm.message.enhanced", comment: "Move to Trash keeps the episode's file, Delete Forever is permanent")
+                : NSLocalizedString("fiction.scenes.deleteConfirm.message.enhanced", comment: "Move to Trash keeps the scene's file, Delete Forever is permanent"))
         }
         .onChange(of: editMode) { _, newValue in
             if newValue == .inactive {
@@ -417,6 +438,9 @@ struct SceneListView: View {
         }
         .onAppear {
             initializeHeaderFooterFields()
+            
+            // FR-5.4: Update Verse Novel tip parameter
+            VerseNovelTip.isVerseNovel = isVerseNovel
         }
     }
     
@@ -493,18 +517,20 @@ struct SceneListView: View {
             .disabled(selectedScenes.isEmpty)
         }
         
-        // Add to Chapter/Story button (Fiction projects, main scene list only)
-        // Assigning to a chapter/story automatically sets the scene's status to ready
+        // Add to Chapter/Story/Book button (Fiction projects, main scene list only)
+        // Assigning to a chapter/story/book automatically sets the scene's status to ready
         if project.type == .fiction && act == nil && chapter == nil {
-            let isShortFiction = project.fictionClass == .shortFiction
+            let isShortFiction = fictionClass == .shortFiction
             Button {
                 showChapterPicker = true
             } label: {
                 Label(
-                    isShortFiction 
-                        ? NSLocalizedString("fiction.scenes.addToStory", comment: "Add to Story")
-                        : NSLocalizedString("fiction.scenes.addToChapter", comment: "Add to Chapter"),
-                    systemImage: isShortFiction ? "books.vertical" : "book"
+                    isVerseNovel
+                        ? NSLocalizedString("fiction.episodes.addToBook", comment: "Add to Book")
+                        : (isShortFiction 
+                            ? NSLocalizedString("fiction.scenes.addToStory", comment: "Add to Story")
+                            : NSLocalizedString("fiction.scenes.addToChapter", comment: "Add to Chapter")),
+                    systemImage: isVerseNovel ? "text.book.closed" : (isShortFiction ? "books.vertical" : "book")
                 )
             }
             .disabled(selectedScenes.isEmpty)
@@ -516,18 +542,28 @@ struct SceneListView: View {
             prepareDelete(selectedScenes)
         } label: {
             Label(
-                String(format: NSLocalizedString("fiction.scenes.deleteCount", comment: "Delete count"), selectedScenes.count),
+                String(format: isVerseNovel
+                    ? NSLocalizedString("fiction.episodes.deleteCount", comment: "Delete count")
+                    : NSLocalizedString("fiction.scenes.deleteCount", comment: "Delete count"), selectedScenes.count),
                 systemImage: "trash"
             )
         }
         .disabled(selectedScenes.isEmpty)
-        .accessibilityLabel(NSLocalizedString("fiction.scenes.deleteSelected", comment: "Delete selected scenes"))
+        .accessibilityLabel(isVerseNovel
+            ? NSLocalizedString("fiction.episodes.deleteSelected", comment: "Delete selected episodes")
+            : NSLocalizedString("fiction.scenes.deleteSelected", comment: "Delete selected scenes"))
     }
     
     // MARK: - Scene List
     
     private var sceneList: some View {
         List {
+            // FR-5.3: Scene Info tip
+            TipView(SceneInfoTip()) { action in
+                TipActionHandler.handle(action, guideSection: SceneInfoTip.guideSection, modelContext: modelContext)
+            }
+            .listRowSeparator(.hidden)
+            
             ForEach(sortedScenes) { scene in
                 sceneRow(for: scene)
                     .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
@@ -593,14 +629,24 @@ struct SceneListView: View {
     
     private var emptyState: some View {
         VStack(spacing: 16) {
-            Image(systemName: "film")
+            // FR-5.1: Scenes & Chapters tip
+            TipView(ScenesAndChaptersTip()) { action in
+                TipActionHandler.handle(action, guideSection: ScenesAndChaptersTip.guideSection, modelContext: modelContext)
+            }
+            .padding(.horizontal)
+            
+            Image(systemName: isVerseNovel ? "music.note.list" : "film")
                 .font(.system(size: 60))
                 .foregroundColor(.secondary)
             
-            Text(NSLocalizedString("fiction.scenes.empty.title", comment: "No scenes"))
+            Text(isVerseNovel
+                ? NSLocalizedString("fiction.episodes.empty.title", comment: "No episodes")
+                : NSLocalizedString("fiction.scenes.empty.title", comment: "No scenes"))
                 .font(.headline)
             
-            Text(NSLocalizedString("fiction.scenes.empty.message", comment: "Empty message"))
+            Text(isVerseNovel
+                ? NSLocalizedString("fiction.episodes.empty.message", comment: "Empty message")
+                : NSLocalizedString("fiction.scenes.empty.message", comment: "Empty message"))
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
@@ -609,7 +655,9 @@ struct SceneListView: View {
             Button {
                 showAddScene = true
             } label: {
-                Label(NSLocalizedString("fiction.scenes.add", comment: "Add scene"), systemImage: "plus")
+                Label(isVerseNovel
+                    ? NSLocalizedString("fiction.episodes.add", comment: "Add episode")
+                    : NSLocalizedString("fiction.scenes.add", comment: "Add scene"), systemImage: "plus")
             }
             .buttonStyle(.borderedProminent)
         }

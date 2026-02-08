@@ -82,6 +82,8 @@ struct ProjectTemplateService {
         case .fiction:
             if project.fictionClass == .shortFiction {
                 bodyFolderName = "All Stories"
+            } else if project.fictionClass == .verseNovel {
+                bodyFolderName = "All Books"
             } else {
                 bodyFolderName = "All Chapters"
             }
@@ -158,7 +160,8 @@ struct ProjectTemplateService {
             
         case .fiction:
             // Novel: Manuscript, Chapters, Scenes, Characters, Locations, Plot // Collections, Submissions, Research // Publishers, Agents, Other // Trash
-            // Short: Manuscript, Scenes, Characters, Locations, Plot // Collections, Submissions, Research // Magazines, Competitions, Other // Trash
+            // Short: Manuscript, Stories, Scenes, Characters, Locations, Plot // Collections, Submissions, Research // Magazines, Competitions, Other // Trash
+            // Verse Novel: Manuscript, Books, Episodes, Characters, Locations, Plot // Collections, Submissions, Research // Publishers, Agents, Other // Trash
             var keys = [
                 // Section 1: Story Structure
                 "folder.manuscript"
@@ -174,8 +177,19 @@ struct ProjectTemplateService {
                 keys.append("folder.stories")
             }
             
+            // Books for verse novel
+            if project.fictionClass == .verseNovel {
+                keys.append("folder.books")
+            }
+            
+            // Scenes for novel/short fiction, Episodes for verse novel
+            if project.fictionClass == .verseNovel {
+                keys.append("folder.episodes")
+            } else {
+                keys.append("folder.scenes")
+            }
+            
             keys.append(contentsOf: [
-                "folder.scenes",
                 "folder.characters",
                 "folder.locations",
                 "folder.plot",
@@ -186,8 +200,8 @@ struct ProjectTemplateService {
             ])
             
             // Publications based on fiction class
-            if project.fictionClass == .novel {
-                // Novel: Publishers, Agents, Other
+            if project.fictionClass == .novel || project.fictionClass == .verseNovel {
+                // Novel/Verse Novel: Publishers, Agents, Other
                 keys.append(contentsOf: [
                     "folder.publishers",
                     "folder.agents",

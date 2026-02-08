@@ -8,6 +8,7 @@
 
 import SwiftUI
 import SwiftData
+import TipKit
 import UniformTypeIdentifiers
 
 /// View for displaying and managing files within a folder
@@ -209,7 +210,17 @@ struct FolderFilesView: View {
         let files = applyFileModifiers(sheets)
         let alerts = applyAlertModifiers(files)
         let dialogs = applyDialogModifiers(alerts)
-        return dialogs.onAppear { initializeHeaderFooterFields() }
+        return dialogs.onAppear {
+            initializeHeaderFooterFields()
+            
+            // FR-2.4: Update folder organisation tip parameter
+            FolderOrganisationTip.folderHasManyFiles = sortedFiles.count >= 5
+            
+            // FR-8.1: Donate file creation event for Collections tip
+            if !sortedFiles.isEmpty {
+                Task { await CollectionsTip.fileCreated.donate() }
+            }
+        }
     }
     
     // MARK: - Main Content (extracted to reduce body complexity)
@@ -236,7 +247,17 @@ struct FolderFilesView: View {
                     } else if isMatterFolder && !sortedFiles.isEmpty {
                         matterFolderBody
                     } else if !sortedFiles.isEmpty {
-                        fileListSection
+                        VStack(spacing: 0) {
+                            // FR-2.4: Folder organisation tip
+                            if sortedFiles.count >= 5 {
+                                TipView(FolderOrganisationTip()) { action in
+                                    TipActionHandler.handle(action, guideSection: FolderOrganisationTip.guideSection, modelContext: modelContext)
+                                }
+                                .padding(.horizontal)
+                                .padding(.top, 4)
+                            }
+                            fileListSection
+                        }
                     } else if isMatterFolder {
                         // Special empty state for Front/Back Matter folders
                         ContentUnavailableView {

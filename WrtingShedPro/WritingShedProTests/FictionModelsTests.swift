@@ -29,11 +29,13 @@ final class FictionModelsTests: XCTestCase {
     func testFictionClassLocalizedNames() {
         XCTAssertFalse(FictionClass.novel.localizedName.isEmpty)
         XCTAssertFalse(FictionClass.shortFiction.localizedName.isEmpty)
+        XCTAssertFalse(FictionClass.verseNovel.localizedName.isEmpty)
     }
     
     func testFictionClassRawValues() {
         XCTAssertEqual(FictionClass.novel.rawValue, "novel")
         XCTAssertEqual(FictionClass.shortFiction.rawValue, "shortFiction")
+        XCTAssertEqual(FictionClass.verseNovel.rawValue, "verseNovel")
     }
     
     func testFictionClassCodable() throws {
@@ -45,6 +47,24 @@ final class FictionModelsTests: XCTestCase {
             let decoded = try decoder.decode(FictionClass.self, from: data)
             XCTAssertEqual(fictionClass, decoded)
         }
+    }
+    
+    func testFictionClassUsesPoetryEditor() {
+        XCTAssertFalse(FictionClass.novel.usesPoetryEditor)
+        XCTAssertFalse(FictionClass.shortFiction.usesPoetryEditor)
+        XCTAssertTrue(FictionClass.verseNovel.usesPoetryEditor)
+    }
+    
+    func testFictionClassDisplayNames() {
+        // Chapter display names
+        XCTAssertFalse(FictionClass.novel.chapterDisplayName.isEmpty)
+        XCTAssertFalse(FictionClass.shortFiction.chapterDisplayName.isEmpty)
+        XCTAssertFalse(FictionClass.verseNovel.chapterDisplayName.isEmpty)
+        
+        // Scene display names
+        XCTAssertFalse(FictionClass.novel.sceneDisplayName.isEmpty)
+        XCTAssertFalse(FictionClass.shortFiction.sceneDisplayName.isEmpty)
+        XCTAssertFalse(FictionClass.verseNovel.sceneDisplayName.isEmpty)
     }
     
     // MARK: - CharacterArchetype Tests

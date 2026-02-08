@@ -308,9 +308,14 @@ struct AttributedStringSerializer {
                             attributes.fontName = font?.fontName ?? "Helvetica"
                         }
                         
-                        // CRITICAL: Extract textStyle from font descriptor if present
-                        // This preserves heading styles for markdown round-trip
-                        if let textStyleRaw = desc?.object(forKey: .textStyle) as? String {
+                        // Extract textStyle from font descriptor as FALLBACK only.
+                        // The custom .textStyle attribute (case .textStyle below) is authoritative
+                        // because font descriptors lose textStyle when fonts are recreated via
+                        // fontWithNameAndTraits/UIFont(name:size:) — they revert to CTFontRegularUsage.
+                        // Since attr.forEach iterates a dictionary (non-deterministic order),
+                        // we must not overwrite a correct .textStyle value with a degraded descriptor value.
+                        if attributes.textStyle == nil,
+                           let textStyleRaw = desc?.object(forKey: .textStyle) as? String {
                             attributes.textStyle = textStyleRaw
                         }
                         
@@ -379,7 +384,9 @@ struct AttributedStringSerializer {
                         }
                     
                     case .textStyle:
-                        // Store the text style raw value
+                        // AUTHORITATIVE: The custom .textStyle attribute is the source of truth.
+                        // Always overwrite any value that .font descriptor may have set,
+                        // since font descriptors lose textStyle after fontWithNameAndTraits round-trips.
                         if let styleValue = value as? String {
                             attributes.textStyle = styleValue
                             // print("💾 ENCODE textStyle at \(range.location): \(styleValue)")
@@ -437,6 +444,18 @@ struct AttributedStringSerializer {
                         break
                     }
                 }
+                
+                #if DEBUG
+                // STYLE DIAG: Log final textStyle being encoded for each range
+                if let ts = attributes.textStyle, ts != "UICTFontTextStyleBody" && ts != "CTFontRegularUsage" {
+                    print("💾 ENCODE range[\(attributes.location ?? -1), \(attributes.length ?? 0)]: textStyle=\(ts) (from custom attr)")
+                } else if let ts = attributes.textStyle, ts == "CTFontRegularUsage" {
+                    // This is the degraded value - check if .textStyle custom attribute was present
+                    let hasCustomTextStyle = attr[.textStyle] != nil
+                    print("💾 ⚠️ ENCODE range[\(attributes.location ?? -1), \(attributes.length ?? 0)]: textStyle=CTFontRegularUsage! customAttr present=\(hasCustomTextStyle), customAttr value=\(attr[.textStyle] ?? "nil")")
+                }
+                #endif
+                
                 allAttributes.append(attributes)
             }
         }
@@ -524,8 +543,19 @@ struct AttributedStringSerializer {
                         let textStyle = UIFont.TextStyle(rawValue: textStyleValue)
                         let baseFont = UIFont.preferredFont(forTextStyle: textStyle)
                         // Apply traits (bold/italic) if needed
+                        // CRITICAL: Use descriptor-based trait application instead of fontWithNameAndTraits
+                        // fontWithNameAndTraits uses UIFont(name:size:) which loses the textStyle
+                        // from the font descriptor, causing it to revert to CTFontRegularUsage.
                         if isBold || isItalic {
-                            font = UIFont.fontWithNameAndTraits(baseFont.familyName, size: baseFont.pointSize, bold: isBold, italic: isItalic)
+                            var traits: UIFontDescriptor.SymbolicTraits = []
+                            if isBold { traits.insert(.traitBold) }
+                            if isItalic { traits.insert(.traitItalic) }
+                            if let traitDescriptor = baseFont.fontDescriptor.withSymbolicTraits(traits) {
+                                font = UIFont(descriptor: traitDescriptor, size: baseFont.pointSize)
+                            } else {
+                                // Fallback: use fontWithNameAndTraits if descriptor approach fails
+                                font = UIFont.fontWithNameAndTraits(baseFont.familyName, size: baseFont.pointSize, bold: isBold, italic: isItalic)
+                            }
                         } else {
                             font = baseFont
                         }

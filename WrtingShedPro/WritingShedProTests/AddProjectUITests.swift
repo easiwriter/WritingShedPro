@@ -29,13 +29,20 @@ final class AddProjectUITests: XCTestCase {
     
     func testFictionClassEnum() {
         // Verify FictionClass enum
-        XCTAssertEqual(FictionClass.allCases.count, 2)
+        XCTAssertEqual(FictionClass.allCases.count, 3)
         XCTAssertEqual(FictionClass.novel.rawValue, "novel")
         XCTAssertEqual(FictionClass.shortFiction.rawValue, "shortFiction")
+        XCTAssertEqual(FictionClass.verseNovel.rawValue, "verseNovel")
         
         // Verify localized names exist
         XCTAssertFalse(FictionClass.novel.localizedName.isEmpty)
         XCTAssertFalse(FictionClass.shortFiction.localizedName.isEmpty)
+        XCTAssertFalse(FictionClass.verseNovel.localizedName.isEmpty)
+        
+        // Verify verse novel uses poetry editor
+        XCTAssertTrue(FictionClass.verseNovel.usesPoetryEditor)
+        XCTAssertFalse(FictionClass.novel.usesPoetryEditor)
+        XCTAssertFalse(FictionClass.shortFiction.usesPoetryEditor)
     }
     
     func testContentViewCanBeCreated() {

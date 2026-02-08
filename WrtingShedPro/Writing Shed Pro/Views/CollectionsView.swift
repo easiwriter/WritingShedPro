@@ -8,6 +8,7 @@
 
 import SwiftUI
 import SwiftData
+import TipKit
 
 // MARK: - Edit Version Item (for sheet presentation)
 
@@ -97,6 +98,12 @@ struct CollectionsView: View {
             if !sortedCollections.isEmpty {
                 // Show list of collections
                 List {
+                    // FR-8.1: Collections tip
+                    TipView(CollectionsTip()) { action in
+                        TipActionHandler.handle(action, guideSection: CollectionsTip.guideSection, modelContext: modelContext)
+                    }
+                    .listRowSeparator(.hidden)
+                    
                     ForEach(sortedCollections) { collection in
                         collectionRow(for: collection)
                             // Enable drag-to-reorder without edit mode

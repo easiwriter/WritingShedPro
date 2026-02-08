@@ -36,6 +36,10 @@ struct SceneDetailView: View {
     
     // MARK: - Computed
     
+    private var isVerseNovel: Bool {
+        project.type == .fiction && project.fictionClass == .verseNovel
+    }
+    
     private var availableLocations: [Location] {
         (project.locations ?? []).sorted { 
             ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending
@@ -94,7 +98,7 @@ struct SceneDetailView: View {
                 }
             }
             .alert(
-                NSLocalizedString("fiction.scenes.deleteConfirm.title", comment: "Delete?"),
+                NSLocalizedString(isVerseNovel ? "fiction.episodes.deleteConfirm.title" : "fiction.scenes.deleteConfirm.title", comment: "Delete?"),
                 isPresented: $showDeleteConfirmation
             ) {
                 Button(NSLocalizedString("button.delete", comment: "Delete"), role: .destructive) {
@@ -102,7 +106,7 @@ struct SceneDetailView: View {
                 }
                 Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) { }
             } message: {
-                Text(String(format: NSLocalizedString("fiction.scenes.deleteConfirm.message", comment: "Delete message"), scene.name ?? ""))
+                Text(String(format: NSLocalizedString(isVerseNovel ? "fiction.episodes.deleteConfirm.message" : "fiction.scenes.deleteConfirm.message", comment: "Delete message"), scene.name ?? ""))
             }
         }
     }
@@ -113,17 +117,17 @@ struct SceneDetailView: View {
     private var viewingContent: some View {
         // Basic Info
         Section {
-            LabeledContent(NSLocalizedString("fiction.scene.title", comment: "Title")) {
+            LabeledContent(NSLocalizedString(isVerseNovel ? "fiction.episode.title" : "fiction.scene.title", comment: "Title")) {
                 Text(scene.name ?? "-")
             }
             
             if let userOrder = scene.userOrder {
-                LabeledContent(NSLocalizedString("fiction.scene.number", comment: "Scene #")) {
+                LabeledContent(NSLocalizedString(isVerseNovel ? "fiction.episode.number" : "fiction.scene.number", comment: "Scene/Episode #")) {
                     Text("\(userOrder + 1)")
                 }
             }
         } header: {
-            Text(NSLocalizedString("fiction.scene.section.basic", comment: "Basic Info"))
+            Text(NSLocalizedString(isVerseNovel ? "fiction.episode.section.basic" : "fiction.scene.section.basic", comment: "Basic Info"))
         }
         
         // Summary
@@ -131,7 +135,7 @@ struct SceneDetailView: View {
             Section {
                 Text(synopsis)
             } header: {
-                Text(NSLocalizedString("fiction.scene.summary", comment: "Summary"))
+                Text(NSLocalizedString(isVerseNovel ? "fiction.episode.summary" : "fiction.scene.summary", comment: "Summary"))
             }
         }
         
@@ -142,7 +146,7 @@ struct SceneDetailView: View {
                     Text(location.name ?? "-")
                 }
             } header: {
-                Text(NSLocalizedString("fiction.scene.section.location", comment: "Location"))
+                Text(NSLocalizedString(isVerseNovel ? "fiction.episode.section.location" : "fiction.scene.section.location", comment: "Location"))
             }
         }
         
@@ -160,7 +164,7 @@ struct SceneDetailView: View {
                     }
                 }
             } header: {
-                Text(NSLocalizedString("fiction.scene.section.characters", comment: "Characters"))
+                Text(NSLocalizedString(isVerseNovel ? "fiction.episode.section.characters" : "fiction.scene.section.characters", comment: "Characters"))
             }
         }
         
@@ -189,7 +193,7 @@ struct SceneDetailView: View {
                     }
                 }
             } header: {
-                Text(NSLocalizedString("fiction.scene.section.plotElements", comment: "Plot Elements"))
+                Text(NSLocalizedString(isVerseNovel ? "fiction.episode.section.plotElements" : "fiction.scene.section.plotElements", comment: "Plot Elements"))
             }
         }
         
@@ -204,7 +208,7 @@ struct SceneDetailView: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
             } header: {
-                Text(NSLocalizedString("fiction.scene.section.monomyth", comment: "Hero's Journey"))
+                Text(NSLocalizedString(isVerseNovel ? "fiction.episode.section.monomyth" : "fiction.scene.section.monomyth", comment: "Hero's Journey"))
             }
         }
         
@@ -225,7 +229,7 @@ struct SceneDetailView: View {
                     }
                 }
             } header: {
-                Text(NSLocalizedString("fiction.scene.file", comment: "Scene File"))
+                Text(NSLocalizedString(isVerseNovel ? "fiction.episode.file" : "fiction.scene.file", comment: "Scene/Episode File"))
             }
         }
         
@@ -236,7 +240,7 @@ struct SceneDetailView: View {
             } label: {
                 HStack {
                     Spacer()
-                    Text(NSLocalizedString("fiction.scene.delete", comment: "Delete Scene"))
+                    Text(NSLocalizedString(isVerseNovel ? "fiction.episode.delete" : "fiction.scene.delete", comment: "Delete Scene/Episode"))
                     Spacer()
                 }
             }

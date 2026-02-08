@@ -13,8 +13,9 @@ import SwiftData
 
 /// The class of fiction project - determines structure
 enum FictionClass: String, Codable, CaseIterable {
-    case novel       // Long fiction with chapters containing scenes
+    case novel        // Long fiction with chapters containing scenes
     case shortFiction // Short fiction with scenes directly (no chapters)
+    case verseNovel   // Poetry-based fiction with books containing episodes (poems)
     
     var localizedName: String {
         switch self {
@@ -22,6 +23,57 @@ enum FictionClass: String, Codable, CaseIterable {
             return NSLocalizedString("fictionClass.novel", comment: "Novel fiction class")
         case .shortFiction:
             return NSLocalizedString("fictionClass.shortFiction", comment: "Short Fiction class")
+        case .verseNovel:
+            return NSLocalizedString("fictionClass.verseNovel", comment: "Verse Novel fiction class")
+        }
+    }
+    
+    /// Whether this fiction class uses poetry editing (meter, rhyme, forms)
+    var usesPoetryEditor: Bool {
+        self == .verseNovel
+    }
+    
+    /// The display name for chapters in this fiction class
+    var chapterDisplayName: String {
+        switch self {
+        case .novel:
+            return NSLocalizedString("fiction.chapters.title", comment: "Chapters")
+        case .shortFiction:
+            return NSLocalizedString("fiction.stories.title", comment: "Stories")
+        case .verseNovel:
+            return NSLocalizedString("fiction.books.title", comment: "Books")
+        }
+    }
+    
+    /// The display name for a single chapter in this fiction class
+    var chapterSingularName: String {
+        switch self {
+        case .novel:
+            return NSLocalizedString("fiction.chapter.title", comment: "Chapter")
+        case .shortFiction:
+            return NSLocalizedString("fiction.story.title", comment: "Story")
+        case .verseNovel:
+            return NSLocalizedString("fiction.book.title", comment: "Book")
+        }
+    }
+    
+    /// The display name for scenes in this fiction class
+    var sceneDisplayName: String {
+        switch self {
+        case .novel, .shortFiction:
+            return NSLocalizedString("fiction.scenes.title", comment: "Scenes")
+        case .verseNovel:
+            return NSLocalizedString("fiction.episodes.title", comment: "Episodes")
+        }
+    }
+    
+    /// The display name for a single scene in this fiction class
+    var sceneSingularName: String {
+        switch self {
+        case .novel, .shortFiction:
+            return NSLocalizedString("fiction.scene.title", comment: "Scene")
+        case .verseNovel:
+            return NSLocalizedString("fiction.episode.title", comment: "Episode")
         }
     }
 }

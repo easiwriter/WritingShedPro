@@ -36,6 +36,10 @@ struct AddPlotElementSheet: View {
     
     // MARK: - Computed
     
+    private var isVerseNovel: Bool {
+        project.fictionClass == .verseNovel
+    }
+    
     private var isValid: Bool {
         !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
@@ -113,14 +117,22 @@ struct AddPlotElementSheet: View {
                     Text(NSLocalizedString("fiction.plot.element.description.footer", comment: "Describe what happens at this plot point"))
                 }
                 
-                // Create Scene (optional)
+                // Create Scene/Episode (optional)
                 Section {
-                    TextField(NSLocalizedString("fiction.plot.element.sceneName", comment: "Scene Name"), text: $sceneName)
-                        .accessibilityLabel(NSLocalizedString("fiction.plot.element.sceneName.accessibility", comment: "Scene name to create"))
+                    TextField(isVerseNovel
+                        ? NSLocalizedString("fiction.plot.element.episodeName", comment: "Episode Name")
+                        : NSLocalizedString("fiction.plot.element.sceneName", comment: "Scene Name"), text: $sceneName)
+                        .accessibilityLabel(isVerseNovel
+                            ? NSLocalizedString("fiction.plot.element.episodeName.accessibility", comment: "Episode name to create")
+                            : NSLocalizedString("fiction.plot.element.sceneName.accessibility", comment: "Scene name to create"))
                 } header: {
-                    Text(NSLocalizedString("fiction.plot.element.section.createScene", comment: "Create Scene"))
+                    Text(isVerseNovel
+                        ? NSLocalizedString("fiction.plot.element.section.createEpisode", comment: "Create Episode")
+                        : NSLocalizedString("fiction.plot.element.section.createScene", comment: "Create Scene"))
                 } footer: {
-                    Text(NSLocalizedString("fiction.plot.element.sceneName.footer", comment: "Optionally name a scene to create for this plot beat"))
+                    Text(isVerseNovel
+                        ? NSLocalizedString("fiction.plot.element.episodeName.footer", comment: "Optionally name an episode to create for this plot beat")
+                        : NSLocalizedString("fiction.plot.element.sceneName.footer", comment: "Optionally name a scene to create for this plot beat"))
                 }
                 
                 // Monomyth Stage (if project uses monomyth)
@@ -234,7 +246,7 @@ struct AddPlotElementSheet: View {
                                         Text(scene.name ?? NSLocalizedString("fiction.untitled", comment: "Untitled"))
                                             .foregroundColor(.primary)
                                         if let order = scene.userOrder {
-                                            Text(String(format: NSLocalizedString("fiction.scene.orderLabel", comment: "Scene #"), order + 1))
+                                            Text(String(format: NSLocalizedString(isVerseNovel ? "fiction.episode.orderLabel" : "fiction.scene.orderLabel", comment: "Scene/Episode #"), order + 1))
                                                 .font(.caption)
                                                 .foregroundColor(.secondary)
                                         }
@@ -248,9 +260,9 @@ struct AddPlotElementSheet: View {
                             }
                         }
                     } header: {
-                        Text(NSLocalizedString("fiction.plot.element.section.linkScenes", comment: "Link Existing Scenes"))
+                        Text(NSLocalizedString(isVerseNovel ? "fiction.plot.element.section.linkEpisodes" : "fiction.plot.element.section.linkScenes", comment: "Link Existing Scenes/Episodes"))
                     } footer: {
-                        Text(NSLocalizedString("fiction.plot.element.linkScenes.footer", comment: "Select scenes to associate with this plot beat"))
+                        Text(NSLocalizedString(isVerseNovel ? "fiction.plot.element.linkEpisodes.footer" : "fiction.plot.element.linkScenes.footer", comment: "Select scenes/episodes to associate with this plot beat"))
                     }
                 }
             }
@@ -359,11 +371,12 @@ struct AddPlotElementSheet: View {
         
         modelContext.insert(element)
         
-        // Create scene if name provided
+        // Create scene/episode if name provided
         let trimmedSceneName = sceneName.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmedSceneName.isEmpty {
-            // Find Draft folder
-            let scenesFolder = project.folders?.first { $0.name == "Scenes" }
+            // Find the appropriate folder (Episodes for verse novel, Scenes otherwise)
+            let folderName = isVerseNovel ? "Episodes" : "Scenes"
+            let scenesFolder = project.folders?.first { $0.name == folderName }
             
             let scene = StoryScene(
                 name: trimmedSceneName,
@@ -395,9 +408,22 @@ struct AddPlotElementSheet: View {
             scene.plotElements = [element]
             element.linkedScenes = [scene]
             
-            // Create TextFile for scene content in Draft folder
-            let textFile = TextFile(name: trimmedSceneName, initialContent: "", parentFolder: scenesFolder)
-            textFile.workflowStatus = .draft  // New scenes start as drafts
+            // Create TextFile for scene/episode content
+            let textFile: TextFile
+            if isVerseNovel {
+                // Verse Novel episodes use poetry editor with free verse by default
+                textFile = TextFile(
+                    name: trimmedSceneName,
+                    initialContent: "",
+                    parentFolder: scenesFolder,
+                    poetryFormId: PoetryForm.freeVerseId,
+                    poetryFormName: "Free Verse"
+                )
+                textFile.contentType = .richText
+            } else {
+                textFile = TextFile(name: trimmedSceneName, initialContent: "", parentFolder: scenesFolder)
+            }
+            textFile.workflowStatus = .draft  // New scenes/episodes start as drafts
             textFile.scene = scene
             scene.textFile = textFile
             

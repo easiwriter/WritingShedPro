@@ -7,6 +7,7 @@
 
 import SwiftUI
 import StoreKit
+import TipKit
 
 struct SettingsSheet: View {
     @Binding var isPresented: Bool
@@ -87,6 +88,12 @@ struct SettingsSheet: View {
                         state.showSyncDiagnostics = true
                     } label: {
                         Label("Sync Diagnostics", systemImage: "arrow.triangle.2.circlepath")
+                    }
+                    
+                    Button {
+                        try? Tips.resetDatastore()
+                    } label: {
+                        Label("Reset All Tips", systemImage: "lightbulb")
                     }
                     
                     Button {

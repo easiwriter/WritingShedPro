@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 /// Command for applying/toggling formatting attributes to a text range
 /// Supports bold, italic, underline, and strikethrough formatting with undo/redo
@@ -46,7 +47,22 @@ final class FormatApplyCommand: UndoableCommand {
         targetFile?.currentVersion?.attributedContent = afterContent
         
         #if DEBUG
-        print("✅ FormatApplyCommand.execute() - Applied formatting: \(description)")
+        var boldCount = 0, italicCount = 0
+        afterContent.enumerateAttribute(.font, in: NSRange(location: 0, length: afterContent.length), options: []) { value, _, _ in
+            if let font = value as? UIFont {
+                if font.fontDescriptor.symbolicTraits.contains(.traitBold) { boldCount += 1 }
+                if font.fontDescriptor.symbolicTraits.contains(.traitItalic) { italicCount += 1 }
+            }
+        }
+        print("✅ ======== STYLE DIAG: FORMAT CMD ========")
+        print("✅ FormatApplyCommand.execute() - \(description)")
+        print("✅ afterContent bold=\(boldCount) italic=\(italicCount) length=\(afterContent.length)")
+        if let storedData = targetFile?.currentVersion?.formattedContent {
+            let prefix = String(data: storedData.prefix(20), encoding: .utf8) ?? "<binary>"
+            let isJSON = prefix.trimmingCharacters(in: .whitespaces).hasPrefix("[")
+            print("✅ Stored format: \(isJSON ? "JSON" : "OTHER") (\(storedData.count) bytes)")
+        }
+        print("✅ ======== STYLE DIAG: FORMAT CMD END ========")
         #endif
     }
     

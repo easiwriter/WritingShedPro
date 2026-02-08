@@ -1,4 +1,5 @@
 import SwiftUI
+import TipKit
 
 /// A view displaying line-by-line syllable counts with visual feedback
 /// Shows actual vs expected counts and color-codes accuracy
@@ -60,6 +61,16 @@ struct SyllableCountView: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            // FR-4.2: Syllable Counter tip
+            if expectedPattern != nil {
+                TipView(SyllableCounterTip())
+                    .padding(.horizontal)
+                    .padding(.bottom, 4)
+                    .onAppear {
+                        SyllableCounterTip.hasPoetryForm = true
+                    }
+            }
+            
             // Header
             headerRow
             

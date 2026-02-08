@@ -616,8 +616,41 @@ final class Version {
         }
         set {
             if let attributed = newValue {
+                #if DEBUG
+                var setBoldCount = 0, setItalicCount = 0
+                attributed.enumerateAttribute(.font, in: NSRange(location: 0, length: attributed.length), options: []) { value, _, _ in
+                    if let font = value as? UIFont {
+                        if font.fontDescriptor.symbolicTraits.contains(.traitBold) { setBoldCount += 1 }
+                        if font.fontDescriptor.symbolicTraits.contains(.traitItalic) { setItalicCount += 1 }
+                    }
+                }
+                print("🔧 ======== STYLE DIAG: SETTER ========")
+                print("🔧 attributedContent setter called, length=\(attributed.length)")
+                print("🔧 Input traits: bold=\(setBoldCount) italic=\(setItalicCount)")
+                #endif
+                
                 // Encode using AttributedStringSerializer (extracts font traits)
                 formattedContent = AttributedStringSerializer.encode(attributed)
+                
+                #if DEBUG
+                // Verify the encode → decode round-trip
+                if let encodedData = formattedContent {
+                    let roundTripped = AttributedStringSerializer.decode(encodedData, text: attributed.string)
+                    var rtBoldCount = 0, rtItalicCount = 0
+                    roundTripped.enumerateAttribute(.font, in: NSRange(location: 0, length: roundTripped.length), options: []) { value, _, _ in
+                        if let font = value as? UIFont {
+                            if font.fontDescriptor.symbolicTraits.contains(.traitBold) { rtBoldCount += 1 }
+                            if font.fontDescriptor.symbolicTraits.contains(.traitItalic) { rtItalicCount += 1 }
+                        }
+                    }
+                    if rtBoldCount != setBoldCount || rtItalicCount != setItalicCount {
+                        print("🔧 ⚠️ ROUND-TRIP MISMATCH! Input: bold=\(setBoldCount) italic=\(setItalicCount) → Output: bold=\(rtBoldCount) italic=\(rtItalicCount)")
+                    } else {
+                        print("🔧 ✅ Round-trip OK: bold=\(rtBoldCount) italic=\(rtItalicCount)")
+                    }
+                }
+                print("🔧 ======== STYLE DIAG: SETTER END ========")
+                #endif
                 
                 // CRITICAL: Update plain text for search/compatibility
                 // MUST preserve attachment characters (U+FFFC) for proper reconstruction

@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import TipKit
 
 /// List view showing all chapters (Novel) or stories (Short Fiction) for a fiction project
 struct ChapterListView: View {
@@ -36,8 +37,16 @@ struct ChapterListView: View {
     
     // MARK: - Computed
     
+    private var fictionClass: FictionClass {
+        project.fictionClass ?? .novel
+    }
+    
     private var isShortFiction: Bool {
-        project.fictionClass == .shortFiction
+        fictionClass == .shortFiction
+    }
+    
+    private var isVerseNovel: Bool {
+        fictionClass == .verseNovel
     }
     
     private var sortedChapters: [Chapter] {
@@ -67,6 +76,151 @@ struct ChapterListView: View {
         }
     }
     
+    // MARK: - Localized Strings (Fiction Class Dependent)
+    
+    private var deleteConfirmTitle: String {
+        switch fictionClass {
+        case .novel:
+            return NSLocalizedString("fiction.chapters.deleteConfirm.title", comment: "Delete chapter?")
+        case .shortFiction:
+            return NSLocalizedString("fiction.stories.deleteConfirm.title", comment: "Delete story?")
+        case .verseNovel:
+            return NSLocalizedString("fiction.books.deleteConfirm.title", comment: "Delete book?")
+        }
+    }
+    
+    private var deleteMultipleTitle: String {
+        switch fictionClass {
+        case .novel:
+            return String(format: NSLocalizedString("fiction.chapters.deleteMultiple.title", comment: "Delete chapters?"), selectedChapters.count)
+        case .shortFiction:
+            return String(format: NSLocalizedString("fiction.stories.deleteMultiple.title", comment: "Delete stories?"), selectedChapters.count)
+        case .verseNovel:
+            return String(format: NSLocalizedString("fiction.books.deleteMultiple.title", comment: "Delete books?"), selectedChapters.count)
+        }
+    }
+    
+    private var deleteConfirmMessage: String {
+        switch fictionClass {
+        case .novel:
+            return NSLocalizedString("fiction.chapters.deleteConfirm.message", comment: "Delete message")
+        case .shortFiction:
+            return NSLocalizedString("fiction.stories.deleteConfirm.message", comment: "Delete message")
+        case .verseNovel:
+            return NSLocalizedString("fiction.books.deleteConfirm.message", comment: "Delete message")
+        }
+    }
+    
+    private var deleteMultipleMessage: String {
+        switch fictionClass {
+        case .novel:
+            return NSLocalizedString("fiction.chapters.deleteMultiple.message", comment: "All scenes will also be deleted.")
+        case .shortFiction:
+            return NSLocalizedString("fiction.stories.deleteMultiple.message", comment: "Scenes will be unassigned.")
+        case .verseNovel:
+            return NSLocalizedString("fiction.books.deleteMultiple.message", comment: "Episodes will be unassigned.")
+        }
+    }
+    
+    private var renameTitle: String {
+        switch fictionClass {
+        case .novel:
+            return NSLocalizedString("fiction.chapter.rename.title", comment: "Rename Chapter")
+        case .shortFiction:
+            return NSLocalizedString("fiction.story.rename.title", comment: "Rename Story")
+        case .verseNovel:
+            return NSLocalizedString("fiction.book.rename.title", comment: "Rename Book")
+        }
+    }
+    
+    private var itemTitle: String {
+        switch fictionClass {
+        case .novel:
+            return NSLocalizedString("fiction.chapter.title", comment: "Title")
+        case .shortFiction:
+            return NSLocalizedString("fiction.story.title", comment: "Title")
+        case .verseNovel:
+            return NSLocalizedString("fiction.book.title", comment: "Title")
+        }
+    }
+    
+    private var emptyTitle: String {
+        switch fictionClass {
+        case .novel:
+            return NSLocalizedString("fiction.chapters.empty.title", comment: "No chapters")
+        case .shortFiction:
+            return NSLocalizedString("fiction.stories.empty.title", comment: "No stories")
+        case .verseNovel:
+            return NSLocalizedString("fiction.books.empty.title", comment: "No books")
+        }
+    }
+    
+    private var emptyMessage: String {
+        switch fictionClass {
+        case .novel:
+            return NSLocalizedString("fiction.chapters.empty.message", comment: "Empty message")
+        case .shortFiction:
+            return NSLocalizedString("fiction.stories.empty.message", comment: "Empty message")
+        case .verseNovel:
+            return NSLocalizedString("fiction.books.empty.message", comment: "Empty message")
+        }
+    }
+    
+    private var addButtonLabel: String {
+        switch fictionClass {
+        case .novel:
+            return NSLocalizedString("fiction.chapters.add", comment: "Add chapter")
+        case .shortFiction:
+            return NSLocalizedString("fiction.stories.add", comment: "Add story")
+        case .verseNovel:
+            return NSLocalizedString("fiction.books.add", comment: "Add book")
+        }
+    }
+    
+    private var deleteCountFormat: String {
+        switch fictionClass {
+        case .novel:
+            return NSLocalizedString("fiction.chapters.deleteCount", comment: "Delete count")
+        case .shortFiction:
+            return NSLocalizedString("fiction.stories.deleteCount", comment: "Delete count")
+        case .verseNovel:
+            return NSLocalizedString("fiction.books.deleteCount", comment: "Delete count")
+        }
+    }
+    
+    private var itemNumberFormat: String {
+        switch fictionClass {
+        case .novel:
+            return NSLocalizedString("fiction.chapter.number", comment: "Chapter X")
+        case .shortFiction:
+            return NSLocalizedString("fiction.story.number", comment: "Story X")
+        case .verseNovel:
+            return NSLocalizedString("fiction.book.number", comment: "Book X")
+        }
+    }
+    
+    private var sceneCountFormat: String {
+        switch fictionClass {
+        case .novel:
+            return NSLocalizedString("fiction.chapter.sceneCount", comment: "Scene count")
+        case .shortFiction:
+            return NSLocalizedString("fiction.story.sceneCount", comment: "Scene count")
+        case .verseNovel:
+            return NSLocalizedString("fiction.book.episodeCount", comment: "Episode count")
+        }
+    }
+    
+    private var emptyStateIcon: String {
+        switch fictionClass {
+        case .novel:
+            return "book"
+        case .shortFiction:
+            return "books.vertical"
+        case .verseNovel:
+            return "text.book.closed"
+        }
+    }
+    
     // MARK: - Body
     
     var body: some View {
@@ -77,12 +231,16 @@ struct ChapterListView: View {
                 chapterList
             }
         }
-        .navigationTitle(isShortFiction 
-            ? NSLocalizedString("fiction.stories.title", comment: "Stories")
-            : NSLocalizedString("fiction.chapters.title", comment: "Chapters"))
+        .navigationTitle(fictionClass.chapterDisplayName)
         .navigationBarTitleDisplayMode(.inline)
         // Use native iOS back button - immune to SwiftUI render blocking
         .navigationBarBackButtonHidden(false)
+        .onAppear {
+            // FR-7.2: Update manuscript assembly tip parameter
+            ManuscriptAssemblyTip.hasEnoughChapters = sortedChapters.count >= 3
+            // FR-5.4: Update Verse Novel tip parameter
+            VerseNovelTip.isVerseNovel = isVerseNovel
+        }
         .onPopToRoot {
             dismiss()
         }
@@ -93,9 +251,11 @@ struct ChapterListView: View {
                 } label: {
                     Image(systemName: "plus")
                 }
-                .accessibilityLabel(isShortFiction
-                    ? NSLocalizedString("fiction.stories.add", comment: "Add story")
-                    : NSLocalizedString("fiction.chapters.add", comment: "Add chapter"))
+                .accessibilityLabel(isVerseNovel
+                    ? NSLocalizedString("fiction.books.add", comment: "Add book")
+                    : (isShortFiction
+                        ? NSLocalizedString("fiction.stories.add", comment: "Add story")
+                        : NSLocalizedString("fiction.chapters.add", comment: "Add chapter")))
                 .disabled(isEditMode)
                 
                 // Edit/Done button
@@ -127,12 +287,8 @@ struct ChapterListView: View {
         }
         .alert(
             selectedChapters.count == 1
-                ? (isShortFiction
-                    ? NSLocalizedString("fiction.stories.deleteConfirm.title", comment: "Delete story?")
-                    : NSLocalizedString("fiction.chapters.deleteConfirm.title", comment: "Delete chapter?"))
-                : (isShortFiction
-                    ? String(format: NSLocalizedString("fiction.stories.deleteMultiple.title", comment: "Delete stories?"), selectedChapters.count)
-                    : String(format: NSLocalizedString("fiction.chapters.deleteMultiple.title", comment: "Delete chapters?"), selectedChapters.count)),
+                ? deleteConfirmTitle
+                : deleteMultipleTitle,
             isPresented: $showDeleteConfirmation
         ) {
             Button(NSLocalizedString("button.delete", comment: "Delete"), role: .destructive) {
@@ -141,23 +297,15 @@ struct ChapterListView: View {
             Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) { }
         } message: {
             if selectedChapters.count == 1, let chapter = selectedChapters.first {
-                Text(String(format: isShortFiction
-                    ? NSLocalizedString("fiction.stories.deleteConfirm.message", comment: "Delete message")
-                    : NSLocalizedString("fiction.chapters.deleteConfirm.message", comment: "Delete message"), chapter.name ?? ""))
+                Text(String(format: deleteConfirmMessage, chapter.name ?? ""))
             } else {
-                Text(isShortFiction
-                    ? NSLocalizedString("fiction.stories.deleteMultiple.message", comment: "All scenes in these stories will also be deleted.")
-                    : NSLocalizedString("fiction.chapters.deleteMultiple.message", comment: "All scenes in these chapters will also be deleted."))
+                Text(deleteMultipleMessage)
             }
         }
-        .alert(isShortFiction
-            ? NSLocalizedString("fiction.story.rename.title", comment: "Rename Story")
-            : NSLocalizedString("fiction.chapter.rename.title", comment: "Rename Chapter"),
+        .alert(renameTitle,
             isPresented: $showRenameSheet
         ) {
-            TextField(isShortFiction
-                ? NSLocalizedString("fiction.story.title", comment: "Title")
-                : NSLocalizedString("fiction.chapter.title", comment: "Title"),
+            TextField(itemTitle,
                 text: $newChapterName)
             Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
                 chapterToRename = nil
@@ -258,10 +406,7 @@ struct ChapterListView: View {
             showDeleteConfirmation = true
         } label: {
             Label(
-                String(format: isShortFiction
-                    ? NSLocalizedString("fiction.stories.deleteCount", comment: "Delete count")
-                    : NSLocalizedString("fiction.chapters.deleteCount", comment: "Delete count"),
-                    selectedChapters.count),
+                String(format: deleteCountFormat, selectedChapters.count),
                 systemImage: "trash"
             )
         }
@@ -275,12 +420,12 @@ struct ChapterListView: View {
             ForEach(sortedChapters) { chapter in
                 Group {
                     if isEditMode {
-                        ChapterRowView(chapter: chapter, isShortFiction: isShortFiction)
+                        ChapterRowView(chapter: chapter, fictionClass: fictionClass)
                     } else {
                         NavigationLink {
                             SceneListView(project: project, chapter: chapter, act: nil)
                         } label: {
-                            ChapterRowView(chapter: chapter, isShortFiction: isShortFiction)
+                            ChapterRowView(chapter: chapter, fictionClass: fictionClass)
                         }
                     }
                 }
@@ -299,18 +444,22 @@ struct ChapterListView: View {
     
     private var emptyState: some View {
         VStack(spacing: 16) {
-            Image(systemName: isShortFiction ? "books.vertical" : "book")
+            // FR-5.4: Verse Novel tip (only for verse novels)
+            if isVerseNovel {
+                TipView(VerseNovelTip()) { action in
+                    TipActionHandler.handle(action, guideSection: VerseNovelTip.guideSection, modelContext: modelContext)
+                }
+                .padding(.horizontal)
+            }
+            
+            Image(systemName: emptyStateIcon)
                 .font(.system(size: 60))
                 .foregroundColor(.secondary)
             
-            Text(isShortFiction
-                ? NSLocalizedString("fiction.stories.empty.title", comment: "No stories")
-                : NSLocalizedString("fiction.chapters.empty.title", comment: "No chapters"))
+            Text(emptyTitle)
                 .font(.headline)
             
-            Text(isShortFiction
-                ? NSLocalizedString("fiction.stories.empty.message", comment: "Empty message")
-                : NSLocalizedString("fiction.chapters.empty.message", comment: "Empty message"))
+            Text(emptyMessage)
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
@@ -319,9 +468,7 @@ struct ChapterListView: View {
             Button {
                 showAddChapter = true
             } label: {
-                Label(isShortFiction
-                    ? NSLocalizedString("fiction.stories.add", comment: "Add story")
-                    : NSLocalizedString("fiction.chapters.add", comment: "Add chapter"), systemImage: "plus")
+                Label(addButtonLabel, systemImage: "plus")
             }
             .buttonStyle(.borderedProminent)
         }
@@ -332,8 +479,8 @@ struct ChapterListView: View {
     
     private func deleteSelectedChapters() {
         for chapter in selectedChapters {
-            // Unassign scenes from the chapter (don't delete for short fiction)
-            if isShortFiction {
+            // Unassign scenes from the chapter (don't delete for short fiction or verse novel)
+            if isShortFiction || isVerseNovel {
                 if let scenes = chapter.scenes {
                     for scene in scenes {
                         scene.chapter = nil
@@ -454,16 +601,36 @@ struct ChapterListView: View {
 
 struct ChapterRowView: View {
     let chapter: Chapter
-    var isShortFiction: Bool = false
+    var fictionClass: FictionClass = .novel
+    
+    private var itemNumberFormat: String {
+        switch fictionClass {
+        case .novel:
+            return NSLocalizedString("fiction.chapter.number", comment: "Chapter X")
+        case .shortFiction:
+            return NSLocalizedString("fiction.story.number", comment: "Story X")
+        case .verseNovel:
+            return NSLocalizedString("fiction.book.number", comment: "Book X")
+        }
+    }
+    
+    private var sceneCountFormat: String {
+        switch fictionClass {
+        case .novel:
+            return NSLocalizedString("fiction.chapter.sceneCount", comment: "Scene count")
+        case .shortFiction:
+            return NSLocalizedString("fiction.story.sceneCount", comment: "Scene count")
+        case .verseNovel:
+            return NSLocalizedString("fiction.book.episodeCount", comment: "Episode count")
+        }
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
             HStack {
-                // Chapter/Story number
+                // Chapter/Story/Book number
                 if let userOrder = chapter.userOrder {
-                    Text(String(format: isShortFiction 
-                        ? NSLocalizedString("fiction.story.number", comment: "Story X")
-                        : NSLocalizedString("fiction.chapter.number", comment: "Chapter X"), userOrder + 1))
+                    Text(String(format: itemNumberFormat, userOrder + 1))
                         .font(.callout)
                         .foregroundColor(.secondary)
                 }
@@ -481,14 +648,12 @@ struct ChapterRowView: View {
                     .lineLimit(2)
             }
             
-            // Scene count
+            // Scene/Episode count
             let sceneCount = chapter.scenes?.count ?? 0
             HStack(spacing: 4) {
-                Image(systemName: "film")
+                Image(systemName: fictionClass == .verseNovel ? "music.note.list" : "film")
                     .font(.footnote)
-                Text(String(format: isShortFiction
-                    ? NSLocalizedString("fiction.story.sceneCount", comment: "Scene count")
-                    : NSLocalizedString("fiction.chapter.sceneCount", comment: "Scene count"), sceneCount))
+                Text(String(format: sceneCountFormat, sceneCount))
                     .font(.footnote)
             }
             .foregroundColor(.secondary)

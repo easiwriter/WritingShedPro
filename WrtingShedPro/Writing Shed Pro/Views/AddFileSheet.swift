@@ -19,14 +19,26 @@ struct AddFileSheet: View {
         parentFolder.project?.type == .poetry
     }
     
+    /// Whether this file is being created in a Verse Novel's Episodes folder
+    private var isVerseNovelEpisode: Bool {
+        parentFolder.project?.type == .fiction &&
+        parentFolder.project?.fictionClass == .verseNovel &&
+        parentFolder.name == "Episodes"
+    }
+    
+    /// Whether this file should use the poetry editor (Poetry project OR Verse Novel episode)
+    private var usesPoetryEditor: Bool {
+        isPoetryProject || isVerseNovelEpisode
+    }
+    
     /// Whether this file is being created in a Drama project
     private var isDramaProject: Bool {
         parentFolder.project?.type == .drama
     }
     
-    /// Whether markdown content type is available (not for Poetry or Drama)
+    /// Whether markdown content type is available (not for Poetry, Drama, or Verse Novel episodes)
     private var supportsMarkdown: Bool {
-        !isPoetryProject && !isDramaProject
+        !usesPoetryEditor && !isDramaProject
     }
     
     /// Whether the device is set to an English locale
@@ -48,8 +60,8 @@ struct AddFileSheet: View {
                         }
                 }
                 
-                // Poetry form picker section (only for Poetry projects)
-                if isPoetryProject {
+                // Poetry form picker section (for Poetry projects and Verse Novel episodes)
+                if usesPoetryEditor {
                     Section {
                         PoetryFormPickerCompact(selectedForm: $selectedPoetryForm)
                     } header: {
@@ -160,9 +172,10 @@ struct AddFileSheet: View {
         var poetryFormId: UUID? = nil
         var poetryFormName: String? = nil
         
-        if isPoetryProject, let form = selectedPoetryForm {
-            poetryFormId = form.id
-            poetryFormName = form.name
+        if usesPoetryEditor {
+            // Use selected form, or free verse if none selected
+            poetryFormId = selectedPoetryForm?.id ?? PoetryForm.freeVerseId
+            poetryFormName = selectedPoetryForm?.name ?? "Free Verse"
         }
         
         // Create TextFile with empty content

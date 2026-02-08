@@ -1,4 +1,5 @@
 import SwiftUI
+import TipKit
 
 /// A view for selecting a poetry form when creating a new poetry file
 /// Groups forms by category and shows form details on selection
@@ -13,6 +14,11 @@ struct PoetryFormPicker: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            // FR-4.1: Poetry Form tip
+            TipView(PoetryFormTip())
+                .padding(.horizontal)
+                .padding(.bottom, 4)
+            
             // Section header with Manage button
             HStack {
                 Text(NSLocalizedString("poetryForm.selectForm", comment: "Select Poetry Form"))

@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import TipKit
 import ToolbarSUI
 import UniformTypeIdentifiers
 import PhotosUI
@@ -15,6 +16,10 @@ struct NewIndexEntryData: Identifiable {
 struct FileEditView: View {
         @State private var presentDeleteBackMatterAlert = false
     @Bindable var file: TextFile
+    
+    // TipKit tips (Feature 035)
+    private let formattingToolbarTip = FormattingToolbarTip()
+    private let markdownToggleTip = MarkdownToggleTip()
     
     // Track version index changes explicitly for toolbar updates
     @State private var currentVersionIndex: Int = 0
@@ -567,12 +572,14 @@ struct FileEditView: View {
             withAnimation(.easeInOut(duration: 0.3)) {
                 isPaginationMode.toggle()
             }
+            // FR-7.3: Donate page preview event for PDF Export tip
+            if isPaginationMode { Task { await PDFExportTip.pagePreviewUsed.donate() } }
         }) {
             Label(isPaginationMode ? "Edit Mode" : "Page Preview", systemImage: isPaginationMode ? "pencil" : "document.on.document")
         }
         
-        // Content type toggle (Rich Text / Markdown) - not for poetry projects
-        if !isPoetryProject {
+        // Content type toggle (Rich Text / Markdown) - not for poetry or drama projects
+        if supportsMarkdown {
             Button(action: {
                 toggleContentType()
             }) {
@@ -916,6 +923,7 @@ struct FileEditView: View {
                             withAnimation(.easeInOut(duration: 0.3)) {
                                 isPaginationMode.toggle()
                             }
+                            if isPaginationMode { Task { await PDFExportTip.pagePreviewUsed.donate() } }
                         }) {
                             Image(systemName: "document.on.document.fill")
                         }
@@ -927,6 +935,7 @@ struct FileEditView: View {
                         withAnimation(.easeInOut(duration: 0.3)) {
                             isPaginationMode.toggle()
                         }
+                        if isPaginationMode { Task { await PDFExportTip.pagePreviewUsed.donate() } }
                     }) {
                         Image(systemName: isPaginationMode ? "document.on.document.fill" : "document.on.document")
                     }
@@ -1340,9 +1349,10 @@ struct FileEditView: View {
         saveChanges()
     }
     
-    /// Whether this file belongs to a Poetry project
+    /// Whether this file should use the poetry editor
+    /// True for Poetry project files OR files with a poetry form (e.g., Verse Novel episodes)
     private var isPoetryProject: Bool {
-        file.project?.type == .poetry
+        file.project?.type == .poetry || file.poetryFormId != nil
     }
     
     /// Whether this file belongs to a Drama project
@@ -1422,6 +1432,13 @@ struct FileEditView: View {
                 paginationSection()
             } else {
                 textEditorSection()
+                // FR-3.1: Formatting Toolbar tip (shown above toolbar on first open)
+                if isFileEditable && !isDisplayingAsMarkdown {
+                    TipView(formattingToolbarTip) { action in
+                        TipActionHandler.handle(action, guideSection: FormattingToolbarTip.guideSection, modelContext: modelContext)
+                    }
+                    .padding(.horizontal)
+                }
                 // Formatting toolbar (only shown for editable rich text files, not when displaying as markdown)
                 if isFileEditable && !isDisplayingAsMarkdown {
                     formattingToolbar()
@@ -2219,7 +2236,30 @@ struct FileEditView: View {
         // Load content from database - ALWAYS normalize for iPhone
         if let savedContent = file.currentVersion?.attributedContent {
             #if DEBUG
-            print("📂 onAppear: Loading content, length: \(savedContent.length)")
+            print("📂 ======== STYLE DIAG: LOAD START ========")
+            print("📂 File: \(file.name)")
+            print("📂 Content length: \(savedContent.length)")
+            if let rawData = file.currentVersion?.formattedContent {
+                let prefix = String(data: rawData.prefix(20), encoding: .utf8) ?? "<binary>"
+                let isJSON = prefix.trimmingCharacters(in: .whitespaces).hasPrefix("[")
+                let isRTF = prefix.contains("rtf") || prefix.contains("{\\")
+                print("📂 formattedContent format: \(isJSON ? "JSON" : isRTF ? "RTF" : "UNKNOWN") (\(rawData.count) bytes, starts with: \(prefix.prefix(20)))")
+            } else {
+                print("📂 formattedContent is NIL")
+            }
+            // Count style traits in loaded content
+            var boldRanges = 0, italicRanges = 0, headingRanges = 0
+            savedContent.enumerateAttributes(in: NSRange(location: 0, length: savedContent.length), options: []) { attrs, range, _ in
+                if let font = attrs[.font] as? UIFont {
+                    if font.fontDescriptor.symbolicTraits.contains(.traitBold) { boldRanges += 1 }
+                    if font.fontDescriptor.symbolicTraits.contains(.traitItalic) { italicRanges += 1 }
+                }
+                if let ts = attrs[.textStyle] as? String, ts != UIFont.TextStyle.body.rawValue {
+                    headingRanges += 1
+                }
+            }
+            print("📂 Loaded traits: bold=\(boldRanges) italic=\(italicRanges) headings=\(headingRanges)")
+            print("📂 ======== STYLE DIAG: LOAD END ========")
             #endif
             // Strip adaptive colors (black/white/gray) to support dark mode properly
             let processedContent = AttributedStringSerializer.stripAdaptiveColors(from: savedContent)
@@ -2387,6 +2427,17 @@ struct FileEditView: View {
         
         // Sync back matter settings with actual files (handles imported projects)
         syncBackMatterSettingsWithActualFiles()
+        
+        // Feature 035: TipKit parameter updates
+        // FR-3.2: Update markdown toggle tip parameter
+        MarkdownToggleTip.supportsMarkdown = supportsMarkdown
+        
+        // FR-3.4 / FR-8.3 / FR-8.5: Donate editing session for event-based tips
+        Task {
+            await PagePreviewTip.editingSession.donate()
+            await CommentsTip.editingSession.donate()
+            await SearchReplaceTip.editingSession.donate()
+        }
     }
     
     /// Update the cached validation issue count asynchronously
@@ -6700,6 +6751,9 @@ struct FileEditView: View {
     
     /// Apply a paragraph style to the current selection
     private func applyParagraphStyle(_ style: UIFont.TextStyle) {
+        // FR-3.3: Donate style-applied event for Stylesheet tip
+        Task { await StylesheetTip.styleApplied.donate() }
+        
         #if DEBUG
         print("📝 ========== APPLY PARAGRAPH STYLE START ==========")
         #if DEBUG
@@ -7405,7 +7459,9 @@ struct FileEditView: View {
     private func saveUndoState() {
         undoManager.flushTypingBuffer()
         file.saveUndoState(undoManager)
-        saveChanges()
+        // NOTE: Do NOT call saveChanges() here. The caller (onDisappear) already calls
+        // saveChanges() before saveUndoState(). A double-save can cause textStyle degradation
+        // because the encode→decode round-trip may lose font descriptor metadata.
     }
     
     /// Toggle between Rich Text and Markdown display modes (non-destructive preview)
@@ -7513,7 +7569,35 @@ struct FileEditView: View {
             
             // On iPhone, content is already normalized to 12pt for display
             // Save it as-is - no scaling needed since we normalize on load, not on save
+            #if DEBUG
+            // STYLE DIAG: Log traits being saved
+            var saveBoldCount = 0, saveItalicCount = 0, saveHeadingCount = 0
+            currentContent.enumerateAttributes(in: NSRange(location: 0, length: currentContent.length), options: []) { attrs, range, _ in
+                if let font = attrs[.font] as? UIFont {
+                    if font.fontDescriptor.symbolicTraits.contains(.traitBold) { saveBoldCount += 1 }
+                    if font.fontDescriptor.symbolicTraits.contains(.traitItalic) { saveItalicCount += 1 }
+                }
+                if let ts = attrs[.textStyle] as? String, ts != UIFont.TextStyle.body.rawValue {
+                    saveHeadingCount += 1
+                }
+            }
+            print("💾 ======== STYLE DIAG: SAVE ========")
+            print("💾 File: \(file.name)")
+            print("💾 Content length: \(currentContent.length)")
+            print("💾 Traits being saved: bold=\(saveBoldCount) italic=\(saveItalicCount) headings=\(saveHeadingCount)")
+            #endif
+            
             file.currentVersion?.attributedContent = currentContent
+            
+            #if DEBUG
+            // Verify what was actually stored
+            if let storedData = file.currentVersion?.formattedContent {
+                let prefix = String(data: storedData.prefix(20), encoding: .utf8) ?? "<binary>"
+                let isJSON = prefix.trimmingCharacters(in: .whitespaces).hasPrefix("[")
+                print("💾 Stored as: \(isJSON ? "JSON" : "OTHER") (\(storedData.count) bytes)")
+            }
+            print("💾 ======== STYLE DIAG: SAVE END ========")
+            #endif
             
             // FEATURE 029: Extract and save reference metadata
             let referenceMetadata = extractReferenceMetadata(from: currentContent)

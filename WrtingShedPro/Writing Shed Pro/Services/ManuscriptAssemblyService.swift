@@ -23,9 +23,13 @@ final class ManuscriptAssemblyService {
         case .fiction:
             // For novels, content comes from Chapters/Scenes hierarchy
             // For short fiction, content comes from Scenes
-            if project.fictionClass == .novel {
+            // For verse novels, content comes from Books/Episodes hierarchy
+            switch project.fictionClass {
+            case .novel:
                 return "Chapters"
-            } else {
+            case .verseNovel:
+                return "Books"
+            case .shortFiction, .none:
                 return "Scenes"
             }
         case .drama:
@@ -122,9 +126,10 @@ final class ManuscriptAssemblyService {
     private func getFictionBodySections(for project: Project) -> [ManuscriptSection] {
         var sections: [ManuscriptSection] = []
         
-        if project.fictionClass == .novel {
-            // Novel: Chapters containing Scenes
-            guard project.folders?.contains(where: { $0.name == "Chapters" }) == true else {
+        if project.fictionClass == .novel || project.fictionClass == .verseNovel {
+            // Novel/Verse Novel: Chapters/Books containing Scenes/Episodes
+            let containerFolderName = project.fictionClass == .verseNovel ? "Books" : "Chapters"
+            guard project.folders?.contains(where: { $0.name == containerFolderName }) == true else {
                 // Fallback to Scenes folder
                 return getScenesAsSingleSection(for: project)
             }

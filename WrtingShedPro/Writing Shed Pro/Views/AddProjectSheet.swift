@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import TipKit
 
 struct AddProjectSheet: View {
     @Binding var isPresented: Bool
@@ -21,6 +22,8 @@ struct AddProjectSheet: View {
     @Environment(\.modelContext) var modelContext
     @Query private var allProjects: [Project]
     
+    private let projectTypesTip = ProjectTypesTip()
+    
     var body: some View {
         NavigationView {
             Form {
@@ -38,6 +41,11 @@ struct AddProjectSheet: View {
                         }
                     }
                     .accessibilityLabel(NSLocalizedString("addProject.typeAccessibility", comment: "Accessibility label for project type picker"))
+                    
+                    // FR-2.2: Project Types tip
+                    TipView(projectTypesTip) { action in
+                        TipActionHandler.handle(action, guideSection: ProjectTypesTip.guideSection, modelContext: modelContext)
+                    }
                     
                     // Fiction-specific options
                     if selectedType == .fiction {

@@ -12,6 +12,14 @@ struct ProjectItemView: View {
     @Environment(\.modelContext) var modelContext
     @Query(sort: \StyleSheet.name) private var allStyleSheets: [StyleSheet]
     
+    /// Returns the display name for the project type, showing specific fiction class for fiction projects
+    private var projectTypeDisplayName: String {
+        if project.type == .fiction, let fictionClass = project.fictionClass {
+            return fictionClass.localizedName
+        }
+        return project.type.rawValue.capitalized
+    }
+    
     var body: some View {
         HStack {
             Image(systemName: "archivebox")
@@ -23,7 +31,7 @@ struct ProjectItemView: View {
                 Text(project.name ?? NSLocalizedString("projectItem.untitledProject", comment: "Untitled project"))
                     .font(.headline)
                     .lineLimit(.max)
-                Text(project.type.rawValue.capitalized)
+                Text(projectTypeDisplayName)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -100,7 +108,7 @@ struct ProjectItemView: View {
         .padding(.vertical, 8)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Project: \(project.name ?? NSLocalizedString("projectItem.untitledProject", comment: "Untitled project"))")
-        .accessibilityValue(project.type.rawValue.capitalized)
+        .accessibilityValue(projectTypeDisplayName)
         .accessibilityHint("Double tap to view project details")
     }
 }

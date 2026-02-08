@@ -69,9 +69,10 @@ struct FolderListView: View {
         case .fiction:
             // Novel: Manuscript, Chapters, Scenes, Characters, Locations, Plot // Collections, Submissions, Research // Publishers, Agents, Other // Trash
             // Short: Manuscript, Stories, Scenes, Characters, Locations, Plot // Collections, Submissions, Research // Magazines, Competitions, Other // Trash
+            // Verse Novel: Manuscript, Books, Episodes, Characters, Locations, Plot // Collections, Submissions, Research // Publishers, Agents, Other // Trash
             return [
                 // Section 1: Story Structure
-                "Manuscript", "Chapters", "Stories", "Scenes", "Characters", "Locations", "Plot",
+                "Manuscript", "Chapters", "Stories", "Books", "Scenes", "Episodes", "Characters", "Locations", "Plot",
                 // Section 2: Organization & Support
                 "Collections", "Submissions", "Research",
                 // Section 3: Publications (all possible - some may not exist based on fiction class)
@@ -136,7 +137,7 @@ struct FolderListView: View {
         // Special ordering for Manuscript subfolders: Front Matter, Body, Back Matter
         if selectedFolder.name == "Manuscript" {
             // All possible body folder names (project-type-specific with "All" prefix)
-            let bodyFolderNames: Set<String> = ["Body", "All Acts", "All Poems", "All Sections", "All Chapters", "All Stories"]
+            let bodyFolderNames: Set<String> = ["Body", "All Acts", "All Poems", "All Sections", "All Chapters", "All Stories", "All Books"]
             return subfolders.sorted { folder1, folder2 in
                 let name1 = folder1.name ?? ""
                 let name2 = folder2.name ?? ""
@@ -253,6 +254,16 @@ struct FolderListView: View {
                         } else if folderName == "Stories" && project.type == .fiction && project.fictionClass == .shortFiction {
                             // Fiction (Short Fiction): Stories folder navigates to ChapterListView (reuses same view)
                             NavigationLink(destination: ChapterListView(project: project)) {
+                                FolderRowView(folder: folder)
+                            }
+                        } else if folderName == "Books" && project.type == .fiction && project.fictionClass == .verseNovel {
+                            // Verse Novel: Books folder navigates to ChapterListView
+                            NavigationLink(destination: ChapterListView(project: project)) {
+                                FolderRowView(folder: folder)
+                            }
+                        } else if folderName == "Episodes" && project.type == .fiction && project.fictionClass == .verseNovel {
+                            // Verse Novel: Episodes folder navigates to SceneListView
+                            NavigationLink(destination: SceneListView(project: project)) {
                                 FolderRowView(folder: folder)
                             }
                         } else if folderName == "Sections" && project.type == .prose {
@@ -472,10 +483,10 @@ struct FolderRowView: View {
         return name == "Locations" && (folder.project?.type == .fiction || folder.project?.type == .drama)
     }
     
-    // Check if this is the Scenes folder (fiction/drama projects)
+    // Check if this is the Scenes/Episodes folder (fiction/drama projects)
     private var isScenesFolder: Bool {
         let name = folder.name ?? ""
-        return name == "Scenes" && (folder.project?.type == .fiction || folder.project?.type == .drama)
+        return (name == "Scenes" || name == "Episodes") && (folder.project?.type == .fiction || folder.project?.type == .drama)
     }
     
     // Check if this is the Acts folder (drama projects only)
@@ -485,10 +496,10 @@ struct FolderRowView: View {
     }
     
     // Check if this is the Chapters folder (fiction/novel projects only)
-    // Check if this is the Chapters or Stories folder (fiction projects)
+    // Check if this is the Chapters, Stories, or Books folder (fiction projects)
     private var isChaptersFolder: Bool {
         let name = folder.name ?? ""
-        return (name == "Chapters" || name == "Stories") && folder.project?.type == .fiction
+        return (name == "Chapters" || name == "Stories" || name == "Books") && folder.project?.type == .fiction
     }
     
     // Check if this is the Sections folder (prose projects only)
@@ -588,7 +599,7 @@ struct FolderRowView: View {
         
         // Check if this is a Manuscript body folder (should not show count)
         let isManuscriptBodyFolder = folder.parentFolder?.name == "Manuscript" &&
-            ["Body", "All Acts", "All Poems", "All Sections", "All Chapters", "All Stories"].contains(baseName)
+            ["Body", "All Acts", "All Poems", "All Sections", "All Chapters", "All Stories", "All Books"].contains(baseName)
         
         // Remove count for Manuscript subfolders (Body types, Front Matter, Back Matter) and Manuscript itself
         if baseName == "Manuscript" || baseName == "Front Matter" || baseName == "Back Matter" || isManuscriptBodyFolder {
