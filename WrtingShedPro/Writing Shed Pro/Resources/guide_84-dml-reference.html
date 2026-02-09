@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Writing Shed Pro Guide</title>
+    <style>body { 
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 20px;
+    line-height: 1.6;
+    color: #333;
+}
+h1, h2, h3, h4, h5, h6 { margin-top: 1.5em; margin-bottom: 0.5em; }
+h1 { font-size: 2em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+pre { background: #f4f4f4; padding: 16px; border-radius: 6px; overflow-x: auto; }
+pre code { background: none; padding: 0; }
+blockquote { border-left: 4px solid #ddd; margin-left: 0; padding-left: 16px; color: #666; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+th { background: #f4f4f4; font-weight: bold; }
+ul, ol { padding-left: 2em; }
+a { color: #0066cc; }
+hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
+/* Back to Contents link */
+.back-to-top {
+    text-align: right;
+    font-size: 0.9em;
+    margin: 1.5em 0 0.5em 0;
+}
+.back-to-top a {
+    color: #666;
+    text-decoration: none;
+}
+.back-to-top a:hover {
+    color: #0066cc;
+    text-decoration: underline;
+}
+@media (prefers-color-scheme: dark) {
+    body { background: #1a1a1a; color: #e0e0e0; }
+    code, pre { background: #2d2d2d; }
+    th { background: #2d2d2d; }
+    th, td { border-color: #444; }
+    blockquote { border-color: #555; color: #aaa; }
+    h1, h2 { border-color: #444; }
+    a { color: #4da3ff; }
+    .back-to-top a { color: #999; }
+}
+/* In-app overrides */
+body { margin-top: 0 !important; padding-top: 8px !important; }
+body > *:first-child { margin-top: 0 !important; }
+.back-nav { margin-bottom: 0.5em; }
+.back-nav a { color: #0066cc; text-decoration: none; font-size: 0.95em; }
+@media (prefers-color-scheme: dark) {
+    .back-nav a { color: #4da3ff; }
+}
+</style>
+</head>
+<body>
+<p class="back-nav"><a href="guide:00-toc">← Contents</a></p>
+<a id="84-dml-reference"></a>
+
+<h1 id="dml-reference">DML Reference</h1>
+
+<p>Drama Markup Language (DML) is Writing Shed Pro's lightweight markup for script writing. This reference covers all DML syntax elements.</p>
+
+<h2 id="design-philosophy">Design Philosophy</h2>
+
+<p>DML is designed to be:</p>
+<ul>
+<li><strong>Human-readable</strong>: Easy to read and write</li>
+<li><strong>Minimal</strong>: Common elements require little decoration</li>
+<li><strong>Format-agnostic</strong>: Same source works for film and stage</li>
+<li><strong>Intuitive</strong>: Mirrors how you'd naturally write</li>
+</ul>
+
+<h2 id="quick-reference">Quick Reference</h2>
+
+<table>
+<tr><th>Element</th><th>Syntax</th><th>Example</th></tr>
+<tr><td>Scene Heading</td><td><code>#</code></td><td><code># INT. OFFICE - DAY</code></td></tr>
+<tr><td>Character</td><td>ALL CAPS</td><td><code>JOHN</code></td></tr>
+<tr><td>Dialogue</td><td>Lines after character</td><td><code>Hello there.</code></td></tr>
+<tr><td>Parenthetical</td><td><code>( )</code> after character</td><td><code>(whispering)</code></td></tr>
+<tr><td>Action</td><td><code>></code></td><td><code>> John enters.</code></td></tr>
+<tr><td>Transition</td><td><code>>></code></td><td><code>>> CUT TO:</code></td></tr>
+<tr><td>Location</td><td><code>@</code></td><td><code>@ LOCATION: Office</code></td></tr>
+<tr><td>Time/Atmosphere</td><td><code>=</code></td><td><code>= Night, rain</code></td></tr>
+<tr><td>Note</td><td><code>[[ ]]</code></td><td><code>[[Check this scene]]</code></td></tr>
+</table>
+
+<h2 id="detailed-syntax">Detailed Syntax</h2>
+
+<h3 id="scene-headings">Scene Headings</h3>
+
+<p>Start a line with <code>#</code> for scene headings:</p>
+
+<pre><code># INT. COFFEE SHOP - DAY
+<p># EXT. BEACH - SUNSET</p>
+<p># ACT II, Scene 3</p>
+</code></pre>
+
+<strong>Film format</strong>: Include INT./EXT., location, time
+<strong>Stage format</strong>: Use ACT/Scene notation
+
+<h3 id="character-names">Character Names</h3>
+
+<p>Write character names in ALL CAPS on their own line:</p>
+
+<pre><code>JOHN
+<p>MARY</p>
+<p>DR. SMITH</p>
+<p>OFFICER #1</p>
+</code></pre>
+
+<p>Everything following a character name (until another element) is their dialogue.</p>
+
+<h3 id="dialogue">Dialogue</h3>
+
+<p>Lines following a character name are dialogue:</p>
+
+<pre><code>JOHN
+<p>I've been thinking about what you said.</p>
+<p>And I think you're right.</p>
+</code></pre>
+
+<p>Multiple lines of dialogue are fine—they'll be formatted together.</p>
+
+<h3 id="parentheticals">Parentheticals</h3>
+
+<p>Acting directions go in parentheses after the character name:</p>
+
+<pre><code>JOHN
+<p>(hesitantly)</p>
+<p>I don't know about this.</p>
+
+<p>MARY</p>
+<p>(turning away)</p>
+<p>Neither do I.</p>
+</code></pre>
+
+<p>Parentheticals can also appear mid-dialogue:</p>
+
+<pre><code>JOHN
+<p>I think I love you.</p>
+<p>(beat)</p>
+<p>No, I know I do.</p>
+</code></pre>
+
+<h3 id="action-stage-directions">Action / Stage Directions</h3>
+
+<p>Start with <code>></code> for action or stage directions:</p>
+
+<pre><code>&gt; John crosses to the window and looks out at the rain.
+<p>&gt; Mary enters from the kitchen, carrying a tray.</p>
+<p>&gt; The lights dim. Thunder rumbles in the distance.</p>
+</code></pre>
+
+<p>These render as:</p>
+<ul>
+<li>Film: Full-width action paragraphs</li>
+<li>Stage: Stage directions (often italicized)</li>
+</ul>
+
+<h3 id="transitions">Transitions</h3>
+
+<p>Start with <code>>></code> for transitions:</p>
+
+<pre><code>&gt;&gt; CUT TO:
+<p>&gt;&gt; FADE OUT</p>
+<p>&gt;&gt; DISSOLVE TO:</p>
+<p>&gt;&gt; BLACKOUT</p>
+</code></pre>
+
+<p>These render as:</p>
+<ul>
+<li>Film: Right-aligned transitions</li>
+<li>Stage: Theatrical transitions (centered or as appropriate)</li>
+</ul>
+
+<h3 id="location-metadata">Location Metadata</h3>
+
+<p>Use <code>@</code> for location information:</p>
+
+<pre><code>@ LOCATION: Sarah's Apartment
+<p>@ LOCATION: The Beach House</p>
+</code></pre>
+
+<p>This helps DML construct scene headings, especially for stage format.</p>
+
+<h3 id="timeatmosphere">Time/Atmosphere</h3>
+
+<p>Use <code>=</code> for time of day and atmospheric conditions:</p>
+
+<pre><code>= Day
+<p>= Night, stormy</p>
+<p>= Late afternoon, golden light</p>
+<p>= Morning, mist</p>
+</code></pre>
+
+<p>Combined with location:</p>
+<pre><code>@ LOCATION: Office
+<p>= Night, empty building</p>
+</code></pre>
+
+<p>Film renders as: <code>INT. OFFICE - NIGHT</code></p>
+<p>Stage renders as: <code>(An office. Night. The building is empty.)</code></p>
+
+<h3 id="notes">Notes</h3>
+
+<p>Writer's notes that don't render in output:</p>
+
+<pre><code>[[Remember to add more tension here]]
+<p>[[Check with director about this scene]]</p>
+<p>[[TODO: Research police procedures]]</p>
+</code></pre>
+
+<p>Notes are for your reference only—they won't appear in exports.</p>
+
+<h2 id="complete-example">Complete Example</h2>
+
+<pre><code class="language-dml"># ACT I, Scene 1
+<p>@ LOCATION: Living Room</p>
+<p>= Night, raining</p>
+
+<p>&gt; A modest living room. Rain streaks the windows. JOHN stands </p>
+<p>&gt; near the window, agitated. A half-empty glass of whiskey </p>
+<p>&gt; sits on the side table.</p>
+
+<p>JOHN</p>
+<p>(to himself)</p>
+<p>She should be here by now.</p>
+
+<p>&gt; He checks his watch, then resumes pacing.</p>
+
+<p>[[Consider cutting the whiskey reference]]</p>
+
+<p>&gt; The door opens. MARY enters, soaking wet.</p>
+
+<p>MARY</p>
+<p>(shaking off rain)</p>
+<p>The roads are terrible.</p>
+
+<p>JOHN</p>
+<p>I was worried.</p>
+
+<p>MARY</p>
+<p>(softening)</p>
+<p>I know. I'm sorry.</p>
+
+<p>&gt; She crosses to him. They embrace.</p>
+
+<p>&gt;&gt; BLACKOUT</p>
+
+<p># ACT I, Scene 2</p>
+<p>@ LOCATION: Kitchen</p>
+<p>= The next morning</p>
+
+<p>&gt; Bright sunlight. MARY makes coffee. JOHN enters in a robe.</p>
+
+<p>JOHN</p>
+<p>Did you sleep?</p>
+
+<p>MARY</p>
+<p>Not really.</p>
+<p>(beat)</p>
+<p>We need to talk about last night.</p>
+
+<p>&gt;&gt; END OF ACT ONE</p>
+</code></pre>
+
+<h2 id="rendering-differences">Rendering Differences</h2>
+
+<h3 id="film-output">Film Output</h3>
+<p>The example above renders with:</p>
+<ul>
+<li>Scene headings like <code>INT. LIVING ROOM - NIGHT</code></li>
+<li>Centered character names</li>
+<li>Specific dialogue margins</li>
+<li>Right-aligned transitions</li>
+</ul>
+
+<h3 id="stage-output">Stage Output</h3>
+<p>The same source renders with:</p>
+<ul>
+<li>Scene headings like <code>ACT I, Scene 1</code></li>
+<li>Stage directions in parentheses or italics</li>
+<li>Different margin conventions</li>
+<li>Theatrical transitions</li>
+</ul>
+
+<h2 id="tips-for-writing-dml">Tips for Writing DML</h2>
+
+<h3 id="keep-it-simple">Keep It Simple</h3>
+<p>DML is meant to be invisible. Write naturally—don't over-mark.</p>
+
+<h3 id="blank-lines">Blank Lines</h3>
+<p>Use blank lines to separate elements:</p>
+<ul>
+<li>Between speakers</li>
+<li>Between action and dialogue</li>
+<li>Before and after transitions</li>
+</ul>
+
+<h3 id="consistency">Consistency</h3>
+<p>Choose conventions and stick with them:</p>
+<ul>
+<li>Parenthetical style</li>
+<li>Action line detail level</li>
+<li>Note format</li>
+</ul>
+
+<h3 id="read-your-output">Read Your Output</h3>
+<p>Check the rendered preview often. Adjust if elements don't render as expected.</p>
+
+<h2 id="common-mistakes">Common Mistakes</h2>
+
+<h3 id="forgetting-codecode-for-action">Forgetting <code>></code> for Action</h3>
+<pre><code>Wrong:
+<p>John enters.</p>
+
+<p>Right:</p>
+<p>&gt; John enters.</p>
+</code></pre>
+
+<h3 id="character-name-not-in-caps">Character Name Not in Caps</h3>
+<pre><code>Wrong:
+<p>John</p>
+<p>I'm here.</p>
+
+<p>Right:</p>
+<p>JOHN</p>
+<p>I'm here.</p>
+</code></pre>
+
+<h3 id="missing-blank-lines">Missing Blank Lines</h3>
+<pre><code>Wrong:
+<p>JOHN</p>
+<p>Hello.</p>
+<p>MARY</p>
+<p>Hi.</p>
+
+<p>Right:</p>
+<p>JOHN</p>
+<p>Hello.</p>
+
+<p>MARY</p>
+<p>Hi.</p>
+</code></pre>
+
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="guide:81-drama-mode-overview">Drama Mode Overview</a></li>
+<li><a href="guide:82-script-formatting">Script Formatting</a></li>
+<li><a href="guide:83-film-vs-stage-formats">Film vs Stage Formats</a></li>
+<li><a href="guide:112-dml-quick-reference">DML Quick Reference</a></li>
+</ul>
+
+
+<hr>
+</body>
+</html>

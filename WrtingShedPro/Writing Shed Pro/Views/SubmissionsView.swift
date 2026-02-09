@@ -294,7 +294,7 @@ struct SubmissionsView: View {
         VStack(spacing: 16) {
             // FR-8.2: Submissions tip
             TipView(SubmissionsTip()) { action in
-                TipActionHandler.handle(action, guideSection: SubmissionsTip.guideSection, modelContext: modelContext)
+                TipActionHandler.handle(action, guideSection: SubmissionsTip.guideSection)
             }
             .padding(.horizontal)
             

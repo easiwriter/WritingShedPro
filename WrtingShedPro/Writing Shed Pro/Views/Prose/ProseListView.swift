@@ -8,6 +8,7 @@
 
 import SwiftUI
 import SwiftData
+import TipKit
 import UniformTypeIdentifiers
 
 /// List view showing text files for a Prose project
@@ -619,6 +620,12 @@ struct ProseListView: View {
     
     private var fileList: some View {
         List(selection: $selectedFileIDs) {
+            // FR-2.4: Folder organisation tip
+            TipView(FolderOrganisationTip()) { action in
+                TipActionHandler.handle(action, guideSection: FolderOrganisationTip.guideSection)
+            }
+            .listRowSeparator(.hidden)
+            
             if useSections {
                 // Show collapsible sections grouped by section name
                 ForEach(sectionGroups) { group in

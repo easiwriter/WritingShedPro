@@ -276,7 +276,7 @@ struct ActListView: View {
         VStack(spacing: 16) {
             // FR-6.1: Drama Structure tip
             TipView(DramaStructureTip()) { action in
-                TipActionHandler.handle(action, guideSection: DramaStructureTip.guideSection, modelContext: modelContext)
+                TipActionHandler.handle(action, guideSection: DramaStructureTip.guideSection)
             }
             .padding(.horizontal)
             

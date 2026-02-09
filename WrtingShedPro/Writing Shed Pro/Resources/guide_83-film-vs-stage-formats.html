@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Writing Shed Pro Guide</title>
+    <style>body { 
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 20px;
+    line-height: 1.6;
+    color: #333;
+}
+h1, h2, h3, h4, h5, h6 { margin-top: 1.5em; margin-bottom: 0.5em; }
+h1 { font-size: 2em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+pre { background: #f4f4f4; padding: 16px; border-radius: 6px; overflow-x: auto; }
+pre code { background: none; padding: 0; }
+blockquote { border-left: 4px solid #ddd; margin-left: 0; padding-left: 16px; color: #666; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+th { background: #f4f4f4; font-weight: bold; }
+ul, ol { padding-left: 2em; }
+a { color: #0066cc; }
+hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
+/* Back to Contents link */
+.back-to-top {
+    text-align: right;
+    font-size: 0.9em;
+    margin: 1.5em 0 0.5em 0;
+}
+.back-to-top a {
+    color: #666;
+    text-decoration: none;
+}
+.back-to-top a:hover {
+    color: #0066cc;
+    text-decoration: underline;
+}
+@media (prefers-color-scheme: dark) {
+    body { background: #1a1a1a; color: #e0e0e0; }
+    code, pre { background: #2d2d2d; }
+    th { background: #2d2d2d; }
+    th, td { border-color: #444; }
+    blockquote { border-color: #555; color: #aaa; }
+    h1, h2 { border-color: #444; }
+    a { color: #4da3ff; }
+    .back-to-top a { color: #999; }
+}
+/* In-app overrides */
+body { margin-top: 0 !important; padding-top: 8px !important; }
+body > *:first-child { margin-top: 0 !important; }
+.back-nav { margin-bottom: 0.5em; }
+.back-nav a { color: #0066cc; text-decoration: none; font-size: 0.95em; }
+@media (prefers-color-scheme: dark) {
+    .back-nav a { color: #4da3ff; }
+}
+</style>
+</head>
+<body>
+<p class="back-nav"><a href="guide:00-toc">← Contents</a></p>
+<a id="83-film-vs-stage-formats"></a>
+
+<h1 id="film-vs-stage-formats">Film vs Stage Formats</h1>
+
+<p>Writing Shed Pro supports both film/screenplay and stage play formats. This guide explains the differences and when to use each.</p>
+
+<h2 id="key-differences">Key Differences</h2>
+
+<table>
+<tr><th>Aspect</th><th>Film/Screenplay</th><th>Stage Play</th></tr>
+<tr><td>Scene Headings</td><td>INT./EXT. LOCATION - TIME</td><td>ACT I, Scene 2</td></tr>
+<tr><td>Camera</td><td>Sometimes referenced</td><td>Never used</td></tr>
+<tr><td>Action</td><td>What camera sees</td><td>Stage movement and set</td></tr>
+<tr><td>Margins</td><td>Specific industry standard</td><td>More flexible</td></tr>
+<tr><td>Page = Time</td><td>~1 page = 1 minute</td><td>Less precise</td></tr>
+<tr><td>Transitions</td><td>CUT TO:, FADE OUT</td><td>BLACKOUT, LIGHTS UP</td></tr>
+</table>
+
+<h2 id="filmscreenplay-format">Film/Screenplay Format</h2>
+
+<h3 id="when-to-use">When to Use</h3>
+<ul>
+<li>Writing for movies</li>
+<li>Television scripts</li>
+<li>Web series</li>
+<li>Video content</li>
+</ul>
+
+<h3 id="scene-headings">Scene Headings</h3>
+<p>Always include:</p>
+<ul>
+<li>INT. (interior) or EXT. (exterior)</li>
+<li>LOCATION</li>
+<li>TIME OF DAY</li>
+</ul>
+
+<pre><code>INT. COFFEE SHOP - DAY
+<p>EXT. CITY STREET - NIGHT</p>
+<p>INT./EXT. CAR (MOVING) - CONTINUOUS</p>
+</code></pre>
+
+<h3 id="action-lines">Action Lines</h3>
+<p>Describe what the camera sees:</p>
+<ul>
+<li>Present tense</li>
+<li>Visual focus</li>
+<li>Minimal internal thoughts</li>
+</ul>
+
+<pre><code>&gt; John stares at the letter. His hands tremble.
+</code></pre>
+
+<h3 id="dialogue">Dialogue</h3>
+<p>Centered with specific margins:</p>
+<pre><code>                         JOHN
+<p>              (reading)</p>
+<p>         &quot;I'm sorry. I can't do this anymore.&quot;</p>
+</code></pre>
+
+<h3 id="transitions">Transitions</h3>
+<p>Right-aligned:</p>
+<pre><code>                                              CUT TO:
+<p>                                              FADE OUT.</p>
+<p>                                              DISSOLVE TO:</p>
+</code></pre>
+
+<h3 id="camera-directions-use-sparingly">Camera Directions (Use Sparingly)</h3>
+<pre><code>&gt; CLOSE ON: John's face as he reads.
+<p>&gt; ANGLE ON: The letter falling to the floor.</p>
+</code></pre>
+
+<p>Most spec scripts minimize these—directors prefer to make their own choices.</p>
+
+<h2 id="stage-play-format">Stage Play Format</h2>
+
+<h3 id="when-to-use">When to Use</h3>
+<ul>
+<li>Theater productions</li>
+<li>Radio plays</li>
+<li>Readings and performances</li>
+<li>Educational theater</li>
+</ul>
+
+<h3 id="scene-headings">Scene Headings</h3>
+<p>Act and scene structure:</p>
+<pre><code>ACT I
+<p>Scene 1</p>
+
+<p>ACT II, Scene 3</p>
+
+<p>EPILOGUE</p>
+</code></pre>
+
+<h3 id="stage-directions">Stage Directions</h3>
+<p>Describe stage action and set:</p>
+<ul>
+<li>Often italicized or in parentheses</li>
+<li>Describes what audience sees</li>
+<li>Includes set information</li>
+</ul>
+
+<pre><code>&gt; (A modest living room. Evening. Rain is heard outside. JOHN stands by the window, his back to the audience.)
+</code></pre>
+
+<h3 id="dialogue">Dialogue</h3>
+<p>Varies by convention:</p>
+<pre><code>JOHN
+<p>    I can't stay here any longer.</p>
+
+<p>MARY</p>
+<p>    (entering from upstage)</p>
+<p>    Then don't.</p>
+</code></pre>
+
+<h3 id="transitions">Transitions</h3>
+<p>Theatrical terms:</p>
+<pre><code>&gt;&gt; BLACKOUT
+<p>&gt;&gt; LIGHTS UP</p>
+<p>&gt;&gt; CURTAIN</p>
+</code></pre>
+
+<h2 id="writing-for-both">Writing for Both</h2>
+
+<p>DML lets you write once and render in either format:</p>
+
+<h3 id="common-elements">Common Elements</h3>
+<ul>
+<li>Character names (work in both)</li>
+<li>Dialogue (works in both)</li>
+<li>Basic action/directions</li>
+</ul>
+
+<h3 id="format-specific-elements">Format-Specific Elements</h3>
+<p>Some things translate differently:</p>
+
+<h4 id="locations">Locations</h4>
+<p>DML:</p>
+<pre><code>@ LOCATION: Coffee Shop
+<p>= Day</p>
+</code></pre>
+
+<p>Film renders as: <code>INT. COFFEE SHOP - DAY</code></p>
+<p>Stage renders as: <code>(A coffee shop. Day.)</code></p>
+
+<h4 id="transitions">Transitions</h4>
+<p>DML:</p>
+<pre><code>&gt;&gt; CUT TO:
+</code></pre>
+
+<p>Film renders as: right-aligned <code>CUT TO:</code></p>
+<p>Stage might render as: <code>(Transition to next scene)</code> or be adapted</p>
+
+<h3 id="testing-both-formats">Testing Both Formats</h3>
+<li>Write your scene in DML</li>
+<li>Preview in Film format</li>
+<li>Switch to Stage format</li>
+<li>Adjust source if needed for both</li>
+
+<h2 id="choosing-your-format">Choosing Your Format</h2>
+
+<h3 id="write-for-film-when">Write for Film When:</h3>
+<ul>
+<li>Targeting movie/TV production</li>
+<li>Story relies on visual elements</li>
+<li>Camera work is important</li>
+<li>Quick cuts and montages</li>
+</ul>
+
+<h3 id="write-for-stage-when">Write for Stage When:</h3>
+<ul>
+<li>Targeting theater production</li>
+<li>Story works with limited settings</li>
+<li>Dialogue is primary</li>
+<li>Live performance suits the story</li>
+</ul>
+
+<h3 id="hybrid-projects">Hybrid Projects</h3>
+<p>Some stories work both ways:</p>
+<ul>
+<li>Write in DML</li>
+<li>Export for primary target</li>
+<li>Adapt for secondary format</li>
+</ul>
+
+<h2 id="technical-differences">Technical Differences</h2>
+
+<h3 id="page-count">Page Count</h3>
+<ul>
+<li>Film: 1 page ≈ 1 minute (important for industry)</li>
+<li>Stage: Relationship varies (less critical)</li>
+</ul>
+
+<h3 id="action-line-length">Action Line Length</h3>
+<ul>
+<li>Film: Keep brief, visual, specific</li>
+<li>Stage: Can include more atmosphere</li>
+</ul>
+
+<h3 id="parentheticals">Parentheticals</h3>
+<ul>
+<li>Film: Very brief ("(whispers)")</li>
+<li>Stage: May be more detailed ("(crossing to the window, looking out)")</li>
+</ul>
+
+<h3 id="sound-and-music">Sound and Music</h3>
+<ul>
+<li>Film: Minimal (sound designer's job)</li>
+<li>Stage: Often included in directions</li>
+</ul>
+
+<h2 id="industry-standards">Industry Standards</h2>
+
+<h3 id="film-resources">Film Resources</h3>
+<ul>
+<li>Standard screenplay format guides</li>
+<li>Specific margin measurements</li>
+<li>Font requirements (usually Courier 12pt)</li>
+</ul>
+
+<h3 id="stage-resources">Stage Resources</h3>
+<ul>
+<li>Varies more by tradition</li>
+<li>Different standards for different theaters</li>
+<li>Often more flexible than film</li>
+</ul>
+
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="guide:81-drama-mode-overview">Drama Mode Overview</a></li>
+<li><a href="guide:82-script-formatting">Script Formatting</a></li>
+<li><a href="guide:84-dml-reference">DML Reference</a></li>
+</ul>
+
+
+<hr>
+</body>
+</html>

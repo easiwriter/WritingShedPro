@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Writing Shed Pro Guide</title>
+    <style>body { 
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 20px;
+    line-height: 1.6;
+    color: #333;
+}
+h1, h2, h3, h4, h5, h6 { margin-top: 1.5em; margin-bottom: 0.5em; }
+h1 { font-size: 2em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+pre { background: #f4f4f4; padding: 16px; border-radius: 6px; overflow-x: auto; }
+pre code { background: none; padding: 0; }
+blockquote { border-left: 4px solid #ddd; margin-left: 0; padding-left: 16px; color: #666; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+th { background: #f4f4f4; font-weight: bold; }
+ul, ol { padding-left: 2em; }
+a { color: #0066cc; }
+hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
+/* Back to Contents link */
+.back-to-top {
+    text-align: right;
+    font-size: 0.9em;
+    margin: 1.5em 0 0.5em 0;
+}
+.back-to-top a {
+    color: #666;
+    text-decoration: none;
+}
+.back-to-top a:hover {
+    color: #0066cc;
+    text-decoration: underline;
+}
+@media (prefers-color-scheme: dark) {
+    body { background: #1a1a1a; color: #e0e0e0; }
+    code, pre { background: #2d2d2d; }
+    th { background: #2d2d2d; }
+    th, td { border-color: #444; }
+    blockquote { border-color: #555; color: #aaa; }
+    h1, h2 { border-color: #444; }
+    a { color: #4da3ff; }
+    .back-to-top a { color: #999; }
+}
+/* In-app overrides */
+body { margin-top: 0 !important; padding-top: 8px !important; }
+body > *:first-child { margin-top: 0 !important; }
+.back-nav { margin-bottom: 0.5em; }
+.back-nav a { color: #0066cc; text-decoration: none; font-size: 0.95em; }
+@media (prefers-color-scheme: dark) {
+    .back-nav a { color: #4da3ff; }
+}
+</style>
+</head>
+<body>
+<p class="back-nav"><a href="guide:00-toc">← Contents</a></p>
+<a id="109-list-of-figures"></a>
+
+<h1 id="list-of-figures-table-of-figures">List of Figures (Table of Figures)</h1>
+
+<p>The List of Figures feature in Writing Shed Pro creates an automatic catalog of all images in your manuscript, with captions and page numbers.</p>
+
+<h2 id="overview">Overview</h2>
+
+<p>A List of Figures (also called Table of Figures) is a reference list showing every image in your document along with its caption and the page where it appears. This is common in academic papers, technical manuals, and illustrated books. Writing Shed Pro's system supports:</p>
+
+<ul>
+<li><strong>Automatic scanning</strong> - Finds all images in your manuscript</li>
+<li><strong>Caption extraction</strong> - Uses image captions as entry text</li>
+<li><strong>Page numbers</strong> - Calculated from actual manuscript pagination</li>
+<li><strong>Numbered prefixes</strong> - Optional "Figure 1:", "Figure 2:" etc.</li>
+<li><strong>Dot leaders</strong> - Customizable separators between caption and page number</li>
+<li><strong>Missing caption handling</strong> - Control how uncaptioned images are displayed</li>
+</ul>
+
+<h2 id="enabling-list-of-figures">Enabling List of Figures</h2>
+
+<li>Navigate to your project's <strong>Back Matter</strong> folder</li>
+<li>Tap the <strong>+</strong> button or go to <strong>Settings</strong></li>
+<li>Enable <strong>Table of Figures</strong> in the back matter items</li>
+<li>A "Table of Figures" file is created in your Back Matter folder</li>
+
+<h2 id="viewing-the-list-of-figures">Viewing the List of Figures</h2>
+
+<p>Open the <strong>Table of Figures</strong> file in your Back Matter folder to see a live preview showing:</p>
+
+<ul>
+<li>All images from your manuscript in document order</li>
+<li>Sequential figure numbers</li>
+<li>Caption text (or "Missing caption" placeholder)</li>
+<li>Calculated page numbers based on your Page Setup settings</li>
+</ul>
+
+<h3 id="page-number-display">Page Number Display</h3>
+
+<p>Page numbers are calculated using the same pagination engine as your manuscript export:</p>
+
+<ul>
+<li>Numbers reflect actual page positions based on your Page Setup settings</li>
+<li>While page numbers are calculating, a progress indicator appears</li>
+<li>Recalculates automatically when you make changes to your manuscript</li>
+</ul>
+
+<h2 id="configuring-settings">Configuring Settings</h2>
+
+<p>Tap the <strong>gear icon</strong> (⚙️) in the navigation bar to open the settings sheet.</p>
+
+<h3 id="title-section">Title Section</h3>
+
+<ul>
+<li><strong>Title</strong>: The heading displayed at the top (default: "List of Figures")</li>
+<li><strong>Title style</strong>: Choose a text style from your stylesheet for the title</li>
+</ul>
+
+<h3 id="entry-style">Entry Style</h3>
+
+<p>Choose which text style from your stylesheet to use for the figure entries.</p>
+
+<h3 id="numbering">Numbering</h3>
+
+<ul>
+<li><strong>Use caption prefix</strong>: Toggle to show/hide numbered prefixes</li>
+<li><strong>Prefix text</strong>: The text before each number (default: "Figure")</li>
+</ul>
+
+<p>When enabled, entries appear as:</p>
+<blockquote>Figure 1: Sunrise over the mountains ............. 12</blockquote>
+
+<p>When disabled, entries show only:</p>
+<blockquote>Sunrise over the mountains ............. 12</blockquote>
+
+<h3 id="formatting">Formatting</h3>
+
+<ul>
+<li><strong>Show page numbers</strong>: Toggle page numbers on or off</li>
+<li><strong>Separator</strong>: Choose the character between caption and page number (., -, _, space, or none)</li>
+<li><strong>Use dot leaders</strong>: Repeat the separator to fill the space</li>
+<li><strong>Page number position</strong>: Adjust the tab stop position (300–600 points)</li>
+</ul>
+
+<h3 id="missing-captions">Missing Captions</h3>
+
+<p>Control how images without captions are handled:</p>
+
+<ul>
+<li><strong>Show uncaptioned images</strong> (ON): Displays "Missing caption" as a placeholder</li>
+</ul>
+<p>  > Figure 3: Missing caption ............. 45</p>
+
+<ul>
+<li><strong>Show uncaptioned images</strong> (OFF): Skips uncaptioned images and shows a summary at the bottom</li>
+</ul>
+<p>  > </em>3 images without captions on pages: 45, 67, 89<em></p>
+
+<h2 id="adding-captions-to-images">Adding Captions to Images</h2>
+
+<p>For images to appear meaningfully in the List of Figures, they need captions:</p>
+
+<li>Select an image in your document</li>
+<li>In the image settings (tap the image, then the info button):</li>
+<p>   - Enable <strong>Show Caption</strong></p>
+<p>   - Enter the caption text</p>
+<p>   - Optionally set a caption prefix style</p>
+<li>The caption appears below the image and in the List of Figures</li>
+
+<h2 id="best-practices">Best Practices</h2>
+
+<h3 id="consistent-captioning">Consistent Captioning</h3>
+
+<ul>
+<li>Add captions to all images you want listed</li>
+<li>Use consistent language and formatting</li>
+<li>Keep captions concise but descriptive</li>
+</ul>
+
+<h3 id="numbering-style">Numbering Style</h3>
+
+<p>Choose a prefix that matches your document type:</p>
+<ul>
+<li>Academic: "Figure 1:", "Figure 2:"</li>
+<li>Technical: "Fig. 1:", "Fig. 2:"</li>
+<li>Art books: Disable prefix, use captions only</li>
+</ul>
+
+<h3 id="checking-for-missing-captions">Checking for Missing Captions</h3>
+
+<p>Use the <strong>Show uncaptioned images</strong> toggle strategically:</p>
+<li>During editing, turn it ON to see which images need captions</li>
+<li>Before publishing, turn it OFF if you want to exclude decorative images</li>
+<li>Review the summary message to ensure no important images are missing captions</li>
+
+<h2 id="export-behavior">Export Behavior</h2>
+
+<p>The List of Figures is included in your manuscript exports (PDF, EPUB, etc.) when:</p>
+
+<ul>
+<li>The Table of Figures file exists in Back Matter</li>
+<li>Back Matter is included in your export settings</li>
+</ul>
+
+<p>The page numbers in the exported document will match your actual pagination.</p>
+
+<h2 id="related-topics">Related Topics</h2>
+
+<ul>
+<li><a href="guide:44-images">Adding Images</a></li>
+<li><a href="guide:36-manuscript-structure">Manuscript Structure</a></li>
+<li><a href="guide:103-page-setup">Page Setup</a></li>
+<li><a href="guide:110-table-of-contents">Table of Contents</a></li>
+</ul>
+</body>
+</html>

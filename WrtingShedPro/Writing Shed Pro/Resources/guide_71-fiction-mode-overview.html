@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Writing Shed Pro Guide</title>
+    <style>body { 
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 20px;
+    line-height: 1.6;
+    color: #333;
+}
+h1, h2, h3, h4, h5, h6 { margin-top: 1.5em; margin-bottom: 0.5em; }
+h1 { font-size: 2em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+pre { background: #f4f4f4; padding: 16px; border-radius: 6px; overflow-x: auto; }
+pre code { background: none; padding: 0; }
+blockquote { border-left: 4px solid #ddd; margin-left: 0; padding-left: 16px; color: #666; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+th { background: #f4f4f4; font-weight: bold; }
+ul, ol { padding-left: 2em; }
+a { color: #0066cc; }
+hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
+/* Back to Contents link */
+.back-to-top {
+    text-align: right;
+    font-size: 0.9em;
+    margin: 1.5em 0 0.5em 0;
+}
+.back-to-top a {
+    color: #666;
+    text-decoration: none;
+}
+.back-to-top a:hover {
+    color: #0066cc;
+    text-decoration: underline;
+}
+@media (prefers-color-scheme: dark) {
+    body { background: #1a1a1a; color: #e0e0e0; }
+    code, pre { background: #2d2d2d; }
+    th { background: #2d2d2d; }
+    th, td { border-color: #444; }
+    blockquote { border-color: #555; color: #aaa; }
+    h1, h2 { border-color: #444; }
+    a { color: #4da3ff; }
+    .back-to-top a { color: #999; }
+}
+/* In-app overrides */
+body { margin-top: 0 !important; padding-top: 8px !important; }
+body > *:first-child { margin-top: 0 !important; }
+.back-nav { margin-bottom: 0.5em; }
+.back-nav a { color: #0066cc; text-decoration: none; font-size: 0.95em; }
+@media (prefers-color-scheme: dark) {
+    .back-nav a { color: #4da3ff; }
+}
+</style>
+</head>
+<body>
+<p class="back-nav"><a href="guide:00-toc">← Contents</a></p>
+<a id="71-fiction-mode-overview"></a>
+
+<h1 id="fiction-mode-overview">Fiction Mode Overview</h1>
+
+<p>Fiction projects in Writing Shed Pro provide specialized tools for writing novels and short stories. This overview explains the features available and how to use them effectively.</p>
+
+<h2 id="what-makes-fiction-mode-special">What Makes Fiction Mode Special</h2>
+
+<p>Fiction mode understands the unique needs of fiction writers:</p>
+<ul>
+<li><strong>Scene-based writing</strong>: Build your story scene by scene</li>
+<li><strong>Chapter organization</strong>: Group scenes into chapters (novels)</li>
+<li><strong>Plot tracking</strong>: Map your story structure</li>
+<li><strong>Character and location management</strong>: Keep details consistent</li>
+<li><strong>Manuscript assembly</strong>: Combine everything for export</li>
+</ul>
+
+<h2 id="creating-a-fiction-project">Creating a Fiction Project</h2>
+
+<li>From the project list, tap <strong>+</strong></li>
+<li>Enter a project name</li>
+<li>Select <strong>Fiction</strong> as the project type</li>
+<li>Choose a fiction class:</li>
+<p>   - <strong>Novel</strong>: Long-form fiction with chapters</p>
+<p>   - <strong>Short Fiction</strong>: Stories without chapter structure</p>
+<li>Optionally select a story structure</li>
+<li>Tap <strong>Create</strong></li>
+
+<h2 id="fiction-classes">Fiction Classes</h2>
+
+<h3 id="novel">Novel</h3>
+<p>For longer works with chapter structure:</p>
+<ul>
+<li>Chapters contain scenes</li>
+<li>Chapters folder organizes your book</li>
+<li>Full manuscript assembly</li>
+</ul>
+
+<h3 id="short-fiction">Short Fiction</h3>
+<p>For stories without chapters:</p>
+<ul>
+<li>Scenes are the primary unit</li>
+<li>Simpler organization</li>
+<li>Direct manuscript export</li>
+</ul>
+
+<p>You cannot change the class after project creation.</p>
+
+<h2 id="fiction-project-structure">Fiction Project Structure</h2>
+
+<h3 id="novel-structure">Novel Structure</h3>
+<pre><code>Project
+<p>├── Draft (scenes in progress)</p>
+<p>├── Ready (polished scenes)</p>
+<p>├── Chapters (chapter organization)</p>
+<p>├── Plot Elements</p>
+<p>├── Characters</p>
+<p>├── Locations</p>
+<p>├── Set Aside</p>
+<p>└── Trash</p>
+</code></pre>
+
+<h3 id="short-fiction-structure">Short Fiction Structure</h3>
+<pre><code>Project
+<p>├── Draft (scenes)</p>
+<p>├── Ready (polished scenes)</p>
+<p>├── Plot Elements</p>
+<p>├── Characters</p>
+<p>├── Locations</p>
+<p>├── Set Aside</p>
+<p>└── Trash</p>
+</code></pre>
+
+<h2 id="story-structures">Story Structures</h2>
+
+<p>Choose a structure to help organize your plot:</p>
+
+<h3 id="freeform">Freeform</h3>
+<p>No predefined stages—organize your plot however you like.</p>
+
+<h3 id="three-act-structure">Three-Act Structure</h3>
+<p>Classic narrative structure:</p>
+<li><strong>Act 1 - Setup</strong>: Introduce world and characters, inciting incident</li>
+<li><strong>Act 2 - Confrontation</strong>: Rising action, complications</li>
+<li><strong>Act 3 - Resolution</strong>: Climax and conclusion</li>
+
+<h3 id="monomyth-vogler">Monomyth (Vogler)</h3>
+<p>Christopher Vogler's 12-stage Hero's Journey:</p>
+<li>Ordinary World</li>
+<li>Call to Adventure</li>
+<li>Refusal of the Call</li>
+<li>Meeting the Mentor</li>
+<li>Crossing the Threshold</li>
+<li>Tests, Allies, Enemies</li>
+<li>Approach to the Inmost Cave</li>
+<li>Ordeal</li>
+<li>Reward</li>
+<li>The Road Back</li>
+<li>Resurrection</li>
+<li>Return with the Elixir</li>
+
+<h3 id="monomyth-campbell">Monomyth (Campbell)</h3>
+<p>Joseph Campbell's 17-stage Hero's Journey:</p>
+<li>The Ordinary World</li>
+<li>The Call to Adventure</li>
+<li>Refusal of the Call</li>
+<li>Supernatural Aid</li>
+<li>Crossing the First Threshold</li>
+<li>Belly of the Whale</li>
+<li>The Road of Trials</li>
+<li>Meeting with the Goddess</li>
+<li>Woman as Temptress</li>
+<li>Atonement with the Father</li>
+<li>Apotheosis</li>
+<li>The Ultimate Boon</li>
+<li>Refusal of the Return</li>
+<li>The Magic Flight</li>
+<li>Rescue from Without</li>
+<li>Crossing the Return Threshold</li>
+<li>Master of Two Worlds</li>
+
+<p>You can change the structure later in Project Settings.</p>
+
+<h2 id="core-concepts">Core Concepts</h2>
+
+<h3 id="scenes">Scenes</h3>
+<p>The fundamental unit of fiction. Each scene:</p>
+<ul>
+<li>Is a single continuous action</li>
+<li>Has a clear outcome</li>
+<li>Advances the story</li>
+<li>Lives in Draft, Ready, or Set Aside</li>
+</ul>
+
+<h3 id="chapters-novel-only">Chapters (Novel only)</h3>
+<p>Containers for scenes:</p>
+<ul>
+<li>Group related scenes</li>
+<li>Determine reading order</li>
+<li>Organize your book structure</li>
+</ul>
+
+<h3 id="plot-elements">Plot Elements</h3>
+<p>Story beats and events:</p>
+<ul>
+<li>Major and minor plot points</li>
+<li>Linked to story structure stages</li>
+<li>Connected to scenes</li>
+</ul>
+
+<h3 id="characters">Characters</h3>
+<p>Your story's people:</p>
+<ul>
+<li>Names and descriptions</li>
+<li>Relationships</li>
+<li>Arcs and development</li>
+</ul>
+
+<h3 id="locations">Locations</h3>
+<p>Where your story happens:</p>
+<ul>
+<li>Settings and places</li>
+<li>Descriptions</li>
+<li>Atmosphere notes</li>
+</ul>
+
+<h2 id="fiction-workflow">Fiction Workflow</h2>
+
+<h3 id="1-plan-optional">1. Plan (Optional)</h3>
+<ul>
+<li>Create plot elements for your story structure</li>
+<li>Define main characters and locations</li>
+<li>Outline chapters</li>
+</ul>
+
+<h3 id="2-draft">2. Draft</h3>
+<ul>
+<li>Write scenes in the Draft folder</li>
+<li>Link scenes to plot elements</li>
+<li>Connect to characters and locations</li>
+</ul>
+
+<h3 id="3-organize">3. Organize</h3>
+<ul>
+<li>Move finished scenes to Ready</li>
+<li>Arrange scenes into chapters</li>
+<li>Refine your structure</li>
+</ul>
+
+<h3 id="4-export">4. Export</h3>
+<ul>
+<li>Assemble the manuscript</li>
+<li>Export to PDF or RTF</li>
+<li>Share or submit</li>
+</ul>
+
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="guide:72-chapter-management">Chapter Management</a></li>
+<li><a href="guide:73-scene-organization">Scene Organization</a></li>
+<li><a href="guide:74-manuscript-formatting">Manuscript Formatting</a></li>
+</ul>
+
+
+<hr>
+</body>
+</html>

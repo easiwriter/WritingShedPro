@@ -89,21 +89,102 @@ struct FolderOrganisationTip: Tip {
     }
     
     var message: Text? {
-        Text("Drag files to reorder them, or use the sort options in the toolbar.")
+        Text("Use the workflow filters above to focus on Drafts or Ready files. Tap the \(Image(systemName: "ellipsis.circle")) button on any file for more options.")
     }
     
     var image: Image? {
-        Image(systemName: "arrow.up.arrow.down.circle")
+        Image(systemName: "line.3.horizontal.decrease.circle")
     }
     
     static let guideSection: String? = "35-organizing-your-work"
     
+    var actions: [Action] {
+        if Self.guideSection != nil {
+            Action(id: "learn-more", title: "Learn More")
+        }
+    }
+}
+
+// MARK: - FR-2.6: Create Project Popover Tip
+/// Popover tip pointing at the + button on first launch
+struct CreateProjectTip: Tip {
+    var title: Text {
+        Text("Create a Project")
+    }
+    
+    var message: Text? {
+        Text("Tap here to create your first writing project.")
+    }
+    
+    var image: Image? {
+        Image(systemName: "plus.circle")
+    }
+    
+    static let guideSection: String? = "22-creating-your-first-project"
+    
+    /// Only show on the first app launch
     @Parameter
-    static var folderHasManyFiles: Bool = false
+    static var appLaunchCount: Int = 0
     
     var rules: [Rule] {
-        #Rule(Self.$folderHasManyFiles) { $0 == true }
+        #Rule(Self.$appLaunchCount) { $0 <= 1 }
     }
+    
+    var actions: [Action] {
+        if Self.guideSection != nil {
+            Action(id: "learn-more", title: "Learn More")
+        }
+    }
+}
+
+// MARK: - FR-2.7: Settings Popover Tip
+/// Popover tip pointing at the settings gear on second launch
+struct SettingsTip: Tip {
+    var title: Text {
+        Text("Settings & More")
+    }
+    
+    var message: Text? {
+        Text("Import projects, customise stylesheets, set up page layout, and contact support.")
+    }
+    
+    var image: Image? {
+        Image(systemName: "gearshape")
+    }
+    
+    static let guideSection: String? = "23-the-interface-tour"
+    
+    /// Only show on the second app launch
+    @Parameter
+    static var appLaunchCount: Int = 0
+    
+    var rules: [Rule] {
+        #Rule(Self.$appLaunchCount) { $0 == 2 }
+    }
+    
+    var actions: [Action] {
+        if Self.guideSection != nil {
+            Action(id: "learn-more", title: "Learn More")
+        }
+    }
+}
+
+// MARK: - FR-2.5: New File Tip
+/// Shown when adding a file
+struct NewFileTip: Tip {
+    var title: Text {
+        Text("Create a New File")
+    }
+    
+    var message: Text? {
+        Text("Give your file a name and tap Add. You can change the name later from the file's context menu.")
+    }
+    
+    var image: Image? {
+        Image(systemName: "doc.badge.plus")
+    }
+    
+    static let guideSection: String? = "35-organizing-your-work"
     
     var actions: [Action] {
         if Self.guideSection != nil {

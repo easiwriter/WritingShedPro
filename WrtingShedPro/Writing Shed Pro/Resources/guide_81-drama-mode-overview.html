@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Writing Shed Pro Guide</title>
+    <style>body { 
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 20px;
+    line-height: 1.6;
+    color: #333;
+}
+h1, h2, h3, h4, h5, h6 { margin-top: 1.5em; margin-bottom: 0.5em; }
+h1 { font-size: 2em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+pre { background: #f4f4f4; padding: 16px; border-radius: 6px; overflow-x: auto; }
+pre code { background: none; padding: 0; }
+blockquote { border-left: 4px solid #ddd; margin-left: 0; padding-left: 16px; color: #666; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+th { background: #f4f4f4; font-weight: bold; }
+ul, ol { padding-left: 2em; }
+a { color: #0066cc; }
+hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
+/* Back to Contents link */
+.back-to-top {
+    text-align: right;
+    font-size: 0.9em;
+    margin: 1.5em 0 0.5em 0;
+}
+.back-to-top a {
+    color: #666;
+    text-decoration: none;
+}
+.back-to-top a:hover {
+    color: #0066cc;
+    text-decoration: underline;
+}
+@media (prefers-color-scheme: dark) {
+    body { background: #1a1a1a; color: #e0e0e0; }
+    code, pre { background: #2d2d2d; }
+    th { background: #2d2d2d; }
+    th, td { border-color: #444; }
+    blockquote { border-color: #555; color: #aaa; }
+    h1, h2 { border-color: #444; }
+    a { color: #4da3ff; }
+    .back-to-top a { color: #999; }
+}
+/* In-app overrides */
+body { margin-top: 0 !important; padding-top: 8px !important; }
+body > *:first-child { margin-top: 0 !important; }
+.back-nav { margin-bottom: 0.5em; }
+.back-nav a { color: #0066cc; text-decoration: none; font-size: 0.95em; }
+@media (prefers-color-scheme: dark) {
+    .back-nav a { color: #4da3ff; }
+}
+</style>
+</head>
+<body>
+<p class="back-nav"><a href="guide:00-toc">← Contents</a></p>
+<a id="81-drama-mode-overview"></a>
+
+<h1 id="drama-mode-overview">Drama Mode Overview</h1>
+
+<p>Drama projects in Writing Shed Pro provide specialized tools for playwrights and screenwriters. This overview explains the features available for writing scripts.</p>
+
+<h2 id="what-makes-drama-mode-special">What Makes Drama Mode Special</h2>
+
+<p>Drama mode understands script writing needs:</p>
+<ul>
+<li><strong>Dialogue formatting</strong>: Character names, dialogue, and directions</li>
+<li><strong>Industry formats</strong>: Film/screenplay and stage play styles</li>
+<li><strong>DML markup</strong>: Easy-to-write source that renders professionally</li>
+<li><strong>Scene structure</strong>: Organize your script logically</li>
+</ul>
+
+<h2 id="creating-a-drama-project">Creating a Drama Project</h2>
+
+<li>From the project list, tap <strong>+</strong></li>
+<li>Enter a project name</li>
+<li>Select <strong>Drama</strong> as the project type</li>
+<li>Optionally select a story structure</li>
+<li>Tap <strong>Create</strong></li>
+
+<h2 id="drama-project-structure">Drama Project Structure</h2>
+
+<pre><code>Project
+<p>├── Draft (scenes in progress)</p>
+<p>├── Ready (polished scenes)</p>
+<p>├── Chapters (Acts)</p>
+<p>├── Plot Elements</p>
+<p>├── Characters</p>
+<p>├── Locations</p>
+<p>├── Set Aside</p>
+<p>└── Trash</p>
+</code></pre>
+
+<p>Drama projects share structure with Fiction (Novel) projects, as scripts have similar organizational needs.</p>
+
+<h2 id="script-format-options">Script Format Options</h2>
+
+<p>Choose how your script is rendered:</p>
+
+<h3 id="filmscreenplay-format">Film/Screenplay Format</h3>
+<p>Industry-standard screenplay format:</p>
+<ul>
+<li>INT./EXT. scene headings</li>
+<li>Centered character names</li>
+<li>Dialogue with specific margins</li>
+<li>Right-aligned transitions</li>
+</ul>
+
+<h3 id="stage-play-format">Stage Play Format</h3>
+<p>Traditional theatrical format:</p>
+<ul>
+<li>ACT/Scene headings</li>
+<li>Character names in caps</li>
+<li>Italicized stage directions</li>
+<li>Different margin conventions</li>
+</ul>
+
+<h3 id="changing-format">Changing Format</h3>
+<li>Open Project Settings</li>
+<li>Select <strong>Script Format</strong></li>
+<li>Choose Film or Stage</li>
+<li>Your DML source renders in the new format</li>
+
+<p>The same source works for both—only the output changes.</p>
+
+<h2 id="drama-markup-language-dml">Drama Markup Language (DML)</h2>
+
+<p>DML is a simple markup that lets you write dialogue naturally:</p>
+
+<h3 id="basic-example">Basic Example</h3>
+<pre><code># ACT I, Scene 1
+<p>@ LOCATION: Living Room</p>
+<p>= Night, raining</p>
+
+<p>&gt; A modest living room. JOHN stands by the window.</p>
+
+<p>JOHN</p>
+<p>(hesitantly)</p>
+<p>I don't think we should go.</p>
+
+<p>MARY</p>
+<p>We don't have a choice.</p>
+</code></pre>
+
+<p>This renders as professional script format based on your settings.</p>
+
+<p>See <a href="guide:84-dml-reference">DML Reference</a> for complete syntax.</p>
+
+<h2 id="core-concepts">Core Concepts</h2>
+
+<h3 id="scenes">Scenes</h3>
+<p>Like fiction, drama is built from scenes:</p>
+<ul>
+<li>Each scene file contains DML content</li>
+<li>Scenes are organized into acts (chapters)</li>
+<li>Preview shows formatted output</li>
+</ul>
+
+<h3 id="acts">Acts</h3>
+<p>The equivalent of chapters:</p>
+<ul>
+<li>Group related scenes</li>
+<li>Organize your script structure</li>
+<li>Traditional theatrical divisions</li>
+</ul>
+
+<h3 id="characters">Characters</h3>
+<p>Define your dramatis personae:</p>
+<ul>
+<li>Character names</li>
+<li>Descriptions</li>
+<li>Relationships</li>
+<li>Notes</li>
+</ul>
+
+<h3 id="locations">Locations</h3>
+<p>Your settings and places:</p>
+<ul>
+<li>Location names</li>
+<li>Descriptions</li>
+<li>Practical notes for production</li>
+</ul>
+
+<h2 id="drama-workflow">Drama Workflow</h2>
+
+<h3 id="1-create-characters-and-locations">1. Create Characters and Locations</h3>
+<p>Before writing, define:</p>
+<ul>
+<li>Your main characters</li>
+<li>Key locations</li>
+<li>This helps with consistency</li>
+</ul>
+
+<h3 id="2-write-scenes">2. Write Scenes</h3>
+<ul>
+<li>Use DML markup</li>
+<li>Focus on dialogue and action</li>
+<li>Let formatting happen automatically</li>
+</ul>
+
+<h3 id="3-organize">3. Organize</h3>
+<ul>
+<li>Group scenes into acts</li>
+<li>Arrange in performance order</li>
+<li>Review the full script</li>
+</ul>
+
+<h3 id="4-export">4. Export</h3>
+<ul>
+<li>Choose film or stage format</li>
+<li>Generate PDF or print</li>
+<li>Share your script</li>
+</ul>
+
+<h2 id="live-preview">Live Preview</h2>
+
+<p>As you write in DML:</p>
+<ul>
+<li>Preview shows formatted output</li>
+<li>See how dialogue will look</li>
+<li>Check scene headings and transitions</li>
+</ul>
+
+<p>Toggle between:</p>
+<ul>
+<li>Source view (DML markup)</li>
+<li>Preview (formatted script)</li>
+</ul>
+
+<h2 id="differences-from-fiction">Differences from Fiction</h2>
+
+<table>
+<tr><th>Aspect</th><th>Fiction</th><th>Drama</th></tr>
+<tr><td>Content</td><td>Prose narrative</td><td>Dialogue and directions</td></tr>
+<tr><td>Markup</td><td>Standard text</td><td>DML formatting</td></tr>
+<tr><td>Output</td><td>Manuscript</td><td>Script format</td></tr>
+<tr><td>Chapters</td><td>Reader divisions</td><td>Acts (performance divisions)</td></tr>
+</table>
+
+<h2 id="getting-started-tips">Getting Started Tips</h2>
+
+<h3 id="learn-dml-basics">Learn DML Basics</h3>
+<p>Start with simple scenes:</p>
+<ul>
+<li>Scene heading</li>
+<li>A few characters</li>
+<li>Basic dialogue</li>
+</ul>
+
+<h3 id="study-script-format">Study Script Format</h3>
+<p>Read professional scripts to understand:</p>
+<ul>
+<li>How dialogue is spaced</li>
+<li>When to use parentheticals</li>
+<li>How to write action lines</li>
+</ul>
+
+<h3 id="use-both-formats">Use Both Formats</h3>
+<p>Try rendering in both film and stage:</p>
+<ul>
+<li>See how the same content adapts</li>
+<li>Understand the differences</li>
+<li>Choose appropriately for your target</li>
+</ul>
+
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="guide:82-script-formatting">Script Formatting</a></li>
+<li><a href="guide:83-film-vs-stage-formats">Film vs Stage Formats</a></li>
+<li><a href="guide:84-dml-reference">DML Reference</a></li>
+</ul>
+
+
+<hr>
+</body>
+</html>

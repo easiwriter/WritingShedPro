@@ -202,7 +202,7 @@ struct PlotOutlineView: View {
         VStack(spacing: 16) {
             // FR-5.2: Plot Elements tip
             TipView(PlotElementsTip()) { action in
-                TipActionHandler.handle(action, guideSection: PlotElementsTip.guideSection, modelContext: modelContext)
+                TipActionHandler.handle(action, guideSection: PlotElementsTip.guideSection)
             }
             .padding(.horizontal)
             

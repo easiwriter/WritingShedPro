@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Writing Shed Pro Guide</title>
+    <style>body { 
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 20px;
+    line-height: 1.6;
+    color: #333;
+}
+h1, h2, h3, h4, h5, h6 { margin-top: 1.5em; margin-bottom: 0.5em; }
+h1 { font-size: 2em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+pre { background: #f4f4f4; padding: 16px; border-radius: 6px; overflow-x: auto; }
+pre code { background: none; padding: 0; }
+blockquote { border-left: 4px solid #ddd; margin-left: 0; padding-left: 16px; color: #666; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+th { background: #f4f4f4; font-weight: bold; }
+ul, ol { padding-left: 2em; }
+a { color: #0066cc; }
+hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
+/* Back to Contents link */
+.back-to-top {
+    text-align: right;
+    font-size: 0.9em;
+    margin: 1.5em 0 0.5em 0;
+}
+.back-to-top a {
+    color: #666;
+    text-decoration: none;
+}
+.back-to-top a:hover {
+    color: #0066cc;
+    text-decoration: underline;
+}
+@media (prefers-color-scheme: dark) {
+    body { background: #1a1a1a; color: #e0e0e0; }
+    code, pre { background: #2d2d2d; }
+    th { background: #2d2d2d; }
+    th, td { border-color: #444; }
+    blockquote { border-color: #555; color: #aaa; }
+    h1, h2 { border-color: #444; }
+    a { color: #4da3ff; }
+    .back-to-top a { color: #999; }
+}
+/* In-app overrides */
+body { margin-top: 0 !important; padding-top: 8px !important; }
+body > *:first-child { margin-top: 0 !important; }
+.back-nav { margin-bottom: 0.5em; }
+.back-nav a { color: #0066cc; text-decoration: none; font-size: 0.95em; }
+@media (prefers-color-scheme: dark) {
+    .back-nav a { color: #4da3ff; }
+}
+</style>
+</head>
+<body>
+<p class="back-nav"><a href="guide:00-toc">← Contents</a></p>
+<a id="23-the-interface-tour"></a>
+
+<h1 id="the-interface-tour">The Interface Tour</h1>
+
+<p>This guide walks you through Writing Shed Pro's interface, helping you understand where everything is and how to navigate efficiently.</p>
+
+<h2 id="main-screen-project-list">Main Screen: Project List</h2>
+
+<p>When you launch Writing Shed Pro, you see the <strong>Project List</strong>. This is your home base.</p>
+
+<h3 id="project-list-elements">Project List Elements</h3>
+<ul>
+<li><strong>Navigation Bar</strong>: Shows "Projects" title and action buttons</li>
+<li><strong>Add Button (+)</strong>: Create new projects</li>
+<li><strong>Sort Button</strong>: Change project ordering</li>
+<li><strong>Project Cards</strong>: Each project shows its name, type, and last modified date</li>
+</ul>
+
+<h3 id="project-actions">Project Actions</h3>
+<ul>
+<li><strong>Tap</strong> a project to open it</li>
+<li><strong>Swipe left</strong> to delete</li>
+<li><strong>Long-press</strong> for more options (rename, duplicate, details)</li>
+</ul>
+
+<h2 id="inside-a-project">Inside a Project</h2>
+
+<p>Tapping a project opens its folder structure. The layout adapts to your device:</p>
+
+<h3 id="iphone-layout">iPhone Layout</h3>
+<ul>
+<li><strong>Single-column navigation</strong>: Tap folders to drill down</li>
+<li><strong>Back button</strong>: Return to previous level</li>
+<li><strong>Long-press back button</strong>: Jump directly to the project root</li>
+</ul>
+
+<h3 id="ipad-and-mac-layout">iPad and Mac Layout</h3>
+<ul>
+<li><strong>Sidebar</strong>: Shows folder hierarchy</li>
+<li><strong>Content area</strong>: Shows selected folder's contents or file editor</li>
+<li><strong>Optional inspector</strong>: Shows details about selected items</li>
+</ul>
+
+<h2 id="the-toolbar">The Toolbar</h2>
+
+<p>The toolbar appears at the top of most screens and provides context-specific actions.</p>
+
+<h3 id="project-view-toolbar">Project View Toolbar</h3>
+<ul>
+<li><strong>Back arrow</strong>: Return to project list</li>
+<li><strong>Project name</strong>: Tap to edit</li>
+<li><strong>Gear icon</strong>: Project settings</li>
+<li><strong>Question mark</strong>: Open user guide</li>
+</ul>
+
+<h3 id="folder-view-toolbar">Folder View Toolbar</h3>
+<ul>
+<li><strong>Back arrow</strong>: Return to parent folder</li>
+<li><strong>Folder name</strong>: Current location</li>
+<li><strong>Add (+)</strong>: Create files or subfolders</li>
+<li><strong>Edit</strong>: Enter edit mode for reordering and deletion</li>
+<li><strong>Sort</strong>: Change sort order</li>
+</ul>
+
+<h3 id="file-editor-toolbar">File Editor Toolbar</h3>
+<ul>
+<li><strong>Back arrow</strong>: Return to folder</li>
+<li><strong>File name</strong>: Tap to rename</li>
+<li><strong>Formatting toolbar</strong>: Text styling options</li>
+<li><strong>More (...)</strong>: Additional actions</li>
+</ul>
+
+<h2 id="the-formatting-toolbar">The Formatting Toolbar</h2>
+
+<p>When editing text, a formatting toolbar appears above the keyboard:</p>
+
+<table>
+<tr><th>Button</th><th>Function</th></tr>
+<tr><td><strong>¶</strong></td><td>Paragraph style picker (Body, Heading 1-3, etc.)</td></tr>
+<tr><td><strong>B</strong></td><td>Bold</td></tr>
+<tr><td><em>I</em></td><td>Italic</td></tr>
+<tr><td><strong>U</strong></td><td>Underline</td></tr>
+<tr><td><strong>S̶</strong></td><td>Strikethrough</td></tr>
+<tr><td><strong>⊕</strong></td><td>Insert menu (images, footnotes, comments)</td></tr>
+</table>
+
+<h3 id="paragraph-style-picker">Paragraph Style Picker</h3>
+<p>Tap <strong>¶</strong> to see available paragraph styles:</p>
+<ul>
+<li>Body (default text)</li>
+<li>Heading 1, 2, 3</li>
+<li>Subheadline</li>
+<li>Caption</li>
+<li>Footnote</li>
+<li>And more...</li>
+</ul>
+
+<p>Tap a style to apply it to the current paragraph.</p>
+
+<h3 id="insert-menu">Insert Menu</h3>
+<p>Tap <strong>⊕</strong> to insert:</p>
+<ul>
+<li><strong>Image</strong>: Add a photo or illustration</li>
+<li><strong>Footnote</strong>: Create a numbered footnote</li>
+<li><strong>Comment</strong>: Add a revision note</li>
+</ul>
+
+<h2 id="the-text-selection-menu">The Text Selection Menu</h2>
+
+<p>When you select text by double-tapping or dragging, a menu appears:</p>
+
+<ul>
+<li><strong>Cut</strong>: Remove and copy to clipboard</li>
+<li><strong>Copy</strong>: Copy to clipboard</li>
+<li><strong>Paste</strong>: Insert from clipboard</li>
+<li><strong>Select All</strong>: Select entire document</li>
+<li><strong>Look Up</strong>: Dictionary and web search</li>
+<li><strong>Translate</strong>: Apple's translation</li>
+<li><strong>Edit Style</strong>: Open the style editor</li>
+</ul>
+
+<h2 id="specialized-views">Specialized Views</h2>
+
+<h3 id="poetry-projects">Poetry Projects</h3>
+<ul>
+<li><strong>Form Reference Panel</strong>: Shows the rules for your selected poetry form</li>
+<li><strong>Metrics Display</strong>: Syllable counts and stress patterns per line</li>
+</ul>
+
+<h3 id="fiction-projects">Fiction Projects</h3>
+<ul>
+<li><strong>Plot Outline</strong>: Visual timeline of plot elements</li>
+<li><strong>Scene Detail</strong>: Edit scene content and metadata</li>
+<li><strong>Character/Location Lists</strong>: Manage story elements</li>
+</ul>
+
+<h3 id="drama-projects">Drama Projects</h3>
+<ul>
+<li><strong>DML Editor</strong>: Write scripts in Drama Markup Language</li>
+<li><strong>Preview Mode</strong>: See formatted output (film or stage format)</li>
+</ul>
+
+<h2 id="navigation-shortcuts">Navigation Shortcuts</h2>
+
+<h3 id="long-press-back-button">Long-Press Back Button</h3>
+<p>From any nested view, long-press the back button to see the navigation stack. Tap any level to jump directly there, or hold to return to the project root.</p>
+
+<h3 id="keyboard-shortcuts-mac-and-ipad-with-keyboard">Keyboard Shortcuts (Mac and iPad with keyboard)</h3>
+<ul>
+<li><strong>⌘N</strong>: New file</li>
+<li><strong>⌘F</strong>: Find in file</li>
+<li><strong>⌘G</strong>: Find next</li>
+<li><strong>⌘⇧G</strong>: Find previous</li>
+<li><strong>⌘B</strong>: Bold</li>
+<li><strong>⌘I</strong>: Italic</li>
+<li><strong>⌘U</strong>: Underline</li>
+</ul>
+
+<p>See <a href="guide:111-keyboard-shortcut-list">Keyboard Shortcuts</a> for the complete list.</p>
+
+<h2 id="customizing-the-interface">Customizing the Interface</h2>
+
+<h3 id="appearance">Appearance</h3>
+<p>Writing Shed Pro follows your system's appearance settings:</p>
+<ul>
+<li>Light mode</li>
+<li>Dark mode</li>
+<li>Automatic (follows system)</li>
+</ul>
+
+<h3 id="text-size">Text Size</h3>
+<p>Text in the editor respects your system's Dynamic Type settings. Increase system text size in Settings → Accessibility → Display & Text Size for larger editor text.</p>
+
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="guide:41-the-editor">The Editor</a></li>
+<li><a href="guide:111-keyboard-shortcut-list">Keyboard Shortcuts</a></li>
+<li><a href="guide:22-creating-your-first-project">Creating Your First Project</a></li>
+</ul>
+
+
+<hr>
+</body>
+</html>

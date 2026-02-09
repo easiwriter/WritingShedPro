@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Writing Shed Pro Guide</title>
+    <style>body { 
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 20px;
+    line-height: 1.6;
+    color: #333;
+}
+h1, h2, h3, h4, h5, h6 { margin-top: 1.5em; margin-bottom: 0.5em; }
+h1 { font-size: 2em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+pre { background: #f4f4f4; padding: 16px; border-radius: 6px; overflow-x: auto; }
+pre code { background: none; padding: 0; }
+blockquote { border-left: 4px solid #ddd; margin-left: 0; padding-left: 16px; color: #666; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+th { background: #f4f4f4; font-weight: bold; }
+ul, ol { padding-left: 2em; }
+a { color: #0066cc; }
+hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
+/* Back to Contents link */
+.back-to-top {
+    text-align: right;
+    font-size: 0.9em;
+    margin: 1.5em 0 0.5em 0;
+}
+.back-to-top a {
+    color: #666;
+    text-decoration: none;
+}
+.back-to-top a:hover {
+    color: #0066cc;
+    text-decoration: underline;
+}
+@media (prefers-color-scheme: dark) {
+    body { background: #1a1a1a; color: #e0e0e0; }
+    code, pre { background: #2d2d2d; }
+    th { background: #2d2d2d; }
+    th, td { border-color: #444; }
+    blockquote { border-color: #555; color: #aaa; }
+    h1, h2 { border-color: #444; }
+    a { color: #4da3ff; }
+    .back-to-top a { color: #999; }
+}
+/* In-app overrides */
+body { margin-top: 0 !important; padding-top: 8px !important; }
+body > *:first-child { margin-top: 0 !important; }
+.back-nav { margin-bottom: 0.5em; }
+.back-nav a { color: #0066cc; text-decoration: none; font-size: 0.95em; }
+@media (prefers-color-scheme: dark) {
+    .back-nav a { color: #4da3ff; }
+}
+</style>
+</head>
+<body>
+<p class="back-nav"><a href="guide:00-toc">← Contents</a></p>
+<a id="42-text-formatting"></a>
+
+<h1 id="text-formatting">Text Formatting</h1>
+
+<p>Writing Shed Pro provides rich text formatting to make your documents look professional. This guide covers all the formatting options available.</p>
+
+<h2 id="character-formatting">Character Formatting</h2>
+
+<p>Character formatting applies to individual words or characters within a paragraph.</p>
+
+<h3 id="bold">Bold</h3>
+<p>Make text <strong>bold</strong> to add emphasis.</p>
+<ul>
+<li>Select text, tap <strong>B</strong> in the toolbar</li>
+<li>Keyboard: ⌘B</li>
+</ul>
+
+<h3 id="italic">Italic</h3>
+<p>Make text <em>italic</em> for titles, foreign words, or subtle emphasis.</p>
+<ul>
+<li>Select text, tap <em>I</em> in the toolbar</li>
+<li>Keyboard: ⌘I</li>
+</ul>
+
+<h3 id="underline">Underline</h3>
+<u>Underline</u> text when needed (use sparingly).
+<ul>
+<li>Select text, tap <strong>U</strong> in the toolbar</li>
+<li>Keyboard: ⌘U</li>
+</ul>
+
+<h3 id="strikethrough">Strikethrough</h3>
+<p>Show ~~deleted~~ or removed text.</p>
+<ul>
+<li>Select text, tap <strong>S̶</strong> in the toolbar</li>
+</ul>
+
+<h3 id="combining-formats">Combining Formats</h3>
+<p>You can combine formats:</p>
+<ul>
+<li><strong><em>Bold italic</em></strong></li>
+<li><strong>Bold with ~~strikethrough~~</strong></li>
+<li>Any combination you need</li>
+</ul>
+
+<h2 id="paragraph-formatting">Paragraph Formatting</h2>
+
+<p>Paragraph formatting applies to entire paragraphs. Tap the <strong>¶</strong> button to see paragraph styles.</p>
+
+<h3 id="available-paragraph-styles">Available Paragraph Styles</h3>
+
+<table>
+<tr><th>Style</th><th>Use For</th></tr>
+<tr><td><strong>Body</strong></td><td>Regular text (default)</td></tr>
+<tr><td><strong>Heading 1</strong></td><td>Main chapter or section titles</td></tr>
+<tr><td><strong>Heading 2</strong></td><td>Subsection titles</td></tr>
+<tr><td><strong>Heading 3</strong></td><td>Sub-subsection titles</td></tr>
+<tr><td><strong>Subheadline</strong></td><td>Secondary titles or leads</td></tr>
+<tr><td><strong>Caption</strong></td><td>Image captions, small notes</td></tr>
+<tr><td><strong>Footnote</strong></td><td>Footnote text (automatic)</td></tr>
+<tr><td><strong>Large Title</strong></td><td>Very prominent titles</td></tr>
+</table>
+
+<h3 id="applying-paragraph-styles">Applying Paragraph Styles</h3>
+<li>Place cursor in the paragraph</li>
+<li>Tap the <strong>¶</strong> button</li>
+<li>Select the desired style</li>
+<li>The entire paragraph updates</li>
+
+<h3 id="custom-styles">Custom Styles</h3>
+<p>You can create and modify styles in the Stylesheet Editor. See <a href="guide:102-stylesheet-editor">Stylesheet Editor</a>.</p>
+
+<h2 id="text-alignment">Text Alignment</h2>
+
+<p>Control how text aligns within the paragraph:</p>
+
+<table>
+<tr><th>Alignment</th><th>Description</th></tr>
+<tr><td><strong>Left</strong></td><td>Text aligns to left margin (default)</td></tr>
+<tr><td><strong>Center</strong></td><td>Text centers between margins</td></tr>
+<tr><td><strong>Right</strong></td><td>Text aligns to right margin</td></tr>
+<tr><td><strong>Justify</strong></td><td>Text stretches to fill line</td></tr>
+</table>
+
+<h3 id="setting-alignment">Setting Alignment</h3>
+<li>Tap in a paragraph</li>
+<li>Open the style editor (via Edit Style)</li>
+<li>Choose the alignment option</li>
+<li>Or: Create a style with the desired alignment</li>
+
+<h2 id="indentation">Indentation</h2>
+
+<p>Control paragraph indentation:</p>
+
+<h3 id="first-line-indent">First Line Indent</h3>
+<p>The first line of a paragraph can be indented. Common in fiction:</p>
+<ul>
+<li>Set in paragraph style</li>
+<li>Typically 0.5 inches or 12 points</li>
+</ul>
+
+<h3 id="block-indent">Block Indent</h3>
+<p>Indent the entire paragraph from left and/or right margins:</p>
+<ul>
+<li>Used for block quotes</li>
+<li>Set in paragraph style</li>
+</ul>
+
+<h2 id="line-and-paragraph-spacing">Line and Paragraph Spacing</h2>
+
+<h3 id="line-spacing">Line Spacing</h3>
+<p>Space between lines within a paragraph:</p>
+<ul>
+<li>Single spacing (1.0)</li>
+<li>1.5 spacing</li>
+<li>Double spacing (2.0)</li>
+<li>Custom values</li>
+</ul>
+
+<h3 id="paragraph-spacing">Paragraph Spacing</h3>
+<p>Space before and after paragraphs:</p>
+<ul>
+<li>Space Before: Gap above the paragraph</li>
+<li>Space After: Gap below the paragraph</li>
+</ul>
+
+<p>These are set in paragraph styles.</p>
+
+<h2 id="text-color">Text Color</h2>
+
+<p>Change text color for emphasis or special purposes:</p>
+
+<li>Select text</li>
+<li>Open Edit Style (from selection menu)</li>
+<li>Choose Text Color</li>
+<li>Select from the color picker</li>
+
+<strong>Note</strong>: Use color sparingly in most writing. It may not export to all formats.
+
+<h2 id="lists">Lists</h2>
+
+<p>Create bulleted or numbered lists to organize information clearly.</p>
+
+<h3 id="creating-lists">Creating Lists</h3>
+
+<p>To start a list:</p>
+<li>Place your cursor on a blank line</li>
+<li>Tap the <strong>¶</strong> (paragraph style) button in the toolbar</li>
+<li>Select <strong>Numbered List</strong> or <strong>Bullet List</strong></li>
+
+<p>The list marker (number or bullet) appears automatically. Each time you press Return, a new list item is created with the next number or bullet.</p>
+
+<h3 id="bulleted-lists">Bulleted Lists</h3>
+<ul>
+<li>Item one</li>
+<li>Item two  </li>
+<li>Item three</li>
+</ul>
+
+<p>Use bullets for unordered items where sequence doesn't matter.</p>
+
+<h3 id="numbered-lists">Numbered Lists</h3>
+<li>First item</li>
+<li>Second item</li>
+<li>Third item</li>
+
+<p>Use numbers when order or sequence is important. Numbers update automatically as you add, remove, or reorder items.</p>
+
+<h3 id="nested-lists-multi-level-lists">Nested Lists (Multi-Level Lists)</h3>
+
+<p>Create sub-lists to organize hierarchical information. Sub-lists can be indented up to three levels deep.</p>
+
+<h4 id="creating-sub-lists">Creating Sub-Lists</h4>
+
+<strong>Using the Toolbar (iPhone/iPad):</strong>
+<li>Place cursor in a list item</li>
+<table>
+<tr><th><li>Tap the <strong>Increase Indent</strong> button (→</th><th>) to create a sub-list</li></th></tr>
+<tr><th><li>Tap the <strong>Decrease Indent</strong> button (</th><th>←) to promote an item back up</li></th></tr>
+</table>
+
+<strong>Using Keyboard Shortcuts (External Keyboard):</strong>
+<ul>
+<li>Press <strong>Tab</strong> to increase indent level (create sub-list)</li>
+<li>Press <strong>Shift+Tab</strong> to decrease indent level (promote item)</li>
+</ul>
+
+<h4 id="how-numbering-works">How Numbering Works</h4>
+
+<p>Each sub-list level uses a different numbering style:</p>
+
+<table>
+<tr><th>Level</th><th>Numbered Style</th><th>Bullet Style</th></tr>
+<tr><td>1</td><td>1. 2. 3.</td><td>• (bullet)</td></tr>
+<tr><td>2</td><td>a. b. c.</td><td>◦ (circle)</td></tr>
+<tr><td>3</td><td>i. ii. iii.</td><td>▪ (square)</td></tr>
+</table>
+
+<strong>Important</strong>: Sub-list numbering restarts when you return to a higher level. For example:
+
+<pre><code>1. First main item
+<p>   a. Sub-item under first</p>
+<p>   b. Another sub-item</p>
+<p>2. Second main item</p>
+<p>   a. Sub-item starts at 'a' again</p>
+<p>   b. Because we're under a new parent</p>
+</code></pre>
+
+<h4 id="example-multi-level-list">Example Multi-Level List</h4>
+
+<pre><code>1. Planning Phase
+<p>   a. Define objectives</p>
+<p>   b. Identify stakeholders</p>
+<p>      i. Internal team</p>
+<p>      ii. External clients</p>
+<p>   c. Set timeline</p>
+<p>2. Execution Phase</p>
+<p>   a. Assign tasks</p>
+<p>   b. Monitor progress</p>
+</code></pre>
+
+<h3 id="exiting-a-list">Exiting a List</h3>
+
+<p>To stop the list and return to normal body text:</p>
+
+<strong>Method 1 - Decrease Indent:</strong>
+<ul>
+<li>When at Level 1, press <strong>Shift+Tab</strong> (or tap Decrease Indent)</li>
+<li>This applies the Body style</li>
+</ul>
+
+<strong>Method 2 - Change Style:</strong>
+<ul>
+<li>Tap the <strong>¶</strong> button</li>
+<li>Select <strong>Body</strong> or another non-list style</li>
+</ul>
+
+<strong>Method 3 - Empty Line:</strong>
+<ul>
+<li>Press <strong>Return</strong> twice on an empty list item</li>
+<li>The second Return may exit the list (behavior varies)</li>
+</ul>
+
+<h3 id="list-tips">List Tips</h3>
+
+<ul>
+<li><strong>Start typing immediately</strong> after the list marker appears</li>
+<li><strong>Empty lines</strong> within lists may cause numbering to restart</li>
+<li><strong>Undo</strong> (⌘Z) works if you accidentally change indent levels</li>
+<li><strong>Copy/paste</strong> list items preserves their formatting</li>
+</ul>
+
+<h2 id="block-quotes">Block Quotes</h2>
+
+<p>Format quotations as block quotes:</p>
+<ul>
+<li>Apply the Block Quote style</li>
+<li>Text is indented from both margins</li>
+<li>May have different font or styling</li>
+</ul>
+
+<h2 id="formatting-tips">Formatting Tips</h2>
+
+<h3 id="consistency-is-key">Consistency is Key</h3>
+<p>Use paragraph styles consistently. If all your chapter headings use "Heading 1," you can change their appearance globally by editing the style.</p>
+
+<h3 id="less-is-more">Less is More</h3>
+<p>Resist over-formatting. Clean, simple formatting often reads better than heavily styled text.</p>
+
+<h3 id="format-last">Format Last</h3>
+<p>Write first, format later. Getting your ideas down is more important than how they look initially.</p>
+
+<h3 id="think-about-export">Think About Export</h3>
+<p>Consider how your formatting will appear in exported formats:</p>
+<ul>
+<li>PDF preserves most formatting</li>
+<li>RTF may simplify some features</li>
+<li>Plain text removes all formatting</li>
+</ul>
+
+<h2 id="clearing-formatting">Clearing Formatting</h2>
+
+<p>To remove character formatting:</p>
+<li>Select the formatted text</li>
+<li>Remove individual formats (⌘B to toggle off bold, etc.)</li>
+
+<p>To reset to default style:</p>
+<li>Select the paragraph</li>
+<li>Apply the Body style</li>
+
+<h2 id="accessibility-considerations">Accessibility Considerations</h2>
+
+<p>When formatting:</p>
+<ul>
+<li>Don't rely on color alone to convey meaning</li>
+<li>Use heading styles properly (they help screen readers)</li>
+<li>Ensure sufficient contrast</li>
+<li>Keep text readable (not too small)</li>
+</ul>
+
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="guide:43-headings-and-styles">Headings and Styles</a></li>
+<li><a href="guide:102-stylesheet-editor">Stylesheet Editor</a></li>
+<li><a href="guide:41-the-editor">The Editor</a></li>
+</ul>
+
+
+<hr>
+</body>
+</html>

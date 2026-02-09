@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import TipKit
 
 struct ContentViewToolbar: ToolbarContent {
     var state: ContentViewState
@@ -24,6 +25,9 @@ struct ContentViewToolbar: ToolbarContent {
                 state.showSettings = true
             } label: {
                 Image(systemName: "gearshape")
+                    .popoverTip(SettingsTip()) { action in
+                        TipActionHandler.handle(action, guideSection: SettingsTip.guideSection)
+                    }
             }
             .accessibilityLabel("Settings")
         }
@@ -32,7 +36,9 @@ struct ContentViewToolbar: ToolbarContent {
         ToolbarItem(placement: .navigationBarTrailing) {
             HStack(spacing: 16) {
                 // Help button - opens HTML manual
-                Button(action: { state.showHTMLManual = true }) {
+                Button(action: {
+                    state.showHTMLManual = true
+                }) {
                     Image(systemName: "questionmark.circle")
                 }
                 .accessibilityLabel("Help")
@@ -47,6 +53,9 @@ struct ContentViewToolbar: ToolbarContent {
                 
                 Button(action: { state.showAddProject = true }) {
                     Label(NSLocalizedString("contentView.addProject", comment: "Button to add new project"), systemImage: "plus")
+                        .popoverTip(CreateProjectTip()) { action in
+                            TipActionHandler.handle(action, guideSection: CreateProjectTip.guideSection)
+                        }
                 }
                 .accessibilityLabel(NSLocalizedString("contentView.addProjectAccessibility", comment: "Accessibility label for add project button"))
                 .disabled(state.editMode == .active)

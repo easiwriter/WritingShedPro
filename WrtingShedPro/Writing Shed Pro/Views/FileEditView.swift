@@ -1435,7 +1435,7 @@ struct FileEditView: View {
                 // FR-3.1: Formatting Toolbar tip (shown above toolbar on first open)
                 if isFileEditable && !isDisplayingAsMarkdown {
                     TipView(formattingToolbarTip) { action in
-                        TipActionHandler.handle(action, guideSection: FormattingToolbarTip.guideSection, modelContext: modelContext)
+                        TipActionHandler.handle(action, guideSection: FormattingToolbarTip.guideSection)
                     }
                     .padding(.horizontal)
                 }

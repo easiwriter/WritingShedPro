@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Writing Shed Pro Guide</title>
+    <style>body { 
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 20px;
+    line-height: 1.6;
+    color: #333;
+}
+h1, h2, h3, h4, h5, h6 { margin-top: 1.5em; margin-bottom: 0.5em; }
+h1 { font-size: 2em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+pre { background: #f4f4f4; padding: 16px; border-radius: 6px; overflow-x: auto; }
+pre code { background: none; padding: 0; }
+blockquote { border-left: 4px solid #ddd; margin-left: 0; padding-left: 16px; color: #666; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+th { background: #f4f4f4; font-weight: bold; }
+ul, ol { padding-left: 2em; }
+a { color: #0066cc; }
+hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
+/* Back to Contents link */
+.back-to-top {
+    text-align: right;
+    font-size: 0.9em;
+    margin: 1.5em 0 0.5em 0;
+}
+.back-to-top a {
+    color: #666;
+    text-decoration: none;
+}
+.back-to-top a:hover {
+    color: #0066cc;
+    text-decoration: underline;
+}
+@media (prefers-color-scheme: dark) {
+    body { background: #1a1a1a; color: #e0e0e0; }
+    code, pre { background: #2d2d2d; }
+    th { background: #2d2d2d; }
+    th, td { border-color: #444; }
+    blockquote { border-color: #555; color: #aaa; }
+    h1, h2 { border-color: #444; }
+    a { color: #4da3ff; }
+    .back-to-top a { color: #999; }
+}
+/* In-app overrides */
+body { margin-top: 0 !important; padding-top: 8px !important; }
+body > *:first-child { margin-top: 0 !important; }
+.back-nav { margin-bottom: 0.5em; }
+.back-nav a { color: #0066cc; text-decoration: none; font-size: 0.95em; }
+@media (prefers-color-scheme: dark) {
+    .back-nav a { color: #4da3ff; }
+}
+</style>
+</head>
+<body>
+<p class="back-nav"><a href="guide:00-toc">← Contents</a></p>
+<a id="108-index-generation"></a>
+
+<h1 id="index-generation">Index Generation</h1>
+
+<p>The Index feature in Writing Shed Pro allows you to create professional book indexes that automatically calculate page numbers based on your manuscript pagination.</p>
+
+<h2 id="overview">Overview</h2>
+
+<p>An index is an alphabetical list of terms with page numbers showing where each term appears in your document. Writing Shed Pro's index system supports:</p>
+
+<ul>
+<li><strong>Invisible markers</strong> - Index markers don't clutter your text</li>
+<li><strong>Hierarchical entries</strong> - Up to 3 levels of sub-entries</li>
+<li><strong>Cross-references</strong> - "See" and "See also" references</li>
+<li><strong>Primary references</strong> - Bold page numbers for main discussions</li>
+<li><strong>Automatic page ranges</strong> - Consecutive pages shown as "45–47"</li>
+<li><strong>Find Occurrences</strong> - Search and mark multiple mentions of a term</li>
+</ul>
+
+<h2 id="creating-index-entries">Creating Index Entries</h2>
+
+<p>When Index is enabled in your Back Matter settings, an index button (!<a href="#listbulletindent">index icon</a>) appears in the formatting toolbar.</p>
+
+<h3 id="from-selected-text">From Selected Text</h3>
+
+<li>Select the word or phrase you want to index</li>
+<li>Tap the <strong>Index</strong> button in the formatting toolbar, or press <strong>⇧⌘X</strong></li>
+<li>In the dialog:</li>
+<p>   - The keyword is pre-filled from your selection</p>
+<p>   - Optionally choose a parent entry for hierarchical indexing</p>
+<p>   - Toggle <strong>Primary Reference</strong> if this is a main discussion of the topic</p>
+<li>Click <strong>Save</strong></li>
+
+<p>An invisible marker is inserted at the cursor position. The marker won't affect your document's appearance.</p>
+
+<h3 id="without-selection">Without Selection</h3>
+
+<li>Place your cursor where you want the index reference</li>
+<li>Tap the <strong>Index</strong> button in the toolbar, or press <strong>⇧⌘X</strong></li>
+<li>Type the keyword</li>
+<li>Configure options and click <strong>Save</strong></li>
+
+<h2 id="viewing-the-index">Viewing the Index</h2>
+
+<p>Navigate to your project's <strong>Back Matter</strong> folder and tap the <strong>Index</strong> file. This displays a live preview of your index with:</p>
+
+<ul>
+<li>Entries grouped alphabetically by first letter</li>
+<li>Hierarchical display with sub-entries indented</li>
+<li>Real page numbers calculated from your manuscript's pagination</li>
+<li>Cross-references displayed inline ("see" and "see also")</li>
+</ul>
+
+<h3 id="page-number-display">Page Number Display</h3>
+
+<p>Page numbers are calculated using the same pagination engine as your manuscript export:</p>
+
+<ul>
+<li>Numbers reflect actual page positions based on your Page Setup settings</li>
+<li>Consecutive pages collapse into ranges (e.g., "23–25")</li>
+<li>While page numbers are calculating, a reference count icon shows how many markers exist</li>
+</ul>
+
+<h2 id="managing-index-entries">Managing Index Entries</h2>
+
+<p>From the Index back matter view, tap the <strong>⋯</strong> button on any entry to access:</p>
+
+<h3 id="edit">Edit</h3>
+
+<p>Modify the entry's keyword, parent assignment, or cross-references. Changes apply to all references throughout your document.</p>
+
+<h3 id="find-occurrences">Find Occurrences</h3>
+
+<p>Search your entire manuscript for additional mentions of the keyword:</p>
+
+<li>Tap <strong>⋯</strong> → <strong>Find Occurrences</strong></li>
+<li>The app searches all body files for matching text (case-insensitive)</li>
+<li>Review the list of found occurrences, each showing:</li>
+<p>   - The file name</p>
+<p>   - Context snippet with the match highlighted</p>
+<p>   - Whether it's already marked</p>
+<li>Use checkboxes to select which occurrences to mark</li>
+<li>Tap <strong>Mark Selected</strong> to insert index markers at all selected locations</li>
+
+<p>This is particularly useful for names, places, or technical terms that appear multiple times—you can review each occurrence in context and decide which are significant enough to index.</p>
+
+<strong>Note:</strong> Already-marked occurrences appear in orange and cannot be selected again.
+
+<h3 id="delete">Delete</h3>
+
+<p>Remove the entry and all its markers from your document. A confirmation dialog shows how many references will be removed.</p>
+
+<h2 id="hierarchical-index">Hierarchical Index</h2>
+
+<p>Create up to 3 levels of nested entries:</p>
+
+<pre><code>Animals
+<p>    Dogs</p>
+<p>        Puppies</p>
+<p>    Cats</p>
+</code></pre>
+
+<h3 id="creating-sub-entries">Creating Sub-entries</h3>
+
+<li>When adding or editing an entry, select a <strong>Parent Entry</strong> from the picker</li>
+<li>The entry appears indented under its parent in the index view</li>
+
+<h3 id="depth-limits">Depth Limits</h3>
+
+<ul>
+<li><strong>Level 1</strong>: Top-level entries (e.g., "Animals")</li>
+<li><strong>Level 2</strong>: Sub-entries (e.g., "Dogs") — can have children</li>
+<li><strong>Level 3</strong>: Sub-sub-entries (e.g., "Puppies") — cannot have children</li>
+</ul>
+
+<p>The parent picker only shows entries that can accept children (levels 1 and 2).</p>
+
+<h2 id="cross-references">Cross-References</h2>
+
+<h3 id="see-references">"See" References</h3>
+
+<p>Redirect readers from one term to another:</p>
+
+<blockquote>Dogs. </em>See<em> Animals</blockquote>
+
+<p>When an entry has a "see" reference, no page numbers are shown—the reader is directed to look up the other term instead.</p>
+
+<p>To add a "See" reference:</p>
+<li>Edit the entry</li>
+<li>In the <strong>See Reference</strong> field, select the target entry</li>
+
+<h3 id="see-also-references">"See Also" References</h3>
+
+<p>Point readers to related terms while still showing page numbers:</p>
+
+<blockquote>Dogs, 12, 45. </em>See also<em> Cats, Puppies</blockquote>
+
+<p>To add "See Also" references:</p>
+<li>Edit the entry</li>
+<li>In the <strong>See Also</strong> section, select one or more related entries</li>
+
+<p>Cross-references appear in purple in the index preview.</p>
+
+<h2 id="primary-references">Primary References</h2>
+
+<p>Mark important page references as "primary" to indicate the main discussion of a topic. In traditional print indexes, primary references appear in <strong>bold</strong>:</p>
+
+<blockquote>Dogs, 12, <strong>45–47</strong>, 89</blockquote>
+
+<p>To mark a primary reference:</p>
+<li>When adding a new reference, toggle <strong>Primary Reference</strong> on</li>
+<li>That marker's page number will be emphasised in the generated index</li>
+
+<h2 id="index-in-back-matter">Index in Back Matter</h2>
+
+<p>The index is automatically included in your manuscript exports when enabled in Back Matter settings.</p>
+
+<h3 id="viewing-before-export">Viewing Before Export</h3>
+
+<p>The Back Matter Index file shows a live preview with calculated page numbers, letting you verify your index is complete and correctly structured before exporting.</p>
+
+<h3 id="pdf-export">PDF Export</h3>
+
+<ul>
+<li>Full alphabetical index with accurate page numbers</li>
+<li>Sub-entries properly indented</li>
+<li>Primary references in bold</li>
+<li>Consecutive pages shown as ranges (e.g., "45–47")</li>
+</ul>
+
+<h3 id="other-export-formats">Other Export Formats</h3>
+
+<ul>
+<li><strong>RTF/Word</strong>: Index included as appendix section</li>
+<li><strong>HTML</strong>: Index with internal links to reference locations</li>
+<li><strong>Plain Text</strong>: Index with section references</li>
+</ul>
+
+<h2 id="keyboard-shortcuts">Keyboard Shortcuts</h2>
+
+<table>
+<tr><th>Action</th><th>Shortcut</th></tr>
+<tr><td>Add Index Entry</td><td>⇧⌘X</td></tr>
+</table>
+
+<h2 id="best-practices">Best Practices</h2>
+
+<h3 id="be-consistent">Be Consistent</h3>
+<p>Use the same keyword format throughout. "United Kingdom" and "UK" create separate entries—pick one and stick with it, or use cross-references.</p>
+
+<h3 id="use-hierarchical-entries">Use Hierarchical Entries</h3>
+<p>Group related terms under parent entries. Instead of separate entries for "border collie", "labrador", and "poodle", create them as sub-entries under "Dogs".</p>
+
+<h3 id="mark-primary-discussions">Mark Primary Discussions</h3>
+<p>When a topic has multiple page references, mark the main discussion as primary so readers can quickly find substantive content.</p>
+
+<h3 id="review-with-find-occurrences">Review with Find Occurrences</h3>
+<p>After creating an entry, use <strong>Find Occurrences</strong> to locate other mentions. Not every mention needs indexing—a passing reference may not warrant inclusion—but this ensures you don't miss significant discussions.</p>
+
+<h3 id="check-before-export">Check Before Export</h3>
+<p>Review the Index back matter view before exporting. Look for:</p>
+<ul>
+<li>Entries with zero references (may need markers added)</li>
+<li>Inconsistent capitalisation or spelling</li>
+<li>Missing cross-references for related terms</li>
+</ul>
+
+
+<hr>
+</body>
+</html>

@@ -558,9 +558,9 @@ struct SceneListView: View {
     
     private var sceneList: some View {
         List {
-            // FR-5.3: Scene Info tip
-            TipView(SceneInfoTip()) { action in
-                TipActionHandler.handle(action, guideSection: SceneInfoTip.guideSection, modelContext: modelContext)
+            // FR-2.4: Folder organisation tip (same as FolderFilesView)
+            TipView(FolderOrganisationTip()) { action in
+                TipActionHandler.handle(action, guideSection: FolderOrganisationTip.guideSection)
             }
             .listRowSeparator(.hidden)
             
@@ -631,7 +631,7 @@ struct SceneListView: View {
         VStack(spacing: 16) {
             // FR-5.1: Scenes & Chapters tip
             TipView(ScenesAndChaptersTip()) { action in
-                TipActionHandler.handle(action, guideSection: ScenesAndChaptersTip.guideSection, modelContext: modelContext)
+                TipActionHandler.handle(action, guideSection: ScenesAndChaptersTip.guideSection)
             }
             .padding(.horizontal)
             

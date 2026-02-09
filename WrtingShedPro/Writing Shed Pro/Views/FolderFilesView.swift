@@ -213,9 +213,6 @@ struct FolderFilesView: View {
         return dialogs.onAppear {
             initializeHeaderFooterFields()
             
-            // FR-2.4: Update folder organisation tip parameter
-            FolderOrganisationTip.folderHasManyFiles = sortedFiles.count >= 5
-            
             // FR-8.1: Donate file creation event for Collections tip
             if !sortedFiles.isEmpty {
                 Task { await CollectionsTip.fileCreated.donate() }
@@ -249,13 +246,11 @@ struct FolderFilesView: View {
                     } else if !sortedFiles.isEmpty {
                         VStack(spacing: 0) {
                             // FR-2.4: Folder organisation tip
-                            if sortedFiles.count >= 5 {
-                                TipView(FolderOrganisationTip()) { action in
-                                    TipActionHandler.handle(action, guideSection: FolderOrganisationTip.guideSection, modelContext: modelContext)
-                                }
-                                .padding(.horizontal)
-                                .padding(.top, 4)
+                            TipView(FolderOrganisationTip()) { action in
+                                TipActionHandler.handle(action, guideSection: FolderOrganisationTip.guideSection)
                             }
+                            .padding(.horizontal)
+                            .padding(.top, 4)
                             fileListSection
                         }
                     } else if isMatterFolder {

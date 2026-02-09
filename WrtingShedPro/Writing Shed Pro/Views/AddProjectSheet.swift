@@ -44,7 +44,7 @@ struct AddProjectSheet: View {
                     
                     // FR-2.2: Project Types tip
                     TipView(projectTypesTip) { action in
-                        TipActionHandler.handle(action, guideSection: ProjectTypesTip.guideSection, modelContext: modelContext)
+                        TipActionHandler.handle(action, guideSection: ProjectTypesTip.guideSection)
                     }
                     
                     // Fiction-specific options

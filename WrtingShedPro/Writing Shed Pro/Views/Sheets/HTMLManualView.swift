@@ -3,35 +3,93 @@
 //  Writing Shed Pro
 //
 //  Feature 027: WSP Manual
-//  Displays the HTML version of the WSP Manual in a web view
+//  Displays the HTML guide using split section files for instant loading.
+//  Uses native AttributedString rendering (no WKWebView) for zero-delay display.
+//  Help button shows TOC (guide_00-toc.html), Learn More shows a section file directly.
+//  Clicking a TOC entry or internal link loads the corresponding section file.
+//  Each section has a "← Contents" link back to the TOC.
 //
 
 import SwiftUI
-import WebKit
 
-/// View for displaying the bundled HTML guide
+/// View for displaying the bundled HTML guide.
+///
+/// When `section` is nil (Help button), loads the table of contents.
+/// When `section` is provided (Learn More), loads that section's file directly.
 struct HTMLManualView: View {
     @Environment(\.dismiss) private var dismiss
-    @State private var htmlContent: String = ""
     
-    /// Name of the bundled HTML guide file (without extension)
-    private static let guideFileName = "Writing Shed Pro Guide"
+    /// Optional section to open directly (e.g. "22-creating-your-first-project")
+    var section: String? = nil
+    
+    /// Current section being displayed — drives navigation between sections
+    @State private var currentSection: String
+    
+    /// Rendered attributed string for the current section
+    @State private var attributedContent: AttributedString = AttributedString()
+    
+    init(section: String? = nil) {
+        self.section = section
+        self._currentSection = State(initialValue: section ?? "00-toc")
+    }
     
     var body: some View {
         NavigationStack {
-            Group {
-                #if targetEnvironment(macCatalyst)
-                // Mac Catalyst: Use ScrollView with AttributedString to avoid WKWebView issues
-                HTMLManualScrollView(htmlContent: htmlContent)
-                #else
-                // iOS: Use WKWebView
-                HTMLManualWebView(htmlContent: htmlContent)
-                #endif
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        // Invisible anchor at the top for scrolling
+                        Color.clear.frame(height: 0).id("top")
+                        
+                        // Back to Contents link for non-TOC sections
+                        if currentSection != "00-toc" {
+                            HStack {
+                                Button {
+                                    currentSection = "00-toc"
+                                } label: {
+                                    Label("Contents", systemImage: "chevron.left")
+                                        .font(.subheadline)
+                                }
+                                Spacer()
+                            }
+                            .padding(.horizontal)
+                            .padding(.top, 8)
+                        }
+                        
+                        Text(attributedContent)
+                            .textSelection(.enabled)
+                            .padding(.horizontal)
+                            .padding(.bottom, 40)
+                            .environment(\.openURL, OpenURLAction { url in
+                                // Handle guide: links for internal navigation
+                                if url.scheme == "guide" {
+                                    let sectionId = url.absoluteString
+                                        .replacingOccurrences(of: "guide:", with: "")
+                                        .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+                                    currentSection = sectionId
+                                    return .handled
+                                }
+                                // External links open in Safari
+                                return .systemAction
+                            })
+                    }
+                }
+                .background(Color(.systemBackground))
+                .onChange(of: currentSection) { _, newSection in
+                    loadSection(newSection)
+                    // Scroll to top after loading the new section content
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                        withAnimation {
+                            proxy.scrollTo("top", anchor: .top)
+                        }
+                    }
+                }
             }
             .navigationTitle("Writing Shed Pro Guide")
             #if !os(macOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
+            .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") {
@@ -40,202 +98,111 @@ struct HTMLManualView: View {
                 }
             }
             .onAppear {
-                loadHTMLContent()
+                loadSection(currentSection)
             }
         }
     }
     
-    private func loadHTMLContent() {
-        if let guideURL = Bundle.main.url(
-            forResource: Self.guideFileName,
-            withExtension: "html"
-        ),
-           let content = try? String(contentsOf: guideURL, encoding: .utf8) {
+    /// Load and render an HTML section file as AttributedString
+    private func loadSection(_ sectionId: String) {
+        let resourceName = "guide_\(sectionId)"
+        
+        guard let url = Bundle.main.url(forResource: resourceName, withExtension: "html"),
+              var html = try? String(contentsOf: url, encoding: .utf8) else {
             #if DEBUG
-            print("📖 [HTMLManualView] Loaded HTML content, length: \(content.count)")
+            print("❌ [Guide] Section file not found: \(resourceName).html")
             #endif
-            htmlContent = content
-        } else {
-            #if DEBUG
-            print("❌ [HTMLManualView] Failed to load HTML file")
-            #endif
-            htmlContent = """
-            <!DOCTYPE html>
-            <html><body>
-            <h1>Guide Not Found</h1>
-            <p>The guide could not be loaded.</p>
-            </body></html>
-            """
+            attributedContent = AttributedString("Section not found: \(sectionId)")
+            return
         }
-    }
-}
-
-// MARK: - Mac Catalyst: Open in browser fallback
-
-#if targetEnvironment(macCatalyst)
-/// Mac Catalyst fallback - opens guide in default browser
-struct HTMLManualScrollView: View {
-    let htmlContent: String
-    @Environment(\.dismiss) private var dismiss
-    @State private var showOpenInBrowserPrompt = true
-    
-    /// Name of the bundled HTML guide file (without extension)
-    private static let guideFileName = "Writing Shed Pro Guide"
-    
-    var body: some View {
-        VStack(spacing: 20) {
-            Spacer()
-            
-            Image(systemName: "book.pages")
-                .font(.system(size: 60))
-                .foregroundColor(.accentColor)
-            
-            Text("Writing Shed Pro Guide")
-                .font(.title)
-                .fontWeight(.semibold)
-            
-            Text("The guide will open in your default web browser for the best viewing experience on Mac.")
-                .multilineTextAlignment(.center)
-                .foregroundColor(.secondary)
-                .padding(.horizontal, 40)
-            
-            Button(action: openInBrowser) {
-                Label("Open Guide in Browser", systemImage: "safari")
-                    .font(.headline)
-                    .padding(.horizontal, 24)
-                    .padding(.vertical, 12)
-            }
-            .buttonStyle(.borderedProminent)
-            .padding(.top, 10)
-            
-            Spacer()
+        
+        #if DEBUG
+        print("📖 [Guide] Loading section: \(resourceName).html")
+        #endif
+        
+        // Remove the HTML "← Contents" link (the native SwiftUI button handles this)
+        html = html.replacingOccurrences(
+            of: "<p class=\"back-nav\"><a href=\"guide:00-toc\">← Contents</a></p>",
+            with: ""
+        )
+        
+        // Strip background/color declarations from CSS so NSAttributedString doesn't
+        // bake them into the attributed string (which bleeds into the navigation bar).
+        // SwiftUI handles light/dark mode natively via the system label color.
+        // Use regex to remove background: and color: declarations from the CSS.
+        html = html.replacingOccurrences(
+            of: "background:\\s*#[0-9a-fA-F]+;?",
+            with: "",
+            options: .regularExpression
+        )
+        html = html.replacingOccurrences(
+            of: "(?<!-)color:\\s*#[0-9a-fA-F]+;?",
+            with: "",
+            options: .regularExpression
+        )
+        
+        // Inject CSS overrides for NSAttributedString rendering.
+        // Don't set color/background here — NSAttributedString doesn't support
+        // system color tokens. We post-process colors after parsing instead.
+        let cssOverrides = """
+        <style>
+        body {
+            font: -apple-system-body;
+            font-size: 17px;
+            margin: 0;
+            padding: 0;
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(UIColor.systemBackground))
-        .onAppear {
-            // Automatically open in browser
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                openInBrowser()
-            }
+        </style>
+        """
+        html = html.replacingOccurrences(of: "</head>", with: cssOverrides + "</head>")
+        
+        // NSAttributedString's HTML parser ignores margin-top on headings,
+        // so inject explicit spacing before h2/h3 tags for visual separation
+        html = html.replacingOccurrences(of: "<h2", with: "<br><br><h2")
+        html = html.replacingOccurrences(of: "<h3", with: "<br><h3")
+        // Don't double-space if h2/h3 is the very first element after body
+        html = html.replacingOccurrences(of: "<body>\n<br><br><h2", with: "<body>\n<h2")
+        html = html.replacingOccurrences(of: "<body>\n<br><h3", with: "<body>\n<h3")
+        
+        guard let data = html.data(using: .utf8) else {
+            attributedContent = AttributedString("Failed to encode section.")
+            return
         }
-    }
-    
-    private func openInBrowser() {
-        // Open the bundled HTML file directly in Safari
-        if let guideURL = Bundle.main.url(
-            forResource: Self.guideFileName,
-            withExtension: "html"
+        
+        // Parse HTML into NSAttributedString, then convert to SwiftUI AttributedString
+        if let nsAttr = try? NSAttributedString(
+            data: data,
+            options: [
+                .documentType: NSAttributedString.DocumentType.html,
+                .characterEncoding: String.Encoding.utf8.rawValue
+            ],
+            documentAttributes: nil
         ) {
-            #if DEBUG
-            print("📖 [HTMLManualView] Opening guide in browser: \(guideURL)")
-            #endif
+            // Post-process: replace hard-coded CSS colors with system-adaptive colors
+            // so the guide renders correctly in both light and dark mode.
+            let mutable = NSMutableAttributedString(attributedString: nsAttr)
+            let fullRange = NSRange(location: 0, length: mutable.length)
             
-            UIApplication.shared.open(guideURL)
+            // Replace all foreground colors with .label (adapts to light/dark)
+            // but preserve link colors (blue)
+            mutable.enumerateAttribute(.foregroundColor, in: fullRange, options: []) { value, range, _ in
+                if let color = value as? UIColor {
+                    // Check if this is a link by looking for the .link attribute
+                    let hasLink = mutable.attribute(.link, at: range.location, effectiveRange: nil) != nil
+                    if hasLink {
+                        mutable.addAttribute(.foregroundColor, value: UIColor.link, range: range)
+                    } else {
+                        mutable.addAttribute(.foregroundColor, value: UIColor.label, range: range)
+                    }
+                }
+            }
+            
+            // Remove all background colors (prevents nav bar bleed-through)
+            mutable.removeAttribute(.backgroundColor, range: fullRange)
+            
+            attributedContent = AttributedString(mutable)
         } else {
-            #if DEBUG
-            print("❌ [HTMLManualView] Guide file not found in bundle")
-            #endif
-        }
-        
-        // Dismiss the sheet after opening
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            dismiss()
-        }
-    }
-}
-#endif
-
-// MARK: - iOS: WKWebView-based HTML display
-
-/// WebView wrapper for displaying HTML content (iOS only)
-struct HTMLManualWebView: UIViewRepresentable {
-    let htmlContent: String
-    
-    func makeCoordinator() -> Coordinator {
-        Coordinator()
-    }
-    
-    func makeUIView(context: Context) -> WKWebView {
-        let configuration = WKWebViewConfiguration()
-        configuration.defaultWebpagePreferences.allowsContentJavaScript = false
-        configuration.suppressesIncrementalRendering = false
-        
-        let webView = WKWebView(frame: CGRect(x: 0, y: 0, width: 300, height: 500), configuration: configuration)
-        webView.isOpaque = true
-        webView.backgroundColor = .white
-        webView.scrollView.backgroundColor = .white
-        webView.navigationDelegate = context.coordinator
-        
-        return webView
-    }
-    
-    func updateUIView(_ webView: WKWebView, context: Context) {
-        // Load content when it becomes available
-        if !htmlContent.isEmpty && webView.url == nil {
-            #if DEBUG
-            print("📖 [HTMLManualView] Loading HTML into WebView, length: \(htmlContent.count)")
-            #endif
-            webView.loadHTMLString(htmlContent, baseURL: nil)
-        }
-    }
-    
-    /// Coordinator to handle WKWebView navigation delegate
-    class Coordinator: NSObject, WKNavigationDelegate {
-        
-        func webView(
-            _ webView: WKWebView,
-            decidePolicyFor navigationAction: WKNavigationAction,
-            decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
-        ) {
-            guard let url = navigationAction.request.url else {
-                decisionHandler(.allow)
-                return
-            }
-            
-            // Handle anchor links (scroll within document)
-            if url.fragment != nil && (url.scheme == nil || url.scheme == "file" || url.scheme == "about") {
-                // Allow in-page anchor navigation
-                decisionHandler(.allow)
-                return
-            }
-            
-            // Handle external links - open in Safari
-            if let scheme = url.scheme, (scheme == "http" || scheme == "https") {
-                #if os(iOS)
-                UIApplication.shared.open(url)
-                #elseif os(macOS)
-                NSWorkspace.shared.open(url)
-                #endif
-                decisionHandler(.cancel)
-                return
-            }
-            
-            // Allow local/about navigation
-            decisionHandler(.allow)
-        }
-        
-        func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
-            #if DEBUG
-            print("📖 [HTMLManualView] Started loading")
-            #endif
-        }
-        
-        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-            #if DEBUG
-            print("📖 [HTMLManualView] Finished loading")
-            #endif
-        }
-        
-        func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-            #if DEBUG
-            print("❌ [HTMLManualView] Navigation failed: \(error)")
-            #endif
-        }
-        
-        func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
-            #if DEBUG
-            print("❌ [HTMLManualView] Provisional navigation failed: \(error)")
-            #endif
+            attributedContent = AttributedString("Failed to render section.")
         }
     }
 }

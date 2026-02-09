@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Writing Shed Pro Guide</title>
+    <style>body { 
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 20px;
+    line-height: 1.6;
+    color: #333;
+}
+h1, h2, h3, h4, h5, h6 { margin-top: 1.5em; margin-bottom: 0.5em; }
+h1 { font-size: 2em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+pre { background: #f4f4f4; padding: 16px; border-radius: 6px; overflow-x: auto; }
+pre code { background: none; padding: 0; }
+blockquote { border-left: 4px solid #ddd; margin-left: 0; padding-left: 16px; color: #666; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+th { background: #f4f4f4; font-weight: bold; }
+ul, ol { padding-left: 2em; }
+a { color: #0066cc; }
+hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
+/* Back to Contents link */
+.back-to-top {
+    text-align: right;
+    font-size: 0.9em;
+    margin: 1.5em 0 0.5em 0;
+}
+.back-to-top a {
+    color: #666;
+    text-decoration: none;
+}
+.back-to-top a:hover {
+    color: #0066cc;
+    text-decoration: underline;
+}
+@media (prefers-color-scheme: dark) {
+    body { background: #1a1a1a; color: #e0e0e0; }
+    code, pre { background: #2d2d2d; }
+    th { background: #2d2d2d; }
+    th, td { border-color: #444; }
+    blockquote { border-color: #555; color: #aaa; }
+    h1, h2 { border-color: #444; }
+    a { color: #4da3ff; }
+    .back-to-top a { color: #999; }
+}
+/* In-app overrides */
+body { margin-top: 0 !important; padding-top: 8px !important; }
+body > *:first-child { margin-top: 0 !important; }
+.back-nav { margin-bottom: 0.5em; }
+.back-nav a { color: #0066cc; text-decoration: none; font-size: 0.95em; }
+@media (prefers-color-scheme: dark) {
+    .back-nav a { color: #4da3ff; }
+}
+</style>
+</head>
+<body>
+<p class="back-nav"><a href="guide:00-toc">← Contents</a></p>
+<a id="110-table-of-contents"></a>
+
+<h1 id="table-of-contents">Table of Contents</h1>
+
+<p>Writing Shed Pro can automatically generate a Table of Contents (TOC) based on your manuscript structure, showing chapters, sections, and their page numbers.</p>
+
+<h2 id="overview">Overview</h2>
+
+<p>A Table of Contents provides readers with a navigational overview of your manuscript. Writing Shed Pro generates the TOC from your document hierarchy:</p>
+
+<ul>
+<li><strong>Automatic generation</strong> - Built from your manuscript folder structure</li>
+<li><strong>Hierarchical entries</strong> - Shows folders, subfolders, and files</li>
+<li><strong>Page numbers</strong> - Calculated from actual pagination</li>
+<li><strong>Customizable display</strong> - Control which levels and items appear</li>
+</ul>
+
+<h2 id="how-the-toc-works">How the TOC Works</h2>
+
+<p>The Table of Contents is generated based on your project structure:</p>
+
+<li><strong>Front Matter</strong> folder contents (if included)</li>
+<li><strong>Manuscript</strong> folder structure:</li>
+<p>   - Part folders (top-level folders in Manuscript)</p>
+<p>   - Chapter folders (subfolders)</p>
+<p>   - Individual files (scenes/sections)</p>
+<li><strong>Back Matter</strong> folder contents (if included)</li>
+
+<h3 id="hierarchical-structure-example">Hierarchical Structure Example</h3>
+
+<pre><code>PART ONE: THE BEGINNING
+<p>    Chapter 1: Discovery .............. 3</p>
+<p>        The Letter .................... 3</p>
+<p>        First Steps .................. 12</p>
+<p>    Chapter 2: The Journey ........... 23</p>
+<p>PART TWO: THE MIDDLE</p>
+<p>    Chapter 3: Complications ......... 45</p>
+</code></pre>
+
+<h2 id="enabling-the-table-of-contents">Enabling the Table of Contents</h2>
+
+<h3 id="method-1-front-matter-item">Method 1: Front Matter Item</h3>
+
+<li>Create or open your <strong>Front Matter</strong> folder</li>
+<li>Add a <strong>Table of Contents</strong> item via the <strong>+</strong> button or settings</li>
+<li>The TOC will appear in your front matter, after title pages</li>
+
+<h3 id="method-2-export-settings">Method 2: Export Settings</h3>
+
+<li>Go to <strong>Export</strong> settings</li>
+<li>Enable <strong>Generate Table of Contents</strong></li>
+<li>Configure which levels to include</li>
+
+<h2 id="configuring-table-of-contents">Configuring Table of Contents</h2>
+
+<p>Access TOC settings through the settings gear in the Table of Contents view or through export options.</p>
+
+<h3 id="entry-selection">Entry Selection</h3>
+
+<p>Control which items appear in the TOC:</p>
+
+<ul>
+<li><strong>Include Front Matter</strong>: Show front matter items before the main content</li>
+<li><strong>Include Back Matter</strong>: Show back matter items after the main content</li>
+<li><strong>Include Parts</strong>: Show top-level manuscript folders (parts/sections)</li>
+<li><strong>Include Chapters</strong>: Show chapter-level folders</li>
+<li><strong>Include Scenes</strong>: Show individual files within chapters</li>
+</ul>
+
+<h3 id="title-options">Title Options</h3>
+
+<ul>
+<li><strong>TOC Title</strong>: The heading text (default: "Contents" or "Table of Contents")</li>
+<li><strong>Title Style</strong>: Text style from your stylesheet for the heading</li>
+</ul>
+
+<h3 id="entry-styles">Entry Styles</h3>
+
+<p>Different styles can be applied to different hierarchical levels:</p>
+
+<ul>
+<li><strong>Part Style</strong>: For top-level divisions (Part One, Part Two)</li>
+<li><strong>Chapter Style</strong>: For chapter headings</li>
+<li><strong>Section Style</strong>: For individual scenes or sections</li>
+</ul>
+
+<h3 id="page-numbers">Page Numbers</h3>
+
+<ul>
+<li><strong>Show Page Numbers</strong>: Toggle page numbers on or off</li>
+<li><strong>Dot Leaders</strong>: Use dots or other characters to connect titles to page numbers</li>
+<li><strong>Page Number Position</strong>: Set the tab stop for alignment</li>
+</ul>
+
+<h2 id="manual-vs-automatic-toc">Manual vs. Automatic TOC</h2>
+
+<p>Writing Shed Pro supports two approaches:</p>
+
+<h3 id="automatic-toc">Automatic TOC</h3>
+
+<ul>
+<li>Generated from your folder/file structure</li>
+<li>Updates automatically when you reorganize</li>
+<li>Page numbers recalculate with each export</li>
+<li><strong>Recommended</strong> for most projects</li>
+</ul>
+
+<h3 id="manual-toc">Manual TOC</h3>
+
+<p>If you need complete control:</p>
+
+<li>Create a text file in Front Matter named "Contents" or "Table of Contents"</li>
+<li>Type your entries manually</li>
+<li>Mark the file as "Manual" in its settings</li>
+<li>Update it manually when your manuscript changes</li>
+
+<strong>Note</strong>: Manual TOC entries won't have automatic page numbers.
+
+<h2 id="page-number-calculation">Page Number Calculation</h2>
+
+<p>TOC page numbers are calculated using the same pagination engine as your manuscript:</p>
+
+<li>Based on your <strong>Page Setup</strong> settings (margins, page size, etc.)</li>
+<li>Reflects actual page breaks in your document</li>
+<li>Accounts for chapter start rules (e.g., "Start on right page")</li>
+<li>Updates when you edit content or change settings</li>
+
+<h3 id="why-page-numbers-may-differ">Why Page Numbers May Differ</h3>
+
+<p>Page numbers in the TOC preview might differ from your expectations if:</p>
+
+<ul>
+<li>Your Page Setup hasn't been configured</li>
+<li>Chapter start rules are forcing page breaks</li>
+<li>The manuscript is still being paginated (look for progress indicator)</li>
+</ul>
+
+<h2 id="best-practices">Best Practices</h2>
+
+<h3 id="organize-for-clear-toc">Organize for Clear TOC</h3>
+
+<p>Structure your manuscript so the TOC makes sense:</p>
+
+<ul>
+<li>Use <strong>folders</strong> for chapters (they become TOC entries)</li>
+<li>Name folders clearly ("Chapter 1: The Beginning")</li>
+<li>Use consistent naming conventions</li>
+</ul>
+
+<h3 id="managing-long-toc">Managing Long TOC</h3>
+
+<p>For manuscripts with many chapters:</p>
+
+<ul>
+<li>Consider hiding scene-level entries (show only chapters)</li>
+<li>Group chapters into Parts for cleaner organization</li>
+<li>Evaluate if every section truly needs a TOC entry</li>
+</ul>
+
+<h3 id="finalizing-for-publication">Finalizing for Publication</h3>
+
+<p>Before final export:</p>
+
+<li>Review the TOC preview for accuracy</li>
+<li>Check that page numbers have finished calculating</li>
+<li>Verify all chapter names are as you want them displayed</li>
+<li>Ensure the TOC itself isn't paginating onto multiple pages (adjust content if needed)</li>
+
+<h2 id="toc-in-different-export-formats">TOC in Different Export Formats</h2>
+
+<h3 id="pdf-export">PDF Export</h3>
+
+<ul>
+<li>Full page layout with proper pagination</li>
+<li>Dot leaders and alignment preserved</li>
+<li>Page numbers link to actual pages in the PDF</li>
+</ul>
+
+<h3 id="epub-export">EPUB Export</h3>
+
+<ul>
+<li>Converted to navigational TOC</li>
+<li>May include both inline TOC and navigation TOC</li>
+<li>Page numbers may be adjusted for reflowable format</li>
+</ul>
+
+<h3 id="print-ready-export">Print-Ready Export</h3>
+
+<ul>
+<li>Positioned correctly in front matter</li>
+<li>Roman numerals for front matter pages (if configured)</li>
+<li>Arabic numerals for main content</li>
+</ul>
+
+<h2 id="troubleshooting">Troubleshooting</h2>
+
+<h3 id="toc-not-showing-all-entries">TOC Not Showing All Entries</h3>
+
+<ul>
+<li>Check that folders/files aren't marked as "Excluded"</li>
+<li>Verify your entry selection settings (Parts, Chapters, Scenes)</li>
+<li>Ensure items aren't in the Trash</li>
+</ul>
+
+<h3 id="page-numbers-missing-or-wrong">Page Numbers Missing or Wrong</h3>
+
+<ul>
+<li>Wait for pagination to complete (check for progress indicator)</li>
+<li>Verify Page Setup is configured</li>
+<li>Force refresh by reopening the TOC file</li>
+</ul>
+
+<h3 id="toc-appearing-in-wrong-location">TOC Appearing in Wrong Location</h3>
+
+<ul>
+<li>Check which matter folder contains the TOC file</li>
+<li>Front Matter → appears before manuscript</li>
+<li>Use export settings to control exact positioning</li>
+</ul>
+
+<h2 id="related-topics">Related Topics</h2>
+
+<ul>
+<li><a href="guide:36-manuscript-structure">Manuscript Structure</a></li>
+<li><a href="guide:103-page-setup">Page Setup</a></li>
+<li><a href="guide:91-exporting-overview">Exporting Your Work</a></li>
+<li><a href="guide:109-list-of-figures">List of Figures</a></li>
+</ul>
+</body>
+</html>

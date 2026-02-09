@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Writing Shed Pro Guide</title>
+    <style>body { 
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 20px;
+    line-height: 1.6;
+    color: #333;
+}
+h1, h2, h3, h4, h5, h6 { margin-top: 1.5em; margin-bottom: 0.5em; }
+h1 { font-size: 2em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+pre { background: #f4f4f4; padding: 16px; border-radius: 6px; overflow-x: auto; }
+pre code { background: none; padding: 0; }
+blockquote { border-left: 4px solid #ddd; margin-left: 0; padding-left: 16px; color: #666; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+th { background: #f4f4f4; font-weight: bold; }
+ul, ol { padding-left: 2em; }
+a { color: #0066cc; }
+hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
+/* Back to Contents link */
+.back-to-top {
+    text-align: right;
+    font-size: 0.9em;
+    margin: 1.5em 0 0.5em 0;
+}
+.back-to-top a {
+    color: #666;
+    text-decoration: none;
+}
+.back-to-top a:hover {
+    color: #0066cc;
+    text-decoration: underline;
+}
+@media (prefers-color-scheme: dark) {
+    body { background: #1a1a1a; color: #e0e0e0; }
+    code, pre { background: #2d2d2d; }
+    th { background: #2d2d2d; }
+    th, td { border-color: #444; }
+    blockquote { border-color: #555; color: #aaa; }
+    h1, h2 { border-color: #444; }
+    a { color: #4da3ff; }
+    .back-to-top a { color: #999; }
+}
+/* In-app overrides */
+body { margin-top: 0 !important; padding-top: 8px !important; }
+body > *:first-child { margin-top: 0 !important; }
+.back-nav { margin-bottom: 0.5em; }
+.back-nav a { color: #0066cc; text-decoration: none; font-size: 0.95em; }
+@media (prefers-color-scheme: dark) {
+    .back-nav a { color: #4da3ff; }
+}
+</style>
+</head>
+<body>
+<p class="back-nav"><a href="guide:00-toc">← Contents</a></p>
+<a id="24-icloud-sync"></a>
+
+<h1 id="icloud-sync">iCloud Sync</h1>
+
+<p>Writing Shed Pro uses iCloud to keep your projects synchronized across all your Apple devices. This guide explains how sync works and how to troubleshoot issues.</p>
+
+<h2 id="how-icloud-sync-works">How iCloud Sync Works</h2>
+
+<p>When you enable iCloud:</p>
+<ul>
+<li>All projects are stored in iCloud Drive</li>
+<li>Changes sync automatically within seconds</li>
+<li>Your work is backed up continuously</li>
+<li>Devices must be signed into the same Apple ID</li>
+</ul>
+
+<h3 id="what-syncs">What Syncs</h3>
+<ul>
+<li>All projects and their contents</li>
+<li>Folder structure</li>
+<li>File content and formatting</li>
+<li>Images embedded in documents</li>
+<li>Version history</li>
+<li>Settings and preferences</li>
+</ul>
+
+<h3 id="what-doesnt-sync">What Doesn't Sync</h3>
+<ul>
+<li>Local cache and temporary files</li>
+<li>Undo history beyond the current session</li>
+</ul>
+
+<h2 id="enabling-icloud">Enabling iCloud</h2>
+
+<h3 id="check-icloud-status">Check iCloud Status</h3>
+<li>Open <strong>Settings</strong> (iPhone/iPad) or <strong>System Settings</strong> (Mac)</li>
+<li>Tap your <strong>Apple ID</strong> at the top</li>
+<li>Tap <strong>iCloud</strong></li>
+<li>Ensure <strong>iCloud Drive</strong> is On</li>
+<li>Scroll down and ensure <strong>Writing Shed Pro</strong> is On</li>
+
+<h3 id="first-time-setup">First-Time Setup</h3>
+<p>When you first open Writing Shed Pro with iCloud enabled:</p>
+<li>The app creates a container in iCloud Drive</li>
+<li>Existing projects (if any) upload to iCloud</li>
+<li>Projects from other devices appear automatically</li>
+
+<h2 id="syncing-multiple-devices">Syncing Multiple Devices</h2>
+
+<p>For seamless sync across devices:</p>
+<li>Install Writing Shed Pro on each device</li>
+<li>Sign into the same Apple ID on all devices</li>
+<li>Enable iCloud Drive on all devices</li>
+<li>Enable Writing Shed Pro in iCloud settings on all devices</li>
+
+<h3 id="sync-speed">Sync Speed</h3>
+<ul>
+<li>Local changes are saved instantly</li>
+<li>Cloud sync typically completes within seconds</li>
+<li>Large files (with many images) may take longer</li>
+<li>Wi-Fi is faster than cellular</li>
+</ul>
+
+<h2 id="working-offline">Working Offline</h2>
+
+<p>Writing Shed Pro works fully offline:</p>
+<ul>
+<li>All recent projects are available locally</li>
+<li>You can read and edit without internet</li>
+<li>Changes are queued for sync</li>
+<li>When you reconnect, changes upload automatically</li>
+</ul>
+
+<h3 id="offline-indicators">Offline Indicators</h3>
+<ul>
+<li>A cloud icon may indicate pending sync</li>
+<li>Check the project list for sync status</li>
+</ul>
+
+<h2 id="conflict-resolution">Conflict Resolution</h2>
+
+<p>If you edit the same file on two devices before sync completes:</p>
+
+<li><strong>Both versions are preserved</strong>: No data is lost</li>
+<li><strong>Most recent wins</strong>: The latest change becomes the current version</li>
+<li><strong>Other changes saved</strong>: Earlier changes are available in version history</li>
+
+<h3 id="avoiding-conflicts">Avoiding Conflicts</h3>
+<ul>
+<li>Wait a few seconds after editing before switching devices</li>
+<li>Ensure sync has completed (no pending upload indicators)</li>
+<li>If in doubt, wait for the cloud icon to clear</li>
+</ul>
+
+<h2 id="managing-icloud-storage">Managing iCloud Storage</h2>
+
+<p>Projects count toward your iCloud storage quota.</p>
+
+<h3 id="check-usage">Check Usage</h3>
+<li>Settings → [Your Name] → iCloud → Manage Account Storage</li>
+<li>Look for Writing Shed Pro</li>
+
+<h3 id="reducing-usage">Reducing Usage</h3>
+<ul>
+<li>Delete old projects you no longer need</li>
+<li>Empty the Trash in each project</li>
+<li>Export and archive completed work</li>
+</ul>
+
+<h2 id="turning-off-icloud">Turning Off iCloud</h2>
+
+<p>If you need to disable iCloud sync:</p>
+
+<strong>Warning</strong>: This will remove Writing Shed Pro data from iCloud. Projects on other devices may no longer be accessible.
+
+<li>Settings → [Your Name] → iCloud → Apps Using iCloud</li>
+<li>Toggle <strong>Writing Shed Pro</strong> Off</li>
+<li>Choose whether to keep or delete local copies</li>
+
+<h2 id="troubleshooting">Troubleshooting</h2>
+
+<h3 id="projects-not-appearing">Projects Not Appearing</h3>
+<li>Verify you're signed into the correct Apple ID</li>
+<li>Check that iCloud Drive is enabled</li>
+<li>Check that Writing Shed Pro is enabled in iCloud settings</li>
+<li>Wait a few minutes for initial sync</li>
+<li>Check internet connection</li>
+<li>Restart the app</li>
+
+<h3 id="sync-seems-slow">Sync Seems Slow</h3>
+<li>Check your internet connection speed</li>
+<li>Large projects with many images take longer</li>
+<li>Initial sync of a new device may take time</li>
+<li>Try switching from cellular to Wi-Fi</li>
+
+<h3 id="changes-not-syncing">Changes Not Syncing</h3>
+<li>Check for a cloud icon indicating pending upload</li>
+<li>Ensure the device has internet access</li>
+<li>Force-quit and reopen the app</li>
+<li>Restart the device</li>
+<li>Check iCloud system status at apple.com/support/systemstatus</li>
+
+<h3 id="this-file-is-being-edited-on-another-device">"This file is being edited on another device"</h3>
+<p>This message appears when there's a potential conflict:</p>
+<li>Save your work</li>
+<li>Wait a moment for sync</li>
+<li>Reload the file</li>
+<li>Your changes and the other device's changes will both be preserved</li>
+
+<h3 id="recovering-lost-data">Recovering Lost Data</h3>
+<p>If data appears to be missing:</p>
+<li>Check iCloud.com in a web browser</li>
+<li>Look in iCloud Drive → Writing Shed Pro</li>
+<li>Check the Trash folder in your projects</li>
+<li>Restore from iCloud backup if necessary</li>
+
+<h2 id="privacy-and-security">Privacy and Security</h2>
+
+<p>Your writing in iCloud is protected by:</p>
+<ul>
+<li>End-to-end encryption in transit</li>
+<li>Encryption at rest on Apple servers</li>
+<li>Your Apple ID password</li>
+<li>Optional two-factor authentication (highly recommended)</li>
+</ul>
+
+<p>Writing Shed Pro never has access to your Apple ID password. All sync is handled securely by the system.</p>
+
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="guide:21-installation">Installation</a></li>
+<li><a href="guide:113-troubleshooting">Troubleshooting</a></li>
+</ul>
+
+
+<hr>
+</body>
+</html>

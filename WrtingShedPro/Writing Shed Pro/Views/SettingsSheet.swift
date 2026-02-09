@@ -15,6 +15,7 @@ struct SettingsSheet: View {
     let onImport: () -> Void
     
     @Environment(\.requestReview) var requestReview
+    @State private var showTipsResetConfirmation = false
     
     var body: some View {
         NavigationStack {
@@ -91,7 +92,7 @@ struct SettingsSheet: View {
                     }
                     
                     Button {
-                        try? Tips.resetDatastore()
+                        showTipsResetConfirmation = true
                     } label: {
                         Label("Reset All Tips", systemImage: "lightbulb")
                     }
@@ -129,5 +130,16 @@ struct SettingsSheet: View {
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
         .presentationBackground(Color(uiColor: .systemBackground))
+        .alert("Reset All Tips", isPresented: $showTipsResetConfirmation) {
+            Button("Reset", role: .destructive) {
+                try? Tips.resetDatastore()
+                FirstProjectTip.hasNoProjects = true
+                Write_App.configureTipKit(isReset: true)
+                isPresented = false
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("All tips will be shown again as you use the app.")
+        }
     }
 }

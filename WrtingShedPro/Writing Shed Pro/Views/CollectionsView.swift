@@ -100,7 +100,7 @@ struct CollectionsView: View {
                 List {
                     // FR-8.1: Collections tip
                     TipView(CollectionsTip()) { action in
-                        TipActionHandler.handle(action, guideSection: CollectionsTip.guideSection, modelContext: modelContext)
+                        TipActionHandler.handle(action, guideSection: CollectionsTip.guideSection)
                     }
                     .listRowSeparator(.hidden)
                     

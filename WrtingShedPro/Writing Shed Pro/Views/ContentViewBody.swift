@@ -53,7 +53,7 @@ struct ContentViewBody: View {
                 let activeProjects = projects.filter { !$0.isTrashed }
                 if activeProjects.isEmpty {
                     TipView(firstProjectTip) { action in
-                        TipActionHandler.handle(action, guideSection: FirstProjectTip.guideSection, modelContext: modelContext)
+                        TipActionHandler.handle(action, guideSection: FirstProjectTip.guideSection)
                     }
                     .padding(.horizontal)
                     .padding(.top, 8)
@@ -84,6 +84,11 @@ struct ContentViewBody: View {
                 
                 // Update TipKit parameter for First Project tip
                 FirstProjectTip.hasNoProjects = projects.filter { !$0.isTrashed }.isEmpty
+                
+                // Increment app launch count for next launch's popover tips
+                // (current launch's parameters were already set in configureTipKit)
+                let nextLaunchCount = UserDefaults.standard.integer(forKey: "tipkit.appLaunchCount") + 1
+                UserDefaults.standard.set(nextLaunchCount, forKey: "tipkit.appLaunchCount")
                 
                 // Initialize stylesheets in background (moved from Write_App)
                 onInitializeStyleSheets()
@@ -152,8 +157,10 @@ struct ContentViewBody: View {
             .sheet(isPresented: $state.showSyncDiagnostics) {
                 SyncDiagnosticsView()
             }
-            .sheet(isPresented: $state.showHTMLManual) {
-                HTMLManualView()
+            .sheet(isPresented: $state.showHTMLManual, onDismiss: {
+                state.htmlManualSection = nil
+            }) {
+                HTMLManualView(section: state.htmlManualSection)
             }
             .alert(guideImportAlertTitle, isPresented: $state.showManualImportConfirmation) {
                 Button("Cancel", role: .cancel) { }
@@ -198,6 +205,13 @@ struct ContentViewBody: View {
         .onReceive(NotificationCenter.default.publisher(for: .popToRootNavigation)) { _ in
             // Clear navigation path to pop all views to root
             state.navigationPath = NavigationPath()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: GuideNavigationService.openGuideSectionNotification)) { notification in
+            let section = notification.userInfo?["section"] as? String
+            // Open in-app HTML manual sheet — uses WKWebView with JS scrollIntoView
+            // for section navigation (works on both iOS and Catalyst).
+            state.htmlManualSection = section
+            state.showHTMLManual = true
         }
     }
     

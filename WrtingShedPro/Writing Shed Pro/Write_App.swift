@@ -184,19 +184,7 @@ struct Write_App: App {
         Write_App.logToFile("✅ [CloudKit Config] aps-environment: production")
         
         // Configure TipKit for contextual tips (Feature 035)
-        do {
-            try Tips.configure([
-                .displayFrequency(.weekly),
-                .datastoreLocation(.applicationDefault)
-            ])
-            #if DEBUG
-            print("✅ [TipKit] Configured successfully")
-            #endif
-        } catch {
-            #if DEBUG
-            print("⚠️ [TipKit] Configuration failed: \(error.localizedDescription)")
-            #endif
-        }
+        Self.configureTipKit()
     }
 
     var body: some Scene {
@@ -297,6 +285,47 @@ struct Write_App: App {
         }
     }
     
+    
+    /// Configure TipKit — called on launch and after reset
+    /// - Parameter isReset: When true, resets the launch counter so tips replay from first-launch
+    static func configureTipKit(isReset: Bool = false) {
+        #if DEBUG
+        // In development, always reset counter alongside datastore so tips are testable.
+        // Remove this block before release — it makes every launch act as "first launch".
+        if !isReset {
+            UserDefaults.standard.set(0, forKey: "tipkit.appLaunchCount")
+        }
+        #endif
+        
+        if isReset {
+            UserDefaults.standard.set(0, forKey: "tipkit.appLaunchCount")
+        }
+        let launchCount = UserDefaults.standard.integer(forKey: "tipkit.appLaunchCount")
+        
+        do {
+            try Tips.configure([
+                .displayFrequency(.immediate),
+                .datastoreLocation(.applicationDefault)
+            ])
+            
+            #if DEBUG
+            // Always start fresh in development so dismissed tips reappear between builds
+            try Tips.resetDatastore()
+            #endif
+        } catch {
+            #if DEBUG
+            print("⚠️ [TipKit] Configuration failed: \(error.localizedDescription)")
+            #endif
+        }
+        
+        // Set @Parameter values AFTER configure/reset so they aren't wiped
+        CreateProjectTip.appLaunchCount = launchCount
+        SettingsTip.appLaunchCount = launchCount
+        
+        #if DEBUG
+        print("✅ [TipKit] Ready (launchCount: \(launchCount), isReset: \(isReset))")
+        #endif
+    }
     
     /// Log messages to a file in the app's documents directory for TestFlight diagnostics
     private static func logToFile(_ message: String) {

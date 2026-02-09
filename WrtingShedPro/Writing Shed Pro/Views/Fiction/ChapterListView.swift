@@ -447,7 +447,7 @@ struct ChapterListView: View {
             // FR-5.4: Verse Novel tip (only for verse novels)
             if isVerseNovel {
                 TipView(VerseNovelTip()) { action in
-                    TipActionHandler.handle(action, guideSection: VerseNovelTip.guideSection, modelContext: modelContext)
+                    TipActionHandler.handle(action, guideSection: VerseNovelTip.guideSection)
                 }
                 .padding(.horizontal)
             }

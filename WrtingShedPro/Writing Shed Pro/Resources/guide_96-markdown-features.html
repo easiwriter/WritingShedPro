@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Writing Shed Pro Guide</title>
+    <style>body { 
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 20px;
+    line-height: 1.6;
+    color: #333;
+}
+h1, h2, h3, h4, h5, h6 { margin-top: 1.5em; margin-bottom: 0.5em; }
+h1 { font-size: 2em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+pre { background: #f4f4f4; padding: 16px; border-radius: 6px; overflow-x: auto; }
+pre code { background: none; padding: 0; }
+blockquote { border-left: 4px solid #ddd; margin-left: 0; padding-left: 16px; color: #666; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+th { background: #f4f4f4; font-weight: bold; }
+ul, ol { padding-left: 2em; }
+a { color: #0066cc; }
+hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
+/* Back to Contents link */
+.back-to-top {
+    text-align: right;
+    font-size: 0.9em;
+    margin: 1.5em 0 0.5em 0;
+}
+.back-to-top a {
+    color: #666;
+    text-decoration: none;
+}
+.back-to-top a:hover {
+    color: #0066cc;
+    text-decoration: underline;
+}
+@media (prefers-color-scheme: dark) {
+    body { background: #1a1a1a; color: #e0e0e0; }
+    code, pre { background: #2d2d2d; }
+    th { background: #2d2d2d; }
+    th, td { border-color: #444; }
+    blockquote { border-color: #555; color: #aaa; }
+    h1, h2 { border-color: #444; }
+    a { color: #4da3ff; }
+    .back-to-top a { color: #999; }
+}
+/* In-app overrides */
+body { margin-top: 0 !important; padding-top: 8px !important; }
+body > *:first-child { margin-top: 0 !important; }
+.back-nav { margin-bottom: 0.5em; }
+.back-nav a { color: #0066cc; text-decoration: none; font-size: 0.95em; }
+@media (prefers-color-scheme: dark) {
+    .back-nav a { color: #4da3ff; }
+}
+</style>
+</head>
+<body>
+<p class="back-nav"><a href="guide:00-toc">← Contents</a></p>
+<a id="96-markdown-features"></a>
+
+<h1 id="markdown-features">Markdown Features</h1>
+
+<p>Writing Shed Pro offers comprehensive Markdown support, including native Markdown editing, rich text preview, and import/export capabilities.</p>
+
+<h2 id="what-is-markdown">What is Markdown?</h2>
+
+<p>Markdown is a lightweight markup language that uses simple symbols to indicate formatting:</p>
+<ul>
+<li><code><strong>bold</strong></code> becomes <strong>bold</strong></li>
+<li><code></em>italic<em></code> becomes </em>italic<em></li>
+<li><code># Heading</code> becomes a heading</li>
+<li><code><a href="#url">link</a></code> becomes a hyperlink</li>
+</ul>
+
+<p>Markdown files are plain text, readable by any text editor, yet carry formatting information that apps can interpret.</p>
+
+<h2 id="creating-markdown-files">Creating Markdown Files</h2>
+
+<p>Writing Shed Pro lets you create and edit files in either Rich Text or Markdown mode. Markdown mode is ideal for writers who prefer plain text with simple formatting syntax.</p>
+
+<h3 id="switching-between-modes">Switching Between Modes</h3>
+
+<p>Any file can be switched between Rich Text and Markdown modes using the toggle button in the toolbar:</p>
+
+<li>Open a file in the editor</li>
+<li>Look for the <strong>content type toggle</strong> button in the toolbar:</li>
+<p>   - <strong># icon</strong> (number square): Currently in Markdown mode - tap to switch to Rich Text</p>
+<p>   - <strong>Document icon</strong> (richtext.page): Currently in Rich Text mode - tap to switch to Markdown</p>
+<li>Tapping the button converts the content and switches mode</li>
+
+<strong>Note</strong>: Switching modes converts the content. Going from Rich Text to Markdown converts formatting to Markdown syntax. Going from Markdown to Rich Text renders the Markdown as formatted text.
+
+<h3 id="markdown-mode-features">Markdown Mode Features</h3>
+
+<p>When editing in Markdown mode:</p>
+<ul>
+<li>A <strong>Markdown indicator bar</strong> appears at the bottom of the editor showing "Markdown"</li>
+<li>Type using standard Markdown syntax</li>
+<li>Tap the toggle button to preview your content as formatted Rich Text</li>
+<li>All standard Markdown formatting is supported</li>
+</ul>
+
+<h3 id="previewing-markdown">Previewing Markdown</h3>
+
+<p>To see how your Markdown will look when rendered:</p>
+
+<li>Tap the <strong>content type toggle</strong> button in the toolbar (switches to Rich Text mode)</li>
+<li>Your Markdown is converted and displayed with:</li>
+<p>   - Headings rendered with appropriate sizes</p>
+<p>   - Bold, italic, and other formatting applied</p>
+<p>   - Links displayed as clickable text</p>
+<li>Tap the toggle again to return to Markdown editing mode</li>
+
+<p>The preview uses your project's stylesheet, so headings and text styles match your document formatting.</p>
+
+<h3 id="when-to-use-markdown-mode">When to Use Markdown Mode</h3>
+
+<p>Markdown mode is particularly useful for:</p>
+<ul>
+<li>Writers comfortable with Markdown syntax</li>
+<li>Content destined for blogs or GitHub</li>
+<li>Quick drafting without formatting distractions</li>
+<li>Files you plan to export as Markdown</li>
+</ul>
+
+<strong>Note</strong>: Markdown mode is not available for Poetry or Drama projects, which require specialized formatting features.
+
+<h2 id="exporting-to-markdown">Exporting to Markdown</h2>
+
+<h3 id="when-to-use-markdown-export">When to Use Markdown Export</h3>
+<ul>
+<li>Sharing with collaborators who use plain text editors</li>
+<li>Publishing to platforms that accept Markdown (blogs, GitHub, etc.)</li>
+<li>Creating backup copies in a universal format</li>
+<li>Converting for use in other Markdown-based tools</li>
+</ul>
+
+<h3 id="how-to-export">How to Export</h3>
+<li>Open the file you want to export</li>
+<li>Tap the <strong>Share</strong> or <strong>Export</strong> button</li>
+<li>Select <strong>Export as Markdown</strong></li>
+<li>Choose where to save the .md file</li>
+
+<h3 id="what-gets-exported">What Gets Exported</h3>
+
+<table>
+<tr><th>Feature</th><th>Markdown Equivalent</th></tr>
+<tr><td>Bold</td><td><code><strong>text</strong></code></td></tr>
+<tr><td>Italic</td><td><code></em>text<em></code></td></tr>
+<tr><td>Bold + Italic</td><td><code><strong><em>text</em></strong></code></td></tr>
+<tr><td>Strikethrough</td><td><code>~~text~~</code></td></tr>
+<tr><td>Headings (1-6)</td><td><code>#</code> to <code>######</code></td></tr>
+<tr><td>Links</td><td><code><a href="#url">text</a></code></td></tr>
+<tr><td>Code/monospace</td><td>`<code> </code>code<code> </code><code></td></tr>
+</table>
+
+<h3 id="what-doesnt-export">What Doesn't Export</h3>
+<ul>
+<li>Complex formatting (fonts, colors, sizes)</li>
+<li>Images (exported as reference links)</li>
+<li>Footnotes (converted to inline notes)</li>
+<li>Page layout and margins</li>
+</ul>
+
+<h2 id="importing-markdown">Importing Markdown</h2>
+
+<p>Writing Shed Pro can import .md files and convert them to rich text, applying your project's stylesheet for consistent formatting.</p>
+
+<h3 id="how-to-import">How to Import</h3>
+<li>Open a folder in your project (Draft, Ready, or any folder)</li>
+<li>Tap the <strong>Import</strong> button (arrow-into-tray icon)</li>
+<li>Select a .md or .markdown file</li>
+<li>The file is imported with formatting applied</li>
+
+<h3 id="stylesheet-mapping">Stylesheet Mapping</h3>
+
+<p>When importing Markdown, headings and text are mapped to your project's stylesheet:</p>
+
+<table>
+<tr><th>Markdown</th><th>Style Applied</th></tr>
+<tr><td></code># Heading 1<code></td><td>Title 1</td></tr>
+<tr><td></code>## Heading 2<code></td><td>Title 2</td></tr>
+<tr><td></code>### Heading 3<code></td><td>Title 3</td></tr>
+<tr><td></code>#### Heading 4<code></td><td>Title 4</td></tr>
+<tr><td></code>##### Heading 5<code></td><td>Subheadline</td></tr>
+<tr><td></code>###### Heading 6<code></td><td>Subheadline</td></tr>
+<tr><td>Regular text</td><td>Body</td></tr>
+<tr><td></code>> Blockquote<code></td><td>Callout</td></tr>
+<tr><td>Code blocks</td><td>Caption 1</td></tr>
+</table>
+
+<h3 id="what-gets-imported">What Gets Imported</h3>
+
+<table>
+<tr><th>Markdown Feature</th><th>Result</th></tr>
+<tr><td><strong>Bold</strong> (</code><strong>text</strong><code>)</td><td>Bold formatting</td></tr>
+<tr><td></em>Italic<em> (</code></em>text<em><code>)</td><td>Italic formatting</td></tr>
+<tr><td>~~Strikethrough~~</td><td>Strikethrough formatting</td></tr>
+<tr><td><a href="#url">Links</a></td><td>Clickable hyperlinks</td></tr>
+<tr><td></code>Code<code></td><td>Monospace font</td></tr>
+<tr><td>Headings</td><td>Styled headings per stylesheet</td></tr>
+<tr><td>Lists</td><td>Formatted lists</td></tr>
+<tr><td>Blockquotes</td><td>Callout style</td></tr>
+</table>
+
+<h3 id="import-best-practices">Import Best Practices</h3>
+
+<strong>Prepare your Markdown file</strong>:
+<ul>
+<li>Use standard Markdown syntax</li>
+<li>Ensure headings use </code>#<code> notation</li>
+<li>Check that links are properly formatted</li>
+</ul>
+
+<strong>After importing</strong>:
+<ul>
+<li>Review the applied styles</li>
+<li>Adjust any formatting as needed</li>
+<li>The imported file becomes a new text file in the folder</li>
+</ul>
+
+<h2 id="round-trip-workflow">Round-Trip Workflow</h2>
+
+<p>You can export to Markdown, edit externally, and reimport:</p>
+
+<li>Export your file to Markdown</li>
+<li>Edit in your preferred Markdown editor</li>
+<li>Import the updated file</li>
+<li>Styles are reapplied from your stylesheet</li>
+
+<strong>Note</strong>: Some formatting may change in the round trip. Complex styling not supported by Markdown will be simplified on export and cannot be automatically restored on import.
+
+<h2 id="markdown-and-other-formats">Markdown and Other Formats</h2>
+
+<h3 id="markdown-vs-rtf">Markdown vs RTF</h3>
+<table>
+<tr><th>Aspect</th><th>Markdown</th><th>RTF</th></tr>
+<tr><td>File size</td><td>Smaller</td><td>Larger</td></tr>
+<tr><td>Human readable</td><td>Yes</td><td>No</td></tr>
+<tr><td>Formatting</td><td>Basic</td><td>Rich</td></tr>
+<tr><td>Universal</td><td>Very</td><td>Mostly</td></tr>
+<tr><td>Editability</td><td>Any text editor</td><td>Word processors</td></tr>
+</table>
+
+<h3 id="markdown-vs-pdf">Markdown vs PDF</h3>
+<table>
+<tr><th>Aspect</th><th>Markdown</th><th>PDF</th></tr>
+<tr><td>Editable</td><td>Yes</td><td>No</td></tr>
+<tr><td>Formatting</td><td>Basic</td><td>Full</td></tr>
+<tr><td>File size</td><td>Smaller</td><td>Larger</td></tr>
+<tr><td>Universal</td><td>Yes</td><td>Yes</td></tr>
+</table>
+
+<h2 id="troubleshooting">Troubleshooting</h2>
+
+<h3 id="import-not-recognizing-formatting">Import Not Recognizing Formatting</h3>
+<ul>
+<li>Ensure proper Markdown syntax (e.g., </code><strong>bold</strong><code> not </code><strong> bold </strong><code>)</li>
+<li>Check for invisible characters from other editors</li>
+<li>Some extended Markdown features may not be supported</li>
+</ul>
+
+<h3 id="export-missing-features">Export Missing Features</h3>
+<ul>
+<li>Markdown is intentionally limited in features</li>
+<li>Complex formatting will be simplified</li>
+<li>Consider RTF or PDF for full formatting</li>
+</ul>
+
+<h3 id="headings-not-styled-correctly">Headings Not Styled Correctly</h3>
+<ul>
+<li>Verify your project has a stylesheet with the mapped styles</li>
+<li>Check that headings use </code>#<code> syntax, not underlines</li>
+<li>Import applies the default stylesheet mapping</li>
+</ul>
+
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="guide:91-export-options">Export Options</a></li>
+<li><a href="guide:93-rtf-export">RTF Export</a></li>
+<li><a href="guide:02-stylesheet-editor">Stylesheet Editor</a></li>
+</ul>
+
+
+<hr>
+</body>
+</html>

@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Writing Shed Pro Guide</title>
+    <style>body { 
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 20px;
+    line-height: 1.6;
+    color: #333;
+}
+h1, h2, h3, h4, h5, h6 { margin-top: 1.5em; margin-bottom: 0.5em; }
+h1 { font-size: 2em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+pre { background: #f4f4f4; padding: 16px; border-radius: 6px; overflow-x: auto; }
+pre code { background: none; padding: 0; }
+blockquote { border-left: 4px solid #ddd; margin-left: 0; padding-left: 16px; color: #666; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+th { background: #f4f4f4; font-weight: bold; }
+ul, ol { padding-left: 2em; }
+a { color: #0066cc; }
+hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
+/* Back to Contents link */
+.back-to-top {
+    text-align: right;
+    font-size: 0.9em;
+    margin: 1.5em 0 0.5em 0;
+}
+.back-to-top a {
+    color: #666;
+    text-decoration: none;
+}
+.back-to-top a:hover {
+    color: #0066cc;
+    text-decoration: underline;
+}
+@media (prefers-color-scheme: dark) {
+    body { background: #1a1a1a; color: #e0e0e0; }
+    code, pre { background: #2d2d2d; }
+    th { background: #2d2d2d; }
+    th, td { border-color: #444; }
+    blockquote { border-color: #555; color: #aaa; }
+    h1, h2 { border-color: #444; }
+    a { color: #4da3ff; }
+    .back-to-top a { color: #999; }
+}
+/* In-app overrides */
+body { margin-top: 0 !important; padding-top: 8px !important; }
+body > *:first-child { margin-top: 0 !important; }
+.back-nav { margin-bottom: 0.5em; }
+.back-nav a { color: #0066cc; text-decoration: none; font-size: 0.95em; }
+@media (prefers-color-scheme: dark) {
+    .back-nav a { color: #4da3ff; }
+}
+</style>
+</head>
+<body>
+<p class="back-nav"><a href="guide:00-toc">← Contents</a></p>
+<a id="105-keyboard-shortcuts"></a>
+
+<h1 id="keyboard-shortcuts">Keyboard Shortcuts</h1>
+
+<p>Writing Shed Pro supports keyboard shortcuts for faster navigation and editing. These work on Mac and iPad with an external keyboard.</p>
+
+<h2 id="viewing-all-shortcuts">Viewing All Shortcuts</h2>
+
+<p>On iPad with keyboard:</p>
+<ul>
+<li>Press and hold <strong>⌘</strong> (Command) to see available shortcuts for the current screen</li>
+</ul>
+
+<p>On Mac:</p>
+<ul>
+<li>Shortcuts appear in menus next to commands</li>
+<li>Hold ⌘ for context-specific shortcuts</li>
+</ul>
+
+<h2 id="essential-shortcuts">Essential Shortcuts</h2>
+
+<h3 id="file-operations">File Operations</h3>
+<table>
+<tr><th>Shortcut</th><th>Action</th></tr>
+<tr><td>⌘N</td><td>New file</td></tr>
+<tr><td>⌘S</td><td>Save (auto-saves, but forces sync)</td></tr>
+<tr><td>⌘W</td><td>Close file</td></tr>
+</table>
+
+<h3 id="edit-operations">Edit Operations</h3>
+<table>
+<tr><th>Shortcut</th><th>Action</th></tr>
+<tr><td>⌘Z</td><td>Undo</td></tr>
+<tr><td>⌘⇧Z</td><td>Redo</td></tr>
+<tr><td>⌘X</td><td>Cut</td></tr>
+<tr><td>⌘C</td><td>Copy</td></tr>
+<tr><td>⌘V</td><td>Paste</td></tr>
+<tr><td>⌘A</td><td>Select all</td></tr>
+</table>
+
+<h3 id="text-formatting">Text Formatting</h3>
+<table>
+<tr><th>Shortcut</th><th>Action</th></tr>
+<tr><td>⌘B</td><td>Bold</td></tr>
+<tr><td>⌘I</td><td>Italic</td></tr>
+<tr><td>⌘U</td><td>Underline</td></tr>
+</table>
+
+<h3 id="find-and-replace">Find and Replace</h3>
+<table>
+<tr><th>Shortcut</th><th>Action</th></tr>
+<tr><td>⌘F</td><td>Find</td></tr>
+<tr><td>⌘G</td><td>Find next</td></tr>
+<tr><td>⌘⇧G</td><td>Find previous</td></tr>
+<tr><td>⌘⌥F</td><td>Find and replace</td></tr>
+</table>
+
+<h3 id="navigation">Navigation</h3>
+<table>
+<tr><th>Shortcut</th><th>Action</th></tr>
+<tr><td>⌘↑</td><td>Go to document start</td></tr>
+<tr><td>⌘↓</td><td>Go to document end</td></tr>
+<tr><td>⌘←</td><td>Go to line start</td></tr>
+<tr><td>⌘→</td><td>Go to line end</td></tr>
+<tr><td>⌥←</td><td>Move word left</td></tr>
+<tr><td>⌥→</td><td>Move word right</td></tr>
+</table>
+
+<h3 id="selection">Selection</h3>
+<table>
+<tr><th>Shortcut</th><th>Action</th></tr>
+<tr><td>⇧ + arrow</td><td>Extend selection</td></tr>
+<tr><td>⌘⇧←</td><td>Select to line start</td></tr>
+<tr><td>⌘⇧→</td><td>Select to line end</td></tr>
+<tr><td>⌘⇧↑</td><td>Select to document start</td></tr>
+<tr><td>⌘⇧↓</td><td>Select to document end</td></tr>
+<tr><td>⌥⇧←</td><td>Select word left</td></tr>
+<tr><td>⌥⇧→</td><td>Select word right</td></tr>
+</table>
+
+<h3 id="zoom">Zoom</h3>
+<table>
+<tr><th>Shortcut</th><th>Action</th></tr>
+<tr><td>⌘+</td><td>Zoom in</td></tr>
+<tr><td>⌘-</td><td>Zoom out</td></tr>
+<tr><td>⌘0</td><td>Reset zoom</td></tr>
+</table>
+
+<h2 id="text-insertion-shortcuts">Text Insertion Shortcuts</h2>
+
+<table>
+<tr><th>Shortcut</th><th>Action</th></tr>
+<tr><td>⌘⇧C</td><td>Insert comment (if available)</td></tr>
+<tr><td>Return</td><td>New paragraph</td></tr>
+<tr><td>⇧Return</td><td>Line break (within paragraph)</td></tr>
+</table>
+
+<h2 id="special-keys">Special Keys</h2>
+
+<h3 id="common-modifier-keys">Common Modifier Keys</h3>
+<ul>
+<li><strong>⌘</strong> (Command): Primary modifier</li>
+<li><strong>⌥</strong> (Option/Alt): Secondary modifier</li>
+<li><strong>⇧</strong> (Shift): Extend selection or alternate action</li>
+<li><strong>⌃</strong> (Control): Additional options</li>
+</ul>
+
+<h3 id="function-keys-if-keyboard-has-them">Function Keys (if keyboard has them)</h3>
+<p>May be available for custom actions.</p>
+
+<h2 id="platform-differences">Platform Differences</h2>
+
+<h3 id="ipad-with-external-keyboard">iPad with External Keyboard</h3>
+<ul>
+<li>Most shortcuts work</li>
+<li>Some Mac-specific shortcuts may differ</li>
+<li>Hold ⌘ to see available options</li>
+</ul>
+
+<h3 id="mac">Mac</h3>
+<ul>
+<li>Full keyboard support</li>
+<li>Menu bar shows shortcuts</li>
+<li>System shortcuts also available</li>
+</ul>
+
+<h3 id="iphone">iPhone</h3>
+<p>No hardware keyboard typically, but Bluetooth keyboards work similarly to iPad.</p>
+
+<h2 id="customizing-shortcuts">Customizing Shortcuts</h2>
+
+<p>Currently, shortcuts are not customizable. The defaults follow Apple's standard patterns.</p>
+
+<h2 id="learning-shortcuts">Learning Shortcuts</h2>
+
+<h3 id="start-with-the-essentials">Start with the Essentials</h3>
+<p>Learn these first:</p>
+<li>⌘B/I/U (formatting)</li>
+<li>⌘Z (undo)</li>
+<li>⌘F (find)</li>
+<li>⌘C/V (copy/paste)</li>
+
+<h3 id="build-from-there">Build from There</h3>
+<p>Add shortcuts as you need them. Muscle memory develops over time.</p>
+
+<h3 id="print-a-reference">Print a Reference</h3>
+<p>See <a href="guide:01-keyboard-shortcut-list">Keyboard Shortcut List</a> for a printable list.</p>
+
+<h2 id="troubleshooting">Troubleshooting</h2>
+
+<h3 id="shortcut-not-working">Shortcut Not Working</h3>
+<ul>
+<li>Check correct keys pressed</li>
+<li>Some shortcuts are context-sensitive</li>
+<li>Feature may not be available in current view</li>
+</ul>
+
+<h3 id="wrong-action-happening">Wrong Action Happening</h3>
+<ul>
+<li>May be conflicting with system shortcut</li>
+<li>Check the intended shortcut</li>
+<li>Report bugs if shortcuts behave unexpectedly</li>
+</ul>
+
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="guide:01-keyboard-shortcut-list">Keyboard Shortcut List</a></li>
+<li><a href="guide:41-the-editor">The Editor</a></li>
+<li><a href="guide:23-the-interface-tour">The Interface Tour</a></li>
+</ul>
+
+
+<hr>
+</body>
+</html>
