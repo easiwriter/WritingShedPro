@@ -223,6 +223,7 @@ class JSONExportService {
             poetryFormName: textFile.poetryFormName,
             sectionId: textFile.section?.id.uuidString,
             includedInManuscript: textFile.includedInManuscript,
+            contentTypeRaw: textFile.contentTypeRaw != "richText" ? textFile.contentTypeRaw : nil,  // Only export if not default
             isTOCFile: textFile.isTOCFile ? true : nil,  // Only export if true
             tocSettingsBase64: tocSettingsBase64,
             versions: versions
@@ -421,6 +422,7 @@ struct WSPTextFileData: Codable {
     var poetryFormName: String?
     var sectionId: String?
     var includedInManuscript: Bool?  // Optional for backward compatibility, defaults to true
+    var contentTypeRaw: String?  // Optional for backward compatibility - "richText" or "markdown"
     var isTOCFile: Bool?  // Optional for backward compatibility - Feature 031
     var tocSettingsBase64: String?  // Base64 encoded TOCSettings JSON - Feature 031
     var versions: [WSPVersionData] = []

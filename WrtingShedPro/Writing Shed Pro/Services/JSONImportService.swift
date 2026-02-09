@@ -260,6 +260,11 @@ class JSONImportService {
         // Set manuscript inclusion flag (default to true for backward compatibility)
         textFile.includedInManuscript = data.includedInManuscript ?? true
         
+        // Restore content type (markdown vs richText) — defaults to richText for backward compatibility
+        if let contentType = data.contentTypeRaw {
+            textFile.contentTypeRaw = contentType
+        }
+        
         // Feature 031: TOC file settings
         textFile.isTOCFile = data.isTOCFile ?? false
         if let base64 = data.tocSettingsBase64, let settingsData = Data(base64Encoded: base64) {

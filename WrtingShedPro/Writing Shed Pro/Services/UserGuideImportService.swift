@@ -73,6 +73,12 @@ final class UserGuideImportService {
             
             // Ensure the project has the correct name
             project.name = guideProjectName
+            
+            // Fix content type for markdown files exported before contentTypeRaw was added.
+            // The guide's files were originally created as markdown but the WSP export
+            // didn't preserve contentTypeRaw, so they import as richText. Detect and fix.
+            fixMarkdownContentTypes(in: project)
+            
             try modelContext.save()
             
             #if DEBUG
@@ -120,5 +126,47 @@ final class UserGuideImportService {
         } catch {
             throw GuideImportError.deleteFailed(error.localizedDescription)
         }
+    }
+    
+    /// Detect and fix markdown files that lost their contentType during WSP export/import.
+    /// Checks each file's plain text content for markdown syntax patterns.
+    private static func fixMarkdownContentTypes(in project: Project) {
+        guard let folders = project.folders else { return }
+        
+        func fixFilesInFolder(_ folder: Folder) {
+            for file in folder.textFiles ?? [] {
+                // Skip files that already have the correct type
+                guard file.contentTypeRaw == "richText" || file.contentTypeRaw == nil else { continue }
+                
+                // Check the plain text content for markdown indicators
+                let content = file.currentVersion?.content ?? ""
+                if looksLikeMarkdown(content) {
+                    file.contentTypeRaw = "markdown"
+                    // Clear RTF formatted content — markdown files use plain text
+                    if let version = file.currentVersion {
+                        version.formattedContent = nil
+                    }
+                    #if DEBUG
+                    print("[UserGuideImport] Fixed content type → markdown: \(file.name)")
+                    #endif
+                }
+            }
+            for subfolder in folder.subfolders ?? [] {
+                fixFilesInFolder(subfolder)
+            }
+        }
+        
+        for folder in folders {
+            fixFilesInFolder(folder)
+        }
+    }
+    
+    /// Heuristic: does this plain text content look like markdown?
+    /// Returns true if it contains markdown heading syntax (lines starting with #).
+    private static func looksLikeMarkdown(_ content: String) -> Bool {
+        guard !content.isEmpty else { return false }
+        let lines = content.components(separatedBy: .newlines)
+        let headingCount = lines.filter { $0.hasPrefix("# ") || $0.hasPrefix("## ") || $0.hasPrefix("### ") }.count
+        return headingCount >= 1
     }
 }

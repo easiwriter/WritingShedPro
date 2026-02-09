@@ -10,6 +10,7 @@
 - [Creating Your First Project](2-getting-started/22-creating-your-first-project.md)
 - [The Interface Tour](2-getting-started/23-the-interface-tour.md)
 - [iCloud Sync](2-getting-started/24-icloud-sync.md)
+- [Application Settings](2-getting-started/25-application-settings.md)
 
 ## 3. Projects
 - [Project Types](3-projects/31-project-types-overview.md)

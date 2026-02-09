@@ -74,6 +74,7 @@ struct WSPTextFileData: Codable {
     var poetryFormName: String?
     var sectionId: String?
     var includedInManuscript: Bool?  // Optional for backward compatibility
+    var contentTypeRaw: String?  // Optional for backward compatibility - "richText" or "markdown"
     var isTOCFile: Bool?  // Optional for backward compatibility - Feature 031
     var tocSettingsBase64: String?  // Base64 encoded TOCSettings JSON - Feature 031
     var versions: [WSPVersionData] = []

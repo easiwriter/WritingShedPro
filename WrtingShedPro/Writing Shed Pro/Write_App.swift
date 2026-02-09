@@ -289,14 +289,6 @@ struct Write_App: App {
     /// Configure TipKit — called on launch and after reset
     /// - Parameter isReset: When true, resets the launch counter so tips replay from first-launch
     static func configureTipKit(isReset: Bool = false) {
-        #if DEBUG
-        // In development, always reset counter alongside datastore so tips are testable.
-        // Remove this block before release — it makes every launch act as "first launch".
-        if !isReset {
-            UserDefaults.standard.set(0, forKey: "tipkit.appLaunchCount")
-        }
-        #endif
-        
         if isReset {
             UserDefaults.standard.set(0, forKey: "tipkit.appLaunchCount")
         }

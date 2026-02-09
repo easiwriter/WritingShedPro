@@ -122,12 +122,12 @@ struct CreateProjectTip: Tip {
     
     static let guideSection: String? = "22-creating-your-first-project"
     
-    /// Only show on the first app launch
+    /// Only show on the first app launch (count == 0)
     @Parameter
     static var appLaunchCount: Int = 0
     
     var rules: [Rule] {
-        #Rule(Self.$appLaunchCount) { $0 <= 1 }
+        #Rule(Self.$appLaunchCount) { $0 == 0 }
     }
     
     var actions: [Action] {
@@ -152,14 +152,14 @@ struct SettingsTip: Tip {
         Image(systemName: "gearshape")
     }
     
-    static let guideSection: String? = "23-the-interface-tour"
+    static let guideSection: String? = "25-application-settings"
     
-    /// Only show on the second app launch
+    /// Only show on the second app launch (count == 1)
     @Parameter
     static var appLaunchCount: Int = 0
     
     var rules: [Rule] {
-        #Rule(Self.$appLaunchCount) { $0 == 2 }
+        #Rule(Self.$appLaunchCount) { $0 == 1 }
     }
     
     var actions: [Action] {
