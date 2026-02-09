@@ -44,20 +44,26 @@ struct ContentViewBody: View {
         projects.filter { $0.isTrashed == true }
     }
 
-    private let firstProjectTip = FirstProjectTip()
+    private let toolbarGuideTip = ToolbarGuideTip()
+    
+    /// Show the toolbar guide tip only on the second launch (launchCount == 1).
+    /// Uses UserDefaults directly instead of TipKit @Parameter rules, which have
+    /// unreliable persistence timing across launches.
+    private var shouldShowToolbarTip: Bool {
+        // configureTipKit increments AFTER reading, so by the time the view
+        // appears the stored value is launchCount+1. We read the original
+        // value that was current when configureTipKit ran.
+        // launchCount 0 = first launch, 1 = second launch, etc.
+        // The value in UserDefaults is already incremented to launchCount+1,
+        // so second launch (original count 1) is stored as 2.
+        let storedCount = UserDefaults.standard.integer(forKey: "tipkit.appLaunchCount")
+        return storedCount == 2  // Was launchCount==1 before increment
+    }
 
     var body: some View {
         NavigationStack(path: $state.navigationPath) {
             VStack(spacing: 0) {
-                // FR-2.1: First Project tip — shown when no projects exist
                 let activeProjects = projects.filter { !$0.isTrashed }
-                if activeProjects.isEmpty {
-                    TipView(firstProjectTip) { action in
-                        TipActionHandler.handle(action, guideSection: FirstProjectTip.guideSection)
-                    }
-                    .padding(.horizontal)
-                    .padding(.top, 8)
-                }
                 
                 ProjectEditableList(
                     projects: activeProjects,
@@ -67,6 +73,7 @@ struct ContentViewBody: View {
                         set: { state.editMode = $0 ? .active : .inactive }
                     )
                 )
+                
                 // Only show Trash bin button if there are trashed projects
                 if !trashedProjects.isEmpty {
                     Button(action: { showProjectTrash = true }) {
@@ -75,20 +82,29 @@ struct ContentViewBody: View {
                     .padding(.vertical, 8)
                 }
             }
+            // FR-2.7: Toolbar Guide tip — placed in safeAreaInset so it doesn't
+            // break the large navigation title rendering.
+            // Display timing controlled by UserDefaults, dismiss state by TipKit.
+            .safeAreaInset(edge: .top, spacing: 0) {
+                if shouldShowToolbarTip {
+                    TipView(toolbarGuideTip) { action in
+                        switch action.id {
+                        case "interface-tour":
+                            GuideNavigationService.shared.openGuideSection("23-the-interface-tour")
+                        case "settings-guide":
+                            GuideNavigationService.shared.openGuideSection("25-application-settings")
+                        default:
+                            break
+                        }
+                    }
+                }
+            }
             .environment(\.editMode, $state.editMode)
             #if !targetEnvironment(macCatalyst)
             .preferredColorScheme(state.appearancePreferences.colorScheme)
             #endif
             .onAppear {
                 onInitialize()
-                
-                // Update TipKit parameter for First Project tip
-                FirstProjectTip.hasNoProjects = projects.filter { !$0.isTrashed }.isEmpty
-                
-                // Increment app launch count for next launch's popover tips
-                // (current launch's parameters were already set in configureTipKit)
-                let nextLaunchCount = UserDefaults.standard.integer(forKey: "tipkit.appLaunchCount") + 1
-                UserDefaults.standard.set(nextLaunchCount, forKey: "tipkit.appLaunchCount")
                 
                 // Initialize stylesheets in background (moved from Write_App)
                 onInitializeStyleSheets()
@@ -113,9 +129,6 @@ struct ContentViewBody: View {
                 }
             }
             .onChange(of: projects.isEmpty) { _, isEmpty in
-                // Update TipKit parameter
-                FirstProjectTip.hasNoProjects = projects.filter { !$0.isTrashed }.isEmpty
-                
                 if isEmpty && state.editMode == .active {
                     withAnimation {
                         state.editMode = .inactive

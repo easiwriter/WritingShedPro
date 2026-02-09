@@ -132,14 +132,12 @@ struct SettingsSheet: View {
         .presentationBackground(Color(uiColor: .systemBackground))
         .alert("Reset All Tips", isPresented: $showTipsResetConfirmation) {
             Button("Reset", role: .destructive) {
-                try? Tips.resetDatastore()
-                FirstProjectTip.hasNoProjects = true
                 Write_App.configureTipKit(isReset: true)
                 isPresented = false
             }
             Button("Cancel", role: .cancel) { }
         } message: {
-            Text("All tips will be shown again as you use the app.")
+            Text("All tips will be shown again starting from the next app launch.")
         }
     }
 }

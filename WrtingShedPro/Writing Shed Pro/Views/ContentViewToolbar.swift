@@ -19,22 +19,17 @@ struct ContentViewToolbar: ToolbarContent {
     private var poetryPrefs: PoetryPreferences { state.poetryPreferences }
     
     var body: some ToolbarContent {
-        // Settings button (leading) - opens settings sheet
-        ToolbarItem(placement: .navigationBarLeading) {
-            Button {
-                state.showSettings = true
-            } label: {
-                Image(systemName: "gearshape")
-                    .popoverTip(SettingsTip()) { action in
-                        TipActionHandler.handle(action, guideSection: SettingsTip.guideSection)
-                    }
-            }
-            .accessibilityLabel("Settings")
-        }
-        
         // Action buttons (trailing)
         ToolbarItem(placement: .navigationBarTrailing) {
             HStack(spacing: 16) {
+                // Settings button - opens settings sheet
+                Button {
+                    state.showSettings = true
+                } label: {
+                    Image(systemName: "gearshape")
+                }
+                .accessibilityLabel("Settings")
+                
                 // Help button - opens HTML manual
                 Button(action: {
                     state.showHTMLManual = true

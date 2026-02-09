@@ -290,8 +290,21 @@ struct Write_App: App {
     /// - Parameter isReset: When true, resets the launch counter so tips replay from first-launch
     static func configureTipKit(isReset: Bool = false) {
         if isReset {
+            // Mark for reset on next launch — resetDatastore() must be called BEFORE configure(),
+            // and configure() can only be called once per process, so we defer the actual reset.
+            UserDefaults.standard.set(true, forKey: "tipkit.pendingReset")
             UserDefaults.standard.set(0, forKey: "tipkit.appLaunchCount")
+            return
         }
+        
+        // Handle pending reset from previous session
+        let pendingReset = UserDefaults.standard.bool(forKey: "tipkit.pendingReset")
+        if pendingReset {
+            UserDefaults.standard.set(false, forKey: "tipkit.pendingReset")
+            UserDefaults.standard.set(0, forKey: "tipkit.appLaunchCount")
+            try? Tips.resetDatastore()
+        }
+        
         let launchCount = UserDefaults.standard.integer(forKey: "tipkit.appLaunchCount")
         
         do {
@@ -299,23 +312,18 @@ struct Write_App: App {
                 .displayFrequency(.immediate),
                 .datastoreLocation(.applicationDefault)
             ])
-            
-            #if DEBUG
-            // Always start fresh in development so dismissed tips reappear between builds
-            try Tips.resetDatastore()
-            #endif
         } catch {
             #if DEBUG
             print("⚠️ [TipKit] Configuration failed: \(error.localizedDescription)")
             #endif
         }
         
-        // Set @Parameter values AFTER configure/reset so they aren't wiped
-        CreateProjectTip.appLaunchCount = launchCount
-        SettingsTip.appLaunchCount = launchCount
+        // Increment for next launch — done here (not onAppear) to avoid
+        // Mac Catalyst firing onAppear multiple times per launch
+        UserDefaults.standard.set(launchCount + 1, forKey: "tipkit.appLaunchCount")
         
         #if DEBUG
-        print("✅ [TipKit] Ready (launchCount: \(launchCount), isReset: \(isReset))")
+        print("✅ [TipKit] Ready (launchCount: \(launchCount), pendingReset: \(pendingReset))")
         #endif
     }
     

@@ -122,14 +122,6 @@ struct CreateProjectTip: Tip {
     
     static let guideSection: String? = "22-creating-your-first-project"
     
-    /// Only show on the first app launch (count == 0)
-    @Parameter
-    static var appLaunchCount: Int = 0
-    
-    var rules: [Rule] {
-        #Rule(Self.$appLaunchCount) { $0 == 0 }
-    }
-    
     var actions: [Action] {
         if Self.guideSection != nil {
             Action(id: "learn-more", title: "Learn More")
@@ -137,35 +129,28 @@ struct CreateProjectTip: Tip {
     }
 }
 
-// MARK: - FR-2.7: Settings Popover Tip
-/// Popover tip pointing at the settings gear on second launch
-struct SettingsTip: Tip {
+// MARK: - FR-2.7: Toolbar Guide Tip
+/// Inline tip describing all toolbar buttons, shown on second launch.
+/// Display timing is controlled by the view via UserDefaults ("tipkit.appLaunchCount"),
+/// not by TipKit @Parameter rules (which have unreliable persistence timing).
+struct ToolbarGuideTip: Tip {
     var title: Text {
-        Text("Settings & More")
+        Text("Your Toolbar")
     }
     
     var message: Text? {
-        Text("Import projects, customise stylesheets, set up page layout, and contact support.")
+        Text("\(Image(systemName: "gearshape")) Settings — import, stylesheets, page setup\n\(Image(systemName: "questionmark.circle")) Help — open the user guide\n\(Image(systemName: "plus")) New project — create a writing project\n\(Image(systemName: "arrow.up.arrow.down")) Sort — change the project list order\nEdit — select projects to delete")
+            .font(.callout)
+            .foregroundStyle(.primary)
     }
     
     var image: Image? {
-        Image(systemName: "gearshape")
-    }
-    
-    static let guideSection: String? = "25-application-settings"
-    
-    /// Only show on the second app launch (count == 1)
-    @Parameter
-    static var appLaunchCount: Int = 0
-    
-    var rules: [Rule] {
-        #Rule(Self.$appLaunchCount) { $0 == 1 }
+        Image(systemName: "hammer")
     }
     
     var actions: [Action] {
-        if Self.guideSection != nil {
-            Action(id: "learn-more", title: "Learn More")
-        }
+        Action(id: "interface-tour", title: "Interface Tour")
+        Action(id: "settings-guide", title: "Settings Guide")
     }
 }
 

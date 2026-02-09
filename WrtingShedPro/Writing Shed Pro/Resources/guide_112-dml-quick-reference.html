@@ -64,263 +64,270 @@ body > *:first-child { margin-top: 0 !important; }
 <a id="112-dml-quick-reference"></a>
 
 <h1 id="dml-quick-reference">DML Quick Reference</h1>
-
 <p>Quick reference for Drama Markup Language (DML) used in Drama projects.</p>
-
 <h2 id="basic-structure">Basic Structure</h2>
-
 <pre><code># ACT ONE
 
-<p>## Scene 1</p>
+## Scene 1
 
-<p>INT. COFFEE SHOP - DAY</p>
+INT. COFFEE SHOP - DAY
 
-<p>&gt; The shop is busy. EMMA, 30s, sits at a corner table.</p>
+&gt; The shop is busy. EMMA, 30s, sits at a corner table.
 
-<p>EMMA</p>
-<p>(nervously)</p>
-<p>Is this seat taken?</p>
+EMMA
+(nervously)
+Is this seat taken?
 
-<p>DAVID</p>
-<p>No, please. Sit.</p>
+DAVID
+No, please. Sit.
 
-<p>&gt; He gestures to the empty chair.</p>
+&gt; He gestures to the empty chair.
 </code></pre>
-
 <h2 id="element-prefixes">Element Prefixes</h2>
-
 <table>
-<tr><th>Prefix</th><th>Element</th><th>Example</th></tr>
-<tr><td></code>#<code></td><td>Act heading</td><td></code># ACT ONE<code></td></tr>
-<tr><td></code>##<code></td><td>Scene heading</td><td></code>## Scene 1<code></td></tr>
-<tr><td>(none)</td><td>Scene heading (Film)</td><td></code>INT. OFFICE - DAY<code></td></tr>
-<tr><td>(none)</td><td>Character name</td><td></code>DAVID<code></td></tr>
-<tr><td></code>><code></td><td>Action/Stage direction</td><td></code>> She exits.<code></td></tr>
-<tr><td></code>()<code></td><td>Parenthetical</td><td></code>(softly)<code></td></tr>
-<tr><td>(none)</td><td>Dialogue</td><td>Plain text after character name</td></tr>
+<thead>
+<tr>
+<th>Prefix</th>
+<th>Element</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>#</code></td>
+<td>Act heading</td>
+<td><code># ACT ONE</code></td>
+</tr>
+<tr>
+<td><code>##</code></td>
+<td>Scene heading</td>
+<td><code>## Scene 1</code></td>
+</tr>
+<tr>
+<td>(none)</td>
+<td>Scene heading (Film)</td>
+<td><code>INT. OFFICE - DAY</code></td>
+</tr>
+<tr>
+<td>(none)</td>
+<td>Character name</td>
+<td><code>DAVID</code></td>
+</tr>
+<tr>
+<td><code>&gt;</code></td>
+<td>Action/Stage direction</td>
+<td><code>&gt; She exits.</code></td>
+</tr>
+<tr>
+<td><code>()</code></td>
+<td>Parenthetical</td>
+<td><code>(softly)</code></td>
+</tr>
+<tr>
+<td>(none)</td>
+<td>Dialogue</td>
+<td>Plain text after character name</td>
+</tr>
+</tbody>
 </table>
-
 <h2 id="scene-headings">Scene Headings</h2>
-
 <h3 id="film-format">Film Format</h3>
 <pre><code>INT. LOCATION - TIME
-<p>EXT. LOCATION - TIME</p>
-<p>INT./EXT. LOCATION - TIME</p>
+EXT. LOCATION - TIME
+INT./EXT. LOCATION - TIME
 </code></pre>
-
 <p>Examples:</p>
 <pre><code>INT. LIVING ROOM - NIGHT
-<p>EXT. BEACH - SUNSET</p>
-<p>INT./EXT. CAR - DAY</p>
+EXT. BEACH - SUNSET
+INT./EXT. CAR - DAY
 </code></pre>
-
 <h3 id="stage-format">Stage Format</h3>
 <pre><code>## Scene 1
-<p>## Scene 2: The Reveal</p>
+## Scene 2: The Reveal
 </code></pre>
-
 <h2 id="character-names">Character Names</h2>
-
 <p>Write in ALL CAPS on their own line:</p>
-
 <pre><code>EMMA
-<p>DAVID</p>
-<p>DOCTOR MILLER</p>
-<p>VOICE (O.S.)</p>
+DAVID
+DOCTOR MILLER
+VOICE (O.S.)
 </code></pre>
-
 <h3 id="character-extensions">Character Extensions</h3>
 <pre><code>EMMA (V.O.)      Voice over
-<p>EMMA (O.S.)      Off screen</p>
-<p>EMMA (CONT'D)    Continuing</p>
-<p>EMMA (O.C.)      Off camera</p>
+EMMA (O.S.)      Off screen
+EMMA (CONT'D)    Continuing
+EMMA (O.C.)      Off camera
 </code></pre>
-
 <h2 id="dialogue">Dialogue</h2>
-
 <p>Plain text following a character name:</p>
-
 <pre><code>EMMA
-<p>I never thought I'd see you again.</p>
+I never thought I'd see you again.
 </code></pre>
-
 <p>Multi-line:</p>
 <pre><code>DAVID
-<p>You know, I've been thinking about that day.</p>
-<p>The way the light came through the window.</p>
-<p>It changed everything for me.</p>
+You know, I've been thinking about that day.
+The way the light came through the window.
+It changed everything for me.
 </code></pre>
-
 <h2 id="parentheticals">Parentheticals</h2>
-
 <p>In parentheses, on their own line:</p>
-
 <pre><code>EMMA
-<p>(hesitant)</p>
-<p>Are you sure about this?</p>
+(hesitant)
+Are you sure about this?
 
-<p>DAVID</p>
-<p>(laughing, then serious)</p>
-<p>No. But when has that ever stopped us?</p>
+DAVID
+(laughing, then serious)
+No. But when has that ever stopped us?
 </code></pre>
-
 <h2 id="action-lines">Action Lines</h2>
-
-<p>Prefix with </code>><code>:</p>
-
+<p>Prefix with <code>&gt;</code>:</p>
 <pre><code>&gt; She sets down her coffee cup.
 
-<p>&gt; DAVID enters through the front door. He's soaking wet.</p>
+&gt; DAVID enters through the front door. He's soaking wet.
 
-<p>&gt; Beat.</p>
+&gt; Beat.
 
-<p>&gt; They stare at each other.</p>
+&gt; They stare at each other.
 </code></pre>
-
 <h2 id="transitions">Transitions</h2>
-
 <p>Film transitions:</p>
-
 <pre><code>CUT TO:
-<p>DISSOLVE TO:</p>
-<p>FADE OUT.</p>
-<p>FADE IN:</p>
-<p>SMASH CUT TO:</p>
+DISSOLVE TO:
+FADE OUT.
+FADE IN:
+SMASH CUT TO:
 </code></pre>
-
 <h2 id="special-elements">Special Elements</h2>
-
 <h3 id="montage">Montage</h3>
 <pre><code>MONTAGE:
 
-<p>&gt; EMMA jogs through the park.</p>
+&gt; EMMA jogs through the park.
 
-<p>&gt; DAVID works late at the office.</p>
+&gt; DAVID works late at the office.
 
-<p>&gt; EMMA stares at her phone.</p>
+&gt; EMMA stares at her phone.
 
-<p>END MONTAGE.</p>
+END MONTAGE.
 </code></pre>
-
 <h3 id="flashback">Flashback</h3>
 <pre><code>FLASHBACK:
 
-<p>INT. CHILDHOOD HOME - DAY (1995)</p>
+INT. CHILDHOOD HOME - DAY (1995)
 
-<p>&gt; Young EMMA opens a gift.</p>
+&gt; Young EMMA opens a gift.
 
-<p>END FLASHBACK.</p>
+END FLASHBACK.
 </code></pre>
-
 <h3 id="intercut">Intercut</h3>
 <pre><code>INTERCUT - PHONE CONVERSATION
 
-<p>INT. EMMA'S APARTMENT - NIGHT</p>
+INT. EMMA'S APARTMENT - NIGHT
 
-<p>EMMA</p>
-<p>Where are you?</p>
+EMMA
+Where are you?
 
-<p>INT. AIRPORT - CONTINUOUS</p>
+INT. AIRPORT - CONTINUOUS
 
-<p>DAVID</p>
-<p>About to board. I'll be home soon.</p>
+DAVID
+About to board. I'll be home soon.
 </code></pre>
-
 <h2 id="song-lyrics-stage">Song Lyrics (Stage)</h2>
-
 <pre><code>EMMA
-<p>(singing)</p>
-<p>♪ When the morning comes around</p>
-<p>♪ And the sky is turning gold</p>
-<p>♪ I'll remember what we found</p>
-<p>♪ And the stories left untold ♪</p>
+(singing)
+♪ When the morning comes around
+♪ And the sky is turning gold
+♪ I'll remember what we found
+♪ And the stories left untold ♪
 </code></pre>
-
 <h2 id="stage-directions-stage">Stage Directions (Stage)</h2>
-
 <p>Detailed directions for stage:</p>
-
 <pre><code>&gt; SL: Sofa and coffee table. SR: Kitchen counter with stools. 
-<p>&gt; UC: Large window showing city skyline (projected).</p>
+&gt; UC: Large window showing city skyline (projected).
 </code></pre>
-
-<p>Abbreviations:</p>
-<ul>
-<li>SL: Stage Left</li>
-<li>SR: Stage Right</li>
-<li>UC: Upstage Center</li>
-<li>DC: Downstage Center</li>
-</ul>
-
+<p>Abbreviations:
+- SL: Stage Left
+- SR: Stage Right
+- UC: Upstage Center
+- DC: Downstage Center</p>
 <h2 id="common-patterns">Common Patterns</h2>
-
 <h3 id="character-introduction">Character Introduction</h3>
 <pre><code>&gt; EMMA (30s, nervous energy, vintage dress) enters with a stack of files.
 </code></pre>
-
 <h3 id="quick-dialogue-exchange">Quick Dialogue Exchange</h3>
 <pre><code>EMMA
-<p>Did you take it?</p>
+Did you take it?
 
-<p>DAVID</p>
-<p>Take what?</p>
+DAVID
+Take what?
 
-<p>EMMA</p>
-<p>You know what.</p>
+EMMA
+You know what.
 </code></pre>
-
 <h3 id="dramatic-pause">Dramatic Pause</h3>
 <pre><code>DAVID
-<p>I think we should—</p>
+I think we should—
 
-<p>&gt; Long pause.</p>
+&gt; Long pause.
 
-<p>DAVID (CONT'D)</p>
-<p>—never mind.</p>
+DAVID (CONT'D)
+—never mind.
 </code></pre>
-
 <h2 id="film-vs-stage-output">Film vs Stage Output</h2>
-
 <p>Same DML produces different formatting:</p>
-
 <h3 id="film-output">Film Output</h3>
 <ul>
 <li>Scene headings in CAPS</li>
 <li>Technical transitions</li>
 <li>Camera-oriented terminology</li>
 </ul>
-
 <h3 id="stage-output">Stage Output</h3>
 <ul>
 <li>Act/Scene structure emphasized</li>
 <li>Stage direction styling</li>
 <li>Theatre conventions</li>
 </ul>
-
 <h2 id="common-mistakes">Common Mistakes</h2>
-
 <table>
-<tr><th>Wrong</th><th>Right</th></tr>
-<tr><td></code>Emma<code> (lowercase)</td><td></code>EMMA<code></td></tr>
-<tr><td></code>She exits<code> (no prefix)</td><td></code>> She exits.<code></td></tr>
-<tr><td></code>[softly]<code></td><td></code>(softly)<code></td></tr>
-<tr><td></code>ACT 1<code></td><td></code># ACT ONE<code></td></tr>
+<thead>
+<tr>
+<th>Wrong</th>
+<th>Right</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Emma</code> (lowercase)</td>
+<td><code>EMMA</code></td>
+</tr>
+<tr>
+<td><code>She exits</code> (no prefix)</td>
+<td><code>&gt; She exits.</code></td>
+</tr>
+<tr>
+<td><code>[softly]</code></td>
+<td><code>(softly)</code></td>
+</tr>
+<tr>
+<td><code>ACT 1</code></td>
+<td><code># ACT ONE</code></td>
+</tr>
+</tbody>
 </table>
-
 <h2 id="tips">Tips</h2>
-
+<ol>
 <li><strong>Character names</strong>: Always CAPS</li>
-<li><strong>Action lines</strong>: Always start with </code>><code></li>
+<li><strong>Action lines</strong>: Always start with <code>&gt;</code></li>
 <li><strong>Keep it simple</strong>: Don't over-format</li>
 <li><strong>Preview often</strong>: Check both Film and Stage output</li>
 <li><strong>Consistency</strong>: Same format throughout</li>
-
+</ol>
 <h2 id="see-also">See Also</h2>
 <ul>
 <li><a href="guide:84-dml-reference">DML Reference</a></li>
 <li><a href="guide:82-script-formatting">Script Formatting</a></li>
 <li><a href="guide:83-film-vs-stage">Film vs Stage</a></li>
 </ul>
+<hr />
 
 
 <hr>

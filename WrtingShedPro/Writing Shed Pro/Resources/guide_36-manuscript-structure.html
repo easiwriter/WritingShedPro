@@ -64,236 +64,208 @@ body > *:first-child { margin-top: 0 !important; }
 <a id="36-manuscript-structure"></a>
 
 <h1 id="manuscript-structure">Manuscript Structure</h1>
-
 <p>Writing Shed Pro uses a <strong>Manuscript</strong> folder to organize your work for export and publication. This guide covers the manuscript structure, its subfolders, and the special files for front and back matter.</p>
-
 <h2 id="overview">Overview</h2>
-
 <p>The Manuscript folder provides a structured way to assemble your writing into a complete, publishable document. It contains three main subfolders:</p>
-
 <pre><code>Manuscript/
-<p>├── Front Matter/</p>
-<p>│   ├── Title Page</p>
-<p>│   ├── Copyright</p>
-<p>│   ├── Dedication</p>
-<p>│   ├── Table of Contents</p>
-<p>│   └── (other front matter files)</p>
-<p>├── [Body Content]/</p>
-<p>│   └── (your writing organized by type)</p>
-<p>└── Back Matter/</p>
-<p>    ├── Endnotes (auto-generated)</p>
-<p>    ├── Glossary (auto-generated)</p>
-<p>    ├── References/Bibliography (auto-generated)</p>
-<p>    ├── Index (auto-generated)</p>
-<p>    └── Contributors (user-created)</p>
+├── Front Matter/
+│   ├── Title Page
+│   ├── Copyright
+│   ├── Dedication
+│   ├── Table of Contents
+│   └── (other front matter files)
+├── [Body Content]/
+│   └── (your writing organized by type)
+└── Back Matter/
+    ├── Endnotes (auto-generated)
+    ├── Glossary (auto-generated)
+    ├── References/Bibliography (auto-generated)
+    ├── Index (auto-generated)
+    └── Contributors (user-created)
 </code></pre>
-
-<p>The body folder name varies by project type:</p>
-<ul>
-<li><strong>Drama</strong>: All Acts</li>
-<li><strong>Poetry</strong>: All Poems</li>
-<li><strong>Prose</strong>: All Sections</li>
-<li><strong>Novel</strong>: All Chapters</li>
-<li><strong>Short Fiction</strong>: All Stories</li>
-</ul>
-
+<p>The body folder name varies by project type:
+- <strong>Drama</strong>: All Acts
+- <strong>Poetry</strong>: All Poems
+- <strong>Prose</strong>: All Sections
+- <strong>Novel</strong>: All Chapters
+- <strong>Short Fiction</strong>: All Stories</p>
 <h2 id="front-matter">Front Matter</h2>
-
 <p>Front matter appears at the beginning of your manuscript, before the main content. Writing Shed Pro provides files for common front matter elements, but <strong>you supply the content</strong>.</p>
-
 <h3 id="common-front-matter-files">Common Front Matter Files</h3>
-
 <table>
-<tr><th>File</th><th>Purpose</th><th>Content to Add</th></tr>
-<tr><td><strong>Title Page</strong></td><td>Book title and author</td><td>Title, subtitle, author name, publisher logo</td></tr>
-<tr><td><strong>Copyright</strong></td><td>Legal information</td><td>Copyright notice, ISBN, publisher info, rights statements</td></tr>
-<tr><td><strong>Dedication</strong></td><td>Personal dedication</td><td>To whom you dedicate the book</td></tr>
-<tr><td><strong>Acknowledgments</strong></td><td>Thanks</td><td>People and organizations to thank</td></tr>
-<tr><td><strong>Epigraph</strong></td><td>Introductory quote</td><td>A quotation that sets the tone</td></tr>
-<tr><td><strong>Table of Contents</strong></td><td>Chapter listing</td><td>Auto-generated from headings, or manually created</td></tr>
-<tr><td><strong>Foreword</strong></td><td>Introduction by another person</td><td>Written by someone other than the author</td></tr>
-<tr><td><strong>Preface</strong></td><td>Author's introduction</td><td>Why and how you wrote the book</td></tr>
-<tr><td><strong>Introduction</strong></td><td>Subject introduction</td><td>Background on the subject matter</td></tr>
+<thead>
+<tr>
+<th>File</th>
+<th>Purpose</th>
+<th>Content to Add</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Title Page</strong></td>
+<td>Book title and author</td>
+<td>Title, subtitle, author name, publisher logo</td>
+</tr>
+<tr>
+<td><strong>Copyright</strong></td>
+<td>Legal information</td>
+<td>Copyright notice, ISBN, publisher info, rights statements</td>
+</tr>
+<tr>
+<td><strong>Dedication</strong></td>
+<td>Personal dedication</td>
+<td>To whom you dedicate the book</td>
+</tr>
+<tr>
+<td><strong>Acknowledgments</strong></td>
+<td>Thanks</td>
+<td>People and organizations to thank</td>
+</tr>
+<tr>
+<td><strong>Epigraph</strong></td>
+<td>Introductory quote</td>
+<td>A quotation that sets the tone</td>
+</tr>
+<tr>
+<td><strong>Table of Contents</strong></td>
+<td>Chapter listing</td>
+<td>Auto-generated from headings, or manually created</td>
+</tr>
+<tr>
+<td><strong>Foreword</strong></td>
+<td>Introduction by another person</td>
+<td>Written by someone other than the author</td>
+</tr>
+<tr>
+<td><strong>Preface</strong></td>
+<td>Author's introduction</td>
+<td>Why and how you wrote the book</td>
+</tr>
+<tr>
+<td><strong>Introduction</strong></td>
+<td>Subject introduction</td>
+<td>Background on the subject matter</td>
+</tr>
+</tbody>
 </table>
-
 <h3 id="adding-front-matter-content">Adding Front Matter Content</h3>
-
+<ol>
 <li>Open the <strong>Manuscript</strong> folder</li>
 <li>Open <strong>Front Matter</strong></li>
 <li>Tap on any file (e.g., "Title Page")</li>
 <li>Add your content using the editor</li>
 <li>Format as desired</li>
-
+</ol>
 <h3 id="table-of-contents">Table of Contents</h3>
-
-<p>The Table of Contents (TOC) can be:</p>
-<ul>
-<li><strong>Auto-generated</strong>: Writing Shed Pro creates it from your heading styles during PDF export</li>
-<li><strong>Manual</strong>: You write and format it yourself</li>
-</ul>
-
-<p>To enable auto-generated TOC:</p>
-<li>Go to <strong>Export Options</strong></li>
-<li>Enable <strong>Include Table of Contents</strong></li>
-<li>The TOC will be generated based on Heading 1, Heading 2, etc. styles in your content</li>
-
-<strong>Note</strong>: Auto-generated TOC requires consistent use of heading paragraph styles.
-
+<p>The Table of Contents (TOC) can be:
+- <strong>Auto-generated</strong>: Writing Shed Pro creates it from your heading styles during PDF export
+- <strong>Manual</strong>: You write and format it yourself</p>
+<p>To enable auto-generated TOC:
+1. Go to <strong>Export Options</strong>
+2. Enable <strong>Include Table of Contents</strong>
+3. The TOC will be generated based on Heading 1, Heading 2, etc. styles in your content</p>
+<p><strong>Note</strong>: Auto-generated TOC requires consistent use of heading paragraph styles.</p>
 <h2 id="body-content">Body Content</h2>
-
 <p>The middle folder contains your actual writing, organized according to project type. See the project type guides for details:</p>
-
 <ul>
-<li><a href="#5-prose-features">Prose Features</a></li>
-<li><a href="#6-poetry-features">Poetry Features</a></li>
-<li><a href="#7-fiction-features">Fiction Features</a></li>
-<li><a href="#8-drama-features">Drama Features</a></li>
+<li><a href="../5-prose-features/">Prose Features</a></li>
+<li><a href="../6-poetry-features/">Poetry Features</a></li>
+<li><a href="../7-fiction-features/">Fiction Features</a></li>
+<li><a href="../8-drama-features/">Drama Features</a></li>
 </ul>
-
 <h2 id="back-matter">Back Matter</h2>
-
 <p>Back matter appears at the end of your manuscript. Some sections are <strong>auto-generated</strong> from references in your text, while others are <strong>user-created</strong>.</p>
-
 <h3 id="auto-generated-back-matter">Auto-Generated Back Matter</h3>
-
 <p>These sections are created automatically based on content you've added to your files:</p>
-
 <h4 id="endnotes">Endnotes</h4>
-
-<p>If you use footnotes in endnotes mode, they appear here:</p>
-<ul>
-<li>Collected from all files in order</li>
-<li>Numbered sequentially across the manuscript</li>
-<li>Preserves all footnote formatting</li>
-</ul>
-
-<strong>Note</strong>: Footnotes vs. endnotes is a display setting—your footnote content can appear either at page bottoms (footnotes) or collected at the end (endnotes).
-
+<p>If you use footnotes in endnotes mode, they appear here:
+- Collected from all files in order
+- Numbered sequentially across the manuscript
+- Preserves all footnote formatting</p>
+<p><strong>Note</strong>: Footnotes vs. endnotes is a display setting—your footnote content can appear either at page bottoms (footnotes) or collected at the end (endnotes).</p>
 <p>See <a href="guide:45-footnotes">Footnotes</a> for details on adding footnotes.</p>
-
 <h4 id="glossary">Glossary</h4>
-
-<p>Terms you've marked for the glossary appear here:</p>
-<ul>
-<li>Alphabetically sorted</li>
-<li>Each entry shows the term and its definition</li>
-<li>Terms are highlighted in the text with special formatting</li>
-</ul>
-
+<p>Terms you've marked for the glossary appear here:
+- Alphabetically sorted
+- Each entry shows the term and its definition
+- Terms are highlighted in the text with special formatting</p>
 <p>To add glossary entries, use the References menu in the editor toolbar.</p>
-
 <h4 id="references-bibliography">References / Bibliography</h4>
-
-<p>Citations and works cited appear here:</p>
-<ul>
-<li>Formatted according to your chosen citation style</li>
-<li>Includes all works referenced in your text</li>
-<li>Sorted alphabetically by author</li>
-</ul>
-
+<p>Citations and works cited appear here:
+- Formatted according to your chosen citation style
+- Includes all works referenced in your text
+- Sorted alphabetically by author</p>
 <p>To add reference entries, use the References menu in the editor toolbar.</p>
-
 <h4 id="index">Index</h4>
-
-<p>Index entries with page numbers appear here:</p>
-<ul>
-<li>Alphabetically sorted main entries</li>
-<li>Sub-entries indented under parents (up to 3 levels)</li>
-<li>Page numbers calculated from pagination</li>
-<li>Cross-references ("See" and "See also")</li>
-<li>Primary references shown in bold</li>
-</ul>
-
+<p>Index entries with page numbers appear here:
+- Alphabetically sorted main entries
+- Sub-entries indented under parents (up to 3 levels)
+- Page numbers calculated from pagination
+- Cross-references ("See" and "See also")
+- Primary references shown in bold</p>
 <p>See <a href="guide:108-index-generation">Index Generation</a> for details on creating index entries.</p>
-
-<strong>Note</strong>: Index with page numbers is only available in PDF export, since other formats don't have fixed page numbers.
-
+<p><strong>Note</strong>: Index with page numbers is only available in PDF export, since other formats don't have fixed page numbers.</p>
 <h3 id="user-created-back-matter">User-Created Back Matter</h3>
-
 <h4 id="contributors">Contributors</h4>
-
-<p>For anthologies, magazines, and collaborative works:</p>
-<ul>
-<li>Add contributor names and biographies</li>
-<li>Automatically sorted by surname</li>
-<li>Format customizable in export</li>
-</ul>
-
+<p>For anthologies, magazines, and collaborative works:
+- Add contributor names and biographies
+- Automatically sorted by surname
+- Format customizable in export</p>
 <p>See <a href="guide:107-contributors">Contributors</a> for details.</p>
-
 <h4 id="other-back-matter-files">Other Back Matter Files</h4>
-
-<p>You can add additional back matter files for:</p>
-<ul>
-<li><strong>Appendices</strong>: Supplementary material, data, or documents</li>
-<li><strong>About the Author</strong>: Your biography</li>
-<li><strong>Also By</strong>: List of your other works</li>
-<li><strong>Colophon</strong>: Information about the book's production</li>
-<li><strong>Reading Group Guide</strong>: Discussion questions</li>
-</ul>
-
-<p>To add a custom back matter file:</p>
-<li>Open <strong>Back Matter</strong> folder</li>
-<li>Tap <strong>+</strong> to create a new file</li>
-<li>Name it appropriately</li>
-<li>Add your content</li>
-
+<p>You can add additional back matter files for:
+- <strong>Appendices</strong>: Supplementary material, data, or documents
+- <strong>About the Author</strong>: Your biography
+- <strong>Also By</strong>: List of your other works
+- <strong>Colophon</strong>: Information about the book's production
+- <strong>Reading Group Guide</strong>: Discussion questions</p>
+<p>To add a custom back matter file:
+1. Open <strong>Back Matter</strong> folder
+2. Tap <strong>+</strong> to create a new file
+3. Name it appropriately
+4. Add your content</p>
 <h2 id="export-options">Export Options</h2>
-
 <p>When exporting your manuscript, you can control which sections are included:</p>
-
 <h3 id="back-matter-settings">Back Matter Settings</h3>
-
+<ol>
 <li>Open <strong>Export</strong> options</li>
 <li>Under <strong>Back Matter</strong>, enable or disable:</li>
-<p>   - ☑️ Include Endnotes</p>
-<p>   - ☑️ Include Glossary</p>
-<p>   - ☑️ Include Bibliography</p>
-<p>   - ☑️ Include Index</p>
-<p>   - ☑️ Include Contributors</p>
-
+<li>☑️ Include Endnotes</li>
+<li>☑️ Include Glossary</li>
+<li>☑️ Include Bibliography</li>
+<li>☑️ Include Index</li>
+<li>☑️ Include Contributors</li>
+</ol>
 <h3 id="section-order-in-export">Section Order in Export</h3>
-
-<p>The exported manuscript follows this order:</p>
-<li>Front Matter (in file order)</li>
-<li>Body Content (in file/chapter order)</li>
-<li>Back Matter:</li>
-<p>   - Endnotes</p>
-<p>   - Glossary</p>
-<p>   - References/Bibliography</p>
-<p>   - Contributors</p>
-<p>   - Index</p>
-<p>   - (Custom files in order)</p>
-
+<p>The exported manuscript follows this order:
+1. Front Matter (in file order)
+2. Body Content (in file/chapter order)
+3. Back Matter:
+   - Endnotes
+   - Glossary
+   - References/Bibliography
+   - Contributors
+   - Index
+   - (Custom files in order)</p>
 <h2 id="tips">Tips</h2>
-
 <h3 id="consistent-formatting">Consistent Formatting</h3>
-<p>Use paragraph styles consistently throughout your manuscript. This ensures:</p>
-<ul>
-<li>Auto-generated TOC works correctly</li>
-<li>Export formatting is uniform</li>
-<li>Professional appearance</li>
-</ul>
-
+<p>Use paragraph styles consistently throughout your manuscript. This ensures:
+- Auto-generated TOC works correctly
+- Export formatting is uniform
+- Professional appearance</p>
 <h3 id="review-before-export">Review Before Export</h3>
-<p>Always preview your assembled manuscript:</p>
-<ul>
-<li>Check that all sections are included</li>
-<li>Verify page numbering is correct</li>
-<li>Ensure cross-references resolve</li>
-</ul>
-
+<p>Always preview your assembled manuscript:
+- Check that all sections are included
+- Verify page numbering is correct
+- Ensure cross-references resolve</p>
 <h3 id="empty-sections">Empty Sections</h3>
 <p>If a back matter section has no entries (e.g., no glossary terms defined), it won't appear in the export. This prevents empty sections in your final document.</p>
-
 <h3 id="file-order-in-frontback-matter">File Order in Front/Back Matter</h3>
-<p>Files in Front Matter and Back Matter appear in the order shown in the folder. To reorder:</p>
-<li>Tap <strong>Edit</strong> in the folder</li>
-<li>Drag files to the desired order</li>
-<li>Tap <strong>Done</strong></li>
-
+<p>Files in Front Matter and Back Matter appear in the order shown in the folder. To reorder:
+1. Tap <strong>Edit</strong> in the folder
+2. Drag files to the desired order
+3. Tap <strong>Done</strong></p>
 <h2 id="related-topics">Related Topics</h2>
-
 <ul>
 <li><a href="guide:91-export-options">Export Options</a></li>
 <li><a href="guide:92-pdf-export">PDF Export</a></li>
@@ -301,5 +273,8 @@ body > *:first-child { margin-top: 0 !important; }
 <li><a href="guide:108-index-generation">Index Generation</a></li>
 <li><a href="guide:107-contributors">Contributors</a></li>
 </ul>
+
+
+<hr>
 </body>
 </html>
