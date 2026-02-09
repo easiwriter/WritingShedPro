@@ -621,10 +621,12 @@ struct ProseListView: View {
     private var fileList: some View {
         List(selection: $selectedFileIDs) {
             // FR-2.4: Folder organisation tip
-            TipView(FolderOrganisationTip()) { action in
-                TipActionHandler.handle(action, guideSection: FolderOrganisationTip.guideSection)
+            if TipKitConfiguration.tipsEnabled {
+                TipView(FolderOrganisationTip()) { action in
+                    TipActionHandler.handle(action, guideSection: FolderOrganisationTip.guideSection)
+                }
+                .listRowSeparator(.hidden)
             }
-            .listRowSeparator(.hidden)
             
             if useSections {
                 // Show collapsible sections grouped by section name

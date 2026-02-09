@@ -15,9 +15,11 @@ struct PoetryFormPicker: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // FR-4.1: Poetry Form tip
-            TipView(PoetryFormTip())
-                .padding(.horizontal)
-                .padding(.bottom, 4)
+            if TipKitConfiguration.tipsEnabled {
+                TipView(PoetryFormTip())
+                    .padding(.horizontal)
+                    .padding(.bottom, 4)
+            }
             
             // Section header with Manage button
             HStack {

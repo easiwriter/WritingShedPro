@@ -62,7 +62,7 @@ struct SyllableCountView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // FR-4.2: Syllable Counter tip
-            if expectedPattern != nil {
+            if expectedPattern != nil && TipKitConfiguration.tipsEnabled {
                 TipView(SyllableCounterTip())
                     .padding(.horizontal)
                     .padding(.bottom, 4)

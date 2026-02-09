@@ -1433,7 +1433,7 @@ struct FileEditView: View {
             } else {
                 textEditorSection()
                 // FR-3.1: Formatting Toolbar tip (shown above toolbar on first open)
-                if isFileEditable && !isDisplayingAsMarkdown {
+                if isFileEditable && !isDisplayingAsMarkdown && TipKitConfiguration.tipsEnabled {
                     TipView(formattingToolbarTip) { action in
                         TipActionHandler.handle(action, guideSection: FormattingToolbarTip.guideSection)
                     }

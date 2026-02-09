@@ -246,11 +246,13 @@ struct FolderFilesView: View {
                     } else if !sortedFiles.isEmpty {
                         VStack(spacing: 0) {
                             // FR-2.4: Folder organisation tip
-                            TipView(FolderOrganisationTip()) { action in
-                                TipActionHandler.handle(action, guideSection: FolderOrganisationTip.guideSection)
+                            if TipKitConfiguration.tipsEnabled {
+                                TipView(FolderOrganisationTip()) { action in
+                                    TipActionHandler.handle(action, guideSection: FolderOrganisationTip.guideSection)
+                                }
+                                .padding(.horizontal)
+                                .padding(.top, 4)
                             }
-                            .padding(.horizontal)
-                            .padding(.top, 4)
                             fileListSection
                         }
                     } else if isMatterFolder {

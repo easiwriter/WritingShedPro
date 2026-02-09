@@ -201,10 +201,12 @@ struct PlotOutlineView: View {
     private var emptyState: some View {
         VStack(spacing: 16) {
             // FR-5.2: Plot Elements tip
-            TipView(PlotElementsTip()) { action in
-                TipActionHandler.handle(action, guideSection: PlotElementsTip.guideSection)
+            if TipKitConfiguration.tipsEnabled {
+                TipView(PlotElementsTip()) { action in
+                    TipActionHandler.handle(action, guideSection: PlotElementsTip.guideSection)
+                }
+                .padding(.horizontal)
             }
-            .padding(.horizontal)
             
             Image(systemName: "chart.line.uptrend.xyaxis")
                 .font(.system(size: 60))

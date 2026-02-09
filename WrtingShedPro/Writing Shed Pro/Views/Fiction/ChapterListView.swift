@@ -445,7 +445,7 @@ struct ChapterListView: View {
     private var emptyState: some View {
         VStack(spacing: 16) {
             // FR-5.4: Verse Novel tip (only for verse novels)
-            if isVerseNovel {
+            if isVerseNovel && TipKitConfiguration.tipsEnabled {
                 TipView(VerseNovelTip()) { action in
                     TipActionHandler.handle(action, guideSection: VerseNovelTip.guideSection)
                 }

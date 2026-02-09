@@ -99,10 +99,12 @@ struct CollectionsView: View {
                 // Show list of collections
                 List {
                     // FR-8.1: Collections tip
-                    TipView(CollectionsTip()) { action in
-                        TipActionHandler.handle(action, guideSection: CollectionsTip.guideSection)
+                    if TipKitConfiguration.tipsEnabled {
+                        TipView(CollectionsTip()) { action in
+                            TipActionHandler.handle(action, guideSection: CollectionsTip.guideSection)
+                        }
+                        .listRowSeparator(.hidden)
                     }
-                    .listRowSeparator(.hidden)
                     
                     ForEach(sortedCollections) { collection in
                         collectionRow(for: collection)

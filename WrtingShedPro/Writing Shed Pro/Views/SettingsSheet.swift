@@ -16,6 +16,7 @@ struct SettingsSheet: View {
     
     @Environment(\.requestReview) var requestReview
     @State private var showTipsResetConfirmation = false
+    @State private var tipsEnabled = TipKitConfiguration.tipsEnabled
     
     var body: some View {
         NavigationStack {
@@ -91,11 +92,19 @@ struct SettingsSheet: View {
                         Label("Sync Diagnostics", systemImage: "arrow.triangle.2.circlepath")
                     }
                     
+                    Toggle(isOn: $tipsEnabled) {
+                        Label("Show Tips", systemImage: "lightbulb")
+                    }
+                    .onChange(of: tipsEnabled) { _, newValue in
+                        TipKitConfiguration.setDisabled(!newValue)
+                    }
+                    
                     Button {
                         showTipsResetConfirmation = true
                     } label: {
-                        Label("Reset All Tips", systemImage: "lightbulb")
+                        Label("Reset All Tips", systemImage: "arrow.counterclockwise")
                     }
+                    .disabled(!tipsEnabled)
                     
                     Button {
                         isPresented = false

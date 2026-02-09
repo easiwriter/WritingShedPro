@@ -62,8 +62,10 @@ struct AddFileSheet: View {
                 }
                 
                 // FR-2.5: New File tip
-                TipView(NewFileTip()) { action in
-                    TipActionHandler.handle(action, guideSection: NewFileTip.guideSection)
+                if TipKitConfiguration.tipsEnabled {
+                    TipView(NewFileTip()) { action in
+                        TipActionHandler.handle(action, guideSection: NewFileTip.guideSection)
+                    }
                 }
                 
                 // Poetry form picker section (for Poetry projects and Verse Novel episodes)

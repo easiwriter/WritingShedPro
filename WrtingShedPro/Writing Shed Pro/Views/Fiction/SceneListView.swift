@@ -559,10 +559,12 @@ struct SceneListView: View {
     private var sceneList: some View {
         List {
             // FR-2.4: Folder organisation tip (same as FolderFilesView)
-            TipView(FolderOrganisationTip()) { action in
-                TipActionHandler.handle(action, guideSection: FolderOrganisationTip.guideSection)
+            if TipKitConfiguration.tipsEnabled {
+                TipView(FolderOrganisationTip()) { action in
+                    TipActionHandler.handle(action, guideSection: FolderOrganisationTip.guideSection)
+                }
+                .listRowSeparator(.hidden)
             }
-            .listRowSeparator(.hidden)
             
             ForEach(sortedScenes) { scene in
                 sceneRow(for: scene)
@@ -630,10 +632,12 @@ struct SceneListView: View {
     private var emptyState: some View {
         VStack(spacing: 16) {
             // FR-5.1: Scenes & Chapters tip
-            TipView(ScenesAndChaptersTip()) { action in
-                TipActionHandler.handle(action, guideSection: ScenesAndChaptersTip.guideSection)
+            if TipKitConfiguration.tipsEnabled {
+                TipView(ScenesAndChaptersTip()) { action in
+                    TipActionHandler.handle(action, guideSection: ScenesAndChaptersTip.guideSection)
+                }
+                .padding(.horizontal)
             }
-            .padding(.horizontal)
             
             Image(systemName: isVerseNovel ? "music.note.list" : "film")
                 .font(.system(size: 60))

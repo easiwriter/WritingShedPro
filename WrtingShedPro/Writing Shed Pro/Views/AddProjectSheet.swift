@@ -43,8 +43,10 @@ struct AddProjectSheet: View {
                     .accessibilityLabel(NSLocalizedString("addProject.typeAccessibility", comment: "Accessibility label for project type picker"))
                     
                     // FR-2.2: Project Types tip
-                    TipView(projectTypesTip) { action in
-                        TipActionHandler.handle(action, guideSection: ProjectTypesTip.guideSection)
+                    if TipKitConfiguration.tipsEnabled {
+                        TipView(projectTypesTip) { action in
+                            TipActionHandler.handle(action, guideSection: ProjectTypesTip.guideSection)
+                        }
                     }
                     
                     // Fiction-specific options

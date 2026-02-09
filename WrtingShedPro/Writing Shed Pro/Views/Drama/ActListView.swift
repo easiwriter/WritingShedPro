@@ -275,10 +275,12 @@ struct ActListView: View {
     private var emptyState: some View {
         VStack(spacing: 16) {
             // FR-6.1: Drama Structure tip
-            TipView(DramaStructureTip()) { action in
-                TipActionHandler.handle(action, guideSection: DramaStructureTip.guideSection)
+            if TipKitConfiguration.tipsEnabled {
+                TipView(DramaStructureTip()) { action in
+                    TipActionHandler.handle(action, guideSection: DramaStructureTip.guideSection)
+                }
+                .padding(.horizontal)
             }
-            .padding(.horizontal)
             
             Image(systemName: "theatermasks")
                 .font(.system(size: 60))

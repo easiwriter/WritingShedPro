@@ -86,7 +86,7 @@ struct ContentViewBody: View {
             // break the large navigation title rendering.
             // Display timing controlled by UserDefaults, dismiss state by TipKit.
             .safeAreaInset(edge: .top, spacing: 0) {
-                if shouldShowToolbarTip {
+                if shouldShowToolbarTip && TipKitConfiguration.tipsEnabled {
                     TipView(toolbarGuideTip) { action in
                         switch action.id {
                         case "interface-tour":
