@@ -151,6 +151,42 @@ struct SceneListToolbarTip: Tip {
     }
 }
 
+// MARK: - FR-2.10: Chapter List Toolbar Guide Tip
+/// Toolbar tip for the chapter/story/book list view (fiction projects).
+struct ChapterListToolbarTip: Tip {
+    var title: Text {
+        Text("Your Toolbar")
+    }
+    
+    var message: Text? {
+        Text("\(Image(systemName: "plus")) Add — create a new chapter, story, or book\nEdit — select items to delete or reorder")
+            .font(.callout)
+            .foregroundStyle(.primary)
+    }
+    
+    var image: Image? {
+        Image(systemName: "hammer")
+    }
+}
+
+// MARK: - FR-2.11: Act List Toolbar Guide Tip
+/// Toolbar tip for the act list view (drama projects).
+struct ActListToolbarTip: Tip {
+    var title: Text {
+        Text("Your Toolbar")
+    }
+    
+    var message: Text? {
+        Text("\(Image(systemName: "plus")) Add — create a new act\nEdit — select acts to delete or reorder")
+            .font(.callout)
+            .foregroundStyle(.primary)
+    }
+    
+    var image: Image? {
+        Image(systemName: "hammer")
+    }
+}
+
 // MARK: - FR-2.6: Create Project Popover Tip
 /// Popover tip pointing at the + button, shown after the ToolbarGuideTip is dismissed.
 /// Uses a Tips.Event rule so TipKit controls the sequencing natively.

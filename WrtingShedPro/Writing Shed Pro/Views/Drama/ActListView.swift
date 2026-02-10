@@ -35,6 +35,9 @@ struct ActListView: View {
     @State private var filesToAddToCollection: [TextFile] = []
     @State private var filesToSubmit: [TextFile] = []
     
+    /// Act list toolbar tip
+    private let actListToolbarTip = ActListToolbarTip()
+    
     // MARK: - Computed
     
     private var sortedActs: [Act] {
@@ -76,6 +79,12 @@ struct ActListView: View {
         }
         .navigationTitle(NSLocalizedString("drama.acts.title", comment: "Acts"))
         .navigationBarTitleDisplayMode(.inline)
+        // Act list toolbar guide tip
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if TipKitConfiguration.tipsEnabled {
+                TipView(actListToolbarTip)
+            }
+        }
         // Use native iOS back button - immune to SwiftUI render blocking
         .navigationBarBackButtonHidden(false)
         .onPopToRoot {

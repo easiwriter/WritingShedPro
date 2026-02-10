@@ -35,6 +35,9 @@ struct ChapterListView: View {
     @State private var filesToAddToCollection: [TextFile] = []
     @State private var filesToSubmit: [TextFile] = []
     
+    /// Chapter list toolbar tip
+    private let chapterListToolbarTip = ChapterListToolbarTip()
+    
     // MARK: - Computed
     
     private var fictionClass: FictionClass {
@@ -233,6 +236,12 @@ struct ChapterListView: View {
         }
         .navigationTitle(fictionClass.chapterDisplayName)
         .navigationBarTitleDisplayMode(.inline)
+        // Chapter list toolbar guide tip
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if TipKitConfiguration.tipsEnabled {
+                TipView(chapterListToolbarTip)
+            }
+        }
         // Use native iOS back button - immune to SwiftUI render blocking
         .navigationBarBackButtonHidden(false)
         .onAppear {
