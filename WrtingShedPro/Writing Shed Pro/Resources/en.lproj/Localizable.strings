@@ -2049,7 +2049,7 @@
 "headerfooter.target.centre" = "Centre Field";
 "headerfooter.target.right" = "Right Field";
 "headerFooter.notEnabled.title" = "Headers & Footers Not Enabled";
-"headerFooter.notEnabled.message" = "Enable headers or footers in Page Setup (Settings) before editing their content.";
+"headerFooter.notEnabled.message" = "Enable headers or footers in Page Setup in your project's settings before editing their content.";
 
 /* Front Matter Settings */
 "frontMatter.settings.title" = "Front Matter";
