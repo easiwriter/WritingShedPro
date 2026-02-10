@@ -259,48 +259,63 @@ struct ManuscriptBodyView: View {
     private func exportAsPDF() {
         isExporting = true
         
-        Task {
+        // Capture values needed off main thread
+        let allExportFiles = sections.flatMap { $0.files }
+        let isDrama = project.type == .drama
+        let scriptType: DramaScriptType = {
+            if let raw = project.dramaScriptTypeRaw, let t = DramaScriptType(rawValue: raw) { return t }
+            return .stage
+        }()
+        let styleSheet = project.styleSheet
+        let settings = project.manuscriptSettings
+        let projectName = project.name ?? "Manuscript"
+        
+        // Collect file data on main thread (SwiftData objects aren't sendable)
+        struct FileExportData {
+            let content: String
+            let attributedContent: NSAttributedString?
+            let isMarkdown: Bool
+            let isDrama: Bool
+        }
+        
+        var fileDataList: [FileExportData] = []
+        for file in allExportFiles {
+            guard let version = file.currentVersion else { continue }
+            fileDataList.append(FileExportData(
+                content: version.content,
+                attributedContent: isDrama || file.isMarkdown ? nil : version.attributedContent,
+                isMarkdown: file.isMarkdown,
+                isDrama: isDrama
+            ))
+        }
+        
+        // Do heavy assembly work off main thread
+        Task.detached {
             do {
-                // Build rich text from all files, rendering markdown to styled text
                 let assembled = NSMutableAttributedString()
-                let allExportFiles = sections.flatMap { $0.files }
-                let isDrama = project.type == .drama
-                let scriptType: DramaScriptType = {
-                    if let raw = project.dramaScriptTypeRaw, let t = DramaScriptType(rawValue: raw) { return t }
-                    return .stage
-                }()
-                let styleSheet = project.styleSheet
-                let settings = project.manuscriptSettings
                 
-                for (idx, file) in allExportFiles.enumerated() {
-                    guard let version = file.currentVersion else { continue }
-                    
-                    if isDrama {
-                        // Drama files: render DML markup
-                        let document = DramaMarkupParser.shared.parse(version.content)
+                for (idx, fileData) in fileDataList.enumerated() {
+                    if fileData.isDrama {
+                        let document = DramaMarkupParser.shared.parse(fileData.content)
                         let rendered = DramaMarkupRenderer.shared.render(
                             document, scriptType: scriptType, viewMode: .formatted, showNotes: false
                         )
                         assembled.append(rendered)
-                    } else if file.isMarkdown {
-                        // Markdown files: render to rich text (like the RTF toggle does)
+                    } else if fileData.isMarkdown {
                         let rendered = try MarkdownImportService.importMarkdown(
-                            from: version.content, styleSheet: styleSheet
+                            from: fileData.content, styleSheet: styleSheet
                         )
                         assembled.append(rendered)
-                    } else if let rtfContent = version.attributedContent {
-                        // Rich text files: use stored RTF directly
+                    } else if let rtfContent = fileData.attributedContent {
                         assembled.append(rtfContent)
                     } else {
-                        // Fallback: plain text
                         assembled.append(NSAttributedString(
-                            string: version.content,
+                            string: fileData.content,
                             attributes: [.font: UIFont.preferredFont(forTextStyle: .body)]
                         ))
                     }
                     
-                    // Section break between files
-                    if idx < allExportFiles.count - 1 {
+                    if idx < fileDataList.count - 1 {
                         let breakStr: String
                         switch settings.sectionBreakStyle {
                         case .pageBreak: breakStr = "\u{0C}"
@@ -314,20 +329,19 @@ struct ManuscriptBodyView: View {
                 
                 #if DEBUG
                 print("📄 [ManuscriptBodyView] Assembled rich text length: \(assembled.length)")
-                print("📄 [ManuscriptBodyView] Files: \(allExportFiles.count)")
+                print("📄 [ManuscriptBodyView] Files: \(fileDataList.count)")
                 #endif
                 
-                // Create ManuscriptContent for PrintService
-                let content = ManuscriptContent(
-                    attributedString: assembled,
-                    sections: sections,
-                    fileOffsets: [:]
-                )
-                
-                // Generate PDF on main thread
-                await MainActor.run {
+                // Only hop to main thread for PDF rendering (UIKit drawing) and UI updates
+                await MainActor.run { [assembled] in
+                    let content = ManuscriptContent(
+                        attributedString: assembled,
+                        sections: sections,
+                        fileOffsets: [:]
+                    )
+                    
                     if let pdfData = PrintService.generatePDF(from: content, project: project, context: context) {
-                        let filename = "\(project.name ?? "Manuscript")_body"
+                        let filename = "\(projectName)_body"
                         exportData = pdfData
                         exportFilename = "\(filename).pdf"
                         exportContentType = .pdf
