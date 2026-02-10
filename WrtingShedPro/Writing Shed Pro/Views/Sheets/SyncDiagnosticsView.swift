@@ -125,15 +125,20 @@ struct SyncDiagnosticsView: View {
                     }
                 }
                 
+                #if DEBUG
                 Section("Actions") {
                     Button("Force Save Context") {
-                        try? modelContext.save()
-                    }
-                    
-                    Button("Check iCloud Status") {
-                        checkiCloudStatus()
+                        do {
+                            try modelContext.save()
+                            repairMessage = "Context saved successfully."
+                            showRepairResult = true
+                        } catch {
+                            repairMessage = "Error saving context: \(error.localizedDescription)"
+                            showRepairResult = true
+                        }
                     }
                 }
+                #endif
             }
             .navigationTitle("Sync Diagnostics")
             .navigationBarTitleDisplayMode(.inline)
