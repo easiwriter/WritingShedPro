@@ -17,10 +17,10 @@ struct ManuscriptBodyView: View {
     @State private var isExporting = false
     @State private var showExportError = false
     @State private var exportErrorMessage = ""
-    @State private var pdfDataToShare: Data?
-    @State private var showShareSheet = false
-    @State private var showHTMLExporter = false
-    @State private var htmlExportDocument: HTMLDocument?
+    @State private var showExportSaveDialog = false
+    @State private var exportData: Data?
+    @State private var exportFilename = ""
+    @State private var exportContentType: UTType = .pdf
     
     var allFiles: [TextFile] {
         sections.flatMap { $0.files }
@@ -69,23 +69,28 @@ struct ManuscriptBodyView: View {
             Text(exportErrorMessage)
         }
         .fileExporter(
-            isPresented: $showHTMLExporter,
-            document: htmlExportDocument,
-            contentType: .html,
-            defaultFilename: htmlExportDocument?.filename ?? "Document"
+            isPresented: $showExportSaveDialog,
+            document: ExportDocument(
+                data: exportData ?? Data(),
+                filename: exportFilename,
+                contentType: exportContentType
+            ),
+            contentType: exportContentType,
+            defaultFilename: exportFilename
         ) { result in
             switch result {
             case .success(let url):
                 #if DEBUG
-                print("✅ [ManuscriptBodyView] HTML exported to: \(url)")
+                print("✅ [ManuscriptBodyView] Exported to: \(url)")
                 #endif
             case .failure(let error):
                 #if DEBUG
-                print("❌ [ManuscriptBodyView] HTML export failed: \(error)")
+                print("❌ [ManuscriptBodyView] Export failed: \(error)")
                 #endif
                 exportErrorMessage = error.localizedDescription
                 showExportError = true
             }
+            exportData = nil
         }
     }
     
@@ -277,14 +282,11 @@ struct ManuscriptBodyView: View {
                 // Generate PDF on main thread
                 await MainActor.run {
                     if let pdfData = PrintService.generatePDF(from: content, project: project, context: context) {
-                        pdfDataToShare = pdfData
-                        
-                        // Share using UIKit
-                        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-                           let rootViewController = windowScene.windows.first?.rootViewController {
-                            let filename = "\(project.name ?? "Manuscript")_body"
-                            PrintService.sharePDF(pdfData, filename: filename, from: rootViewController)
-                        }
+                        let filename = "\(project.name ?? "Manuscript")_body"
+                        exportData = pdfData
+                        exportFilename = "\(filename).pdf"
+                        exportContentType = .pdf
+                        showExportSaveDialog = true
                     } else {
                         #if DEBUG
                         print("❌ [ManuscriptBodyView] PrintService.generatePDF returned nil")
@@ -351,9 +353,11 @@ struct ManuscriptBodyView: View {
                         filename: filename
                     )
                     
-                    // Create document for file exporter
-                    htmlExportDocument = HTMLDocument(htmlData: htmlData, filename: filename)
-                    showHTMLExporter = true
+                    // Set up file exporter
+                    exportData = htmlData
+                    exportFilename = "\(filename).html"
+                    exportContentType = .html
+                    showExportSaveDialog = true
                     isExporting = false
                 } catch {
                     #if DEBUG
@@ -368,31 +372,7 @@ struct ManuscriptBodyView: View {
     }
 }
 
-// MARK: - HTML Document for FileExporter
 
-struct HTMLDocument: FileDocument {
-    static var readableContentTypes: [UTType] { [.html] }
-    
-    var htmlData: Data
-    var filename: String
-    
-    init(htmlData: Data, filename: String) {
-        self.htmlData = htmlData
-        self.filename = filename
-    }
-    
-    init(configuration: ReadConfiguration) throws {
-        guard let data = configuration.file.regularFileContents else {
-            throw CocoaError(.fileReadCorruptFile)
-        }
-        self.htmlData = data
-        self.filename = "Document"
-    }
-    
-    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
-        FileWrapper(regularFileWithContents: htmlData)
-    }
-}
 
 // MARK: - Attributed Text Display View
 

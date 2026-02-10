@@ -75,23 +75,22 @@ To see your save history, look at file versions in the file details view.
 
 ## Step 6: Organize Your Work
 
-As you write more, keep things organized:
+As you write more, keep things organized using workflow status:
 
-### Move Files Between Folders
-1. Long-press a file
-2. Choose **Move to...**
-3. Select the destination folder
+### Workflow Status
+Every file has a status that tracks where it is in your writing process:
 
-### Create Subfolders
-1. In any folder, tap **+**
-2. Choose **New Folder**
-3. Enter a name
+- **Draft** – Work in progress
+- **Ready** – Completed and polished
+- **Set Aside** – Parked for later
 
-### Reorder Files
-1. Tap **Edit** in the file list
-2. Drag files using the handle on the right
-3. Tap **Done**
+### Changing Status
+1. Tap **Edit** in the file list toolbar
+2. Select one or more files
+3. Tap **Change Status** in the toolbar
+4. Choose the new status
 
+Files move between the Draft, Ready, and Set Aside folders automatically when you change their status. This makes it easy to track your progress and focus on current work.
 ## What's Next?
 
 You've learned the basics! Here's where to go next:
@@ -101,13 +100,9 @@ You've learned the basics! Here's where to go next:
 - **[Poetry Mode Overview](../6-poetry-features/61-poetry-mode-overview.md)** – If you're a poet
 - **[Fiction Mode Overview](../7-fiction-features/71-fiction-mode-overview.md)** – If you're writing fiction
 
-## Tips for New Users
+## Try Before You Buy
 
-1. **Use iCloud** – Enable iCloud sync in Settings for seamless multi-device access
-2. **Explore project types** – Each type has specialized features worth trying
-3. **Learn the keyboard shortcuts** – They'll speed up your workflow significantly
-4. **Check the reference section** – Quick answers when you need them
-
+Writing Shed Pro lets you explore the app and start writing before purchasing. You can create a project, add files, and use the full editor — when you reach the file limit, you'll be prompted to unlock the full version with a one-time in-app purchase. There's no subscription and no time limit on the trial.
 ## See Also
 - [Introduction](11-introduction.md)
 - [Creating Your First Project](../2-getting-started/22-creating-your-first-project.md)

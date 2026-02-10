@@ -1415,11 +1415,11 @@ struct FolderFilesView: View {
 
 struct ExportDocument: FileDocument {
     static var readableContentTypes: [UTType] { 
-        [.rtf, .html, UTType("org.openxmlformats.wordprocessingml.document") ?? .data, UTType(filenameExtension: "md") ?? .plainText, .data] 
+        [.pdf, .rtf, .html, UTType("org.openxmlformats.wordprocessingml.document") ?? .data, UTType(filenameExtension: "md") ?? .plainText, .data] 
     }
     
     static var writableContentTypes: [UTType] { 
-        [.rtf, .html, UTType("org.openxmlformats.wordprocessingml.document") ?? .data, UTType(filenameExtension: "md") ?? .plainText, .data] 
+        [.pdf, .rtf, .html, UTType("org.openxmlformats.wordprocessingml.document") ?? .data, UTType(filenameExtension: "md") ?? .plainText, .data] 
     }
     
     var data: Data
