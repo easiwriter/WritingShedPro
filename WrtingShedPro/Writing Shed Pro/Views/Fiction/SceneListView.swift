@@ -80,6 +80,7 @@ struct SceneListView: View {
     @State private var footerRight: String = ""
     @State private var headerInsertTarget: HeaderFooterField = .left
     @State private var footerInsertTarget: HeaderFooterField = .left
+    @State private var showHeaderFooterWarning = false
     
     // MARK: - Init
     
@@ -250,13 +251,16 @@ struct SceneListView: View {
                 
                 // Header/Footer button
                 Button {
-                    initializeHeaderFooterFields()
-                    showHeaderFooterEditor = true
+                    if headersOrFootersEnabled {
+                        initializeHeaderFooterFields()
+                        showHeaderFooterEditor = true
+                    } else {
+                        showHeaderFooterWarning = true
+                    }
                 } label: {
                     Image(systemName: "rectangle.and.pencil.and.ellipsis")
                 }
                 .accessibilityLabel(NSLocalizedString("sceneList.headerFooter.accessibility", comment: "Edit headers and footers"))
-                .disabled(!headersOrFootersEnabled)
                 .foregroundStyle(headersOrFootersEnabled ? Color.accentColor : Color.secondary)
                 
                 // Add scene button (hidden when viewing an act's or chapter's scenes)
@@ -340,6 +344,11 @@ struct SceneListView: View {
                     showHeaderFooterEditor = false
                 }
             )
+        }
+        .alert(NSLocalizedString("headerFooter.notEnabled.title", comment: "Headers & Footers Not Enabled"), isPresented: $showHeaderFooterWarning) {
+            Button(NSLocalizedString("button.ok", comment: "OK"), role: .cancel) {}
+        } message: {
+            Text(NSLocalizedString("headerFooter.notEnabled.message", comment: "Enable headers or footers in Page Setup (Settings) before editing their content."))
         }
         .fileImporter(
             isPresented: $showImportPicker,

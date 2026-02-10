@@ -79,6 +79,7 @@ struct ProseListView: View {
     
     /// Header/Footer editor state
     @State private var showHeaderFooterEditor = false
+    @State private var showHeaderFooterWarning = false
     @State private var headerLeft: String = ""
     @State private var headerCenter: String = ""
     @State private var headerRight: String = ""
@@ -234,6 +235,11 @@ struct ProseListView: View {
             .sheet(isPresented: $showHeaderFooterEditor) {
                 headerFooterSheet
             }
+            .alert(NSLocalizedString("headerFooter.notEnabled.title", comment: "Headers & Footers Not Enabled"), isPresented: $showHeaderFooterWarning) {
+                Button(NSLocalizedString("button.ok", comment: "OK"), role: .cancel) {}
+            } message: {
+                Text(NSLocalizedString("headerFooter.notEnabled.message", comment: "Enable headers or footers in Page Setup (Settings) before editing their content."))
+            }
             .fileImporter(
                 isPresented: $showImportPicker,
                 allowedContentTypes: [.rtf, UTType("org.openxmlformats.wordprocessingml.document") ?? .data, UTType(filenameExtension: "md") ?? .plainText],
@@ -354,14 +360,17 @@ struct ProseListView: View {
         // Header/Footer editor button
         if !isEditMode {
             Button {
-                showHeaderFooterEditor = true
+                if headersOrFootersEnabled {
+                    showHeaderFooterEditor = true
+                } else {
+                    showHeaderFooterWarning = true
+                }
             } label: {
                 Image(systemName: "rectangle.and.pencil.and.ellipsis")
             }
             .accessibilityLabel(NSLocalizedString("headerFooter.accessibility", comment: "Edit headers and footers"))
             .help(NSLocalizedString("headerFooter.help", comment: "Edit page headers and footers"))
             .foregroundStyle(headersOrFootersEnabled ? Color.accentColor : Color.secondary)
-            .disabled(!headersOrFootersEnabled)
         }
         
         // Add file button (hidden when viewing a section's files)

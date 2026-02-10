@@ -50,13 +50,16 @@ extension FolderFilesView {
                 }
                 let enabled = headersOrFootersEnabled
                 Button {
-                    showHeaderFooterEditor = true
+                    if enabled {
+                        showHeaderFooterEditor = true
+                    } else {
+                        showHeaderFooterWarning = true
+                    }
                 } label: {
                     Image(systemName: "rectangle.and.pencil.and.ellipsis")
                 }
                 .accessibilityLabel("Edit headers and footers")
                 .help("Edit page headers and footers")
-                .disabled(!enabled)
                 .foregroundStyle(enabled ? Color.accentColor : Color.secondary)
                 if FolderCapabilityService.canAddFile(to: folder) {
                     if isMixedContentFolder {

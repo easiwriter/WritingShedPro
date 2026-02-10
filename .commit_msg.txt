@@ -1,5 +1,7 @@
-feat(035): Chain tips using Tips.Event — CreateProjectTip appears after ToolbarGuideTip is dismissed
+fix: Show warning alert instead of disabling header/footer button when not configured
 
-- Add Tips.Event(id: "toolbarTipDismissed") to CreateProjectTip with rule requiring 1+ donations
-- Observe toolbarGuideTip.statusUpdates in ContentViewBody and donate event on invalidation
-- Remove UserDefaults launch-count gating from ContentViewToolbar (Tips.Event handles sequencing)
+- Header/footer toolbar button is now always enabled in all file list views
+- When tapped without headers/footers enabled in Page Setup, shows an
+  informative alert directing the user to enable them in Settings
+- Applied to ProseListView, SceneListView, and FolderFilesView
+- Added headerFooter.notEnabled.title/message localisation strings

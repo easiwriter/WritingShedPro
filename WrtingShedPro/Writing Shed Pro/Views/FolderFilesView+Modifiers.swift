@@ -112,5 +112,10 @@ extension FolderFilesView {
                 exportFolderMenuButtons
             } message: { Text(exportFolderMenuMessage) }
             .sheet(isPresented: $showHeaderFooterEditor) { headerFooterDialog }
+            .alert(NSLocalizedString("headerFooter.notEnabled.title", comment: "Headers & Footers Not Enabled"), isPresented: $showHeaderFooterWarning) {
+                Button(NSLocalizedString("button.ok", comment: "OK"), role: .cancel) {}
+            } message: {
+                Text(NSLocalizedString("headerFooter.notEnabled.message", comment: "Enable headers or footers in Page Setup (Settings) before editing their content."))
+            }
     }
 }
