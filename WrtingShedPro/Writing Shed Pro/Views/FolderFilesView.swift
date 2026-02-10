@@ -88,6 +88,7 @@ struct FolderFilesView: View {
     
     /// File list toolbar tip
     let fileListToolbarTip = FileListToolbarTip()
+    @State var toolbarTipDismissed = false
     @State var headerLeft: String = ""
     @State var headerCenter: String = ""
     @State var headerRight: String = ""

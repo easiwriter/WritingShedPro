@@ -83,6 +83,7 @@ struct ProseListView: View {
     
     /// File list toolbar tip
     private let fileListToolbarTip = FileListToolbarTip()
+    @State private var toolbarTipDismissed = false
     @State private var headerLeft: String = ""
     @State private var headerCenter: String = ""
     @State private var headerRight: String = ""
@@ -315,9 +316,12 @@ struct ProseListView: View {
         // break the navigation title rendering.
         .safeAreaInset(edge: .top, spacing: 0) {
             if TipKitConfiguration.tipsEnabled {
-                TipView(fileListToolbarTip)
-                TipView(FolderOrganisationTip()) { action in
-                    TipActionHandler.handle(action, guideSection: FolderOrganisationTip.guideSection)
+                if !toolbarTipDismissed {
+                    TipView(fileListToolbarTip)
+                } else {
+                    TipView(FolderOrganisationTip()) { action in
+                        TipActionHandler.handle(action, guideSection: FolderOrganisationTip.guideSection)
+                    }
                 }
             }
         }
@@ -326,6 +330,7 @@ struct ProseListView: View {
         .task {
             for await status in fileListToolbarTip.statusUpdates {
                 if case .invalidated = status {
+                    toolbarTipDismissed = true
                     FolderOrganisationTip.fileListToolbarTipDismissed.sendDonation()
                 }
             }

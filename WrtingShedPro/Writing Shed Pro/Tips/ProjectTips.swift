@@ -151,6 +151,24 @@ struct SceneListToolbarTip: Tip {
     }
 }
 
+// MARK: - FR-2.9b: Episode List Toolbar Guide Tip (Verse Novel)
+/// Variant for verse novel projects where scenes are called episodes.
+struct EpisodeListToolbarTip: Tip {
+    var title: Text {
+        Text("Your Episode List Toolbar")
+    }
+    
+    var message: Text? {
+        Text("\(Image(systemName: "magnifyingglass")) Search — find and replace across episodes\n\(Image(systemName: "square.and.arrow.down")) Import — bring in Word or Markdown files\n\(Image(systemName: "rectangle.and.pencil.and.ellipsis")) Headers & Footers — edit page headers and footers\n\(Image(systemName: "plus")) Add — create a new episode\nEdit — select episodes to delete or reorder")
+            .font(.callout)
+            .foregroundStyle(.primary)
+    }
+    
+    var image: Image? {
+        Image(systemName: "hammer")
+    }
+}
+
 // MARK: - FR-2.10: Chapter List Toolbar Guide Tip
 /// Toolbar tip for the chapter/story/book list view (fiction projects).
 struct ChapterListToolbarTip: Tip {

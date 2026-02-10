@@ -82,8 +82,10 @@ struct SceneListView: View {
     @State private var footerInsertTarget: HeaderFooterField = .left
     @State private var showHeaderFooterWarning = false
     
-    /// Scene list toolbar tip
+    /// Scene/Episode list toolbar tip — uses correct variant for verse novels
     private let sceneListToolbarTip = SceneListToolbarTip()
+    private let episodeListToolbarTip = EpisodeListToolbarTip()
+    @State private var toolbarTipDismissed = false
     
     // MARK: - Init
     
@@ -228,17 +230,25 @@ struct SceneListView: View {
         // break the navigation title rendering.
         .safeAreaInset(edge: .top, spacing: 0) {
             if TipKitConfiguration.tipsEnabled {
-                TipView(sceneListToolbarTip)
-                TipView(FolderOrganisationTip()) { action in
-                    TipActionHandler.handle(action, guideSection: FolderOrganisationTip.guideSection)
+                if !toolbarTipDismissed {
+                    if isVerseNovel {
+                        TipView(episodeListToolbarTip)
+                    } else {
+                        TipView(sceneListToolbarTip)
+                    }
+                } else {
+                    TipView(FolderOrganisationTip()) { action in
+                        TipActionHandler.handle(action, guideSection: FolderOrganisationTip.guideSection)
+                    }
                 }
             }
         }
         // When the toolbar tip is dismissed, donate the event so
         // FolderOrganisationTip becomes eligible to appear.
         .task {
-            for await status in sceneListToolbarTip.statusUpdates {
+            for await status in isVerseNovel ? episodeListToolbarTip.statusUpdates : sceneListToolbarTip.statusUpdates {
                 if case .invalidated = status {
+                    toolbarTipDismissed = true
                     FolderOrganisationTip.fileListToolbarTipDismissed.sendDonation()
                 }
             }

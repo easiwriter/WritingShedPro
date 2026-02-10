@@ -14,9 +14,12 @@ extension FolderFilesView {
             // break the navigation title rendering.
             .safeAreaInset(edge: .top, spacing: 0) {
                 if TipKitConfiguration.tipsEnabled && !isMatterFolder {
-                    TipView(fileListToolbarTip)
-                    TipView(FolderOrganisationTip()) { action in
-                        TipActionHandler.handle(action, guideSection: FolderOrganisationTip.guideSection)
+                    if !toolbarTipDismissed {
+                        TipView(fileListToolbarTip)
+                    } else {
+                        TipView(FolderOrganisationTip()) { action in
+                            TipActionHandler.handle(action, guideSection: FolderOrganisationTip.guideSection)
+                        }
                     }
                 }
             }
@@ -25,6 +28,7 @@ extension FolderFilesView {
             .task {
                 for await status in fileListToolbarTip.statusUpdates {
                     if case .invalidated = status {
+                        toolbarTipDismissed = true
                         FolderOrganisationTip.fileListToolbarTipDismissed.sendDonation()
                     }
                 }
