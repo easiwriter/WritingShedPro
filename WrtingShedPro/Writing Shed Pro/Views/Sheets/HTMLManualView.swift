@@ -186,7 +186,7 @@ struct HTMLManualView: View {
             // Replace all foreground colors with .label (adapts to light/dark)
             // but preserve link colors (blue)
             mutable.enumerateAttribute(.foregroundColor, in: fullRange, options: []) { value, range, _ in
-                if let color = value as? UIColor {
+                if value is UIColor {
                     // Check if this is a link by looking for the .link attribute
                     let hasLink = mutable.attribute(.link, at: range.location, effectiveRange: nil) != nil
                     if hasLink {

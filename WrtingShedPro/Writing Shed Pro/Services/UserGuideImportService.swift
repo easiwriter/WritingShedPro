@@ -136,7 +136,7 @@ final class UserGuideImportService {
         func fixFilesInFolder(_ folder: Folder) {
             for file in folder.textFiles ?? [] {
                 // Skip files that already have the correct type
-                guard file.contentTypeRaw == "richText" || file.contentTypeRaw == nil else { continue }
+                guard file.contentTypeRaw == "richText" else { continue }
                 
                 // Check the plain text content for markdown indicators
                 let content = file.currentVersion?.content ?? ""
