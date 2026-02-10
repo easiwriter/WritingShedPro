@@ -15,6 +15,9 @@ extension FolderFilesView {
             .safeAreaInset(edge: .top, spacing: 0) {
                 if TipKitConfiguration.tipsEnabled && !isMatterFolder {
                     TipView(fileListToolbarTip)
+                    TipView(FolderOrganisationTip()) { action in
+                        TipActionHandler.handle(action, guideSection: FolderOrganisationTip.guideSection)
+                    }
                 }
             }
             // When the toolbar tip is dismissed, donate the event so

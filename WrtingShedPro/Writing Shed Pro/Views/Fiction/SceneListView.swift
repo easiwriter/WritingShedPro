@@ -229,6 +229,9 @@ struct SceneListView: View {
         .safeAreaInset(edge: .top, spacing: 0) {
             if TipKitConfiguration.tipsEnabled {
                 TipView(sceneListToolbarTip)
+                TipView(FolderOrganisationTip()) { action in
+                    TipActionHandler.handle(action, guideSection: FolderOrganisationTip.guideSection)
+                }
             }
         }
         // When the toolbar tip is dismissed, donate the event so
@@ -586,14 +589,6 @@ struct SceneListView: View {
     
     private var sceneList: some View {
         List {
-            // FR-2.4: Folder organisation tip (same as FolderFilesView)
-            if TipKitConfiguration.tipsEnabled {
-                TipView(FolderOrganisationTip()) { action in
-                    TipActionHandler.handle(action, guideSection: FolderOrganisationTip.guideSection)
-                }
-                .listRowSeparator(.hidden)
-            }
-            
             ForEach(sortedScenes) { scene in
                 sceneRow(for: scene)
                     .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))

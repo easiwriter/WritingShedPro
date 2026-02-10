@@ -316,6 +316,9 @@ struct ProseListView: View {
         .safeAreaInset(edge: .top, spacing: 0) {
             if TipKitConfiguration.tipsEnabled {
                 TipView(fileListToolbarTip)
+                TipView(FolderOrganisationTip()) { action in
+                    TipActionHandler.handle(action, guideSection: FolderOrganisationTip.guideSection)
+                }
             }
         }
         // When the toolbar tip is dismissed, donate the event so
@@ -648,14 +651,6 @@ struct ProseListView: View {
     
     private var fileList: some View {
         List(selection: $selectedFileIDs) {
-            // FR-2.4: Folder organisation tip
-            if TipKitConfiguration.tipsEnabled {
-                TipView(FolderOrganisationTip()) { action in
-                    TipActionHandler.handle(action, guideSection: FolderOrganisationTip.guideSection)
-                }
-                .listRowSeparator(.hidden)
-            }
-            
             if useSections {
                 // Show collapsible sections grouped by section name
                 ForEach(sectionGroups) { group in
