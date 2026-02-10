@@ -106,7 +106,7 @@ struct FolderOrganisationTip: Tip {
 }
 
 // MARK: - FR-2.6: Create Project Popover Tip
-/// Popover tip pointing at the + button on first launch
+/// Popover tip pointing at the + button on second launch
 struct CreateProjectTip: Tip {
     var title: Text {
         Text("Create a Project")
@@ -130,7 +130,7 @@ struct CreateProjectTip: Tip {
 }
 
 // MARK: - FR-2.7: Toolbar Guide Tip
-/// Inline tip describing all toolbar buttons, shown on second launch.
+/// Inline tip describing all toolbar buttons, shown on first launch.
 /// Display timing is controlled by the view via UserDefaults ("tipkit.appLaunchCount"),
 /// not by TipKit @Parameter rules (which have unreliable persistence timing).
 struct ToolbarGuideTip: Tip {

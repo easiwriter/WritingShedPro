@@ -46,18 +46,15 @@ struct ContentViewBody: View {
 
     private let toolbarGuideTip = ToolbarGuideTip()
     
-    /// Show the toolbar guide tip only on the second launch (launchCount == 1).
+    /// Show the toolbar guide tip on the first launch.
     /// Uses UserDefaults directly instead of TipKit @Parameter rules, which have
     /// unreliable persistence timing across launches.
     private var shouldShowToolbarTip: Bool {
         // configureTipKit increments AFTER reading, so by the time the view
-        // appears the stored value is launchCount+1. We read the original
-        // value that was current when configureTipKit ran.
-        // launchCount 0 = first launch, 1 = second launch, etc.
-        // The value in UserDefaults is already incremented to launchCount+1,
-        // so second launch (original count 1) is stored as 2.
+        // appears the stored value is launchCount+1.
+        // First launch: original count 0, stored as 1.
         let storedCount = UserDefaults.standard.integer(forKey: "tipkit.appLaunchCount")
-        return storedCount == 2  // Was launchCount==1 before increment
+        return storedCount == 1  // Was launchCount==0 before increment
     }
 
     var body: some View {
