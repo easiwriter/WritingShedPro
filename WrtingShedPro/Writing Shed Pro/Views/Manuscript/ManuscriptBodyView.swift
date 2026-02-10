@@ -257,27 +257,72 @@ struct ManuscriptBodyView: View {
     }
     
     private func exportAsPDF() {
-        guard let service = assemblyService else { 
-            #if DEBUG
-            print("❌ [ManuscriptBodyView] No assembly service")
-            #endif
-            return 
-        }
-        
         isExporting = true
         
-        // Assemble the full content asynchronously
         Task {
             do {
-                let content = try await service.assembleContent(for: project)
+                // Build rich text from all files, rendering markdown to styled text
+                let assembled = NSMutableAttributedString()
+                let allExportFiles = sections.flatMap { $0.files }
+                let isDrama = project.type == .drama
+                let scriptType: DramaScriptType = {
+                    if let raw = project.dramaScriptTypeRaw, let t = DramaScriptType(rawValue: raw) { return t }
+                    return .stage
+                }()
+                let styleSheet = project.styleSheet
+                let settings = project.manuscriptSettings
+                
+                for (idx, file) in allExportFiles.enumerated() {
+                    guard let version = file.currentVersion else { continue }
+                    
+                    if isDrama {
+                        // Drama files: render DML markup
+                        let document = DramaMarkupParser.shared.parse(version.content)
+                        let rendered = DramaMarkupRenderer.shared.render(
+                            document, scriptType: scriptType, viewMode: .formatted, showNotes: false
+                        )
+                        assembled.append(rendered)
+                    } else if file.isMarkdown {
+                        // Markdown files: render to rich text (like the RTF toggle does)
+                        let rendered = try MarkdownImportService.importMarkdown(
+                            from: version.content, styleSheet: styleSheet
+                        )
+                        assembled.append(rendered)
+                    } else if let rtfContent = version.attributedContent {
+                        // Rich text files: use stored RTF directly
+                        assembled.append(rtfContent)
+                    } else {
+                        // Fallback: plain text
+                        assembled.append(NSAttributedString(
+                            string: version.content,
+                            attributes: [.font: UIFont.preferredFont(forTextStyle: .body)]
+                        ))
+                    }
+                    
+                    // Section break between files
+                    if idx < allExportFiles.count - 1 {
+                        let breakStr: String
+                        switch settings.sectionBreakStyle {
+                        case .pageBreak: breakStr = "\u{0C}"
+                        case .sectionMark: breakStr = "\n\n§\n\n\n"
+                        case .doubleSpace: breakStr = "\n\n\n"
+                        case .none: breakStr = "\n\n\n"
+                        }
+                        assembled.append(NSAttributedString(string: breakStr))
+                    }
+                }
                 
                 #if DEBUG
-                print("📄 [ManuscriptBodyView] Assembled content length: \(content.attributedString.length)")
-                print("📄 [ManuscriptBodyView] Sections: \(content.sections.count)")
-                for section in content.sections {
-                    print("  Section: \(section.title) - \(section.files.count) files")
-                }
+                print("📄 [ManuscriptBodyView] Assembled rich text length: \(assembled.length)")
+                print("📄 [ManuscriptBodyView] Files: \(allExportFiles.count)")
                 #endif
+                
+                // Create ManuscriptContent for PrintService
+                let content = ManuscriptContent(
+                    attributedString: assembled,
+                    sections: sections,
+                    fileOffsets: [:]
+                )
                 
                 // Generate PDF on main thread
                 await MainActor.run {
@@ -298,7 +343,7 @@ struct ManuscriptBodyView: View {
                 }
             } catch {
                 #if DEBUG
-                print("❌ [ManuscriptBodyView] Assembly error: \(error)")
+                print("❌ [ManuscriptBodyView] PDF export error: \(error)")
                 #endif
                 await MainActor.run {
                     exportErrorMessage = error.localizedDescription
