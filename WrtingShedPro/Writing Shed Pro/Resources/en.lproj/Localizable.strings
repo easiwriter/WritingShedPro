@@ -1920,6 +1920,7 @@
 "prose.sections.deleteMultiple.message" = "Files in these sections will be unassigned but not deleted.";
 "prose.sections.deleteCount" = "Delete (%d)";
 "prose.section" = "Section";
+"prose.section.unassigned" = "Unassigned";
 "prose.section.title" = "Title";
 "prose.section.title.accessibility" = "Section title";
 "prose.section.number" = "Section %d";
