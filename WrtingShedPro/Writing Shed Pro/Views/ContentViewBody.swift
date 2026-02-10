@@ -96,6 +96,15 @@ struct ContentViewBody: View {
                     }
                 }
             }
+            // When the toolbar guide tip is dismissed, donate the event so
+            // CreateProjectTip becomes eligible to appear.
+            .task {
+                for await status in toolbarGuideTip.statusUpdates {
+                    if case .invalidated = status {
+                        CreateProjectTip.toolbarTipDismissed.sendDonation()
+                    }
+                }
+            }
             .environment(\.editMode, $state.editMode)
             #if !targetEnvironment(macCatalyst)
             .preferredColorScheme(state.appearancePreferences.colorScheme)

@@ -106,8 +106,12 @@ struct FolderOrganisationTip: Tip {
 }
 
 // MARK: - FR-2.6: Create Project Popover Tip
-/// Popover tip pointing at the + button on second launch
+/// Popover tip pointing at the + button, shown after the ToolbarGuideTip is dismissed.
+/// Uses a Tips.Event rule so TipKit controls the sequencing natively.
 struct CreateProjectTip: Tip {
+    /// Donated when the ToolbarGuideTip is dismissed/invalidated.
+    static let toolbarTipDismissed = Tips.Event(id: "toolbarTipDismissed")
+    
     var title: Text {
         Text("Create a Project")
     }
@@ -121,6 +125,10 @@ struct CreateProjectTip: Tip {
     }
     
     static let guideSection: String? = "22-creating-your-first-project"
+    
+    var rules: [Rule] {
+        #Rule(Self.toolbarTipDismissed) { $0.donations.count >= 1 }
+    }
     
     var actions: [Action] {
         if Self.guideSection != nil {

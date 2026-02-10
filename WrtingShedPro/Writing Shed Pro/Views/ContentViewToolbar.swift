@@ -18,12 +18,6 @@ struct ContentViewToolbar: ToolbarContent {
     /// Poetry preferences accessed via state for proper observation in ToolbarContent
     private var poetryPrefs: PoetryPreferences { state.poetryPreferences }
     
-    /// Show the create project popover tip on the second launch.
-    private var shouldShowCreateProjectTip: Bool {
-        let storedCount = UserDefaults.standard.integer(forKey: "tipkit.appLaunchCount")
-        return storedCount == 2  // Was launchCount==1 before increment
-    }
-    
     var body: some ToolbarContent {
         // Action buttons (trailing)
         ToolbarItem(placement: .navigationBarTrailing) {
@@ -54,7 +48,7 @@ struct ContentViewToolbar: ToolbarContent {
                 
                 Button(action: { state.showAddProject = true }) {
                     Label(NSLocalizedString("contentView.addProject", comment: "Button to add new project"), systemImage: "plus")
-                        .if(TipKitConfiguration.tipsEnabled && shouldShowCreateProjectTip) { view in
+                        .if(TipKitConfiguration.tipsEnabled) { view in
                             view.popoverTip(CreateProjectTip()) { action in
                                 TipActionHandler.handle(action, guideSection: CreateProjectTip.guideSection)
                             }

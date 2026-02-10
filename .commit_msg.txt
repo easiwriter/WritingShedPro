@@ -1,1 +1,5 @@
-fix: Add missing prose.section.unassigned localisation string
+feat(035): Chain tips using Tips.Event — CreateProjectTip appears after ToolbarGuideTip is dismissed
+
+- Add Tips.Event(id: "toolbarTipDismissed") to CreateProjectTip with rule requiring 1+ donations
+- Observe toolbarGuideTip.statusUpdates in ContentViewBody and donate event on invalidation
+- Remove UserDefaults launch-count gating from ContentViewToolbar (Tips.Event handles sequencing)
