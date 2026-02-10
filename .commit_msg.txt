@@ -1,7 +1,7 @@
-fix: Show warning alert instead of disabling header/footer button when not configured
+feat(035): Add toolbar guide tips for file/scene list views with chained display
 
-- Header/footer toolbar button is now always enabled in all file list views
-- When tapped without headers/footers enabled in Page Setup, shows an
-  informative alert directing the user to enable them in Settings
-- Applied to ProseListView, SceneListView, and FolderFilesView
-- Added headerFooter.notEnabled.title/message localisation strings
+- Add FileListToolbarTip describing Search, Import, Header/Footer, Add, Edit buttons
+- Add SceneListToolbarTip variant for drama/fiction scene lists (scenes instead of files)
+- Show toolbar tip in safeAreaInset in ProseListView, SceneListView, FolderFilesView
+- Add Tips.Event rule to FolderOrganisationTip so it appears after toolbar tip is dismissed
+- Skip toolbar tip for Front/Back Matter folders (limited toolbar)

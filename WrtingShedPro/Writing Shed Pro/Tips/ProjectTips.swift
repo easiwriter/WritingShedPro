@@ -82,8 +82,12 @@ struct LongPressBackTip: Tip {
 }
 
 // MARK: - FR-2.4: Folder Organisation Tip
-/// Shown when a folder contains 5+ files
+/// Shown when a folder contains files, after the FileListToolbarTip is dismissed.
+/// Uses a Tips.Event rule so it appears as a follow-on tip.
 struct FolderOrganisationTip: Tip {
+    /// Donated when the FileListToolbarTip is dismissed/invalidated.
+    static let fileListToolbarTipDismissed = Tips.Event(id: "fileListToolbarTipDismissed")
+    
     var title: Text {
         Text("Organise Your Files")
     }
@@ -98,10 +102,52 @@ struct FolderOrganisationTip: Tip {
     
     static let guideSection: String? = "35-organizing-your-work"
     
+    var rules: [Rule] {
+        #Rule(Self.fileListToolbarTipDismissed) { $0.donations.count >= 1 }
+    }
+    
     var actions: [Action] {
         if Self.guideSection != nil {
             Action(id: "learn-more", title: "Learn More")
         }
+    }
+}
+
+// MARK: - FR-2.8: File List Toolbar Guide Tip
+/// Inline tip describing the file list toolbar buttons.
+/// Shown when a user first enters a file list view; on dismissal, triggers
+/// the FolderOrganisationTip via Tips.Event.
+struct FileListToolbarTip: Tip {
+    var title: Text {
+        Text("Your File List Toolbar")
+    }
+    
+    var message: Text? {
+        Text("\(Image(systemName: "magnifyingglass")) Search — find and replace across files\n\(Image(systemName: "square.and.arrow.down")) Import — bring in Word or Markdown files\n\(Image(systemName: "rectangle.and.pencil.and.ellipsis")) Headers & Footers — edit page headers and footers\n\(Image(systemName: "plus")) Add — create a new file\nEdit — select files to delete or reorder")
+            .font(.callout)
+            .foregroundStyle(.primary)
+    }
+    
+    var image: Image? {
+        Image(systemName: "hammer")
+    }
+}
+
+// MARK: - FR-2.9: Scene List Toolbar Guide Tip (Drama)
+/// Variant of the file list toolbar tip for drama/fiction scene lists.
+struct SceneListToolbarTip: Tip {
+    var title: Text {
+        Text("Your Scene List Toolbar")
+    }
+    
+    var message: Text? {
+        Text("\(Image(systemName: "magnifyingglass")) Search — find and replace across scenes\n\(Image(systemName: "square.and.arrow.down")) Import — bring in Word or Markdown files\n\(Image(systemName: "rectangle.and.pencil.and.ellipsis")) Headers & Footers — edit page headers and footers\n\(Image(systemName: "plus")) Add — create a new scene\nEdit — select scenes to delete or reorder")
+            .font(.callout)
+            .foregroundStyle(.primary)
+    }
+    
+    var image: Image? {
+        Image(systemName: "hammer")
     }
 }
 

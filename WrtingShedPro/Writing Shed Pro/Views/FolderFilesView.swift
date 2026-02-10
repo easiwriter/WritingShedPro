@@ -85,6 +85,9 @@ struct FolderFilesView: View {
     // State for header/footer editor
     @State var showHeaderFooterEditor = false
     @State var showHeaderFooterWarning = false
+    
+    /// File list toolbar tip
+    let fileListToolbarTip = FileListToolbarTip()
     @State var headerLeft: String = ""
     @State var headerCenter: String = ""
     @State var headerRight: String = ""

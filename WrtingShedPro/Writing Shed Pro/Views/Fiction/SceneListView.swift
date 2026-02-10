@@ -82,6 +82,9 @@ struct SceneListView: View {
     @State private var footerInsertTarget: HeaderFooterField = .left
     @State private var showHeaderFooterWarning = false
     
+    /// Scene list toolbar tip
+    private let sceneListToolbarTip = SceneListToolbarTip()
+    
     // MARK: - Init
     
     init(project: Project, chapter: Chapter? = nil, act: Act? = nil) {
@@ -221,6 +224,22 @@ struct SceneListView: View {
         }
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
+        // Scene list toolbar guide tip — placed in safeAreaInset so it doesn't
+        // break the navigation title rendering.
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if TipKitConfiguration.tipsEnabled {
+                TipView(sceneListToolbarTip)
+            }
+        }
+        // When the toolbar tip is dismissed, donate the event so
+        // FolderOrganisationTip becomes eligible to appear.
+        .task {
+            for await status in sceneListToolbarTip.statusUpdates {
+                if case .invalidated = status {
+                    FolderOrganisationTip.fileListToolbarTipDismissed.sendDonation()
+                }
+            }
+        }
         // Use native iOS back button - immune to SwiftUI render blocking
         .navigationBarBackButtonHidden(false)
         .onPopToRoot {
