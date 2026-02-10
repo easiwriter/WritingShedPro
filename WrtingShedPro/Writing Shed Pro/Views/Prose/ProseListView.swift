@@ -789,41 +789,6 @@ struct ProseListView: View {
                 fileOptionsMenu(for: file)
             }
         }
-        .contextMenu {
-            // Details
-            Button {
-                fileForDetails = file
-                showFileDetails = true
-            } label: {
-                Label(NSLocalizedString("fileList.details", comment: "Details"), systemImage: "info.circle")
-            }
-            
-            Divider()
-            
-            // Rename
-            Button {
-                fileToRename = file
-                showRenameSheet = true
-            } label: {
-                Label(NSLocalizedString("fileList.rename", comment: "Rename"), systemImage: "pencil")
-            }
-            
-            // Export
-            Button {
-                filesToExport = [file]
-                showExportMenu = true
-            } label: {
-                Label(NSLocalizedString("fileList.export", comment: "Export"), systemImage: "square.and.arrow.up")
-            }
-            
-            Divider()
-            
-            Button(role: .destructive) {
-                prepareDelete([file])
-            } label: {
-                Label(NSLocalizedString("button.delete", comment: "Delete"), systemImage: "trash")
-            }
-        }
     }
     
     @ViewBuilder

@@ -52,12 +52,16 @@ Start typing. The editor works like any word processor:
 
 The formatting toolbar provides quick access to:
 
+- **⇥** – Insert/remove tab indent
 - **¶** – Change paragraph style (Body, Heading, etc.)
+- **🖼** – Image settings (resize, caption)
+- **📝** – Insert note (footnote or comment)
 - **B** – Bold
 - *I* – Italic
 - **U** – Underline
 - **S̶** – Strikethrough
-- **⊕** – Insert menu (images, footnotes, comments)
+- **1.** / **•** – Numbered and bulleted lists
+- **⌨↓** – Hide keyboard
 
 ## Step 5: Save Your Work
 
