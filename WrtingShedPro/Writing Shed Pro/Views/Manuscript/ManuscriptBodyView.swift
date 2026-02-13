@@ -14,14 +14,9 @@ struct ManuscriptBodyView: View {
     @State private var sections: [ManuscriptSection] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
-    @State private var isExporting = false
-    @State private var showExportError = false
-    @State private var exportErrorMessage = ""
-    @State private var showExportSaveDialog = false
-    @State private var exportData: Data?
-    @State private var exportFilename = ""
-    @State private var exportContentType: UTType = .pdf
     @State private var frontMatterPageCount: Int = 0
+    /// Pre-assembled text file — built off the main thread so the view appears instantly
+    @State private var assembledTextFile: TextFile?
     
     var allFiles: [TextFile] {
         sections.flatMap { $0.files }
@@ -56,56 +51,21 @@ struct ManuscriptBodyView: View {
             ToolbarItem(placement: .topBarLeading) {
                 PopToRootBackButton()
             }
-            
-            ToolbarItem(placement: .topBarTrailing) {
-                bodyToolbarContent
-            }
         }
-        .onAppear {
-            loadBodySections()
-        }
-        .alert(NSLocalizedString("manuscript.error.exportFailedTitle", comment: "Export Failed"), isPresented: $showExportError) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text(exportErrorMessage)
-        }
-        .fileExporter(
-            isPresented: $showExportSaveDialog,
-            document: ExportDocument(
-                data: exportData ?? Data(),
-                filename: exportFilename,
-                contentType: exportContentType
-            ),
-            contentType: exportContentType,
-            defaultFilename: exportFilename
-        ) { result in
-            switch result {
-            case .success(let url):
-                #if DEBUG
-                print("✅ [ManuscriptBodyView] Exported to: \(url)")
-                #endif
-            case .failure(let error):
-                #if DEBUG
-                print("❌ [ManuscriptBodyView] Export failed: \(error)")
-                #endif
-                exportErrorMessage = error.localizedDescription
-                showExportError = true
-            }
-            exportData = nil
+        .task {
+            await loadBodySections()
         }
     }
     
     @ViewBuilder
     private var bodyContent: some View {
-        // Flatten all files from all sections in order
-        let allFiles: [TextFile] = sections.flatMap { $0.files }
-        if !allFiles.isEmpty {
-            let assembledTextFile = makeAssembledTextFileWithPageBreaks(from: allFiles, name: project.name ?? "Manuscript")
+        if let textFile = assembledTextFile {
             PaginatedDocumentView(
-                textFile: assembledTextFile,
+                textFile: textFile,
                 project: project,
                 showActualPageNumbers: true,
-                startingPageNumber: frontMatterPageCount + 1
+                startingPageNumber: frontMatterPageCount + 1,
+                showPrintButton: false
             )
         } else {
             ContentUnavailableView {
@@ -116,25 +76,35 @@ struct ManuscriptBodyView: View {
         }
     }
 
-    private func loadBodySections() {
+    private func loadBodySections() async {
         errorMessage = nil
         let service = ManuscriptAssemblyService(context: context)
         assemblyService = service
         // Get only body sections for this view
         sections = service.getBodySections(for: project)
         
-        // Calculate how many pages front matter occupies so footer page numbers
-        // start at the correct number (e.g. 4 if front matter fills pages 1–3)
-        frontMatterPageCount = calculateFrontMatterPageCount(using: service)
+        let files = allFiles
         
         #if DEBUG
-        print("📄 [ManuscriptBodyView] loadBodySections completed")
-        print("📄 [ManuscriptBodyView] Sections count: \(sections.count)")
-        for section in sections {
-            print("  Section: \(section.title) - \(section.files.count) files")
+        print("📄 [ManuscriptBodyView] loadBodySections: \(sections.count) sections, \(files.count) files")
+        #endif
+        
+        guard !files.isEmpty else {
+            isLoading = false
+            return
         }
-        print("📄 [ManuscriptBodyView] allFiles count: \(allFiles.count)")
-        print("📄 [ManuscriptBodyView] frontMatterPageCount: \(frontMatterPageCount)")
+        
+        // Yield so SwiftUI can display the loading indicator before heavy work begins
+        await Task.yield()
+        
+        // Calculate front matter page count
+        frontMatterPageCount = calculateFrontMatterPageCount(using: service)
+        
+        // Assemble all files into a single TextFile with page breaks
+        assembledTextFile = makeAssembledTextFileWithPageBreaks(from: files, name: project.name ?? "Manuscript")
+        
+        #if DEBUG
+        print("📄 [ManuscriptBodyView] Assembly complete. frontMatterPageCount: \(frontMatterPageCount), assembled: \(assembledTextFile != nil)")
         #endif
         
         isLoading = false
@@ -146,6 +116,7 @@ struct ManuscriptBodyView: View {
         let frontMatterFiles = allSections
             .filter { $0.sectionType == .frontMatter }
             .flatMap { $0.files }
+            .filter { !$0.isCoverFile }  // Cover files don't contribute to page count
         
         guard !frontMatterFiles.isEmpty else { return 0 }
         
@@ -290,197 +261,6 @@ struct ManuscriptBodyView: View {
             
             Divider()
                 .padding(.vertical, 8)
-        }
-    }
-    
-    @ViewBuilder
-    private var bodyToolbarContent: some View {
-        HStack(spacing: 16) {
-            Menu {
-                Button(action: exportAsPDF) {
-                    Label("Export as PDF", systemImage: "doc.richtext")
-                }
-                Button(action: exportAsHTML) {
-                    Label("Export as HTML", systemImage: "globe")
-                }
-            } label: {
-                Label("Export", systemImage: "square.and.arrow.up")
-            }
-            .disabled(isExporting || allFiles.isEmpty)
-        }
-    }
-    
-    private func exportAsPDF() {
-        isExporting = true
-        
-        // Capture values needed off main thread
-        let allExportFiles = sections.flatMap { $0.files }
-        let isDrama = project.type == .drama
-        let scriptType: DramaScriptType = {
-            if let raw = project.dramaScriptTypeRaw, let t = DramaScriptType(rawValue: raw) { return t }
-            return .stage
-        }()
-        let styleSheet = project.styleSheet
-        let settings = project.manuscriptSettings
-        let projectName = project.name ?? "Manuscript"
-        
-        // Collect file data on main thread (SwiftData objects aren't sendable)
-        struct FileExportData {
-            let content: String
-            let attributedContent: NSAttributedString?
-            let isMarkdown: Bool
-            let isDrama: Bool
-        }
-        
-        var fileDataList: [FileExportData] = []
-        for file in allExportFiles {
-            guard let version = file.currentVersion else { continue }
-            fileDataList.append(FileExportData(
-                content: version.content,
-                attributedContent: isDrama || file.isMarkdown ? nil : version.attributedContent,
-                isMarkdown: file.isMarkdown,
-                isDrama: isDrama
-            ))
-        }
-        
-        // Do heavy assembly work off main thread
-        Task.detached {
-            do {
-                let assembled = NSMutableAttributedString()
-                
-                for (idx, fileData) in fileDataList.enumerated() {
-                    if fileData.isDrama {
-                        let document = DramaMarkupParser.shared.parse(fileData.content)
-                        let rendered = DramaMarkupRenderer.shared.render(
-                            document, scriptType: scriptType, viewMode: .formatted, showNotes: false
-                        )
-                        assembled.append(rendered)
-                    } else if fileData.isMarkdown {
-                        let rendered = try MarkdownImportService.importMarkdown(
-                            from: fileData.content, styleSheet: styleSheet
-                        )
-                        assembled.append(rendered)
-                    } else if let rtfContent = fileData.attributedContent {
-                        assembled.append(rtfContent)
-                    } else {
-                        assembled.append(NSAttributedString(
-                            string: fileData.content,
-                            attributes: [.font: UIFont.preferredFont(forTextStyle: .body)]
-                        ))
-                    }
-                    
-                    if idx < fileDataList.count - 1 {
-                        let breakStr: String
-                        switch settings.sectionBreakStyle {
-                        case .pageBreak: breakStr = "\u{0C}"
-                        case .sectionMark: breakStr = "\n\n§\n\n\n"
-                        case .doubleSpace: breakStr = "\n\n\n"
-                        case .none: breakStr = "\n\n\n"
-                        }
-                        assembled.append(NSAttributedString(string: breakStr))
-                    }
-                }
-                
-                #if DEBUG
-                print("📄 [ManuscriptBodyView] Assembled rich text length: \(assembled.length)")
-                print("📄 [ManuscriptBodyView] Files: \(fileDataList.count)")
-                #endif
-                
-                // Only hop to main thread for PDF rendering (UIKit drawing) and UI updates
-                await MainActor.run { [assembled] in
-                    let content = ManuscriptContent(
-                        attributedString: assembled,
-                        sections: sections,
-                        fileOffsets: [:]
-                    )
-                    
-                    if let pdfData = PrintService.generatePDF(from: content, project: project, context: context) {
-                        let filename = "\(projectName)_body"
-                        exportData = pdfData
-                        exportFilename = "\(filename).pdf"
-                        exportContentType = .pdf
-                        showExportSaveDialog = true
-                    } else {
-                        #if DEBUG
-                        print("❌ [ManuscriptBodyView] PrintService.generatePDF returned nil")
-                        #endif
-                        exportErrorMessage = NSLocalizedString("manuscript.error.exportFailedGeneric", comment: "Export failed")
-                        showExportError = true
-                    }
-                    isExporting = false
-                }
-            } catch {
-                #if DEBUG
-                print("❌ [ManuscriptBodyView] PDF export error: \(error)")
-                #endif
-                await MainActor.run {
-                    exportErrorMessage = error.localizedDescription
-                    showExportError = true
-                    isExporting = false
-                }
-            }
-        }
-    }
-    
-    private func exportAsHTML() {
-        isExporting = true
-        
-        Task {
-            // Collect all Markdown content from the files with file-based anchors
-            var allMarkdown: [String] = []
-            
-            for section in sections {
-                for file in section.files {
-                    if let version = file.currentVersion {
-                        // Get the plain text content (which is Markdown)
-                        let content = version.content
-                        if !content.isEmpty {
-                            // Create anchor ID from filename (without extension)
-                            let filename = file.name
-                            let anchorId = filename
-                                .replacingOccurrences(of: ".md", with: "")
-                                .lowercased()
-                                .replacingOccurrences(of: " ", with: "-")
-                                .replacingOccurrences(of: "[^a-z0-9-]", with: "", options: .regularExpression)
-                            
-                            // Add anchor marker before content (will be converted to <a id="...">)
-                            let contentWithAnchor = "%%FILEANCHOR:\(anchorId)%%\n\n\(content)"
-                            allMarkdown.append(contentWithAnchor)
-                        }
-                    }
-                }
-            }
-            
-            // Files already end with --- so just join with newlines
-            let combinedMarkdown = allMarkdown.joined(separator: "\n\n")
-            
-            #if DEBUG
-            print("🌐 [ManuscriptBodyView] Exporting HTML from Markdown, total length: \(combinedMarkdown.count)")
-            #endif
-            
-            await MainActor.run {
-                do {
-                    let filename = project.name ?? "Manuscript"
-                    let htmlData = try HTMLExportService.exportMarkdownToHTMLData(
-                        combinedMarkdown,
-                        filename: filename
-                    )
-                    
-                    // Set up file exporter
-                    exportData = htmlData
-                    exportFilename = "\(filename).html"
-                    exportContentType = .html
-                    showExportSaveDialog = true
-                    isExporting = false
-                } catch {
-                    #if DEBUG
-                    print("❌ [ManuscriptBodyView] HTML export error: \(error)")
-                    #endif
-                    exportErrorMessage = error.localizedDescription
-                    showExportError = true
-                    isExporting = false
-                }
-            }
         }
     }
 }

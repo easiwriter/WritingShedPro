@@ -780,6 +780,12 @@ final class TextFile {
     // JSON-encoded TableOfFiguresSettings for Table of Figures files
     var tofSettingsData: Data?
     
+    // Cover image file support (Front Cover / Back Cover)
+    // Cover files display only an image and do not contribute to page count
+    var isCoverFile: Bool = false
+    // Image data for cover files (JPEG/PNG compressed)
+    var coverImageData: Data?
+    
     // Content type: richText (default) or markdown
     var contentTypeRaw: String = "richText"
     

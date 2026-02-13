@@ -12,6 +12,7 @@ import Foundation
 /// Enumeration of available front matter items
 /// Order defines display order in the folder
 enum FrontMatterItem: String, CaseIterable, Codable, Identifiable {
+    case frontCover = "Front Cover"
     case halfTitle = "Half Title"
     case titlePage = "Title Page"
     case copyright = "Copyright"
@@ -27,6 +28,8 @@ enum FrontMatterItem: String, CaseIterable, Codable, Identifiable {
     /// Localized display name
     var localizedName: String {
         switch self {
+        case .frontCover:
+            return NSLocalizedString("frontMatter.frontCover", comment: "Front Cover")
         case .halfTitle:
             return NSLocalizedString("frontMatter.halfTitle", comment: "Half Title")
         case .titlePage:
@@ -52,17 +55,23 @@ enum FrontMatterItem: String, CaseIterable, Codable, Identifiable {
     var fileName: String { rawValue }
     
     /// Sort order for display in folder
+    /// Whether this item is a cover image (not a text page)
+    var isCover: Bool {
+        self == .frontCover
+    }
+    
     var sortOrder: Int {
         switch self {
-        case .halfTitle: return 0
-        case .titlePage: return 1
-        case .copyright: return 2
-        case .dedication: return 3
-        case .epigraph: return 4
-        case .tableOfContents: return 5
-        case .foreword: return 6
-        case .preface: return 7
-        case .acknowledgements: return 8
+        case .frontCover: return 0
+        case .halfTitle: return 1
+        case .titlePage: return 2
+        case .copyright: return 3
+        case .dedication: return 4
+        case .epigraph: return 5
+        case .tableOfContents: return 6
+        case .foreword: return 7
+        case .preface: return 8
+        case .acknowledgements: return 9
         }
     }
 }
@@ -78,6 +87,7 @@ enum BackMatterItem: String, CaseIterable, Codable, Identifiable {
     case tableOfFigures = "Table of Figures"
     case index = "Index"
     case contributors = "Contributors"
+    case backCover = "Back Cover"
     
     var id: String { rawValue }
     
@@ -96,11 +106,18 @@ enum BackMatterItem: String, CaseIterable, Codable, Identifiable {
             return NSLocalizedString("backMatter.index", comment: "Index")
         case .contributors:
             return NSLocalizedString("backMatter.contributors", comment: "Contributors")
+        case .backCover:
+            return NSLocalizedString("backMatter.backCover", comment: "Back Cover")
         }
     }
     
     /// File name to create in the folder
     var fileName: String { rawValue }
+    
+    /// Whether this item is a cover image (not a text page)
+    var isCover: Bool {
+        self == .backCover
+    }
     
     /// Sort order for display in folder
     var sortOrder: Int {
@@ -111,6 +128,7 @@ enum BackMatterItem: String, CaseIterable, Codable, Identifiable {
         case .tableOfFigures: return 3
         case .index: return 4
         case .contributors: return 5
+        case .backCover: return 6
         }
     }
 }

@@ -3402,6 +3402,9 @@ struct FileEditView: View {
                 generatedContent = backMatterGenerator.generateIndexSection(pageMap: [:]) ?? NSAttributedString()
             case .contributors:
                 generatedContent = backMatterGenerator.generateContributorsSection() ?? NSAttributedString()
+            case .backCover:
+                // Back cover is an image file, no generated content
+                continue
             }
             
             // Update or create the file's current version with the generated content

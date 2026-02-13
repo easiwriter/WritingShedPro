@@ -34,8 +34,8 @@ struct TOCSettings: Codable, Equatable {
         "UICTFontTextStyleBody"   // Level 5
     ]
     
-    /// Whether to show page numbers (disabled by default until page calculation is implemented)
-    var showPageNumbers: Bool = false
+    /// Whether to show page numbers in the TOC
+    var showPageNumbers: Bool = true
     
     /// Whether to use dot leaders (repeated separator)
     var useDotLeaders: Bool = true

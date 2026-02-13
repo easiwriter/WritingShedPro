@@ -94,6 +94,8 @@ struct BackMatterGeneratedContentView: View {
                             indexContent
                         case .contributors:
                             EmptyView() // Handled above
+                        case .backCover:
+                            EmptyView() // Handled by CoverImageEditorView
                         case nil:
                             emptyContent
                         }
@@ -1181,6 +1183,9 @@ extension BackMatterGeneratedContentView {
               folder.isBackMatterFolder else {
             return false
         }
+        
+        // Cover files are handled by CoverImageEditorView, not generated content
+        if file.isCoverFile { return false }
         
         let fileName = file.name.lowercased()
         

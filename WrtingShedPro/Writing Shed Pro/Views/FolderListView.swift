@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
 
 struct FolderListView: View {
     let project: Project
@@ -10,6 +11,18 @@ struct FolderListView: View {
     @State private var showAddFolderSheet = false
     @State private var isLoadingFolders = true
     @State private var loadedFolders: [Folder] = []
+    
+    // Manuscript export/preview/print state
+    @State private var isExporting = false
+    @State private var showExportError = false
+    @State private var exportErrorMessage = ""
+    @State private var showExportSaveDialog = false
+    @State private var exportData: Data?
+    @State private var exportFilename = ""
+    @State private var showPreview = false
+    @State private var previewPDFData: Data?
+    @State private var showPrintError = false
+    @State private var printErrorMessage = ""
     
     // Query all trash items to check if trash folder should be shown
     @Query private var allTrashItems: [TrashItem]
@@ -373,7 +386,6 @@ struct FolderListView: View {
         }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                // Show add button for folders only
                 if let selectedFolder = selectedFolder {
                     let canAddFolder = FolderCapabilityService.canAddSubfolder(to: selectedFolder)
                     
@@ -385,6 +397,115 @@ struct FolderListView: View {
                     }
                 }
             }
+            
+            // Manuscript folder: preview, export, and print toolbar items
+            if isManuscriptFolder {
+                ToolbarItem(placement: .topBarTrailing) {
+                    HStack(spacing: 16) {
+                        Button {
+                            generatePreview()
+                        } label: {
+                            Label(NSLocalizedString("manuscript.preview", comment: "Preview"), systemImage: "eye")
+                        }
+                        .disabled(isExporting)
+                        
+                        Button {
+                            exportManuscriptPDF()
+                        } label: {
+                            Label(NSLocalizedString("manuscript.export", comment: "Export"), systemImage: "square.and.arrow.up")
+                        }
+                        .disabled(isExporting)
+                        
+                        Button {
+                            printManuscript()
+                        } label: {
+                            Label(NSLocalizedString("manuscript.print", comment: "Print"), systemImage: "printer")
+                        }
+                        .disabled(isExporting || !PrintService.isPrintingAvailable())
+                    }
+                }
+            }
+        }
+        .alert(NSLocalizedString("manuscript.error.exportFailedTitle", comment: "Export Failed"), isPresented: $showExportError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(exportErrorMessage)
+        }
+        .alert(NSLocalizedString("manuscript.error.printFailedTitle", comment: "Print Failed"), isPresented: $showPrintError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(printErrorMessage)
+        }
+        .fileExporter(
+            isPresented: $showExportSaveDialog,
+            document: ExportDocument(
+                data: exportData ?? Data(),
+                filename: exportFilename,
+                contentType: .pdf
+            ),
+            contentType: .pdf,
+            defaultFilename: exportFilename
+        ) { result in
+            switch result {
+            case .success(let url):
+                #if DEBUG
+                print("✅ [Manuscript] Exported to: \(url)")
+                #endif
+            case .failure(let error):
+                #if DEBUG
+                print("❌ [Manuscript] Export failed: \(error)")
+                #endif
+                exportErrorMessage = error.localizedDescription
+                showExportError = true
+            }
+            exportData = nil
+        }
+        .sheet(isPresented: $showPreview) {
+            ManuscriptPreviewView(
+                pdfData: previewPDFData,
+                title: project.name ?? NSLocalizedString("manuscript.preview.title", comment: "Manuscript Preview"),
+                pdfGenerator: previewPDFData == nil ? { [project, modelContext] report in
+                    let assemblyService = ManuscriptAssemblyService(context: modelContext)
+                    do {
+                        // Phase 1: Assembly (0% → 5%) — fast for most projects
+                        let content = try await assemblyService.assembleContent(for: project) { current, total in
+                            let frac = total > 0 ? 0.05 * Double(current) / Double(total) : 0
+                            let text = String(format: NSLocalizedString("manuscript.preview.assembling", comment: ""), current, total)
+                            report(frac, text)
+                        }
+                        guard content.attributedString.length > 0 else { return nil }
+                        let finalContent = FolderListView.insertCoverImages(into: content, project: project)
+                        
+                        report(0.05, NSLocalizedString("manuscript.preview.layouting", comment: "Laying out pages…"))
+                        
+                        // Phase 2+3: Layout + Render (5% → 100%)
+                        // For documents with form-feed page breaks and no footnotes,
+                        // the fast path combines layout+render into one linear pass.
+                        return await PrintService.generatePDFWithProgress(
+                            from: finalContent,
+                            project: project,
+                            context: modelContext,
+                            layoutProgress: { pagesCalculated, estimatedTotal in
+                                let frac = estimatedTotal > 0 ? min(Double(pagesCalculated) / Double(estimatedTotal), 1.0) : 0
+                                let overallFrac = 0.05 + 0.90 * frac
+                                let text = String(format: NSLocalizedString("manuscript.preview.renderingPage", comment: ""), pagesCalculated, estimatedTotal)
+                                report(overallFrac, text)
+                            },
+                            renderProgress: { currentPage, totalPages in
+                                let renderFrac = totalPages > 0 ? Double(currentPage) / Double(totalPages) : 0
+                                let frac = 0.95 + 0.05 * renderFrac
+                                let text = String(format: NSLocalizedString("manuscript.preview.renderingPage", comment: ""), currentPage, totalPages)
+                                report(frac, text)
+                            }
+                        )
+                    } catch {
+                        #if DEBUG
+                        print("❌ [Manuscript] Preview PDF generation error: \(error)")
+                        #endif
+                        return nil
+                    }
+                } : nil
+            )
         }
         .sheet(isPresented: $showAddFolderSheet) {
             AddFolderSheet(
@@ -396,6 +517,155 @@ struct FolderListView: View {
         }
     }
     
+    // MARK: - Manuscript Export/Preview Helpers
+    
+    /// Whether the current folder is the Manuscript folder
+    private var isManuscriptFolder: Bool {
+        selectedFolder?.name == "Manuscript"
+    }
+    
+    /// Show PDF preview — the sheet appears immediately and generates the PDF in the background
+    private func generatePreview() {
+        previewPDFData = nil
+        showPreview = true
+    }
+    
+    /// Export the full manuscript as PDF
+    private func exportManuscriptPDF() {
+        isExporting = true
+        let projectName = project.name ?? "Manuscript"
+        
+        Task {
+            if let data = await generateManuscriptPDF() {
+                await MainActor.run {
+                    exportData = data
+                    exportFilename = "\(projectName).pdf"
+                    showExportSaveDialog = true
+                    isExporting = false
+                }
+            } else {
+                await MainActor.run {
+                    exportErrorMessage = NSLocalizedString("manuscript.error.exportFailedGeneric", comment: "Export failed")
+                    showExportError = true
+                    isExporting = false
+                }
+            }
+        }
+    }
+    
+    /// Print the full manuscript via the system print dialog
+    private func printManuscript() {
+        isExporting = true
+        
+        Task {
+            let pdfData = await generateManuscriptPDF()
+            
+            await MainActor.run {
+                isExporting = false
+                
+                guard let data = pdfData else {
+                    printErrorMessage = NSLocalizedString("manuscript.error.exportFailedGeneric", comment: "Failed to generate PDF")
+                    showPrintError = true
+                    return
+                }
+                
+                guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                      let window = windowScene.windows.first,
+                      let _ = window.rootViewController else {
+                    printErrorMessage = NSLocalizedString("manuscript.error.printNoViewController", comment: "Unable to present print dialog")
+                    showPrintError = true
+                    return
+                }
+                
+                let printController = UIPrintInteractionController.shared
+                let printInfo = UIPrintInfo.printInfo()
+                printInfo.jobName = project.name ?? "Manuscript"
+                printInfo.outputType = .general
+                printController.printInfo = printInfo
+                printController.printingItem = data
+                
+                printController.present(animated: true) { _, completed, error in
+                    if let error = error {
+                        #if DEBUG
+                        print("❌ [Manuscript] Print error: \(error.localizedDescription)")
+                        #endif
+                        printErrorMessage = error.localizedDescription
+                        showPrintError = true
+                    } else if completed {
+                        #if DEBUG
+                        print("✅ [Manuscript] Print job completed")
+                        #endif
+                    }
+                }
+            }
+        }
+    }
+    
+    /// Assemble and generate the full manuscript as PDF Data
+    private func generateManuscriptPDF() async -> Data? {
+        let assemblyService = ManuscriptAssemblyService(context: modelContext)
+        
+        do {
+            let content = try await assemblyService.assembleContent(for: project)
+            
+            guard content.attributedString.length > 0 else { return nil }
+            
+            // Insert cover images into the assembled content
+            let finalContent = Self.insertCoverImages(into: content, project: project)
+            
+            return PrintService.generatePDF(
+                from: finalContent,
+                project: project,
+                context: modelContext
+            )
+        } catch {
+            #if DEBUG
+            print("❌ [Manuscript] PDF generation error: \(error)")
+            #endif
+            return nil
+        }
+    }
+    
+    /// Insert front/back cover images into manuscript content
+    static func insertCoverImages(into content: ManuscriptContent, project: Project) -> ManuscriptContent {
+        let assembled = NSMutableAttributedString()
+        
+        // Front cover: find front cover file and prepend its image
+        if let manuscriptFolder = project.folders?.first(where: { $0.name == "Manuscript" }),
+           let frontMatterFolder = manuscriptFolder.folders?.first(where: { $0.name == "Front Matter" }),
+           let frontCoverFile = frontMatterFolder.textFiles?.first(where: { $0.isCoverFile && $0.name == FrontMatterItem.frontCover.fileName }),
+           let imageData = frontCoverFile.coverImageData,
+           let image = UIImage(data: imageData) {
+            let attachment = NSTextAttachment()
+            attachment.image = image
+            // Scale to page width (will be handled by PrintService)
+            assembled.append(NSAttributedString(attachment: attachment))
+            assembled.append(NSAttributedString(string: "\u{0C}")) // Page break after cover
+        }
+        
+        assembled.append(content.attributedString)
+        
+        // Back cover: find back cover file and append its image
+        if let manuscriptFolder = project.folders?.first(where: { $0.name == "Manuscript" }),
+           let backMatterFolder = manuscriptFolder.folders?.first(where: { $0.name == "Back Matter" }),
+           let backCoverFile = backMatterFolder.textFiles?.first(where: { $0.isCoverFile && $0.name == BackMatterItem.backCover.fileName }),
+           let imageData = backCoverFile.coverImageData,
+           let image = UIImage(data: imageData) {
+            assembled.append(NSAttributedString(string: "\u{0C}")) // Page break before cover
+            let attachment = NSTextAttachment()
+            attachment.image = image
+            assembled.append(NSAttributedString(attachment: attachment))
+        }
+        
+        return ManuscriptContent(
+            attributedString: assembled,
+            sections: content.sections,
+            pageMap: content.pageMap,
+            fileOffsets: content.fileOffsets,
+            pageCount: content.pageCount
+        )
+    }
+
     // Load folders asynchronously to avoid blocking UI
     private func loadFolders() async {
         // Access the folders relationship asynchronously

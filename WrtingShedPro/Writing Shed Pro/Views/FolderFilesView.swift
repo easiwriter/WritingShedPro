@@ -199,6 +199,9 @@ struct FolderFilesView: View {
             if let project = folder.resolvedProject, project.type == .drama,
                FolderCapabilityService.isContentFolder(folder) {
                 DramaSceneEditorView(file: file, project: project)
+            } else if file.isCoverFile {
+                // Cover image files (Front Cover / Back Cover)
+                CoverImageEditorView(file: file)
             } else if let project = folder.resolvedProject,
                       BackMatterGeneratedContentView.isGeneratedBackMatterFile(file) {
                 // Feature 029: Show generated content for back matter files
@@ -419,6 +422,7 @@ struct FolderFilesView: View {
         List {
             ForEach(sortedFiles) { file in
                 matterFileRow(file)
+                    .moveDisabled(file.isCoverFile)
             }
             .onMove(perform: moveMatterFiles)
         }
@@ -446,9 +450,23 @@ struct FolderFilesView: View {
     }
     
     /// Reorder matter folder files
+    /// Cover files (Front Cover / Back Cover) are pinned and cannot be moved
     private func moveMatterFiles(from source: IndexSet, to destination: Int) {
         var files = sortedFiles
-        files.move(fromOffsets: source, toOffset: destination)
+        
+        // Determine pinned boundaries
+        let hasFrontCover = files.first?.isCoverFile == true
+        let hasBackCover = files.last?.isCoverFile == true
+        let firstMovable = hasFrontCover ? 1 : 0
+        let lastMovable = hasBackCover ? files.count - 1 : files.count
+        
+        // Block if trying to move a cover file
+        if source.contains(where: { files[$0].isCoverFile }) { return }
+        
+        // Clamp destination so nothing lands before front cover or after back cover
+        let clampedDestination = max(firstMovable, min(destination, lastMovable))
+        
+        files.move(fromOffsets: source, toOffset: clampedDestination)
         
         // Update userOrder for all files
         for (index, file) in files.enumerated() {

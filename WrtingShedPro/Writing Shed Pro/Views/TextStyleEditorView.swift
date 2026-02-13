@@ -796,6 +796,9 @@ struct TextStyleEditorView: View {
                     generatedContent = generator.generateIndexSection(pageMap: [:]) ?? NSAttributedString()
                 case .contributors:
                     generatedContent = generator.generateContributorsSection() ?? NSAttributedString()
+                case .backCover:
+                    // Back cover is an image file, no generated content
+                    continue
                 }
                 
                 // Update the file's content

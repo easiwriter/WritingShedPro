@@ -19,7 +19,7 @@ struct TOCSettingsView: View {
     @State private var title: String = "Contents"
     @State private var separator: String = "."
     @State private var indentPoints: CGFloat = 20
-    @State private var showPageNumbers: Bool = false
+    @State private var showPageNumbers: Bool = true
     @State private var useDotLeaders: Bool = true
     @State private var titleStyleName: String = "UICTFontTextStyleTitle0"
     @State private var pageNumberPosition: CGFloat = 480

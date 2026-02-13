@@ -115,7 +115,7 @@ class PaginatedTextLayoutManager {
     ///   - context: Optional model context for footnote queries
     /// - Returns: Layout result with page count and page information
     @discardableResult
-    func calculateLayout(version: Version? = nil, context: ModelContext? = nil) -> LayoutResult {
+    func calculateLayout(version: Version? = nil, context: ModelContext? = nil, layoutProgress: ((Int, Int) -> Void)? = nil) -> LayoutResult {
         let startTime = Date()
         
         // Get page layout from calculator
@@ -127,7 +127,7 @@ class PaginatedTextLayoutManager {
             #if DEBUG
             print("🔧 Using SIMPLE layout (no version/context)")
             #endif
-            return calculateSimpleLayout(containerSize: baseContainerSize, pageLayout: pageLayout, startTime: startTime)
+            return calculateSimpleLayout(containerSize: baseContainerSize, pageLayout: pageLayout, startTime: startTime, layoutProgress: layoutProgress)
         }
         
         #if DEBUG
@@ -143,12 +143,13 @@ class PaginatedTextLayoutManager {
             pageLayout: pageLayout,
             version: version!,
             context: context!,
-            startTime: startTime
+            startTime: startTime,
+            layoutProgress: layoutProgress
         )
     }
     
     /// Simple layout calculation without footnote adjustment
-    private func calculateSimpleLayout(containerSize: CGSize, pageLayout: PageLayoutCalculator.PageLayout, startTime: Date) -> LayoutResult {
+    private func calculateSimpleLayout(containerSize: CGSize, pageLayout: PageLayoutCalculator.PageLayout, startTime: Date, layoutProgress: ((Int, Int) -> Void)? = nil) -> LayoutResult {
         #if DEBUG
         print("📄 Pagination Layout Setup:")
         print("   - Container size: \(containerSize.width) x \(containerSize.height)")
@@ -230,6 +231,20 @@ class PaginatedTextLayoutManager {
                 usedRect: usedRect
             )
             pageInfos.append(pageInfo)
+            
+            // Report layout progress every 5 pages (throttle to avoid flooding main actor).
+            // Uses a running estimate based on characters processed — the initial estimate
+            // assumes prose, but poetry with page breaks produces far more pages.
+            if let progress = layoutProgress, pageInfos.count % 5 == 0 {
+                let charsProcessed = max(characterIndex, NSMaxRange(characterRange))
+                let runningEstimate: Int
+                if charsProcessed > 0 && charsProcessed < totalCharacters {
+                    runningEstimate = max(estimatedPages, Int(ceil(Double(pageInfos.count) * Double(totalCharacters) / Double(charsProcessed))))
+                } else {
+                    runningEstimate = max(estimatedPages, pageInfos.count)
+                }
+                progress(pageInfos.count, runningEstimate)
+            }
             
             // Periodically update layoutResult so pages can be displayed incrementally
             // Update after first page, every 5 pages initially, then every 10 pages
@@ -339,7 +354,8 @@ class PaginatedTextLayoutManager {
         pageLayout: PageLayoutCalculator.PageLayout,
         version: Version,
         context: ModelContext,
-        startTime: Date
+        startTime: Date,
+        layoutProgress: ((Int, Int) -> Void)? = nil
     ) -> LayoutResult {
         // Mark as calculating and create initial estimated layout
         let estimatedPages = self.estimatedPageCount
@@ -656,6 +672,18 @@ class PaginatedTextLayoutManager {
                         pageInfos.append(pageInfo)
                     }
                 }
+            }
+            
+            // Report layout progress every 5 pages (throttle to avoid flooding main actor)
+            if let progress = layoutProgress, pageInfos.count % 5 == 0 {
+                let charsProcessed = pageInfos.last.map { NSMaxRange($0.characterRange) } ?? 0
+                let runningEstimate: Int
+                if charsProcessed > 0 && charsProcessed < totalCharacters {
+                    runningEstimate = max(estimatedPages, Int(ceil(Double(pageInfos.count) * Double(totalCharacters) / Double(charsProcessed))))
+                } else {
+                    runningEstimate = max(estimatedPages, pageInfos.count)
+                }
+                progress(pageInfos.count, runningEstimate)
             }
             
             // Check if all text has been placed

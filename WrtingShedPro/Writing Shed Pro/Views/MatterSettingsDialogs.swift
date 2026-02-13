@@ -169,6 +169,11 @@ struct FrontMatterSettingsDialog: View {
             textFile.isTOCFile = true
         }
         
+        // Mark cover files for image-only display
+        if item.isCover {
+            textFile.isCoverFile = true
+        }
+        
         modelContext.insert(textFile)
         
         if folder.textFiles == nil {
@@ -279,6 +284,9 @@ struct BackMatterSettingsDialog: View {
             return false
         case .contributors:
             // Contributors are user-created, not reference-based - always allow toggling
+            return false
+        case .backCover:
+            // Back cover is an image file, not reference-based
             return false
         }
     }
@@ -470,6 +478,11 @@ struct BackMatterSettingsDialog: View {
             textFile.isTableOfFiguresFile = true
         }
         
+        // Mark cover files for image-only display
+        if item.isCover {
+            textFile.isCoverFile = true
+        }
+        
         modelContext.insert(textFile)
         
         if folder.textFiles == nil {
@@ -558,6 +571,9 @@ struct BackMatterSettingsDialog: View {
             return
         case .contributors:
             // Contributors are not reference-based, nothing to remove
+            return
+        case .backCover:
+            // Back cover is an image file, nothing to remove
             return
         }
         

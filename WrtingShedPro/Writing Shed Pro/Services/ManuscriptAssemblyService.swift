@@ -342,7 +342,7 @@ final class ManuscriptAssemblyService {
     /// - Parameter project: The project to assemble
     /// - Returns: ManuscriptContent with assembled attributed string
     /// - Throws: AssemblyError if assembly fails
-    func assembleContent(for project: Project) async throws -> ManuscriptContent {
+    func assembleContent(for project: Project, progress: ((Int, Int) -> Void)? = nil) async throws -> ManuscriptContent {
         let sections = getSections(for: project)
         
         // Check if there's any content
@@ -350,6 +350,10 @@ final class ManuscriptAssemblyService {
         guard hasContent else {
             throw AssemblyError.noFilesFound
         }
+        
+        // Count total non-cover files for progress reporting
+        let totalFiles = sections.flatMap { $0.files }.filter { !$0.isCoverFile }.count
+        var fileIndex = 0
         
         let settings = project.manuscriptSettings
         let assembled = NSMutableAttributedString()
@@ -366,6 +370,17 @@ final class ManuscriptAssemblyService {
         print("[ManuscriptAssemblyService] Drama project: \(isDrama), Script type: \(scriptType)")
         for section in sections {
             for file in section.files {
+                // Skip cover files — they contain only an image, not text content
+                if file.isCoverFile { continue }
+                
+                fileIndex += 1
+                progress?(fileIndex, totalFiles)
+                
+                // Yield periodically so the UI can process progress updates
+                if fileIndex % 10 == 0 {
+                    await Task.yield()
+                }
+                
                 // Add section break between files (not before first)
                 if !isFirstFile {
                     let breakAttr = sectionBreak(for: settings)

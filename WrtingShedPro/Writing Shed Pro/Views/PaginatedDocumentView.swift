@@ -20,6 +20,8 @@ struct PaginatedDocumentView: View {
     var showActualPageNumbers: Bool = false
     /// The page number to display for the first page (default 1). Use to offset for front matter pages.
     var startingPageNumber: Int = 1
+    /// Whether to show the print button in the toolbar. Set to false when printing is handled at a higher level.
+    var showPrintButton: Bool = true
     
     @Environment(\.modelContext) private var modelContext
     
@@ -135,33 +137,52 @@ struct PaginatedDocumentView: View {
     // MARK: - Page Indicator Toolbar
     
     private var pageIndicatorToolbar: some View {
-        HStack(spacing: 12) {
-            // Page info
-            if let layoutManager = layoutManager, layoutManager.isLayoutValid {
-                Label {
-                    Text(String(format: NSLocalizedString("paginatedDocument.pageIndicator", comment: "Page indicator"), currentPage + 1, layoutManager.pageCount))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
-                } icon: {
-                    Image(systemName: "doc.text")
-                        .font(.caption)
-                        .imageScale(.small)
+        VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                // Page info
+                if let layoutManager = layoutManager, layoutManager.isLayoutValid {
+                    Label {
+                        Text(String(format: NSLocalizedString("paginatedDocument.pageIndicator", comment: "Page indicator"), currentPage + 1, layoutManager.pageCount))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                    } icon: {
+                        Image(systemName: "doc.text")
+                            .font(.caption)
+                            .imageScale(.small)
+                    }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel(String(format: NSLocalizedString("paginatedDocument.pageIndicator.accessibility", comment: "Page indicator"), currentPage + 1, layoutManager.pageCount))
+                    .layoutPriority(1)
+                    
+                    Spacer(minLength: 8)
+                    
+                    // Zoom controls
+                    zoomControls
+                        .layoutPriority(2)
                 }
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel(String(format: NSLocalizedString("paginatedDocument.pageIndicator.accessibility", comment: "Page indicator"), currentPage + 1, layoutManager.pageCount))
-                .layoutPriority(1)
-                
-                Spacer(minLength: 8)
-                
-                // Zoom controls
-                zoomControls
-                    .layoutPriority(2)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal)
+            .padding(.vertical, 8)
+            
+            // Progress bar while pages are still being calculated
+            if let layoutManager = layoutManager, layoutManager.isCalculating || !layoutManager.isLayoutComplete {
+                let calculated = layoutManager.layoutResult?.pageInfos.count ?? 0
+                let estimated = max(layoutManager.estimatedPageCount, calculated)
+                let fraction = estimated > 0 ? min(Double(calculated) / Double(estimated), 1.0) : 0
+                VStack(spacing: 2) {
+                    ProgressView(value: fraction)
+                        .tint(.accentColor)
+                    Text(String(format: NSLocalizedString("paginatedDocument.calculatingPage", comment: "Calculating pages progress"), calculated))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal)
+                .padding(.bottom, 4)
+                .transition(.opacity)
             }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal)
-        .padding(.vertical, 8)
         .background(Color(uiColor: .systemBackground))
         .overlay(alignment: .bottom) {
             Divider()
@@ -215,20 +236,22 @@ struct PaginatedDocumentView: View {
             .accessibilityLabel("paginatedDocument.resetZoom.accessibility")
             .accessibilityHint("paginatedDocument.resetZoom.hint")
             
-            Divider()
-                .frame(height: 24)
-            
-            // Print button
-            Button {
-                printDocument()
-            } label: {
-                Image(systemName: "printer")
-                    .font(.body)
-                    .imageScale(.medium)
-                    .frame(width: 24, height: 24)
+            if showPrintButton {
+                Divider()
+                    .frame(height: 24)
+                
+                // Print button
+                Button {
+                    printDocument()
+                } label: {
+                    Image(systemName: "printer")
+                        .font(.body)
+                        .imageScale(.medium)
+                        .frame(width: 24, height: 24)
+                }
+                .disabled(!PrintService.isPrintingAvailable())
+                .accessibilityLabel("paginatedDocument.print.accessibility")
             }
-            .disabled(!PrintService.isPrintingAvailable())
-            .accessibilityLabel("paginatedDocument.print.accessibility")
 
         }
         .fixedSize()

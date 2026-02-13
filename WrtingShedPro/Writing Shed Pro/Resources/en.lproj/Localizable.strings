@@ -78,6 +78,20 @@
 "manuscript.error.exportFailedTitle" = "Export Failed";
 "manuscript.error.exportFailedGeneric" = "Failed to generate PDF";
 "manuscript.error.noPageSetup" = "Page setup required for manuscript preview";
+
+/* Manuscript Export/Preview/Print */
+"manuscript.preview" = "Preview";
+"manuscript.preview.title" = "Manuscript Preview";
+"manuscript.preview.generating" = "Generating preview…";
+"manuscript.preview.generationFailed" = "Could not generate the manuscript preview. Please try again.";
+"manuscript.preview.assembling" = "Assembling manuscript… %d of %d files";
+"manuscript.preview.layouting" = "Laying out pages…";
+"manuscript.preview.layoutingPage" = "Laying out page %d…";
+"manuscript.preview.renderingPage" = "Rendering page %d of %d…";
+"manuscript.export" = "Export";
+"manuscript.print" = "Print";
+"manuscript.error.printFailedTitle" = "Print Failed";
+"manuscript.error.printNoViewController" = "Unable to present print dialog";
 "export.format.pdf" = "PDF Document";
 "export.format.rtf" = "Rich Text Format";
 "export.format.plainText" = "Plain Text";
@@ -1224,6 +1238,7 @@
 "paginatedDocument.pages.hint" = "Use zoom controls to adjust view size, scroll to navigate pages";
 "paginatedDocument.pageIndicator" = "Page %d of %d";
 "paginatedDocument.pageIndicator.accessibility" = "Page %d of %d";
+"paginatedDocument.calculatingPage" = "Calculating… page %d";
 "paginatedDocument.zoomOut.accessibility" = "Zoom Out";
 "paginatedDocument.zoomOut.hint" = "Decreases zoom to %d%%";
 "paginatedDocument.zoomLevel.accessibility" = "Zoom level: %d percent";
@@ -2057,6 +2072,7 @@
 "frontMatter.settings.footer" = "Enabled items will appear as files in your Front Matter folder.";
 "frontMatter.settings.accessibility" = "Front Matter settings";
 "frontMatter.settings.help" = "Configure front matter items";
+"frontMatter.frontCover" = "Front Cover";
 "frontMatter.halfTitle" = "Half Title";
 "frontMatter.titlePage" = "Title Page";
 "frontMatter.copyright" = "Copyright";
@@ -2082,6 +2098,16 @@
 "backMatter.bibliography" = "Bibliography";
 "backMatter.references" = "References";
 "backMatter.index" = "Index";
+"backMatter.tableOfFigures" = "Table of Figures";
+"backMatter.contributors" = "Contributors";
+"backMatter.backCover" = "Back Cover";
+
+/* Cover Image Editor */
+"cover.processing" = "Processing...";
+"cover.changeImage" = "Change Image";
+"cover.removeImage" = "Remove Image";
+"cover.noCoverImage" = "No cover image";
+"cover.addImage" = "Add Cover Image";
 
 /* Drama Front Matter Settings */
 "drama.frontMatter.titlePage" = "Title Page";

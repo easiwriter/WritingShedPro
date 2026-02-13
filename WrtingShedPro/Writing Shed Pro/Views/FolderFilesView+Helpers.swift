@@ -35,7 +35,14 @@ extension FolderFilesView {
     var sortedFiles: [TextFile] {
         // Sort Matter folders by userOrder to maintain standard manuscript order
         if isMatterFolder {
-            return allFiles.sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+            let sorted = allFiles.sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+            // Pin cover files: front cover always first, back cover always last
+            var nonCovers = sorted.filter { !$0.isCoverFile }
+            let frontCover = sorted.first(where: { $0.isCoverFile && $0.name == FrontMatterItem.frontCover.fileName })
+            let backCover = sorted.first(where: { $0.isCoverFile && $0.name == BackMatterItem.backCover.fileName })
+            if let fc = frontCover { nonCovers.insert(fc, at: 0) }
+            if let bc = backCover { nonCovers.append(bc) }
+            return nonCovers
         }
         // Content folders: always sort by userOrder (matches manuscript assembly and TOC order)
         // Secondary sort by name when userOrder is equal (e.g. new files not yet reordered)

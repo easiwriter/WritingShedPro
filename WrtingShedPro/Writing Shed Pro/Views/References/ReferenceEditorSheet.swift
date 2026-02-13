@@ -222,6 +222,9 @@ struct ReferenceEditorSheet: View {
                 generatedContent = backMatterGenerator.generateIndexSection(pageMap: [:]) ?? NSAttributedString()
             case .contributors:
                 generatedContent = backMatterGenerator.generateContributorsSection() ?? NSAttributedString()
+            case .backCover:
+                // Back cover is an image file, no generated content
+                continue
             }
             
             // Update the file's content

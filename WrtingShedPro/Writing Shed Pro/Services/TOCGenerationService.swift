@@ -249,6 +249,7 @@ final class TOCGenerationService {
         let frontMatterFiles = sections
             .filter { $0.sectionType == .frontMatter }
             .flatMap { $0.files }
+            .filter { !$0.isCoverFile }  // Cover files don't contribute to page count
         
         // Render TOC with the raw body page numbers to estimate its size
         var tocRendered: NSAttributedString? = nil

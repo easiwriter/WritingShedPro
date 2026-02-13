@@ -663,6 +663,61 @@ class PrintService {
         )
     }
     
+    /// Generate a PDF from manuscript content with page rendering progress reporting.
+    /// Runs heavy work on a background queue so the caller can await without blocking the UI.
+    /// - Parameters:
+    ///   - content: The assembled manuscript content
+    ///   - project: The project
+    ///   - pageSetup: Optional page setup (defaults to preferences)
+    ///   - context: Model context (for footnotes)
+    ///   - progress: Callback with (currentPage, totalPages) fired after each page is rendered
+    /// - Returns: PDF data or nil if generation fails
+    static func generatePDFWithProgress(
+        from content: ManuscriptContent,
+        project: Project,
+        pageSetup: PageSetup? = nil,
+        context: ModelContext,
+        layoutProgress: @escaping @Sendable (Int, Int) -> Void,
+        renderProgress: @escaping @Sendable (Int, Int) -> Void
+    ) async -> Data? {
+        #if DEBUG
+        print("📄 [PrintService] Generating PDF with progress for: \(project.name ?? "Untitled")")
+        #endif
+        
+        guard content.attributedString.length > 0 else {
+            #if DEBUG
+            print("❌ [PrintService] Manuscript content is empty")
+            #endif
+            return nil
+        }
+        
+        let setup = pageSetup ?? PageSetupPreferences.shared.createPageSetup()
+        let printSizeContent = removePlatformScaling(from: content.attributedString)
+        
+        // Transfer non-Sendable values to the background queue.
+        // These are only read (not mutated) on the background thread, so this is safe.
+        nonisolated(unsafe) let bgContent = printSizeContent
+        nonisolated(unsafe) let bgSetup = setup
+        nonisolated(unsafe) let bgProject = project
+        nonisolated(unsafe) let bgContext = context
+        
+        return await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let result = createPDFWithProgress(
+                    from: bgContent,
+                    pageSetup: bgSetup,
+                    title: bgProject.name ?? "Manuscript",
+                    version: nil,
+                    project: bgProject,
+                    context: bgContext,
+                    layoutProgress: layoutProgress,
+                    renderProgress: renderProgress
+                )
+                continuation.resume(returning: result)
+            }
+        }
+    }
+    
     /// Save a PDF file to the app's Documents directory
     /// - Parameters:
     ///   - data: The PDF data to save
@@ -807,6 +862,429 @@ class PrintService {
         print("✅ [PrintService] PDF created: \(renderer.numberOfPages) pages")
         #endif
         return pdfData as Data
+    }
+    
+    /// Create PDF with per-page progress reporting (called from a background queue)
+    private static func createPDFWithProgress(
+        from content: NSAttributedString,
+        pageSetup: PageSetup,
+        title: String,
+        version: Version?,
+        project: Project,
+        context: ModelContext,
+        layoutProgress: @escaping (Int, Int) -> Void,
+        renderProgress: @escaping (Int, Int) -> Void
+    ) -> Data? {
+        #if DEBUG
+        print("🖨️ PDF Generation (with progress) Setup:")
+        print("   - Paper: \(pageSetup.paperSize.dimensions.width) x \(pageSetup.paperSize.dimensions.height)")
+        #endif
+        
+        // FAST PATH: When there are no footnotes, split at form feed characters
+        // and render each page independently. This is O(n) instead of O(n²)
+        // because it avoids the slow multi-container NSLayoutManager layout.
+        let textString = content.string
+        if version == nil && textString.contains("\u{000C}") {
+            #if DEBUG
+            print("   ⚡ Using FAST PATH (form-feed split, no footnotes)")
+            #endif
+            return createPDFWithFormFeedSplit(
+                from: content,
+                pageSetup: pageSetup,
+                title: title,
+                project: project,
+                progress: { current, total in
+                    // Report as layout progress for the first 90%, render for the last 10%
+                    // In practice each page is laid out + rendered in one step
+                    layoutProgress(current, total)
+                    if current == total {
+                        renderProgress(current, total)
+                    }
+                }
+            )
+        }
+        
+        // STANDARD PATH: Full layout calculation for footnote-aware rendering
+        let textStorage = NSTextStorage(attributedString: content)
+        let layoutManager = PaginatedTextLayoutManager(
+            textStorage: textStorage,
+            pageSetup: pageSetup
+        )
+        
+        let layoutResult = layoutManager.calculateLayout(version: version, context: context, layoutProgress: layoutProgress)
+        let totalPages = layoutResult.totalPages
+        #if DEBUG
+        print("   - Calculated: \(totalPages) pages")
+        #endif
+        
+        guard totalPages > 0 else {
+            #if DEBUG
+            print("❌ [PrintService] No pages to render")
+            #endif
+            return nil
+        }
+        
+        // Signal layout complete so the bar reaches 95% before rendering starts
+        layoutProgress(totalPages, totalPages)
+        renderProgress(0, totalPages)
+        
+        let renderer = CustomPDFPageRenderer(
+            layoutManager: layoutManager,
+            layoutResult: layoutResult,
+            pageSetup: pageSetup,
+            version: version,
+            context: context,
+            project: project
+        )
+        
+        let pdfData = NSMutableData()
+        let paperSize = pageSetup.paperSize.dimensions
+        let paperRect = CGRect(x: 0, y: 0, width: paperSize.width, height: paperSize.height)
+        
+        UIGraphicsBeginPDFContextToData(pdfData, paperRect, [
+            kCGPDFContextTitle as String: title,
+            kCGPDFContextCreator as String: "Writing Shed Pro"
+        ])
+        
+        let totalRenderPages = renderer.numberOfPages
+        for pageIndex in 0..<totalRenderPages {
+            UIGraphicsBeginPDFPage()
+            let bounds = UIGraphicsGetPDFContextBounds()
+            renderer.drawPage(at: pageIndex, in: bounds)
+            
+            // Report render progress every 5 pages (throttle to avoid flooding main actor)
+            let done = pageIndex + 1
+            if done % 5 == 0 || done == totalRenderPages {
+                renderProgress(done, totalRenderPages)
+            }
+        }
+        
+        UIGraphicsEndPDFContext()
+        
+        #if DEBUG
+        print("✅ [PrintService] PDF created with progress: \(renderer.numberOfPages) pages")
+        #endif
+        return pdfData as Data
+    }
+    
+    // MARK: - Fast-Path PDF (Form Feed Split)
+    
+    /// Fast PDF generation for documents that use form feed page breaks and have no footnotes.
+    /// Splits the attributed string at \u{000C} characters and renders each chunk independently,
+    /// avoiding the O(n²) multi-container NSLayoutManager layout entirely.
+    private static func createPDFWithFormFeedSplit(
+        from content: NSAttributedString,
+        pageSetup: PageSetup,
+        title: String,
+        project: Project,
+        progress: @escaping (Int, Int) -> Void
+    ) -> Data? {
+        let fullString = content.string as NSString
+        let totalLength = fullString.length
+        
+        // Split at form feed characters to find section boundaries
+        var chunkRanges: [NSRange] = []
+        var start = 0
+        while start < totalLength {
+            let searchRange = NSRange(location: start, length: totalLength - start)
+            let ffRange = fullString.range(of: "\u{000C}", options: [], range: searchRange)
+            if ffRange.location != NSNotFound {
+                chunkRanges.append(NSRange(location: start, length: ffRange.location - start))
+                start = ffRange.location + 1  // Skip the form feed
+            } else {
+                // Last chunk (no trailing form feed)
+                chunkRanges.append(NSRange(location: start, length: totalLength - start))
+                break
+            }
+        }
+        
+        // Remove empty trailing chunks (e.g. if text ends with a form feed)
+        while let last = chunkRanges.last, last.length == 0, chunkRanges.count > 1 {
+            chunkRanges.removeLast()
+        }
+        
+        guard !chunkRanges.isEmpty else {
+            #if DEBUG
+            print("❌ [PrintService] No chunks after form-feed split")
+            #endif
+            return nil
+        }
+        
+        let pageLayout = PageLayoutCalculator.calculateLayout(from: pageSetup)
+        let contentRect = pageLayout.contentRect
+        let containerSize = contentRect.size
+        let paperSize = pageSetup.paperSize.dimensions
+        let paperRect = CGRect(x: 0, y: 0, width: paperSize.width, height: paperSize.height)
+        
+        // Sub-paginate each chunk independently using a lightweight per-chunk layout.
+        // Each chunk gets its own NSLayoutManager so we never have hundreds of containers
+        // in a single manager (which causes the O(n²) slowdown).
+        // For poetry (1 poem = 1 chunk ≤ 1 page) this adds negligible overhead.
+        // For novels (1 chapter = 1 chunk = many pages) this correctly flows text.
+        struct PageSlice {
+            let chunkIndex: Int
+            let attributedString: NSMutableAttributedString
+            let characterRange: NSRange  // range within the chunk's text storage
+        }
+        
+        var allPages: [PageSlice] = []
+        
+        for (chunkIndex, chunkRange) in chunkRanges.enumerated() {
+            let chunkAttrString: NSAttributedString
+            if chunkRange.length > 0 {
+                chunkAttrString = content.attributedSubstring(from: chunkRange)
+            } else {
+                chunkAttrString = NSAttributedString(string: "")
+            }
+            let chunkMutable = NSMutableAttributedString(attributedString: chunkAttrString)
+            prepareAttributedStringForPDF(chunkMutable)
+            
+            // For empty chunks, emit one blank page
+            guard chunkMutable.length > 0 else {
+                allPages.append(PageSlice(
+                    chunkIndex: chunkIndex,
+                    attributedString: chunkMutable,
+                    characterRange: NSRange(location: 0, length: 0)
+                ))
+                continue
+            }
+            
+            // Sub-paginate: use a fresh layout manager to find page breaks within this chunk
+            let chunkStorage = NSTextStorage(attributedString: chunkMutable)
+            let chunkLM = NSLayoutManager()
+            chunkStorage.addLayoutManager(chunkLM)
+            
+            var charIdx = 0
+            while charIdx < chunkStorage.length {
+                let container = NSTextContainer(size: containerSize)
+                container.lineFragmentPadding = 0
+                chunkLM.addTextContainer(container)
+                
+                let glyphRange = chunkLM.glyphRange(for: container)
+                let charRange = chunkLM.characterRange(forGlyphRange: glyphRange, actualGlyphRange: nil)
+                
+                allPages.append(PageSlice(
+                    chunkIndex: chunkIndex,
+                    attributedString: chunkMutable,
+                    characterRange: charRange
+                ))
+                
+                if charRange.length > 0 {
+                    charIdx = NSMaxRange(charRange)
+                } else {
+                    break  // Safety: no progress
+                }
+                
+                if charIdx >= chunkStorage.length { break }
+            }
+            
+            // Report progress based on chunks processed (gives early estimates)
+            if (chunkIndex + 1) % 5 == 0 || chunkIndex == chunkRanges.count - 1 {
+                // Rough page estimate scales linearly with chunks processed
+                let estimatedTotal = max(allPages.count, allPages.count * chunkRanges.count / (chunkIndex + 1))
+                progress(allPages.count, estimatedTotal)
+            }
+        }
+        
+        let totalPages = allPages.count
+        guard totalPages > 0 else {
+            #if DEBUG
+            print("❌ [PrintService] No pages after sub-pagination")
+            #endif
+            return nil
+        }
+        
+        #if DEBUG
+        print("   ⚡ Form-feed split: \(chunkRanges.count) chunks → \(totalPages) pages")
+        #endif
+        
+        // Render all pages
+        let pdfData = NSMutableData()
+        UIGraphicsBeginPDFContextToData(pdfData, paperRect, [
+            kCGPDFContextTitle as String: title,
+            kCGPDFContextCreator as String: "Writing Shed Pro"
+        ])
+        
+        for (pageIndex, slice) in allPages.enumerated() {
+            UIGraphicsBeginPDFPage()
+            
+            guard let cgContext = UIGraphicsGetCurrentContext() else { continue }
+            
+            // Draw headers
+            if pageSetup.hasHeaders, let headerRect = pageLayout.headerRect {
+                drawHeaderFooter(
+                    left: pageSetup.headerLeft,
+                    center: pageSetup.headerCenter,
+                    right: pageSetup.headerRight,
+                    rect: headerRect,
+                    pageNumber: pageIndex + 1,
+                    totalPages: totalPages,
+                    project: project,
+                    context: cgContext
+                )
+            }
+            
+            // Draw footers
+            if pageSetup.hasFooters, let footerRect = pageLayout.footerRect {
+                drawHeaderFooter(
+                    left: pageSetup.footerLeft,
+                    center: pageSetup.footerCenter,
+                    right: pageSetup.footerRight,
+                    rect: footerRect,
+                    pageNumber: pageIndex + 1,
+                    totalPages: totalPages,
+                    project: project,
+                    context: cgContext
+                )
+            }
+            
+            // Draw text content for this page's character range
+            let drawRect = CGRect(
+                x: pageSetup.marginLeft,
+                y: pageSetup.marginTop,
+                width: contentRect.width,
+                height: contentRect.height
+            )
+            
+            if slice.characterRange.length > 0 {
+                let pageText = slice.attributedString.attributedSubstring(from: slice.characterRange)
+                cgContext.saveGState()
+                cgContext.clip(to: drawRect)
+                pageText.draw(in: drawRect)
+                cgContext.restoreGState()
+            }
+            
+            // Report progress every 5 pages
+            let done = pageIndex + 1
+            if done % 5 == 0 || done == totalPages {
+                progress(done, totalPages)
+            }
+        }
+        
+        UIGraphicsEndPDFContext()
+        
+        #if DEBUG
+        print("✅ [PrintService] Fast-path PDF created: \(totalPages) pages")
+        #endif
+        return pdfData as Data
+    }
+    
+    /// Prepare an attributed string for PDF rendering (shared between fast and standard paths)
+    private static func prepareAttributedStringForPDF(_ mutable: NSMutableAttributedString) {
+        // Replace footnote markers with superscript numbers, remove comments
+        var replacements: [(range: NSRange, replacement: NSAttributedString)] = []
+        mutable.enumerateAttribute(.attachment, in: NSRange(location: 0, length: mutable.length), options: []) { value, range, _ in
+            guard let attachment = value as? NSTextAttachment else { return }
+            if let footnoteAttachment = attachment as? FootnoteAttachment {
+                let numberString = "\(footnoteAttachment.number)"
+                let attributes: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.systemFont(ofSize: 11, weight: .medium),
+                    .foregroundColor: UIColor.systemBlue,
+                    .baselineOffset: 2
+                ]
+                replacements.append((range: range, replacement: NSAttributedString(string: numberString, attributes: attributes)))
+            } else if attachment is CommentAttachment {
+                replacements.append((range: range, replacement: NSAttributedString(string: "")))
+            }
+        }
+        for (range, replacement) in replacements.reversed() {
+            mutable.replaceCharacters(in: range, with: replacement)
+        }
+        
+        // Remove background colors (editing-only tints)
+        mutable.removeAttribute(.backgroundColor, range: NSRange(location: 0, length: mutable.length))
+        
+        // Convert dynamic colors to fixed light-mode colors
+        mutable.enumerateAttribute(.foregroundColor, in: NSRange(location: 0, length: mutable.length), options: []) { value, range, _ in
+            if let color = value as? UIColor {
+                let resolved = color.resolvedColor(with: UITraitCollection(userInterfaceStyle: .light))
+                if resolved != color {
+                    mutable.addAttribute(.foregroundColor, value: resolved, range: range)
+                }
+            }
+        }
+        // Ensure all text has explicit foreground color
+        mutable.enumerateAttributes(in: NSRange(location: 0, length: mutable.length), options: []) { attributes, range, _ in
+            if attributes[.foregroundColor] == nil {
+                mutable.addAttribute(.foregroundColor, value: UIColor.black, range: range)
+            }
+        }
+    }
+    
+    /// Draw header or footer text for the fast-path renderer
+    private static func drawHeaderFooter(
+        left: String?,
+        center: String?,
+        right: String?,
+        rect: CGRect,
+        pageNumber: Int,
+        totalPages: Int,
+        project: Project,
+        context: CGContext
+    ) {
+        let font = UIFont.systemFont(ofSize: 12)
+        let textColor = UIColor.darkGray
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: textColor
+        ]
+        
+        let labelHeight: CGFloat = min(rect.height, 20)
+        let verticalCenter = rect.origin.y + (rect.height - labelHeight) / 2
+        
+        func resolve(_ text: String?) -> String {
+            guard var result = text, !result.isEmpty else { return "" }
+            if result.contains("{{Date}}") {
+                let formatter = DateFormatter()
+                formatter.dateStyle = .medium
+                formatter.timeStyle = .none
+                result = result.replacingOccurrences(of: "{{Date}}", with: formatter.string(from: Date()))
+            }
+            if result.contains("{{Page Number}}") {
+                result = result.replacingOccurrences(of: "{{Page Number}}", with: "\(pageNumber)")
+            }
+            if result.contains("{{Folder}}") {
+                let folderName: String
+                switch project.type {
+                case .poetry:
+                    folderName = NSLocalizedString("folder.poems", comment: "Poems")
+                case .fiction:
+                    folderName = NSLocalizedString("folder.scenes", comment: "Scenes")
+                case .drama:
+                    folderName = NSLocalizedString("folder.scripts", comment: "Scripts")
+                default:
+                    folderName = NSLocalizedString("folder.sections", comment: "Sections")
+                }
+                result = result.replacingOccurrences(of: "{{Folder}}", with: folderName)
+            }
+            if result.contains("{{Project Name}}") {
+                result = result.replacingOccurrences(of: "{{Project Name}}", with: project.name ?? "")
+            }
+            return result
+        }
+        
+        let paragraphStyle = NSMutableParagraphStyle()
+        
+        let leftText = resolve(left)
+        if !leftText.isEmpty {
+            paragraphStyle.alignment = .left
+            let attrs = attributes.merging([.paragraphStyle: paragraphStyle.copy()]) { _, new in new }
+            leftText.draw(in: CGRect(x: rect.origin.x, y: verticalCenter, width: rect.width / 3, height: labelHeight), withAttributes: attrs)
+        }
+        
+        let centerText = resolve(center)
+        if !centerText.isEmpty {
+            paragraphStyle.alignment = .center
+            let attrs = attributes.merging([.paragraphStyle: paragraphStyle.copy()]) { _, new in new }
+            centerText.draw(in: CGRect(x: rect.origin.x + rect.width / 3, y: verticalCenter, width: rect.width / 3, height: labelHeight), withAttributes: attrs)
+        }
+        
+        let rightText = resolve(right)
+        if !rightText.isEmpty {
+            paragraphStyle.alignment = .right
+            let attrs = attributes.merging([.paragraphStyle: paragraphStyle.copy()]) { _, new in new }
+            rightText.draw(in: CGRect(x: rect.origin.x + 2 * rect.width / 3, y: verticalCenter, width: rect.width / 3, height: labelHeight), withAttributes: attrs)
+        }
     }
     
     // MARK: - Font Scaling Helper
