@@ -251,11 +251,14 @@ final class TOCGenerationService {
             .flatMap { $0.files }
             .filter { !$0.isCoverFile }  // Cover files don't contribute to page count
         
-        // Render TOC with the raw body page numbers to estimate its size
+        // Render TOC with the raw body page numbers to estimate its size.
+        // Use the export-formatted version (with dot leaders + tab stops) so the
+        // page count matches what will actually appear in the PDF.
         var tocRendered: NSAttributedString? = nil
         if let tocFile = tocFile {
             let settings = tocFile.tocSettings
-            tocRendered = renderTOC(entries: updatedEntries, settings: settings, project: project)
+            let simpleTOC = renderTOC(entries: updatedEntries, settings: settings, project: project)
+            tocRendered = TOCGenerationService.formatTOCContentForExport(simpleTOC, project: project)
         }
         
         var frontMatterPageCount = 0
@@ -263,12 +266,11 @@ final class TOCGenerationService {
         for file in frontMatterFiles {
             let fileContent: NSAttributedString
             if let toc = tocFile, file.id == toc.id, let rendered = tocRendered {
-                // Rendered TOC uses Catalyst-sized fonts (e.g. 44.2pt, 22.1pt).
-                // Descale to base sizes so prepareForPageCounting treats it
-                // the same as saved content (which already arrives at base sizes).
-                fileContent = PrintFormatter.removePlatformScaling(from: rendered)
+                // The export-formatted TOC still has Catalyst-sized fonts.
+                // Don't descale here — prepareForPageCounting will handle it.
+                fileContent = rendered
                 #if DEBUG
-                print("[TOCGeneration] FM file '\(file.name)': rendered TOC (\(rendered.length) → \(fileContent.length) chars, descaled to base)")
+                print("[TOCGeneration] FM file '\(file.name)': export-formatted TOC (\(rendered.length) chars)")
                 #endif
             } else if let version = file.currentVersion, let content = version.attributedContent {
                 fileContent = content
@@ -679,7 +681,11 @@ final class TOCGenerationService {
     
     /// Reformat stored TOC content for PDF export with right-aligned page numbers and dot leaders.
     /// Parses each paragraph to detect entry lines ("heading  pageNumber") and reformats them
-    /// with a right-aligned tab stop and dot leaders. Non-entry lines (title, empty) pass through unchanged.
+    /// with dot leaders and a right-aligned page number. Non-entry lines (title, empty) pass through unchanged.
+    ///
+    /// Uses a right-aligned NSTextTab so the page number snaps to the right edge of the content area.
+    /// Dot leaders are measured at print-font size (post-descale) so they align correctly after
+    /// PrintService.removePlatformScaling divides all font sizes by kCatalystFontScale.
     /// - Parameters:
     ///   - content: The stored TOC attributed string (simple editor format)
     ///   - project: The project (for page setup dimensions)
@@ -689,7 +695,7 @@ final class TOCGenerationService {
         let fullString = content.string as NSString
         let fullRange = NSRange(location: 0, length: content.length)
         
-        // Calculate content width from page setup
+        // Calculate content width from page setup (in print points)
         let pageSetup = project.pageSetup ?? PageSetup()
         let paperDims = pageSetup.paperSize.dimensions
         let isLandscape = pageSetup.orientationEnum == .landscape
@@ -722,6 +728,10 @@ final class TOCGenerationService {
                 // Get indent from existing paragraph style
                 let existingPara = attrs[.paragraphStyle] as? NSParagraphStyle
                 let indent = existingPara?.firstLineHeadIndent ?? 0
+                
+                // Tab stop and indent are in print points (matching the PDF container).
+                // removePlatformScaling only scales fonts, not paragraph style values,
+                // so these positions remain correct after descaling.
                 let availableWidth = contentWidth - indent
                 
                 // Create paragraph style with right-aligned tab stop
@@ -731,13 +741,14 @@ final class TOCGenerationService {
                 para.paragraphSpacing = existingPara?.paragraphSpacing ?? 4
                 let tabStop = NSTextTab(textAlignment: .right, location: availableWidth, options: [:])
                 para.tabStops = [tabStop]
+                para.defaultTabInterval = 1000  // Prevent default tab stops from interfering
                 attrs[.paragraphStyle] = para
                 
-                // Calculate dot leaders using print-size font
+                // Measure using print-size font (after removePlatformScaling)
                 let catalystFont = attrs[.font] as? UIFont ?? UIFont.systemFont(ofSize: 14)
                 let printFont = catalystFont.withSize(catalystFont.pointSize / kCatalystFontScale)
                 let fillChar = "."
-                let padding: CGFloat = 8
+                let padding: CGFloat = 4
                 
                 let titleWidth = (headingText as NSString).size(withAttributes: [.font: printFont]).width
                 let pageNumWidth = (pageNumStr as NSString).size(withAttributes: [.font: printFont]).width
@@ -747,7 +758,10 @@ final class TOCGenerationService {
                 let dotCount = dotWidth > 0 ? max(0, Int(floor(spaceForDots / dotWidth))) : 0
                 let dots = String(repeating: fillChar, count: dotCount)
                 
-                // Build: "Title ......\t23\n"
+                // Keep font at Catalyst size — PrintService.removePlatformScaling will
+                // descale all fonts to print size before rendering into the print-point container.
+                
+                // Build: "Title ......\t23\n" — tab right-aligns the page number
                 let lineStr = headingText + " " + dots + "\t" + pageNumStr + "\n"
                 result.append(NSAttributedString(string: lineStr, attributes: attrs))
             } else {
