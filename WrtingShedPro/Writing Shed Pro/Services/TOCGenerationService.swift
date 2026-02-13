@@ -729,22 +729,25 @@ final class TOCGenerationService {
                 let existingPara = attrs[.paragraphStyle] as? NSParagraphStyle
                 let indent = existingPara?.firstLineHeadIndent ?? 0
                 
-                // Tab stop and indent are in print points (matching the PDF container).
-                // removePlatformScaling only scales fonts, not paragraph style values,
-                // so these positions remain correct after descaling.
-                let availableWidth = contentWidth - indent
+                // Tab stop location is from the LEFT EDGE of the container, not from the indent.
+                // Place it at contentWidth so ALL page numbers align at the same right-edge
+                // position regardless of indent level.
+                let tabPosition = contentWidth
+                
+                // The actual space for heading + dots is from indent to the tab stop.
+                let textSpace = tabPosition - indent
                 
                 // Create paragraph style with right-aligned tab stop
                 let para = NSMutableParagraphStyle()
                 para.firstLineHeadIndent = indent
                 para.headIndent = indent
                 para.paragraphSpacing = existingPara?.paragraphSpacing ?? 4
-                let tabStop = NSTextTab(textAlignment: .right, location: availableWidth, options: [:])
+                let tabStop = NSTextTab(textAlignment: .right, location: tabPosition, options: [:])
                 para.tabStops = [tabStop]
                 para.defaultTabInterval = 1000  // Prevent default tab stops from interfering
                 attrs[.paragraphStyle] = para
                 
-                // Measure using print-size font (after removePlatformScaling)
+                // Measure using print-size font (matches what renders after removePlatformScaling)
                 let catalystFont = attrs[.font] as? UIFont ?? UIFont.systemFont(ofSize: 14)
                 let printFont = catalystFont.withSize(catalystFont.pointSize / kCatalystFontScale)
                 let fillChar = "."
@@ -754,7 +757,8 @@ final class TOCGenerationService {
                 let pageNumWidth = (pageNumStr as NSString).size(withAttributes: [.font: printFont]).width
                 let dotWidth = (fillChar as NSString).size(withAttributes: [.font: printFont]).width
                 
-                let spaceForDots = availableWidth - titleWidth - pageNumWidth - (padding * 2)
+                // Space for dots = text area (indent→tab) minus heading, page num, and padding
+                let spaceForDots = textSpace - titleWidth - pageNumWidth - (padding * 2)
                 let dotCount = dotWidth > 0 ? max(0, Int(floor(spaceForDots / dotWidth))) : 0
                 let dots = String(repeating: fillChar, count: dotCount)
                 
