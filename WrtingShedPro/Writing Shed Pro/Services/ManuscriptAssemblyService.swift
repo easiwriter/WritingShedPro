@@ -410,7 +410,13 @@ final class ManuscriptAssemblyService {
                     assembled.append(rendered)
                 } else if let version = file.currentVersion, let content = version.attributedContent {
                     print("[ManuscriptAssemblyService] Appending attributedContent for file: \(file.name)")
-                    assembled.append(content)
+                    // For TOC files, reformat with right-aligned page numbers and dot leaders for PDF
+                    if file.isTOCFile {
+                        let exportContent = TOCGenerationService.formatTOCContentForExport(content, project: project)
+                        assembled.append(exportContent)
+                    } else {
+                        assembled.append(content)
+                    }
                 }
             }
         }
