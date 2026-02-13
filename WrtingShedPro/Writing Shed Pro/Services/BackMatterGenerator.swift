@@ -70,9 +70,12 @@ final class BackMatterGenerator {
     }()
     
     /// Get entry heading style attributes from the project's stylesheet (Headline)
+    /// Note: .textStyle is stripped so entry-level text doesn't appear in the TOC.
     private var entryHeadingAttributes: [NSAttributedString.Key: Any] {
         if let style = resolveStyle(.headline) {
-            return style.generateAttributes()
+            var attrs = style.generateAttributes()
+            attrs.removeValue(forKey: .textStyle)
+            return attrs
         }
         // Fallback if style resolution fails completely
         return [
@@ -82,9 +85,12 @@ final class BackMatterGenerator {
     }
     
     /// Get body text style attributes from the project's stylesheet (Body)
+    /// Note: .textStyle is stripped so body text in back matter doesn't appear in the TOC.
     private var bodyAttributes: [NSAttributedString.Key: Any] {
         if let style = resolveStyle(.body) {
-            return style.generateAttributes()
+            var attrs = style.generateAttributes()
+            attrs.removeValue(forKey: .textStyle)
+            return attrs
         }
         // Fallback if style resolution fails completely
         return [
@@ -94,9 +100,12 @@ final class BackMatterGenerator {
     }
     
     /// Get secondary text style attributes from the project's stylesheet (Caption 1)
+    /// Note: .textStyle is stripped so secondary text in back matter doesn't appear in the TOC.
     private var secondaryAttributes: [NSAttributedString.Key: Any] {
         if let style = resolveStyle(.caption1) {
-            return style.generateAttributes()
+            var attrs = style.generateAttributes()
+            attrs.removeValue(forKey: .textStyle)
+            return attrs
         }
         // Fallback if style resolution fails completely
         return [
