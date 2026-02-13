@@ -484,6 +484,7 @@ struct FolderListView: View {
                         return await PrintService.generatePDFWithProgress(
                             from: finalContent,
                             project: project,
+                            pageSetup: project.pageSetup,
                             context: modelContext,
                             layoutProgress: { pagesCalculated, estimatedTotal in
                                 let frac = estimatedTotal > 0 ? min(Double(pagesCalculated) / Double(estimatedTotal), 1.0) : 0
@@ -616,6 +617,7 @@ struct FolderListView: View {
             return PrintService.generatePDF(
                 from: finalContent,
                 project: project,
+                pageSetup: project.pageSetup,
                 context: modelContext
             )
         } catch {

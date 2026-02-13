@@ -636,7 +636,7 @@ final class TOCGenerationService {
         
         // Add entries with per-level styles
         for entry in entries {
-            let entryString = formatEntry(entry, settings: settings, styleSheet: styleSheet)
+            let entryString = formatEntry(entry, settings: settings, styleSheet: styleSheet, project: project)
             result.append(entryString)
         }
         
@@ -644,7 +644,7 @@ final class TOCGenerationService {
     }
     
     /// Format a single TOC entry with per-level styling
-    private func formatEntry(_ entry: TOCEntry, settings: TOCSettings, styleSheet: StyleSheet?) -> NSAttributedString {
+    private func formatEntry(_ entry: TOCEntry, settings: TOCSettings, styleSheet: StyleSheet?, project: Project) -> NSAttributedString {
         // Get the style for this entry's level and generate full attributes
         let styleName = settings.styleName(forLevel: entry.indentLevel)
         let entryStyle = styleSheet?.style(named: styleName)
@@ -656,18 +656,61 @@ final class TOCGenerationService {
         // Calculate indent
         let indent = CGFloat(entry.indentLevel) * settings.indentPoints
         
-        // Paragraph style with indent
+        // Determine the content width from the page setup (in print points)
+        let pageSetup = project.pageSetup ?? PageSetup()
+        let paperDims = pageSetup.paperSize.dimensions
+        let isLandscape = pageSetup.orientationEnum == .landscape
+        let paperWidth = isLandscape ? paperDims.height : paperDims.width
+        let contentWidth = paperWidth - pageSetup.marginLeft - pageSetup.marginRight
+        let availableWidth = contentWidth - indent  // Account for entry indent
+        
+        // Paragraph style with indent and right-aligned tab stop for page numbers
         let para = NSMutableParagraphStyle()
         para.firstLineHeadIndent = indent
         para.headIndent = indent
         para.paragraphSpacing = 4
+        
+        if settings.showPageNumbers {
+            let tabStop = NSTextTab(textAlignment: .right, location: availableWidth, options: [:])
+            para.tabStops = [tabStop]
+        }
+        
         textAttrs[.paragraphStyle] = para
+        
+        // For dot leader calculation, use the print-size font (descaled from Catalyst)
+        // because the tab stop position is in print points and both the paginated view
+        // and PDF export descale fonts before rendering.
+        let catalystFont = textAttrs[.font] as? UIFont ?? UIFont.systemFont(ofSize: 14)
+        let printFont = catalystFont.withSize(catalystFont.pointSize / kCatalystFontScale)
         
         // Build entry: heading text, optionally followed by page number
         let result = NSMutableAttributedString()
         
         if settings.showPageNumbers {
-            result.append(NSAttributedString(string: "\(entry.headingText)  \(entry.pageNumber)\n", attributes: textAttrs))
+            let pageNumStr = "\(entry.pageNumber)"
+            
+            if settings.useDotLeaders {
+                let fillChar = settings.separator.isEmpty ? "." : String(settings.separator.first!)
+                let padding: CGFloat = 8  // Breathing room each side of dots
+                
+                // Measure text widths at print size for accurate dot count
+                let titleWidth = (entry.headingText as NSString).size(withAttributes: [.font: printFont]).width
+                let pageNumWidth = (pageNumStr as NSString).size(withAttributes: [.font: printFont]).width
+                let dotWidth = (fillChar as NSString).size(withAttributes: [.font: printFont]).width
+                
+                // Calculate how many dots fit in the gap
+                let spaceForDots = availableWidth - titleWidth - pageNumWidth - (padding * 2)
+                let dotCount = dotWidth > 0 ? max(0, Int(floor(spaceForDots / dotWidth))) : 0
+                let dots = String(repeating: fillChar, count: dotCount)
+                
+                // Build: "Title ......\t23\n"
+                let lineStr = entry.headingText + " " + dots + "\t" + pageNumStr + "\n"
+                result.append(NSAttributedString(string: lineStr, attributes: textAttrs))
+            } else {
+                // No dot leaders — just tab to right-align page number
+                let lineStr = entry.headingText + "\t" + pageNumStr + "\n"
+                result.append(NSAttributedString(string: lineStr, attributes: textAttrs))
+            }
         } else {
             result.append(NSAttributedString(string: entry.headingText + "\n", attributes: textAttrs))
         }
