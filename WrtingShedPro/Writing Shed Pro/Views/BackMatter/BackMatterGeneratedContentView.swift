@@ -179,7 +179,7 @@ struct BackMatterGeneratedContentView: View {
                 BackMatterTitleEditorSheet(
                     item: type,
                     folder: file.parentFolder,
-                    onSave: { /* title updates via settings binding */ }
+                    onSave: { regenerateFileContent() }
                 )
             }
         }
@@ -1180,6 +1180,47 @@ struct BackMatterGeneratedContentView: View {
         Text(title)
             .font(Font(UIFont.preferredFont(forTextStyle: config.headingStyle.textStyle)))
             .fontWeight(config.headingStyle == .headline ? .bold : .regular)
+    }
+    
+    // MARK: - File Content Regeneration
+    
+    /// Regenerate the stored file content after title or heading style changes.
+    /// This ensures the TOC scanner can find the heading with the correct .textStyle attribute.
+    private func regenerateFileContent() {
+        guard let type = backMatterType else { return }
+        
+        let generator = BackMatterGenerator(context: modelContext, project: project)
+        
+        let generatedContent: NSAttributedString?
+        switch type {
+        case .endnotes:
+            generatedContent = generator.generateNotesSection()
+        case .glossary:
+            generatedContent = generator.generateGlossarySection()
+        case .references:
+            generatedContent = generator.generateReferencesSection()
+        case .index:
+            generatedContent = generator.generateIndexSection(pageMap: indexPageMap)
+        case .contributors:
+            generatedContent = generator.generateContributorsSection()
+        case .tableOfFigures, .backCover:
+            return
+        }
+        
+        guard let content = generatedContent else { return }
+        
+        if file.currentVersion == nil {
+            let newVersion = Version(versionNumber: 1)
+            newVersion.textFile = file
+            newVersion.attributedContent = content
+            modelContext.insert(newVersion)
+            file.currentVersionIndex = 0
+        } else {
+            file.currentVersion?.attributedContent = content
+        }
+        
+        file.modifiedDate = Date()
+        try? modelContext.save()
     }
     
     // MARK: - Helper Views
