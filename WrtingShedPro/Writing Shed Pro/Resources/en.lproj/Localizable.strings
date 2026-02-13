@@ -2102,6 +2102,22 @@
 "backMatter.contributors" = "Contributors";
 "backMatter.backCover" = "Back Cover";
 
+/* Back Matter Title Editor */
+"backMatter.titleEditor.title" = "Section Title";
+"backMatter.titleEditor.titleField" = "Section Title";
+"backMatter.titleEditor.titleFooter" = "Leave empty to use the default: %@";
+"backMatter.titleEditor.headingStyle" = "Heading Style";
+"backMatter.titleEditor.styleSection" = "Style";
+"backMatter.titleEditor.preview" = "Preview";
+"backMatter.titleEditor.button" = "Edit Section Title";
+
+/* Back Matter Heading Styles */
+"backMatter.headingStyle.largeTitle" = "Large Title";
+"backMatter.headingStyle.title1" = "Title 1";
+"backMatter.headingStyle.title2" = "Title 2";
+"backMatter.headingStyle.title3" = "Title 3";
+"backMatter.headingStyle.headline" = "Headline";
+
 /* Cover Image Editor */
 "cover.processing" = "Processing...";
 "cover.changeImage" = "Change Image";

@@ -57,6 +57,9 @@ struct BackMatterGeneratedContentView: View {
     @State private var figurePageCalcTrigger = UUID()
     @State private var showTableOfFiguresSettings = false
     
+    // Section title editing state
+    @State private var showTitleEditor = false
+    
     // MARK: - Computed Properties
     
     /// Determine the back matter type based on file name
@@ -108,6 +111,18 @@ struct BackMatterGeneratedContentView: View {
         .navigationBarTitleDisplayMode(.inline)
         .environment(\.editMode, $editMode)
         .toolbar {
+            // Section title edit button (not for covers or Table of Figures which has its own settings)
+            if let type = backMatterType, type != .backCover && type != .tableOfFigures {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        showTitleEditor = true
+                    } label: {
+                        Image(systemName: "textformat")
+                    }
+                    .accessibilityLabel(NSLocalizedString("backMatter.titleEditor.button", comment: "Edit Section Title"))
+                }
+            }
+            
             // Settings button for Table of Figures
             if backMatterType == .tableOfFigures {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -157,6 +172,15 @@ struct BackMatterGeneratedContentView: View {
             TableOfFiguresSettingsView(file: file) {
                 // Refresh content when settings change
                 figurePageCalcTrigger = UUID()
+            }
+        }
+        .sheet(isPresented: $showTitleEditor) {
+            if let type = backMatterType {
+                BackMatterTitleEditorSheet(
+                    item: type,
+                    folder: file.parentFolder,
+                    onSave: { /* title updates via settings binding */ }
+                )
             }
         }
         .sheet(isPresented: $showAddContributorSheet) {
@@ -572,9 +596,7 @@ struct BackMatterGeneratedContentView: View {
                 )
             }
         } else {
-            Text(NSLocalizedString("backMatter.endnotes.header", comment: "Endnotes"))
-                .font(.title2)
-                .fontWeight(.bold)
+            sectionTitleHeader(for: .endnotes)
             
             ForEach(endnotes) { note in
                 endnoteRow(note)
@@ -632,9 +654,7 @@ struct BackMatterGeneratedContentView: View {
                 systemImage: "note.text"
             )
         } else {
-            Text(NSLocalizedString("backMatter.notes.header", comment: "Notes"))
-                .font(.title2)
-                .fontWeight(.bold)
+            sectionTitleHeader(for: .endnotes)
             
             ForEach(notes) { note in
                 noteRow(note)
@@ -685,9 +705,7 @@ struct BackMatterGeneratedContentView: View {
                 systemImage: "text.book.closed"
             )
         } else {
-            Text(NSLocalizedString("backMatter.glossary.header", comment: "Glossary"))
-                .font(.title2)
-                .fontWeight(.bold)
+            sectionTitleHeader(for: .glossary)
             
             ForEach(terms) { term in
                 glossaryRow(term)
@@ -720,9 +738,7 @@ struct BackMatterGeneratedContentView: View {
                 systemImage: "books.vertical"
             )
         } else {
-            Text(NSLocalizedString("backMatter.references.header", comment: "References"))
-                .font(.title2)
-                .fontWeight(.bold)
+            sectionTitleHeader(for: .references)
             
             ForEach(references) { reference in
                 referenceRow(reference)
@@ -895,9 +911,7 @@ struct BackMatterGeneratedContentView: View {
             )
         } else {
             HStack {
-                Text(NSLocalizedString("backMatter.index.header", comment: "Index"))
-                    .font(.title2)
-                    .fontWeight(.bold)
+                sectionTitleHeader(for: .index)
                 
                 if isCalculatingPageNumbers {
                     ProgressView()
@@ -1151,6 +1165,21 @@ struct BackMatterGeneratedContentView: View {
         } description: {
             Text(NSLocalizedString("backMatter.unknown.description", comment: "This file doesn't match a known back matter type."))
         }
+    }
+    
+    // MARK: - Section Title Header
+    
+    /// Configurable section title header with heading style from settings.
+    /// Tap to edit the title text and heading style.
+    @ViewBuilder
+    private func sectionTitleHeader(for item: BackMatterItem) -> some View {
+        let settings = file.parentFolder?.backMatterSettings ?? BackMatterSettings()
+        let config = settings.titleConfig(for: item)
+        let title = settings.displayTitle(for: item)
+        
+        Text(title)
+            .font(Font(UIFont.preferredFont(forTextStyle: config.headingStyle.textStyle)))
+            .fontWeight(config.headingStyle == .headline ? .bold : .regular)
     }
     
     // MARK: - Helper Views

@@ -41,6 +41,34 @@ final class BackMatterGenerator {
         ]
     }
     
+    /// Get heading attributes for a specific back matter item, using its configured heading style
+    private func headingAttributes(for item: BackMatterItem) -> [NSAttributedString.Key: Any] {
+        let config = backMatterSettings.titleConfig(for: item)
+        if let style = resolveStyle(config.headingStyle.textStyle) {
+            return style.generateAttributes()
+        }
+        return [
+            .font: UIFont.preferredFont(forTextStyle: config.headingStyle.textStyle),
+            .foregroundColor: UIColor.label
+        ]
+    }
+    
+    /// Get the display title for a back matter item (custom or default localized name)
+    private func sectionTitle(for item: BackMatterItem, defaultKey: String, comment: String) -> String {
+        let title = backMatterSettings.displayTitle(for: item)
+        // If the user hasn't customised the title, use the original localized heading key
+        let config = backMatterSettings.titleConfig(for: item)
+        if config.customTitle == nil || config.customTitle?.isEmpty == true {
+            return NSLocalizedString(defaultKey, comment: comment)
+        }
+        return title
+    }
+    
+    /// Back matter settings from the project's back matter folder
+    private lazy var backMatterSettings: BackMatterSettings = {
+        project.findBackMatterFolder()?.backMatterSettings ?? BackMatterSettings()
+    }()
+    
     /// Get entry heading style attributes from the project's stylesheet (Headline)
     private var entryHeadingAttributes: [NSAttributedString.Key: Any] {
         if let style = resolveStyle(.headline) {
@@ -179,9 +207,10 @@ final class BackMatterGenerator {
         let result = NSMutableAttributedString()
         
         // Section heading with blank line after
+        let headingText = sectionTitle(for: .endnotes, defaultKey: "backMatter.notes.heading", comment: "Notes")
         let heading = NSAttributedString(
-            string: NSLocalizedString("backMatter.notes.heading", comment: "Notes") + "\n\n",
-            attributes: headingAttributes
+            string: headingText + "\n\n",
+            attributes: headingAttributes(for: .endnotes)
         )
         result.append(heading)
         
@@ -283,15 +312,16 @@ final class BackMatterGenerator {
         let result = NSMutableAttributedString()
         
         // Section heading
-        var headingAttrs = headingAttributes
+        var headingAttrs = headingAttributes(for: .glossary)
         // Add extra spacing before for section separation
         if let existingStyle = headingAttrs[.paragraphStyle] as? NSParagraphStyle {
             let mutableStyle = existingStyle.mutableCopy() as! NSMutableParagraphStyle
             mutableStyle.paragraphSpacingBefore = 24
             headingAttrs[.paragraphStyle] = mutableStyle
         }
+        let headingText = sectionTitle(for: .glossary, defaultKey: "backMatter.glossary.heading", comment: "Glossary")
         let heading = NSAttributedString(
-            string: NSLocalizedString("backMatter.glossary.heading", comment: "Glossary") + "\n",
+            string: headingText + "\n",
             attributes: headingAttrs
         )
         result.append(heading)
@@ -370,15 +400,16 @@ final class BackMatterGenerator {
         let result = NSMutableAttributedString()
         
         // Section heading
-        var headingAttrs = headingAttributes
+        var headingAttrs = headingAttributes(for: .references)
         // Add extra spacing before for section separation
         if let existingStyle = headingAttrs[.paragraphStyle] as? NSParagraphStyle {
             let mutableStyle = existingStyle.mutableCopy() as! NSMutableParagraphStyle
             mutableStyle.paragraphSpacingBefore = 24
             headingAttrs[.paragraphStyle] = mutableStyle
         }
+        let headingText = sectionTitle(for: .references, defaultKey: "backMatter.references.heading", comment: "References")
         let heading = NSAttributedString(
-            string: NSLocalizedString("backMatter.references.heading", comment: "References") + "\n",
+            string: headingText + "\n",
             attributes: headingAttrs
         )
         result.append(heading)
@@ -449,7 +480,7 @@ final class BackMatterGenerator {
         let result = NSMutableAttributedString()
         
         // Section heading
-        var headingAttrs = headingAttributes
+        var headingAttrs = headingAttributes(for: .references)
         // Add extra spacing before for section separation
         if let existingStyle = headingAttrs[.paragraphStyle] as? NSParagraphStyle {
             let mutableStyle = existingStyle.mutableCopy() as! NSMutableParagraphStyle
@@ -585,15 +616,16 @@ final class BackMatterGenerator {
         let result = NSMutableAttributedString()
         
         // Section heading
-        var headingAttrs = headingAttributes
+        var headingAttrs = headingAttributes(for: .index)
         // Add extra spacing before for section separation
         if let existingStyle = headingAttrs[.paragraphStyle] as? NSParagraphStyle {
             let mutableStyle = existingStyle.mutableCopy() as! NSMutableParagraphStyle
             mutableStyle.paragraphSpacingBefore = 24
             headingAttrs[.paragraphStyle] = mutableStyle
         }
+        let headingText = sectionTitle(for: .index, defaultKey: "backMatter.index.heading", comment: "Index")
         let heading = NSAttributedString(
-            string: NSLocalizedString("backMatter.index.heading", comment: "Index") + "\n",
+            string: headingText + "\n",
             attributes: headingAttrs
         )
         result.append(heading)
@@ -798,9 +830,9 @@ final class BackMatterGenerator {
         let result = NSMutableAttributedString()
         
         // Section heading
-        let heading = NSLocalizedString("backMatter.contributors.header", comment: "CONTRIBUTORS")
+        let headingText = sectionTitle(for: .contributors, defaultKey: "backMatter.contributors.header", comment: "CONTRIBUTORS")
         result.append(NSAttributedString(string: "\n\n"))
-        result.append(NSAttributedString(string: heading.uppercased(), attributes: headingAttributes))
+        result.append(NSAttributedString(string: headingText, attributes: headingAttributes(for: .contributors)))
         result.append(NSAttributedString(string: "\n\n"))
         
         // Add each contributor

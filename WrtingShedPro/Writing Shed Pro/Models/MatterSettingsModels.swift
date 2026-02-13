@@ -172,6 +172,54 @@ struct FrontMatterSettings: Codable, Equatable {
     }
 }
 
+// MARK: - Back Matter Heading Style
+
+/// Available heading styles for back matter section titles
+enum BackMatterHeadingStyle: String, Codable, CaseIterable, Identifiable {
+    case largeTitle
+    case title1
+    case title2
+    case title3
+    case headline
+    
+    var id: String { rawValue }
+    
+    /// Localized display name
+    var localizedName: String {
+        switch self {
+        case .largeTitle:
+            return NSLocalizedString("backMatter.headingStyle.largeTitle", comment: "Large Title")
+        case .title1:
+            return NSLocalizedString("backMatter.headingStyle.title1", comment: "Title 1")
+        case .title2:
+            return NSLocalizedString("backMatter.headingStyle.title2", comment: "Title 2")
+        case .title3:
+            return NSLocalizedString("backMatter.headingStyle.title3", comment: "Title 3")
+        case .headline:
+            return NSLocalizedString("backMatter.headingStyle.headline", comment: "Headline")
+        }
+    }
+    
+    /// The corresponding UIFont.TextStyle
+    var textStyle: UIFont.TextStyle {
+        switch self {
+        case .largeTitle: return .largeTitle
+        case .title1: return .title1
+        case .title2: return .title2
+        case .title3: return .title3
+        case .headline: return .headline
+        }
+    }
+}
+
+/// Per-item title configuration for a back matter section
+struct BackMatterItemTitle: Codable, Equatable {
+    /// Custom title text (nil = use default localized name)
+    var customTitle: String?
+    /// Heading style to render the title with
+    var headingStyle: BackMatterHeadingStyle = .title1
+}
+
 // MARK: - Back Matter Settings
 
 /// Settings for which back matter items are enabled
@@ -181,9 +229,32 @@ struct BackMatterSettings: Codable, Equatable {
     /// Number of columns for index display (1-3, default 2)
     var indexColumnCount: Int
     
-    init(enabledItems: Set<BackMatterItem> = [], indexColumnCount: Int = 2) {
+    /// Per-item title configuration (title text + heading style)
+    var itemTitles: [String: BackMatterItemTitle]
+    
+    init(enabledItems: Set<BackMatterItem> = [], indexColumnCount: Int = 2, itemTitles: [String: BackMatterItemTitle] = [:]) {
         self.enabledItems = enabledItems
         self.indexColumnCount = max(1, min(3, indexColumnCount))
+        self.itemTitles = itemTitles
+    }
+    
+    /// Get the title configuration for a back matter item
+    func titleConfig(for item: BackMatterItem) -> BackMatterItemTitle {
+        itemTitles[item.rawValue] ?? BackMatterItemTitle()
+    }
+    
+    /// Get the display title for a back matter item (custom or default)
+    func displayTitle(for item: BackMatterItem) -> String {
+        let config = titleConfig(for: item)
+        if let custom = config.customTitle, !custom.isEmpty {
+            return custom
+        }
+        return item.localizedName
+    }
+    
+    /// Set the title configuration for a back matter item
+    mutating func setTitleConfig(_ config: BackMatterItemTitle, for item: BackMatterItem) {
+        itemTitles[item.rawValue] = config
     }
     
     /// Check if an item is enabled
@@ -338,8 +409,31 @@ struct DramaFrontMatterSettings: Codable, Equatable {
 struct DramaBackMatterSettings: Codable, Equatable {
     var enabledItems: Set<DramaBackMatterItem>
     
-    init(enabledItems: Set<DramaBackMatterItem> = []) {
+    /// Per-item title configuration (title text + heading style)
+    var itemTitles: [String: BackMatterItemTitle]
+    
+    init(enabledItems: Set<DramaBackMatterItem> = [], itemTitles: [String: BackMatterItemTitle] = [:]) {
         self.enabledItems = enabledItems
+        self.itemTitles = itemTitles
+    }
+    
+    /// Get the title configuration for a drama back matter item
+    func titleConfig(for item: DramaBackMatterItem) -> BackMatterItemTitle {
+        itemTitles[item.rawValue] ?? BackMatterItemTitle()
+    }
+    
+    /// Get the display title for a drama back matter item (custom or default)
+    func displayTitle(for item: DramaBackMatterItem) -> String {
+        let config = titleConfig(for: item)
+        if let custom = config.customTitle, !custom.isEmpty {
+            return custom
+        }
+        return item.localizedName
+    }
+    
+    /// Set the title configuration for a drama back matter item
+    mutating func setTitleConfig(_ config: BackMatterItemTitle, for item: DramaBackMatterItem) {
+        itemTitles[item.rawValue] = config
     }
     
     /// Check if an item is enabled
