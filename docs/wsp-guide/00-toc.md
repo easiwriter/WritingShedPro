@@ -33,6 +33,7 @@
 - [Prose Overview](5-prose-features/51-prose-mode-overview.md)
 - [Working with Sections](5-prose-features/52-working-with-sections.md)
 - [File Organization](5-prose-features/53-file-organization.md)
+- [Manuscript and Export](5-prose-features/54-manuscript-and-export.md)
 
 ## 6. Poetry Features
 - [Poetry Overview](6-poetry-features/61-poetry-mode-overview.md)
@@ -40,10 +41,11 @@
 - [Rhyme Tools](6-poetry-features/63-rhyme-tools.md)
 - [Verse Highlighting](6-poetry-features/64-verse-highlighting.md)
 - [Forms and Templates](6-poetry-features/65-forms-and-templates.md)
+- [Manuscript and Export](6-poetry-features/66-manuscript-and-export.md)
 
 ## 7. Fiction Features
 - [Fiction Overview](7-fiction-features/71-fiction-mode-overview.md)
-- [Chapters](7-fiction-features/72-chapter-management.md)
+- [Organizing Your Fiction](7-fiction-features/72-organizing-your-fiction.md)
 - [Scenes](7-fiction-features/73-scene-organization.md)
 - [Manuscript Formatting](7-fiction-features/74-manuscript-formatting.md)
 
@@ -52,6 +54,7 @@
 - [Script Formatting](8-drama-features/82-script-formatting.md)
 - [Film vs Stage](8-drama-features/83-film-vs-stage-formats.md)
 - [DML Reference](8-drama-features/84-dml-reference.md)
+- [Manuscript and Export](8-drama-features/85-manuscript-and-export.md)
 
 ## 9. Publishing
 - [Export Options](9-publishing/91-export-options.md)

@@ -23,6 +23,8 @@ struct VirtualPageScrollView: UIViewRepresentable {
     let project: Project?
     /// When true, show actual page numbers in headers/footers. When false (default), show "#" as placeholder.
     var showActualPageNumbers: Bool = false
+    /// The page number to display for the first page (default 1). Use to offset for front matter pages.
+    var startingPageNumber: Int = 1
     @Binding var currentPage: Int
     var onPageChange: ((Int) -> Void)?
     var onZoomChange: ((CGFloat) -> Void)?
@@ -41,7 +43,8 @@ struct VirtualPageScrollView: UIViewRepresentable {
             version: version,
             modelContext: modelContext,
             project: project,
-            showActualPageNumbers: showActualPageNumbers
+            showActualPageNumbers: showActualPageNumbers,
+            startingPageNumber: startingPageNumber
         )
         scrollView.pageChangeHandler = { page in
             DispatchQueue.main.async {
@@ -61,7 +64,7 @@ struct VirtualPageScrollView: UIViewRepresentable {
         _ = calculatedPageCount
         
         // Update if layout manager or page setup changed
-        uiView.updateLayout(layoutManager: layoutManager, pageSetup: pageSetup, version: version, modelContext: modelContext, project: project, showActualPageNumbers: showActualPageNumbers)
+        uiView.updateLayout(layoutManager: layoutManager, pageSetup: pageSetup, version: version, modelContext: modelContext, project: project, showActualPageNumbers: showActualPageNumbers, startingPageNumber: startingPageNumber)
         // Update zoom scale to adjust content insets
         uiView.updateZoomScale(zoomScale)
     }
@@ -243,10 +246,12 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
 
     /// Whether to show actual page numbers (true) or "#" placeholder (false)
     private var showActualPageNumbers: Bool = false
+    /// The page number displayed for the first page (1 = no offset)
+    private var startingPageNumber: Int = 1
     
     // MARK: - Initialization
     
-    init(layoutManager: PaginatedTextLayoutManager, pageSetup: PageSetup, version: Version?, modelContext: ModelContext, project: Project?, showActualPageNumbers: Bool = false) {
+    init(layoutManager: PaginatedTextLayoutManager, pageSetup: PageSetup, version: Version?, modelContext: ModelContext, project: Project?, showActualPageNumbers: Bool = false, startingPageNumber: Int = 1) {
         self.layoutManager = layoutManager
         self.pageSetup = pageSetup
         self.pageLayout = PageLayoutCalculator.calculateLayout(from: pageSetup)
@@ -254,6 +259,7 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         self.modelContext = modelContext
         self.project = project
         self.showActualPageNumbers = showActualPageNumbers
+        self.startingPageNumber = startingPageNumber
         
         super.init(frame: .zero)
         
@@ -377,7 +383,7 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
     /// Track the last seen page count to detect when more pages become available
     private var lastSeenPageCount: Int = 0
     
-    func updateLayout(layoutManager: PaginatedTextLayoutManager, pageSetup: PageSetup, version: Version?, modelContext: ModelContext, project: Project?, showActualPageNumbers: Bool = false) {
+    func updateLayout(layoutManager: PaginatedTextLayoutManager, pageSetup: PageSetup, version: Version?, modelContext: ModelContext, project: Project?, showActualPageNumbers: Bool = false, startingPageNumber: Int = 1) {
         let isNewLayoutManager = self.layoutManager !== layoutManager
         // Compare page setup VALUES that affect layout, not the ID
         // CloudKit sync can create new PageSetup instances with different IDs but same values
@@ -402,6 +408,7 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         self.modelContext = modelContext
         self.project = project
         self.showActualPageNumbers = showActualPageNumbers
+        self.startingPageNumber = startingPageNumber
         
         // If layout manager or page setup changed, clear all pages and recalculate
         if isNewLayoutManager || pageSetupChanged {
@@ -566,8 +573,8 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         }
         
         let totalPages = layoutManager.pageCount
-        // Display page number is 1-based
-        let displayPageNumber = pageIndex + 1
+        // Display page number accounts for any front matter offset
+        let displayPageNumber = pageIndex + startingPageNumber
         
         #if DEBUG
         if pageIndex == 0 {

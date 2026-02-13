@@ -11,8 +11,8 @@ A scene is a continuous unit of action that:
 
 ## Creating Scenes
 
-### In the Draft Folder
-1. Open the **Draft** folder
+### Creating a New Scene
+1. Open **Scenes**
 2. Tap **+**
 3. Enter a scene title
 4. Tap **Create**
@@ -29,19 +29,23 @@ You can always rename later.
 
 ## Scene Status
 
-Scenes move through workflow folders:
+Every scene has a workflow status that tracks its progress:
 
-| Folder | Status | Meaning |
-|--------|--------|---------|
-| Draft | Work in progress | Still being written/revised |
-| Ready | Complete | Polished and final |
-| Set Aside | On hold | Not currently working on |
-| Trash | Deleted | Can be restored |
+| Status | Meaning |
+|--------|--------|
+| **Draft** | Work in progress – still being written or revised |
+| **Ready** | Complete – polished and final |
+| **Set Aside** | On hold – not currently working on |
 
-### Moving Scenes
-1. Long-press the scene
-2. Select **Move to...**
-3. Choose the destination folder
+Scenes are grouped by status in the file list.
+
+### Changing Status
+1. Tap **Edit** in the toolbar
+2. Select one or more scenes
+3. Tap **Change Status**
+4. Choose the new status
+
+Scenes move between status groups automatically.
 
 ## Linking Scenes to Plot Elements
 
@@ -70,7 +74,7 @@ Each scene can store metadata:
 
 ### Basic Info
 - Title
-- Status (Draft/Ready/etc.)
+- Workflow status (Draft/Ready/Set Aside)
 - Word count
 - Creation date
 
@@ -86,10 +90,10 @@ Each scene can store metadata:
 
 ## Viewing Scenes
 
-### In Folder Lists
+### In the Scenes List
 - See title and preview
 - Word count displayed
-- Status indicated by folder
+- Status indicated by grouping
 
 ### Scene Detail View
 - Full scene content
@@ -104,12 +108,12 @@ Each scene can store metadata:
 3. Tap **Done**
 
 ### In Chapters
-Scene order within chapters determines manuscript order. See [Chapter Management](72-chapter-management.md).
+Scene order within chapters determines manuscript order. See [Organizing Your Fiction](72-organizing-your-fiction.md).
 
 ## Finding Scenes
 
-### Browse by Folder
-- Draft, Ready, Set Aside contain all scenes
+### Browse by Status
+- Filter by Draft, Ready, or Set Aside using the status filter
 
 ### Search
 - Use project search to find scenes by title or content
@@ -126,15 +130,15 @@ Scene order within chapters determines manuscript order. See [Chapter Management
 Don't over-organize while drafting. Write scenes, then sort them into chapters.
 
 ### Use Status Meaningfully
-- Draft = still working
-- Ready = done (for now)
-- Set Aside = maybe later
+- **Draft** = still working
+- **Ready** = done (for now)
+- **Set Aside** = maybe later
 
 ### Keep Scenes Focused
 Each scene should have one primary purpose. If a scene does too much, consider splitting.
 
 ### Track Progress
-Move scenes through the workflow as you complete them. It's motivating to see Ready fill up.
+Change scenes to Ready status as you complete them. It's motivating to see your Ready count grow.
 
 ## Scenes and Plot
 
@@ -156,13 +160,13 @@ Move scenes through the workflow as you complete them. It's motivating to see Re
 ## Troubleshooting
 
 ### Can't Find a Scene
-- Check all folders (Draft, Ready, Set Aside, Trash)
+- Check all status groups (Draft, Ready, Set Aside)
+- Check Trash
 - Use search
 - Check chapter contents
 
-### Scene in Wrong Folder
-- Long-press and select Move to...
-- Or drag and drop
+### Scene Has Wrong Status
+- Tap Edit, select the scene, then Change Status
 
 ### Lost Scene Content
 - Check version history
@@ -171,7 +175,7 @@ Move scenes through the workflow as you complete them. It's motivating to see Re
 
 ## See Also
 - [Fiction Mode Overview](71-fiction-mode-overview.md)
-- [Chapter Management](72-chapter-management.md)
+- [Organizing Your Fiction](72-organizing-your-fiction.md)
 - [Manuscript Formatting](74-manuscript-formatting.md)
 
 ---

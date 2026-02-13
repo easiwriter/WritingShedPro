@@ -72,12 +72,34 @@ To enable auto-generated TOC:
 
 ## Body Content
 
-The middle folder contains your actual writing, organized according to project type. See the project type guides for details:
+The middle folder contains your actual writing, organized according to project type. How body content is assembled into the manuscript differs for each type:
 
-- [Prose Features](../5-prose-features/)
-- [Poetry Features](../6-poetry-features/)
-- [Fiction Features](../7-fiction-features/)
-- [Drama Features](../8-drama-features/)
+| Project Type | Body Folder | Hierarchy | Assembly Order |
+|-------------|-------------|-----------|---------------|
+| **Prose** | All Sections | Sections → Files | Section order, then file order within each section |
+| **Poetry** | All Poems | Flat (all poems) | Display order |
+| **Novel** | All Chapters | Chapters → Scenes | Chapter order, then scene order within each chapter |
+| **Verse Novel** | All Chapters | Books → Episodes | Book order, then episode order within each book |
+| **Short Fiction** | All Stories | Flat (scenes only) | Scene order |
+| **Drama** | All Acts | Acts → Scenes (or flat) | Act order, then scene order; standalone scenes appended |
+
+### Excluding Files from the Manuscript
+
+Any file can be excluded from manuscript assembly without deleting it:
+1. Open the file's details or context menu
+2. Toggle **Include in Manuscript** off
+3. The file remains in your project but is skipped during assembly
+
+This is useful for notes, alternate versions, or work-in-progress files you don't want in the current export.
+
+### Type-Specific Assembly Details
+
+Each project type has unique assembly features documented in its own guide:
+
+- [Prose Manuscript and Export](../5-prose-features/54-manuscript-and-export.md) — section-based assembly, ordering
+- [Poetry Manuscript and Export](../6-poetry-features/66-manuscript-and-export.md) — poem ordering, formatting preservation
+- [Fiction Manuscript Formatting](../7-fiction-features/74-manuscript-formatting.md) — chapter headings, scene breaks, industry format
+- [Drama Manuscript and Export](../8-drama-features/85-manuscript-and-export.md) — act/scene grouping, DML rendering, script formats
 
 ## Back Matter
 

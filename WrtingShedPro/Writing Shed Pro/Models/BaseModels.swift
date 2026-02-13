@@ -811,9 +811,9 @@ final class TextFile {
         return contentType == .markdown
     }
     
-    /// Get the project this file belongs to (via parent folder or scene)
+    /// Get the project this file belongs to (via parent folder chain)
     var project: Project? {
-        return parentFolder?.project
+        return parentFolder?.resolvedProject
     }
     
     /// Check if this file is a back matter file (in Back Matter folder)

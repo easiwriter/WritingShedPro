@@ -114,11 +114,14 @@ struct SceneListView: View {
         // Filter out trashed scenes
         var result = scenes.filter { !$0.isTrashed }
         
-        // Sort: by userOrder when in a chapter/act (supports reordering), alphabetically otherwise
-        if chapter != nil || act != nil {
-            result = result.sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
-        } else {
-            result = result.sorted { ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending }
+        // Sort by userOrder for drag-to-reorder, with name as secondary sort
+        result = result.sorted {
+            let order0 = $0.userOrder ?? Int.max
+            let order1 = $1.userOrder ?? Int.max
+            if order0 != order1 {
+                return order0 < order1
+            }
+            return ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending
         }
         
         // Apply workflow status filter if set
@@ -616,8 +619,7 @@ struct SceneListView: View {
                         return NSItemProvider(object: scene.id.uuidString as NSString)
                     }
             }
-            // Only enable drag-to-reorder when viewing scenes within an act
-            .onMove(perform: act != nil ? moveScenes : nil)
+            .onMove(perform: moveScenes)
         }
         .listStyle(.plain)
     }

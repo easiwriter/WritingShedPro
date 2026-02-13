@@ -37,6 +37,25 @@ Writing Shed Pro offers multiple ways to export your work for sharing, submissio
 2. Export the assembled manuscript
 3. All chapters/scenes combined
 
+## Manuscript Export by Project Type
+
+All project types support manuscript export — the process of assembling your files into a single document. How files are combined differs by type:
+
+| Project Type | Assembly Model | Details |
+|-------------|----------------|---------|
+| **Prose** | Section-based | Files ordered by section, then by file order within each section |
+| **Poetry** | Flat | Poems in display order, formatting preserved |
+| **Fiction** | Chapter-based | Chapters → Scenes (Novel/Verse Novel) or flat scenes (Short Fiction) |
+| **Drama** | Act-based | Acts → Scenes, with DML rendered to script format |
+
+For type-specific details:
+- [Prose Manuscript and Export](../5-prose-features/54-manuscript-and-export.md)
+- [Poetry Manuscript and Export](../6-poetry-features/66-manuscript-and-export.md)
+- [Fiction Manuscript Formatting](../7-fiction-features/74-manuscript-formatting.md)
+- [Drama Manuscript and Export](../8-drama-features/85-manuscript-and-export.md)
+
+For the overall manuscript structure (front matter, back matter), see [Manuscript Structure](../3-projects/36-manuscript-structure.md).
+
 ## Export Workflow
 
 ### 1. Prepare Your Content

@@ -819,9 +819,9 @@ class PrintService {
         
         mutable.enumerateAttribute(.font, in: fullRange) { value, range, _ in
             if let font = value as? UIFont {
-                // Reverse the 1.3x scaling from Mac's generateFont()
-                // Database: 22.1pt → Print: 17pt (÷1.3)
-                let printSize = font.pointSize / 1.3
+                // Reverse the Catalyst scaling from Mac's generateFont()
+                // Database: 22.1pt → Print: 17pt (÷kCatalystFontScale)
+                let printSize = font.pointSize / kCatalystFontScale
                 let printFont = font.withSize(printSize)
                 mutable.addAttribute(.font, value: printFont, range: range)
             }

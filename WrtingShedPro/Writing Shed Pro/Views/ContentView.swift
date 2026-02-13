@@ -235,7 +235,8 @@ struct ContentView: View {
     /// One-time migration: Convert Writing Shed Pro Guide files to markdown mode
     /// These files were imported as markdown but contentType was not set correctly
     private func migrateUserGuideToMarkdown() {
-        let migrationKey = "userGuideMarkdownMigrationComplete"
+        // v2: Also clears stale formattedContent from markdown files and recurses into subfolders
+        let migrationKey = "userGuideMarkdownMigrationComplete_v2"
         guard !UserDefaults.standard.bool(forKey: migrationKey) else {
             #if DEBUG
             print("✅ [ContentView] User guide markdown migration already complete")
@@ -257,19 +258,33 @@ struct ContentView: View {
                 return
             }
             
-            // Get all files in this project's folders
+            // Get all files in this project's folders (including subfolders)
             var migratedCount = 0
-            if let folders = guideProject.folders {
-                for folder in folders {
-                    if let files = folder.textFiles {
-                        for file in files {
-                            // Only convert files that are currently richText
-                            if file.contentTypeRaw == "richText" {
-                                file.contentTypeRaw = "markdown"
-                                migratedCount += 1
-                            }
+            func migrateFilesInFolder(_ folder: Folder) {
+                for file in folder.textFiles ?? [] {
+                    if file.contentTypeRaw == "richText" {
+                        // Convert to markdown
+                        file.contentTypeRaw = "markdown"
+                        // Clear stale formattedContent — markdown files use plain text
+                        if let version = file.currentVersion {
+                            version.formattedContent = nil
+                        }
+                        migratedCount += 1
+                    } else if file.contentTypeRaw == "markdown" {
+                        // Already markdown but clear any stale formattedContent
+                        if let version = file.currentVersion, version.formattedContent != nil {
+                            version.formattedContent = nil
+                            migratedCount += 1
                         }
                     }
+                }
+                for subfolder in folder.subfolders ?? [] {
+                    migrateFilesInFolder(subfolder)
+                }
+            }
+            if let folders = guideProject.folders {
+                for folder in folders {
+                    migrateFilesInFolder(folder)
                 }
             }
             

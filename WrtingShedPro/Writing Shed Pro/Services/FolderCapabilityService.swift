@@ -28,7 +28,7 @@ struct FolderCapabilityService {
     private static let fileOnlyFolders: Set<String> = [
         "Files", "Research",
         // New content folders (workflow status is now on TextFile)
-        "Poems", "Scenes", "Scripts", "Sections", "Prose",
+        "Poems", "Scenes", "Stories", "Episodes", "Scripts", "Sections", "Prose",
         // Manuscript subfolders (Feature 029) - Front/Back Matter allow files
         "Front Matter", "Back Matter"
     ]
@@ -104,11 +104,11 @@ struct FolderCapabilityService {
         return true
     }
     
-    /// Determines if this is a content folder (Poems, Scenes, Scripts, Sections, Prose)
-    /// These folders use workflow status filtering
+    /// Determines if this is a content folder (Poems, Scenes, Stories, Episodes, Scripts, Sections, Prose)
+    /// These folders use workflow status filtering and drag-to-reorder
     static func isContentFolder(_ folder: Folder) -> Bool {
         guard let folderName = folder.name else { return false }
-        return ["Poems", "Scenes", "Scripts", "Sections", "Prose"].contains(folderName)
+        return ["Poems", "Scenes", "Stories", "Episodes", "Scripts", "Sections", "Prose"].contains(folderName)
     }
     
     /// Determines if a folder is a root-level template folder (not user-created)

@@ -18,6 +18,8 @@ struct PaginatedDocumentView: View {
     let project: Project
     /// When true, show actual page numbers in headers/footers. When false (default), show "#" as placeholder.
     var showActualPageNumbers: Bool = false
+    /// The page number to display for the first page (default 1). Use to offset for front matter pages.
+    var startingPageNumber: Int = 1
     
     @Environment(\.modelContext) private var modelContext
     
@@ -52,6 +54,7 @@ struct PaginatedDocumentView: View {
                     modelContext: modelContext,
                     project: project,
                     showActualPageNumbers: showActualPageNumbers,
+                    startingPageNumber: startingPageNumber,
                     currentPage: $currentPage,
                     onZoomChange: { newZoom in
                         DispatchQueue.main.async {
@@ -370,17 +373,9 @@ struct PaginatedDocumentView: View {
         // Mac Catalyst scales 1.3x for display, so we need to undo that
         // iOS stores and displays at base size, so no scaling needed
         
-        #if targetEnvironment(macCatalyst)
-        // On Mac Catalyst, edit view applies 1.3x scaling at render time
-        // Divide by 1.3 to show print-accurate size
-        // 22.1pt (Mac display) → 17pt (pagination/print preview)
-        let scaleFactor: CGFloat = 1.0 / 1.3
-        #else
-        // On iOS/iPad, database contains Mac-rendered fonts (22.1pt from generateFont())
-        // Divide by 1.3 to get actual print size, same as Mac
-        // 22.1pt (database) → 17pt (pagination/print preview)
-        let scaleFactor: CGFloat = 1.0 / 1.3
-        #endif
+        // Database stores fonts at Catalyst-scaled size (e.g. 22.1pt for 17pt Body).
+        // Divide by kCatalystFontScale to get true print size on all platforms.
+        let scaleFactor: CGFloat = 1.0 / kCatalystFontScale
         
         let mutableString = NSMutableAttributedString(attributedString: attributedString)
         let fullRange = NSRange(location: 0, length: mutableString.length)

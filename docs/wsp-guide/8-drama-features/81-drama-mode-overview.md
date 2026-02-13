@@ -178,5 +178,6 @@ Try rendering in both film and stage:
 - [Script Formatting](82-script-formatting.md)
 - [Film vs Stage Formats](83-film-vs-stage-formats.md)
 - [DML Reference](84-dml-reference.md)
+- [Manuscript and Export](85-manuscript-and-export.md)
 
 ---

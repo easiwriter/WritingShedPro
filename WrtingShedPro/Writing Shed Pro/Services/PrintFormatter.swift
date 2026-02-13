@@ -9,6 +9,12 @@
 import UIKit
 import SwiftData
 
+/// Mac Catalyst applies this multiplier to font sizes for display readability.
+/// All fonts in the database are stored at this scaled size (e.g. 17pt Body → 22.1pt).
+/// Pagination, printing, and PDF export divide by this value to get true print sizes.
+/// **Single source of truth** — if Apple ever changes the Catalyst scale, update here only.
+let kCatalystFontScale: CGFloat = 1.3
+
 /// Service for formatting content for printing
 class PrintFormatter {
     
@@ -133,17 +139,9 @@ class PrintFormatter {
         // Mac Catalyst scales 1.3x for display, so we need to undo that
         // iOS stores and displays at base size, so no scaling needed
         
-        #if targetEnvironment(macCatalyst)
-        // On Mac Catalyst, edit view applies 1.3x scaling at render time
-        // Divide by 1.3 to get back to database/print size
-        // 22.1pt (Mac display) → 17pt (print/PDF)
-        let scaleFactor: CGFloat = 1.0 / 1.3
-        #else
-        // On iOS/iPad, database may contain Mac-scaled fonts (22.1pt)
-        // Need to divide by 1.3 to get print size
-        // 22.1pt (database) → 17pt (print/PDF)
-        let scaleFactor: CGFloat = 1.0 / 1.3
-        #endif
+        // Database stores fonts at Catalyst-scaled size (e.g. 22.1pt for 17pt Body).
+        // Divide by kCatalystFontScale to get true print size on all platforms.
+        let scaleFactor: CGFloat = 1.0 / kCatalystFontScale
         
         let mutableString = NSMutableAttributedString(attributedString: attributedString)
         let fullRange = NSRange(location: 0, length: mutableString.length)

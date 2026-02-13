@@ -18,6 +18,7 @@ Fiction mode understands the unique needs of fiction writers:
 3. Select **Fiction** as the project type
 4. Choose a fiction class:
    - **Novel**: Long-form fiction with chapters
+   - **Verse Novel**: A novel written in verse (poetry)
    - **Short Fiction**: Stories without chapter structure
 5. Optionally select a story structure
 6. Tap **Create**
@@ -27,8 +28,15 @@ Fiction mode understands the unique needs of fiction writers:
 ### Novel
 For longer works with chapter structure:
 - Chapters contain scenes
-- Chapters folder organizes your book
+- Organize your book by chapters and scenes
 - Full manuscript assembly
+
+### Verse Novel
+For novels written in verse:
+- Organized by books and episodes
+- Combines poetry and narrative structure
+- Each episode is a poem or verse passage
+- Full manuscript assembly with poetry formatting
 
 ### Short Fiction
 For stories without chapters:
@@ -40,30 +48,24 @@ You cannot change the class after project creation.
 
 ## Fiction Project Structure
 
-### Novel Structure
-```
-Project
-├── Draft (scenes in progress)
-├── Ready (polished scenes)
-├── Chapters (chapter organization)
-├── Plot Elements
-├── Characters
-├── Locations
-├── Set Aside
-└── Trash
-```
+Fiction projects contain the following areas:
 
-### Short Fiction Structure
-```
-Project
-├── Draft (scenes)
-├── Ready (polished scenes)
-├── Plot Elements
-├── Characters
-├── Locations
-├── Set Aside
-└── Trash
-```
+- **Scenes** – Your story's building blocks, filtered by workflow status
+- **Chapters** – Organize scenes into reading order (Novel and Verse Novel only)
+- **Plot Elements** – Story beats linked to your chosen structure
+- **Characters** – People in your story with descriptions and arcs
+- **Locations** – Settings and places
+- **Trash** – Deleted items (can be restored)
+
+### Workflow Status
+
+Every scene has a workflow status that tracks where it is in your writing process:
+
+- **Draft** – Work in progress
+- **Ready** – Completed and polished
+- **Set Aside** – Parked for later
+
+Scenes are grouped by status in the file list. To change a scene's status, tap **Edit** in the toolbar, select one or more scenes, then tap **Change Status** and choose the new status. Scenes move between groups automatically.
 
 ## Story Structures
 
@@ -77,6 +79,10 @@ Classic narrative structure:
 1. **Act 1 - Setup**: Introduce world and characters, inciting incident
 2. **Act 2 - Confrontation**: Rising action, complications
 3. **Act 3 - Resolution**: Climax and conclusion
+
+### The Monomyth (Hero's Journey)
+
+The monomyth, or Hero's Journey, is a narrative pattern identified by mythologist Joseph Campbell in *The Hero with a Thousand Faces* (1949). Campbell observed that myths and stories across cultures share a common structure in which a hero ventures from the ordinary world into a realm of adventure, faces trials, and returns transformed. Christopher Vogler later adapted Campbell's work for screenwriters and novelists in *The Writer's Journey: Mythic Structure for Writers* (1992), condensing it into a practical 12-stage framework. Writing Shed Pro offers both versions as story structures.
 
 ### Monomyth (Vogler)
 Christopher Vogler's 12-stage Hero's Journey:
@@ -122,7 +128,7 @@ The fundamental unit of fiction. Each scene:
 - Is a single continuous action
 - Has a clear outcome
 - Advances the story
-- Lives in Draft, Ready, or Set Aside
+- Has a workflow status (Draft, Ready, or Set Aside)
 
 ### Chapters (Novel only)
 Containers for scenes:
@@ -156,22 +162,22 @@ Where your story happens:
 - Outline chapters
 
 ### 2. Draft
-- Write scenes in the Draft folder
+- Write scenes (they start with Draft status)
 - Link scenes to plot elements
 - Connect to characters and locations
 
 ### 3. Organize
-- Move finished scenes to Ready
+- Change finished scenes to Ready status
 - Arrange scenes into chapters
 - Refine your structure
 
 ### 4. Export
 - Assemble the manuscript
-- Export to PDF or RTF
+- Export to PDF, RTF, HTML, or Markdown
 - Share or submit
 
 ## See Also
-- [Chapter Management](72-chapter-management.md)
+- [Organizing Your Fiction](72-organizing-your-fiction.md)
 - [Scene Organization](73-scene-organization.md)
 - [Manuscript Formatting](74-manuscript-formatting.md)
 

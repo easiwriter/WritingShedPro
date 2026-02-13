@@ -95,37 +95,6 @@ struct TOCSettingsView: View {
                 Section {
                     // Show page numbers
                     Toggle(NSLocalizedString("toc.settings.showPageNumbers", comment: "Show page numbers"), isOn: $showPageNumbers)
-                    
-                    // Separator character (only visible if page numbers enabled)
-                    if showPageNumbers {
-                        HStack {
-                            Text(NSLocalizedString("toc.settings.separator", comment: "Separator"))
-                            Spacer()
-                            Picker("", selection: $separator) {
-                                Text(".").tag(".")
-                                Text("-").tag("-")
-                                Text("_").tag("_")
-                                Text(NSLocalizedString("toc.settings.separator.space", comment: "Space")).tag(" ")
-                                Text(NSLocalizedString("toc.settings.separator.none", comment: "None")).tag("")
-                            }
-                            .pickerStyle(.menu)
-                            .accessibilityLabel(NSLocalizedString("toc.settings.separator.accessibility", comment: "Separator character"))
-                        }
-                        
-                        // Dot leaders toggle
-                        Toggle(NSLocalizedString("toc.settings.useDotLeaders", comment: "Use dot leaders"), isOn: $useDotLeaders)
-                            .accessibilityHint(NSLocalizedString("toc.settings.useDotLeaders.hint", comment: "Repeat separator character to fill space"))
-                        
-                        // Page number position
-                        Stepper(value: $pageNumberPosition, in: 300...600, step: 20) {
-                            HStack {
-                                Text(NSLocalizedString("toc.settings.pageNumberPosition", comment: "Page number position"))
-                                Spacer()
-                                Text("\(Int(pageNumberPosition)) pt")
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
                 } header: {
                     Text(NSLocalizedString("toc.settings.formattingSection", comment: "Formatting"))
                 }
@@ -203,26 +172,14 @@ struct TOCSettingsView: View {
     @ViewBuilder
     private func previewEntry(text: String, level: Int, pageNumber: Int) -> some View {
         HStack(spacing: 0) {
-            // Heading text
-            Text(text)
-                .font(.subheadline)
-            
-            // Separator/Leaders
             if showPageNumbers {
-                if useDotLeaders && !separator.isEmpty {
-                    Text(" " + String(repeating: separator + " ", count: 15))
-                        .font(.subheadline)
-                        .foregroundStyle(.tertiary)
-                        .lineLimit(1)
-                } else {
-                    Spacer()
-                }
-                
-                // Page number
-                Text("\(pageNumber)")
+                Text("\(text)  \(pageNumber)")
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+            } else {
+                Text(text)
+                    .font(.subheadline)
             }
+            Spacer()
         }
         .padding(.leading, CGFloat(level) * indentPoints)
     }

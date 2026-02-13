@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Writing Shed Pro Guide</title>
+    <style>body { 
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 20px;
+    line-height: 1.6;
+    color: #333;
+}
+h1, h2, h3, h4, h5, h6 { margin-top: 1.5em; margin-bottom: 0.5em; }
+h1 { font-size: 2em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+pre { background: #f4f4f4; padding: 16px; border-radius: 6px; overflow-x: auto; }
+pre code { background: none; padding: 0; }
+blockquote { border-left: 4px solid #ddd; margin-left: 0; padding-left: 16px; color: #666; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+th { background: #f4f4f4; font-weight: bold; }
+ul, ol { padding-left: 2em; }
+a { color: #0066cc; }
+hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
+/* Back to Contents link */
+.back-to-top {
+    text-align: right;
+    font-size: 0.9em;
+    margin: 1.5em 0 0.5em 0;
+}
+.back-to-top a {
+    color: #666;
+    text-decoration: none;
+}
+.back-to-top a:hover {
+    color: #0066cc;
+    text-decoration: underline;
+}
+@media (prefers-color-scheme: dark) {
+    body { background: #1a1a1a; color: #e0e0e0; }
+    code, pre { background: #2d2d2d; }
+    th { background: #2d2d2d; }
+    th, td { border-color: #444; }
+    blockquote { border-color: #555; color: #aaa; }
+    h1, h2 { border-color: #444; }
+    a { color: #4da3ff; }
+    .back-to-top a { color: #999; }
+}
+/* In-app overrides */
+body { margin-top: 0 !important; padding-top: 8px !important; }
+body > *:first-child { margin-top: 0 !important; }
+.back-nav { margin-bottom: 0.5em; }
+.back-nav a { color: #0066cc; text-decoration: none; font-size: 0.95em; }
+@media (prefers-color-scheme: dark) {
+    .back-nav a { color: #4da3ff; }
+}
+</style>
+</head>
+<body>
+<p class="back-nav"><a href="guide:00-toc">← Contents</a></p>
+<a id="85-manuscript-and-export"></a>
+
+<h1 id="manuscript-and-export-drama">Manuscript and Export (Drama)</h1>
+<p>This guide covers how Writing Shed Pro assembles Drama project content into a manuscript for export.</p>
+<h2 id="how-drama-manuscripts-are-assembled">How Drama Manuscripts Are Assembled</h2>
+<p>Drama manuscripts use an <strong>act-and-scene</strong> assembly model:</p>
+<ol>
+<li><strong>Front Matter</strong> is placed first (Title Page, Copyright, etc.)</li>
+<li><strong>Scenes</strong> are assembled by act, in scene order</li>
+<li><strong>Standalone scenes</strong> (not assigned to an act) are appended at the end</li>
+<li><strong>Back Matter</strong> is appended (Endnotes, Glossary, Bibliography, Index)</li>
+</ol>
+<h3 id="act-ordering">Act Ordering</h3>
+<p>If your project uses acts:
+1. Each act is processed in <strong>act order</strong> (as arranged in the Chapters/Acts list)
+2. Within each act, scenes appear in <strong>scene order</strong>
+3. Scenes not assigned to any act are appended after all acts</p>
+<p>If your project has no acts, all scenes are assembled in their list order — similar to Short Fiction.</p>
+<h3 id="dml-rendering">DML Rendering</h3>
+<p>Unlike other project types where content is stored as rich text, Drama content is written in <strong>Drama Markup Language (DML)</strong>. During manuscript assembly:
+1. Each scene's DML source is parsed
+2. The markup is rendered into formatted script output
+3. The script format (Film or Stage) determines the visual layout</p>
+<p>This means the same source content produces different manuscript output depending on your script format setting.</p>
+<h3 id="what-gets-included">What Gets Included</h3>
+<p>By default, all scenes are included. You can exclude individual scenes:
+1. Open the scene's context menu
+2. Toggle <strong>Include in Manuscript</strong> off
+3. The scene stays in your project but is skipped during assembly</p>
+<p>This is useful for deleted scenes you want to keep for reference, or alternate versions.</p>
+<h2 id="previewing-the-manuscript">Previewing the Manuscript</h2>
+<p>Before exporting:
+1. Open the <strong>Manuscript</strong> view
+2. Review the assembled content in your chosen script format
+3. Check that acts and scenes are in the correct order
+4. Verify DML rendering looks correct
+5. Confirm standalone scenes appear where expected</p>
+<h2 id="script-format-in-the-manuscript">Script Format in the Manuscript</h2>
+<p>Your project's script format setting controls how the manuscript renders:</p>
+<h3 id="filmscreenplay-format">Film/Screenplay Format</h3>
+<ul>
+<li>Scene headings: <code>INT./EXT. LOCATION - TIME</code></li>
+<li>Character names centred above dialogue</li>
+<li>Dialogue with specific margins</li>
+<li>Transitions right-aligned</li>
+<li>Roughly 1 page = 1 minute of screen time</li>
+</ul>
+<h3 id="stage-play-format">Stage Play Format</h3>
+<ul>
+<li>Act and scene headings</li>
+<li>Character names in caps</li>
+<li>Stage directions in italics or parentheses</li>
+<li>Different margin conventions</li>
+</ul>
+<h3 id="changing-format">Changing Format</h3>
+<p>You can switch format before exporting without altering your DML source:
+1. Open <strong>Project Settings</strong>
+2. Change <strong>Script Format</strong> (Film or Stage)
+3. The manuscript re-renders in the new format</p>
+<h2 id="scene-breaks">Scene Breaks</h2>
+<p>Control how scenes are separated within an act:</p>
+<table>
+<thead>
+<tr>
+<th>Break Style</th>
+<th>Appearance</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Page Break</strong></td>
+<td>Each scene starts on a new page</td>
+</tr>
+<tr>
+<td><strong>Section Mark</strong></td>
+<td>Centred mark between scenes</td>
+</tr>
+<tr>
+<td><strong>Double Space</strong></td>
+<td>Extra blank line between scenes</td>
+</tr>
+<tr>
+<td><strong>None</strong></td>
+<td>Scenes flow together continuously</td>
+</tr>
+</tbody>
+</table>
+<p>For screenplays, scenes typically flow continuously. For stage plays, a new scene within an act may start with a heading but no page break.</p>
+<h2 id="act-and-scene-headings">Act and Scene Headings</h2>
+<p>You can control whether structural headings appear in the output:
+- <strong>Include Section Headings</strong>: Show act names as headings
+- <strong>Include File Titles</strong>: Show scene titles as headings</p>
+<p>For film scripts, you typically don't use act headings (the scene heading <code>INT./EXT.</code> serves as the divider). For stage plays, act and scene headings are traditional.</p>
+<h2 id="export-formats">Export Formats</h2>
+<p>Drama manuscripts can be exported in all available formats:</p>
+<table>
+<thead>
+<tr>
+<th>Format</th>
+<th>Best For</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>PDF</strong></td>
+<td>Industry submissions, table reads, archival — preserves exact script layout</td>
+</tr>
+<tr>
+<td><strong>RTF</strong></td>
+<td>Collaboration, editable in Word or Final Draft</td>
+</tr>
+<tr>
+<td><strong>HTML</strong></td>
+<td>Online sharing, web publication</td>
+</tr>
+<tr>
+<td><strong>Markdown</strong></td>
+<td>Plain text archives</td>
+</tr>
+</tbody>
+</table>
+<h3 id="why-pdf-is-standard-for-scripts">Why PDF Is Standard for Scripts</h3>
+<p>Script formatting relies on precise margins and spacing (especially for the 1 page = 1 minute rule in film). PDF preserves this exactly. Other formats may alter margins and spacing.</p>
+<h3 id="exporting">Exporting</h3>
+<ol>
+<li>Open the Manuscript view</li>
+<li>Tap the export/share button</li>
+<li>Choose your format</li>
+<li>Configure options (page setup, back matter toggles)</li>
+<li>Save or share</li>
+</ol>
+<h2 id="footnote-numbering">Footnote Numbering</h2>
+<p>Choose how footnotes are numbered across the manuscript:
+- <strong>Per File</strong>: Numbering restarts in each scene
+- <strong>Continuous</strong>: Sequential numbering across the entire manuscript</p>
+<h2 id="tips">Tips</h2>
+<h3 id="use-acts-for-structure">Use Acts for Structure</h3>
+<p>Acts are the natural divisions of a script. Assign scenes to acts to keep your manuscript organised and ensure the correct assembly order.</p>
+<h3 id="keep-dml-clean">Keep DML Clean</h3>
+<p>Well-structured DML source produces clean manuscript output. See the <a href="guide:84-dml-reference">DML Reference</a> for syntax details.</p>
+<h3 id="preview-both-formats">Preview Both Formats</h3>
+<p>If you're considering both film and stage production, preview the manuscript in each format to see how your script translates.</p>
+<h3 id="standalone-scenes">Standalone Scenes</h3>
+<p>Unassigned scenes appear at the end of the manuscript. If this isn't what you want, assign them to an act or exclude them from the manuscript.</p>
+<h3 id="check-page-count-film">Check Page Count (Film)</h3>
+<p>For screenplays, review the page count in the manuscript preview. The 1 page ≈ 1 minute guideline helps estimate runtime.</p>
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="guide:81-drama-mode-overview">Drama Mode Overview</a></li>
+<li><a href="guide:82-script-formatting">Script Formatting</a></li>
+<li><a href="guide:83-film-vs-stage-formats">Film vs Stage Formats</a></li>
+<li><a href="guide:84-dml-reference">DML Reference</a></li>
+<li><a href="guide:36-manuscript-structure">Manuscript Structure</a></li>
+<li><a href="guide:91-export-options">Export Options</a></li>
+</ul>
+<hr />
+
+
+<hr>
+</body>
+</html>

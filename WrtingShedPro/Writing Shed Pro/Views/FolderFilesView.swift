@@ -155,7 +155,7 @@ struct FolderFilesView: View {
             onExport: isReadOnly ? nil : handleExport,
             onSubmit: fileListOnSubmit,
             onAddToCollection: fileListOnAddToCollection,
-            onReorder: nil,
+            onReorder: (!isReadOnly && isContentFolder) ? moveContentFiles : nil,
             onRename: isReadOnly ? { _ in } : handleRename,
             onDeletePermanently: isReadOnly ? { _ in } : deleteFilesPermanently,
             onChangeStatus: (isContentFolder && !isReadOnly) ? handleChangeStatus : nil
@@ -465,6 +465,8 @@ struct FolderFilesView: View {
         }
     }
     
+
+    
     /// Sort menu for folders section
     @ViewBuilder
     private var folderSortMenu: some View {
@@ -766,6 +768,27 @@ struct FolderFilesView: View {
         } catch {
             #if DEBUG
             print("Error saving file order: \(error)")
+            #endif
+        }
+    }
+    
+    /// Move content folder files for drag-to-reorder (updates userOrder)
+    /// This controls the order files appear in the TOC and manuscript assembly
+    private func moveContentFiles(from source: IndexSet, to destination: Int) {
+        var files = sortedFiles
+        files.move(fromOffsets: source, toOffset: destination)
+        
+        // Update userOrder for all files
+        for (index, file) in files.enumerated() {
+            file.userOrder = index
+        }
+        
+        // Save context
+        do {
+            try modelContext.save()
+        } catch {
+            #if DEBUG
+            print("Error saving reordered content files: \(error)")
             #endif
         }
     }

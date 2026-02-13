@@ -33,12 +33,25 @@ extension FolderFilesView {
     }
 
     var sortedFiles: [TextFile] {
-        if isContentFolder, let filter = statusFilter {
-            return allFiles.filter { $0.workflowStatus == filter }
-        }
         // Sort Matter folders by userOrder to maintain standard manuscript order
         if isMatterFolder {
             return allFiles.sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+        }
+        // Content folders: always sort by userOrder (matches manuscript assembly and TOC order)
+        // Secondary sort by name when userOrder is equal (e.g. new files not yet reordered)
+        if isContentFolder {
+            let sorted = allFiles.sorted {
+                let order0 = $0.userOrder ?? Int.max
+                let order1 = $1.userOrder ?? Int.max
+                if order0 != order1 {
+                    return order0 < order1
+                }
+                return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+            }
+            if let filter = statusFilter {
+                return sorted.filter { $0.workflowStatus == filter }
+            }
+            return sorted
         }
         return allFiles
     }

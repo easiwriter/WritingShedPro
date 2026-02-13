@@ -21,6 +21,7 @@ struct ManuscriptBodyView: View {
     @State private var exportData: Data?
     @State private var exportFilename = ""
     @State private var exportContentType: UTType = .pdf
+    @State private var frontMatterPageCount: Int = 0
     
     var allFiles: [TextFile] {
         sections.flatMap { $0.files }
@@ -103,7 +104,8 @@ struct ManuscriptBodyView: View {
             PaginatedDocumentView(
                 textFile: assembledTextFile,
                 project: project,
-                showActualPageNumbers: true
+                showActualPageNumbers: true,
+                startingPageNumber: frontMatterPageCount + 1
             )
         } else {
             ContentUnavailableView {
@@ -121,6 +123,10 @@ struct ManuscriptBodyView: View {
         // Get only body sections for this view
         sections = service.getBodySections(for: project)
         
+        // Calculate how many pages front matter occupies so footer page numbers
+        // start at the correct number (e.g. 4 if front matter fills pages 1–3)
+        frontMatterPageCount = calculateFrontMatterPageCount(using: service)
+        
         #if DEBUG
         print("📄 [ManuscriptBodyView] loadBodySections completed")
         print("📄 [ManuscriptBodyView] Sections count: \(sections.count)")
@@ -128,9 +134,54 @@ struct ManuscriptBodyView: View {
             print("  Section: \(section.title) - \(section.files.count) files")
         }
         print("📄 [ManuscriptBodyView] allFiles count: \(allFiles.count)")
+        print("📄 [ManuscriptBodyView] frontMatterPageCount: \(frontMatterPageCount)")
         #endif
         
         isLoading = false
+    }
+
+    /// Calculate how many pages front matter occupies by assembling and paginating it
+    private func calculateFrontMatterPageCount(using service: ManuscriptAssemblyService) -> Int {
+        let allSections = service.getSections(for: project)
+        let frontMatterFiles = allSections
+            .filter { $0.sectionType == .frontMatter }
+            .flatMap { $0.files }
+        
+        guard !frontMatterFiles.isEmpty else { return 0 }
+        
+        let pageSetup = project.pageSetup ?? PageSetup.createWithDefaults()
+        
+        // Paginate each front matter file individually — no form feeds needed for counting.
+        // Each front matter file starts on its own page and occupies at least 1 page.
+        var totalPages = 0
+        
+        for file in frontMatterFiles {
+            if let version = file.currentVersion, let content = version.attributedContent, content.length > 0 {
+                // Strip trailing form feed characters (artifacts from previous assembly)
+                // and remove Catalyst font scaling for print-accurate page counting
+                let mutable = NSMutableAttributedString(attributedString: content)
+                while mutable.length > 0 && mutable.string.hasSuffix("\u{000C}") {
+                    mutable.deleteCharacters(in: NSRange(location: mutable.length - 1, length: 1))
+                }
+                guard mutable.length > 0 else {
+                    totalPages += 1
+                    continue
+                }
+                let prepared = PrintFormatter.removePlatformScaling(from: mutable)
+                let textStorage = NSTextStorage(attributedString: prepared)
+                let layoutManager = PaginatedTextLayoutManager(textStorage: textStorage, pageSetup: pageSetup)
+                let result = layoutManager.calculateLayout()
+                totalPages += max(result.totalPages, 1)
+            } else {
+                totalPages += 1  // Empty front matter file still occupies 1 page
+            }
+        }
+        
+        #if DEBUG
+        print("📄 [ManuscriptBodyView] Front matter: \(frontMatterFiles.count) files → \(totalPages) pages")
+        #endif
+        
+        return totalPages
     }
 
     private func makeAssembledTextFileWithPageBreaks(from files: [TextFile], name: String) -> TextFile {
@@ -164,7 +215,10 @@ struct ManuscriptBodyView: View {
             // Insert break between files according to user setting
             if idx < files.count - 1 {
                 if usePageBreak {
-                    attributed.append(NSAttributedString(string: "\u{000C}")) // Unicode FORM FEED (page break)
+                    // Only insert page break if content doesn't already end with one
+                    if !attributed.string.hasSuffix("\u{000C}") {
+                        attributed.append(NSAttributedString(string: "\u{000C}")) // Unicode FORM FEED (page break)
+                    }
                 } else {
                     // Always add at least two blank lines between files for clarity
                     switch breakStyle {

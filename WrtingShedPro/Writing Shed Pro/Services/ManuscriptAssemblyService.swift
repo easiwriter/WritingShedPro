@@ -368,7 +368,13 @@ final class ManuscriptAssemblyService {
             for file in section.files {
                 // Add section break between files (not before first)
                 if !isFirstFile {
-                    assembled.append(sectionBreak(for: settings))
+                    let breakAttr = sectionBreak(for: settings)
+                    // Avoid double form feeds if content already ends with one
+                    if breakAttr.string == "\u{000C}" && assembled.string.hasSuffix("\u{000C}") {
+                        // Skip — content already has a page break
+                    } else {
+                        assembled.append(breakAttr)
+                    }
                 }
                 isFirstFile = false
                 // Record offset before adding
@@ -468,7 +474,15 @@ final class ManuscriptAssemblyService {
     private func collectFilesFromFolder(_ folder: Folder) -> [TextFile] {
         return (folder.files ?? [])
             .filter { $0.includedInManuscript }
-            .sorted { ($0.displayOrder ?? 0) < ($1.displayOrder ?? 0) }
+            .sorted {
+                let order0 = $0.userOrder ?? Int.max
+                let order1 = $1.userOrder ?? Int.max
+                if order0 != order1 {
+                    return order0 < order1
+                }
+                // Secondary sort by name for deterministic order when userOrder is equal
+                return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+            }
     }
     
     /// Collect files recursively from a folder and its subfolders

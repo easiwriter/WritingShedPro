@@ -104,37 +104,6 @@ struct TableOfFiguresSettingsView: View {
                 Section {
                     // Show page numbers
                     Toggle(NSLocalizedString("tof.settings.showPageNumbers", comment: "Show page numbers"), isOn: $showPageNumbers)
-                    
-                    // Separator character (only visible if page numbers enabled)
-                    if showPageNumbers {
-                        HStack {
-                            Text(NSLocalizedString("tof.settings.separator", comment: "Separator"))
-                            Spacer()
-                            Picker("", selection: $separator) {
-                                Text(".").tag(".")
-                                Text("-").tag("-")
-                                Text("_").tag("_")
-                                Text(NSLocalizedString("tof.settings.separator.space", comment: "Space")).tag(" ")
-                                Text(NSLocalizedString("tof.settings.separator.none", comment: "None")).tag("")
-                            }
-                            .pickerStyle(.menu)
-                            .accessibilityLabel(NSLocalizedString("tof.settings.separator.accessibility", comment: "Separator character"))
-                        }
-                        
-                        // Dot leaders toggle
-                        Toggle(NSLocalizedString("tof.settings.useDotLeaders", comment: "Use dot leaders"), isOn: $useDotLeaders)
-                            .accessibilityHint(NSLocalizedString("tof.settings.useDotLeaders.hint", comment: "Repeat separator character to fill space"))
-                        
-                        // Page number position
-                        Stepper(value: $pageNumberPosition, in: 300...600, step: 20) {
-                            HStack {
-                                Text(NSLocalizedString("tof.settings.pageNumberPosition", comment: "Page number position"))
-                                Spacer()
-                                Text("\(Int(pageNumberPosition)) pt")
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
                 } header: {
                     Text(NSLocalizedString("tof.settings.formattingSection", comment: "Formatting"))
                 }
@@ -196,31 +165,25 @@ struct TableOfFiguresSettingsView: View {
     private func previewEntry(number: Int, caption: String?, pageNumber: Int) -> some View {
         if let caption = caption {
             HStack(spacing: 0) {
-                // Entry text
+                // Entry text with optional page number
                 if useCaptionPrefix && !captionPrefix.isEmpty {
-                    Text("\(captionPrefix) \(number): \(caption)")
-                        .font(.subheadline)
-                } else {
-                    Text(caption)
-                        .font(.subheadline)
-                }
-                
-                // Separator/Leaders
-                if showPageNumbers {
-                    if useDotLeaders && !separator.isEmpty {
-                        Text(" " + String(repeating: separator + " ", count: 15))
+                    if showPageNumbers {
+                        Text("\(captionPrefix) \(number): \(caption)  \(pageNumber)")
                             .font(.subheadline)
-                            .foregroundStyle(.tertiary)
-                            .lineLimit(1)
                     } else {
-                        Spacer()
+                        Text("\(captionPrefix) \(number): \(caption)")
+                            .font(.subheadline)
                     }
-                    
-                    // Page number
-                    Text("\(pageNumber)")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                } else {
+                    if showPageNumbers {
+                        Text("\(caption)  \(pageNumber)")
+                            .font(.subheadline)
+                    } else {
+                        Text(caption)
+                            .font(.subheadline)
+                    }
                 }
+                Spacer()
             }
         }
     }

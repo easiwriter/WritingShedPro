@@ -124,11 +124,14 @@ struct ProseListView: View {
     private var sortedFiles: [TextFile] {
         var result = allFiles
         
-        // Sort by userOrder if in a section, otherwise alphabetically
-        if section != nil {
-            result = result.sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
-        } else {
-            result = result.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        // Sort by userOrder for drag-to-reorder, with name as secondary sort
+        result = result.sorted {
+            let order0 = $0.userOrder ?? Int.max
+            let order1 = $1.userOrder ?? Int.max
+            if order0 != order1 {
+                return order0 < order1
+            }
+            return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
         }
         
         // Apply workflow status filter if set
@@ -674,12 +677,11 @@ struct ProseListView: View {
                 // Flat list (when viewing a specific section or no section assignments)
                 ForEach(sortedFiles) { file in
                     fileRow(for: file)
-                        // Enable drag-to-reorder without edit mode (only when within a section)
                         .onDrag {
                             return NSItemProvider(object: file.id.uuidString as NSString)
                         }
                 }
-                .onMove(perform: section != nil ? moveFiles : nil)
+                .onMove(perform: moveFiles)
             }
         }
         .listStyle(.plain)

@@ -54,8 +54,9 @@ struct FileListView: View {
     /// Called when user initiates add to collection action (optional - only for Ready folder)
     let onAddToCollection: (([TextFile]) -> Void)?
     
-    /// Called when user drags to reorder files (optional - not used, files always alphabetically sorted)
-    let onReorder: (() -> Void)?
+    /// Called when user drags to reorder files (optional)
+    /// Signature matches .onMove: (source: IndexSet, destination: Int)
+    let onReorder: ((IndexSet, Int) -> Void)?
     
     /// Called when user renames a file
     let onRename: (([TextFile]) -> Void)?
@@ -145,8 +146,11 @@ struct FileListView: View {
     
     /// Determines if alphabetical sections should be used
     /// Use sections when file count exceeds one screenful (~15 files)
+    /// Never use sections when reordering is enabled — drag-to-reorder
+    /// requires a flat ForEach with .onMove, and cross-section drag
+    /// doesn't make sense for user-ordered content folders.
     private var useSections: Bool {
-        uniqueFiles.count > 15
+        onReorder == nil && uniqueFiles.count > 15
     }
     
     // MARK: - Body
@@ -184,6 +188,7 @@ struct FileListView: View {
                             }
                         }
                 }
+                .onMove(perform: onReorder)
             }
         }
         .listStyle(.plain)

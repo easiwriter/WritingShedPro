@@ -6961,6 +6961,14 @@ struct FileEditView: View {
         print("📝 Paragraph style applied successfully")
         #endif
         
+        // CRITICAL: Update the text view's textStorage first for immediate visual feedback
+        // Then update the binding to keep them in sync
+        let cursorPosition = selectedRange
+        textViewCoordinator.modifyTypingAttributes { textView in
+            textView.textStorage.setAttributedString(newAttributedContent)
+            textView.selectedRange = cursorPosition
+        }
+        
         // Update local state immediately for instant UI feedback
         attributedContent = newAttributedContent
         

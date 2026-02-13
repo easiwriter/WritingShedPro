@@ -160,98 +160,163 @@ final class TOCGenerationService {
     // MARK: - Page Number Calculation
     
     /// Calculate page numbers for TOC entries by paginating the manuscript
-    /// - Parameters:
-    ///   - entries: TOC entries to update with page numbers
-    ///   - project: The project to paginate
-    ///   - tocFile: The TOC file to exclude from pagination
-    /// - Returns: Updated entries with calculated page numbers
+    /// Approach: paginate body+back matter for raw page numbers, then calculate
+    /// front matter page count (including TOC size) as an offset.
     func calculatePageNumbers(for entries: [TOCEntry], project: Project, tocFile: TextFile?) async -> [TOCEntry] {
         #if DEBUG
         print("[TOCGeneration] ========== PAGE NUMBER CALCULATION START ==========")
         #endif
         
-        // Build assembled content EXCLUDING the TOC file for accurate page numbers
-        // The TOC file won't be part of the printed/exported manuscript body
-        
-        var fileOffsets: [UUID: Int] = [:]
-        let assembledContent = NSMutableAttributedString()
-        var isFirstFile = true
-        
-        // Check if page breaks between files are enabled (use project setting, not global)
         let pageSetup = project.pageSetup ?? PageSetup()
         let usePageBreaks = pageSetup.hasPageBreakBetweenFiles
-        let pageBreak = NSAttributedString(string: "\u{0C}") // Form feed character
-        
-        #if DEBUG
-        print("[TOCGeneration] Page break between files: \(usePageBreaks ? "ENABLED" : "disabled")")
-        #endif
-        
         let sections = assemblyService.getSections(for: project)
         
-        // Assemble content excluding the TOC file
-        for section in sections {
-            for file in section.files {
-                // Skip the TOC file - it's not part of the main manuscript
-                if let tocFile = tocFile, file.id == tocFile.id {
-                    continue
+        // === STEP 1: Paginate body + back matter to get raw page numbers ===
+        let bodyBackSections = sections.filter { $0.sectionType != .frontMatter }
+        var updatedEntries = entries
+        let frontMatterFileIds = Set(
+            sections.filter { $0.sectionType == .frontMatter }.flatMap { $0.files.map { $0.id } }
+        )
+        var bodyTotalPages = 0
+        
+        if usePageBreaks {
+            // Paginate each file individually — no form feeds needed for counting
+            for section in bodyBackSections {
+                for file in section.files {
+                    guard let version = file.currentVersion, let content = version.attributedContent, content.length > 0 else {
+                        continue
+                    }
+                    let prepared = prepareForPageCounting(content)
+                    guard prepared.length > 0 else { continue }
+                    let storage = NSTextStorage(attributedString: prepared)
+                    let layout = PaginatedTextLayoutManager(textStorage: storage, pageSetup: pageSetup)
+                    let result = layout.calculateLayout()
+                    
+                    // Map TOC entries that belong to this file
+                    for i in 0..<updatedEntries.count {
+                        guard updatedEntries[i].sourceFile.id == file.id,
+                              !frontMatterFileIds.contains(file.id) else { continue }
+                        let page = findPageForCharacterPosition(updatedEntries[i].characterPosition, in: result)
+                        updatedEntries[i].pageNumber = bodyTotalPages + page
+                    }
+                    
+                    bodyTotalPages += result.totalPages
                 }
-                
-                // Add section/page break between files (not before first)
-                if !isFirstFile {
-                    if usePageBreaks {
-                        assembledContent.append(pageBreak)
-                    } else {
-                        assembledContent.append(NSAttributedString(string: "\n\n"))
+            }
+        } else {
+            // Files flow together — assemble with separators and paginate as a whole
+            var bodyFileOffsets: [UUID: Int] = [:]
+            let bodyContent = NSMutableAttributedString()
+            var isFirst = true
+            
+            for section in bodyBackSections {
+                for file in section.files {
+                    if !isFirst {
+                        bodyContent.append(NSAttributedString(string: "\n\n"))
+                    }
+                    isFirst = false
+                    bodyFileOffsets[file.id] = bodyContent.length
+                    if let version = file.currentVersion, let content = version.attributedContent {
+                        bodyContent.append(content)
                     }
                 }
-                isFirstFile = false
-                
-                // Record offset before adding
-                fileOffsets[file.id] = assembledContent.length
-                
-                // Add file content
-                if let version = file.currentVersion, let content = version.attributedContent {
-                    assembledContent.append(content)
-                }
+            }
+            
+            let preparedBody = PrintFormatter.removePlatformScaling(from: bodyContent)
+            let bodyStorage = NSTextStorage(attributedString: preparedBody)
+            let bodyLayout = PaginatedTextLayoutManager(textStorage: bodyStorage, pageSetup: pageSetup)
+            let bodyResult = bodyLayout.calculateLayout()
+            bodyTotalPages = bodyResult.totalPages
+            
+            for i in 0..<updatedEntries.count {
+                guard !frontMatterFileIds.contains(updatedEntries[i].sourceFile.id) else { continue }
+                let fileOffset = bodyFileOffsets[updatedEntries[i].sourceFile.id] ?? 0
+                let globalPos = fileOffset + updatedEntries[i].characterPosition
+                updatedEntries[i].pageNumber = findPageForCharacterPosition(globalPos, in: bodyResult)
             }
         }
         
         #if DEBUG
-        print("[TOCGeneration] File offsets calculated (excluding TOC):")
-        for (fileId, offset) in fileOffsets {
-            print("[TOCGeneration]   \(fileId.uuidString.prefix(8)): offset \(offset)")
+        print("[TOCGeneration] Body pagination: \(bodyTotalPages) pages (perFile: \(usePageBreaks))")
+        for entry in updatedEntries where !frontMatterFileIds.contains(entry.sourceFile.id) {
+            print("[TOCGeneration]   '\(entry.headingText.prefix(30))': raw page \(entry.pageNumber)")
         }
-        print("[TOCGeneration] Assembled content (excluding TOC): \(assembledContent.length) characters")
         #endif
         
-        // Create text storage and paginate
-        let textStorage = NSTextStorage(attributedString: assembledContent)
-        let layoutManager = PaginatedTextLayoutManager(textStorage: textStorage, pageSetup: pageSetup)
+        // === STEP 2: Calculate front matter page count ===
+        // Paginate each front matter file individually — no form feeds needed.
+        // Each front matter file starts on its own page and occupies at least 1 page.
+        let frontMatterFiles = sections
+            .filter { $0.sectionType == .frontMatter }
+            .flatMap { $0.files }
         
-        // Calculate layout
-        let layoutResult = layoutManager.calculateLayout()
+        // Render TOC with the raw body page numbers to estimate its size
+        var tocRendered: NSAttributedString? = nil
+        if let tocFile = tocFile {
+            let settings = tocFile.tocSettings
+            tocRendered = renderTOC(entries: updatedEntries, settings: settings, project: project)
+        }
+        
+        var frontMatterPageCount = 0
+        
+        for file in frontMatterFiles {
+            let fileContent: NSAttributedString
+            if let toc = tocFile, file.id == toc.id, let rendered = tocRendered {
+                // Rendered TOC uses Catalyst-sized fonts (e.g. 44.2pt, 22.1pt).
+                // Descale to base sizes so prepareForPageCounting treats it
+                // the same as saved content (which already arrives at base sizes).
+                fileContent = PrintFormatter.removePlatformScaling(from: rendered)
+                #if DEBUG
+                print("[TOCGeneration] FM file '\(file.name)': rendered TOC (\(rendered.length) → \(fileContent.length) chars, descaled to base)")
+                #endif
+            } else if let version = file.currentVersion, let content = version.attributedContent {
+                fileContent = content
+                #if DEBUG
+                print("[TOCGeneration] FM file '\(file.name)': saved content (\(content.length) chars)")
+                #endif
+            } else {
+                fileContent = NSAttributedString()
+                #if DEBUG
+                print("[TOCGeneration] FM file '\(file.name)': empty")
+                #endif
+            }
+            
+            if fileContent.length > 0 {
+                let prepared = prepareForPageCounting(fileContent)
+                guard prepared.length > 0 else {
+                    frontMatterPageCount += 1  // Content was only form feeds
+                    continue
+                }
+                let storage = NSTextStorage(attributedString: prepared)
+                let layout = PaginatedTextLayoutManager(textStorage: storage, pageSetup: pageSetup)
+                let result = layout.calculateLayout()
+                
+                // Map any front matter TOC entries in this file
+                for i in 0..<updatedEntries.count where updatedEntries[i].sourceFile.id == file.id {
+                    let page = findPageForCharacterPosition(updatedEntries[i].characterPosition, in: result)
+                    updatedEntries[i].pageNumber = frontMatterPageCount + page
+                }
+                
+                frontMatterPageCount += result.totalPages
+            } else {
+                // Empty front matter file still occupies 1 page
+                frontMatterPageCount += 1
+            }
+        }
         
         #if DEBUG
-        print("[TOCGeneration] Pagination complete: \(layoutResult.totalPages) pages")
+        print("[TOCGeneration] Front matter: \(frontMatterFiles.count) files → \(frontMatterPageCount) pages")
+        print("[TOCGeneration] Page setup: \(pageSetup.paperSize.rawValue), margins T:\(pageSetup.marginTop) B:\(pageSetup.marginBottom) L:\(pageSetup.marginLeft) R:\(pageSetup.marginRight)")
         #endif
         
-        // Now update entries with page numbers
-        var updatedEntries: [TOCEntry] = []
-        
-        for var entry in entries {
-            // Calculate global position from file offset + local position
-            let fileOffset = fileOffsets[entry.sourceFile.id] ?? 0
-            let globalPosition = fileOffset + entry.characterPosition
-            
-            // Find which page this position falls on
-            let pageNumber = findPageForCharacterPosition(globalPosition, in: layoutResult)
-            entry.pageNumber = pageNumber
+        // === STEP 3: Apply front matter offset to body + back matter entries ===
+        for i in 0..<updatedEntries.count {
+            guard !frontMatterFileIds.contains(updatedEntries[i].sourceFile.id) else { continue }
+            updatedEntries[i].pageNumber += frontMatterPageCount
             
             #if DEBUG
-            print("[TOCGeneration]   '\(entry.headingText.prefix(30))': pos \(globalPosition) -> page \(pageNumber)")
+            print("[TOCGeneration]   '\(updatedEntries[i].headingText.prefix(30))': raw + \(frontMatterPageCount) = page \(updatedEntries[i].pageNumber)")
             #endif
-            
-            updatedEntries.append(entry)
         }
         
         #if DEBUG
@@ -259,6 +324,19 @@ final class TOCGenerationService {
         #endif
         
         return updatedEntries
+    }
+    
+    /// Prepare content for accurate page counting:
+    /// 1. Strip trailing form feed characters (artifacts from previous assembly/save)
+    /// 2. Remove Catalyst font scaling so fonts match print/display sizes
+    private func prepareForPageCounting(_ content: NSAttributedString) -> NSAttributedString {
+        let mutable = NSMutableAttributedString(attributedString: content)
+        // Strip trailing form feed characters
+        while mutable.length > 0 && mutable.string.hasSuffix("\u{000C}") {
+            mutable.deleteCharacters(in: NSRange(location: mutable.length - 1, length: 1))
+        }
+        // Remove Catalyst font scaling (÷kCatalystFontScale) to get print-accurate sizes
+        return PrintFormatter.removePlatformScaling(from: mutable)
     }
     
     /// Find which page a character position falls on
@@ -577,63 +655,20 @@ final class TOCGenerationService {
         // Calculate indent
         let indent = CGFloat(entry.indentLevel) * settings.indentPoints
         
-        // Tab stop position for page numbers (absolute from left margin)
-        let tabPosition = settings.pageNumberPosition
+        // Paragraph style with indent
+        let para = NSMutableParagraphStyle()
+        para.firstLineHeadIndent = indent
+        para.headIndent = indent
+        para.paragraphSpacing = 4
+        textAttrs[.paragraphStyle] = para
         
-        // Build the result
+        // Build entry: heading text, optionally followed by page number
         let result = NSMutableAttributedString()
         
-        // Add heading text
-        let headingText = entry.headingText
-        
         if settings.showPageNumbers {
-            let font = textAttrs[.font] as? UIFont ?? UIFont.systemFont(ofSize: 14)
-            let pageNumberText = "\(entry.pageNumber)"
-            
-            // Always use tab stop for consistent page number alignment
-            let para = NSMutableParagraphStyle()
-            para.firstLineHeadIndent = indent
-            para.headIndent = indent
-            para.paragraphSpacing = 4
-            para.tabStops = [
-                NSTextTab(textAlignment: .right, location: tabPosition - indent, options: [:])
-            ]
-            textAttrs[.paragraphStyle] = para
-            
-            result.append(NSAttributedString(string: headingText, attributes: textAttrs))
-            
-            if settings.useDotLeaders && !settings.separator.isEmpty {
-                // Calculate available width for dot leaders (before the tab stop)
-                let headingWidth = (headingText as NSString).size(withAttributes: [.font: font]).width
-                let pageNumberWidth = (pageNumberText as NSString).size(withAttributes: [.font: font]).width
-                let availableWidth = tabPosition - indent - headingWidth - pageNumberWidth - 16 // padding
-                
-                if availableWidth > 20 {
-                    // Calculate how many separator units fit
-                    let separatorUnit = settings.separator + " "
-                    let unitWidth = (separatorUnit as NSString).size(withAttributes: [.font: font]).width
-                    let numUnits = max(3, Int(availableWidth / unitWidth))
-                    
-                    // Add dots (in secondary color), then tab, then page number
-                    let leaderString = " " + String(repeating: separatorUnit, count: numUnits)
-                    var leaderAttrs = textAttrs
-                    leaderAttrs[.foregroundColor] = UIColor.secondaryLabel
-                    result.append(NSAttributedString(string: leaderString, attributes: leaderAttrs))
-                }
-            }
-            
-            // Tab to align page number, then page number
-            result.append(NSAttributedString(string: "\t", attributes: textAttrs))
-            result.append(NSAttributedString(string: pageNumberText + "\n", attributes: textAttrs))
+            result.append(NSAttributedString(string: "\(entry.headingText)  \(entry.pageNumber)\n", attributes: textAttrs))
         } else {
-            // No page numbers
-            let para = NSMutableParagraphStyle()
-            para.firstLineHeadIndent = indent
-            para.headIndent = indent
-            para.paragraphSpacing = 4
-            textAttrs[.paragraphStyle] = para
-            
-            result.append(NSAttributedString(string: headingText + "\n", attributes: textAttrs))
+            result.append(NSAttributedString(string: entry.headingText + "\n", attributes: textAttrs))
         }
         
         return result

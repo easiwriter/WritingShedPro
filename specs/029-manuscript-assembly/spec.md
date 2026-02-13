@@ -537,6 +537,136 @@ Another biography entry.
 - Visual indicator (eye.slash icon, dimmed opacity) for excluded files
 - Works for all project types with Manuscript folder
 
+### Phase 8: TOC Generation & Page Numbering ✅ COMPLETE
+**Priority:** High | **Completed:** 2026-02-01
+
+**Overview:**
+Auto-generated Table of Contents with accurate page numbers that account for all front matter pages. Body view footers display correct page numbers offset by the front matter page count.
+
+**Features:**
+- `TOCGenerationService` generates TOC entries with correct page numbers
+- Body view footer numbers start after all front matter pages (e.g., if front matter = 4 pages, first body page = 5)
+- `startingPageNumber` parameter threaded through `PaginatedDocumentView` → `VirtualPageScrollView` → individual page footers
+
+**Key Implementation: Per-File Pagination**
+Page counts are calculated by paginating each file individually using `NSLayoutManager` text containers sized to the manuscript page dimensions. This avoids assembling files with form feed separators, which previously caused phantom empty pages when form feeds doubled up.
+
+**Algorithm (in `TOCGenerationService.calculatePageNumbers`):**
+1. **Body pagination** — When `usePageBreaks` is enabled, each body file is paginated independently. The page count for each file is determined by how many pages `NSLayoutManager` requires for the content.
+2. **Front matter pagination** — Each front matter file (Title Page, TOC, Acknowledgements, etc.) is paginated independently using the same technique.
+3. **Offset calculation** — The sum of all front matter page counts becomes the offset applied to every body entry's page number.
+4. **Footer propagation** — `ManuscriptBodyView` calculates the same front matter page count and passes it as `startingPageNumber` to the paginated view, so footer page numbers match the TOC.
+
+**Files:**
+- Modified: `Services/TOCGenerationService.swift` — `calculatePageNumbers()` rewritten with per-file pagination
+- Modified: `Views/Manuscript/ManuscriptBodyView.swift` — `calculateFrontMatterPageCount()`, `startingPageNumber` pass-through
+- Modified: `Views/PaginatedDocumentView.swift` — Added `startingPageNumber` property
+- Modified: `Views/VirtualPageScrollView.swift` — `startingPageNumber` threaded through layout → page creation
+
+---
+
+## Mac Catalyst Font Scaling Pipeline
+
+**CRITICAL ARCHITECTURAL NOTE — Read before modifying any print/pagination code**
+
+### The Problem
+
+Mac Catalyst automatically scales all fonts by a factor of **1.3×** for screen display. When the user sets Body to 17pt, Catalyst stores and renders it at 22.1pt. This is invisible to the user but breaks page-count calculations if not accounted for: text set in 22.1pt needs more pages than text set in 17pt, so pagination using raw stored sizes produces incorrect results.
+
+### The Constant: `kCatalystFontScale`
+
+```swift
+// PrintFormatter.swift (global scope)
+
+/// Mac Catalyst multiplies all font sizes by this factor for screen display.
+/// Every print / page-count path must divide by this value to recover the
+/// true point size the user chose.
+///
+/// Single source of truth — do NOT hard-code 1.3 anywhere else.
+let kCatalystFontScale: CGFloat = 1.3
+```
+
+**All code that converts stored font sizes to true print sizes MUST use this constant.** Never hard-code `1.3` in any file.
+
+### The Scaling Pipeline
+
+```
+User chooses 17pt Body
+        │
+        ▼
+  Catalyst stores 22.1pt  (17 × 1.3)
+        │
+        ▼
+  ┌─────────────────────────────────┐
+  │  removePlatformScaling()        │
+  │  Divides every font in an       │
+  │  NSAttributedString by           │
+  │  kCatalystFontScale on Catalyst  │
+  │  (no-op on iOS)                  │
+  └─────────────────────────────────┘
+        │
+        ▼
+  True 17pt used for:
+    • PDF generation (PrintService)
+    • Page-count calculation (TOCGenerationService, ManuscriptBodyView)
+    • PaginatedDocumentView display
+```
+
+### `prepareForPageCounting()` Helper
+
+A convenience method on `NSAttributedString` (defined in `TOCGenerationService`) that applies two transformations in sequence:
+
+1. **Strip trailing form feed** — Title Page and other files may store a trailing `\u{000C}` (form feed) character in their content. If not stripped, `NSLayoutManager` counts it as an extra page.
+2. **Descale fonts** — Calls `PrintFormatter.removePlatformScaling()` to divide all font sizes by `kCatalystFontScale`.
+
+```swift
+private func prepareForPageCounting(_ content: NSAttributedString) -> NSAttributedString {
+    var text = content
+    // 1. Strip trailing form feed
+    let str = text.string
+    if str.hasSuffix("\u{000C}") {
+        let trimmed = NSMutableAttributedString(attributedString: text)
+        trimmed.deleteCharacters(in: NSRange(location: str.count - 1, length: 1))
+        text = trimmed
+    }
+    // 2. Descale Catalyst fonts to true print sizes
+    return PrintFormatter.removePlatformScaling(from: text)
+}
+```
+
+### Rendered vs Saved Content: The Double-Descale Trap
+
+**Background:** Saved file content (from the database) is stored at Catalyst-scaled sizes (e.g., 22.1pt). Calling `prepareForPageCounting` descales it once to 17pt — correct.
+
+However, the **rendered TOC** is generated at runtime using the same Catalyst-scaled fonts. If passed directly to `prepareForPageCounting`, it would also be descaled once to 17pt — which is correct for page counting but inconsistent with how the TOC renders on screen.
+
+**The fix:** The rendered TOC content is **pre-descaled** with `PrintFormatter.removePlatformScaling()` before being passed to `prepareForPageCounting()`. This means:
+- Rendered TOC: 22.1pt → pre-descale to 17pt → `prepareForPageCounting` descales to ~13pt (matches display size)
+- Saved files: 22.1pt → `prepareForPageCounting` descales to 17pt (matches print size)
+
+Both paths now produce page counts that match what the user actually sees on their configured page size.
+
+### Files Using `kCatalystFontScale`
+
+| File | Usage |
+|------|-------|
+| `Services/PrintFormatter.swift` | Defines the constant; `removePlatformScaling()` divides fonts by it |
+| `Services/PrintService.swift` | PDF generation font descaling |
+| `Views/PaginatedDocumentView.swift` | Display font descaling |
+| `Services/TOCGenerationService.swift` | Page counting via `prepareForPageCounting()` |
+| `Views/Manuscript/ManuscriptBodyView.swift` | Front matter page counting |
+| `Tests/PrintFormatterTests.swift` | Test assertions use the constant |
+
+### Rules for Future Development
+
+1. **Never hard-code `1.3`** — always use `kCatalystFontScale`
+2. **Any new page-counting code must call `removePlatformScaling()`** before measuring with `NSLayoutManager`
+3. **Strip trailing form feeds** before page counting — saved content may contain them
+4. **Test with Mac Catalyst AND iPad** — font sizes differ, both must produce identical page counts
+5. **If Apple changes the Catalyst scale factor**, update `kCatalystFontScale` in one place and all code adapts
+
+---
+
 ## Future Phases (Not Implemented)
 
 ### Phase 6: Full Manuscript View (Medium Priority)
@@ -550,12 +680,6 @@ Settings sheet for manuscript preferences:
 - Section break style (page break, section mark, double space, none)
 - Footnote numbering style (per file, continuous, per section)
 - Would use `manuscriptSettingsData` already on Project model
-
-### Phase 8: TOC Generation (Low Priority)
-Auto-generate table of contents:
-- List sections with page numbers
-- Clickable navigation in preview
-- Include in PDF export
 
 ### Phase 9: Print Support (Low Priority)
 Direct print functionality:

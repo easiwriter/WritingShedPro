@@ -645,8 +645,8 @@ class JSONImportService {
             // Determine workflow status from original folder name
             var workflowStatus = mapFolderNameToWorkflowStatus(textFileMetadata.folderName)
             
-            // Check if the folder is a content folder (Poems, Scenes, Scripts, Sections, Prose, Files)
-            let isContentFolder = ["poems", "scenes", "scripts", "sections", "prose", "files"].contains(textFileMetadata.folderName.lowercased())
+            // Check if the folder is a content folder (Poems, Scenes, Stories, Episodes, Scripts, Sections, Prose, Files)
+            let isContentFolder = ["poems", "scenes", "stories", "episodes", "scripts", "sections", "prose", "files"].contains(textFileMetadata.folderName.lowercased())
             
             // Determine target folder:
             // - Workflow folders (Draft, Ready, etc.) → content folder with status

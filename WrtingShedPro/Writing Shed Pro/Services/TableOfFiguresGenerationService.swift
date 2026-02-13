@@ -302,28 +302,11 @@ final class TableOfFiguresGenerationService {
             entryText += NSLocalizedString("tof.missingCaption", comment: "Missing caption")
         }
         
-        result.append(NSAttributedString(string: entryText, attributes: entryAttributes))
-        
-        // Add page number if enabled
+        // Append entry text, optionally followed by page number
         if settings.showPageNumbers {
-            // Create paragraph style with tab stop for page number
-            let paragraphStyle = NSMutableParagraphStyle()
-            let tabStop = NSTextTab(textAlignment: .right, location: settings.pageNumberPosition)
-            paragraphStyle.tabStops = [tabStop]
-            
-            var pageAttributes = entryAttributes
-            pageAttributes[.paragraphStyle] = paragraphStyle
-            
-            // Add separator/leaders and page number
-            if settings.useDotLeaders && !settings.separator.isEmpty {
-                // Use tab and dot leaders
-                let separatorString = "\t" + String(repeating: settings.separator + " ", count: 50)
-                result.append(NSAttributedString(string: separatorString, attributes: entryAttributes))
-            } else {
-                result.append(NSAttributedString(string: "\t", attributes: entryAttributes))
-            }
-            
-            result.append(NSAttributedString(string: "\(entry.pageNumber)", attributes: entryAttributes))
+            result.append(NSAttributedString(string: "\(entryText)  \(entry.pageNumber)", attributes: entryAttributes))
+        } else {
+            result.append(NSAttributedString(string: entryText, attributes: entryAttributes))
         }
         
         return result

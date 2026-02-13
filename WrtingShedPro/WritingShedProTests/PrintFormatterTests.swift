@@ -176,7 +176,7 @@ final class PrintFormatterTests: XCTestCase {
         // (Database stores Mac-rendered fonts, both platforms scale for print)
         var range = NSRange(location: 0, length: 0)
         if let resultFont = result.attribute(.font, at: 0, effectiveRange: &range) as? UIFont {
-            let expectedSize = originalFontSize / 1.3  // 22.1pt → 17pt
+            let expectedSize = originalFontSize / kCatalystFontScale  // 22.1pt → 17pt
             XCTAssertEqual(resultFont.pointSize, expectedSize, accuracy: 0.01, "Font should be scaled to print size (÷1.3)")
         } else {
             XCTFail("Result should have font attribute")

@@ -79,6 +79,7 @@ body > *:first-child { margin-top: 0 !important; }
 <li>Select <strong>Fiction</strong> as the project type</li>
 <li>Choose a fiction class:</li>
 <li><strong>Novel</strong>: Long-form fiction with chapters</li>
+<li><strong>Verse Novel</strong>: A novel written in verse (poetry)</li>
 <li><strong>Short Fiction</strong>: Stories without chapter structure</li>
 <li>Optionally select a story structure</li>
 <li>Tap <strong>Create</strong></li>
@@ -87,8 +88,14 @@ body > *:first-child { margin-top: 0 !important; }
 <h3 id="novel">Novel</h3>
 <p>For longer works with chapter structure:
 - Chapters contain scenes
-- Chapters folder organizes your book
+- Organize your book by chapters and scenes
 - Full manuscript assembly</p>
+<h3 id="verse-novel">Verse Novel</h3>
+<p>For novels written in verse:
+- Organized by books and episodes
+- Combines poetry and narrative structure
+- Each episode is a poem or verse passage
+- Full manuscript assembly with poetry formatting</p>
 <h3 id="short-fiction">Short Fiction</h3>
 <p>For stories without chapters:
 - Scenes are the primary unit
@@ -96,27 +103,23 @@ body > *:first-child { margin-top: 0 !important; }
 - Direct manuscript export</p>
 <p>You cannot change the class after project creation.</p>
 <h2 id="fiction-project-structure">Fiction Project Structure</h2>
-<h3 id="novel-structure">Novel Structure</h3>
-<pre><code>Project
-├── Draft (scenes in progress)
-├── Ready (polished scenes)
-├── Chapters (chapter organization)
-├── Plot Elements
-├── Characters
-├── Locations
-├── Set Aside
-└── Trash
-</code></pre>
-<h3 id="short-fiction-structure">Short Fiction Structure</h3>
-<pre><code>Project
-├── Draft (scenes)
-├── Ready (polished scenes)
-├── Plot Elements
-├── Characters
-├── Locations
-├── Set Aside
-└── Trash
-</code></pre>
+<p>Fiction projects contain the following areas:</p>
+<ul>
+<li><strong>Scenes</strong> – Your story's building blocks, filtered by workflow status</li>
+<li><strong>Chapters</strong> – Organize scenes into reading order (Novel and Verse Novel only)</li>
+<li><strong>Plot Elements</strong> – Story beats linked to your chosen structure</li>
+<li><strong>Characters</strong> – People in your story with descriptions and arcs</li>
+<li><strong>Locations</strong> – Settings and places</li>
+<li><strong>Trash</strong> – Deleted items (can be restored)</li>
+</ul>
+<h3 id="workflow-status">Workflow Status</h3>
+<p>Every scene has a workflow status that tracks where it is in your writing process:</p>
+<ul>
+<li><strong>Draft</strong> – Work in progress</li>
+<li><strong>Ready</strong> – Completed and polished</li>
+<li><strong>Set Aside</strong> – Parked for later</li>
+</ul>
+<p>Scenes are grouped by status in the file list. To change a scene's status, tap <strong>Edit</strong> in the toolbar, select one or more scenes, then tap <strong>Change Status</strong> and choose the new status. Scenes move between groups automatically.</p>
 <h2 id="story-structures">Story Structures</h2>
 <p>Choose a structure to help organize your plot:</p>
 <h3 id="freeform">Freeform</h3>
@@ -126,6 +129,8 @@ body > *:first-child { margin-top: 0 !important; }
 1. <strong>Act 1 - Setup</strong>: Introduce world and characters, inciting incident
 2. <strong>Act 2 - Confrontation</strong>: Rising action, complications
 3. <strong>Act 3 - Resolution</strong>: Climax and conclusion</p>
+<h3 id="the-monomyth-heros-journey">The Monomyth (Hero's Journey)</h3>
+<p>The monomyth, or Hero's Journey, is a narrative pattern identified by mythologist Joseph Campbell in <em>The Hero with a Thousand Faces</em> (1949). Campbell observed that myths and stories across cultures share a common structure in which a hero ventures from the ordinary world into a realm of adventure, faces trials, and returns transformed. Christopher Vogler later adapted Campbell's work for screenwriters and novelists in <em>The Writer's Journey: Mythic Structure for Writers</em> (1992), condensing it into a practical 12-stage framework. Writing Shed Pro offers both versions as story structures.</p>
 <h3 id="monomyth-vogler">Monomyth (Vogler)</h3>
 <p>Christopher Vogler's 12-stage Hero's Journey:
 1. Ordinary World
@@ -166,7 +171,7 @@ body > *:first-child { margin-top: 0 !important; }
 - Is a single continuous action
 - Has a clear outcome
 - Advances the story
-- Lives in Draft, Ready, or Set Aside</p>
+- Has a workflow status (Draft, Ready, or Set Aside)</p>
 <h3 id="chapters-novel-only">Chapters (Novel only)</h3>
 <p>Containers for scenes:
 - Group related scenes
@@ -196,25 +201,25 @@ body > *:first-child { margin-top: 0 !important; }
 </ul>
 <h3 id="2-draft">2. Draft</h3>
 <ul>
-<li>Write scenes in the Draft folder</li>
+<li>Write scenes (they start with Draft status)</li>
 <li>Link scenes to plot elements</li>
 <li>Connect to characters and locations</li>
 </ul>
 <h3 id="3-organize">3. Organize</h3>
 <ul>
-<li>Move finished scenes to Ready</li>
+<li>Change finished scenes to Ready status</li>
 <li>Arrange scenes into chapters</li>
 <li>Refine your structure</li>
 </ul>
 <h3 id="4-export">4. Export</h3>
 <ul>
 <li>Assemble the manuscript</li>
-<li>Export to PDF or RTF</li>
+<li>Export to PDF, RTF, HTML, or Markdown</li>
 <li>Share or submit</li>
 </ul>
 <h2 id="see-also">See Also</h2>
 <ul>
-<li><a href="guide:72-chapter-management">Chapter Management</a></li>
+<li><a href="guide:72-organizing-your-fiction">Organizing Your Fiction</a></li>
 <li><a href="guide:73-scene-organization">Scene Organization</a></li>
 <li><a href="guide:74-manuscript-formatting">Manuscript Formatting</a></li>
 </ul>

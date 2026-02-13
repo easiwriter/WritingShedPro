@@ -158,5 +158,6 @@ Use subfolders or collections to group poems:
 - [Rhyme Tools](63-rhyme-tools.md)
 - [Verse Highlighting](64-verse-highlighting.md)
 - [Forms and Templates](65-forms-and-templates.md)
+- [Manuscript and Export](66-manuscript-and-export.md)
 
 ---

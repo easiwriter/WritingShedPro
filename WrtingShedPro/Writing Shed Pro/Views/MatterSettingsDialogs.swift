@@ -196,11 +196,6 @@ struct FrontMatterSettingsDialog: View {
     private func removeFileForItem(_ item: FrontMatterItem) {
         guard let files = folder.textFiles else { return }
         if let file = files.first(where: { $0.name == item.fileName }) {
-            if let version = file.currentVersion,
-               let content = version.attributedContent,
-               !content.string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                return
-            }
             modelContext.delete(file)
         }
     }
@@ -208,11 +203,6 @@ struct FrontMatterSettingsDialog: View {
     private func removeFileForDramaItem(_ item: DramaFrontMatterItem) {
         guard let files = folder.textFiles else { return }
         if let file = files.first(where: { $0.name == item.fileName }) {
-            if let version = file.currentVersion,
-               let content = version.attributedContent,
-               !content.string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                return
-            }
             modelContext.delete(file)
         }
     }
@@ -353,15 +343,6 @@ struct BackMatterSettingsDialog: View {
                     let settings = folder.backMatterSettings
                     enabledItems = settings.enabledItems
                     indexColumnCount = settings.indexColumnCount
-                    
-                    // Also check which back matter files actually exist and include them
-                    // This ensures files that were created but settings were disabled are still shown as enabled
-                    let files = folder.textFiles ?? []
-                    for item in BackMatterItem.allCases {
-                        if files.contains(where: { $0.name == item.rawValue }) {
-                            enabledItems.insert(item)
-                        }
-                    }
                 }
             }
         }
@@ -516,11 +497,6 @@ struct BackMatterSettingsDialog: View {
     private func removeFileForItem(_ item: BackMatterItem) {
         guard let files = folder.textFiles else { return }
         if let file = files.first(where: { $0.name == item.fileName }) {
-            if let version = file.currentVersion,
-               let content = version.attributedContent,
-               !content.string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                return
-            }
             modelContext.delete(file)
         }
     }

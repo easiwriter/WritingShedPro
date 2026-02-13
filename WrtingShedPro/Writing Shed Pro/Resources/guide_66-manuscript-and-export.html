@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Writing Shed Pro Guide</title>
+    <style>body { 
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 20px;
+    line-height: 1.6;
+    color: #333;
+}
+h1, h2, h3, h4, h5, h6 { margin-top: 1.5em; margin-bottom: 0.5em; }
+h1 { font-size: 2em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+pre { background: #f4f4f4; padding: 16px; border-radius: 6px; overflow-x: auto; }
+pre code { background: none; padding: 0; }
+blockquote { border-left: 4px solid #ddd; margin-left: 0; padding-left: 16px; color: #666; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+th { background: #f4f4f4; font-weight: bold; }
+ul, ol { padding-left: 2em; }
+a { color: #0066cc; }
+hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
+/* Back to Contents link */
+.back-to-top {
+    text-align: right;
+    font-size: 0.9em;
+    margin: 1.5em 0 0.5em 0;
+}
+.back-to-top a {
+    color: #666;
+    text-decoration: none;
+}
+.back-to-top a:hover {
+    color: #0066cc;
+    text-decoration: underline;
+}
+@media (prefers-color-scheme: dark) {
+    body { background: #1a1a1a; color: #e0e0e0; }
+    code, pre { background: #2d2d2d; }
+    th { background: #2d2d2d; }
+    th, td { border-color: #444; }
+    blockquote { border-color: #555; color: #aaa; }
+    h1, h2 { border-color: #444; }
+    a { color: #4da3ff; }
+    .back-to-top a { color: #999; }
+}
+/* In-app overrides */
+body { margin-top: 0 !important; padding-top: 8px !important; }
+body > *:first-child { margin-top: 0 !important; }
+.back-nav { margin-bottom: 0.5em; }
+.back-nav a { color: #0066cc; text-decoration: none; font-size: 0.95em; }
+@media (prefers-color-scheme: dark) {
+    .back-nav a { color: #4da3ff; }
+}
+</style>
+</head>
+<body>
+<p class="back-nav"><a href="guide:00-toc">← Contents</a></p>
+<a id="66-manuscript-and-export"></a>
+
+<h1 id="manuscript-and-export-poetry">Manuscript and Export (Poetry)</h1>
+<p>This guide covers how Writing Shed Pro assembles Poetry project content into a manuscript for export.</p>
+<h2 id="how-poetry-manuscripts-are-assembled">How Poetry Manuscripts Are Assembled</h2>
+<p>Poetry manuscripts use a <strong>flat</strong> assembly model:</p>
+<ol>
+<li><strong>Front Matter</strong> is placed first (Title Page, Copyright, etc.)</li>
+<li><strong>All poems</strong> are assembled in display order</li>
+<li><strong>Back Matter</strong> is appended (Endnotes, Glossary, Bibliography, Index)</li>
+</ol>
+<h3 id="poem-ordering">Poem Ordering</h3>
+<p>Poems appear in the manuscript in their <strong>display order</strong> — the order you see them in the file list. To change the order:
+1. Tap <strong>Edit</strong> in the file list
+2. Drag poems to reorder using the grip handles
+3. Tap <strong>Done</strong></p>
+<p>The manuscript follows this order exactly.</p>
+<h3 id="what-gets-included">What Gets Included</h3>
+<p>By default, all poems are included. You can exclude individual poems:
+1. Open the poem's context menu
+2. Toggle <strong>Include in Manuscript</strong> off
+3. The poem stays in your project but is skipped during assembly</p>
+<p>This is useful for unfinished work, experiments, or poems earmarked for a different collection.</p>
+<h2 id="previewing-the-manuscript">Previewing the Manuscript</h2>
+<p>Before exporting:
+1. Open the <strong>Manuscript</strong> view
+2. Review the assembled content
+3. Check that poems appear in the correct order
+4. Verify formatting is preserved
+5. Confirm no unwanted poems are included</p>
+<h2 id="poetry-formatting-in-the-manuscript">Poetry Formatting in the Manuscript</h2>
+<p>Poetry formatting is preserved during manuscript assembly:
+- <strong>Line breaks</strong> are maintained exactly as written
+- <strong>Stanza breaks</strong> (blank lines between stanzas) are preserved
+- <strong>Indentation</strong> is carried through to the output
+- <strong>Character formatting</strong> (bold, italic) is retained</p>
+<h3 id="poem-breaks">Poem Breaks</h3>
+<p>Control how poems are separated in the manuscript:</p>
+<table>
+<thead>
+<tr>
+<th>Break Style</th>
+<th>Appearance</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Page Break</strong></td>
+<td>Each poem starts on a new page</td>
+</tr>
+<tr>
+<td><strong>Section Mark</strong></td>
+<td>Centered mark (e.g., * * *) between poems</td>
+</tr>
+<tr>
+<td><strong>Double Space</strong></td>
+<td>Extra blank line between poems</td>
+</tr>
+<tr>
+<td><strong>None</strong></td>
+<td>Poems flow together continuously</td>
+</tr>
+</tbody>
+</table>
+<p>For most poetry collections, <strong>Page Break</strong> is the standard — each poem begins on its own page.</p>
+<h2 id="poem-titles">Poem Titles</h2>
+<p>You can control whether poem titles appear as headings in the manuscript:
+- <strong>Include File Titles</strong>: Shows each poem's title as a heading above it
+- Disable this if your poems have their own title lines in the content</p>
+<p>This setting is in Export Options.</p>
+<h2 id="export-formats">Export Formats</h2>
+<p>Poetry manuscripts can be exported in all available formats:</p>
+<table>
+<thead>
+<tr>
+<th>Format</th>
+<th>Best For</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>PDF</strong></td>
+<td>Submissions, chapbooks, reading copies — preserves exact line placement</td>
+</tr>
+<tr>
+<td><strong>RTF</strong></td>
+<td>Editor collaboration, Word-compatible</td>
+</tr>
+<tr>
+<td><strong>HTML</strong></td>
+<td>Online publication, web journals</td>
+</tr>
+<tr>
+<td><strong>Markdown</strong></td>
+<td>Plain text archives, version control</td>
+</tr>
+</tbody>
+</table>
+<h3 id="why-pdf-is-usually-best-for-poetry">Why PDF Is Usually Best for Poetry</h3>
+<p>PDF preserves line breaks, spacing, and indentation exactly. Other formats may reflow text depending on the reader's settings, which can alter the visual layout of a poem.</p>
+<h3 id="exporting">Exporting</h3>
+<ol>
+<li>Open the Manuscript view</li>
+<li>Tap the export/share button</li>
+<li>Choose your format</li>
+<li>Configure options (page setup, back matter toggles)</li>
+<li>Save or share</li>
+</ol>
+<h2 id="collection-export">Collection Export</h2>
+<p>In addition to full manuscript export, you can export individual collections:
+1. Open a <strong>Collection</strong>
+2. Tap the export/share button
+3. Only poems in that collection are included
+4. Same format options apply</p>
+<p>This is useful for:
+- Submitting a specific group of poems to a journal
+- Creating themed chapbooks
+- Sharing a curated selection with beta readers</p>
+<h2 id="tips">Tips</h2>
+<h3 id="one-poem-per-page">One Poem Per Page</h3>
+<p>For submissions and chapbooks, use <strong>Page Break</strong> as the section break style. Most editors and publishers expect each poem to start on its own page.</p>
+<h3 id="order-matters">Order Matters</h3>
+<p>Arrange your poems thoughtfully before exporting. The sequence of poems in a collection or manuscript is a creative decision — it shapes how readers experience your work.</p>
+<h3 id="exclude-experiments">Exclude Experiments</h3>
+<p>Use the <strong>Include in Manuscript</strong> toggle to keep exploratory drafts in your project without cluttering the export.</p>
+<h3 id="check-line-breaks-in-pdf">Check Line Breaks in PDF</h3>
+<p>Always preview the PDF to ensure long lines wrap as intended. Adjust page margins if lines are breaking awkwardly.</p>
+<h2 id="see-also">See Also</h2>
+<ul>
+<li><a href="guide:61-poetry-mode-overview">Poetry Mode Overview</a></li>
+<li><a href="guide:36-manuscript-structure">Manuscript Structure</a></li>
+<li><a href="guide:91-export-options">Export Options</a></li>
+<li><a href="guide:92-pdf-export">PDF Export</a></li>
+</ul>
+<hr />
+
+
+<hr>
+</body>
+</html>
