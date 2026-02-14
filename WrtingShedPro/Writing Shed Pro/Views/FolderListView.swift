@@ -636,6 +636,7 @@ struct FolderListView: View {
         if let manuscriptFolder = project.folders?.first(where: { $0.name == "Manuscript" }),
            let frontMatterFolder = manuscriptFolder.folders?.first(where: { $0.name == "Front Matter" }),
            let frontCoverFile = frontMatterFolder.textFiles?.first(where: { $0.isCoverFile && $0.name == FrontMatterItem.frontCover.fileName }),
+           frontCoverFile.includedInManuscript,
            let imageData = frontCoverFile.coverImageData,
            let image = UIImage(data: imageData) {
             let attachment = NSTextAttachment()
@@ -651,6 +652,7 @@ struct FolderListView: View {
         if let manuscriptFolder = project.folders?.first(where: { $0.name == "Manuscript" }),
            let backMatterFolder = manuscriptFolder.folders?.first(where: { $0.name == "Back Matter" }),
            let backCoverFile = backMatterFolder.textFiles?.first(where: { $0.isCoverFile && $0.name == BackMatterItem.backCover.fileName }),
+           backCoverFile.includedInManuscript,
            let imageData = backCoverFile.coverImageData,
            let image = UIImage(data: imageData) {
             assembled.append(NSAttributedString(string: "\u{0C}")) // Page break before cover
