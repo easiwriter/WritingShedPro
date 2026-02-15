@@ -245,14 +245,23 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
             }
         }
         
-        // Draw text content
-        drawTextContent(
-            pageInfo: pageInfo,
-            containerHeight: containerHeight,
-            topInset: topInset,
-            leftInset: leftInset,
-            context: context
-        )
+        // Draw content — cover pages get special image drawing,
+        // regular pages use the attributed string pipeline
+        if isCoverPage {
+            drawCoverImage(
+                pageInfo: pageInfo,
+                contentRect: contentRect,
+                context: context
+            )
+        } else {
+            drawTextContent(
+                pageInfo: pageInfo,
+                containerHeight: containerHeight,
+                topInset: topInset,
+                leftInset: leftInset,
+                context: context
+            )
+        }
         
         // Draw footnotes if present
         let hasFootnotes = !versionFootnotes.isEmpty || !manuscriptFootnotes.isEmpty
@@ -395,6 +404,57 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
             let rightRect = CGRect(x: rect.origin.x + 2 * rect.width / 3, y: verticalCenter, width: rect.width / 3, height: labelHeight)
             rightText.draw(in: rightRect, withAttributes: rightAttributes)
         }
+    }
+    
+    /// Draw a cover image directly into the full page area.
+    /// NSAttributedString.draw(in:) doesn't reliably render NSTextAttachment images
+    /// in off-screen PDF contexts, so we extract the image and draw it with UIImage.draw(in:).
+    private func drawCoverImage(pageInfo: PaginatedTextLayoutManager.PageInfo,
+                                contentRect: CGRect,
+                                context: CGContext) {
+        // Find the NSTextAttachment image in this page's character range
+        let characterRange = pageInfo.characterRange
+        var coverImage: UIImage?
+        
+        layoutManager.textStorage.enumerateAttribute(.attachment, in: characterRange, options: []) { value, _, stop in
+            if let attachment = value as? NSTextAttachment, let image = attachment.image {
+                coverImage = image
+                stop.pointee = true
+            }
+        }
+        
+        guard let image = coverImage else {
+            #if DEBUG
+            print("⚠️ [CustomPDFPageRenderer] Cover page has no image attachment")
+            #endif
+            return
+        }
+        
+        // Use the full page rect (edge-to-edge) for covers
+        let paperSize = pageSetup.paperSize.dimensions
+        let pageRect = CGRect(x: 0, y: 0, width: paperSize.width, height: paperSize.height)
+        
+        // Aspect-fit the image within the full page
+        let imageSize = image.size
+        let widthRatio = pageRect.width / imageSize.width
+        let heightRatio = pageRect.height / imageSize.height
+        let scale = min(widthRatio, heightRatio)
+        
+        let scaledWidth = imageSize.width * scale
+        let scaledHeight = imageSize.height * scale
+        
+        // Centre the image on the page
+        let drawX = pageRect.origin.x + (pageRect.width - scaledWidth) / 2
+        let drawY = pageRect.origin.y + (pageRect.height - scaledHeight) / 2
+        let drawRect = CGRect(x: drawX, y: drawY, width: scaledWidth, height: scaledHeight)
+        
+        context.saveGState()
+        image.draw(in: drawRect)
+        context.restoreGState()
+        
+        #if DEBUG
+        print("🖼️ [CustomPDFPageRenderer] Drew cover image \(Int(imageSize.width))×\(Int(imageSize.height)) → \(Int(scaledWidth))×\(Int(scaledHeight))")
+        #endif
     }
     
     private func drawTextContent(pageInfo: PaginatedTextLayoutManager.PageInfo,
