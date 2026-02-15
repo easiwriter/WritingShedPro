@@ -9,11 +9,14 @@
 
 import SwiftUI
 import PhotosUI
+import UniformTypeIdentifiers
 
 struct CoverImageEditorView: View {
     @Bindable var file: TextFile
-    @State private var selectedItem: PhotosPickerItem?
     @State private var isProcessing = false
+    @State private var showSourcePicker = false
+    @State private var showFilePicker = false
+    @State private var selectedPhotoItem: PhotosPickerItem?
     
     var body: some View {
         GeometryReader { geometry in
@@ -38,14 +41,80 @@ struct CoverImageEditorView: View {
                     .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
             }
         }
-        .onChange(of: selectedItem) { _, newValue in
+        .confirmationDialog(
+            NSLocalizedString("cover.chooseSource.title", comment: "Choose Image Source"),
+            isPresented: $showSourcePicker,
+            titleVisibility: .visible
+        ) {
+            Button(NSLocalizedString("cover.chooseSource.photos", comment: "Photo Library")) {
+                showPhotosPicker()
+            }
+            Button(NSLocalizedString("cover.chooseSource.files", comment: "Choose from Files")) {
+                showFilePicker = true
+            }
+            Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) { }
+        }
+        .sheet(isPresented: $showFilePicker) {
+            DocumentImagePicker { data in
+                processImageData(data)
+            }
+        }
+        .onChange(of: selectedPhotoItem) { _, newValue in
             guard let item = newValue else { return }
             isProcessing = true
             Task {
                 await loadImage(from: item)
-                selectedItem = nil
+                selectedPhotoItem = nil
                 isProcessing = false
             }
+        }
+    }
+    
+    // MARK: - Image Source Selection
+    
+    private func chooseImage() {
+        #if targetEnvironment(macCatalyst)
+        // Mac Catalyst: Photos library is not accessible, go directly to file picker
+        showFilePicker = true
+        #else
+        // iOS: Let user choose between Photos and Files
+        showSourcePicker = true
+        #endif
+    }
+    
+    private func showPhotosPicker() {
+        // Present PHPicker via UIKit for reliable presentation
+        var configuration = PHPickerConfiguration(photoLibrary: .shared())
+        configuration.filter = .images
+        configuration.selectionLimit = 1
+        
+        let picker = PHPickerViewController(configuration: configuration)
+        let delegate = PHPickerDelegateHandler { results in
+            guard let result = results.first else { return }
+            isProcessing = true
+            result.itemProvider.loadDataRepresentation(forTypeIdentifier: UTType.image.identifier) { data, _ in
+                if let data = data {
+                    DispatchQueue.main.async {
+                        processImageData(data)
+                    }
+                } else {
+                    DispatchQueue.main.async {
+                        isProcessing = false
+                    }
+                }
+            }
+        }
+        // Store delegate as associated object so it isn't deallocated
+        objc_setAssociatedObject(picker, "delegate", delegate, .OBJC_ASSOCIATION_RETAIN)
+        picker.delegate = delegate
+        
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let rootViewController = windowScene.windows.first?.rootViewController {
+            var topController = rootViewController
+            while let presented = topController.presentedViewController {
+                topController = presented
+            }
+            topController.present(picker, animated: true)
         }
     }
     
@@ -62,7 +131,9 @@ struct CoverImageEditorView: View {
             .padding(.top, 20)
         
         HStack(spacing: 16) {
-            PhotosPicker(selection: $selectedItem, matching: .images) {
+            Button {
+                chooseImage()
+            } label: {
                 Label(
                     NSLocalizedString("cover.changeImage", comment: "Change Image"),
                     systemImage: "photo.on.rectangle"
@@ -96,7 +167,9 @@ struct CoverImageEditorView: View {
                 .font(.title3)
                 .foregroundStyle(.secondary)
             
-            PhotosPicker(selection: $selectedItem, matching: .images) {
+            Button {
+                chooseImage()
+            } label: {
                 Label(
                     NSLocalizedString("cover.addImage", comment: "Add Cover Image"),
                     systemImage: "plus.circle.fill"
@@ -109,7 +182,20 @@ struct CoverImageEditorView: View {
         .padding(.top, geometry.size.height * 0.25)
     }
     
-    // MARK: - Image Loading
+    // MARK: - Image Processing
+    
+    private func processImageData(_ data: Data) {
+        guard let uiImage = UIImage(data: data) else {
+            isProcessing = false
+            return
+        }
+        if let compressed = Self.compressImage(uiImage) {
+            withAnimation {
+                file.coverImageData = compressed
+            }
+        }
+        isProcessing = false
+    }
     
     private func loadImage(from item: PhotosPickerItem) async {
         guard let data = try? await item.loadTransferable(type: Data.self) else { return }
@@ -149,5 +235,67 @@ struct CoverImageEditorView: View {
         
         // Fall back to PNG (better for graphics)
         return scaledImage.pngData()
+    }
+}
+
+// MARK: - PHPicker Delegate Handler
+
+/// Standalone delegate class for PHPickerViewController used by CoverImageEditorView.
+/// Stored as an associated object on the picker to prevent deallocation.
+private class PHPickerDelegateHandler: NSObject, PHPickerViewControllerDelegate {
+    private let completion: ([PHPickerResult]) -> Void
+    
+    init(completion: @escaping ([PHPickerResult]) -> Void) {
+        self.completion = completion
+    }
+    
+    func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+        picker.dismiss(animated: true)
+        completion(results)
+    }
+}
+
+// MARK: - Document Image Picker
+
+/// SwiftUI wrapper around UIDocumentPickerViewController for choosing images from Files.
+struct DocumentImagePicker: UIViewControllerRepresentable {
+    var onImagePicked: (Data) -> Void
+    @Environment(\.dismiss) private var dismiss
+    
+    func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.image])
+        picker.allowsMultipleSelection = false
+        picker.delegate = context.coordinator
+        return picker
+    }
+    
+    func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {}
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onImagePicked: onImagePicked, dismiss: dismiss)
+    }
+    
+    class Coordinator: NSObject, UIDocumentPickerDelegate {
+        let onImagePicked: (Data) -> Void
+        let dismiss: DismissAction
+        
+        init(onImagePicked: @escaping (Data) -> Void, dismiss: DismissAction) {
+            self.onImagePicked = onImagePicked
+            self.dismiss = dismiss
+        }
+        
+        func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+            guard let url = urls.first else { return }
+            let accessing = url.startAccessingSecurityScopedResource()
+            defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+            
+            if let data = try? Data(contentsOf: url) {
+                onImagePicked(data)
+            }
+        }
+        
+        func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+            dismiss()
+        }
     }
 }

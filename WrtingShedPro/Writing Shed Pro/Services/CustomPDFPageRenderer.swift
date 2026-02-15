@@ -23,9 +23,20 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
     private let modelContext: ModelContext?
     private let project: Project
     
+    /// Footnotes collected during manuscript assembly (used when version is nil)
+    private let assembledFootnotes: [ManuscriptFootnote]
+    
+    /// Whether the first page is a front cover (no headers/footers)
+    private let hasFrontCover: Bool
+    /// Whether the last page is a back cover (no headers/footers)
+    private let hasBackCover: Bool
+    /// Character length of front matter content (excluding cover) in the text storage.
+    /// Pages whose character range falls within this length show roman numeral page numbers.
+    private let frontMatterCharacterLength: Int
+    
     // Cache for page text views to reuse rendering logic
     private var pageTextViews: [Int: UITextView] = [:]
-    private var footnoteControllers: [Int: UIHostingController<FootnoteRenderer>] = [:]
+    private var footnoteControllers: [Int: UIViewController] = [:]
     
     // MARK: - Initialization
     
@@ -37,18 +48,28 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
     ///   - version: Version for footnote support
     ///   - context: Model context for footnote queries
     ///   - project: Project for stylesheet
+    ///   - hasFrontCover: Whether the first page is a cover image
+    ///   - hasBackCover: Whether the last page is a cover image
     init(layoutManager: PaginatedTextLayoutManager,
          layoutResult: PaginatedTextLayoutManager.LayoutResult,
          pageSetup: PageSetup,
          version: Version?,
          context: ModelContext?,
-         project: Project) {
+         project: Project,
+         hasFrontCover: Bool = false,
+         hasBackCover: Bool = false,
+         frontMatterCharacterLength: Int = 0,
+         assembledFootnotes: [ManuscriptFootnote] = []) {
         self.layoutManager = layoutManager
         self.layoutResult = layoutResult
         self.pageSetup = pageSetup
         self.version = version
         self.modelContext = context
         self.project = project
+        self.assembledFootnotes = assembledFootnotes
+        self.hasFrontCover = hasFrontCover
+        self.hasBackCover = hasBackCover
+        self.frontMatterCharacterLength = frontMatterCharacterLength
         
         super.init()
         
@@ -99,28 +120,38 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
         let contentRect = pageLayout.contentRect
         
         // Get footnotes for this page
-        let footnotes: [FootnoteModel]
-        var footnoteHeight: CGFloat
+        var footnoteHeight: CGFloat = 0
+        var versionFootnotes: [FootnoteModel] = []
+        var manuscriptFootnotes: [ManuscriptFootnote] = []
         
         // Maximum footnote height - must match PaginatedTextLayoutManager
         let maxFootnoteHeight = contentRect.height * 0.5
         
+        // Use the character range from the constructor-supplied layoutResult directly,
+        // because layoutManager.layoutResult is set asynchronously on the main thread
+        // and may not be available yet during background PDF rendering.
+        let pageCharRange = pageInfo.characterRange
+        
         if let version = version, let modelContext = modelContext {
-            footnotes = layoutManager.getFootnotesForPage(pageIndex, version: version, context: modelContext)
+            versionFootnotes = layoutManager.getFootnotes(in: pageCharRange, version: version, context: modelContext)
             
-            if !footnotes.isEmpty {
+            if !versionFootnotes.isEmpty {
                 let rawFootnoteHeight = layoutManager.calculateFootnoteHeight(
-                    for: footnotes,
+                    for: versionFootnotes,
                     pageWidth: contentRect.width
                 )
-                // Cap footnote height to ensure minimum text space
                 footnoteHeight = min(rawFootnoteHeight, maxFootnoteHeight)
-            } else {
-                footnoteHeight = 0
             }
-        } else {
-            footnotes = []
-            footnoteHeight = 0
+        } else if !assembledFootnotes.isEmpty {
+            manuscriptFootnotes = layoutManager.getFootnotes(in: pageCharRange, assembledFootnotes: assembledFootnotes)
+            
+            if !manuscriptFootnotes.isEmpty {
+                let rawFootnoteHeight = layoutManager.calculateFootnoteHeight(
+                    for: manuscriptFootnotes,
+                    pageWidth: contentRect.width
+                )
+                footnoteHeight = min(rawFootnoteHeight, maxFootnoteHeight)
+            }
         }
         
         // Get the actual container height used during layout
@@ -136,30 +167,82 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
         let topInset = pageSetup.marginTop
         let leftInset = pageSetup.marginLeft
         
-        // Draw header if enabled
-        if pageSetup.hasHeaders, let headerRect = pageLayout.headerRect {
-            drawHeaderFooter(
-                left: pageSetup.headerLeft,
-                center: pageSetup.headerCenter,
-                right: pageSetup.headerRight,
-                rect: headerRect,
-                pageNumber: pageIndex + 1,
-                totalPages: numberOfPages,
-                context: context
-            )
-        }
+        // Skip headers/footers on cover pages
+        let isFrontCoverPage = hasFrontCover && pageIndex == 0
+        let isBackCoverPage = hasBackCover && pageIndex == numberOfPages - 1
+        let isCoverPage = isFrontCoverPage || isBackCoverPage
         
-        // Draw footer if enabled
-        if pageSetup.hasFooters, let footerRect = pageLayout.footerRect {
-            drawHeaderFooter(
-                left: pageSetup.footerLeft,
-                center: pageSetup.footerCenter,
-                right: pageSetup.footerRight,
-                rect: footerRect,
-                pageNumber: pageIndex + 1,
-                totalPages: numberOfPages,
-                context: context
-            )
+        if !isCoverPage {
+            // Determine if this page is front matter based on character offset.
+            // Front matter content starts right after the cover (if any) in the text storage.
+            // The cover image is always a single page with a short placeholder string,
+            // so front matter character positions come after the cover's characters.
+            let isFrontMatterPage = frontMatterCharacterLength > 0
+                && pageInfo.characterRange.location < frontMatterCharacterLength
+            
+            // Calculate page numbers for each numbering region.
+            // We need to count pages sequentially within each region.
+            
+            let pageNumberString: String
+            let displayTotalPages: Int
+            
+            if isFrontMatterPage {
+                // Count front matter pages up to this one
+                var fmPageNumber = 0
+                var fmTotalPages = 0
+                for i in 0..<layoutResult.pageInfos.count {
+                    let pi = layoutResult.pageInfos[i]
+                    let isThisFM = pi.characterRange.location < frontMatterCharacterLength
+                    let isThisCover = (hasFrontCover && i == 0) || (hasBackCover && i == numberOfPages - 1)
+                    if isThisFM && !isThisCover {
+                        fmTotalPages += 1
+                        if i == pageIndex { fmPageNumber = fmTotalPages }
+                    }
+                }
+                pageNumberString = Self.toRomanNumeral(fmPageNumber)
+                displayTotalPages = fmTotalPages
+            } else {
+                // Count body+back matter pages up to this one
+                var bodyPageNumber = 0
+                var bodyTotalPages = 0
+                for i in 0..<layoutResult.pageInfos.count {
+                    let pi = layoutResult.pageInfos[i]
+                    let isThisFM = frontMatterCharacterLength > 0 && pi.characterRange.location < frontMatterCharacterLength
+                    let isThisCover = (hasFrontCover && i == 0) || (hasBackCover && i == numberOfPages - 1)
+                    if !isThisFM && !isThisCover {
+                        bodyTotalPages += 1
+                        if i == pageIndex { bodyPageNumber = bodyTotalPages }
+                    }
+                }
+                pageNumberString = "\(bodyPageNumber)"
+                displayTotalPages = bodyTotalPages
+            }
+            
+            // Draw header if enabled
+            if pageSetup.hasHeaders, let headerRect = pageLayout.headerRect {
+                drawHeaderFooter(
+                    left: pageSetup.headerLeft,
+                    center: pageSetup.headerCenter,
+                    right: pageSetup.headerRight,
+                    rect: headerRect,
+                    pageNumberString: pageNumberString,
+                    totalPages: displayTotalPages,
+                    context: context
+                )
+            }
+            
+            // Draw footer if enabled
+            if pageSetup.hasFooters, let footerRect = pageLayout.footerRect {
+                drawHeaderFooter(
+                    left: pageSetup.footerLeft,
+                    center: pageSetup.footerCenter,
+                    right: pageSetup.footerRight,
+                    rect: footerRect,
+                    pageNumberString: pageNumberString,
+                    totalPages: displayTotalPages,
+                    context: context
+                )
+            }
         }
         
         // Draw text content
@@ -172,7 +255,8 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
         )
         
         // Draw footnotes if present
-        if !footnotes.isEmpty {
+        let hasFootnotes = !versionFootnotes.isEmpty || !manuscriptFootnotes.isEmpty
+        if hasFootnotes {
             let footnoteRect = CGRect(
                 x: contentRect.origin.x,
                 y: pageLayout.pageRect.height - pageSetup.marginBottom - footnoteHeight,
@@ -180,19 +264,28 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
                 height: footnoteHeight
             )
             
-            drawFootnotes(
-                footnotes: footnotes,
-                in: footnoteRect,
-                context: context,
-                maxHeight: footnoteHeight
-            )
+            if !versionFootnotes.isEmpty {
+                drawFootnotes(
+                    footnotes: versionFootnotes,
+                    in: footnoteRect,
+                    context: context,
+                    maxHeight: footnoteHeight
+                )
+            } else {
+                drawFootnotes(
+                    footnotes: manuscriptFootnotes,
+                    in: footnoteRect,
+                    context: context,
+                    maxHeight: footnoteHeight
+                )
+            }
         }
     }
     
     // MARK: - Drawing Helpers
     
     /// Resolve placeholder tokens in header/footer text
-    private func resolvePlaceholders(_ text: String?, pageNumber: Int, totalPages: Int) -> String {
+    private func resolvePlaceholders(_ text: String?, pageNumberString: String, totalPages: Int) -> String {
         guard let text = text, !text.isEmpty else { return "" }
         
         var result = text
@@ -205,9 +298,9 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
             result = result.replacingOccurrences(of: "{{Date}}", with: formatter.string(from: Date()))
         }
         
-        // {{Page Number}} - Current page (always actual numbers for printing)
+        // {{Page Number}} - Current page (roman numeral for front matter, arabic for body)
         if result.contains("{{Page Number}}") {
-            result = result.replacingOccurrences(of: "{{Page Number}}", with: "\(pageNumber)")
+            result = result.replacingOccurrences(of: "{{Page Number}}", with: pageNumberString)
         }
         
         // {{Folder}} - Source folder name
@@ -235,20 +328,37 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
         return result
     }
     
+    /// Convert an integer to a lowercase roman numeral string
+    static func toRomanNumeral(_ number: Int) -> String {
+        guard number > 0 else { return "" }
+        let values = [(1000, "m"), (900, "cm"), (500, "d"), (400, "cd"),
+                      (100, "c"), (90, "xc"), (50, "l"), (40, "xl"),
+                      (10, "x"), (9, "ix"), (5, "v"), (4, "iv"), (1, "i")]
+        var result = ""
+        var remaining = number
+        for (value, numeral) in values {
+            while remaining >= value {
+                result += numeral
+                remaining -= value
+            }
+        }
+        return result
+    }
+    
     /// Draw header or footer text
     private func drawHeaderFooter(
         left: String?,
         center: String?,
         right: String?,
         rect: CGRect,
-        pageNumber: Int,
+        pageNumberString: String,
         totalPages: Int,
         context: CGContext
     ) {
         // Resolve placeholders
-        let leftText = resolvePlaceholders(left, pageNumber: pageNumber, totalPages: totalPages)
-        let centerText = resolvePlaceholders(center, pageNumber: pageNumber, totalPages: totalPages)
-        let rightText = resolvePlaceholders(right, pageNumber: pageNumber, totalPages: totalPages)
+        let leftText = resolvePlaceholders(left, pageNumberString: pageNumberString, totalPages: totalPages)
+        let centerText = resolvePlaceholders(center, pageNumberString: pageNumberString, totalPages: totalPages)
+        let rightText = resolvePlaceholders(right, pageNumberString: pageNumberString, totalPages: totalPages)
         
         // Text attributes for header/footer
         let font = UIFont.systemFont(ofSize: 12)
@@ -371,33 +481,104 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
         context.restoreGState()
     }
     
-    private func drawFootnotes(footnotes: [FootnoteModel],
+    private func drawFootnotes<F: FootnoteRenderable & Identifiable>(footnotes: [F],
                               in rect: CGRect,
                               context: CGContext,
                               maxHeight: CGFloat) {
-        // Get stylesheet from project
+        // Draw footnotes directly via Core Graphics / NSString drawing.
+        // UIHostingController-based rendering doesn't work for off-screen PDF
+        // contexts (SwiftUI views won't render without a window hierarchy).
+        
         let stylesheet = project.styleSheet
+        let footnoteStyleName = UIFont.TextStyle.footnote.rawValue
+        let footnoteStyle = stylesheet?.textStyles?.first { $0.name == footnoteStyleName }
         
-        // Create footnote renderer view with max height for clipping
-        let footnoteView = FootnoteRenderer(
-            footnotes: footnotes,
-            pageWidth: rect.width,
-            stylesheet: stylesheet,
-            maxHeight: maxHeight
-        )
+        let fontSize: CGFloat = footnoteStyle?.fontSize ?? 10
+        let isBold = footnoteStyle?.isBold ?? false
+        let isItalic = footnoteStyle?.isItalic ?? false
+        let textColor: UIColor = footnoteStyle?.textColor ?? .label
         
-        // Wrap in hosting controller for rendering
-        let hostingController = UIHostingController(rootView: footnoteView)
-        hostingController.view.frame = rect
-        hostingController.view.backgroundColor = UIColor.clear
+        // Build the font matching FootnoteRenderer's styling
+        var fontTraits: UIFontDescriptor.SymbolicTraits = []
+        if isBold { fontTraits.insert(.traitBold) }
+        if isItalic { fontTraits.insert(.traitItalic) }
+        let baseFont = UIFont.systemFont(ofSize: fontSize)
+        let font: UIFont
+        if !fontTraits.isEmpty, let desc = baseFont.fontDescriptor.withSymbolicTraits(fontTraits) {
+            font = UIFont(descriptor: desc, size: fontSize)
+        } else {
+            font = baseFont
+        }
         
-        // Render the view
+        // Superscript number font (0.9× body, matching FootnoteRenderer)
+        let numberFont = UIFont.systemFont(ofSize: fontSize * 0.9)
+        
+        // Paragraph style with 1.2pt line spacing (matches FootnoteRenderer)
+        let paragraphStyle = NSMutableParagraphStyle()
+        paragraphStyle.lineSpacing = 1.2
+        
+        // --- Draw using UIKit text drawing in the PDF context ---
+        // The PDF context from UIGraphicsBeginPDFPage() is already in UIKit's
+        // top-down coordinate system, so no flip is needed.
         context.saveGState()
         context.translateBy(x: rect.origin.x, y: rect.origin.y)
         
-        // Render the layer (layer is always present on UIView)
-        hostingController.view.layer.render(in: context)
+        // Push a UIGraphics context wrapping our CGContext so NSString.draw works
+        UIGraphicsPushContext(context)
         
+        let drawWidth = rect.width
+        var yOffset: CGFloat = 0
+        
+        // 1) 10pt space above separator
+        yOffset += 10
+        
+        // 2) Separator line: 108pt wide, 0.5pt thick
+        context.setStrokeColor(textColor.cgColor)
+        context.setLineWidth(0.5)
+        context.move(to: CGPoint(x: 0, y: yOffset + 0.25))
+        context.addLine(to: CGPoint(x: 108, y: yOffset + 0.25))
+        context.strokePath()
+        yOffset += 1
+        
+        // 3) 10pt space below separator
+        yOffset += 10
+        
+        // 4) Draw each footnote entry
+        let numberAttributes: [NSAttributedString.Key: Any] = [
+            .font: numberFont,
+            .foregroundColor: textColor
+        ]
+        let textAttributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: textColor,
+            .paragraphStyle: paragraphStyle
+        ]
+        
+        for footnote in footnotes {
+            let numberStr = "\(footnote.number)" as NSString
+            let numberSize = numberStr.size(withAttributes: numberAttributes)
+            
+            // Draw the superscript number (baseline offset via y adjustment)
+            let numberRect = CGRect(x: 0, y: yOffset - 3, width: numberSize.width, height: numberSize.height)
+            numberStr.draw(in: numberRect, withAttributes: numberAttributes)
+            
+            // Draw the footnote text
+            let textX = numberSize.width + 6
+            let textWidth = drawWidth - textX
+            let textStr = footnote.text as NSString
+            let textBoundingRect = textStr.boundingRect(
+                with: CGSize(width: textWidth, height: .greatestFiniteMagnitude),
+                options: [.usesLineFragmentOrigin, .usesFontLeading],
+                attributes: textAttributes,
+                context: nil
+            )
+            let textDrawRect = CGRect(x: textX, y: yOffset, width: textWidth, height: textBoundingRect.height)
+            textStr.draw(with: textDrawRect, options: [.usesLineFragmentOrigin, .usesFontLeading], attributes: textAttributes, context: nil)
+            
+            yOffset += max(numberSize.height, textBoundingRect.height) + 4
+        }
+        
+        UIGraphicsPopContext()
         context.restoreGState()
     }
     

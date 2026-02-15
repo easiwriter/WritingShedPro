@@ -44,7 +44,7 @@ struct FootnotesListView: View {
     // MARK: - Body
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             Group {
                 if footnotes.isEmpty {
                     emptyState
@@ -281,8 +281,8 @@ struct FootnotesListView: View {
     // MARK: - Actions
     
     private func loadFootnotes() {
-        // Use the relationship directly - much more efficient!
-        footnotes = version.footnotes ?? []
+        // Use the relationship directly, sorted by number (document order)
+        footnotes = (version.footnotes ?? []).sorted { $0.number < $1.number }
     }
     
     private func startEditing(_ footnote: FootnoteModel) {

@@ -61,6 +61,19 @@ struct ManuscriptSection: Identifiable, Equatable {
     }
 }
 
+// MARK: - ManuscriptFootnote
+
+/// Lightweight representation of a footnote in an assembled manuscript.
+/// Unlike FootnoteModel (a SwiftData @Model), this is a plain struct that can be
+/// stored in ManuscriptContent without requiring a model context.
+struct ManuscriptFootnote {
+    let attachmentID: UUID
+    let text: String
+    let number: Int
+    /// Character position in the assembled manuscript string
+    let characterPosition: Int
+}
+
 // MARK: - ManuscriptContent
 
 /// Complete assembled manuscript content
@@ -70,6 +83,20 @@ struct ManuscriptContent {
     var pageMap: [UUID: Int]
     let fileOffsets: [UUID: Int]
     var pageCount: Int
+    
+    /// Whether a front cover image page was inserted at the beginning
+    var hasFrontCover: Bool
+    /// Whether a back cover image page was appended at the end
+    var hasBackCover: Bool
+    /// Number of non-cover front matter files in the assembled content
+    var frontMatterFileCount: Int
+    /// Character length of all front matter content (excluding cover) in the assembled string,
+    /// including inter-file form feeds. Used by the standard-path renderer to determine
+    /// which pages should show roman numeral page numbers.
+    var frontMatterCharacterLength: Int
+    /// Footnotes collected from all assembled files, with character positions remapped
+    /// to the assembled string. Used by PDF renderers when no single Version is available.
+    var assembledFootnotes: [ManuscriptFootnote]
     
     var wordCount: Int {
         let text = attributedString.string
@@ -88,13 +115,23 @@ struct ManuscriptContent {
         sections: [ManuscriptSection] = [],
         pageMap: [UUID: Int] = [:],
         fileOffsets: [UUID: Int] = [:],
-        pageCount: Int = 0
+        pageCount: Int = 0,
+        hasFrontCover: Bool = false,
+        hasBackCover: Bool = false,
+        frontMatterFileCount: Int = 0,
+        frontMatterCharacterLength: Int = 0,
+        assembledFootnotes: [ManuscriptFootnote] = []
     ) {
         self.attributedString = attributedString
         self.sections = sections
         self.pageMap = pageMap
         self.fileOffsets = fileOffsets
         self.pageCount = pageCount
+        self.hasFrontCover = hasFrontCover
+        self.hasBackCover = hasBackCover
+        self.frontMatterFileCount = frontMatterFileCount
+        self.frontMatterCharacterLength = frontMatterCharacterLength
+        self.assembledFootnotes = assembledFootnotes
     }
 }
 

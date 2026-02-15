@@ -19,15 +19,43 @@ struct TOCEntry: Identifiable {
     let sourceFile: TextFile
     let characterPosition: Int  // Position in source file for navigation
     let globalCharacterPosition: Int  // Position in assembled manuscript (for page calculation)
+    /// Whether this entry's page number should be displayed as a lowercase roman numeral (front matter)
+    var isRomanNumeral: Bool
     
     /// Create entry with just source file position (page number calculated later)
-    init(headingText: String, indentLevel: Int, sourceFile: TextFile, characterPosition: Int, globalCharacterPosition: Int = 0) {
+    init(headingText: String, indentLevel: Int, sourceFile: TextFile, characterPosition: Int, globalCharacterPosition: Int = 0, isRomanNumeral: Bool = false) {
         self.headingText = headingText
         self.pageNumber = 0
         self.indentLevel = indentLevel
         self.sourceFile = sourceFile
         self.characterPosition = characterPosition
         self.globalCharacterPosition = globalCharacterPosition
+        self.isRomanNumeral = isRomanNumeral
+    }
+    
+    /// The page number formatted for display (roman numeral for front matter, arabic for body)
+    var formattedPageNumber: String {
+        if isRomanNumeral {
+            return Self.toRomanNumeral(pageNumber)
+        }
+        return "\(pageNumber)"
+    }
+    
+    /// Convert an integer to a lowercase roman numeral string
+    static func toRomanNumeral(_ number: Int) -> String {
+        guard number > 0 else { return "" }
+        let values = [(1000, "m"), (900, "cm"), (500, "d"), (400, "cd"),
+                      (100, "c"), (90, "xc"), (50, "l"), (40, "xl"),
+                      (10, "x"), (9, "ix"), (5, "v"), (4, "iv"), (1, "i")]
+        var result = ""
+        var remaining = number
+        for (value, numeral) in values {
+            while remaining >= value {
+                result += numeral
+                remaining -= value
+            }
+        }
+        return result
     }
 }
 
@@ -243,9 +271,10 @@ final class TOCGenerationService {
         }
         #endif
         
-        // === STEP 2: Calculate front matter page count ===
-        // Paginate each front matter file individually — no form feeds needed.
-        // Each front matter file starts on its own page and occupies at least 1 page.
+        // === STEP 2: Calculate front matter page numbers (roman numerals) ===
+        // Front matter uses its own 1-based page numbering displayed as lowercase roman numerals.
+        // Body + back matter keep their own 1-based arabic numbering from STEP 1.
+        // No offset is applied — the two numbering schemes are independent.
         let frontMatterFiles = sections
             .filter { $0.sectionType == .frontMatter }
             .flatMap { $0.files }
@@ -298,6 +327,7 @@ final class TOCGenerationService {
                 for i in 0..<updatedEntries.count where updatedEntries[i].sourceFile.id == file.id {
                     let page = findPageForCharacterPosition(updatedEntries[i].characterPosition, in: result)
                     updatedEntries[i].pageNumber = frontMatterPageCount + page
+                    updatedEntries[i].isRomanNumeral = true
                 }
                 
                 frontMatterPageCount += result.totalPages
@@ -308,21 +338,13 @@ final class TOCGenerationService {
         }
         
         #if DEBUG
-        print("[TOCGeneration] Front matter: \(frontMatterFiles.count) files → \(frontMatterPageCount) pages")
+        print("[TOCGeneration] Front matter: \(frontMatterFiles.count) files → \(frontMatterPageCount) pages (roman numerals)")
+        print("[TOCGeneration] Body pages start at 1 (arabic), no offset applied")
         print("[TOCGeneration] Page setup: \(pageSetup.paperSize.rawValue), margins T:\(pageSetup.marginTop) B:\(pageSetup.marginBottom) L:\(pageSetup.marginLeft) R:\(pageSetup.marginRight)")
-        #endif
-        
-        // === STEP 3: Apply front matter offset to body + back matter entries ===
-        for i in 0..<updatedEntries.count {
-            guard !frontMatterFileIds.contains(updatedEntries[i].sourceFile.id) else { continue }
-            updatedEntries[i].pageNumber += frontMatterPageCount
-            
-            #if DEBUG
-            print("[TOCGeneration]   '\(updatedEntries[i].headingText.prefix(30))': raw + \(frontMatterPageCount) = page \(updatedEntries[i].pageNumber)")
-            #endif
+        for entry in updatedEntries {
+            let fmt = entry.isRomanNumeral ? TOCEntry.toRomanNumeral(entry.pageNumber) : "\(entry.pageNumber)"
+            print("[TOCGeneration]   '\(entry.headingText.prefix(30))': page \(fmt) (\(entry.isRomanNumeral ? "roman" : "arabic"))")
         }
-        
-        #if DEBUG
         print("[TOCGeneration] ========== PAGE NUMBER CALCULATION END ==========")
         #endif
         
@@ -645,6 +667,60 @@ final class TOCGenerationService {
         return result
     }
     
+    // MARK: - Pre-Export TOC Regeneration
+    
+    /// Regenerate the TOC file content before PDF export.
+    /// This ensures the TOC includes all current headings with accurate page numbers
+    /// (roman numerals for front matter, arabic for body) regardless of when the user
+    /// last opened or refreshed the TOC in the editor.
+    /// - Parameter project: The project to regenerate the TOC for
+    func regenerateTOCForExport(project: Project) async {
+        // Find the TOC file in front matter
+        guard let manuscriptFolder = project.folders?.first(where: { $0.name == "Manuscript" }),
+              let frontMatterFolder = manuscriptFolder.folders?.first(where: { $0.name == "Front Matter" }),
+              let tocFile = frontMatterFolder.textFiles?.first(where: { $0.isTOCFile }) else {
+            #if DEBUG
+            print("[TOCGeneration] No TOC file found for pre-export regeneration")
+            #endif
+            return
+        }
+        
+        #if DEBUG
+        print("[TOCGeneration] ========== PRE-EXPORT TOC REGENERATION ==========")
+        #endif
+        
+        // Generate fresh entries from all manuscript files
+        let entries = generateEntries(for: project, tocFile: tocFile)
+        
+        guard !entries.isEmpty else {
+            #if DEBUG
+            print("[TOCGeneration] No entries found, skipping regeneration")
+            #endif
+            return
+        }
+        
+        // Calculate page numbers (with roman numerals for front matter)
+        let entriesWithPages = await calculatePageNumbers(for: entries, project: project, tocFile: tocFile)
+        
+        // Render TOC content
+        let settings = tocFile.tocSettings
+        let tocContent = renderTOC(entries: entriesWithPages, settings: settings, project: project)
+        
+        #if DEBUG
+        print("[TOCGeneration] Regenerated TOC: \(entriesWithPages.count) entries")
+        for entry in entriesWithPages {
+            print("[TOCGeneration]   '\(entry.headingText)': page \(entry.formattedPageNumber) (\(entry.isRomanNumeral ? "roman" : "arabic"))")
+        }
+        print("[TOCGeneration] ========== PRE-EXPORT TOC REGENERATION END ==========")
+        #endif
+        
+        // Save the regenerated content to the TOC file's current version
+        if let version = tocFile.currentVersion {
+            version.attributedContent = tocContent
+            version.content = tocContent.string
+        }
+    }
+    
     /// Format a single TOC entry with per-level styling (simple format for editor display)
     private func formatEntry(_ entry: TOCEntry, settings: TOCSettings, styleSheet: StyleSheet?) -> NSAttributedString {
         // Get the style for this entry's level and generate full attributes
@@ -669,7 +745,7 @@ final class TOCGenerationService {
         let result = NSMutableAttributedString()
         
         if settings.showPageNumbers {
-            result.append(NSAttributedString(string: "\(entry.headingText)  \(entry.pageNumber)\n", attributes: textAttrs))
+            result.append(NSAttributedString(string: "\(entry.headingText)  \(entry.formattedPageNumber)\n", attributes: textAttrs))
         } else {
             result.append(NSAttributedString(string: entry.headingText + "\n", attributes: textAttrs))
         }
@@ -702,8 +778,8 @@ final class TOCGenerationService {
         let paperWidth = isLandscape ? paperDims.height : paperDims.width
         let contentWidth = paperWidth - pageSetup.marginLeft - pageSetup.marginRight
         
-        // Entry line regex: "heading text  page_number" (2+ spaces before trailing digits)
-        let entryRegex = try? NSRegularExpression(pattern: "^(.+?)\\s{2,}(\\d+)$")
+        // Entry line regex: "heading text  page_number" (2+ spaces before trailing digits or roman numerals)
+        let entryRegex = try? NSRegularExpression(pattern: "^(.+?)\\s{2,}([ivxlcdm]+|\\d+)$")
         
         fullString.enumerateSubstrings(in: fullRange, options: .byParagraphs) { substring, substringRange, enclosingRange, _ in
             guard let text = substring, !text.isEmpty else {

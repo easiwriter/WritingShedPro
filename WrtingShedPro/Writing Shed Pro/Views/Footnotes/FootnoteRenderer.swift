@@ -8,9 +8,23 @@
 
 import SwiftUI
 
+/// Protocol for types that can be rendered as footnotes
+protocol FootnoteRenderable {
+    var number: Int { get }
+    var text: String { get }
+}
+
+/// FootnoteModel already has these properties (and is already Identifiable via @Model)
+extension FootnoteModel: FootnoteRenderable {}
+
+/// ManuscriptFootnote conformance
+extension ManuscriptFootnote: Identifiable, FootnoteRenderable {
+    var id: UUID { attachmentID }
+}
+
 /// Renders footnotes at the bottom of a paginated page
-struct FootnoteRenderer: View {
-    let footnotes: [FootnoteModel]
+struct FootnoteRenderer<F: FootnoteRenderable & Identifiable>: View {
+    let footnotes: [F]
     let pageWidth: CGFloat
     let stylesheet: StyleSheet?
     /// Maximum height available for footnotes (nil = no limit)
@@ -68,7 +82,7 @@ struct FootnoteRenderer: View {
     }
     
     @ViewBuilder
-    private func footnoteEntry(_ footnote: FootnoteModel) -> some View {
+    private func footnoteEntry(_ footnote: F) -> some View {
         HStack(alignment: .top, spacing: 6) {
             // Superscript number (slightly smaller than body text)
             Text("\(footnote.number)")

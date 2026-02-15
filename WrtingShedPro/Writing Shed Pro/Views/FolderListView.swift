@@ -467,6 +467,10 @@ struct FolderListView: View {
                 pdfGenerator: previewPDFData == nil ? { [project, modelContext] report in
                     let assemblyService = ManuscriptAssemblyService(context: modelContext)
                     do {
+                        // Phase 0: Regenerate TOC so it includes all current headings + correct page numbers
+                        let tocService = TOCGenerationService(context: modelContext)
+                        await tocService.regenerateTOCForExport(project: project)
+                        
                         // Phase 1: Assembly (0% → 5%) — fast for most projects
                         let content = try await assemblyService.assembleContent(for: project) { current, total in
                             let frac = total > 0 ? 0.05 * Double(current) / Double(total) : 0
@@ -607,6 +611,10 @@ struct FolderListView: View {
         let assemblyService = ManuscriptAssemblyService(context: modelContext)
         
         do {
+            // Regenerate TOC so it includes all current headings + correct page numbers
+            let tocService = TOCGenerationService(context: modelContext)
+            await tocService.regenerateTOCForExport(project: project)
+            
             let content = try await assemblyService.assembleContent(for: project)
             
             guard content.attributedString.length > 0 else { return nil }
@@ -631,6 +639,8 @@ struct FolderListView: View {
     /// Insert front/back cover images into manuscript content
     static func insertCoverImages(into content: ManuscriptContent, project: Project) -> ManuscriptContent {
         let assembled = NSMutableAttributedString()
+        var hasFrontCover = false
+        var hasBackCover = false
         
         // Front cover: find front cover file and prepend its image
         if let manuscriptFolder = project.folders?.first(where: { $0.name == "Manuscript" }),
@@ -644,9 +654,37 @@ struct FolderListView: View {
             // Scale to page width (will be handled by PrintService)
             assembled.append(NSAttributedString(attachment: attachment))
             assembled.append(NSAttributedString(string: "\u{0C}")) // Page break after cover
+            hasFrontCover = true
         }
         
         assembled.append(content.attributedString)
+        
+        // Adjust frontMatterCharacterLength for the cover content prepended above.
+        // The assembly-time value is relative to the original string; adding a front cover
+        // shifts all character positions by the cover's length (attachment + form feed).
+        let adjustedFMCharLength: Int
+        if hasFrontCover {
+            let coverPrefixLength = assembled.length - content.attributedString.length
+            adjustedFMCharLength = content.frontMatterCharacterLength + coverPrefixLength
+        } else {
+            adjustedFMCharLength = content.frontMatterCharacterLength
+        }
+        
+        // Adjust footnote positions when a front cover shifts all character positions
+        let adjustedFootnotes: [ManuscriptFootnote]
+        if hasFrontCover {
+            let coverPrefixLength = assembled.length - content.attributedString.length
+            adjustedFootnotes = content.assembledFootnotes.map { fn in
+                ManuscriptFootnote(
+                    attachmentID: fn.attachmentID,
+                    text: fn.text,
+                    number: fn.number,
+                    characterPosition: fn.characterPosition + coverPrefixLength
+                )
+            }
+        } else {
+            adjustedFootnotes = content.assembledFootnotes
+        }
         
         // Back cover: find back cover file and append its image
         if let manuscriptFolder = project.folders?.first(where: { $0.name == "Manuscript" }),
@@ -659,6 +697,7 @@ struct FolderListView: View {
             let attachment = NSTextAttachment()
             attachment.image = image
             assembled.append(NSAttributedString(attachment: attachment))
+            hasBackCover = true
         }
         
         return ManuscriptContent(
@@ -666,7 +705,12 @@ struct FolderListView: View {
             sections: content.sections,
             pageMap: content.pageMap,
             fileOffsets: content.fileOffsets,
-            pageCount: content.pageCount
+            pageCount: content.pageCount,
+            hasFrontCover: hasFrontCover,
+            hasBackCover: hasBackCover,
+            frontMatterFileCount: content.frontMatterFileCount,
+            frontMatterCharacterLength: adjustedFMCharLength,
+            assembledFootnotes: adjustedFootnotes
         )
     }
 

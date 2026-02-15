@@ -176,14 +176,14 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
     private struct PageViewInfo {
         let pageIndex: Int
         let textView: UITextView
-        let footnoteHostingController: UIHostingController<FootnoteRenderer>?
+        let footnoteHostingController: UIHostingController<FootnoteRenderer<FootnoteModel>>?
         let headerView: UIView?
         let footerView: UIView?
         let pageBackgroundView: UIView
         let frame: CGRect
         let isLoadingPlaceholder: Bool
         
-        init(pageIndex: Int, textView: UITextView, footnoteHostingController: UIHostingController<FootnoteRenderer>?, headerView: UIView?, footerView: UIView?, pageBackgroundView: UIView, frame: CGRect, isLoadingPlaceholder: Bool = false) {
+        init(pageIndex: Int, textView: UITextView, footnoteHostingController: UIHostingController<FootnoteRenderer<FootnoteModel>>?, headerView: UIView?, footerView: UIView?, pageBackgroundView: UIView, frame: CGRect, isLoadingPlaceholder: Bool = false) {
             self.pageIndex = pageIndex
             self.textView = textView
             self.footnoteHostingController = footnoteHostingController
@@ -643,7 +643,7 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         }
         
         // Query footnotes for this page FIRST (needed to calculate text area)
-        var footnoteController: UIHostingController<FootnoteRenderer>? = nil
+        var footnoteController: UIHostingController<FootnoteRenderer<FootnoteModel>>? = nil
         var footnoteHeight: CGFloat = 0
         
         // Maximum footnote height - must match PaginatedTextLayoutManager

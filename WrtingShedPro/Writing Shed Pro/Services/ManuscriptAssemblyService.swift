@@ -368,10 +368,29 @@ final class ManuscriptAssemblyService {
             return .stage
         }()
         print("[ManuscriptAssemblyService] Drama project: \(isDrama), Script type: \(scriptType)")
+        
+        // Track front matter metrics for roman numeral page numbering
+        var frontMatterFileCount = 0
+        var frontMatterCharacterLength = 0
+        var frontMatterDone = false
+        
+        // Collect footnotes from all files with positions remapped to the assembled string
+        var assembledFootnotes: [ManuscriptFootnote] = []
+        
         for section in sections {
+            // Once we've passed front matter sections, mark it done
+            if section.sectionType != .frontMatter && !frontMatterDone {
+                frontMatterDone = true
+                frontMatterCharacterLength = assembled.length
+            }
+            
             for file in section.files {
                 // Skip cover files — they contain only an image, not text content
                 if file.isCoverFile { continue }
+                
+                if section.sectionType == .frontMatter {
+                    frontMatterFileCount += 1
+                }
                 
                 fileIndex += 1
                 progress?(fileIndex, totalFiles)
@@ -410,6 +429,7 @@ final class ManuscriptAssemblyService {
                     assembled.append(rendered)
                 } else if let version = file.currentVersion, let content = version.attributedContent {
                     print("[ManuscriptAssemblyService] Appending attributedContent for file: \(file.name)")
+                    let contentOffset = assembled.length
                     // For TOC files, reformat with right-aligned page numbers and dot leaders for PDF
                     if file.isTOCFile {
                         let exportContent = TOCGenerationService.formatTOCContentForExport(content, project: project)
@@ -417,14 +437,46 @@ final class ManuscriptAssemblyService {
                     } else {
                         assembled.append(content)
                     }
+                    
+                    // Collect footnotes from this file's version.
+                    // FootnoteAttachment objects embedded in the attributed content carry the
+                    // footnoteID and number. We look up the text from the FootnoteModel records.
+                    let footnotes = FootnoteManager.shared.getActiveFootnotes(forVersion: version, context: context)
+                    if !footnotes.isEmpty {
+                        // Build a map from attachmentID → FootnoteModel for fast lookup
+                        let footnoteMap = Dictionary(uniqueKeysWithValues: footnotes.map { ($0.attachmentID, $0) })
+                        
+                        // Scan the newly appended range for FootnoteAttachment objects
+                        let appendedRange = NSRange(location: contentOffset, length: assembled.length - contentOffset)
+                        assembled.enumerateAttribute(.attachment, in: appendedRange, options: []) { value, range, _ in
+                            if let fnAttach = value as? FootnoteAttachment {
+                                if let fnModel = footnoteMap[fnAttach.footnoteID] {
+                                    assembledFootnotes.append(ManuscriptFootnote(
+                                        attachmentID: fnAttach.footnoteID,
+                                        text: fnModel.text,
+                                        number: fnAttach.number,
+                                        characterPosition: range.location
+                                    ))
+                                }
+                            }
+                        }
+                    }
                 }
             }
+        }
+
+        // If all sections were front matter (no body/back matter), set the length now
+        if !frontMatterDone {
+            frontMatterCharacterLength = assembled.length
         }
 
         return ManuscriptContent(
             attributedString: assembled,
             sections: sections,
-            fileOffsets: fileOffsets
+            fileOffsets: fileOffsets,
+            frontMatterFileCount: frontMatterFileCount,
+            frontMatterCharacterLength: frontMatterCharacterLength,
+            assembledFootnotes: assembledFootnotes
         )
     }
     

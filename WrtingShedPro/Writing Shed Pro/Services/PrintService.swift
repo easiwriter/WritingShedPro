@@ -659,7 +659,12 @@ class PrintService {
             title: project.name ?? "Manuscript",
             version: nil,
             project: project,
-            context: context
+            context: context,
+            hasFrontCover: content.hasFrontCover,
+            hasBackCover: content.hasBackCover,
+            frontMatterFileCount: content.frontMatterFileCount,
+            frontMatterCharacterLength: content.frontMatterCharacterLength,
+            assembledFootnotes: content.assembledFootnotes
         )
     }
     
@@ -700,6 +705,11 @@ class PrintService {
         nonisolated(unsafe) let bgSetup = setup
         nonisolated(unsafe) let bgProject = project
         nonisolated(unsafe) let bgContext = context
+        let bgHasFrontCover = content.hasFrontCover
+        let bgHasBackCover = content.hasBackCover
+        let bgFrontMatterFileCount = content.frontMatterFileCount
+        let bgFrontMatterCharacterLength = content.frontMatterCharacterLength
+        let bgAssembledFootnotes = content.assembledFootnotes
         
         return await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
@@ -711,7 +721,12 @@ class PrintService {
                     project: bgProject,
                     context: bgContext,
                     layoutProgress: layoutProgress,
-                    renderProgress: renderProgress
+                    renderProgress: renderProgress,
+                    hasFrontCover: bgHasFrontCover,
+                    hasBackCover: bgHasBackCover,
+                    frontMatterFileCount: bgFrontMatterFileCount,
+                    frontMatterCharacterLength: bgFrontMatterCharacterLength,
+                    assembledFootnotes: bgAssembledFootnotes
                 )
                 continuation.resume(returning: result)
             }
@@ -789,7 +804,12 @@ class PrintService {
         title: String,
         version: Version?,
         project: Project,
-        context: ModelContext
+        context: ModelContext,
+        hasFrontCover: Bool = false,
+        hasBackCover: Bool = false,
+        frontMatterFileCount: Int = 0,
+        frontMatterCharacterLength: Int = 0,
+        assembledFootnotes: [ManuscriptFootnote] = []
     ) -> Data? {
         #if DEBUG
         print("🖨️ PDF Generation Setup:")
@@ -813,10 +833,17 @@ class PrintService {
             pageSetup: pageSetup
         )
         
-        // Calculate layout (with footnote support if version provided)
+        // Calculate layout (with footnote support if version provided or assembled footnotes exist)
         // IMPORTANT: Use the returned result directly, not layoutManager.pageCount,
         // because the property update happens async and won't be ready yet
-        let layoutResult = layoutManager.calculateLayout(version: version, context: context)
+        let layoutResult: PaginatedTextLayoutManager.LayoutResult
+        if version != nil {
+            layoutResult = layoutManager.calculateLayout(version: version, context: context)
+        } else if !assembledFootnotes.isEmpty {
+            layoutResult = layoutManager.calculateLayout(assembledFootnotes: assembledFootnotes)
+        } else {
+            layoutResult = layoutManager.calculateLayout()
+        }
         #if DEBUG
         print("   - Calculated: \(layoutResult.totalPages) pages")
         #endif
@@ -835,7 +862,11 @@ class PrintService {
             pageSetup: pageSetup,
             version: version,
             context: context,
-            project: project
+            project: project,
+            hasFrontCover: hasFrontCover,
+            hasBackCover: hasBackCover,
+            frontMatterCharacterLength: frontMatterCharacterLength,
+            assembledFootnotes: assembledFootnotes
         )
         
         // Create PDF data
@@ -873,7 +904,12 @@ class PrintService {
         project: Project,
         context: ModelContext,
         layoutProgress: @escaping (Int, Int) -> Void,
-        renderProgress: @escaping (Int, Int) -> Void
+        renderProgress: @escaping (Int, Int) -> Void,
+        hasFrontCover: Bool = false,
+        hasBackCover: Bool = false,
+        frontMatterFileCount: Int = 0,
+        frontMatterCharacterLength: Int = 0,
+        assembledFootnotes: [ManuscriptFootnote] = []
     ) -> Data? {
         #if DEBUG
         print("🖨️ PDF Generation (with progress) Setup:")
@@ -884,7 +920,8 @@ class PrintService {
         // and render each page independently. This is O(n) instead of O(n²)
         // because it avoids the slow multi-container NSLayoutManager layout.
         let textString = content.string
-        if version == nil && textString.contains("\u{000C}") {
+        let hasFootnotes = version != nil || !assembledFootnotes.isEmpty
+        if !hasFootnotes && textString.contains("\u{000C}") {
             #if DEBUG
             print("   ⚡ Using FAST PATH (form-feed split, no footnotes)")
             #endif
@@ -893,6 +930,9 @@ class PrintService {
                 pageSetup: pageSetup,
                 title: title,
                 project: project,
+                hasFrontCover: hasFrontCover,
+                hasBackCover: hasBackCover,
+                frontMatterFileCount: frontMatterFileCount,
                 progress: { current, total in
                     // Report as layout progress for the first 90%, render for the last 10%
                     // In practice each page is laid out + rendered in one step
@@ -911,7 +951,14 @@ class PrintService {
             pageSetup: pageSetup
         )
         
-        let layoutResult = layoutManager.calculateLayout(version: version, context: context, layoutProgress: layoutProgress)
+        let layoutResult: PaginatedTextLayoutManager.LayoutResult
+        if version != nil {
+            layoutResult = layoutManager.calculateLayout(version: version, context: context, layoutProgress: layoutProgress)
+        } else if !assembledFootnotes.isEmpty {
+            layoutResult = layoutManager.calculateLayout(assembledFootnotes: assembledFootnotes, layoutProgress: layoutProgress)
+        } else {
+            layoutResult = layoutManager.calculateLayout(layoutProgress: layoutProgress)
+        }
         let totalPages = layoutResult.totalPages
         #if DEBUG
         print("   - Calculated: \(totalPages) pages")
@@ -934,7 +981,11 @@ class PrintService {
             pageSetup: pageSetup,
             version: version,
             context: context,
-            project: project
+            project: project,
+            hasFrontCover: hasFrontCover,
+            hasBackCover: hasBackCover,
+            frontMatterCharacterLength: frontMatterCharacterLength,
+            assembledFootnotes: assembledFootnotes
         )
         
         let pdfData = NSMutableData()
@@ -977,6 +1028,9 @@ class PrintService {
         pageSetup: PageSetup,
         title: String,
         project: Project,
+        hasFrontCover: Bool = false,
+        hasBackCover: Bool = false,
+        frontMatterFileCount: Int = 0,
         progress: @escaping (Int, Int) -> Void
     ) -> Data? {
         let fullString = content.string as NSString
@@ -1105,37 +1159,82 @@ class PrintService {
             kCGPDFContextCreator as String: "Writing Shed Pro"
         ])
         
+        // Determine which pages are cover pages (no headers/footers, no page number)
+        let lastPageIndex = totalPages - 1
+        
+        // Determine which chunk indices are front matter.
+        // Chunk order: [front cover (optional)] [front matter files] [body files] [back matter files] [back cover (optional)]
+        let firstFMChunkIndex = hasFrontCover ? 1 : 0
+        let lastFMChunkIndex = firstFMChunkIndex + frontMatterFileCount - 1  // inclusive; -1 when no FM
+        
+        // Pre-calculate the number of pages in each numbering region.
+        // Front matter pages get roman numerals (1-based), body+back get arabic (1-based).
+        let coverPageCount = (hasFrontCover ? 1 : 0) + (hasBackCover ? 1 : 0)
+        let frontMatterTotalPages = allPages.filter { page in
+            page.chunkIndex >= firstFMChunkIndex && page.chunkIndex <= lastFMChunkIndex
+        }.count
+        let bodyTotalPages = totalPages - coverPageCount - frontMatterTotalPages
+        
+        // Track running page numbers for each region independently
+        var frontMatterPageCounter = 0
+        var bodyPageCounter = 0
+        
         for (pageIndex, slice) in allPages.enumerated() {
             UIGraphicsBeginPDFPage()
             
             guard let cgContext = UIGraphicsGetCurrentContext() else { continue }
             
-            // Draw headers
-            if pageSetup.hasHeaders, let headerRect = pageLayout.headerRect {
-                drawHeaderFooter(
-                    left: pageSetup.headerLeft,
-                    center: pageSetup.headerCenter,
-                    right: pageSetup.headerRight,
-                    rect: headerRect,
-                    pageNumber: pageIndex + 1,
-                    totalPages: totalPages,
-                    project: project,
-                    context: cgContext
-                )
-            }
+            // Skip headers/footers on cover pages
+            let isFrontCoverPage = hasFrontCover && pageIndex == 0
+            let isBackCoverPage = hasBackCover && pageIndex == lastPageIndex
+            let isCoverPage = isFrontCoverPage || isBackCoverPage
             
-            // Draw footers
-            if pageSetup.hasFooters, let footerRect = pageLayout.footerRect {
-                drawHeaderFooter(
-                    left: pageSetup.footerLeft,
-                    center: pageSetup.footerCenter,
-                    right: pageSetup.footerRight,
-                    rect: footerRect,
-                    pageNumber: pageIndex + 1,
-                    totalPages: totalPages,
-                    project: project,
-                    context: cgContext
-                )
+            // Determine if this page is front matter
+            let isFrontMatterPage = frontMatterFileCount > 0
+                && slice.chunkIndex >= firstFMChunkIndex
+                && slice.chunkIndex <= lastFMChunkIndex
+            
+            if !isCoverPage {
+                // Calculate page number string: roman for front matter, arabic for body
+                let pageNumberString: String
+                let displayTotalPages: Int
+                if isFrontMatterPage {
+                    frontMatterPageCounter += 1
+                    pageNumberString = toRomanNumeral(frontMatterPageCounter)
+                    displayTotalPages = frontMatterTotalPages
+                } else {
+                    bodyPageCounter += 1
+                    pageNumberString = "\(bodyPageCounter)"
+                    displayTotalPages = bodyTotalPages
+                }
+                
+                // Draw headers
+                if pageSetup.hasHeaders, let headerRect = pageLayout.headerRect {
+                    drawHeaderFooter(
+                        left: pageSetup.headerLeft,
+                        center: pageSetup.headerCenter,
+                        right: pageSetup.headerRight,
+                        rect: headerRect,
+                        pageNumberString: pageNumberString,
+                        totalPages: displayTotalPages,
+                        project: project,
+                        context: cgContext
+                    )
+                }
+                
+                // Draw footers
+                if pageSetup.hasFooters, let footerRect = pageLayout.footerRect {
+                    drawHeaderFooter(
+                        left: pageSetup.footerLeft,
+                        center: pageSetup.footerCenter,
+                        right: pageSetup.footerRight,
+                        rect: footerRect,
+                        pageNumberString: pageNumberString,
+                        totalPages: displayTotalPages,
+                        project: project,
+                        context: cgContext
+                    )
+                }
             }
             
             // Draw text content for this page's character range
@@ -1211,13 +1310,30 @@ class PrintService {
         }
     }
     
+    /// Convert an integer to a lowercase roman numeral string
+    private static func toRomanNumeral(_ number: Int) -> String {
+        guard number > 0 else { return "" }
+        let values = [(1000, "m"), (900, "cm"), (500, "d"), (400, "cd"),
+                      (100, "c"), (90, "xc"), (50, "l"), (40, "xl"),
+                      (10, "x"), (9, "ix"), (5, "v"), (4, "iv"), (1, "i")]
+        var result = ""
+        var remaining = number
+        for (value, numeral) in values {
+            while remaining >= value {
+                result += numeral
+                remaining -= value
+            }
+        }
+        return result
+    }
+    
     /// Draw header or footer text for the fast-path renderer
     private static func drawHeaderFooter(
         left: String?,
         center: String?,
         right: String?,
         rect: CGRect,
-        pageNumber: Int,
+        pageNumberString: String,
         totalPages: Int,
         project: Project,
         context: CGContext
@@ -1241,7 +1357,7 @@ class PrintService {
                 result = result.replacingOccurrences(of: "{{Date}}", with: formatter.string(from: Date()))
             }
             if result.contains("{{Page Number}}") {
-                result = result.replacingOccurrences(of: "{{Page Number}}", with: "\(pageNumber)")
+                result = result.replacingOccurrences(of: "{{Page Number}}", with: pageNumberString)
             }
             if result.contains("{{Folder}}") {
                 let folderName: String
