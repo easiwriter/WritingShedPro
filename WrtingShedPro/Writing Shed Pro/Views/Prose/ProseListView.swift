@@ -1029,8 +1029,19 @@ struct ProseListView: View {
     }
     
     private func assignFilesToSection(_ files: [TextFile], section: ProseSection?) {
-        for file in files {
+        // Find the current max userOrder in the target section so new files go to the end
+        let existingMaxOrder: Int
+        if let section = section {
+            let sectionFiles = (proseFolder?.textFiles ?? []).filter { $0.section?.id == section.id && $0.trashItem == nil }
+            existingMaxOrder = sectionFiles.compactMap(\.userOrder).max() ?? -1
+        } else {
+            existingMaxOrder = -1
+        }
+        
+        for (index, file) in files.enumerated() {
             file.section = section
+            // Place at end of section's file list
+            file.userOrder = existingMaxOrder + 1 + index
         }
         try? modelContext.save()
     }

@@ -74,6 +74,26 @@ struct BackMatterGeneratedContentView: View {
         return nil
     }
     
+    /// Body-category text styles from the project's stylesheet, sorted by display order
+    private var availableBodyStyles: [TextStyleModel] {
+        guard let stylesheet = project.styleSheet,
+              let textStyles = stylesheet.textStyles else {
+            return []
+        }
+        return textStyles
+            .filter { $0.styleCategory == .text }
+            .sorted { $0.displayOrder < $1.displayOrder }
+    }
+    
+    /// The resolved SwiftUI Font for contributor entries, based on the project's chosen body style
+    private var contributorFont: Font {
+        if let stylesheet = project.styleSheet,
+           let style = stylesheet.style(named: project.contributorBodyStyleName) {
+            return Font(style.generateFont())
+        }
+        return .body
+    }
+    
     // MARK: - Body
     
     var body: some View {
@@ -107,6 +127,7 @@ struct BackMatterGeneratedContentView: View {
                 }
             }
         }
+        .id(refreshTrigger) // Refresh content only, not sheets
         .navigationTitle(file.name)
         .navigationBarTitleDisplayMode(.inline)
         .environment(\.editMode, $editMode)
@@ -139,6 +160,55 @@ struct BackMatterGeneratedContentView: View {
             if backMatterType == .contributors {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     HStack {
+                        // Body style picker — shows text-category styles from the project's stylesheet
+                        Menu {
+                            ForEach(availableBodyStyles, id: \.id) { style in
+                                Button {
+                                    project.contributorBodyStyleName = style.name
+                                    try? modelContext.save()
+                                    refreshTrigger = UUID()
+                                } label: {
+                                    HStack {
+                                        Text(style.displayName)
+                                        if project.contributorBodyStyleName == style.name {
+                                            Image(systemName: "checkmark")
+                                        }
+                                    }
+                                }
+                            }
+                        } label: {
+                            Image(systemName: "textformat.size")
+                        }
+                        .accessibilityLabel(NSLocalizedString("contributor.bodyStyle", comment: "Body Style"))
+                        
+                        // Run together / separate rows toggle
+                        Button {
+                            withAnimation {
+                                project.contributorDisplayRunTogether.toggle()
+                                try? modelContext.save()
+                                refreshTrigger = UUID()
+                            }
+                        } label: {
+                            Image(systemName: project.contributorDisplayRunTogether ? "list.bullet" : "text.justify.leading")
+                        }
+                        .accessibilityLabel(project.contributorDisplayRunTogether
+                            ? NSLocalizedString("contributor.showSeparateRows", comment: "Show as Separate Rows")
+                            : NSLocalizedString("contributor.showRunTogether", comment: "Show as Continuous Text"))
+                        
+                        // Display order toggle
+                        Button {
+                            withAnimation {
+                                project.contributorDisplaySurnameFirst.toggle()
+                                try? modelContext.save()
+                                refreshTrigger = UUID()
+                            }
+                        } label: {
+                            Image(systemName: project.contributorDisplaySurnameFirst ? "arrow.left.arrow.right" : "arrow.right.arrow.left")
+                        }
+                        .accessibilityLabel(project.contributorDisplaySurnameFirst
+                            ? NSLocalizedString("contributor.showForenameFirst", comment: "Show as Forename Surname")
+                            : NSLocalizedString("contributor.showSurnameFirst", comment: "Show as Surname, Forename"))
+                        
                         // Edit/Done button
                         if !(project.contributorEntries ?? []).isEmpty {
                             Button {
@@ -187,11 +257,13 @@ struct BackMatterGeneratedContentView: View {
             ContributorEditorSheet(project: project, existingContributor: nil) {
                 refreshTrigger = UUID()
             }
+            .id("addContributor") // Stable identity prevents sheet flicker on desktop switch
         }
         .sheet(item: $contributorToEdit) { contributor in
             ContributorEditorSheet(project: project, existingContributor: contributor) {
                 refreshTrigger = UUID()
             }
+            .id(contributor.id) // Stable identity prevents sheet flicker on desktop switch
         }
         // Index entry edit sheet
         .sheet(item: $indexEntryToEdit) { entry in
@@ -273,19 +345,24 @@ struct BackMatterGeneratedContentView: View {
             }
         }
         .onChange(of: refreshTrigger) { _, _ in
-            // When data changes (edit/delete), recalculate page numbers
+            // When data changes (edit/delete), recalculate page numbers or regenerate content
             if backMatterType == .index {
                 pageCalcTrigger = UUID()
             } else if backMatterType == .tableOfFigures {
                 figurePageCalcTrigger = UUID()
+            } else if backMatterType == .contributors {
+                regenerateFileContent()
             }
         }
         .onAppear {
             #if DEBUG
             print("📑 BackMatter .onAppear: backMatterType=\(String(describing: backMatterType)), fileName='\(file.name)'")
             #endif
+            // Regenerate contributors file content on appear so PDF preview is up to date
+            if backMatterType == .contributors {
+                regenerateFileContent()
+            }
         }
-        .id(refreshTrigger)
     }
     
     // MARK: - Index Entry Actions
@@ -1075,11 +1152,24 @@ struct BackMatterGeneratedContentView: View {
                     systemImage: "person.2"
                 )
             }
+        } else if project.contributorDisplayRunTogether {
+            // Run-together mode: continuous paragraph
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    contributorsRunTogetherView(contributors)
+                }
+                .padding()
+            }
+            .onAppear {
+                previousContributorsCount = contributors.count
+            }
         } else {
             List(selection: $selectedContributorIDs) {
                 ForEach(contributors) { contributor in
                     contributorRow(contributor)
                         .tag(contributor.id)
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
                 }
             }
             .listStyle(.plain)
@@ -1112,19 +1202,20 @@ struct BackMatterGeneratedContentView: View {
     
     private func contributorRow(_ contributor: ContributorEntry) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            // Name
-            Text(contributor.displayName)
-                .font(.headline)
+            // Name — respects project display order preference
+            Text(contributor.displayName(surnameFirst: project.contributorDisplaySurnameFirst))
+                .font(contributorFont)
+                .bold()
             
             // Biography
             if !contributor.biography.isEmpty {
                 Text(contributor.biography)
-                    .font(.body)
+                    .font(contributorFont)
                     .foregroundColor(.secondary)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.vertical, 8)
+        .padding(.vertical, 2)
         .contentShape(Rectangle())
         .onTapGesture {
             contributorToEdit = contributor
@@ -1151,6 +1242,37 @@ struct BackMatterGeneratedContentView: View {
                 Label(NSLocalizedString("button.delete", comment: "Delete"), systemImage: "trash")
             }
         }
+    }
+    
+    /// Run-together view: displays all contributors as a continuous flowing paragraph.
+    /// Each entry is: **Name** biography text. Entries separated by a bullet.
+    @ViewBuilder
+    private func contributorsRunTogetherView(_ contributors: [ContributorEntry]) -> some View {
+        // Build a single attributed paragraph with all contributors
+        let parts: [Text] = contributors.enumerated().map { index, contributor in
+            let name = contributor.displayName(surnameFirst: project.contributorDisplaySurnameFirst)
+            let nameText = Text(name).bold()
+            let separator = index < contributors.count - 1 ? " \u{2022} " : ""
+            
+            if !contributor.biography.isEmpty {
+                return nameText + Text(" " + contributor.biography + separator)
+            } else {
+                return nameText + Text(separator)
+            }
+        }
+        
+        // Combine all parts into a single Text
+        let combined = parts.reduce(Text("")) { $0 + $1 }
+        
+        combined
+            .font(contributorFont)
+            .contextMenu {
+                Button {
+                    editMode = .inactive
+                } label: {
+                    Label(NSLocalizedString("contributor.tapToEdit", comment: "Switch to list view to edit"), systemImage: "list.bullet")
+                }
+            }
     }
     
     // MARK: - Empty Content

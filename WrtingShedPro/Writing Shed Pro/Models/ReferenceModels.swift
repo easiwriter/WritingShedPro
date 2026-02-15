@@ -920,16 +920,20 @@ final class ContributorEntry {
     /// The Project this contributor belongs to
     var project: Project?
     
-    /// Contributor's first name / given name
+    /// Contributor's first name / given name (legacy, kept for existing data)
     var firstName: String = ""
     
-    /// Contributor's surname / family name / last name
+    /// Contributor's surname / family name / last name (legacy, kept for existing data)
     var surname: String = ""
+    
+    /// Unified name field — user enters name however they prefer
+    /// e.g. "Fred Bloggs" or "Bloggs, Fred"
+    var name: String = ""
     
     /// Biographical note about the contributor
     var biography: String = ""
     
-    /// User-defined sort order (optional - surname is default sort)
+    /// User-defined sort order (optional — surname is default sort)
     var userOrder: Int = 0
     
     /// When the entry was created
@@ -941,6 +945,7 @@ final class ContributorEntry {
     init(
         id: UUID = UUID(),
         project: Project? = nil,
+        name: String = "",
         firstName: String = "",
         surname: String = "",
         biography: String = "",
@@ -948,6 +953,7 @@ final class ContributorEntry {
     ) {
         self.id = id
         self.project = project
+        self.name = name
         self.firstName = firstName
         self.surname = surname
         self.biography = biography
@@ -956,22 +962,68 @@ final class ContributorEntry {
         self.modifiedAt = Date()
     }
     
-    /// Full name in "Surname, First Name" format for display
+    /// Display name for the contributor.
+    /// Prefers the unified `name` field; falls back to "Surname, First" from legacy fields.
     var displayName: String {
-        if surname.isEmpty && firstName.isEmpty {
-            return NSLocalizedString("contributor.unnamed", comment: "Unnamed Contributor")
-        }
-        if surname.isEmpty {
-            return firstName
-        }
-        if firstName.isEmpty {
-            return surname
-        }
-        return "\(surname), \(firstName)"
+        return displayName(surnameFirst: true)
     }
     
-    /// Full name in "First Name Surname" format (for natural reading)
+    /// Display name with configurable order.
+    /// - Parameter surnameFirst: If true, displays "Surname, Forename"; if false, "Forename Surname"
+    func displayName(surnameFirst: Bool) -> String {
+        // If legacy firstName/surname fields are populated, use those
+        if !surname.isEmpty || !firstName.isEmpty {
+            if surname.isEmpty && firstName.isEmpty {
+                return NSLocalizedString("contributor.unnamed", comment: "Unnamed Contributor")
+            }
+            if surname.isEmpty { return firstName }
+            if firstName.isEmpty { return surname }
+            return surnameFirst ? "\(surname), \(firstName)" : "\(firstName) \(surname)"
+        }
+        // Unified name field
+        if !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return name
+        }
+        return NSLocalizedString("contributor.unnamed", comment: "Unnamed Contributor")
+    }
+    
+    /// Surname for sorting purposes.
+    /// Extracts from legacy surname field first, then tries to parse from unified name.
+    var sortableSurname: String {
+        if !surname.isEmpty { return surname.lowercased() }
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty { return "" }
+        // If name contains a comma, text before the comma is the surname
+        if let commaIndex = trimmed.firstIndex(of: ",") {
+            return String(trimmed[trimmed.startIndex..<commaIndex]).trimmingCharacters(in: .whitespaces).lowercased()
+        }
+        // Otherwise, last word is treated as surname
+        let parts = trimmed.split(separator: " ")
+        return (parts.last.map(String.init) ?? trimmed).lowercased()
+    }
+    
+    /// First name for sorting purposes (secondary sort key).
+    var sortableFirstName: String {
+        if !firstName.isEmpty { return firstName.lowercased() }
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty { return "" }
+        if let commaIndex = trimmed.firstIndex(of: ",") {
+            let afterComma = trimmed[trimmed.index(after: commaIndex)...]
+            return afterComma.trimmingCharacters(in: .whitespaces).lowercased()
+        }
+        let parts = trimmed.split(separator: " ")
+        if parts.count > 1 {
+            return parts.dropLast().joined(separator: " ").lowercased()
+        }
+        return ""
+    }
+    
+    /// Full name in natural reading order.
+    /// Prefers the unified `name` field; falls back to "First Surname" from legacy fields.
     var fullName: String {
+        if !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return name
+        }
         if surname.isEmpty && firstName.isEmpty {
             return NSLocalizedString("contributor.unnamed", comment: "Unnamed Contributor")
         }
@@ -979,9 +1031,11 @@ final class ContributorEntry {
     }
     
     /// Update contributor details
-    func update(firstName: String, surname: String, biography: String) {
-        self.firstName = firstName
-        self.surname = surname
+    func update(name: String, biography: String) {
+        self.name = name
+        // Clear legacy fields when using unified name
+        self.firstName = ""
+        self.surname = ""
         self.biography = biography
         self.modifiedAt = Date()
     }
@@ -989,11 +1043,12 @@ final class ContributorEntry {
 
 extension ContributorEntry: Comparable {
     static func < (lhs: ContributorEntry, rhs: ContributorEntry) -> Bool {
-        // Sort by surname first, then first name
-        let surnameCompare = lhs.surname.localizedCaseInsensitiveCompare(rhs.surname)
-        if surnameCompare != .orderedSame {
-            return surnameCompare == .orderedAscending
+        // Always sort by surname, then first name
+        let lhsSurname = lhs.sortableSurname
+        let rhsSurname = rhs.sortableSurname
+        if lhsSurname != rhsSurname {
+            return lhsSurname.localizedCaseInsensitiveCompare(rhsSurname) == .orderedAscending
         }
-        return lhs.firstName.localizedCaseInsensitiveCompare(rhs.firstName) == .orderedAscending
+        return lhs.sortableFirstName.localizedCaseInsensitiveCompare(rhs.sortableFirstName) == .orderedAscending
     }
 }

@@ -65,6 +65,9 @@ struct FormattedTextEditor: UIViewRepresentable {
     /// Project reference for dynamic numbering (Feature 016)
     var project: Project?
     
+    /// Whether to show invisible characters (spaces, tabs, paragraph marks, page breaks)
+    var showInvisibles: Bool = false
+    
     // MARK: - Configuration
     
     /// Font to use for new text (when no formatting is applied)
@@ -92,6 +95,7 @@ struct FormattedTextEditor: UIViewRepresentable {
         selectedRange: Binding<NSRange> = .constant(NSRange(location: 0, length: 0)),
         textViewCoordinator: TextViewCoordinator? = nil,
         project: Project? = nil,
+        showInvisibles: Bool = false,
         font: UIFont = .preferredFont(forTextStyle: .body),
         textColor: UIColor = .label,
         backgroundColor: UIColor = .systemBackground,
@@ -118,6 +122,7 @@ struct FormattedTextEditor: UIViewRepresentable {
         self._selectedRange = selectedRange
         self.textViewCoordinator = textViewCoordinator
         self.project = project
+        self.showInvisibles = showInvisibles
         self.font = font
         self.textColor = textColor
         self.backgroundColor = backgroundColor
@@ -151,6 +156,7 @@ struct FormattedTextEditor: UIViewRepresentable {
         
         // Pass project reference to layout manager for style information
         layoutManager.project = project
+        layoutManager.showInvisibles = showInvisibles
         
         textStorage.addLayoutManager(layoutManager)
         layoutManager.addTextContainer(textContainer)
@@ -400,6 +406,13 @@ struct FormattedTextEditor: UIViewRepresentable {
             customTextView.onShiftTabPressed = { [weak coordinator] in
                 coordinator?.parent.onShiftTabPressed?()
             }
+        }
+        
+        // Update show invisibles flag on layout manager
+        if let layoutManager = textView.layoutManager as? NumberingLayoutManager,
+           layoutManager.showInvisibles != showInvisibles {
+            layoutManager.showInvisibles = showInvisibles
+            layoutManager.invalidateDisplay(forCharacterRange: NSRange(location: 0, length: textView.textStorage.length))
         }
         
         // Skip if we're already in the middle of an update to prevent feedback loops

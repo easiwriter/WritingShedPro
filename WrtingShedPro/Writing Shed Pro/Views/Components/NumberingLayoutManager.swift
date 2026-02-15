@@ -27,6 +27,9 @@ class NumberingLayoutManager: NSLayoutManager {
     /// has a separate text view). Set by VirtualPageScrollView based on preceding pages.
     var poetryStartingLineNumber: Int = 1
     
+    /// Whether to draw invisible characters (spaces, tabs, paragraph marks, page breaks)
+    var showInvisibles: Bool = false
+    
     /// Width reserved for right-margin line numbers in poetry mode
     private let poetryLineNumberWidth: CGFloat = 40
     
@@ -436,5 +439,166 @@ class NumberingLayoutManager: NSLayoutManager {
         )
         
         numberString.draw(in: numberRect, withAttributes: numberAttributes)
+    }
+    
+    // MARK: - Page Break Lines
+    
+    /// Draw a horizontal line with "Page Break" label for form feed characters.
+    /// Always drawn regardless of showInvisibles setting since page breaks are structural.
+    private func drawPageBreakLines(forGlyphRange glyphsToShow: NSRange, at origin: CGPoint) {
+        guard let textStorage = textStorage else { return }
+        
+        let charRange = characterRange(forGlyphRange: glyphsToShow, actualGlyphRange: nil)
+        let text = textStorage.string as NSString
+        
+        text.enumerateSubstrings(in: charRange, options: .byComposedCharacterSequences) { [weak self] substring, substringRange, _, _ in
+            guard let self = self,
+                  substring == "\u{000C}",
+                  substringRange.length == 1 else { return }
+            
+            let glyphIndex = self.glyphIndexForCharacter(at: substringRange.location)
+            let lineFragmentRect = self.lineFragmentRect(forGlyphAt: glyphIndex, effectiveRange: nil)
+            
+            // Get the text container width for line span
+            let containerWidth = self.textContainers.first?.size.width ?? lineFragmentRect.width
+            
+            let lineColor = UIColor.systemGray2
+            let lineY = origin.y + lineFragmentRect.origin.y + lineFragmentRect.height / 2
+            
+            // Horizontal extent: inset slightly from container edges
+            let inset: CGFloat = 20
+            let leftX = origin.x + inset
+            let rightX = origin.x + containerWidth - inset
+            
+            // Draw the label text
+            let label = "Page Break" as NSString
+            let labelFont = UIFont.systemFont(ofSize: 12, weight: .medium)
+            let labelAttrs: [NSAttributedString.Key: Any] = [
+                .font: labelFont,
+                .foregroundColor: lineColor
+            ]
+            let labelSize = label.size(withAttributes: labelAttrs)
+            let labelX = origin.x + (containerWidth - labelSize.width) / 2
+            let labelRect = CGRect(
+                x: labelX,
+                y: lineY - labelSize.height / 2,
+                width: labelSize.width,
+                height: labelSize.height
+            )
+            
+            // Draw background behind label to clear the line
+            let bgRect = labelRect.insetBy(dx: -6, dy: -1)
+            UIColor.systemBackground.setFill()
+            UIBezierPath(rect: bgRect).fill()
+            
+            // Draw dashed line on either side of the label
+            let path = UIBezierPath()
+            path.lineWidth = 1.0
+            lineColor.setStroke()
+            let dashPattern: [CGFloat] = [4, 4]
+            path.setLineDash(dashPattern, count: 2, phase: 0)
+            
+            // Left segment
+            path.move(to: CGPoint(x: leftX, y: lineY))
+            path.addLine(to: CGPoint(x: bgRect.minX, y: lineY))
+            
+            // Right segment
+            path.move(to: CGPoint(x: bgRect.maxX, y: lineY))
+            path.addLine(to: CGPoint(x: rightX, y: lineY))
+            
+            path.stroke()
+            
+            // Draw label text
+            label.draw(in: labelRect, withAttributes: labelAttrs)
+        }
+    }
+    
+    // MARK: - Show Invisibles
+    
+    /// Draw invisible characters (spaces, tabs, paragraph marks) over glyph positions
+    /// Page breaks are drawn separately by drawPageBreakLines (always visible)
+    override func drawGlyphs(forGlyphRange glyphsToShow: NSRange, at origin: CGPoint) {
+        super.drawGlyphs(forGlyphRange: glyphsToShow, at: origin)
+        
+        // Always draw page break lines regardless of showInvisibles
+        drawPageBreakLines(forGlyphRange: glyphsToShow, at: origin)
+        
+        guard showInvisibles, let textStorage = textStorage else { return }
+        
+        let charRange = characterRange(forGlyphRange: glyphsToShow, actualGlyphRange: nil)
+        let text = textStorage.string as NSString
+        
+        // Invisible character symbols
+        let spaceSymbol: NSString = "·"       // Middle dot for spaces
+        let tabSymbol: NSString = "→"         // Arrow for tabs
+        let returnSymbol: NSString = "¶"      // Pilcrow for newlines
+        
+        // Use a subtle color so they don't overpower the text
+        let invisibleColor = UIColor.tertiaryLabel
+        
+        text.enumerateSubstrings(in: charRange, options: .byComposedCharacterSequences) { [weak self] substring, substringRange, _, _ in
+            guard let self = self,
+                  let char = substring,
+                  substringRange.length == 1 else { return }
+            
+            let symbol: NSString?
+            let useSmallFont: Bool
+            
+            switch char {
+            case " ":
+                symbol = spaceSymbol
+                useSmallFont = true
+            case "\t":
+                symbol = tabSymbol
+                useSmallFont = false
+            case "\n":
+                symbol = returnSymbol
+                useSmallFont = false
+            default:
+                symbol = nil
+                useSmallFont = false
+            }
+            
+            guard let drawSymbol = symbol else { return }
+            
+            let glyphIndex = self.glyphIndexForCharacter(at: substringRange.location)
+            
+            // Get the line fragment for positioning
+            let lineFragmentRect = self.lineFragmentRect(forGlyphAt: glyphIndex, effectiveRange: nil)
+            let locationInLine = self.location(forGlyphAt: glyphIndex)
+            
+            // Get font from text at this position for size matching
+            let charFont: UIFont
+            if substringRange.location < textStorage.length {
+                charFont = textStorage.attribute(.font, at: substringRange.location, effectiveRange: nil) as? UIFont
+                    ?? UIFont.systemFont(ofSize: 14)
+            } else {
+                charFont = UIFont.systemFont(ofSize: 14)
+            }
+            
+            let symbolFontSize: CGFloat = useSmallFont ? charFont.pointSize * 0.6 : charFont.pointSize * 0.75
+            let symbolFont = UIFont.systemFont(ofSize: symbolFontSize)
+            
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: symbolFont,
+                .foregroundColor: invisibleColor
+            ]
+            
+            let symbolSize = drawSymbol.size(withAttributes: attrs)
+            
+            // Position the symbol at the glyph location
+            let x = origin.x + lineFragmentRect.origin.x + locationInLine.x
+            let y: CGFloat
+            
+            if char == "\n" {
+                // For newline, position at the end of the line, vertically centered
+                y = origin.y + lineFragmentRect.origin.y + (lineFragmentRect.height - symbolSize.height) / 2
+            } else {
+                // For spaces/tabs, baseline-align with the text
+                y = origin.y + lineFragmentRect.origin.y + locationInLine.y - symbolSize.height + symbolFont.descender - charFont.descender
+            }
+            
+            drawSymbol.draw(at: CGPoint(x: x, y: y), withAttributes: attrs)
+        }
     }
 }

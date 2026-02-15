@@ -118,18 +118,14 @@ extension PageBreakAttachment {
     static let visualMarkerAttribute = NSAttributedString.Key("PageBreakVisualMarker")
     
     /// Create an attributed string containing a page break
-    /// Single form feed character with visual styling (deleted with one backspace)
+    /// Single form feed character (deleted with one backspace)
+    /// The layout manager draws the visual page break line
     /// - Returns: Attributed string with page break
     static func createPageBreakString() -> NSAttributedString {
-        // Just the form feed character with styling to make it visible
-        // The form feed itself is a single character, so one backspace deletes it
-        let attributes: [NSAttributedString.Key: Any] = [
-            .font: UIFont.systemFont(ofSize: 1),  // Tiny so it doesn't take space
-            .backgroundColor: UIColor.systemGray4,  // Light gray background to see it
-            .foregroundColor: UIColor.systemGray2  // Slightly darker text
-        ]
-        
-        return NSAttributedString(string: "\u{000C}", attributes: attributes)
+        // Plain form feed character — the NumberingLayoutManager draws the
+        // dashed line + "Page Break" label in drawGlyphs, so no special
+        // styling is needed here.
+        return NSAttributedString(string: "\u{000C}")
     }
     
     /// Remove visual styling from form feed characters before printing

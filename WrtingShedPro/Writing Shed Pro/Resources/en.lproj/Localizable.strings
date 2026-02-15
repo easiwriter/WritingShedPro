@@ -1195,6 +1195,8 @@
 "fileEdit.noPageSetup.description" = "Configure page setup for this project to view pagination preview.";
 "fileEdit.switchToEditMode.accessibility" = "Switch to Edit Mode";
 "fileEdit.switchToPaginationPreview.accessibility" = "Switch to Pagination Preview";
+"fileEdit.showInvisibles" = "Show Invisibles";
+"fileEdit.hideInvisibles" = "Hide Invisibles";
 "fileEdit.addComment.accessibility" = "Add Comment";
 "fileEdit.addFootnote.accessibility" = "Add Footnote";
 "fileEdit.undo.accessibility" = "Undo";
@@ -2561,19 +2563,30 @@
 "contributor.add.title" = "Add Contributor";
 "contributor.edit.title" = "Edit Contributor";
 "contributor.add.button" = "Add Contributor";
+"contributor.name" = "Name";
 "contributor.firstName" = "First Name";
 "contributor.surname" = "Surname";
+"contributor.name.hint" = "Enter the name as you want it displayed, e.g. \"Fred Bloggs\" or \"Bloggs, Fred\".";
+"contributor.name.order.hint" = "Use the display order toggle in the contributors list to switch between \"Surname, Forename\" and \"Forename Surname\".";
 "contributor.section.name" = "Name";
 "contributor.section.biography" = "Biography";
 "contributor.biography.hint" = "Write a brief biographical note about this contributor.";
 "contributor.validation.title" = "Validation Error";
-"contributor.validation.nameRequired" = "Please enter at least a first name or surname.";
+"contributor.validation.nameRequired" = "Please enter a name.";
+"contributor.validation.surnameRequired" = "Please enter a surname.";
+"contributor.showForenameFirst" = "Show as Forename Surname";
+"contributor.showSurnameFirst" = "Show as Surname, Forename";
+"contributor.showSeparateRows" = "Show as Separate Rows";
+"contributor.showRunTogether" = "Show as Continuous Text";
+"contributor.tapToEdit" = "Switch to list view to edit";
 "contributor.unnamed" = "Unnamed Contributor";
 "contributor.delete.title" = "Delete Contributor";
 "contributor.delete.message" = "Are you sure you want to delete %@?";
 "contributor.deleteMultiple.title" = "Delete %d Contributors";
 "contributor.deleteMultiple.message" = "Are you sure you want to delete %d contributors?";
 "contributor.deleteCount" = "Delete %d contributors";
+"contributor.bodyStyle" = "Body Style";
+
 
 
 // Poetry Settings

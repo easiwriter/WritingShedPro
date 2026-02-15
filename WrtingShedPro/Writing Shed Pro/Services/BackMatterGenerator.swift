@@ -29,6 +29,11 @@ final class BackMatterGenerator {
         return StyleSheetService.resolveStyle(textStyle, for: project, context: context)
     }
     
+    /// Resolve a style by name from the project's stylesheet
+    private func resolveStyle(named name: String) -> TextStyleModel? {
+        return StyleSheetService.resolveStyle(named: name, for: project, context: context)
+    }
+    
     /// Get heading style attributes from the project's stylesheet (Title 1)
     private var headingAttributes: [NSAttributedString.Key: Any] {
         if let style = resolveStyle(.title1) {
@@ -112,6 +117,32 @@ final class BackMatterGenerator {
             .font: UIFont.preferredFont(forTextStyle: .caption1),
             .foregroundColor: UIColor.secondaryLabel
         ]
+    }
+    
+    /// Get contributor text attributes using the project's chosen body style
+    /// Applied to contributor biographies.
+    /// Note: .textStyle is stripped so contributor text doesn't appear in the TOC.
+    private var contributorBodyAttributes: [NSAttributedString.Key: Any] {
+        if let style = resolveStyle(named: project.contributorBodyStyleName) {
+            var attrs = style.generateAttributes()
+            attrs.removeValue(forKey: .textStyle)
+            return attrs
+        }
+        // Fallback if style resolution fails completely
+        return [
+            .font: UIFont.preferredFont(forTextStyle: .body),
+            .foregroundColor: UIColor.label
+        ]
+    }
+    
+    /// Bold variant of contributorBodyAttributes for contributor names
+    private var contributorNameAttributes: [NSAttributedString.Key: Any] {
+        var attrs = contributorBodyAttributes
+        if let font = attrs[.font] as? UIFont {
+            let descriptor = font.fontDescriptor.withSymbolicTraits(.traitBold) ?? font.fontDescriptor
+            attrs[.font] = UIFont(descriptor: descriptor, size: font.pointSize)
+        }
+        return attrs
     }
     
     /// Paragraph style for entries with hanging indent (for index)
@@ -845,25 +876,42 @@ final class BackMatterGenerator {
         result.append(NSAttributedString(string: "\n\n"))
         
         // Add each contributor
-        for contributor in contributors {
-            result.append(formatContributor(contributor))
+        if project.contributorDisplayRunTogether {
+            // Run-together mode: continuous paragraph
+            for (index, contributor) in contributors.enumerated() {
+                let name = contributor.displayName(surnameFirst: project.contributorDisplaySurnameFirst)
+                result.append(NSAttributedString(string: name, attributes: contributorNameAttributes))
+                if !contributor.biography.isEmpty {
+                    result.append(NSAttributedString(string: " ", attributes: contributorBodyAttributes))
+                    result.append(NSAttributedString(string: contributor.biography, attributes: contributorBodyAttributes))
+                }
+                if index < contributors.count - 1 {
+                    result.append(NSAttributedString(string: " \u{2022} ", attributes: contributorBodyAttributes))
+                }
+            }
+            result.append(NSAttributedString(string: "\n"))
+        } else {
+            // Separate rows mode
+            for contributor in contributors {
+                result.append(formatContributor(contributor))
+            }
         }
         
         return result
     }
     
-    /// Format a single contributor entry
+    /// Format a single contributor entry (separate rows mode)
     private func formatContributor(_ contributor: ContributorEntry) -> NSAttributedString {
         let result = NSMutableAttributedString()
         
-        // Name (bold)
-        let name = contributor.displayName
-        result.append(NSAttributedString(string: name, attributes: entryHeadingAttributes))
+        // Name (bold) — use project's display order preference and chosen body style
+        let name = contributor.displayName(surnameFirst: project.contributorDisplaySurnameFirst)
+        result.append(NSAttributedString(string: name, attributes: contributorNameAttributes))
         result.append(NSAttributedString(string: "\n"))
         
         // Biography
         if !contributor.biography.isEmpty {
-            result.append(NSAttributedString(string: contributor.biography, attributes: bodyAttributes))
+            result.append(NSAttributedString(string: contributor.biography, attributes: contributorBodyAttributes))
             result.append(NSAttributedString(string: "\n"))
         }
         
@@ -1054,12 +1102,24 @@ extension BackMatterGenerator {
         var result = "\n\n" + NSLocalizedString("backMatter.contributors.header", comment: "Contributors").uppercased() + "\n"
         result += String(repeating: "-", count: 40) + "\n\n"
         
-        for contributor in contributors {
-            result += contributor.displayName + "\n"
-            if !contributor.biography.isEmpty {
-                result += contributor.biography + "\n"
+        if project.contributorDisplayRunTogether {
+            // Run-together: single paragraph with bullet separators
+            let parts = contributors.map { contributor -> String in
+                let name = contributor.displayName(surnameFirst: project.contributorDisplaySurnameFirst)
+                if !contributor.biography.isEmpty {
+                    return name + " " + contributor.biography
+                }
+                return name
             }
-            result += "\n"
+            result += parts.joined(separator: " \u{2022} ") + "\n"
+        } else {
+            for contributor in contributors {
+                result += contributor.displayName(surnameFirst: project.contributorDisplaySurnameFirst) + "\n"
+                if !contributor.biography.isEmpty {
+                    result += contributor.biography + "\n"
+                }
+                result += "\n"
+            }
         }
         
         return result

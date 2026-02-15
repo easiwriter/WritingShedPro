@@ -21,7 +21,9 @@ final class BackMatterGeneratorTests: XCTestCase {
         super.setUp()
         let schema = Schema([
             Project.self, Folder.self, TextFile.self, Version.self,
-            NoteEntry.self, GlossaryEntry.self, CitationEntry.self, IndexEntry.self
+            NoteEntry.self, GlossaryEntry.self, CitationEntry.self, IndexEntry.self,
+            ContributorEntry.self, ReferenceEntry.self,
+            StyleSheet.self, TextStyleModel.self, ImageStyle.self
         ])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         modelContainer = try! ModelContainer(for: schema, configurations: config)
@@ -512,5 +514,189 @@ final class BackMatterGeneratorTests: XCTestCase {
         )
         
         XCTAssertTrue(result.isEmpty)
+    }
+    
+    // MARK: - Contributors Section Tests
+    
+    func testGenerateContributorsSectionWithNoContributors() {
+        let result = generator.generateContributorsSection()
+        XCTAssertNil(result)
+    }
+    
+    func testGenerateContributorsSectionWithEntries() {
+        let contributor1 = ContributorEntry(
+            project: testProject,
+            firstName: "Jane",
+            surname: "Doe",
+            biography: "A prolific author."
+        )
+        let contributor2 = ContributorEntry(
+            project: testProject,
+            firstName: "John",
+            surname: "Smith",
+            biography: "An editor."
+        )
+        modelContext.insert(contributor1)
+        modelContext.insert(contributor2)
+        if testProject.contributorEntries == nil { testProject.contributorEntries = [] }
+        testProject.contributorEntries?.append(contentsOf: [contributor1, contributor2])
+        try? modelContext.save()
+        
+        let result = generator.generateContributorsSection()
+        XCTAssertNotNil(result)
+        let text = result!.string
+        XCTAssertTrue(text.contains("Doe"))
+        XCTAssertTrue(text.contains("Smith"))
+        XCTAssertTrue(text.contains("A prolific author."))
+        XCTAssertTrue(text.contains("An editor."))
+    }
+    
+    func testGenerateContributorsSectionSurnameFirst() {
+        testProject.contributorDisplaySurnameFirst = true
+        let contributor = ContributorEntry(
+            project: testProject,
+            firstName: "Jane",
+            surname: "Doe",
+            biography: ""
+        )
+        modelContext.insert(contributor)
+        if testProject.contributorEntries == nil { testProject.contributorEntries = [] }
+        testProject.contributorEntries?.append(contributor)
+        try? modelContext.save()
+        
+        let result = generator.generateContributorsSection()
+        XCTAssertNotNil(result)
+        XCTAssertTrue(result!.string.contains("Doe, Jane"))
+    }
+    
+    func testGenerateContributorsSectionForenameFirst() {
+        testProject.contributorDisplaySurnameFirst = false
+        let contributor = ContributorEntry(
+            project: testProject,
+            firstName: "Jane",
+            surname: "Doe",
+            biography: ""
+        )
+        modelContext.insert(contributor)
+        if testProject.contributorEntries == nil { testProject.contributorEntries = [] }
+        testProject.contributorEntries?.append(contributor)
+        try? modelContext.save()
+        
+        let result = generator.generateContributorsSection()
+        XCTAssertNotNil(result)
+        XCTAssertTrue(result!.string.contains("Jane Doe"))
+    }
+    
+    func testGenerateContributorsSectionRunTogether() {
+        testProject.contributorDisplayRunTogether = true
+        let contributor1 = ContributorEntry(
+            project: testProject,
+            firstName: "Alice",
+            surname: "Adams",
+            biography: "Bio one."
+        )
+        let contributor2 = ContributorEntry(
+            project: testProject,
+            firstName: "Bob",
+            surname: "Brown",
+            biography: "Bio two."
+        )
+        modelContext.insert(contributor1)
+        modelContext.insert(contributor2)
+        if testProject.contributorEntries == nil { testProject.contributorEntries = [] }
+        testProject.contributorEntries?.append(contentsOf: [contributor1, contributor2])
+        try? modelContext.save()
+        
+        let result = generator.generateContributorsSection()
+        XCTAssertNotNil(result)
+        let text = result!.string
+        // Run-together should have bullet separator between entries
+        XCTAssertTrue(text.contains("\u{2022}"))
+        XCTAssertTrue(text.contains("Bio one."))
+        XCTAssertTrue(text.contains("Bio two."))
+    }
+    
+    func testGenerateContributorsNamesAreBold() {
+        let contributor = ContributorEntry(
+            project: testProject,
+            firstName: "Jane",
+            surname: "Doe",
+            biography: "A writer."
+        )
+        modelContext.insert(contributor)
+        if testProject.contributorEntries == nil { testProject.contributorEntries = [] }
+        testProject.contributorEntries?.append(contributor)
+        try? modelContext.save()
+        
+        let result = generator.generateContributorsSection()
+        XCTAssertNotNil(result)
+        
+        // Find the name range and check it has a bold font
+        let text = result!.string
+        let nameRange = (text as NSString).range(of: "Doe, Jane")
+        XCTAssertNotEqual(nameRange.location, NSNotFound, "Name should appear in output")
+        
+        if nameRange.location != NSNotFound {
+            let attrs = result!.attributes(at: nameRange.location, effectiveRange: nil)
+            if let font = attrs[.font] as? UIFont {
+                XCTAssertTrue(font.fontDescriptor.symbolicTraits.contains(.traitBold),
+                              "Contributor name should be bold")
+            }
+        }
+    }
+    
+    func testGenerateContributorsBodyStyleDefault() {
+        // Default body style should be "body"
+        XCTAssertEqual(testProject.contributorBodyStyleName, "body")
+    }
+    
+    func testGenerateContributorsWithCustomBodyStyle() {
+        // Set up a stylesheet with a custom style
+        let styleSheet = StyleSheet(name: "Test Sheet")
+        let bodyStyle = TextStyleModel(name: "body", displayName: "Body", displayOrder: 0)
+        bodyStyle.fontSize = 17
+        bodyStyle.styleCategory = .text
+        bodyStyle.styleSheet = styleSheet
+        let captionStyle = TextStyleModel(name: "caption1", displayName: "Caption 1", displayOrder: 1)
+        captionStyle.fontSize = 12
+        captionStyle.styleCategory = .text
+        captionStyle.styleSheet = styleSheet
+        
+        modelContext.insert(styleSheet)
+        modelContext.insert(bodyStyle)
+        modelContext.insert(captionStyle)
+        testProject.styleSheet = styleSheet
+        testProject.contributorBodyStyleName = "caption1"
+        try? modelContext.save()
+        
+        // Re-create generator with updated project
+        generator = BackMatterGenerator(context: modelContext, project: testProject)
+        
+        let contributor = ContributorEntry(
+            project: testProject,
+            firstName: "Jane",
+            surname: "Doe",
+            biography: "A writer."
+        )
+        modelContext.insert(contributor)
+        if testProject.contributorEntries == nil { testProject.contributorEntries = [] }
+        testProject.contributorEntries?.append(contributor)
+        try? modelContext.save()
+        
+        let result = generator.generateContributorsSection()
+        XCTAssertNotNil(result)
+        
+        // Biography text should use caption1 font size (12pt), not body (17pt)
+        let text = result!.string
+        let bioRange = (text as NSString).range(of: "A writer.")
+        XCTAssertNotEqual(bioRange.location, NSNotFound)
+        
+        if bioRange.location != NSNotFound {
+            let attrs = result!.attributes(at: bioRange.location, effectiveRange: nil)
+            if let font = attrs[.font] as? UIFont {
+                XCTAssertEqual(font.pointSize, 12, accuracy: 1.0,
+                               "Biography should use caption1 font size")
+            }
+        }
     }
 }

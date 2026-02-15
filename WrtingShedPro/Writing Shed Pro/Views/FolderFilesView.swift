@@ -18,9 +18,6 @@ struct FolderFilesView: View {
     @Environment(\.modelContext) var modelContext
     @Environment(\.dismiss) var dismiss
     
-    // Query all folders to ensure we have fresh relationships
-    @Query private var allFolders: [Folder]
-    
     // Query all files (lazily loaded by SwiftData)
     @Query(sort: [SortDescriptor(\TextFile.name, order: .forward)]) var allTextFiles: [TextFile]
     

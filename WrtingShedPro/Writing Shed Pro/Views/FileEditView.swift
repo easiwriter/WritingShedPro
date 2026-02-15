@@ -50,6 +50,7 @@ struct FileEditView: View {
     @State private var showDocumentPicker = false // For UIViewControllerRepresentable picker
     @State private var showImageSourcePicker = false // Show Photos vs Files chooser
     @State private var isPaginationMode = false // Toggle between edit and pagination preview modes
+    @State private var showInvisibles = false // Toggle to show invisible characters (spaces, tabs, paragraph marks, page breaks)
     @State private var isPreviewingAsAlternateFormat = false // When true, showing file in opposite format (non-destructive preview)
     @State private var prePreviewContent: NSAttributedString? // Stores original content before entering preview mode
     @State private var undoManager: TextFileUndoManager
@@ -224,6 +225,7 @@ struct FileEditView: View {
                                 selectedRange: $selectedRange,
                                 textViewCoordinator: textViewCoordinator,
                                 project: file.project,
+                                showInvisibles: showInvisibles,
                                 textContainerInset: UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8),
                                 isEditable: isFileEditable,
                                 onTextChange: { newText in
@@ -286,6 +288,7 @@ struct FileEditView: View {
                                 selectedRange: $selectedRange,
                                 textViewCoordinator: textViewCoordinator,
                                 project: file.project,
+                                showInvisibles: showInvisibles,
                                 textContainerInset: UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8),
                                 isEditable: isFileEditable,
                                 onTextChange: { newText in
@@ -355,6 +358,7 @@ struct FileEditView: View {
                                 selectedRange: $selectedRange,
                                 textViewCoordinator: textViewCoordinator,
                                 project: file.project,
+                                showInvisibles: showInvisibles,
                                 textContainerInset: UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8),
                                 isEditable: isFileEditable,
                                 onTextChange: { newText in
@@ -408,6 +412,7 @@ struct FileEditView: View {
                                 selectedRange: $selectedRange,
                                 textViewCoordinator: textViewCoordinator,
                                 project: file.project,
+                                showInvisibles: showInvisibles,
                                 textContainerInset: UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8),
                                 isEditable: isFileEditable,
                                 onTextChange: { newText in
@@ -576,6 +581,18 @@ struct FileEditView: View {
             if isPaginationMode { Task { await PDFExportTip.pagePreviewUsed.donate() } }
         }) {
             Label(isPaginationMode ? "Edit Mode" : "Page Preview", systemImage: isPaginationMode ? "pencil" : "document.on.document")
+        }
+        
+        // Show/Hide Invisibles toggle
+        Button(action: {
+            showInvisibles.toggle()
+        }) {
+            Label(
+                showInvisibles
+                    ? NSLocalizedString("fileEdit.hideInvisibles", comment: "Hide Invisibles")
+                    : NSLocalizedString("fileEdit.showInvisibles", comment: "Show Invisibles"),
+                systemImage: showInvisibles ? "eye.slash" : "eye"
+            )
         }
         
         // Content type toggle (Rich Text / Markdown) - not for poetry or drama projects
@@ -940,6 +957,18 @@ struct FileEditView: View {
                         Image(systemName: isPaginationMode ? "document.on.document.fill" : "document.on.document")
                     }
                     .accessibilityLabel(isPaginationMode ? "fileEdit.switchToEditMode.accessibility" : "fileEdit.switchToPaginationPreview.accessibility")
+                    
+                    // Show/Hide Invisibles toggle
+                    if !isPaginationMode {
+                        Button(action: {
+                            showInvisibles.toggle()
+                        }) {
+                            Image(systemName: showInvisibles ? "eye.slash" : "eye")
+                        }
+                        .accessibilityLabel(showInvisibles
+                            ? NSLocalizedString("fileEdit.hideInvisibles", comment: "Hide Invisibles")
+                            : NSLocalizedString("fileEdit.showInvisibles", comment: "Show Invisibles"))
+                    }
                     
                     // Content type toggle (Rich Text / Markdown) - not for poetry or drama projects
                     if supportsMarkdown && !isPaginationMode {

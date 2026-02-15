@@ -637,10 +637,28 @@ struct FolderListView: View {
     }
     
     /// Insert front/back cover images into manuscript content
+    /// Scale a cover image to fit within the page content area, maintaining aspect ratio
+    private static func scaledCoverBounds(for image: UIImage, pageSetup: PageSetup) -> CGRect {
+        let pageLayout = PageLayoutCalculator.calculateLayout(from: pageSetup)
+        let contentSize = pageLayout.contentRect.size
+        let imageSize = image.size
+        
+        // Scale to fill the content area while maintaining aspect ratio
+        let widthRatio = contentSize.width / imageSize.width
+        let heightRatio = contentSize.height / imageSize.height
+        let scale = min(widthRatio, heightRatio)
+        
+        let scaledWidth = imageSize.width * scale
+        let scaledHeight = imageSize.height * scale
+        
+        return CGRect(x: 0, y: 0, width: scaledWidth, height: scaledHeight)
+    }
+    
     static func insertCoverImages(into content: ManuscriptContent, project: Project) -> ManuscriptContent {
         let assembled = NSMutableAttributedString()
         var hasFrontCover = false
         var hasBackCover = false
+        let pageSetup = project.pageSetup ?? PageSetupPreferences.shared.createPageSetup()
         
         // Front cover: find front cover file and prepend its image
         if let manuscriptFolder = project.folders?.first(where: { $0.name == "Manuscript" }),
@@ -651,7 +669,8 @@ struct FolderListView: View {
            let image = UIImage(data: imageData) {
             let attachment = NSTextAttachment()
             attachment.image = image
-            // Scale to page width (will be handled by PrintService)
+            // Scale image to fit within page content area (aspect-fit)
+            attachment.bounds = scaledCoverBounds(for: image, pageSetup: pageSetup)
             assembled.append(NSAttributedString(attachment: attachment))
             assembled.append(NSAttributedString(string: "\u{0C}")) // Page break after cover
             hasFrontCover = true
@@ -696,6 +715,8 @@ struct FolderListView: View {
             assembled.append(NSAttributedString(string: "\u{0C}")) // Page break before cover
             let attachment = NSTextAttachment()
             attachment.image = image
+            // Scale image to fit within page content area (aspect-fit)
+            attachment.bounds = scaledCoverBounds(for: image, pageSetup: pageSetup)
             assembled.append(NSAttributedString(attachment: attachment))
             hasBackCover = true
         }

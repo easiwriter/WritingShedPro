@@ -46,8 +46,6 @@ struct ContributorEditorSheet: View {
     }
     
     private var isValid: Bool {
-        // At least surname or first name must be provided
-        !firstName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
         !surname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
     
@@ -73,6 +71,10 @@ struct ContributorEditorSheet: View {
                     .autocapitalization(.words)
                 } header: {
                     Text(NSLocalizedString("contributor.section.name", comment: "Name"))
+                } footer: {
+                    Text(NSLocalizedString("contributor.name.order.hint", comment: "Use the display order toggle in the contributors list to switch between \"Surname, Forename\" and \"Forename Surname\"."))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
                 
                 // Biography Section
@@ -121,8 +123,28 @@ struct ContributorEditorSheet: View {
     
     private func loadExistingData() {
         guard let contributor = existingContributor else { return }
-        firstName = contributor.firstName
-        surname = contributor.surname
+        // Use legacy fields if available, otherwise parse from unified name
+        if !contributor.firstName.isEmpty || !contributor.surname.isEmpty {
+            firstName = contributor.firstName
+            surname = contributor.surname
+        } else if !contributor.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            // Parse unified name back into parts
+            let trimmed = contributor.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let commaIndex = trimmed.firstIndex(of: ",") {
+                // "Surname, Forename" format
+                surname = String(trimmed[trimmed.startIndex..<commaIndex]).trimmingCharacters(in: .whitespaces)
+                firstName = String(trimmed[trimmed.index(after: commaIndex)...]).trimmingCharacters(in: .whitespaces)
+            } else {
+                // "Forename Surname" format — last word is surname
+                let parts = trimmed.split(separator: " ")
+                if parts.count > 1 {
+                    surname = String(parts.last!)
+                    firstName = parts.dropLast().joined(separator: " ")
+                } else {
+                    surname = trimmed
+                }
+            }
+        }
         biography = contributor.biography
     }
     
@@ -132,10 +154,10 @@ struct ContributorEditorSheet: View {
         let trimmedBiography = biography.trimmingCharacters(in: .whitespacesAndNewlines)
         
         // Validate
-        if trimmedFirstName.isEmpty && trimmedSurname.isEmpty {
+        if trimmedSurname.isEmpty {
             validationMessage = NSLocalizedString(
-                "contributor.validation.nameRequired",
-                comment: "Please enter at least a first name or surname."
+                "contributor.validation.surnameRequired",
+                comment: "Please enter a surname."
             )
             showValidationAlert = true
             return
@@ -143,11 +165,11 @@ struct ContributorEditorSheet: View {
         
         if isEditing, let contributor = existingContributor {
             // Update existing
-            contributor.update(
-                firstName: trimmedFirstName,
-                surname: trimmedSurname,
-                biography: trimmedBiography
-            )
+            contributor.firstName = trimmedFirstName
+            contributor.surname = trimmedSurname
+            contributor.name = "" // Clear unified name; use structured fields
+            contributor.biography = trimmedBiography
+            contributor.modifiedAt = Date()
         } else {
             // Create new
             let newContributor = ContributorEntry(

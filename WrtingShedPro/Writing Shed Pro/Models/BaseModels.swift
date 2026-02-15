@@ -156,6 +156,15 @@ final class Project {
     @Relationship(deleteRule: .cascade, inverse: \ContributorEntry.project)
     var contributorEntries: [ContributorEntry]? = []
     
+    /// Display order for contributor names: true = "Surname, Forename", false = "Forename Surname"
+    var contributorDisplaySurnameFirst: Bool = true
+    
+    /// Display layout for contributors: true = continuous paragraph, false = separate rows
+    var contributorDisplayRunTogether: Bool = false
+    
+    /// Style name for contributor entries (references a TextStyleModel name in the project's stylesheet)
+    var contributorBodyStyleName: String = "body"
+    
     // Fiction relationships
     @Relationship(deleteRule: .cascade, inverse: \StoryScene.project)
     var scenes: [StoryScene]? = []
