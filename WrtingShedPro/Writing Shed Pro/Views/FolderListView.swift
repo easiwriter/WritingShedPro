@@ -637,28 +637,12 @@ struct FolderListView: View {
     }
     
     /// Insert front/back cover images into manuscript content
-    /// Scale a cover image to fit within the page content area, maintaining aspect ratio
-    private static func scaledCoverBounds(for image: UIImage, pageSetup: PageSetup) -> CGRect {
-        let pageLayout = PageLayoutCalculator.calculateLayout(from: pageSetup)
-        let contentSize = pageLayout.contentRect.size
-        let imageSize = image.size
-        
-        // Scale to fill the content area while maintaining aspect ratio
-        let widthRatio = contentSize.width / imageSize.width
-        let heightRatio = contentSize.height / imageSize.height
-        let scale = min(widthRatio, heightRatio)
-        
-        let scaledWidth = imageSize.width * scale
-        let scaledHeight = imageSize.height * scale
-        
-        return CGRect(x: 0, y: 0, width: scaledWidth, height: scaledHeight)
-    }
-    
     static func insertCoverImages(into content: ManuscriptContent, project: Project) -> ManuscriptContent {
         let assembled = NSMutableAttributedString()
         var hasFrontCover = false
         var hasBackCover = false
-        let pageSetup = project.pageSetup ?? PageSetupPreferences.shared.createPageSetup()
+        var frontCoverData: Data?
+        var backCoverData: Data?
         
         // Front cover: find front cover file and prepend its image
         if let manuscriptFolder = project.folders?.first(where: { $0.name == "Manuscript" }),
@@ -666,12 +650,14 @@ struct FolderListView: View {
            let frontCoverFile = frontMatterFolder.textFiles?.first(where: { $0.isCoverFile && $0.name == FrontMatterItem.frontCover.fileName }),
            frontCoverFile.includedInManuscript,
            let imageData = frontCoverFile.coverImageData,
-           let image = UIImage(data: imageData) {
-            let attachment = NSTextAttachment()
-            attachment.image = image
-            // Scale image to fit within page content area (aspect-fit)
-            attachment.bounds = scaledCoverBounds(for: image, pageSetup: pageSetup)
-            assembled.append(NSAttributedString(attachment: attachment))
+           UIImage(data: imageData) != nil {
+            frontCoverData = imageData
+            // Insert a lightweight placeholder for the cover page.
+            // The actual image is drawn directly by CustomPDFPageRenderer.drawCoverImage()
+            // from the project's cover file data, bypassing the text layout system entirely.
+            // Using NSTextAttachment with large images causes NSLayoutManager sizing
+            // issues on smaller devices (iPhone).
+            assembled.append(NSAttributedString(string: " ")) // placeholder
             assembled.append(NSAttributedString(string: "\u{0C}")) // Page break after cover
             hasFrontCover = true
         }
@@ -711,13 +697,12 @@ struct FolderListView: View {
            let backCoverFile = backMatterFolder.textFiles?.first(where: { $0.isCoverFile && $0.name == BackMatterItem.backCover.fileName }),
            backCoverFile.includedInManuscript,
            let imageData = backCoverFile.coverImageData,
-           let image = UIImage(data: imageData) {
+           UIImage(data: imageData) != nil {
+            backCoverData = imageData
             assembled.append(NSAttributedString(string: "\u{0C}")) // Page break before cover
-            let attachment = NSTextAttachment()
-            attachment.image = image
-            // Scale image to fit within page content area (aspect-fit)
-            attachment.bounds = scaledCoverBounds(for: image, pageSetup: pageSetup)
-            assembled.append(NSAttributedString(attachment: attachment))
+            // Insert a lightweight placeholder for the cover page.
+            // The actual image is drawn directly by CustomPDFPageRenderer.drawCoverImage()
+            assembled.append(NSAttributedString(string: " ")) // placeholder
             hasBackCover = true
         }
         
@@ -731,7 +716,9 @@ struct FolderListView: View {
             hasBackCover: hasBackCover,
             frontMatterFileCount: content.frontMatterFileCount,
             frontMatterCharacterLength: adjustedFMCharLength,
-            assembledFootnotes: adjustedFootnotes
+            assembledFootnotes: adjustedFootnotes,
+            frontCoverImageData: frontCoverData,
+            backCoverImageData: backCoverData
         )
     }
 

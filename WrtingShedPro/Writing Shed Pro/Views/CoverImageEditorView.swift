@@ -13,6 +13,7 @@ import UniformTypeIdentifiers
 
 struct CoverImageEditorView: View {
     @Bindable var file: TextFile
+    @Environment(\.modelContext) private var modelContext
     @State private var isProcessing = false
     @State private var showSourcePicker = false
     @State private var showFilePicker = false
@@ -143,6 +144,7 @@ struct CoverImageEditorView: View {
             Button(role: .destructive) {
                 withAnimation {
                     file.coverImageData = nil
+                    try? modelContext.save()
                 }
             } label: {
                 Label(
@@ -192,6 +194,7 @@ struct CoverImageEditorView: View {
         if let compressed = Self.compressImage(uiImage) {
             withAnimation {
                 file.coverImageData = compressed
+                try? modelContext.save()
             }
         }
         isProcessing = false
@@ -204,6 +207,7 @@ struct CoverImageEditorView: View {
         if let compressed = Self.compressImage(uiImage) {
             await MainActor.run {
                 file.coverImageData = compressed
+                try? modelContext.save()
             }
         }
     }

@@ -98,6 +98,11 @@ struct ManuscriptContent {
     /// to the assembled string. Used by PDF renderers when no single Version is available.
     var assembledFootnotes: [ManuscriptFootnote]
     
+    /// Pre-extracted cover image data (JPEG/PNG) for thread-safe PDF rendering.
+    /// Loaded on the main thread to avoid SwiftData cross-thread access during background PDF generation.
+    var frontCoverImageData: Data?
+    var backCoverImageData: Data?
+    
     var wordCount: Int {
         let text = attributedString.string
         let words = text.components(separatedBy: .whitespacesAndNewlines)
@@ -120,7 +125,9 @@ struct ManuscriptContent {
         hasBackCover: Bool = false,
         frontMatterFileCount: Int = 0,
         frontMatterCharacterLength: Int = 0,
-        assembledFootnotes: [ManuscriptFootnote] = []
+        assembledFootnotes: [ManuscriptFootnote] = [],
+        frontCoverImageData: Data? = nil,
+        backCoverImageData: Data? = nil
     ) {
         self.attributedString = attributedString
         self.sections = sections
@@ -132,6 +139,8 @@ struct ManuscriptContent {
         self.frontMatterFileCount = frontMatterFileCount
         self.frontMatterCharacterLength = frontMatterCharacterLength
         self.assembledFootnotes = assembledFootnotes
+        self.frontCoverImageData = frontCoverImageData
+        self.backCoverImageData = backCoverImageData
     }
 }
 

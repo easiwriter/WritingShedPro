@@ -30,6 +30,9 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
     private let hasFrontCover: Bool
     /// Whether the last page is a back cover (no headers/footers)
     private let hasBackCover: Bool
+    /// Pre-extracted cover image data for thread-safe rendering
+    private let frontCoverImageData: Data?
+    private let backCoverImageData: Data?
     /// Character length of front matter content (excluding cover) in the text storage.
     /// Pages whose character range falls within this length show roman numeral page numbers.
     private let frontMatterCharacterLength: Int
@@ -59,7 +62,9 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
          hasFrontCover: Bool = false,
          hasBackCover: Bool = false,
          frontMatterCharacterLength: Int = 0,
-         assembledFootnotes: [ManuscriptFootnote] = []) {
+         assembledFootnotes: [ManuscriptFootnote] = [],
+         frontCoverImageData: Data? = nil,
+         backCoverImageData: Data? = nil) {
         self.layoutManager = layoutManager
         self.layoutResult = layoutResult
         self.pageSetup = pageSetup
@@ -70,6 +75,8 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
         self.hasFrontCover = hasFrontCover
         self.hasBackCover = hasBackCover
         self.frontMatterCharacterLength = frontMatterCharacterLength
+        self.frontCoverImageData = frontCoverImageData
+        self.backCoverImageData = backCoverImageData
         
         super.init()
         
@@ -251,7 +258,8 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
             drawCoverImage(
                 pageInfo: pageInfo,
                 contentRect: contentRect,
-                context: context
+                context: context,
+                isFrontCover: isFrontCoverPage
             )
         } else {
             drawTextContent(
@@ -407,25 +415,16 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
     }
     
     /// Draw a cover image directly into the full page area.
-    /// NSAttributedString.draw(in:) doesn't reliably render NSTextAttachment images
-    /// in off-screen PDF contexts, so we extract the image and draw it with UIImage.draw(in:).
+    /// Uses pre-extracted image data to avoid SwiftData cross-thread access crashes.
     private func drawCoverImage(pageInfo: PaginatedTextLayoutManager.PageInfo,
                                 contentRect: CGRect,
-                                context: CGContext) {
-        // Find the NSTextAttachment image in this page's character range
-        let characterRange = pageInfo.characterRange
-        var coverImage: UIImage?
+                                context: CGContext,
+                                isFrontCover: Bool) {
+        let imageData = isFrontCover ? frontCoverImageData : backCoverImageData
         
-        layoutManager.textStorage.enumerateAttribute(.attachment, in: characterRange, options: []) { value, _, stop in
-            if let attachment = value as? NSTextAttachment, let image = attachment.image {
-                coverImage = image
-                stop.pointee = true
-            }
-        }
-        
-        guard let image = coverImage else {
+        guard let data = imageData, let image = UIImage(data: data) else {
             #if DEBUG
-            print("⚠️ [CustomPDFPageRenderer] Cover page has no image attachment")
+            print("⚠️ [CustomPDFPageRenderer] Cover page has no pre-extracted image data (isFrontCover=\(isFrontCover))")
             #endif
             return
         }

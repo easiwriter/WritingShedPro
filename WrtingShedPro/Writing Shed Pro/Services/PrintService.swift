@@ -664,7 +664,9 @@ class PrintService {
             hasBackCover: content.hasBackCover,
             frontMatterFileCount: content.frontMatterFileCount,
             frontMatterCharacterLength: content.frontMatterCharacterLength,
-            assembledFootnotes: content.assembledFootnotes
+            assembledFootnotes: content.assembledFootnotes,
+            frontCoverImageData: content.frontCoverImageData,
+            backCoverImageData: content.backCoverImageData
         )
     }
     
@@ -710,6 +712,8 @@ class PrintService {
         let bgFrontMatterFileCount = content.frontMatterFileCount
         let bgFrontMatterCharacterLength = content.frontMatterCharacterLength
         let bgAssembledFootnotes = content.assembledFootnotes
+        let bgFrontCoverImageData = content.frontCoverImageData
+        let bgBackCoverImageData = content.backCoverImageData
         
         return await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
@@ -726,7 +730,9 @@ class PrintService {
                     hasBackCover: bgHasBackCover,
                     frontMatterFileCount: bgFrontMatterFileCount,
                     frontMatterCharacterLength: bgFrontMatterCharacterLength,
-                    assembledFootnotes: bgAssembledFootnotes
+                    assembledFootnotes: bgAssembledFootnotes,
+                    frontCoverImageData: bgFrontCoverImageData,
+                    backCoverImageData: bgBackCoverImageData
                 )
                 continuation.resume(returning: result)
             }
@@ -809,7 +815,9 @@ class PrintService {
         hasBackCover: Bool = false,
         frontMatterFileCount: Int = 0,
         frontMatterCharacterLength: Int = 0,
-        assembledFootnotes: [ManuscriptFootnote] = []
+        assembledFootnotes: [ManuscriptFootnote] = [],
+        frontCoverImageData: Data? = nil,
+        backCoverImageData: Data? = nil
     ) -> Data? {
         #if DEBUG
         print("🖨️ PDF Generation Setup:")
@@ -866,7 +874,9 @@ class PrintService {
             hasFrontCover: hasFrontCover,
             hasBackCover: hasBackCover,
             frontMatterCharacterLength: frontMatterCharacterLength,
-            assembledFootnotes: assembledFootnotes
+            assembledFootnotes: assembledFootnotes,
+            frontCoverImageData: frontCoverImageData,
+            backCoverImageData: backCoverImageData
         )
         
         // Create PDF data
@@ -909,7 +919,9 @@ class PrintService {
         hasBackCover: Bool = false,
         frontMatterFileCount: Int = 0,
         frontMatterCharacterLength: Int = 0,
-        assembledFootnotes: [ManuscriptFootnote] = []
+        assembledFootnotes: [ManuscriptFootnote] = [],
+        frontCoverImageData: Data? = nil,
+        backCoverImageData: Data? = nil
     ) -> Data? {
         #if DEBUG
         print("🖨️ PDF Generation (with progress) Setup:")
@@ -933,6 +945,8 @@ class PrintService {
                 hasFrontCover: hasFrontCover,
                 hasBackCover: hasBackCover,
                 frontMatterFileCount: frontMatterFileCount,
+                frontCoverImageData: frontCoverImageData,
+                backCoverImageData: backCoverImageData,
                 progress: { current, total in
                     // Report as layout progress for the first 90%, render for the last 10%
                     // In practice each page is laid out + rendered in one step
@@ -985,7 +999,9 @@ class PrintService {
             hasFrontCover: hasFrontCover,
             hasBackCover: hasBackCover,
             frontMatterCharacterLength: frontMatterCharacterLength,
-            assembledFootnotes: assembledFootnotes
+            assembledFootnotes: assembledFootnotes,
+            frontCoverImageData: frontCoverImageData,
+            backCoverImageData: backCoverImageData
         )
         
         let pdfData = NSMutableData()
@@ -1031,6 +1047,8 @@ class PrintService {
         hasFrontCover: Bool = false,
         hasBackCover: Bool = false,
         frontMatterFileCount: Int = 0,
+        frontCoverImageData: Data? = nil,
+        backCoverImageData: Data? = nil,
         progress: @escaping (Int, Int) -> Void
     ) -> Data? {
         let fullString = content.string as NSString
@@ -1237,15 +1255,31 @@ class PrintService {
                 }
             }
             
-            // Draw text content for this page's character range
-            let drawRect = CGRect(
-                x: pageSetup.marginLeft,
-                y: pageSetup.marginTop,
-                width: contentRect.width,
-                height: contentRect.height
-            )
-            
-            if slice.characterRange.length > 0 {
+            // Draw cover image or text content
+            if isCoverPage {
+                // Draw cover image directly from pre-extracted data
+                let coverData = isFrontCoverPage ? frontCoverImageData : backCoverImageData
+                if let data = coverData, let image = UIImage(data: data) {
+                    let imageSize = image.size
+                    let widthRatio = paperRect.width / imageSize.width
+                    let heightRatio = paperRect.height / imageSize.height
+                    let scale = min(widthRatio, heightRatio)
+                    let scaledWidth = imageSize.width * scale
+                    let scaledHeight = imageSize.height * scale
+                    let drawX = (paperRect.width - scaledWidth) / 2
+                    let drawY = (paperRect.height - scaledHeight) / 2
+                    let imageRect = CGRect(x: drawX, y: drawY, width: scaledWidth, height: scaledHeight)
+                    cgContext.saveGState()
+                    image.draw(in: imageRect)
+                    cgContext.restoreGState()
+                }
+            } else if slice.characterRange.length > 0 {
+                let drawRect = CGRect(
+                    x: pageSetup.marginLeft,
+                    y: pageSetup.marginTop,
+                    width: contentRect.width,
+                    height: contentRect.height
+                )
                 let pageText = slice.attributedString.attributedSubstring(from: slice.characterRange)
                 cgContext.saveGState()
                 cgContext.clip(to: drawRect)
