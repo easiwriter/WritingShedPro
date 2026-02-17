@@ -16,6 +16,10 @@ extension FolderFilesView {
         folder.project?.type == .prose
     }
 
+    var isPoetryProject: Bool {
+        folder.project?.type == .poetry
+    }
+
     var isMatterFolder: Bool {
         folder.isFrontMatterFolder || folder.isBackMatterFolder
     }

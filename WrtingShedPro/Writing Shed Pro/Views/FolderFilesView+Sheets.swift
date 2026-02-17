@@ -120,6 +120,23 @@ extension FolderFilesView {
         )
     }
     
+    @ViewBuilder
+    var collectionPickerSheet: some View {
+        if let project = folder.project {
+            PoetryCollectionPickerSheet(
+                project: project,
+                selectedFiles: filesToAssignToCollection,
+                onAssign: { collection in
+                    assignFilesToCollection(filesToAssignToCollection, collection: collection)
+                    showCollectionPicker = false
+                },
+                onCancel: {
+                    showCollectionPicker = false
+                }
+            )
+        }
+    }
+    
     // MARK: - Export Menu Buttons
     
     @ViewBuilder

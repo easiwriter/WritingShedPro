@@ -61,6 +61,7 @@ extension FolderFilesView {
             .sheet(isPresented: $showRenamePicker) { renamePickerSheet }
             .sheet(isPresented: $showFolderMoveDestinationPicker) { folderMoveDestinationSheet }
             .sheet(isPresented: $showStatusPicker) { statusPickerSheet }
+            .sheet(isPresented: $showCollectionPicker) { collectionPickerSheet }
             .sheet(isPresented: $showFrontMatterSettings) {
                 FrontMatterSettingsDialog(folder: folder)
             }

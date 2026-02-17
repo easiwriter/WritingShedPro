@@ -64,6 +64,9 @@ struct FileListView: View {
     /// Called when user wants to change workflow status (optional - only for content folders)
     let onChangeStatus: (([TextFile]) -> Void)?
     
+    /// Called when user wants to add files to a poetry collection (optional - only for Poetry content folders)
+    let onAddToCollection: (([TextFile]) -> Void)?
+    
     // MARK: - State
     
     /// Edit mode state - read from environment (set by parent view with EditButton)
@@ -499,6 +502,21 @@ struct FileListView: View {
                 Label(
                     NSLocalizedString("fileList.changeStatus", comment: "Change status"),
                     systemImage: "arrow.triangle.2.circlepath"
+                )
+            }
+            .disabled(selectedFiles.isEmpty)
+            
+            Spacer()
+        }
+        
+        // Add to Collection button (if onAddToCollection callback provided - Poetry projects)
+        if let onAddToCollection = onAddToCollection {
+            Button {
+                onAddToCollection(selectedFiles)
+            } label: {
+                Label(
+                    NSLocalizedString("fileList.addToCollection", comment: "Add to Collection"),
+                    systemImage: "rectangle.stack.badge.plus"
                 )
             }
             .disabled(selectedFiles.isEmpty)

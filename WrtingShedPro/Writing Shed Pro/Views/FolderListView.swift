@@ -284,6 +284,11 @@ struct FolderListView: View {
                             NavigationLink(destination: ProseListView(project: project)) {
                                 FolderRowView(folder: folder)
                             }
+                        } else if folderName == "Collections" && project.type == .poetry {
+                            // Poetry: Collections folder navigates to PoetryCollectionsView
+                            NavigationLink(destination: PoetryCollectionsView(project: project)) {
+                                FolderRowView(folder: folder)
+                            }
                         } else if folderName == "Scenes" && project.type == .fiction {
                             // Fiction (Short Fiction): Scenes folder navigates to SceneListView
                             NavigationLink(destination: SceneListView(project: project)) {

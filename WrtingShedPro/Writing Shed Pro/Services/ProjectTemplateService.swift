@@ -58,7 +58,7 @@ struct ProjectTemplateService {
     ///   - manuscriptFolder: The parent Manuscript folder
     ///   - context: SwiftData model context for persistence
     static func createManuscriptSubfolders(in manuscriptFolder: Folder, context: ModelContext) {
-        guard let project = manuscriptFolder.project else { return }
+        guard manuscriptFolder.project != nil else { return }
         
         // Check if subfolders already exist (avoid creating duplicates)
         let existingSubfolders = manuscriptFolder.folders ?? []

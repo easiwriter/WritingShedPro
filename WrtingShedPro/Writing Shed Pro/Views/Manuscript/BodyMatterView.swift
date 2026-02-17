@@ -10,8 +10,9 @@
 import SwiftUI
 import SwiftData
 
-/// A unified protocol for items that can appear in Body Matter
-protocol BodyMatterItem: Identifiable {
+/// A unified protocol for items that can appear in Body Matter.
+/// All conforming types are @Model classes which already conform to Identifiable.
+protocol BodyMatterItem {
     var id: UUID { get }
     var name: String? { get }
     var isInBodyMatter: Bool { get set }

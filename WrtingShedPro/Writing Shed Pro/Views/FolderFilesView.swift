@@ -120,6 +120,10 @@ struct FolderFilesView: View {
     @State var showMoveDestinationPicker = false
     @State var filesToMove: [TextFile] = []
     
+    // State for poetry collection picker (Poetry projects only)
+    @State var showCollectionPicker = false
+    @State var filesToAssignToCollection: [TextFile] = []
+    
     // State for early dismissal - prevents continued rendering during navigation
     @State var isDismissing = false
     
@@ -150,7 +154,8 @@ struct FolderFilesView: View {
             onReorder: (!isReadOnly && isContentFolder) ? moveContentFiles : nil,
             onRename: isReadOnly ? { _ in } : handleRename,
             onDeletePermanently: isReadOnly ? { _ in } : deleteFilesPermanently,
-            onChangeStatus: (isContentFolder && !isReadOnly) ? handleChangeStatus : nil
+            onChangeStatus: (isContentFolder && !isReadOnly) ? handleChangeStatus : nil,
+            onAddToCollection: (isPoetryProject && isContentFolder && !isReadOnly) ? handleAddToCollection : nil
         )
     }
     
@@ -183,6 +188,11 @@ struct FolderFilesView: View {
     private func handleChangeStatus(_ files: [TextFile]) {
         filesToChangeStatus = files
         showStatusPicker = true
+    }
+    
+    private func handleAddToCollection(_ files: [TextFile]) {
+        filesToAssignToCollection = files
+        showCollectionPicker = true
     }
     
     @ViewBuilder
@@ -877,6 +887,23 @@ struct FolderFilesView: View {
             print("Error resetting submission status: \(error)")
             #endif
         }
+    }
+    
+    /// Assign files to a poetry collection (or remove assignment if nil)
+    func assignFilesToCollection(_ files: [TextFile], collection: PoetryCollection?) {
+        for file in files {
+            file.poetryCollection = collection
+        }
+        
+        do {
+            try modelContext.save()
+        } catch {
+            #if DEBUG
+            print("Error assigning files to collection: \(error)")
+            #endif
+        }
+        
+        filesToAssignToCollection = []
     }
     
     /// Move files to a destination folder (Prose projects only)
