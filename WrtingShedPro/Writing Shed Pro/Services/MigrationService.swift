@@ -11,6 +11,7 @@ class MigrationService {
     static func runMigrations(context: ModelContext) {
         cleanupOrphanedFolders(context: context)
         migrateManuscriptSubfolders(context: context)
+        migrateFeature036(context: context)
     }
     
     /// CRITICAL: Run this BEFORE any views load to prevent crashes from invalidated folder objects
@@ -204,4 +205,353 @@ class MigrationService {
     }
         
     // (Migration flag code removed; migration is now always idempotent and project-aware)
+    
+    // MARK: - Feature 036: Project Folder Revamp Migration
+    
+    /// Feature 036 migration key for UserDefaults
+    private static let feature036MigrationKey = "hasRunFeature036Migration"
+    
+    /// Feature 036: Migrate projects to new folder structure
+    /// - Renames "All X" body subfolders to "Body Matter"
+    /// - Populates isInBodyMatter/bodyMatterOrder on existing container entities
+    /// - Migrates Poetry collection Submissions to PoetryCollection model
+    /// - Migrates Verse Novel Chapter entities to Book entities
+    /// - Removes Collections folder from non-Poetry projects
+    /// - Repositions Collections folder in Poetry projects
+    static func migrateFeature036(context: ModelContext) {
+        guard !UserDefaults.standard.bool(forKey: feature036MigrationKey) else {
+            #if DEBUG
+            print("✅ [MigrationService] Feature 036 migration already completed, skipping")
+            #endif
+            return
+        }
+        
+        #if DEBUG
+        print("🔄 [MigrationService] Starting Feature 036 migration...")
+        #endif
+        
+        let descriptor = FetchDescriptor<Project>()
+        guard let projects = try? context.fetch(descriptor) else {
+            #if DEBUG
+            print("❌ [MigrationService] Failed to fetch projects for Feature 036 migration")
+            #endif
+            return
+        }
+        
+        for project in projects {
+            renameBodySubfolder(project: project, context: context)
+            populateBodyMatter(project: project, context: context)
+            
+            if project.type == .poetry {
+                migratePoetryCollections(project: project, context: context)
+                repositionCollectionsFolder(project: project)
+            } else {
+                removeCollectionsFolder(project: project, context: context)
+            }
+            
+            if project.type == .fiction && project.fictionClass == .verseNovel {
+                migrateVerseNovelChaptersToBooks(project: project, context: context)
+            }
+        }
+        
+        do {
+            try context.save()
+            UserDefaults.standard.set(true, forKey: feature036MigrationKey)
+            #if DEBUG
+            print("✅ [MigrationService] Feature 036 migration complete for \(projects.count) projects")
+            #endif
+        } catch {
+            #if DEBUG
+            print("❌ [MigrationService] Feature 036 migration save failed: \(error)")
+            #endif
+        }
+    }
+    
+    // MARK: - Task 8.1: Rename "All X" to "Body Matter"
+    
+    private static func renameBodySubfolder(project: Project, context: ModelContext) {
+        guard let manuscriptFolder = project.folders?.first(where: { $0.name == "Manuscript" }) else { return }
+        
+        let legacyBodyNames: Set<String> = [
+            "All Poems", "All Sections", "All Chapters", "All Stories", "All Books", "All Acts", "Body"
+        ]
+        
+        for subfolder in manuscriptFolder.folders ?? [] {
+            if let name = subfolder.name, legacyBodyNames.contains(name) {
+                #if DEBUG
+                print("  ↳ Renaming '\(name)' → 'Body Matter' in \(project.name ?? "Untitled")")
+                #endif
+                subfolder.name = "Body Matter"
+            }
+        }
+    }
+    
+    // MARK: - Task 8.5: Populate Body Matter for all project types
+    
+    private static func populateBodyMatter(project: Project, context: ModelContext) {
+        switch project.type {
+        case .poetry:
+            // Poetry: set all PoetryCollections as body matter
+            let collections = (project.poetryCollections ?? [])
+                .sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+            guard collections.contains(where: { !$0.isInBodyMatter }) || collections.allSatisfy({ !$0.isInBodyMatter }) else { return }
+            for (index, collection) in collections.enumerated() where !collection.isInBodyMatter {
+                collection.isInBodyMatter = true
+                collection.bodyMatterOrder = index
+            }
+            #if DEBUG
+            if !collections.isEmpty {
+                print("  ↳ Set \(collections.count) poetry collections as body matter in \(project.name ?? "Untitled")")
+            }
+            #endif
+            
+        case .prose:
+            let sections = (project.sections ?? [])
+                .sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+            guard !sections.isEmpty else { return }
+            let needsMigration = sections.contains { !$0.isInBodyMatter }
+            guard needsMigration else { return }
+            for (index, section) in sections.enumerated() {
+                section.isInBodyMatter = true
+                section.bodyMatterOrder = index
+            }
+            #if DEBUG
+            print("  ↳ Set \(sections.count) prose sections as body matter in \(project.name ?? "Untitled")")
+            #endif
+            
+        case .fiction:
+            switch project.fictionClass {
+            case .novel:
+                let chapters = (project.chapters ?? [])
+                    .sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+                guard !chapters.isEmpty else { return }
+                let needsMigration = chapters.contains { !$0.isInBodyMatter }
+                guard needsMigration else { return }
+                for (index, chapter) in chapters.enumerated() {
+                    chapter.isInBodyMatter = true
+                    chapter.bodyMatterOrder = index
+                }
+                #if DEBUG
+                print("  ↳ Set \(chapters.count) chapters as body matter in \(project.name ?? "Untitled")")
+                #endif
+                
+            case .shortFiction, .none:
+                let scenes = (project.scenes ?? [])
+                    .sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+                guard !scenes.isEmpty else { return }
+                let needsMigration = scenes.contains { !$0.isInBodyMatter }
+                guard needsMigration else { return }
+                for (index, scene) in scenes.enumerated() {
+                    scene.isInBodyMatter = true
+                    scene.bodyMatterOrder = index
+                }
+                #if DEBUG
+                print("  ↳ Set \(scenes.count) scenes as body matter in \(project.name ?? "Untitled")")
+                #endif
+                
+            case .verseNovel:
+                // Books will be created from Chapters in migrateVerseNovelChaptersToBooks
+                // If books already exist (post-migration), populate them
+                let books = (project.books ?? [])
+                    .sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+                if !books.isEmpty {
+                    let needsMigration = books.contains { !$0.isInBodyMatter }
+                    guard needsMigration else { return }
+                    for (index, book) in books.enumerated() {
+                        book.isInBodyMatter = true
+                        book.bodyMatterOrder = index
+                    }
+                    #if DEBUG
+                    print("  ↳ Set \(books.count) books as body matter in \(project.name ?? "Untitled")")
+                    #endif
+                }
+            }
+            
+        case .drama:
+            let acts = (project.acts ?? [])
+                .sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+            guard !acts.isEmpty else { return }
+            let needsMigration = acts.contains { !$0.isInBodyMatter }
+            guard needsMigration else { return }
+            for (index, act) in acts.enumerated() {
+                act.isInBodyMatter = true
+                act.bodyMatterOrder = index
+            }
+            #if DEBUG
+            print("  ↳ Set \(acts.count) acts as body matter in \(project.name ?? "Untitled")")
+            #endif
+        }
+    }
+    
+    // MARK: - Task 8.2: Poetry Collection Migration
+    
+    /// Migrate old Submission-based collections to PoetryCollection model
+    private static func migratePoetryCollections(project: Project, context: ModelContext) {
+        // Only migrate if no PoetryCollections exist yet
+        let existingCollections = project.poetryCollections ?? []
+        guard existingCollections.isEmpty else {
+            #if DEBUG
+            print("  ↳ Poetry collections already exist for \(project.name ?? "Untitled"), skipping")
+            #endif
+            return
+        }
+        
+        // Find old collection-type Submissions for this project
+        let projectId = project.id
+        let descriptor = FetchDescriptor<Submission>(
+            predicate: #Predicate { submission in
+                submission.isCollection == true && submission.project?.id == projectId
+            }
+        )
+        
+        guard let oldCollections = try? context.fetch(descriptor), !oldCollections.isEmpty else {
+            // No old collections — create a default "Collection 1" with all poems
+            createDefaultPoetryCollection(project: project, context: context)
+            return
+        }
+        
+        // Migrate each old collection to PoetryCollection
+        let sortedOld = oldCollections.sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+        for (index, oldCollection) in sortedOld.enumerated() {
+            let newCollection = PoetryCollection(
+                name: oldCollection.name ?? "Collection \(index + 1)",
+                synopsis: oldCollection.collectionDescription,
+                userOrder: index
+            )
+            newCollection.project = project
+            newCollection.isInBodyMatter = true
+            newCollection.bodyMatterOrder = index
+            context.insert(newCollection)
+            
+            // Migrate submitted files to poetry collection assignment
+            for submittedFile in oldCollection.submittedFiles ?? [] {
+                if let textFile = submittedFile.textFile {
+                    textFile.poetryCollection = newCollection
+                }
+            }
+            
+            #if DEBUG
+            print("  ↳ Migrated collection '\(oldCollection.name ?? "unnamed")' with \(oldCollection.submittedFiles?.count ?? 0) files")
+            #endif
+            
+            // Delete old collection submission and its submitted files
+            // (cascade will handle SubmittedFile deletion)
+            context.delete(oldCollection)
+        }
+    }
+    
+    /// Create a default "Collection 1" containing all poems from the Poems folder
+    private static func createDefaultPoetryCollection(project: Project, context: ModelContext) {
+        let poemsFolder = project.folders?.first { $0.name == "Poems" }
+        let poems = poemsFolder?.textFiles ?? []
+        
+        guard !poems.isEmpty else {
+            #if DEBUG
+            print("  ↳ No poems found for default collection in \(project.name ?? "Untitled")")
+            #endif
+            return
+        }
+        
+        let collection = PoetryCollection(
+            name: NSLocalizedString("poetry.collection.default", comment: "Collection 1"),
+            userOrder: 0
+        )
+        collection.project = project
+        collection.isInBodyMatter = true
+        collection.bodyMatterOrder = 0
+        context.insert(collection)
+        
+        // Assign all poems to the default collection
+        let sortedPoems = poems.sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+        for poem in sortedPoems {
+            poem.poetryCollection = collection
+        }
+        
+        #if DEBUG
+        print("  ↳ Created default 'Collection 1' with \(sortedPoems.count) poems in \(project.name ?? "Untitled")")
+        #endif
+    }
+    
+    // MARK: - Task 8.3: Reposition Collections Folder (Poetry)
+    
+    private static func repositionCollectionsFolder(project: Project) {
+        guard let collectionsFolder = project.folders?.first(where: { $0.name == "Collections" }) else { return }
+        
+        // Position Collections between Manuscript and Poems
+        // Manuscript is typically at order 0, so Collections should be 1
+        let manuscriptOrder = project.folders?.first(where: { $0.name == "Manuscript" })?.userOrder ?? 0
+        let newOrder = manuscriptOrder + 1
+        
+        // Shift folders that are at or after the new position
+        for folder in project.folders ?? [] {
+            if folder.name != "Collections" && (folder.userOrder ?? 0) >= newOrder {
+                folder.userOrder = (folder.userOrder ?? 0) + 1
+            }
+        }
+        
+        collectionsFolder.userOrder = newOrder
+        
+        #if DEBUG
+        print("  ↳ Repositioned Collections folder to order \(newOrder) in \(project.name ?? "Untitled")")
+        #endif
+    }
+    
+    // MARK: - Task 8.4: Remove Collections Folder (Non-Poetry)
+    
+    private static func removeCollectionsFolder(project: Project, context: ModelContext) {
+        guard let collectionsFolder = project.folders?.first(where: { $0.name == "Collections" }) else { return }
+        
+        // Check for any collection-type submissions that need preservation
+        // (their data should remain in the Submission model — we just remove the folder)
+        
+        #if DEBUG
+        print("  ↳ Removing Collections folder from \(project.type.rawValue) project \(project.name ?? "Untitled")")
+        #endif
+        
+        context.delete(collectionsFolder)
+    }
+    
+    // MARK: - Task 8.6: Verse Novel Chapter → Book Migration
+    
+    private static func migrateVerseNovelChaptersToBooks(project: Project, context: ModelContext) {
+        // Only migrate if no Books exist yet
+        let existingBooks = project.books ?? []
+        guard existingBooks.isEmpty else {
+            #if DEBUG
+            print("  ↳ Books already exist for Verse Novel \(project.name ?? "Untitled"), skipping")
+            #endif
+            return
+        }
+        
+        let chapters = (project.chapters ?? []).sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+        guard !chapters.isEmpty else { return }
+        
+        for (index, chapter) in chapters.enumerated() {
+            let book = Book(
+                name: chapter.name,
+                synopsis: chapter.synopsis,
+                userOrder: index
+            )
+            book.project = project
+            book.isInBodyMatter = true
+            book.bodyMatterOrder = index
+            context.insert(book)
+            
+            // Move scene assignments from chapter to book
+            for scene in chapter.scenes ?? [] {
+                scene.book = book
+                // Don't remove chapter relationship yet — CloudKit safety
+                // The chapter will become orphaned but won't be deleted
+            }
+            
+            #if DEBUG
+            print("  ↳ Migrated Chapter '\(chapter.name ?? "unnamed")' → Book with \(chapter.scenes?.count ?? 0) episodes")
+            #endif
+        }
+        
+        // Note: We do NOT delete old Chapter entities here.
+        // CloudKit may still be syncing relationships. The Chapter entities
+        // will remain but become unused once scenes point to Books instead.
+        // This is intentional CloudKit-safe behaviour per project guidelines.
+    }
 }
