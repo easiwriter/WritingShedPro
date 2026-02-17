@@ -40,8 +40,8 @@ struct FolderCapabilityService {
         "Collections", "Trash", "Manuscript",
         // Entity folders for Fiction (managed via their own views)
         "Characters", "Locations", "Chapters", "Plot",
-        // Manuscript subfolder (Feature 029) - Body is virtual, shows assembled content
-        "Body"
+        // Manuscript subfolder (Feature 029/036) - Body Matter is managed via BodyMatterView
+        "Body", "Body Matter"
     ]
     
     // MARK: - Capability Checks

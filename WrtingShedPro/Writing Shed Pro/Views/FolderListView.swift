@@ -150,7 +150,7 @@ struct FolderListView: View {
         // Special ordering for Manuscript subfolders: Front Matter, Body, Back Matter
         if selectedFolder.name == "Manuscript" {
             // All possible body folder names (project-type-specific with "All" prefix)
-            let bodyFolderNames: Set<String> = ["Body", "All Acts", "All Poems", "All Sections", "All Chapters", "All Stories", "All Books"]
+            let bodyFolderNames: Set<String> = ["Body", "Body Matter", "All Acts", "All Poems", "All Sections", "All Chapters", "All Stories", "All Books"]
             return subfolders.sorted { folder1, folder2 in
                 let name1 = folder1.name ?? ""
                 let name2 = folder2.name ?? ""
@@ -337,9 +337,9 @@ struct FolderListView: View {
                             let subfolderName = subfolder.name ?? ""
                             
                             // Special handling for Manuscript Body subfolder (Feature 029)
-                            // Body folder is named with "All" prefix: All Acts, All Poems, All Sections, All Chapters, All Stories
+                            // Body folder is named "Body Matter" (new) or with "All" prefix (legacy)
                             let isManuscriptBodyFolder = selectedFolder?.name == "Manuscript" && 
-                                ["Body", "All Acts", "All Poems", "All Sections", "All Chapters", "All Stories"].contains(subfolderName)
+                                ["Body", "Body Matter", "All Acts", "All Poems", "All Sections", "All Chapters", "All Stories"].contains(subfolderName)
                             
                             if isManuscriptBodyFolder {
                                 NavigationLink(destination: ManuscriptBodyView(project: project)) {
@@ -905,7 +905,7 @@ struct FolderRowView: View {
         
         // Check if this is a Manuscript body folder (should not show count)
         let isManuscriptBodyFolder = folder.parentFolder?.name == "Manuscript" &&
-            ["Body", "All Acts", "All Poems", "All Sections", "All Chapters", "All Stories", "All Books"].contains(baseName)
+            ["Body", "Body Matter", "All Acts", "All Poems", "All Sections", "All Chapters", "All Stories", "All Books"].contains(baseName)
         
         // Remove count for Manuscript subfolders (Body types, Front Matter, Back Matter) and Manuscript itself
         if baseName == "Manuscript" || baseName == "Front Matter" || baseName == "Back Matter" || isManuscriptBodyFolder {
@@ -1018,6 +1018,8 @@ struct FolderRowView: View {
         case "Front Matter":
             return "text.badge.star"
         case "Body":
+            return "doc.on.doc"
+        case "Body Matter":
             return "doc.on.doc"
         case "Back Matter":
             return "text.append"

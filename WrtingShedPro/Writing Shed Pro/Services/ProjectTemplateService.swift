@@ -70,24 +70,7 @@ struct ProjectTemplateService {
         }
         
         // Determine the body folder name based on project type
-        // Uses "All" prefix to distinguish from root-level content folders
-        let bodyFolderName: String
-        switch project.type {
-        case .drama:
-            bodyFolderName = "All Acts"
-        case .poetry:
-            bodyFolderName = "All Poems"
-        case .prose:
-            bodyFolderName = "All Sections"
-        case .fiction:
-            if project.fictionClass == .shortFiction {
-                bodyFolderName = "All Stories"
-            } else if project.fictionClass == .verseNovel {
-                bodyFolderName = "All Books"
-            } else {
-                bodyFolderName = "All Chapters"
-            }
-        }
+        let bodyFolderName = "Body Matter"
         
         let subfolderNames = [
             NSLocalizedString("folder.frontMatter", comment: "Front Matter"),
@@ -129,7 +112,6 @@ struct ProjectTemplateService {
                 "folder.sections",
                 "folder.prose",
                 // Section 2: Organization & Support
-                "folder.collections",
                 "folder.submissions",
                 "folder.research",
                 // Section 3: Publications
@@ -194,7 +176,6 @@ struct ProjectTemplateService {
                 "folder.locations",
                 "folder.plot",
                 // Section 2: Organization & Support
-                "folder.collections",
                 "folder.submissions",
                 "folder.research"
             ])
@@ -231,7 +212,6 @@ struct ProjectTemplateService {
                 "folder.locations",
                 "folder.plot",
                 // Section 2: Organization & Support
-                "folder.collections",
                 "folder.submissions",
                 "folder.research",
                 // Section 3: Publications
