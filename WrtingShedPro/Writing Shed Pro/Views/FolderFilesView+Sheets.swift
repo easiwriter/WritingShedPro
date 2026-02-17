@@ -71,27 +71,6 @@ extension FolderFilesView {
     }
     
     @ViewBuilder
-    var collectionPickerSheet: some View {
-        if let project = folder.project {
-            NavigationStack {
-                CollectionPickerView(
-                    project: project,
-                    filesToAddToCollection: filesToAddToCollection,
-                    collectionsToAddToPublication: nil,
-                    mode: .addFilesToCollection,
-                    onCollectionSelected: { collection in
-                        addFilesToCollection(collection)
-                        showCollectionPicker = false
-                    },
-                    onCancel: {
-                        showCollectionPicker = false
-                    }
-                )
-            }
-        }
-    }
-    
-    @ViewBuilder
     var renamePickerSheet: some View {
         if let file = filesToRename.first {
             NavigationStack {

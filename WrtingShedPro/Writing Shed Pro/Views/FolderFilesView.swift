@@ -38,10 +38,6 @@ struct FolderFilesView: View {
     @State var showSubmissionPicker = false
     @State var filesToSubmit: [TextFile] = []
     
-    // State for collection picker
-    @State var showCollectionPicker = false
-    @State var filesToAddToCollection: [TextFile] = []
-    
     // State for rename
     @State var showRenamePicker = false
     @State var filesToRename: [TextFile] = []
@@ -151,7 +147,6 @@ struct FolderFilesView: View {
             onDelete: isReadOnly ? { _ in } : deleteFiles,
             onExport: isReadOnly ? nil : handleExport,
             onSubmit: fileListOnSubmit,
-            onAddToCollection: fileListOnAddToCollection,
             onReorder: (!isReadOnly && isContentFolder) ? moveContentFiles : nil,
             onRename: isReadOnly ? { _ in } : handleRename,
             onDeletePermanently: isReadOnly ? { _ in } : deleteFilesPermanently,
@@ -218,10 +213,6 @@ struct FolderFilesView: View {
         return dialogs.onAppear {
             initializeHeaderFooterFields()
             
-            // FR-8.1: Donate file creation event for Collections tip
-            if !sortedFiles.isEmpty {
-                Task { await CollectionsTip.fileCreated.donate() }
-            }
         }
     }
     
@@ -277,13 +268,6 @@ struct FolderFilesView: View {
         supportsSubmissions ? { files in
             filesToSubmit = files
             showSubmissionPicker = true
-        } : nil
-    }
-    
-    private var fileListOnAddToCollection: (([TextFile]) -> Void)? {
-        supportsAddToCollection ? { files in
-            filesToAddToCollection = files
-            showCollectionPicker = true
         } : nil
     }
     
@@ -960,36 +944,6 @@ struct FolderFilesView: View {
         selectedFileIDs.removeAll()
         editMode = .inactive
         filesToSubmit = []
-    }
-    
-    func addFilesToCollection(_ collection: Submission) {
-        guard let project = folder.project else { return }
-        
-        // Create submitted file records for each selected file in the collection
-        for file in filesToAddToCollection {
-            if let currentVersion = file.currentVersion {
-                let submittedFile = SubmittedFile(
-                    submission: collection,
-                    textFile: file,
-                    version: currentVersion,
-                    status: .pending,
-                    statusDate: Date(),
-                    project: project
-                )
-                modelContext.insert(submittedFile)
-            }
-        }
-        
-        do {
-            try modelContext.save()
-        } catch {
-            #if DEBUG
-            print("Error adding files to collection: \(error)")
-            #endif
-            // TODO: Show error alert
-        }
-        
-        filesToAddToCollection = []
     }
     
     func handleImport(result: Result<[URL], Error>) {

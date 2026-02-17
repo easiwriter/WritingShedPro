@@ -70,10 +70,6 @@ extension FolderFilesView {
         return false
     }
 
-    var supportsAddToCollection: Bool {
-        return isContentFolder
-    }
-
     var isMixedContentFolder: Bool {
         FolderCapabilityService.canAddSubfolder(to: folder) && FolderCapabilityService.canAddFile(to: folder)
     }

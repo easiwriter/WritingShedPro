@@ -30,9 +30,7 @@ struct ChapterListView: View {
     @State private var showRenameSheet = false
     @State private var chapterToRename: Chapter?
     @State private var newChapterName: String = ""
-    @State private var showCollectionPicker = false
     @State private var showSubmissionPicker = false
-    @State private var filesToAddToCollection: [TextFile] = []
     @State private var filesToSubmit: [TextFile] = []
     
     /// Chapter list toolbar tip
@@ -329,24 +327,6 @@ struct ChapterListView: View {
             }
             .disabled(newChapterName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
-        .sheet(isPresented: $showCollectionPicker) {
-            NavigationStack {
-                CollectionPickerView(
-                    project: project,
-                    filesToAddToCollection: filesToAddToCollection,
-                    collectionsToAddToPublication: nil,
-                    mode: .addFilesToCollection,
-                    onCollectionSelected: { collection in
-                        addFilesToCollection(collection)
-                        showCollectionPicker = false
-                        exitEditMode()
-                    },
-                    onCancel: {
-                        showCollectionPicker = false
-                    }
-                )
-            }
-        }
         .sheet(isPresented: $showSubmissionPicker) {
             NavigationStack {
                 SubmissionPickerView(
@@ -385,16 +365,6 @@ struct ChapterListView: View {
                 }
             } label: {
                 Label(NSLocalizedString("button.rename", comment: "Rename"), systemImage: "pencil")
-            }
-        }
-        
-        // Add to Collection button
-        if !selectedChapterFiles.isEmpty {
-            Button {
-                filesToAddToCollection = selectedChapterFiles
-                showCollectionPicker = true
-            } label: {
-                Label(NSLocalizedString("button.addToCollection", comment: "Add to Collection"), systemImage: "folder.badge.plus")
             }
         }
         
@@ -547,31 +517,7 @@ struct ChapterListView: View {
         }
     }
     
-    // MARK: - Collection & Submission Actions
-    
-    private func addFilesToCollection(_ collection: Submission) {
-        // Create SubmittedFile records for each file in the collection
-        for file in filesToAddToCollection {
-            // Check if file is already in collection
-            let alreadyInCollection = collection.submittedFiles?.contains { $0.textFile?.id == file.id } ?? false
-            guard !alreadyInCollection else { continue }
-            
-            if let currentVersion = file.currentVersion {
-                let submittedFile = SubmittedFile(
-                    submission: collection,
-                    textFile: file,
-                    version: currentVersion,
-                    status: .pending,
-                    statusDate: Date(),
-                    project: project
-                )
-                modelContext.insert(submittedFile)
-            }
-        }
-        
-        try? modelContext.save()
-        filesToAddToCollection = []
-    }
+    // MARK: - Submission Actions
     
     private func createSubmission(for publication: Publication, name: String, expectedResponseDate: Date?) {
         // Create submission

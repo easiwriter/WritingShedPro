@@ -8,36 +8,6 @@
 
 import TipKit
 
-// MARK: - FR-8.1: Collections Tip
-/// Shown after creating 10+ files across folders
-struct CollectionsTip: Tip {
-    var title: Text {
-        Text("Group Related Files")
-    }
-    
-    var message: Text? {
-        Text("Use Collections to group related files from different folders — great for tracking submissions or thematic groupings.")
-    }
-    
-    var image: Image? {
-        Image(systemName: "tray.2")
-    }
-    
-    static let guideSection: String? = "104-collections"
-    
-    static let fileCreated = Event(id: "fileCreated")
-    
-    var rules: [Rule] {
-        #Rule(Self.fileCreated) { $0.donations.count >= 10 }
-    }
-    
-    var actions: [Action] {
-        if Self.guideSection != nil {
-            Action(id: "learn-more", title: "Learn More")
-        }
-    }
-}
-
 // MARK: - FR-8.2: Submissions Tip
 /// Shown when the Submissions folder is first opened
 struct SubmissionsTip: Tip {

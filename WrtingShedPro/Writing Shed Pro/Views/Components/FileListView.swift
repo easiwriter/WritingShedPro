@@ -51,9 +51,6 @@ struct FileListView: View {
     /// Called when user initiates submit action (optional - only for folders that support submissions)
     let onSubmit: (([TextFile]) -> Void)?
     
-    /// Called when user initiates add to collection action (optional - only for Ready folder)
-    let onAddToCollection: (([TextFile]) -> Void)?
-    
     /// Called when user drags to reorder files (optional)
     /// Signature matches .onMove: (source: IndexSet, destination: Int)
     let onReorder: ((IndexSet, Int) -> Void)?
@@ -507,25 +504,6 @@ struct FileListView: View {
             .disabled(selectedFiles.isEmpty)
             
             Spacer()
-        }
-        
-        // Add to Collection button (if onAddToCollection callback provided)
-        // Only show for files with .ready status (not drafts)
-        if let onAddToCollection = onAddToCollection {
-            let readyFiles = selectedFiles.filter { $0.workflowStatus == .ready }
-            if !readyFiles.isEmpty {
-                Button {
-                    onAddToCollection(readyFiles)
-                    exitEditMode()
-                } label: {
-                    Label(
-                        NSLocalizedString("fileList.addToCollection", comment: "Add files to collection"),
-                        systemImage: "folder.badge.plus"
-                    )
-                }
-                
-                Spacer()
-            }
         }
         
         // Submit button (if onSubmit callback provided)

@@ -59,7 +59,7 @@ struct FolderListView: View {
                 // Section 1: Story Structure
                 "Manuscript", "Sections", "Prose",
                 // Section 2: Organization & Support
-                "Collections", "Submissions", "Research",
+                "Submissions", "Research",
                 // Section 3: Publications
                 "Publishers", "Agents", "Other",
                 // Section 4: System
@@ -87,7 +87,7 @@ struct FolderListView: View {
                 // Section 1: Story Structure
                 "Manuscript", "Chapters", "Stories", "Books", "Scenes", "Episodes", "Characters", "Locations", "Plot",
                 // Section 2: Organization & Support
-                "Collections", "Submissions", "Research",
+                "Submissions", "Research",
                 // Section 3: Publications (all possible - some may not exist based on fiction class)
                 "Publishers", "Agents", "Magazines", "Competitions", "Other",
                 // Section 4: System
@@ -100,7 +100,7 @@ struct FolderListView: View {
                 // Section 1: Story Structure
                 "Manuscript", "Acts", "Scenes", "Characters", "Locations", "Plot",
                 // Section 2: Organization & Support
-                "Collections", "Submissions", "Research",
+                "Submissions", "Research",
                 // Section 3: Publications
                 "Publishers", "Agents", "Other",
                 // Section 4: System
@@ -212,11 +212,6 @@ struct FolderListView: View {
                         if let publicationType = publicationTypeForFolder(folderName) {
                             // Navigate to publications list filtered by type
                             NavigationLink(destination: PublicationsListView(project: project, publicationType: publicationType)) {
-                                FolderRowView(folder: folder)
-                            }
-                        } else if folderName == "Collections" {
-                            // Special handling for Collections folder - show Collections (Submissions)
-                            NavigationLink(destination: CollectionsView(project: project)) {
                                 FolderRowView(folder: folder)
                             }
                         } else if folderName == "Submissions" {
@@ -767,12 +762,6 @@ struct FolderRowView: View {
         return ["Magazines", "Competitions", "Commissions", "Other"].contains(name)
     }
     
-    // Check if this is the Collections folder
-    private var isCollectionsFolder: Bool {
-        let name = folder.name ?? ""
-        return name == "Collections"
-    }
-    
     // Check if this is the Submissions folder
     private var isSubmissionsFolder: Bool {
         let name = folder.name ?? ""
@@ -876,15 +865,6 @@ struct FolderRowView: View {
         return project.sections?.count ?? 0
     }
     
-    // Get collection count for Collections folder
-    private var collectionCount: Int {
-        guard isCollectionsFolder, let project = folder.project else { return 0 }
-        
-        return allSubmissions.filter { submission in
-            submission.isCollection && submission.project?.id == project.id
-        }.count
-    }
-    
     // Get submission count for Submissions folder
     private var submissionCount: Int {
         guard isSubmissionsFolder, let project = folder.project else { return 0 }
@@ -934,8 +914,6 @@ struct FolderRowView: View {
         let count: Int
         if isPublicationFolder {
             count = publicationCount
-        } else if isCollectionsFolder {
-            count = collectionCount
         } else if isSubmissionsFolder {
             count = submissionCount
         } else if isPlotFolder {

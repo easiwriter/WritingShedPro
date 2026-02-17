@@ -30,10 +30,8 @@ struct SectionListView: View {
     @State private var sectionToRename: ProseSection?
     @State private var newSectionName: String = ""
     
-    /// Collection and submission state
-    @State private var showCollectionPicker = false
+    /// Submission state
     @State private var showSubmissionPicker = false
-    @State private var filesToAddToCollection: [TextFile] = []
     @State private var filesToSubmit: [TextFile] = []
     
     // MARK: - Computed
@@ -147,24 +145,6 @@ struct SectionListView: View {
             }
             .disabled(newSectionName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
-        .sheet(isPresented: $showCollectionPicker) {
-            NavigationStack {
-                CollectionPickerView(
-                    project: project,
-                    filesToAddToCollection: filesToAddToCollection,
-                    collectionsToAddToPublication: nil,
-                    mode: .addFilesToCollection,
-                    onCollectionSelected: { collection in
-                        addFilesToCollection(collection)
-                        showCollectionPicker = false
-                        exitEditMode()
-                    },
-                    onCancel: {
-                        showCollectionPicker = false
-                    }
-                )
-            }
-        }
         .sheet(isPresented: $showSubmissionPicker) {
             NavigationStack {
                 SubmissionPickerView(
@@ -203,16 +183,6 @@ struct SectionListView: View {
                 }
             } label: {
                 Label(NSLocalizedString("button.rename", comment: "Rename"), systemImage: "pencil")
-            }
-        }
-        
-        // Add to Collection button
-        if !selectedSectionFiles.isEmpty {
-            Button {
-                filesToAddToCollection = selectedSectionFiles
-                showCollectionPicker = true
-            } label: {
-                Label(NSLocalizedString("button.addToCollection", comment: "Add to Collection"), systemImage: "folder.badge.plus")
             }
         }
         
@@ -347,31 +317,7 @@ struct SectionListView: View {
         }
     }
     
-    // MARK: - Collection & Submission Actions
-    
-    private func addFilesToCollection(_ collection: Submission) {
-        // Create SubmittedFile records for each file in the collection
-        for file in filesToAddToCollection {
-            // Check if file is already in collection
-            let alreadyInCollection = collection.submittedFiles?.contains { $0.textFile?.id == file.id } ?? false
-            guard !alreadyInCollection else { continue }
-            
-            if let currentVersion = file.currentVersion {
-                let submittedFile = SubmittedFile(
-                    submission: collection,
-                    textFile: file,
-                    version: currentVersion,
-                    status: .pending,
-                    statusDate: Date(),
-                    project: project
-                )
-                modelContext.insert(submittedFile)
-            }
-        }
-        
-        try? modelContext.save()
-        filesToAddToCollection = []
-    }
+    // MARK: - Submission Actions
     
     private func createSubmission(for publication: Publication, name: String, expectedResponseDate: Date?) {
         // Create submission

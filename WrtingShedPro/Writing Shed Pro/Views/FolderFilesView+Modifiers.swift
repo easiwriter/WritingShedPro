@@ -58,7 +58,6 @@ extension FolderFilesView {
             .sheet(isPresented: $showAddFileSheet) { addFileSheetContent }
             .sheet(isPresented: $showAddFolderSheet) { addFolderSheet }
             .sheet(isPresented: $showSubmissionPicker) { submissionPickerSheet }
-            .sheet(isPresented: $showCollectionPicker) { collectionPickerSheet }
             .sheet(isPresented: $showRenamePicker) { renamePickerSheet }
             .sheet(isPresented: $showFolderMoveDestinationPicker) { folderMoveDestinationSheet }
             .sheet(isPresented: $showStatusPicker) { statusPickerSheet }
