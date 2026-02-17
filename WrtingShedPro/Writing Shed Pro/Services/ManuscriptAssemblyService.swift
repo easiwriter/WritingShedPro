@@ -105,7 +105,33 @@ final class ManuscriptAssemblyService {
     }
     
     /// Get body sections for Poetry projects
+    /// Uses Body Matter collections if any exist, otherwise falls back to Poems folder
     private func getPoetryBodySections(for project: Project) -> [ManuscriptSection] {
+        // Body Matter path: use PoetryCollection items marked for body matter
+        let bodyCollections = (project.poetryCollections ?? [])
+            .filter { $0.isInBodyMatter }
+            .sorted { ($0.bodyMatterOrder ?? 0) < ($1.bodyMatterOrder ?? 0) }
+        
+        if !bodyCollections.isEmpty {
+            var sections: [ManuscriptSection] = []
+            for collection in bodyCollections {
+                let files = (collection.textFiles ?? [])
+                    .filter { $0.includedInManuscript }
+                    .sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+                if !files.isEmpty {
+                    sections.append(ManuscriptSection(
+                        title: collection.name ?? NSLocalizedString("poetry.collection.untitled", comment: "Untitled"),
+                        sectionType: .body,
+                        sourceFolder: nil,
+                        files: files,
+                        level: 1
+                    ))
+                }
+            }
+            return sections
+        }
+        
+        // Fallback: all poems from Poems folder (pre-migration projects)
         guard let poemsFolder = project.folders?.first(where: { $0.name == "Poems" }) else {
             return []
         }
@@ -123,27 +149,172 @@ final class ManuscriptAssemblyService {
     }
     
     /// Get body sections for Fiction projects
+    /// Uses Body Matter items if any exist, otherwise falls back to folder-based logic
     private func getFictionBodySections(for project: Project) -> [ManuscriptSection] {
-        var sections: [ManuscriptSection] = []
+        if project.fictionClass == .novel {
+            return getNovelBodySections(for: project)
+        } else if project.fictionClass == .verseNovel {
+            return getVerseNovelBodySections(for: project)
+        } else {
+            return getShortFictionBodySections(for: project)
+        }
+    }
+    
+    /// Novel: Chapters with scenes
+    private func getNovelBodySections(for project: Project) -> [ManuscriptSection] {
+        // Body Matter path: chapters marked for body matter
+        let bodyChapters = (project.chapters ?? [])
+            .filter { $0.isInBodyMatter }
+            .sorted { ($0.bodyMatterOrder ?? 0) < ($1.bodyMatterOrder ?? 0) }
         
-        if project.fictionClass == .novel || project.fictionClass == .verseNovel {
-            // Novel/Verse Novel: Chapters/Books containing Scenes/Episodes
-            let containerFolderName = project.fictionClass == .verseNovel ? "Books" : "Chapters"
-            guard project.folders?.contains(where: { $0.name == containerFolderName }) == true else {
-                // Fallback to Scenes folder
-                return getScenesAsSingleSection(for: project)
+        if !bodyChapters.isEmpty {
+            return chaptersToSections(bodyChapters)
+        }
+        
+        // Fallback: all chapters by userOrder
+        let allChapters = (project.chapters ?? []).sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+        if !allChapters.isEmpty {
+            return chaptersToSections(allChapters)
+        }
+        
+        return getScenesAsSingleSection(for: project)
+    }
+    
+    /// Verse Novel: Books with scenes (episodes)
+    private func getVerseNovelBodySections(for project: Project) -> [ManuscriptSection] {
+        // Body Matter path: books marked for body matter
+        let bodyBooks = (project.books ?? [])
+            .filter { $0.isInBodyMatter }
+            .sorted { ($0.bodyMatterOrder ?? 0) < ($1.bodyMatterOrder ?? 0) }
+        
+        if !bodyBooks.isEmpty {
+            return booksToSections(bodyBooks)
+        }
+        
+        // Fallback: all books/chapters by userOrder
+        let allBooks = (project.books ?? []).sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+        if !allBooks.isEmpty {
+            return booksToSections(allBooks)
+        }
+        
+        // Legacy fallback: chapters (before Book model existed)
+        let allChapters = (project.chapters ?? []).sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+        if !allChapters.isEmpty {
+            return chaptersToSections(allChapters)
+        }
+        
+        return getScenesAsSingleSection(for: project)
+    }
+    
+    /// Short Fiction: Scenes (optionally grouped by stories)
+    private func getShortFictionBodySections(for project: Project) -> [ManuscriptSection] {
+        // Body Matter path: scenes marked for body matter
+        let bodyScenes = (project.scenes ?? [])
+            .filter { $0.isInBodyMatter }
+            .sorted { ($0.bodyMatterOrder ?? 0) < ($1.bodyMatterOrder ?? 0) }
+        
+        if !bodyScenes.isEmpty {
+            return scenesToSection(bodyScenes, title: NSLocalizedString("folder.stories", comment: "Stories"))
+        }
+        
+        // Fallback: all scenes
+        return getScenesAsSingleSection(for: project)
+    }
+    
+    /// Convert chapters to manuscript sections
+    private func chaptersToSections(_ chapters: [Chapter]) -> [ManuscriptSection] {
+        var sections: [ManuscriptSection] = []
+        for chapter in chapters {
+            let chapterScenes = (chapter.scenes ?? [])
+                .sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+            
+            var files: [TextFile] = []
+            for scene in chapterScenes {
+                if let textFile = scene.textFile, textFile.includedInManuscript {
+                    files.append(textFile)
+                }
             }
             
-            // Get chapters from the project's chapter entities
-            let sortedChapters = (project.chapters ?? []).sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+            if !files.isEmpty {
+                sections.append(ManuscriptSection(
+                    title: chapter.name ?? NSLocalizedString("fiction.chapter", comment: "Chapter"),
+                    sectionType: .body,
+                    sourceFolder: nil,
+                    files: files,
+                    level: 1
+                ))
+            }
+        }
+        return sections
+    }
+    
+    /// Convert books to manuscript sections
+    private func booksToSections(_ books: [Book]) -> [ManuscriptSection] {
+        var sections: [ManuscriptSection] = []
+        for book in books {
+            let bookScenes = (book.scenes ?? [])
+                .sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
             
-            for chapter in sortedChapters {
-                let chapterScenes = (chapter.scenes ?? [])
+            var files: [TextFile] = []
+            for scene in bookScenes {
+                if let textFile = scene.textFile, textFile.includedInManuscript {
+                    files.append(textFile)
+                }
+            }
+            
+            if !files.isEmpty {
+                sections.append(ManuscriptSection(
+                    title: book.name ?? NSLocalizedString("fiction.book", comment: "Book"),
+                    sectionType: .body,
+                    sourceFolder: nil,
+                    files: files,
+                    level: 1
+                ))
+            }
+        }
+        return sections
+    }
+    
+    /// Convert scenes to a single manuscript section
+    private func scenesToSection(_ scenes: [StoryScene], title: String) -> [ManuscriptSection] {
+        var files: [TextFile] = []
+        for scene in scenes {
+            if let textFile = scene.textFile, textFile.includedInManuscript {
+                files.append(textFile)
+            }
+        }
+        guard !files.isEmpty else { return [] }
+        return [ManuscriptSection(
+            title: title,
+            sectionType: .body,
+            sourceFolder: nil,
+            files: files,
+            level: 1
+        )]
+    }
+    
+    /// Get scenes as a single body section (for short fiction or fallback)
+    private func getScenesAsSingleSection(for project: Project) -> [ManuscriptSection] {
+        let sortedScenes = (project.scenes ?? []).sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+        return scenesToSection(sortedScenes, title: NSLocalizedString("folder.scenes", comment: "Scenes"))
+    }
+    
+    /// Get body sections for Drama projects
+    /// Uses Body Matter acts if any exist, otherwise falls back to all acts/scenes
+    private func getDramaBodySections(for project: Project) -> [ManuscriptSection] {
+        // Body Matter path: acts marked for body matter
+        let bodyActs = (project.acts ?? [])
+            .filter { $0.isInBodyMatter }
+            .sorted { ($0.bodyMatterOrder ?? 0) < ($1.bodyMatterOrder ?? 0) }
+        
+        if !bodyActs.isEmpty {
+            var sections: [ManuscriptSection] = []
+            for act in bodyActs {
+                let actScenes = (act.scenes ?? [])
                     .sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
                 
-                // Get TextFiles for each scene
                 var files: [TextFile] = []
-                for scene in chapterScenes {
+                for scene in actScenes {
                     if let textFile = scene.textFile, textFile.includedInManuscript {
                         files.append(textFile)
                     }
@@ -151,7 +322,7 @@ final class ManuscriptAssemblyService {
                 
                 if !files.isEmpty {
                     sections.append(ManuscriptSection(
-                        title: chapter.name ?? NSLocalizedString("fiction.chapter", comment: "Chapter"),
+                        title: act.name ?? NSLocalizedString("drama.act", comment: "Act"),
                         sectionType: .body,
                         sourceFolder: nil,
                         files: files,
@@ -159,51 +330,18 @@ final class ManuscriptAssemblyService {
                     ))
                 }
             }
-        } else {
-            // Short Fiction: Just scenes
-            sections = getScenesAsSingleSection(for: project)
+            return sections
         }
         
-        return sections
-    }
-    
-    /// Get scenes as a single body section (for short fiction or fallback)
-    private func getScenesAsSingleSection(for project: Project) -> [ManuscriptSection] {
-        // Get scenes from project entities
-        let sortedScenes = (project.scenes ?? []).sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
-        
-        var files: [TextFile] = []
-        for scene in sortedScenes {
-            if let textFile = scene.textFile, textFile.includedInManuscript {
-                files.append(textFile)
-            }
-        }
-        
-        guard !files.isEmpty else { return [] }
-        
-        return [ManuscriptSection(
-            title: NSLocalizedString("folder.scenes", comment: "Scenes"),
-            sectionType: .body,
-            sourceFolder: project.folders?.first { $0.name == "Scenes" },
-            files: files,
-            level: 1
-        )]
-    }
-    
-    /// Get body sections for Drama projects
-    private func getDramaBodySections(for project: Project) -> [ManuscriptSection] {
-        var sections: [ManuscriptSection] = []
-        
-        // Get sorted acts for the project
+        // Fallback: all acts by userOrder
         let sortedActs = (project.acts ?? []).sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
         
         if !sortedActs.isEmpty {
-            // Drama with Acts: Group scenes by act
+            var sections: [ManuscriptSection] = []
             for act in sortedActs {
                 let actScenes = (act.scenes ?? [])
                     .sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
                 
-                // Get TextFiles for each scene in this act
                 var files: [TextFile] = []
                 for scene in actScenes {
                     if let textFile = scene.textFile, textFile.includedInManuscript {
@@ -222,7 +360,7 @@ final class ManuscriptAssemblyService {
                 }
             }
             
-            // Also include any scenes not assigned to an act (standalone scenes)
+            // Also include standalone scenes not assigned to any act
             let standaloneScenes = (project.scenes ?? [])
                 .filter { $0.act == nil }
                 .sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
@@ -243,37 +381,52 @@ final class ManuscriptAssemblyService {
                     level: 1
                 ))
             }
-        } else {
-            // Drama without Acts: Just list all scenes
-            let sortedScenes = (project.scenes ?? []).sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
             
-            var files: [TextFile] = []
-            for scene in sortedScenes {
-                if let textFile = scene.textFile, textFile.includedInManuscript {
-                    files.append(textFile)
-                }
-            }
-            
-            guard !files.isEmpty else { return [] }
-            
-            sections.append(ManuscriptSection(
-                title: NSLocalizedString("folder.scenes", comment: "Scenes"),
-                sectionType: .body,
-                sourceFolder: project.folders?.first { $0.name == "Scenes" },
-                files: files,
-                level: 1
-            ))
+            return sections
         }
         
-        return sections
+        // No acts at all: list all scenes
+        let sortedScenes = (project.scenes ?? []).sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+        return scenesToSection(sortedScenes, title: NSLocalizedString("folder.scenes", comment: "Scenes"))
     }
     
     /// Get body sections for Prose projects
+    /// Uses Body Matter sections if any exist, otherwise falls back to folder-based logic
     private func getProseBodySections(for project: Project) -> [ManuscriptSection] {
         #if DEBUG
-        print("[ManuscriptAssembly] getProseBodySections - using ProseSection ordering")
+        print("[ManuscriptAssembly] getProseBodySections")
         #endif
         
+        // Body Matter path: sections marked for body matter
+        let bodySections = (project.sections ?? [])
+            .filter { $0.isInBodyMatter }
+            .sorted { ($0.bodyMatterOrder ?? 0) < ($1.bodyMatterOrder ?? 0) }
+        
+        if !bodySections.isEmpty {
+            #if DEBUG
+            print("[ManuscriptAssembly] Using \(bodySections.count) Body Matter sections")
+            #endif
+            
+            var sections: [ManuscriptSection] = []
+            for proseSection in bodySections {
+                let files = (proseSection.textFiles ?? [])
+                    .filter { $0.includedInManuscript }
+                    .sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+                
+                if !files.isEmpty {
+                    sections.append(ManuscriptSection(
+                        title: proseSection.name ?? NSLocalizedString("prose.section", comment: "Section"),
+                        sectionType: .body,
+                        sourceFolder: nil,
+                        files: files,
+                        level: 1
+                    ))
+                }
+            }
+            return sections
+        }
+        
+        // Fallback: folder-based assembly (pre-migration projects)
         guard let proseFolder = project.folders?.first(where: { $0.name == "Prose" }) else {
             #if DEBUG
             print("[ManuscriptAssembly] ❌ No Prose folder found")
@@ -281,49 +434,27 @@ final class ManuscriptAssemblyService {
             return []
         }
         
-        // Get all prose sections sorted by userOrder
         let sortedSections = (project.sections ?? [])
             .sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
         
         #if DEBUG
-        print("[ManuscriptAssembly] Found \(sortedSections.count) prose sections")
-        for section in sortedSections {
-            print("  Section: \(section.name ?? "unnamed") (userOrder: \(section.userOrder ?? -1))")
-        }
+        print("[ManuscriptAssembly] Fallback: \(sortedSections.count) prose sections by userOrder")
         #endif
         
-        // Collect all files from Prose folder
         let allFiles = collectFilesRecursively(from: proseFolder)
-        
-        // Build ordered list: files sorted by section order, then by file order within section
         var orderedFiles: [TextFile] = []
         
-        // First, add files grouped by their section in section order
         for proseSection in sortedSections {
             let sectionFiles = allFiles
                 .filter { $0.section?.id == proseSection.id }
                 .sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
             orderedFiles.append(contentsOf: sectionFiles)
-            
-            #if DEBUG
-            if !sectionFiles.isEmpty {
-                print("[ManuscriptAssembly] Section '\(proseSection.name ?? "")': \(sectionFiles.count) files")
-            }
-            #endif
         }
         
-        // Add any files without a section (shouldn't happen normally, but be safe)
         let unassignedFiles = allFiles
             .filter { $0.section == nil }
             .sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
         orderedFiles.append(contentsOf: unassignedFiles)
-        
-        #if DEBUG
-        print("[ManuscriptAssembly] Total ordered files: \(orderedFiles.count)")
-        for (idx, file) in orderedFiles.prefix(10).enumerated() {
-            print("  \(idx): \(file.name) (section: \(file.section?.name ?? "none"))")
-        }
-        #endif
         
         guard !orderedFiles.isEmpty else { return [] }
         
