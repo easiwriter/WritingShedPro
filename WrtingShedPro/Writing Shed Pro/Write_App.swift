@@ -46,7 +46,10 @@ struct Write_App: App {
             // Drama
             Act.self,
             // Prose
-            ProseSection.self
+            ProseSection.self,
+            // Feature 036: Project Folder Revamp
+            PoetryCollection.self,
+            Book.self
         ])
         
         #if DEBUG

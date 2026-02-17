@@ -180,6 +180,14 @@ final class Project {
     @Relationship(deleteRule: .cascade, inverse: \ProseSection.project)
     var sections: [ProseSection]? = []
     
+    // Feature 036: Poetry Collections
+    @Relationship(deleteRule: .cascade, inverse: \PoetryCollection.project)
+    var poetryCollections: [PoetryCollection]? = []
+    
+    // Feature 036: Verse Novel Books
+    @Relationship(deleteRule: .cascade, inverse: \Book.project)
+    var books: [Book]? = []
+    
     @Relationship(deleteRule: .cascade, inverse: \Character.project)
     var characters: [Character]? = []
     
@@ -772,6 +780,9 @@ final class TextFile {
     
     // Prose: A TextFile can belong to a ProseSection
     var section: ProseSection?
+    
+    // Feature 036: Poetry Collection membership
+    var poetryCollection: PoetryCollection?
     
     // Feature 029: Manuscript Assembly
     // Whether this file is included in manuscript assembly (default: true)

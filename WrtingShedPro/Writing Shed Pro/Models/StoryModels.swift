@@ -479,6 +479,10 @@ final class StoryScene {
     var createdDate: Date = Date()
     var modifiedDate: Date = Date()
     
+    // Feature 036: Body Matter tracking (used for Short Fiction)
+    var bodyMatterOrder: Int?
+    var isInBodyMatter: Bool = false
+    
     /// Soft delete support - when true, scene is in trash
     var isTrashed: Bool = false
     var trashedDate: Date?
@@ -489,6 +493,9 @@ final class StoryScene {
     
     @Relationship(inverse: \Act.scenes)
     var act: Act?  // nil for Fiction projects, used for Drama projects
+    
+    // Feature 036: Verse Novel book membership
+    var book: Book?  // Used for Verse Novel projects (episodes within books)
     
     var project: Project?
     
@@ -576,6 +583,10 @@ final class Chapter {
     var createdDate: Date = Date()
     var modifiedDate: Date = Date()
     
+    // Feature 036: Body Matter tracking
+    var bodyMatterOrder: Int?
+    var isInBodyMatter: Bool = false
+    
     // Relationships
     var project: Project?
     
@@ -600,6 +611,10 @@ final class Act {
     var createdDate: Date = Date()
     var modifiedDate: Date = Date()
     
+    // Feature 036: Body Matter tracking
+    var bodyMatterOrder: Int?
+    var isInBodyMatter: Bool = false
+    
     // Relationships
     var project: Project?
     
@@ -623,6 +638,10 @@ final class ProseSection {
     var synopsis: String?
     var createdDate: Date = Date()
     var modifiedDate: Date = Date()
+    
+    // Feature 036: Body Matter tracking
+    var bodyMatterOrder: Int?
+    var isInBodyMatter: Bool = false
     
     // Relationships
     var project: Project?
