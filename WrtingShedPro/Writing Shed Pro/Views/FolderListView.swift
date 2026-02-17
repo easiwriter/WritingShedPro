@@ -342,7 +342,7 @@ struct FolderListView: View {
                                 ["Body", "Body Matter", "All Acts", "All Poems", "All Sections", "All Chapters", "All Stories"].contains(subfolderName)
                             
                             if isManuscriptBodyFolder {
-                                NavigationLink(destination: ManuscriptBodyView(project: project)) {
+                                NavigationLink(destination: BodyMatterView(project: project)) {
                                     FolderRowView(folder: subfolder)
                                 }
                             } else {

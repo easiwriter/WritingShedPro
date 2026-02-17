@@ -1,0 +1,515 @@
+//
+//  BodyMatterView.swift
+//  Writing Shed Pro
+//
+//  Feature 036: Project Folder Revamp
+//  Manages items in the Body Matter section of the Manuscript.
+//  Users can add, remove, and reorder items from their source containers.
+//
+
+import SwiftUI
+import SwiftData
+
+/// A unified protocol for items that can appear in Body Matter
+protocol BodyMatterItem: Identifiable {
+    var id: UUID { get }
+    var name: String? { get }
+    var isInBodyMatter: Bool { get set }
+    var bodyMatterOrder: Int? { get set }
+}
+
+// Conformances
+extension PoetryCollection: BodyMatterItem {}
+extension ProseSection: BodyMatterItem {}
+extension Chapter: BodyMatterItem {}
+extension StoryScene: BodyMatterItem {}
+extension Book: BodyMatterItem {}
+extension Act: BodyMatterItem {}
+
+/// View for managing the Body Matter content of a manuscript.
+/// Allows adding, removing, and reordering items based on project type.
+struct BodyMatterView: View {
+    let project: Project
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+    
+    @State private var showAddItemSheet = false
+    
+    // MARK: - Body
+    
+    var body: some View {
+        Group {
+            if bodyMatterItems.isEmpty {
+                emptyState
+            } else {
+                itemList
+            }
+        }
+        .navigationTitle(NSLocalizedString("bodyMatter.title", comment: "Body Matter"))
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true)
+        .onPopToRoot {
+            dismiss()
+        }
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                PopToRootBackButton()
+            }
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
+                    showAddItemSheet = true
+                } label: {
+                    Image(systemName: "plus")
+                }
+                .disabled(availableItems.isEmpty)
+            }
+        }
+        .sheet(isPresented: $showAddItemSheet) {
+            addItemSheet
+        }
+    }
+    
+    // MARK: - Item List
+    
+    @ViewBuilder
+    private var itemList: some View {
+        List {
+            ForEach(bodyMatterItems, id: \.id) { item in
+                HStack {
+                    Image(systemName: iconForItem)
+                        .foregroundStyle(.secondary)
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(item.name ?? NSLocalizedString("bodyMatter.untitled", comment: "Untitled"))
+                            .font(.body)
+                        
+                        Text(subtitleForItem(item))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .onDelete(perform: removeItems)
+            .onMove(perform: moveItems)
+        }
+        .listStyle(.plain)
+        .environment(\.editMode, .constant(.active))
+    }
+    
+    // MARK: - Empty State
+    
+    @ViewBuilder
+    private var emptyState: some View {
+        ContentUnavailableView {
+            Label(NSLocalizedString("bodyMatter.empty.title", comment: "No Body Matter"),
+                  systemImage: "doc.on.doc")
+        } description: {
+            Text(emptyStateDescription)
+        } actions: {
+            if !availableItems.isEmpty {
+                Button(NSLocalizedString("bodyMatter.addItems", comment: "Add Items")) {
+                    showAddItemSheet = true
+                }
+            }
+        }
+    }
+    
+    // MARK: - Add Item Sheet
+    
+    @ViewBuilder
+    private var addItemSheet: some View {
+        NavigationStack {
+            List {
+                ForEach(availableItems, id: \.id) { item in
+                    Button {
+                        addItemToBodyMatter(item)
+                    } label: {
+                        HStack {
+                            Image(systemName: iconForItem)
+                                .foregroundStyle(.blue)
+                            Text(item.name ?? NSLocalizedString("bodyMatter.untitled", comment: "Untitled"))
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            Image(systemName: "plus.circle")
+                                .foregroundStyle(.blue)
+                        }
+                    }
+                }
+            }
+            .navigationTitle(addItemTitle)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(NSLocalizedString("button.done", comment: "Done")) {
+                        showAddItemSheet = false
+                    }
+                }
+            }
+        }
+    }
+    
+    // MARK: - Data Access
+    
+    /// Items currently in Body Matter, sorted by bodyMatterOrder
+    private var bodyMatterItems: [any BodyMatterItem] {
+        switch project.type {
+        case .poetry:
+            return (project.poetryCollections ?? [])
+                .filter { $0.isInBodyMatter }
+                .sorted { ($0.bodyMatterOrder ?? Int.max) < ($1.bodyMatterOrder ?? Int.max) }
+        case .prose:
+            return (project.sections ?? [])
+                .filter { $0.isInBodyMatter }
+                .sorted { ($0.bodyMatterOrder ?? Int.max) < ($1.bodyMatterOrder ?? Int.max) }
+        case .fiction:
+            switch project.fictionClass {
+            case .novel:
+                return (project.chapters ?? [])
+                    .filter { $0.isInBodyMatter }
+                    .sorted { ($0.bodyMatterOrder ?? Int.max) < ($1.bodyMatterOrder ?? Int.max) }
+            case .shortFiction:
+                // Short Fiction: stories are top-level StoryScenes
+                return (project.scenes ?? [])
+                    .filter { $0.isInBodyMatter }
+                    .sorted { ($0.bodyMatterOrder ?? Int.max) < ($1.bodyMatterOrder ?? Int.max) }
+            case .verseNovel:
+                return (project.books ?? [])
+                    .filter { $0.isInBodyMatter }
+                    .sorted { ($0.bodyMatterOrder ?? Int.max) < ($1.bodyMatterOrder ?? Int.max) }
+            case .none:
+                return []
+            }
+        case .drama:
+            return (project.acts ?? [])
+                .filter { $0.isInBodyMatter }
+                .sorted { ($0.bodyMatterOrder ?? Int.max) < ($1.bodyMatterOrder ?? Int.max) }
+        }
+    }
+    
+    /// Items available to add (not yet in Body Matter)
+    private var availableItems: [any BodyMatterItem] {
+        switch project.type {
+        case .poetry:
+            return (project.poetryCollections ?? [])
+                .filter { !$0.isInBodyMatter }
+                .sorted { ($0.userOrder ?? Int.max) < ($1.userOrder ?? Int.max) }
+        case .prose:
+            return (project.sections ?? [])
+                .filter { !$0.isInBodyMatter }
+                .sorted { ($0.userOrder ?? Int.max) < ($1.userOrder ?? Int.max) }
+        case .fiction:
+            switch project.fictionClass {
+            case .novel:
+                return (project.chapters ?? [])
+                    .filter { !$0.isInBodyMatter }
+                    .sorted { ($0.userOrder ?? Int.max) < ($1.userOrder ?? Int.max) }
+            case .shortFiction:
+                return (project.scenes ?? [])
+                    .filter { !$0.isInBodyMatter }
+                    .sorted { ($0.userOrder ?? Int.max) < ($1.userOrder ?? Int.max) }
+            case .verseNovel:
+                return (project.books ?? [])
+                    .filter { !$0.isInBodyMatter }
+                    .sorted { ($0.userOrder ?? Int.max) < ($1.userOrder ?? Int.max) }
+            case .none:
+                return []
+            }
+        case .drama:
+            return (project.acts ?? [])
+                .filter { !$0.isInBodyMatter }
+                .sorted { ($0.userOrder ?? Int.max) < ($1.userOrder ?? Int.max) }
+        }
+    }
+    
+    // MARK: - Actions
+    
+    private func addItemToBodyMatter(_ item: any BodyMatterItem) {
+        let nextOrder = (bodyMatterItems.map { $0.bodyMatterOrder ?? 0 }.max() ?? -1) + 1
+        
+        // Use type-specific mutation since protocols can't mutate through existentials
+        switch project.type {
+        case .poetry:
+            if let collection = item as? PoetryCollection {
+                collection.isInBodyMatter = true
+                collection.bodyMatterOrder = nextOrder
+            }
+        case .prose:
+            if let section = item as? ProseSection {
+                section.isInBodyMatter = true
+                section.bodyMatterOrder = nextOrder
+            }
+        case .fiction:
+            switch project.fictionClass {
+            case .novel:
+                if let chapter = item as? Chapter {
+                    chapter.isInBodyMatter = true
+                    chapter.bodyMatterOrder = nextOrder
+                }
+            case .shortFiction:
+                if let scene = item as? StoryScene {
+                    scene.isInBodyMatter = true
+                    scene.bodyMatterOrder = nextOrder
+                }
+            case .verseNovel:
+                if let book = item as? Book {
+                    book.isInBodyMatter = true
+                    book.bodyMatterOrder = nextOrder
+                }
+            case .none:
+                break
+            }
+        case .drama:
+            if let act = item as? Act {
+                act.isInBodyMatter = true
+                act.bodyMatterOrder = nextOrder
+            }
+        }
+        
+        try? modelContext.save()
+    }
+    
+    private func removeItems(at offsets: IndexSet) {
+        let items = bodyMatterItems
+        for index in offsets {
+            let item = items[index]
+            
+            switch project.type {
+            case .poetry:
+                if let collection = item as? PoetryCollection {
+                    collection.isInBodyMatter = false
+                    collection.bodyMatterOrder = nil
+                }
+            case .prose:
+                if let section = item as? ProseSection {
+                    section.isInBodyMatter = false
+                    section.bodyMatterOrder = nil
+                }
+            case .fiction:
+                switch project.fictionClass {
+                case .novel:
+                    if let chapter = item as? Chapter {
+                        chapter.isInBodyMatter = false
+                        chapter.bodyMatterOrder = nil
+                    }
+                case .shortFiction:
+                    if let scene = item as? StoryScene {
+                        scene.isInBodyMatter = false
+                        scene.bodyMatterOrder = nil
+                    }
+                case .verseNovel:
+                    if let book = item as? Book {
+                        book.isInBodyMatter = false
+                        book.bodyMatterOrder = nil
+                    }
+                case .none:
+                    break
+                }
+            case .drama:
+                if let act = item as? Act {
+                    act.isInBodyMatter = false
+                    act.bodyMatterOrder = nil
+                }
+            }
+        }
+        
+        // Renumber remaining items
+        renumberBodyMatterItems()
+        try? modelContext.save()
+    }
+    
+    private func moveItems(from source: IndexSet, to destination: Int) {
+        // Moving is type-specific since we need to mutate the actual model objects
+        switch project.type {
+        case .poetry:
+            var items = (project.poetryCollections ?? [])
+                .filter { $0.isInBodyMatter }
+                .sorted { ($0.bodyMatterOrder ?? Int.max) < ($1.bodyMatterOrder ?? Int.max) }
+            items.move(fromOffsets: source, toOffset: destination)
+            for (index, item) in items.enumerated() {
+                item.bodyMatterOrder = index
+            }
+        case .prose:
+            var items = (project.sections ?? [])
+                .filter { $0.isInBodyMatter }
+                .sorted { ($0.bodyMatterOrder ?? Int.max) < ($1.bodyMatterOrder ?? Int.max) }
+            items.move(fromOffsets: source, toOffset: destination)
+            for (index, item) in items.enumerated() {
+                item.bodyMatterOrder = index
+            }
+        case .fiction:
+            switch project.fictionClass {
+            case .novel:
+                var items = (project.chapters ?? [])
+                    .filter { $0.isInBodyMatter }
+                    .sorted { ($0.bodyMatterOrder ?? Int.max) < ($1.bodyMatterOrder ?? Int.max) }
+                items.move(fromOffsets: source, toOffset: destination)
+                for (index, item) in items.enumerated() {
+                    item.bodyMatterOrder = index
+                }
+            case .shortFiction:
+                var items = (project.scenes ?? [])
+                    .filter { $0.isInBodyMatter }
+                    .sorted { ($0.bodyMatterOrder ?? Int.max) < ($1.bodyMatterOrder ?? Int.max) }
+                items.move(fromOffsets: source, toOffset: destination)
+                for (index, item) in items.enumerated() {
+                    item.bodyMatterOrder = index
+                }
+            case .verseNovel:
+                var items = (project.books ?? [])
+                    .filter { $0.isInBodyMatter }
+                    .sorted { ($0.bodyMatterOrder ?? Int.max) < ($1.bodyMatterOrder ?? Int.max) }
+                items.move(fromOffsets: source, toOffset: destination)
+                for (index, item) in items.enumerated() {
+                    item.bodyMatterOrder = index
+                }
+            case .none:
+                break
+            }
+        case .drama:
+            var items = (project.acts ?? [])
+                .filter { $0.isInBodyMatter }
+                .sorted { ($0.bodyMatterOrder ?? Int.max) < ($1.bodyMatterOrder ?? Int.max) }
+            items.move(fromOffsets: source, toOffset: destination)
+            for (index, item) in items.enumerated() {
+                item.bodyMatterOrder = index
+            }
+        }
+        
+        try? modelContext.save()
+    }
+    
+    private func renumberBodyMatterItems() {
+        switch project.type {
+        case .poetry:
+            let items = (project.poetryCollections ?? [])
+                .filter { $0.isInBodyMatter }
+                .sorted { ($0.bodyMatterOrder ?? Int.max) < ($1.bodyMatterOrder ?? Int.max) }
+            for (index, item) in items.enumerated() {
+                item.bodyMatterOrder = index
+            }
+        case .prose:
+            let items = (project.sections ?? [])
+                .filter { $0.isInBodyMatter }
+                .sorted { ($0.bodyMatterOrder ?? Int.max) < ($1.bodyMatterOrder ?? Int.max) }
+            for (index, item) in items.enumerated() {
+                item.bodyMatterOrder = index
+            }
+        case .fiction:
+            switch project.fictionClass {
+            case .novel:
+                let items = (project.chapters ?? [])
+                    .filter { $0.isInBodyMatter }
+                    .sorted { ($0.bodyMatterOrder ?? Int.max) < ($1.bodyMatterOrder ?? Int.max) }
+                for (index, item) in items.enumerated() {
+                    item.bodyMatterOrder = index
+                }
+            case .shortFiction:
+                let items = (project.scenes ?? [])
+                    .filter { $0.isInBodyMatter }
+                    .sorted { ($0.bodyMatterOrder ?? Int.max) < ($1.bodyMatterOrder ?? Int.max) }
+                for (index, item) in items.enumerated() {
+                    item.bodyMatterOrder = index
+                }
+            case .verseNovel:
+                let items = (project.books ?? [])
+                    .filter { $0.isInBodyMatter }
+                    .sorted { ($0.bodyMatterOrder ?? Int.max) < ($1.bodyMatterOrder ?? Int.max) }
+                for (index, item) in items.enumerated() {
+                    item.bodyMatterOrder = index
+                }
+            case .none:
+                break
+            }
+        case .drama:
+            let items = (project.acts ?? [])
+                .filter { $0.isInBodyMatter }
+                .sorted { ($0.bodyMatterOrder ?? Int.max) < ($1.bodyMatterOrder ?? Int.max) }
+            for (index, item) in items.enumerated() {
+                item.bodyMatterOrder = index
+            }
+        }
+    }
+    
+    // MARK: - Display Helpers
+    
+    private var iconForItem: String {
+        switch project.type {
+        case .poetry: return "text.book.closed"
+        case .prose: return "doc.text"
+        case .fiction:
+            switch project.fictionClass {
+            case .novel: return "bookmark"
+            case .shortFiction: return "doc.text"
+            case .verseNovel: return "book"
+            case .none: return "doc.text"
+            }
+        case .drama: return "theatermasks"
+        }
+    }
+    
+    private var itemTypeName: String {
+        switch project.type {
+        case .poetry: return NSLocalizedString("bodyMatter.type.collections", comment: "Collections")
+        case .prose: return NSLocalizedString("bodyMatter.type.sections", comment: "Sections")
+        case .fiction:
+            switch project.fictionClass {
+            case .novel: return NSLocalizedString("bodyMatter.type.chapters", comment: "Chapters")
+            case .shortFiction: return NSLocalizedString("bodyMatter.type.stories", comment: "Stories")
+            case .verseNovel: return NSLocalizedString("bodyMatter.type.books", comment: "Books")
+            case .none: return ""
+            }
+        case .drama: return NSLocalizedString("bodyMatter.type.acts", comment: "Acts")
+        }
+    }
+    
+    private var addItemTitle: String {
+        String(format: NSLocalizedString("bodyMatter.add.title", comment: "Add %@"), itemTypeName)
+    }
+    
+    private var emptyStateDescription: String {
+        String(format: NSLocalizedString("bodyMatter.empty.description", comment: "Add %@ to include them in the manuscript body."), itemTypeName)
+    }
+    
+    private func subtitleForItem(_ item: any BodyMatterItem) -> String {
+        switch project.type {
+        case .poetry:
+            if let collection = item as? PoetryCollection {
+                let count = collection.textFiles?.count ?? 0
+                return String(format: NSLocalizedString("bodyMatter.subtitle.poems", comment: "%d poems"), count)
+            }
+        case .prose:
+            if let section = item as? ProseSection {
+                let count = section.textFiles?.count ?? 0
+                return String(format: NSLocalizedString("bodyMatter.subtitle.files", comment: "%d files"), count)
+            }
+        case .fiction:
+            switch project.fictionClass {
+            case .novel:
+                if let chapter = item as? Chapter {
+                    let count = chapter.scenes?.count ?? 0
+                    return String(format: NSLocalizedString("bodyMatter.subtitle.scenes", comment: "%d scenes"), count)
+                }
+            case .shortFiction:
+                if let scene = item as? StoryScene {
+                    let hasContent = scene.textFile != nil
+                    return hasContent
+                        ? NSLocalizedString("bodyMatter.subtitle.hasContent", comment: "Has content")
+                        : NSLocalizedString("bodyMatter.subtitle.empty", comment: "Empty")
+                }
+            case .verseNovel:
+                if let book = item as? Book {
+                    let count = book.scenes?.count ?? 0
+                    return String(format: NSLocalizedString("bodyMatter.subtitle.episodes", comment: "%d episodes"), count)
+                }
+            case .none:
+                break
+            }
+        case .drama:
+            if let act = item as? Act {
+                let count = act.scenes?.count ?? 0
+                return String(format: NSLocalizedString("bodyMatter.subtitle.scenes", comment: "%d scenes"), count)
+            }
+        }
+        return ""
+    }
+}
