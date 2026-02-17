@@ -24,6 +24,10 @@ struct FolderListView: View {
     @State private var showPrintError = false
     @State private var printErrorMessage = ""
     
+    // Manuscript submit state
+    @State private var showSubmitManuscript = false
+    @State private var manuscriptFilesToSubmit: [TextFile] = []
+    
     // Query all trash items to check if trash folder should be shown
     @Query private var allTrashItems: [TrashItem]
     
@@ -403,6 +407,13 @@ struct FolderListView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 16) {
                         Button {
+                            submitManuscript()
+                        } label: {
+                            Label(NSLocalizedString("manuscript.submit", comment: "Submit"), systemImage: "paperplane")
+                        }
+                        .disabled(isExporting)
+                        
+                        Button {
                             generatePreview()
                         } label: {
                             Label(NSLocalizedString("manuscript.preview", comment: "Preview"), systemImage: "eye")
@@ -520,6 +531,22 @@ struct FolderListView: View {
                 existingFolders: selectedFolder != nil ? currentSubfolders : projectFolders
             )
         }
+        .sheet(isPresented: $showSubmitManuscript) {
+            NavigationStack {
+                SubmissionPickerView(
+                    project: project,
+                    filesToSubmit: manuscriptFilesToSubmit,
+                    collectionToSubmit: nil,
+                    onPublicationSelected: { publication, name, expectedDate in
+                        createManuscriptSubmission(for: publication, name: name, expectedResponseDate: expectedDate)
+                        showSubmitManuscript = false
+                    },
+                    onCancel: {
+                        showSubmitManuscript = false
+                    }
+                )
+            }
+        }
     }
     
     // MARK: - Manuscript Export/Preview Helpers
@@ -533,6 +560,52 @@ struct FolderListView: View {
     private func generatePreview() {
         previewPDFData = nil
         showPreview = true
+    }
+    
+    /// Submit the manuscript body matter files to a publication
+    private func submitManuscript() {
+        let assemblyService = ManuscriptAssemblyService(context: modelContext)
+        let files = assemblyService.getBodyMatterFiles(for: project)
+        guard !files.isEmpty else {
+            exportErrorMessage = NSLocalizedString("manuscript.error.noBodyMatterFiles", comment: "No body matter files to submit")
+            showExportError = true
+            return
+        }
+        manuscriptFilesToSubmit = files
+        showSubmitManuscript = true
+    }
+    
+    /// Create a Submission for manuscript body matter files
+    private func createManuscriptSubmission(for publication: Publication, name: String, expectedResponseDate: Date? = nil) {
+        let submission = Submission(
+            publication: publication,
+            project: project,
+            submittedDate: Date(),
+            notes: nil
+        )
+        submission.name = name
+        submission.isCollection = false
+        submission.returnExpectedBy = expectedResponseDate
+        modelContext.insert(submission)
+        
+        for file in manuscriptFilesToSubmit {
+            if let currentVersion = file.currentVersion {
+                let submittedFile = SubmittedFile(
+                    submission: submission,
+                    textFile: file,
+                    version: currentVersion,
+                    status: .pending,
+                    statusDate: Date(),
+                    project: project
+                )
+                modelContext.insert(submittedFile)
+            }
+        }
+        
+        manuscriptFilesToSubmit = []
+        #if DEBUG
+        print("✅ [Manuscript] Created submission '\(name)' with \(submission.submittedFiles?.count ?? 0) files for publication '\(publication.name)'")
+        #endif
     }
     
     /// Export the full manuscript as PDF

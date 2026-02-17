@@ -90,6 +90,12 @@ final class ManuscriptAssemblyService {
         return sections
     }
     
+    /// Get all body matter TextFile objects for a project, in manuscript order.
+    /// Useful for submission workflows where files need to be linked.
+    func getBodyMatterFiles(for project: Project) -> [TextFile] {
+        return getBodySections(for: project).flatMap { $0.files }
+    }
+    
     /// Get body sections based on project type
     func getBodySections(for project: Project) -> [ManuscriptSection] {
         switch project.type {
