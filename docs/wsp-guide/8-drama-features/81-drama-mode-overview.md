@@ -22,17 +22,20 @@ Drama mode understands script writing needs:
 
 ```
 Project
-├── Draft (scenes in progress)
-├── Ready (polished scenes)
-├── Chapters (Acts)
+├── Manuscript (Front Matter, Body Matter, Back Matter)
+├── Scenes (filtered by workflow status)
+├── Acts (group scenes into acts)
 ├── Plot Elements
 ├── Characters
 ├── Locations
-├── Set Aside
+├── Submissions
+├── Research
+├── Publishers / Agents
+├── Other
 └── Trash
 ```
 
-Drama projects share structure with Fiction (Novel) projects, as scripts have similar organizational needs.
+Drama projects share structure with Fiction projects, as scripts have similar organizational needs.
 
 ## Script Format Options
 
@@ -97,6 +100,17 @@ The equivalent of chapters:
 - Group related scenes
 - Organize your script structure
 - Traditional theatrical divisions
+
+### Scene Grouping by Act
+
+When viewing all scenes in a Drama project, scenes are automatically grouped under their assigned act in collapsible sections:
+
+- Each section shows a theater masks icon, act name, and scene count
+- Tap a section header to expand or collapse it
+- Use the expand/collapse all button in the toolbar
+- Unassigned scenes appear in a separate "Unassigned" section
+
+This gives you an at-a-glance view of your script structure without navigating into individual acts.
 
 ### Characters
 Define your dramatis personae:

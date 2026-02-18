@@ -1,31 +1,28 @@
-# Collections
+# Poetry Collections
 
-Collections let you group files together without moving them. A file can belong to multiple collections, making it easy to organize for different purposes.
+Poetry Collections let you group related poems together as first-class entities in your Poetry project. Each collection has its own name, synopsis, and list of linked poems, and can be included in your manuscript's body matter for export.
 
-## What Are Collections?
+## What Are Poetry Collections?
 
-A collection is a group of files assembled for a specific purpose:
-- Poems for a submission
-- Stories with a common theme
-- Chapters for a reading
-- Any grouping you need
+A Poetry Collection is a dedicated grouping of poems for a specific purpose:
+- Poems for a chapbook
+- A submission package
+- A themed reading set
+- Any curated grouping you need
 
 ### Collections vs Folders
-| Folders | Collections |
-|---------|-------------|
-| Files live in one folder | Files can be in multiple collections |
-| Moving files changes location | Adding to collection doesn't move files |
-| Physical organization | Virtual grouping |
-| Hierarchical | Flat |
+| Folders | Poetry Collections |
+|---------|-------------------|
+| Poems live in one folder | Poems can belong to multiple collections |
+| Moving poems changes location | Adding to a collection doesn't move the poem |
+| Physical organization | Virtual grouping with metadata |
+| Hierarchical | Flat (each collection is independent) |
 
 ## Where Collections Appear
 
-Collections are available in:
-- Poetry projects
-- Short Fiction projects
-- Fiction projects (scenes/chapters)
+Collections are available **only in Poetry projects**. Access them through the dedicated **Collections** folder in the project sidebar.
 
-Access collections through the **Collections** folder.
+**Note**: Fiction and Drama projects use chapters, books, or acts to organize their content. The Collections folder is not available in those project types.
 
 ## Creating a Collection
 
@@ -33,51 +30,45 @@ Access collections through the **Collections** folder.
 1. Open the **Collections** folder
 2. Tap **+**
 3. Enter a collection name
-4. Tap **Create**
+4. Optionally add a synopsis
+5. Tap **Create**
 
-### When Adding Files
-1. Select files in a folder
+### When Adding Poems
+1. Select poems in the Poems folder
 2. Choose **Add to Collection...**
 3. Select **Create New Collection**
 4. Enter a name
 
-## Adding Files to Collections
+## Adding Poems to Collections
 
-### From the File
-1. Open or select the file
-2. Tap **Add to Collection...**
-3. Choose the collection
-4. File is added
-
-### From a Folder (Multiple Files)
-1. Tap **Edit** in a folder
-2. Select multiple files
+### From the Poems Folder (Multiple Poems)
+1. Tap **Edit** in the Poems folder
+2. Select multiple poems
 3. Tap **Add to Collection**
 4. Choose the collection
 
 ### Drag and Drop (iPad/Mac)
-- Drag files to the Collections folder
+- Drag poems to the Collections folder
 - Drop on a specific collection
 
 ## Viewing Collection Contents
 
 1. Open the Collections folder
 2. Tap a collection
-3. See all files in the collection
+3. See all poems in the collection
 
 ### What You See
-- File titles
-- Status (which folder they're in)
+- Poem titles
 - Word counts
-- Last modified
+- Last modified date
 
-## Removing Files from Collections
+## Removing Poems from Collections
 
 1. Open the collection
-2. Select the file(s) to remove
+2. Select the poem(s) to remove
 3. Tap **Remove from Collection**
 
-The file isn't deleted—it just leaves this collection.
+The poem isn't deleted—it just leaves this collection.
 
 ## Renaming Collections
 
@@ -93,27 +84,28 @@ The file isn't deleted—it just leaves this collection.
 2. Tap **Delete**
 3. Confirm
 
-**Note**: Deleting a collection doesn't delete the files. They remain in their folders.
+**Note**: Deleting a collection doesn't delete the poems. They remain in the Poems folder.
 
-## Collection Versions
+## Body Matter Integration
 
-Collections can track specific file versions:
+Poetry Collections can be included in your manuscript's body matter for export and assembly:
 
-### How It Works
-- Each file in a collection points to a specific version
-- If you edit the file, the collection still references the original version
-- You can update the version reference
+### Adding to Body Matter
+1. Open the **Manuscript** folder
+2. Navigate to **Body Matter**
+3. Add collections (and/or individual poems) to body matter
+4. Reorder items as needed
+
+### How Assembly Works
+- Collections in body matter are assembled in their body matter order
+- Within each collection, poems are assembled in their collection order
+- Individual poems not in any collection can also be added to body matter
+- This gives you full control over the manuscript structure
 
 ### Why This Matters
-- Submit version 3 of a poem
-- Continue editing to version 5
-- The collection still shows what you actually submitted
-
-### Changing the Version
-1. Open the collection
-2. Select the file
-3. Change the version reference
-4. Save
+- Organize a chapbook with themed sections (each section is a collection)
+- Control the exact reading order for export
+- Mix collections and standalone poems in your manuscript
 
 ## Using Collections for Submissions
 
@@ -121,67 +113,76 @@ Collections integrate with the submission system:
 
 ### Workflow
 1. Create a collection for your submission
-2. Add the files you want to submit
+2. Add the poems you want to submit
 3. Review and organize
 4. Submit the collection to a publication
 5. Track the submission status
 
 ### Benefits
 - Clear record of what was submitted
-- Version tracking
-- Easy to submit same group elsewhere
+- Easy to submit the same group elsewhere
+- Collections maintain their poem list independently
 
 ## Collection Best Practices
 
 ### Naming
 Use clear, descriptive names:
 - "Spring 2026 Contest Entry"
-- "Nature Poems Selection"
+- "Nature Poems Chapbook"
 - "Anthology Submission"
 
 ### Regular Review
-- Remove files no longer relevant
-- Update versions as needed
+- Remove poems no longer relevant
 - Delete obsolete collections
+- Update collection synopses
 
 ### Avoid Duplication
-Instead of copying files:
-- Add the same file to multiple collections
-- Each collection references the file
-- Edits appear everywhere
+Instead of copying poems:
+- Add the same poem to multiple collections
+- Each collection references the poem
+- Edits to the poem appear everywhere
 
 ## Common Use Cases
 
 ### Poetry Chapbook
-Collect poems for a chapbook, arrange in reading order, export together.
+Collect poems for a chapbook, add the collection to body matter, arrange in reading order, and export as a complete manuscript.
 
 ### Contest Entry
-Group poems or stories meeting contest criteria. Track which version was submitted.
+Group poems meeting contest criteria. Submit the collection and track the submission status.
 
 ### Reading Selection
-Assemble pieces for a live reading. Order them for performance.
+Assemble poems for a live reading. Order them for performance flow.
 
 ### Themed Group
-Collect all poems about nature, all stories about love, etc.
+Collect all poems about nature, all sonnets, all work from a particular period, etc.
+
+## Migration from Version 1.0
+
+If you're upgrading from version 1.0, your existing collections are automatically migrated to the new Poetry Collection model. The migration:
+- Converts old submission-based collections to dedicated PoetryCollection entities
+- Preserves all poem links
+- Removes the Collections folder from non-Poetry projects (Fiction, Short Fiction)
 
 ## Troubleshooting
 
-### File Not Showing in Collection
-- Verify the file was added
-- Check if file was deleted
-- The file might be in Trash
+### Poem Not Showing in Collection
+- Verify the poem was added
+- Check if the poem was deleted (it might be in Trash)
+- Restore from Trash if needed
 
-### Wrong Version Showing
-- Check version reference in collection
-- Update to current version if needed
+### Can't Find Collections Folder
+- Collections are only available in Poetry projects
+- If you're in a Fiction or Drama project, use chapters, books, or acts instead
 
 ### Can't Add to Collection
-- Ensure file is in Ready or Draft
-- Check collection exists
+- Ensure the poem exists in the Poems folder
+- Check that the collection exists
 
 ## See Also
 - [Organizing Your Work](../3-projects/35-organizing-your-work.md)
 - [Submission Tracking](../9-publishing/95-submission-tracking.md)
 - [Folders and Files](../3-projects/34-folders-and-files.md)
+- [Poetry Mode Overview](../6-poetry-features/61-poetry-mode-overview.md)
+- [Manuscript Structure](../3-projects/36-manuscript-structure.md)
 
 ---

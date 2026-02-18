@@ -130,11 +130,12 @@ The fundamental unit of fiction. Each scene:
 - Advances the story
 - Has a workflow status (Draft, Ready, or Set Aside)
 
-### Chapters (Novel only)
-Containers for scenes:
-- Group related scenes
-- Determine reading order
-- Organize your book structure
+### Chapters (Novel) / Books (Verse Novel)
+Containers for scenes or episodes:
+- Group related scenes into reading order
+- Novel uses Chapters; Verse Novel uses Books
+- Determine manuscript assembly order
+- Can be added to body matter for export
 
 ### Plot Elements
 Story beats and events:
@@ -168,8 +169,20 @@ Where your story happens:
 
 ### 3. Organize
 - Change finished scenes to Ready status
-- Arrange scenes into chapters
+- Arrange scenes into chapters (or books for Verse Novel)
 - Refine your structure
+- View scenes grouped by chapter in collapsible sections
+
+### Scene Grouping by Chapter
+
+When viewing all scenes in a Novel or Verse Novel project, scenes are automatically grouped under their assigned chapter (or book) in collapsible sections:
+
+- Each section shows a folder icon, chapter/book name, and scene count
+- Tap a section header to expand or collapse it
+- Use the expand/collapse all button in the toolbar
+- Unassigned scenes appear in a separate "Unassigned" section
+
+This makes it easy to see your story structure at a glance without navigating into individual chapters.
 
 ### 4. Export
 - Assemble the manuscript

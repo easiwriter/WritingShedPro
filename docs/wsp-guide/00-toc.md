@@ -68,7 +68,7 @@
 - [Search and Replace](10-advanced-features/101-search-and-replace.md)
 - [Stylesheet Editor](10-advanced-features/102-stylesheet-editor.md)
 - [Page Setup](10-advanced-features/103-page-setup.md)
-- [Collections](10-advanced-features/104-collections.md)
+- [Poetry Collections](10-advanced-features/104-collections.md)
 - [Keyboard Shortcuts](10-advanced-features/105-keyboard-shortcuts.md)
 - [Tips and Tricks](10-advanced-features/106-tips-and-tricks.md)
 - [Contributors](10-advanced-features/107-contributors.md)

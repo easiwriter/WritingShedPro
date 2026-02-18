@@ -25,18 +25,23 @@ Each project type comes with predefined system folders that cannot be deleted:
 - **Set Aside**: Items you're not actively working on
 - **Trash**: Deleted items (restorable)
 
-### Poetry and Short Fiction
+### Poetry
 Additional system folders:
-- **Collections**: Groups of related files
-- **Publications**: Magazines and competitions
+- **Poems**: Your main writing area for poems
+- **Collections**: Poetry Collections — group related poems together
 - **Submissions**: Track what you've sent
+- **Magazines**: Publication targets
+- **Competitions**: Contest targets
 
-### Fiction (Novel)
+### Fiction (Novel, Verse Novel, Short Fiction)
 Additional system folders:
-- **Chapters**: Chapter containers
+- **Scenes** (or **Episodes** for Verse Novel): Your story scenes
+- **Chapters** (Novel), **Books** (Verse Novel): Organizational containers
 - **Plot Elements**: Story beats
 - **Characters**: Character profiles
 - **Locations**: Setting definitions
+- **Submissions**: Track what you've sent
+- **Publishers / Agents**: Submission targets
 
 ## Creating Folders
 
@@ -215,7 +220,7 @@ The current content becomes a new version, so nothing is lost.
 ### Workflow Tips
 - Start in Draft
 - Move to Ready when polished
-- Use Collections to group for submission
+- Use Poetry Collections to group poems for submission (Poetry projects)
 - Track submissions through the Submissions folder
 
 ## See Also

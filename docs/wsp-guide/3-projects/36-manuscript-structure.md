@@ -14,7 +14,7 @@ Manuscript/
 │   ├── Dedication
 │   ├── Table of Contents
 │   └── (other front matter files)
-├── [Body Content]/
+├── Body Matter/
 │   └── (your writing organized by type)
 └── Back Matter/
     ├── Endnotes (auto-generated)
@@ -24,12 +24,7 @@ Manuscript/
     └── Contributors (user-created)
 ```
 
-The body folder name varies by project type:
-- **Drama**: All Acts
-- **Poetry**: All Poems
-- **Prose**: All Sections
-- **Novel**: All Chapters
-- **Short Fiction**: All Stories
+The body folder is always called **Body Matter** for all project types. You manage its contents through the Body Matter view, where you can add, remove, and reorder items for manuscript assembly.
 
 ## Front Matter
 
@@ -76,12 +71,12 @@ The middle folder contains your actual writing, organized according to project t
 
 | Project Type | Body Folder | Hierarchy | Assembly Order |
 |-------------|-------------|-----------|---------------|
-| **Prose** | All Sections | Sections → Files | Section order, then file order within each section |
-| **Poetry** | All Poems | Flat (all poems) | Display order |
-| **Novel** | All Chapters | Chapters → Scenes | Chapter order, then scene order within each chapter |
-| **Verse Novel** | All Chapters | Books → Episodes | Book order, then episode order within each book |
-| **Short Fiction** | All Stories | Flat (scenes only) | Scene order |
-| **Drama** | All Acts | Acts → Scenes (or flat) | Act order, then scene order; standalone scenes appended |
+| **Prose** | Body Matter | Sections → Files | Section order, then file order within each section |
+| **Poetry** | Body Matter | Collections and/or poems | Body matter order (collections and individual poems) |
+| **Novel** | Body Matter | Chapters → Scenes | Chapter order, then scene order within each chapter |
+| **Verse Novel** | Body Matter | Books → Episodes | Book order, then episode order within each book |
+| **Short Fiction** | Body Matter | Flat (scenes only) | Scene order |
+| **Drama** | Body Matter | Acts → Scenes (or flat) | Act order, then scene order; standalone scenes appended |
 
 ### Excluding Files from the Manuscript
 

@@ -97,29 +97,38 @@ Control how files appear in lists:
 
 Custom order is saved and syncs across devices.
 
-## Collections
+## Poetry Collections
 
-Collections let you group files without moving them. A file can belong to multiple collections.
+Poetry projects have a dedicated **Collections** folder for grouping related poems. Collections are first-class entities with their own names and synopses.
 
 ### Creating a Collection
-1. Open the Collections folder
+1. Open the **Collections** folder in a Poetry project
 2. Tap **+**
 3. Enter a collection name
 4. Tap **Create**
 
-### Adding Files to a Collection
-1. Navigate to files in Draft or Ready
-2. Select one or more files
+### Adding Poems to a Collection
+1. Navigate to poems in the Poems folder
+2. Select one or more poems
 3. Choose **Add to Collection...**
 4. Select the collection
 
 ### Collection Uses
 - Group poems for a chapbook
-- Assemble stories for a themed submission
 - Create a reading order for an event
 - Organize by publication targets
+- Include in manuscript body matter for export
 
-See [Collections](../10-advanced-features/104-collections.md) for more details.
+### Body Matter Integration
+Collections can be added to your manuscript's body matter:
+1. Open the **Manuscript** folder
+2. Navigate to **Body Matter**
+3. Add collections and reorder as needed
+4. Collections in body matter are assembled in order during export
+
+**Note**: Collections are only available in Poetry projects. Fiction and Drama projects use chapters, books, or acts for organization.
+
+See [Poetry Collections](../10-advanced-features/104-collections.md) for more details.
 
 ## Searching
 

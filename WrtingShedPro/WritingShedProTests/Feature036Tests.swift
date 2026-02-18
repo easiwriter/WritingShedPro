@@ -809,7 +809,9 @@ final class Feature036Tests: XCTestCase {
         XCTAssertTrue(UserDefaults.standard.bool(forKey: "hasRunFeature036Migration"))
     }
     
-    func testMigrationSkipsWhenFlagAlreadySet() throws {
+    func testMigrationIsIdempotentEvenWithFlagPreSet() throws {
+        // Migration no longer checks UserDefaults before running — it's idempotent by design
+        // so that newly synced CloudKit projects still get migrated.
         let project = createProject(name: "Prose", type: .prose)
         
         let sec = ProseSection(name: "Part 1", userOrder: 0)
@@ -818,13 +820,14 @@ final class Feature036Tests: XCTestCase {
         
         try modelContext.save()
         
-        // Set flag before running
+        // Set flag before running — migration should still run (idempotent)
         UserDefaults.standard.set(true, forKey: "hasRunFeature036Migration")
         
         MigrationService.migrateFeature036(context: modelContext)
         
-        // Migration should NOT have run — sections should still be false
-        XCTAssertFalse(sec.isInBodyMatter)
+        // Migration runs regardless of flag — body matter should be populated
+        XCTAssertTrue(sec.isInBodyMatter)
+        XCTAssertEqual(sec.bodyMatterOrder, 0)
     }
     
     func testMigrationSkipsExistingPoetryCollections() throws {
@@ -914,5 +917,282 @@ final class Feature036Tests: XCTestCase {
         // Chapter should still exist (CloudKit safety)
         let chapters = project.chapters ?? []
         XCTAssertEqual(chapters.count, 1)
+    }
+    
+    // MARK: - Task 9.2: Verse Novel Body Matter Assembly
+    
+    func testVerseNovelBodyMatterAssembly() throws {
+        let project = createProject(name: "Verse Novel", type: .fiction, fictionClass: .verseNovel)
+        let scenesFolder = createFolder(name: "Scenes", project: project)
+        project.folders = [scenesFolder]
+        
+        let book1 = Book(name: "Book One", userOrder: 0)
+        book1.project = project
+        book1.isInBodyMatter = true
+        book1.bodyMatterOrder = 0
+        modelContext.insert(book1)
+        
+        let book2 = Book(name: "Book Two", userOrder: 1)
+        book2.project = project
+        book2.isInBodyMatter = true
+        book2.bodyMatterOrder = 1
+        modelContext.insert(book2)
+        
+        // Episode in Book One
+        let scene1 = StoryScene()
+        scene1.name = "Episode 1"
+        scene1.project = project
+        scene1.book = book1
+        scene1.userOrder = 0
+        modelContext.insert(scene1)
+        
+        let file1 = TextFile(name: "Episode 1 Text", parentFolder: scenesFolder)
+        file1.includedInManuscript = true
+        file1.scene = scene1
+        scene1.textFile = file1
+        modelContext.insert(file1)
+        
+        // Episode in Book Two
+        let scene2 = StoryScene()
+        scene2.name = "Episode 2"
+        scene2.project = project
+        scene2.book = book2
+        scene2.userOrder = 0
+        modelContext.insert(scene2)
+        
+        let file2 = TextFile(name: "Episode 2 Text", parentFolder: scenesFolder)
+        file2.includedInManuscript = true
+        file2.scene = scene2
+        scene2.textFile = file2
+        modelContext.insert(file2)
+        
+        try modelContext.save()
+        
+        let service = ManuscriptAssemblyService(context: modelContext)
+        let sections = service.getBodySections(for: project)
+        
+        XCTAssertEqual(sections.count, 2)
+        if sections.count == 2 {
+            XCTAssertEqual(sections[0].title, "Book One")
+            XCTAssertEqual(sections[1].title, "Book Two")
+            XCTAssertEqual(sections[0].files.count, 1)
+            XCTAssertEqual(sections[1].files.count, 1)
+        }
+    }
+    
+    func testVerseNovelFallsBackToChapters() throws {
+        // When no Book entities exist, verse novel should fall back to legacy Chapter entities
+        let project = createProject(name: "Verse Novel", type: .fiction, fictionClass: .verseNovel)
+        let scenesFolder = createFolder(name: "Scenes", project: project)
+        project.folders = [scenesFolder]
+        
+        let chapter = Chapter(name: "Legacy Chapter", userOrder: 0)
+        chapter.project = project
+        modelContext.insert(chapter)
+        
+        let scene = StoryScene()
+        scene.name = "Episode 1"
+        scene.project = project
+        scene.chapter = chapter
+        modelContext.insert(scene)
+        
+        let file = TextFile(name: "Episode Text", parentFolder: scenesFolder)
+        file.includedInManuscript = true
+        file.scene = scene
+        scene.textFile = file
+        modelContext.insert(file)
+        
+        try modelContext.save()
+        
+        let service = ManuscriptAssemblyService(context: modelContext)
+        let sections = service.getBodySections(for: project)
+        
+        XCTAssertEqual(sections.count, 1)
+        XCTAssertEqual(sections.first?.title, "Legacy Chapter")
+    }
+    
+    // MARK: - Task 9.3: Additional Migration Rename Tests
+    
+    func testMigrationRenamesAllStoriesToBodyMatter() throws {
+        let project = createProject(name: "Short Fiction", type: .fiction, fictionClass: .shortFiction)
+        let manuscript = createFolder(name: "Manuscript", project: project)
+        project.folders = [manuscript]
+        
+        let bodyFolder = createFolder(name: "All Stories", parent: manuscript)
+        manuscript.folders = [bodyFolder]
+        
+        try modelContext.save()
+        
+        MigrationService.migrateFeature036(context: modelContext)
+        
+        XCTAssertEqual(bodyFolder.name, "Body Matter")
+    }
+    
+    func testMigrationRenamesAllBooksToBodyMatter() throws {
+        let project = createProject(name: "Verse Novel", type: .fiction, fictionClass: .verseNovel)
+        let manuscript = createFolder(name: "Manuscript", project: project)
+        project.folders = [manuscript]
+        
+        let bodyFolder = createFolder(name: "All Books", parent: manuscript)
+        manuscript.folders = [bodyFolder]
+        
+        try modelContext.save()
+        
+        MigrationService.migrateFeature036(context: modelContext)
+        
+        XCTAssertEqual(bodyFolder.name, "Body Matter")
+    }
+    
+    func testMigrationRenamesLegacyBodyToBodyMatter() throws {
+        let project = createProject(name: "Poetry", type: .poetry)
+        let manuscript = createFolder(name: "Manuscript", project: project)
+        project.folders = [manuscript]
+        
+        let bodyFolder = createFolder(name: "Body", parent: manuscript)
+        manuscript.folders = [bodyFolder]
+        
+        try modelContext.save()
+        
+        MigrationService.migrateFeature036(context: modelContext)
+        
+        XCTAssertEqual(bodyFolder.name, "Body Matter")
+    }
+    
+    // MARK: - Task 9.3: Verse Novel Body Matter Population
+    
+    func testMigrationPopulatesBodyMatterForVerseNovelBooks() throws {
+        let project = createProject(name: "Verse Novel", type: .fiction, fictionClass: .verseNovel)
+        
+        let book1 = Book(name: "Book One", userOrder: 0)
+        book1.project = project
+        modelContext.insert(book1)
+        
+        let book2 = Book(name: "Book Two", userOrder: 1)
+        book2.project = project
+        modelContext.insert(book2)
+        
+        try modelContext.save()
+        
+        XCTAssertFalse(book1.isInBodyMatter)
+        XCTAssertFalse(book2.isInBodyMatter)
+        
+        MigrationService.migrateFeature036(context: modelContext)
+        
+        XCTAssertTrue(book1.isInBodyMatter)
+        XCTAssertTrue(book2.isInBodyMatter)
+        XCTAssertEqual(book1.bodyMatterOrder, 0)
+        XCTAssertEqual(book2.bodyMatterOrder, 1)
+    }
+    
+    // MARK: - BodyMatterItem Protocol Conformance
+    
+    func testAllBodyMatterItemTypesConform() {
+        // Verify BodyMatterItem protocol properties on each type
+        
+        let collection = PoetryCollection(name: "Test", userOrder: 0)
+        modelContext.insert(collection)
+        XCTAssertFalse(collection.isInBodyMatter)
+        collection.isInBodyMatter = true
+        collection.bodyMatterOrder = 0
+        XCTAssertTrue(collection.isInBodyMatter)
+        
+        let section = ProseSection(name: "Test", userOrder: 0)
+        modelContext.insert(section)
+        section.isInBodyMatter = true
+        section.bodyMatterOrder = 1
+        XCTAssertTrue(section.isInBodyMatter)
+        
+        let chapter = Chapter(name: "Test", userOrder: 0)
+        modelContext.insert(chapter)
+        chapter.isInBodyMatter = true
+        chapter.bodyMatterOrder = 2
+        XCTAssertTrue(chapter.isInBodyMatter)
+        
+        let scene = StoryScene()
+        scene.name = "Test"
+        modelContext.insert(scene)
+        scene.isInBodyMatter = true
+        scene.bodyMatterOrder = 3
+        XCTAssertTrue(scene.isInBodyMatter)
+        
+        let book = Book(name: "Test", userOrder: 0)
+        modelContext.insert(book)
+        book.isInBodyMatter = true
+        book.bodyMatterOrder = 4
+        XCTAssertTrue(book.isInBodyMatter)
+        
+        let act = Act(name: "Test", userOrder: 0)
+        modelContext.insert(act)
+        act.isInBodyMatter = true
+        act.bodyMatterOrder = 5
+        XCTAssertTrue(act.isInBodyMatter)
+    }
+    
+    // MARK: - Poetry Assembly Fallback (userOrder, no body matter flag)
+    
+    func testPoetryAssemblyFallsBackToUserOrder() throws {
+        // When no collections have isInBodyMatter=true, should use all collections by userOrder
+        let project = createProject(name: "Poetry", type: .poetry)
+        let poemsFolder = createFolder(name: "Poems", project: project)
+        project.folders = [poemsFolder]
+        
+        let col1 = PoetryCollection(name: "First Collection", userOrder: 0)
+        col1.project = project
+        // No isInBodyMatter set — defaults to false
+        modelContext.insert(col1)
+        
+        let col2 = PoetryCollection(name: "Second Collection", userOrder: 1)
+        col2.project = project
+        modelContext.insert(col2)
+        
+        let poem1 = createTextFile(name: "Poem A", folder: poemsFolder)
+        poem1.poetryCollection = col1
+        
+        let poem2 = createTextFile(name: "Poem B", folder: poemsFolder)
+        poem2.poetryCollection = col2
+        
+        try modelContext.save()
+        
+        let service = ManuscriptAssemblyService(context: modelContext)
+        let sections = service.getBodySections(for: project)
+        
+        XCTAssertEqual(sections.count, 2)
+        if sections.count == 2 {
+            XCTAssertEqual(sections[0].title, "First Collection")
+            XCTAssertEqual(sections[1].title, "Second Collection")
+        }
+    }
+    
+    // MARK: - getBodyMatterFiles Convenience
+    
+    func testGetBodyMatterFilesReturnsAllFiles() throws {
+        let project = createProject(name: "Novel", type: .fiction, fictionClass: .novel)
+        let chaptersFolder = createFolder(name: "Chapters", project: project)
+        project.folders = [chaptersFolder]
+        
+        let ch1 = Chapter(name: "Ch 1", userOrder: 0)
+        ch1.project = project
+        ch1.isInBodyMatter = true
+        ch1.bodyMatterOrder = 0
+        modelContext.insert(ch1)
+        
+        let s1 = StoryScene(); s1.name = "S1"; s1.project = project; s1.chapter = ch1; modelContext.insert(s1)
+        let f1 = TextFile(name: "F1", parentFolder: chaptersFolder); f1.includedInManuscript = true; f1.scene = s1; s1.textFile = f1; modelContext.insert(f1)
+        
+        let ch2 = Chapter(name: "Ch 2", userOrder: 1)
+        ch2.project = project
+        ch2.isInBodyMatter = true
+        ch2.bodyMatterOrder = 1
+        modelContext.insert(ch2)
+        
+        let s2 = StoryScene(); s2.name = "S2"; s2.project = project; s2.chapter = ch2; modelContext.insert(s2)
+        let f2 = TextFile(name: "F2", parentFolder: chaptersFolder); f2.includedInManuscript = true; f2.scene = s2; s2.textFile = f2; modelContext.insert(f2)
+        
+        try modelContext.save()
+        
+        let service = ManuscriptAssemblyService(context: modelContext)
+        let files = service.getBodyMatterFiles(for: project)
+        
+        XCTAssertEqual(files.count, 2)
     }
 }

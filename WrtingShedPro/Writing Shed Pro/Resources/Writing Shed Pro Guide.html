@@ -142,7 +142,7 @@ hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
 <li><a href="#101-search-and-replace">Search and Replace</a></li>
 <li><a href="#102-stylesheet-editor">Stylesheet Editor</a></li>
 <li><a href="#103-page-setup">Page Setup</a></li>
-<li><a href="#104-collections">Collections</a></li>
+<li><a href="#104-collections">Poetry Collections</a></li>
 <li><a href="#105-keyboard-shortcuts">Keyboard Shortcuts</a></li>
 <li><a href="#106-tips-and-tricks">Tips and Tricks</a></li>
 <li><a href="#107-contributors">Contributors</a></li>
@@ -279,6 +279,48 @@ hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
 <li>Case-sensitive and whole-word options</li>
 <li>Regular expression support</li>
 <li>Replace across multiple files</li>
+</ul>
+<h2 id="version-11">Version 1.1</h2>
+<h3 id="poetry-collections">Poetry Collections</h3>
+<ul>
+<li><strong>Poetry Collections are now first-class entities</strong> — dedicated PoetryCollection model with their own names, synopses, and file links</li>
+<li><strong>Collections folder</strong> is now exclusive to Poetry projects (removed from Fiction and Short Fiction)</li>
+<li>Collections can be added to the manuscript body matter for assembly and export</li>
+<li>Old submission-based collections are automatically migrated to the new model</li>
+</ul>
+<h3 id="verse-novel">Verse Novel</h3>
+<ul>
+<li><strong>New fiction class: Verse Novel</strong> — a novel written in verse, organized by Books and Episodes</li>
+<li>Each episode uses the poetry editor for verse writing</li>
+<li>Full manuscript assembly with poetry formatting</li>
+<li>Books and episodes support body matter ordering</li>
+</ul>
+<h3 id="body-matter">Body Matter</h3>
+<ul>
+<li><strong>Unified "Body Matter" folder</strong> — all project types now use a single "Body Matter" subfolder inside Manuscript (replaces the old type-specific names like "All Poems", "All Chapters", etc.)</li>
+<li><strong>Body Matter view</strong> — add, remove, and reorder items in your manuscript body with a dedicated management interface</li>
+<li>Poetry collections and fiction books can be included in body matter for manuscript assembly</li>
+<li>Legacy folder names are automatically renamed during migration</li>
+</ul>
+<h3 id="scene-grouping">Scene Grouping</h3>
+<ul>
+<li><strong>Fiction scenes grouped by chapter</strong> — when viewing all scenes, they appear in collapsible sections organized by chapter with expand/collapse controls</li>
+<li><strong>Drama scenes grouped by act</strong> — same collapsible grouping for drama projects, with scenes organized under their assigned acts</li>
+<li>Unassigned scenes appear in a separate section</li>
+<li>Expand/collapse all button in the toolbar for quick navigation</li>
+</ul>
+<h3 id="notification-reminders">Notification Reminders</h3>
+<ul>
+<li><strong>Submission reminders</strong> — set a date-based reminder for any submission to receive a notification</li>
+<li><strong>Deadline reminders</strong> — set reminders for publication deadlines (magazines and competitions)</li>
+<li>Reminders use the system notification center with alert and sound</li>
+<li>Manage reminders from submission and publication detail views</li>
+</ul>
+<h3 id="other-improvements">Other Improvements</h3>
+<ul>
+<li>Improved manuscript assembly for all project types</li>
+<li>Migration service ensures smooth upgrades from version 1.0</li>
+<li>CloudKit-safe migration (idempotent, no data loss)</li>
 </ul>
 <h2 id="coming-soon">Coming Soon</h2>
 <p>We're continually improving Writing Shed Pro. Features in development include:</p>
@@ -1100,12 +1142,14 @@ hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
 </ul>
 <h3 id="folder-structure_1">Folder Structure</h3>
 <ul>
-<li>Draft</li>
-<li>Ready</li>
-<li>Collections</li>
-<li>Set Aside</li>
-<li>Publications</li>
+<li>Poems (your writing area)</li>
+<li>Manuscript (Front Matter, Body Matter, Back Matter)</li>
+<li>Collections (Poetry Collections — first-class grouping of poems)</li>
 <li>Submissions</li>
+<li>Research</li>
+<li>Magazines</li>
+<li>Competitions</li>
+<li>Other</li>
 <li>Trash</li>
 </ul>
 <h3 id="features_1">Features</h3>
@@ -1138,6 +1182,11 @@ hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
 <td>Long-form fiction</td>
 </tr>
 <tr>
+<td><strong>Verse Novel</strong></td>
+<td>Books contain Episodes (verse)</td>
+<td>Novel-length poetry</td>
+</tr>
+<tr>
 <td><strong>Short Fiction</strong></td>
 <td>Scenes only (no chapters)</td>
 <td>Short stories, novellas</td>
@@ -1146,13 +1195,16 @@ hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
 </table>
 <h3 id="folder-structure_2">Folder Structure</h3>
 <ul>
-<li>Draft (contains Scenes)</li>
-<li>Ready</li>
-<li>Chapters (Novel only)</li>
+<li>Manuscript (Front Matter, Body Matter, Back Matter)</li>
+<li>Scenes (your writing, filtered by workflow status)</li>
+<li>Chapters (Novel), Books (Verse Novel), or flat (Short Fiction)</li>
 <li>Plot Elements</li>
 <li>Characters</li>
 <li>Locations</li>
-<li>Set Aside</li>
+<li>Submissions</li>
+<li>Research</li>
+<li>Publishers / Agents</li>
+<li>Other</li>
 <li>Trash</li>
 </ul>
 <h3 id="story-structures">Story Structures</h3>
@@ -1181,15 +1233,19 @@ hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
 <li>Radio plays</li>
 </ul>
 <h3 id="folder-structure_3">Folder Structure</h3>
-<p>Similar to Fiction (Novel class):
-- Draft (contains Scenes)
-- Ready
-- Chapters (for Acts)
-- Plot Elements
-- Characters
-- Locations
-- Set Aside
-- Trash</p>
+<ul>
+<li>Manuscript (Front Matter, Body Matter, Back Matter)</li>
+<li>Scenes (your writing, filtered by workflow status)</li>
+<li>Acts (group scenes into acts)</li>
+<li>Plot Elements</li>
+<li>Characters</li>
+<li>Locations</li>
+<li>Submissions</li>
+<li>Research</li>
+<li>Publishers / Agents</li>
+<li>Other</li>
+<li>Trash</li>
+</ul>
 <h3 id="output-formats">Output Formats</h3>
 <p>Choose how your script is formatted:
 - <strong>Film/Screenplay</strong>: Industry-standard screenplay format
@@ -1477,17 +1533,22 @@ hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
 <li><strong>Set Aside</strong>: Items you're not actively working on</li>
 <li><strong>Trash</strong>: Deleted items (restorable)</li>
 </ul>
-<h3 id="poetry-and-short-fiction">Poetry and Short Fiction</h3>
+<h3 id="poetry">Poetry</h3>
 <p>Additional system folders:
-- <strong>Collections</strong>: Groups of related files
-- <strong>Publications</strong>: Magazines and competitions
-- <strong>Submissions</strong>: Track what you've sent</p>
-<h3 id="fiction-novel">Fiction (Novel)</h3>
+- <strong>Poems</strong>: Your main writing area for poems
+- <strong>Collections</strong>: Poetry Collections — group related poems together
+- <strong>Submissions</strong>: Track what you've sent
+- <strong>Magazines</strong>: Publication targets
+- <strong>Competitions</strong>: Contest targets</p>
+<h3 id="fiction-novel-verse-novel-short-fiction">Fiction (Novel, Verse Novel, Short Fiction)</h3>
 <p>Additional system folders:
-- <strong>Chapters</strong>: Chapter containers
+- <strong>Scenes</strong> (or <strong>Episodes</strong> for Verse Novel): Your story scenes
+- <strong>Chapters</strong> (Novel), <strong>Books</strong> (Verse Novel): Organizational containers
 - <strong>Plot Elements</strong>: Story beats
 - <strong>Characters</strong>: Character profiles
-- <strong>Locations</strong>: Setting definitions</p>
+- <strong>Locations</strong>: Setting definitions
+- <strong>Submissions</strong>: Track what you've sent
+- <strong>Publishers / Agents</strong>: Submission targets</p>
 <h2 id="creating-folders">Creating Folders</h2>
 <p>You can create custom subfolders within system folders:</p>
 <ol>
@@ -1664,7 +1725,7 @@ hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
 <ul>
 <li>Start in Draft</li>
 <li>Move to Ready when polished</li>
-<li>Use Collections to group for submission</li>
+<li>Use Poetry Collections to group poems for submission (Poetry projects)</li>
 <li>Track submissions through the Submissions folder</li>
 </ul>
 <h2 id="see-also">See Also</h2>
@@ -1759,30 +1820,37 @@ Trash
 <li>Tap <strong>Done</strong></li>
 </ol>
 <p>Custom order is saved and syncs across devices.</p>
-<h2 id="collections">Collections</h2>
-<p>Collections let you group files without moving them. A file can belong to multiple collections.</p>
+<h2 id="poetry-collections">Poetry Collections</h2>
+<p>Poetry projects have a dedicated <strong>Collections</strong> folder for grouping related poems. Collections are first-class entities with their own names and synopses.</p>
 <h3 id="creating-a-collection">Creating a Collection</h3>
 <ol>
-<li>Open the Collections folder</li>
+<li>Open the <strong>Collections</strong> folder in a Poetry project</li>
 <li>Tap <strong>+</strong></li>
 <li>Enter a collection name</li>
 <li>Tap <strong>Create</strong></li>
 </ol>
-<h3 id="adding-files-to-a-collection">Adding Files to a Collection</h3>
+<h3 id="adding-poems-to-a-collection">Adding Poems to a Collection</h3>
 <ol>
-<li>Navigate to files in Draft or Ready</li>
-<li>Select one or more files</li>
+<li>Navigate to poems in the Poems folder</li>
+<li>Select one or more poems</li>
 <li>Choose <strong>Add to Collection...</strong></li>
 <li>Select the collection</li>
 </ol>
 <h3 id="collection-uses">Collection Uses</h3>
 <ul>
 <li>Group poems for a chapbook</li>
-<li>Assemble stories for a themed submission</li>
 <li>Create a reading order for an event</li>
 <li>Organize by publication targets</li>
+<li>Include in manuscript body matter for export</li>
 </ul>
-<p>See <a href="#104-collections">Collections</a> for more details.</p>
+<h3 id="body-matter-integration">Body Matter Integration</h3>
+<p>Collections can be added to your manuscript's body matter:
+1. Open the <strong>Manuscript</strong> folder
+2. Navigate to <strong>Body Matter</strong>
+3. Add collections and reorder as needed
+4. Collections in body matter are assembled in order during export</p>
+<p><strong>Note</strong>: Collections are only available in Poetry projects. Fiction and Drama projects use chapters, books, or acts for organization.</p>
+<p>See <a href="#104-collections">Poetry Collections</a> for more details.</p>
 <h2 id="searching">Searching</h2>
 <p>Find files quickly with search:</p>
 <h3 id="project-search">Project Search</h3>
@@ -1880,7 +1948,7 @@ Trash
 │   ├── Dedication
 │   ├── Table of Contents
 │   └── (other front matter files)
-├── [Body Content]/
+├── Body Matter/
 │   └── (your writing organized by type)
 └── Back Matter/
     ├── Endnotes (auto-generated)
@@ -1889,12 +1957,7 @@ Trash
     ├── Index (auto-generated)
     └── Contributors (user-created)
 </code></pre>
-<p>The body folder name varies by project type:
-- <strong>Drama</strong>: All Acts
-- <strong>Poetry</strong>: All Poems
-- <strong>Prose</strong>: All Sections
-- <strong>Novel</strong>: All Chapters
-- <strong>Short Fiction</strong>: All Stories</p>
+<p>The body folder is always called <strong>Body Matter</strong> for all project types. You manage its contents through the Body Matter view, where you can add, remove, and reorder items for manuscript assembly.</p>
 <h2 id="front-matter">Front Matter</h2>
 <p>Front matter appears at the beginning of your manuscript, before the main content. Writing Shed Pro provides files for common front matter elements, but <strong>you supply the content</strong>.</p>
 <h3 id="common-front-matter-files">Common Front Matter Files</h3>
@@ -1985,37 +2048,37 @@ Trash
 <tbody>
 <tr>
 <td><strong>Prose</strong></td>
-<td>All Sections</td>
+<td>Body Matter</td>
 <td>Sections → Files</td>
 <td>Section order, then file order within each section</td>
 </tr>
 <tr>
 <td><strong>Poetry</strong></td>
-<td>All Poems</td>
-<td>Flat (all poems)</td>
-<td>Display order</td>
+<td>Body Matter</td>
+<td>Collections and/or poems</td>
+<td>Body matter order (collections and individual poems)</td>
 </tr>
 <tr>
 <td><strong>Novel</strong></td>
-<td>All Chapters</td>
+<td>Body Matter</td>
 <td>Chapters → Scenes</td>
 <td>Chapter order, then scene order within each chapter</td>
 </tr>
 <tr>
 <td><strong>Verse Novel</strong></td>
-<td>All Chapters</td>
+<td>Body Matter</td>
 <td>Books → Episodes</td>
 <td>Book order, then episode order within each book</td>
 </tr>
 <tr>
 <td><strong>Short Fiction</strong></td>
-<td>All Stories</td>
+<td>Body Matter</td>
 <td>Flat (scenes only)</td>
 <td>Scene order</td>
 </tr>
 <tr>
 <td><strong>Drama</strong></td>
-<td>All Acts</td>
+<td>Body Matter</td>
 <td>Acts → Scenes (or flat)</td>
 <td>Act order, then scene order; standalone scenes appended</td>
 </tr>
@@ -3696,9 +3759,9 @@ Trash
 <tr>
 <td>Sections for organization</td>
 <td>✓</td>
-<td>Collections</td>
-<td>Chapters</td>
-<td></td>
+<td>Poetry Collections</td>
+<td>Chapters/Books</td>
+<td>Acts</td>
 </tr>
 <tr>
 <td>Syllable counting</td>
@@ -4221,28 +4284,36 @@ ref-faq
 </thead>
 <tbody>
 <tr>
-<td><strong>Draft</strong></td>
-<td>Poems in progress</td>
+<td><strong>Poems</strong></td>
+<td>Your main writing area — all poems live here</td>
 </tr>
 <tr>
-<td><strong>Ready</strong></td>
-<td>Polished, complete poems</td>
+<td><strong>Manuscript</strong></td>
+<td>Front Matter, Body Matter, and Back Matter for export</td>
 </tr>
 <tr>
 <td><strong>Collections</strong></td>
-<td>Groups of related poems</td>
-</tr>
-<tr>
-<td><strong>Set Aside</strong></td>
-<td>Poems you're not actively working on</td>
-</tr>
-<tr>
-<td><strong>Publications</strong></td>
-<td>Magazines and competitions</td>
+<td>Poetry Collections — group related poems together</td>
 </tr>
 <tr>
 <td><strong>Submissions</strong></td>
 <td>Track where you've sent work</td>
+</tr>
+<tr>
+<td><strong>Research</strong></td>
+<td>Reference material</td>
+</tr>
+<tr>
+<td><strong>Magazines</strong></td>
+<td>Publication targets</td>
+</tr>
+<tr>
+<td><strong>Competitions</strong></td>
+<td>Contest targets</td>
+</tr>
+<tr>
+<td><strong>Other</strong></td>
+<td>Miscellaneous files</td>
 </tr>
 <tr>
 <td><strong>Trash</strong></td>
@@ -4344,9 +4415,33 @@ ref-faq
 <h3 id="polishing">Polishing</h3>
 <ol>
 <li>Move to Ready when satisfied</li>
-<li>Create Collections for related poems</li>
+<li>Create Poetry Collections for related poems</li>
+<li>Add collections to manuscript body matter for export</li>
 <li>Submit to publications</li>
 </ol>
+<h2 id="poetry-collections">Poetry Collections</h2>
+<p>Poetry Collections are first-class entities in Poetry projects. Each collection has its own name, synopsis, and list of linked poems.</p>
+<h3 id="creating-a-collection">Creating a Collection</h3>
+<ol>
+<li>Open the <strong>Collections</strong> folder</li>
+<li>Tap <strong>+</strong></li>
+<li>Enter a name and optional synopsis</li>
+<li>Tap <strong>Create</strong></li>
+</ol>
+<h3 id="adding-poems">Adding Poems</h3>
+<ol>
+<li>Navigate to poems in the Poems folder</li>
+<li>Select one or more poems</li>
+<li>Choose <strong>Add to Collection...</strong></li>
+<li>Select the target collection</li>
+</ol>
+<h3 id="body-matter-integration">Body Matter Integration</h3>
+<p>Collections can be included in your manuscript's body matter:
+1. Open the <strong>Manuscript</strong> folder → <strong>Body Matter</strong>
+2. Add collections (and individual poems) to body matter
+3. Reorder as needed
+4. Collections are assembled in order during PDF/manuscript export</p>
+<p>See <a href="#104-collections">Poetry Collections</a> for more details.</p>
 <h2 id="tips-for-poetry-mode">Tips for Poetry Mode</h2>
 <h3 id="use-forms-as-guides">Use Forms as Guides</h3>
 <p>Templates help but don't constrain. Break the rules when the poem demands it.</p>
@@ -5336,11 +5431,12 @@ Line 14 (G)    That then I scorn to change my state with kings
 - Has a clear outcome
 - Advances the story
 - Has a workflow status (Draft, Ready, or Set Aside)</p>
-<h3 id="chapters-novel-only">Chapters (Novel only)</h3>
-<p>Containers for scenes:
-- Group related scenes
-- Determine reading order
-- Organize your book structure</p>
+<h3 id="chapters-novel-books-verse-novel">Chapters (Novel) / Books (Verse Novel)</h3>
+<p>Containers for scenes or episodes:
+- Group related scenes into reading order
+- Novel uses Chapters; Verse Novel uses Books
+- Determine manuscript assembly order
+- Can be added to body matter for export</p>
 <h3 id="plot-elements">Plot Elements</h3>
 <p>Story beats and events:
 - Major and minor plot points
@@ -5372,9 +5468,19 @@ Line 14 (G)    That then I scorn to change my state with kings
 <h3 id="3-organize">3. Organize</h3>
 <ul>
 <li>Change finished scenes to Ready status</li>
-<li>Arrange scenes into chapters</li>
+<li>Arrange scenes into chapters (or books for Verse Novel)</li>
 <li>Refine your structure</li>
+<li>View scenes grouped by chapter in collapsible sections</li>
 </ul>
+<h3 id="scene-grouping-by-chapter">Scene Grouping by Chapter</h3>
+<p>When viewing all scenes in a Novel or Verse Novel project, scenes are automatically grouped under their assigned chapter (or book) in collapsible sections:</p>
+<ul>
+<li>Each section shows a folder icon, chapter/book name, and scene count</li>
+<li>Tap a section header to expand or collapse it</li>
+<li>Use the expand/collapse all button in the toolbar</li>
+<li>Unassigned scenes appear in a separate "Unassigned" section</li>
+</ul>
+<p>This makes it easy to see your story structure at a glance without navigating into individual chapters.</p>
 <h3 id="4-export">4. Export</h3>
 <ul>
 <li>Assemble the manuscript</li>
@@ -5891,18 +5997,22 @@ Line 14 (G)    That then I scorn to change my state with kings
 <li>The result is a complete story</li>
 </ol>
 <h3 id="what-gets-included">What Gets Included</h3>
-<p>By default, all scenes are included. You can exclude individual scenes:
-1. Open the scene's context menu
-2. Toggle <strong>Include in Manuscript</strong> off
-3. The scene stays in your project but is skipped during assembly</p>
+<p>By default, all scenes are included. You can exclude individual scenes:</p>
+<ol>
+<li>Open the scene's context menu</li>
+<li>Toggle <strong>Include in Manuscript</strong> off</li>
+<li>The scene stays in your project but is skipped during assembly</li>
+</ol>
 <p>This is useful for deleted scenes you want to keep, alternate versions, or notes.</p>
 <h2 id="previewing-the-manuscript">Previewing the Manuscript</h2>
-<p>Before exporting:
-1. Open the <strong>Manuscript</strong> view
-2. Check chapter/book breaks appear correctly
-3. Verify scene order within each chapter
-4. Review formatting
-5. Confirm no unwanted scenes are included</p>
+<p>Before exporting:</p>
+<ol>
+<li>Open the <strong>Manuscript</strong> view</li>
+<li>Check chapter/book breaks appear correctly</li>
+<li>Verify scene order within each chapter</li>
+<li>Review formatting</li>
+<li>Confirm no unwanted scenes are included</li>
+</ol>
 <h2 id="chapter-headings">Chapter Headings</h2>
 <p>Control how chapter headings appear in the manuscript:</p>
 <table>
@@ -5966,7 +6076,7 @@ Line 14 (G)    That then I scorn to change my state with kings
 </tr>
 </tbody>
 </table>
-<p>For most fiction, <strong>Section Mark</strong> (e.g., * * <em>) is the standard scene break convention. </em><em>Page Break</em>* is more common between chapters than between scenes.</p>
+<p>For most fiction, <strong>Section Mark</strong> (e.g., * * *) is the standard scene break convention. <strong>Page Break</strong> is more common between chapters than between scenes.</p>
 <h2 id="first-paragraph-style">First Paragraph Style</h2>
 <p>The first paragraph of a chapter or scene can have special formatting:</p>
 <table>
@@ -6128,16 +6238,19 @@ Line 14 (G)    That then I scorn to change my state with kings
 </ol>
 <h2 id="drama-project-structure">Drama Project Structure</h2>
 <pre><code>Project
-├── Draft (scenes in progress)
-├── Ready (polished scenes)
-├── Chapters (Acts)
+├── Manuscript (Front Matter, Body Matter, Back Matter)
+├── Scenes (filtered by workflow status)
+├── Acts (group scenes into acts)
 ├── Plot Elements
 ├── Characters
 ├── Locations
-├── Set Aside
+├── Submissions
+├── Research
+├── Publishers / Agents
+├── Other
 └── Trash
 </code></pre>
-<p>Drama projects share structure with Fiction (Novel) projects, as scripts have similar organizational needs.</p>
+<p>Drama projects share structure with Fiction projects, as scripts have similar organizational needs.</p>
 <h2 id="script-format-options">Script Format Options</h2>
 <p>Choose how your script is rendered:</p>
 <h3 id="filmscreenplay-format">Film/Screenplay Format</h3>
@@ -6189,6 +6302,15 @@ We don't have a choice.
 - Group related scenes
 - Organize your script structure
 - Traditional theatrical divisions</p>
+<h3 id="scene-grouping-by-act">Scene Grouping by Act</h3>
+<p>When viewing all scenes in a Drama project, scenes are automatically grouped under their assigned act in collapsible sections:</p>
+<ul>
+<li>Each section shows a theater masks icon, act name, and scene count</li>
+<li>Tap a section header to expand or collapse it</li>
+<li>Use the expand/collapse all button in the toolbar</li>
+<li>Unassigned scenes appear in a separate "Unassigned" section</li>
+</ul>
+<p>This gives you an at-a-glance view of your script structure without navigating into individual acts.</p>
 <h3 id="characters">Characters</h3>
 <p>Define your dramatis personae:
 - Character names
@@ -8023,8 +8145,30 @@ Hi.
 <ol>
 <li>Record the submission immediately</li>
 <li>Note any confirmation number</li>
-<li>Set a reminder for response time (if guidelines specify)</li>
+<li>Set a reminder notification for expected response time</li>
+<li>Monitor pending submissions</li>
 </ol>
+<h2 id="notification-reminders">Notification Reminders</h2>
+<p>Writing Shed Pro can send you notification reminders for submissions and publication deadlines.</p>
+<h3 id="submission-reminders">Submission Reminders</h3>
+<p>Set a reminder to follow up on a pending submission:
+1. Open the submission details
+2. Tap <strong>Set Reminder</strong>
+3. Choose a date and time
+4. A system notification will alert you when the reminder fires</p>
+<h3 id="deadline-reminders">Deadline Reminders</h3>
+<p>Set a reminder for publication deadlines (magazines and competitions):
+1. Open the publication details
+2. Tap <strong>Set Deadline Reminder</strong>
+3. Choose a date and time
+4. You'll receive a notification before the deadline</p>
+<h3 id="managing-reminders">Managing Reminders</h3>
+<ul>
+<li>Reminders appear as standard system notifications with alert and sound</li>
+<li>You can cancel a reminder from the submission or publication detail view</li>
+<li>The app will request notification permission the first time you set a reminder</li>
+<li>Reminders are one-time notifications (they do not repeat)</li>
+</ul>
 <h3 id="upon-response">Upon Response</h3>
 <ol>
 <li>Update the status</li>
@@ -9034,102 +9178,92 @@ Pagination engine handles this automatically.</p>
 
 <a id="104-collections"></a>
 
-<h1 id="collections">Collections</h1>
-<p>Collections let you group files together without moving them. A file can belong to multiple collections, making it easy to organize for different purposes.</p>
-<h2 id="what-are-collections">What Are Collections?</h2>
-<p>A collection is a group of files assembled for a specific purpose:
-- Poems for a submission
-- Stories with a common theme
-- Chapters for a reading
-- Any grouping you need</p>
+<h1 id="poetry-collections">Poetry Collections</h1>
+<p>Poetry Collections let you group related poems together as first-class entities in your Poetry project. Each collection has its own name, synopsis, and list of linked poems, and can be included in your manuscript's body matter for export.</p>
+<h2 id="what-are-poetry-collections">What Are Poetry Collections?</h2>
+<p>A Poetry Collection is a dedicated grouping of poems for a specific purpose:
+- Poems for a chapbook
+- A submission package
+- A themed reading set
+- Any curated grouping you need</p>
 <h3 id="collections-vs-folders">Collections vs Folders</h3>
 <table>
 <thead>
 <tr>
 <th>Folders</th>
-<th>Collections</th>
+<th>Poetry Collections</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Files live in one folder</td>
-<td>Files can be in multiple collections</td>
+<td>Poems live in one folder</td>
+<td>Poems can belong to multiple collections</td>
 </tr>
 <tr>
-<td>Moving files changes location</td>
-<td>Adding to collection doesn't move files</td>
+<td>Moving poems changes location</td>
+<td>Adding to a collection doesn't move the poem</td>
 </tr>
 <tr>
 <td>Physical organization</td>
-<td>Virtual grouping</td>
+<td>Virtual grouping with metadata</td>
 </tr>
 <tr>
 <td>Hierarchical</td>
-<td>Flat</td>
+<td>Flat (each collection is independent)</td>
 </tr>
 </tbody>
 </table>
 <h2 id="where-collections-appear">Where Collections Appear</h2>
-<p>Collections are available in:
-- Poetry projects
-- Short Fiction projects
-- Fiction projects (scenes/chapters)</p>
-<p>Access collections through the <strong>Collections</strong> folder.</p>
+<p>Collections are available <strong>only in Poetry projects</strong>. Access them through the dedicated <strong>Collections</strong> folder in the project sidebar.</p>
+<p><strong>Note</strong>: Fiction and Drama projects use chapters, books, or acts to organize their content. The Collections folder is not available in those project types.</p>
 <h2 id="creating-a-collection">Creating a Collection</h2>
 <h3 id="from-the-collections-folder">From the Collections Folder</h3>
 <ol>
 <li>Open the <strong>Collections</strong> folder</li>
 <li>Tap <strong>+</strong></li>
 <li>Enter a collection name</li>
+<li>Optionally add a synopsis</li>
 <li>Tap <strong>Create</strong></li>
 </ol>
-<h3 id="when-adding-files">When Adding Files</h3>
+<h3 id="when-adding-poems">When Adding Poems</h3>
 <ol>
-<li>Select files in a folder</li>
+<li>Select poems in the Poems folder</li>
 <li>Choose <strong>Add to Collection...</strong></li>
 <li>Select <strong>Create New Collection</strong></li>
 <li>Enter a name</li>
 </ol>
-<h2 id="adding-files-to-collections">Adding Files to Collections</h2>
-<h3 id="from-the-file">From the File</h3>
+<h2 id="adding-poems-to-collections">Adding Poems to Collections</h2>
+<h3 id="from-the-poems-folder-multiple-poems">From the Poems Folder (Multiple Poems)</h3>
 <ol>
-<li>Open or select the file</li>
-<li>Tap <strong>Add to Collection...</strong></li>
-<li>Choose the collection</li>
-<li>File is added</li>
-</ol>
-<h3 id="from-a-folder-multiple-files">From a Folder (Multiple Files)</h3>
-<ol>
-<li>Tap <strong>Edit</strong> in a folder</li>
-<li>Select multiple files</li>
+<li>Tap <strong>Edit</strong> in the Poems folder</li>
+<li>Select multiple poems</li>
 <li>Tap <strong>Add to Collection</strong></li>
 <li>Choose the collection</li>
 </ol>
 <h3 id="drag-and-drop-ipadmac">Drag and Drop (iPad/Mac)</h3>
 <ul>
-<li>Drag files to the Collections folder</li>
+<li>Drag poems to the Collections folder</li>
 <li>Drop on a specific collection</li>
 </ul>
 <h2 id="viewing-collection-contents">Viewing Collection Contents</h2>
 <ol>
 <li>Open the Collections folder</li>
 <li>Tap a collection</li>
-<li>See all files in the collection</li>
+<li>See all poems in the collection</li>
 </ol>
 <h3 id="what-you-see">What You See</h3>
 <ul>
-<li>File titles</li>
-<li>Status (which folder they're in)</li>
+<li>Poem titles</li>
 <li>Word counts</li>
-<li>Last modified</li>
+<li>Last modified date</li>
 </ul>
-<h2 id="removing-files-from-collections">Removing Files from Collections</h2>
+<h2 id="removing-poems-from-collections">Removing Poems from Collections</h2>
 <ol>
 <li>Open the collection</li>
-<li>Select the file(s) to remove</li>
+<li>Select the poem(s) to remove</li>
 <li>Tap <strong>Remove from Collection</strong></li>
 </ol>
-<p>The file isn't deleted—it just leaves this collection.</p>
+<p>The poem isn't deleted—it just leaves this collection.</p>
 <h2 id="renaming-collections">Renaming Collections</h2>
 <ol>
 <li>Open the Collections folder</li>
@@ -9144,34 +9278,35 @@ Pagination engine handles this automatically.</p>
 <li>Tap <strong>Delete</strong></li>
 <li>Confirm</li>
 </ol>
-<p><strong>Note</strong>: Deleting a collection doesn't delete the files. They remain in their folders.</p>
-<h2 id="collection-versions">Collection Versions</h2>
-<p>Collections can track specific file versions:</p>
-<h3 id="how-it-works">How It Works</h3>
+<p><strong>Note</strong>: Deleting a collection doesn't delete the poems. They remain in the Poems folder.</p>
+<h2 id="body-matter-integration">Body Matter Integration</h2>
+<p>Poetry Collections can be included in your manuscript's body matter for export and assembly:</p>
+<h3 id="adding-to-body-matter">Adding to Body Matter</h3>
+<ol>
+<li>Open the <strong>Manuscript</strong> folder</li>
+<li>Navigate to <strong>Body Matter</strong></li>
+<li>Add collections (and/or individual poems) to body matter</li>
+<li>Reorder items as needed</li>
+</ol>
+<h3 id="how-assembly-works">How Assembly Works</h3>
 <ul>
-<li>Each file in a collection points to a specific version</li>
-<li>If you edit the file, the collection still references the original version</li>
-<li>You can update the version reference</li>
+<li>Collections in body matter are assembled in their body matter order</li>
+<li>Within each collection, poems are assembled in their collection order</li>
+<li>Individual poems not in any collection can also be added to body matter</li>
+<li>This gives you full control over the manuscript structure</li>
 </ul>
 <h3 id="why-this-matters">Why This Matters</h3>
 <ul>
-<li>Submit version 3 of a poem</li>
-<li>Continue editing to version 5</li>
-<li>The collection still shows what you actually submitted</li>
+<li>Organize a chapbook with themed sections (each section is a collection)</li>
+<li>Control the exact reading order for export</li>
+<li>Mix collections and standalone poems in your manuscript</li>
 </ul>
-<h3 id="changing-the-version">Changing the Version</h3>
-<ol>
-<li>Open the collection</li>
-<li>Select the file</li>
-<li>Change the version reference</li>
-<li>Save</li>
-</ol>
 <h2 id="using-collections-for-submissions">Using Collections for Submissions</h2>
 <p>Collections integrate with the submission system:</p>
 <h3 id="workflow">Workflow</h3>
 <ol>
 <li>Create a collection for your submission</li>
-<li>Add the files you want to submit</li>
+<li>Add the poems you want to submit</li>
 <li>Review and organize</li>
 <li>Submit the collection to a publication</li>
 <li>Track the submission status</li>
@@ -9179,57 +9314,64 @@ Pagination engine handles this automatically.</p>
 <h3 id="benefits">Benefits</h3>
 <ul>
 <li>Clear record of what was submitted</li>
-<li>Version tracking</li>
-<li>Easy to submit same group elsewhere</li>
+<li>Easy to submit the same group elsewhere</li>
+<li>Collections maintain their poem list independently</li>
 </ul>
 <h2 id="collection-best-practices">Collection Best Practices</h2>
 <h3 id="naming">Naming</h3>
 <p>Use clear, descriptive names:
 - "Spring 2026 Contest Entry"
-- "Nature Poems Selection"
+- "Nature Poems Chapbook"
 - "Anthology Submission"</p>
 <h3 id="regular-review">Regular Review</h3>
 <ul>
-<li>Remove files no longer relevant</li>
-<li>Update versions as needed</li>
+<li>Remove poems no longer relevant</li>
 <li>Delete obsolete collections</li>
+<li>Update collection synopses</li>
 </ul>
 <h3 id="avoid-duplication">Avoid Duplication</h3>
-<p>Instead of copying files:
-- Add the same file to multiple collections
-- Each collection references the file
-- Edits appear everywhere</p>
+<p>Instead of copying poems:
+- Add the same poem to multiple collections
+- Each collection references the poem
+- Edits to the poem appear everywhere</p>
 <h2 id="common-use-cases">Common Use Cases</h2>
 <h3 id="poetry-chapbook">Poetry Chapbook</h3>
-<p>Collect poems for a chapbook, arrange in reading order, export together.</p>
+<p>Collect poems for a chapbook, add the collection to body matter, arrange in reading order, and export as a complete manuscript.</p>
 <h3 id="contest-entry">Contest Entry</h3>
-<p>Group poems or stories meeting contest criteria. Track which version was submitted.</p>
+<p>Group poems meeting contest criteria. Submit the collection and track the submission status.</p>
 <h3 id="reading-selection">Reading Selection</h3>
-<p>Assemble pieces for a live reading. Order them for performance.</p>
+<p>Assemble poems for a live reading. Order them for performance flow.</p>
 <h3 id="themed-group">Themed Group</h3>
-<p>Collect all poems about nature, all stories about love, etc.</p>
+<p>Collect all poems about nature, all sonnets, all work from a particular period, etc.</p>
+<h2 id="migration-from-version-10">Migration from Version 1.0</h2>
+<p>If you're upgrading from version 1.0, your existing collections are automatically migrated to the new Poetry Collection model. The migration:
+- Converts old submission-based collections to dedicated PoetryCollection entities
+- Preserves all poem links
+- Removes the Collections folder from non-Poetry projects (Fiction, Short Fiction)</p>
 <h2 id="troubleshooting">Troubleshooting</h2>
-<h3 id="file-not-showing-in-collection">File Not Showing in Collection</h3>
+<h3 id="poem-not-showing-in-collection">Poem Not Showing in Collection</h3>
 <ul>
-<li>Verify the file was added</li>
-<li>Check if file was deleted</li>
-<li>The file might be in Trash</li>
+<li>Verify the poem was added</li>
+<li>Check if the poem was deleted (it might be in Trash)</li>
+<li>Restore from Trash if needed</li>
 </ul>
-<h3 id="wrong-version-showing">Wrong Version Showing</h3>
+<h3 id="cant-find-collections-folder">Can't Find Collections Folder</h3>
 <ul>
-<li>Check version reference in collection</li>
-<li>Update to current version if needed</li>
+<li>Collections are only available in Poetry projects</li>
+<li>If you're in a Fiction or Drama project, use chapters, books, or acts instead</li>
 </ul>
 <h3 id="cant-add-to-collection">Can't Add to Collection</h3>
 <ul>
-<li>Ensure file is in Ready or Draft</li>
-<li>Check collection exists</li>
+<li>Ensure the poem exists in the Poems folder</li>
+<li>Check that the collection exists</li>
 </ul>
 <h2 id="see-also">See Also</h2>
 <ul>
 <li><a href="#35-organizing-your-work">Organizing Your Work</a></li>
 <li><a href="#95-submission-tracking">Submission Tracking</a></li>
 <li><a href="#34-folders-and-files">Folders and Files</a></li>
+<li><a href="#61-poetry-mode-overview">Poetry Mode Overview</a></li>
+<li><a href="#36-manuscript-structure">Manuscript Structure</a></li>
 </ul>
 <hr />
 

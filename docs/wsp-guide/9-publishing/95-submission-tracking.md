@@ -128,7 +128,32 @@ Submissions record the exact version you sent:
 ### After Submitting
 1. Record the submission immediately
 2. Note any confirmation number
-3. Set a reminder for response time (if guidelines specify)
+3. Set a reminder notification for expected response time
+4. Monitor pending submissions
+
+## Notification Reminders
+
+Writing Shed Pro can send you notification reminders for submissions and publication deadlines.
+
+### Submission Reminders
+Set a reminder to follow up on a pending submission:
+1. Open the submission details
+2. Tap **Set Reminder**
+3. Choose a date and time
+4. A system notification will alert you when the reminder fires
+
+### Deadline Reminders
+Set a reminder for publication deadlines (magazines and competitions):
+1. Open the publication details
+2. Tap **Set Deadline Reminder**
+3. Choose a date and time
+4. You'll receive a notification before the deadline
+
+### Managing Reminders
+- Reminders appear as standard system notifications with alert and sound
+- You can cancel a reminder from the submission or publication detail view
+- The app will request notification permission the first time you set a reminder
+- Reminders are one-time notifications (they do not repeat)
 
 ### Upon Response
 1. Update the status

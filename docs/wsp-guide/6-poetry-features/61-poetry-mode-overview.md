@@ -23,12 +23,14 @@ Poetry projects include specialized folders:
 
 | Folder | Purpose |
 |--------|---------|
-| **Draft** | Poems in progress |
-| **Ready** | Polished, complete poems |
-| **Collections** | Groups of related poems |
-| **Set Aside** | Poems you're not actively working on |
-| **Publications** | Magazines and competitions |
+| **Poems** | Your main writing area — all poems live here |
+| **Manuscript** | Front Matter, Body Matter, and Back Matter for export |
+| **Collections** | Poetry Collections — group related poems together |
 | **Submissions** | Track where you've sent work |
+| **Research** | Reference material |
+| **Magazines** | Publication targets |
+| **Competitions** | Contest targets |
+| **Other** | Miscellaneous files |
 | **Trash** | Deleted poems (restorable) |
 
 ## Creating a Poem
@@ -132,8 +134,34 @@ See [Rhyme Tools](63-rhyme-tools.md) for details.
 
 ### Polishing
 1. Move to Ready when satisfied
-2. Create Collections for related poems
-3. Submit to publications
+2. Create Poetry Collections for related poems
+3. Add collections to manuscript body matter for export
+4. Submit to publications
+
+## Poetry Collections
+
+Poetry Collections are first-class entities in Poetry projects. Each collection has its own name, synopsis, and list of linked poems.
+
+### Creating a Collection
+1. Open the **Collections** folder
+2. Tap **+**
+3. Enter a name and optional synopsis
+4. Tap **Create**
+
+### Adding Poems
+1. Navigate to poems in the Poems folder
+2. Select one or more poems
+3. Choose **Add to Collection...**
+4. Select the target collection
+
+### Body Matter Integration
+Collections can be included in your manuscript's body matter:
+1. Open the **Manuscript** folder → **Body Matter**
+2. Add collections (and individual poems) to body matter
+3. Reorder as needed
+4. Collections are assembled in order during PDF/manuscript export
+
+See [Poetry Collections](../10-advanced-features/104-collections.md) for more details.
 
 ## Tips for Poetry Mode
 

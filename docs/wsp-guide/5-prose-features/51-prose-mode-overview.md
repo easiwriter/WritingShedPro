@@ -106,7 +106,7 @@ See [Working with Sections](52-working-with-sections.md) for detailed instructio
 | Feature | Prose | Poetry | Fiction | Drama |
 |---------|-------|--------|---------|-------|
 | Simple folder structure | ✓ | | | |
-| Sections for organization | ✓ | Collections | Chapters | |
+| Sections for organization | ✓ | Poetry Collections | Chapters/Books | Acts |
 | Syllable counting | | ✓ | | |
 | Scene management | | | ✓ | ✓ |
 | Script formatting | | | | ✓ |

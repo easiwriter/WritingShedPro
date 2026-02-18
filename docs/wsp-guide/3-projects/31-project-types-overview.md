@@ -46,12 +46,14 @@ Poetry projects include specialized tools for writing verse in both free and for
 - Any metered or structured verse
 
 ### Folder Structure
-- Draft
-- Ready
-- Collections
-- Set Aside
-- Publications
+- Poems (your writing area)
+- Manuscript (Front Matter, Body Matter, Back Matter)
+- Collections (Poetry Collections — first-class grouping of poems)
 - Submissions
+- Research
+- Magazines
+- Competitions
+- Other
 - Trash
 
 ### Features
@@ -75,16 +77,20 @@ When creating a fiction project, you choose a class:
 | Class | Structure | Use For |
 |-------|-----------|---------|
 | **Novel** | Chapters contain Scenes | Long-form fiction |
+| **Verse Novel** | Books contain Episodes (verse) | Novel-length poetry |
 | **Short Fiction** | Scenes only (no chapters) | Short stories, novellas |
 
 ### Folder Structure
-- Draft (contains Scenes)
-- Ready
-- Chapters (Novel only)
+- Manuscript (Front Matter, Body Matter, Back Matter)
+- Scenes (your writing, filtered by workflow status)
+- Chapters (Novel), Books (Verse Novel), or flat (Short Fiction)
 - Plot Elements
 - Characters
 - Locations
-- Set Aside
+- Submissions
+- Research
+- Publishers / Agents
+- Other
 - Trash
 
 ### Story Structures
@@ -115,14 +121,16 @@ Drama projects provide script formatting tools for playwrights and screenwriters
 - Radio plays
 
 ### Folder Structure
-Similar to Fiction (Novel class):
-- Draft (contains Scenes)
-- Ready
-- Chapters (for Acts)
+- Manuscript (Front Matter, Body Matter, Back Matter)
+- Scenes (your writing, filtered by workflow status)
+- Acts (group scenes into acts)
 - Plot Elements
 - Characters
 - Locations
-- Set Aside
+- Submissions
+- Research
+- Publishers / Agents
+- Other
 - Trash
 
 ### Output Formats
