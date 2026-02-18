@@ -120,7 +120,7 @@ class JSONExportService {
         var exportData = WSPExportData()
         
         // Project metadata
-        exportData.formatVersion = "1.0"
+        exportData.formatVersion = "1.1"
         exportData.exportDate = Date()
         exportData.appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
         
@@ -139,12 +139,30 @@ class JSONExportService {
         // Submissions (including collections)
         exportData.submissions = buildSubmissionData(from: project)
         
+        // Feature 036: Poetry collections
+        exportData.poetryCollections = buildPoetryCollectionData(from: project)
+        
+        // Feature 036: Fiction entities
+        exportData.books = buildBookData(from: project)
+        exportData.chapters = buildChapterData(from: project)
+        exportData.acts = buildActData(from: project)
+        exportData.scenes = buildStorySceneData(from: project)
+        exportData.characters = buildCharacterData(from: project)
+        exportData.locations = buildLocationData(from: project)
+        
         #if DEBUG
         print("[JSONExport] Built export data:")
         print("[JSONExport]   Folders: \(exportData.folders.count)")
         print("[JSONExport]   Prose Sections: \(exportData.proseSections?.count ?? 0)")
         print("[JSONExport]   Publications: \(exportData.publications.count)")
         print("[JSONExport]   Submissions: \(exportData.submissions.count)")
+        print("[JSONExport]   Poetry Collections: \(exportData.poetryCollections?.count ?? 0)")
+        print("[JSONExport]   Books: \(exportData.books?.count ?? 0)")
+        print("[JSONExport]   Chapters: \(exportData.chapters?.count ?? 0)")
+        print("[JSONExport]   Acts: \(exportData.acts?.count ?? 0)")
+        print("[JSONExport]   Scenes: \(exportData.scenes?.count ?? 0)")
+        print("[JSONExport]   Characters: \(exportData.characters?.count ?? 0)")
+        print("[JSONExport]   Locations: \(exportData.locations?.count ?? 0)")
         #endif
         
         return exportData
@@ -226,6 +244,7 @@ class JSONExportService {
             contentTypeRaw: textFile.contentTypeRaw != "richText" ? textFile.contentTypeRaw : nil,  // Only export if not default
             isTOCFile: textFile.isTOCFile ? true : nil,  // Only export if true
             tocSettingsBase64: tocSettingsBase64,
+            poetryCollectionId: textFile.poetryCollection?.id.uuidString,
             versions: versions
         )
     }
@@ -298,7 +317,9 @@ class JSONExportService {
                 synopsis: section.synopsis,
                 userOrder: section.userOrder,
                 createdDate: section.createdDate,
-                modifiedDate: section.modifiedDate
+                modifiedDate: section.modifiedDate,
+                bodyMatterOrder: section.bodyMatterOrder,
+                isInBodyMatter: section.isInBodyMatter ? true : nil
             )
         }
     }
@@ -362,13 +383,153 @@ class JSONExportService {
             modifiedDate: submittedFile.modifiedDate
         )
     }
+    
+    // MARK: - Feature 036: Poetry Collection Data
+    
+    private func buildPoetryCollectionData(from project: Project) -> [WSPPoetryCollectionData] {
+        guard let collections = project.poetryCollections, !collections.isEmpty else { return [] }
+        
+        return collections.map { collection in
+            WSPPoetryCollectionData(
+                id: collection.id.uuidString,
+                name: collection.name ?? "Untitled",
+                userOrder: collection.userOrder,
+                synopsis: collection.synopsis,
+                createdDate: collection.createdDate,
+                modifiedDate: collection.modifiedDate,
+                bodyMatterOrder: collection.bodyMatterOrder,
+                isInBodyMatter: collection.isInBodyMatter
+            )
+        }
+    }
+    
+    // MARK: - Feature 036: Book Data
+    
+    private func buildBookData(from project: Project) -> [WSPBookData] {
+        guard let books = project.books, !books.isEmpty else { return [] }
+        
+        return books.map { book in
+            WSPBookData(
+                id: book.id.uuidString,
+                name: book.name ?? "Untitled",
+                userOrder: book.userOrder,
+                synopsis: book.synopsis,
+                createdDate: book.createdDate,
+                modifiedDate: book.modifiedDate,
+                bodyMatterOrder: book.bodyMatterOrder,
+                isInBodyMatter: book.isInBodyMatter
+            )
+        }
+    }
+    
+    // MARK: - Feature 036: Chapter Data
+    
+    private func buildChapterData(from project: Project) -> [WSPChapterData] {
+        guard let chapters = project.chapters, !chapters.isEmpty else { return [] }
+        
+        return chapters.map { chapter in
+            WSPChapterData(
+                id: chapter.id.uuidString,
+                name: chapter.name ?? "Untitled",
+                userOrder: chapter.userOrder,
+                synopsis: chapter.synopsis,
+                createdDate: chapter.createdDate,
+                modifiedDate: chapter.modifiedDate,
+                bodyMatterOrder: chapter.bodyMatterOrder,
+                isInBodyMatter: chapter.isInBodyMatter
+            )
+        }
+    }
+    
+    // MARK: - Feature 036: Act Data
+    
+    private func buildActData(from project: Project) -> [WSPActData] {
+        guard let acts = project.acts, !acts.isEmpty else { return [] }
+        
+        return acts.map { act in
+            WSPActData(
+                id: act.id.uuidString,
+                name: act.name ?? "Untitled",
+                userOrder: act.userOrder,
+                synopsis: act.synopsis,
+                createdDate: act.createdDate,
+                modifiedDate: act.modifiedDate,
+                bodyMatterOrder: act.bodyMatterOrder,
+                isInBodyMatter: act.isInBodyMatter
+            )
+        }
+    }
+    
+    // MARK: - Feature 036: Story Scene Data
+    
+    private func buildStorySceneData(from project: Project) -> [WSPStorySceneData] {
+        guard let scenes = project.scenes, !scenes.isEmpty else { return [] }
+        
+        return scenes.map { scene in
+            WSPStorySceneData(
+                id: scene.id.uuidString,
+                name: scene.name ?? "Untitled",
+                userOrder: scene.userOrder,
+                synopsis: scene.synopsis,
+                createdDate: scene.createdDate,
+                modifiedDate: scene.modifiedDate,
+                bodyMatterOrder: scene.bodyMatterOrder,
+                isInBodyMatter: scene.isInBodyMatter,
+                chapterId: scene.chapter?.id.uuidString,
+                actId: scene.act?.id.uuidString,
+                bookId: scene.book?.id.uuidString,
+                textFileId: scene.textFile?.id.uuidString,
+                isTrashed: scene.isTrashed,
+                trashedDate: scene.trashedDate,
+                monomythStageRaw: scene.monomythStageRaw,
+                campbellStageRaw: scene.campbellStageRaw,
+                threeActStageRaw: scene.threeActStageRaw
+            )
+        }
+    }
+    
+    // MARK: - Feature 036: Character Data
+    
+    private func buildCharacterData(from project: Project) -> [WSPCharacterData] {
+        guard let characters = project.characters, !characters.isEmpty else { return [] }
+        
+        return characters.map { character in
+            WSPCharacterData(
+                id: character.id.uuidString,
+                name: character.name,
+                role: character.role,
+                archetypeRaw: character.archetypeRaw,
+                history: character.history,
+                looks: character.looks,
+                traits: character.traits,
+                work: character.work
+            )
+        }
+    }
+    
+    // MARK: - Feature 036: Location Data
+    
+    private func buildLocationData(from project: Project) -> [WSPLocationData] {
+        guard let locations = project.locations, !locations.isEmpty else { return [] }
+        
+        return locations.map { location in
+            WSPLocationData(
+                id: location.id.uuidString,
+                name: location.name,
+                detail: location.detail,
+                sights: location.sights,
+                sounds: location.sounds,
+                smells: location.smells
+            )
+        }
+    }
 }
 
 // MARK: - Export Data Structures
 
 /// Root structure for Writing Shed Pro export format
 struct WSPExportData: Codable {
-    var formatVersion: String = "1.0"
+    var formatVersion: String = "1.1"
     var exportDate: Date = Date()
     var appVersion: String = "1.0"
     var project: WSPProjectData = WSPProjectData()
@@ -376,6 +537,14 @@ struct WSPExportData: Codable {
     var proseSections: [WSPProseSectionData]?  // Optional for backward compatibility
     var publications: [WSPPublicationData] = []
     var submissions: [WSPSubmissionData] = []
+    // Feature 036
+    var poetryCollections: [WSPPoetryCollectionData]?
+    var books: [WSPBookData]?
+    var chapters: [WSPChapterData]?
+    var acts: [WSPActData]?
+    var scenes: [WSPStorySceneData]?
+    var characters: [WSPCharacterData]?
+    var locations: [WSPLocationData]?
 }
 
 struct WSPProjectData: Codable {
@@ -399,6 +568,8 @@ struct WSPProseSectionData: Codable {
     var userOrder: Int?
     var createdDate: Date = Date()
     var modifiedDate: Date = Date()
+    var bodyMatterOrder: Int?  // Feature 036
+    var isInBodyMatter: Bool?  // Feature 036 (optional for backward compat)
 }
 
 struct WSPFolderData: Codable {
@@ -425,6 +596,7 @@ struct WSPTextFileData: Codable {
     var contentTypeRaw: String?  // Optional for backward compatibility - "richText" or "markdown"
     var isTOCFile: Bool?  // Optional for backward compatibility - Feature 031
     var tocSettingsBase64: String?  // Base64 encoded TOCSettings JSON - Feature 031
+    var poetryCollectionId: String?  // Feature 036: link to PoetryCollection
     var versions: [WSPVersionData] = []
 }
 
@@ -496,4 +668,90 @@ struct WSPSubmittedFileData: Codable {
     var statusNotes: String?
     var createdDate: Date = Date()
     var modifiedDate: Date = Date()
+}
+
+// MARK: - Feature 036 Data Structures
+
+struct WSPPoetryCollectionData: Codable {
+    var id: String = ""
+    var name: String = ""
+    var userOrder: Int?
+    var synopsis: String?
+    var createdDate: Date = Date()
+    var modifiedDate: Date = Date()
+    var bodyMatterOrder: Int?
+    var isInBodyMatter: Bool = false
+}
+
+struct WSPBookData: Codable {
+    var id: String = ""
+    var name: String = ""
+    var userOrder: Int?
+    var synopsis: String?
+    var createdDate: Date = Date()
+    var modifiedDate: Date = Date()
+    var bodyMatterOrder: Int?
+    var isInBodyMatter: Bool = false
+}
+
+struct WSPChapterData: Codable {
+    var id: String = ""
+    var name: String = ""
+    var userOrder: Int?
+    var synopsis: String?
+    var createdDate: Date = Date()
+    var modifiedDate: Date = Date()
+    var bodyMatterOrder: Int?
+    var isInBodyMatter: Bool = false
+}
+
+struct WSPActData: Codable {
+    var id: String = ""
+    var name: String = ""
+    var userOrder: Int?
+    var synopsis: String?
+    var createdDate: Date = Date()
+    var modifiedDate: Date = Date()
+    var bodyMatterOrder: Int?
+    var isInBodyMatter: Bool = false
+}
+
+struct WSPStorySceneData: Codable {
+    var id: String = ""
+    var name: String = ""
+    var userOrder: Int?
+    var synopsis: String?
+    var createdDate: Date = Date()
+    var modifiedDate: Date = Date()
+    var bodyMatterOrder: Int?
+    var isInBodyMatter: Bool = false
+    var chapterId: String?
+    var actId: String?
+    var bookId: String?
+    var textFileId: String?
+    var isTrashed: Bool = false
+    var trashedDate: Date?
+    var monomythStageRaw: String?
+    var campbellStageRaw: String?
+    var threeActStageRaw: String?
+}
+
+struct WSPCharacterData: Codable {
+    var id: String = ""
+    var name: String?
+    var role: String?
+    var archetypeRaw: String?
+    var history: String?
+    var looks: String?
+    var traits: String?
+    var work: String?
+}
+
+struct WSPLocationData: Codable {
+    var id: String = ""
+    var name: String?
+    var detail: String?
+    var sights: String?
+    var sounds: String?
+    var smells: String?
 }

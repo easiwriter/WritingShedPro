@@ -93,6 +93,7 @@ CHAPTERS = [
     "10-advanced-features",  # was "10-tools" in some versions
     "11-reference",
     "12-appendices",
+    "13-tutorials",
 ]
 
 # Chapter display names for the TOC
@@ -109,6 +110,7 @@ CHAPTER_NAMES = {
     "10-advanced-features": "10. Advanced Features",
     "11-reference": "11. Reference",
     "12-appendices": "12. Appendices",
+    "13-tutorials": "13. Tutorials",
 }
 
 

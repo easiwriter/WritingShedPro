@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Writing Shed Pro Guide</title>
+    <style>body { 
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 20px;
+    line-height: 1.6;
+    color: #333;
+}
+h1, h2, h3, h4, h5, h6 { margin-top: 1.5em; margin-bottom: 0.5em; }
+h1 { font-size: 2em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+pre { background: #f4f4f4; padding: 16px; border-radius: 6px; overflow-x: auto; }
+pre code { background: none; padding: 0; }
+blockquote { border-left: 4px solid #ddd; margin-left: 0; padding-left: 16px; color: #666; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+th { background: #f4f4f4; font-weight: bold; }
+ul, ol { padding-left: 2em; }
+a { color: #0066cc; }
+hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
+/* Back to Contents link */
+.back-to-top {
+    text-align: right;
+    font-size: 0.9em;
+    margin: 1.5em 0 0.5em 0;
+}
+.back-to-top a {
+    color: #666;
+    text-decoration: none;
+}
+.back-to-top a:hover {
+    color: #0066cc;
+    text-decoration: underline;
+}
+@media (prefers-color-scheme: dark) {
+    body { background: #1a1a1a; color: #e0e0e0; }
+    code, pre { background: #2d2d2d; }
+    th { background: #2d2d2d; }
+    th, td { border-color: #444; }
+    blockquote { border-color: #555; color: #aaa; }
+    h1, h2 { border-color: #444; }
+    a { color: #4da3ff; }
+    .back-to-top a { color: #999; }
+}
+/* In-app overrides */
+body { margin-top: 0 !important; padding-top: 8px !important; }
+body > *:first-child { margin-top: 0 !important; }
+.back-nav { margin-bottom: 0.5em; }
+.back-nav a { color: #0066cc; text-decoration: none; font-size: 0.95em; }
+@media (prefers-color-scheme: dark) {
+    .back-nav a { color: #4da3ff; }
+}
+</style>
+</head>
+<body>
+<p class="back-nav"><a href="guide:00-toc">← Contents</a></p>
+<a id="136-tutorial-first-script"></a>
+
+<h1 id="tutorial-writing-your-first-script-with-dml">Tutorial: Writing Your First Script with DML</h1>
+<p>This tutorial walks you through writing a short script in Writing Shed Pro using Drama Markup Language (DML). You'll learn the basic markup, preview formatted output, switch between film and stage formats, and organize scenes into acts.</p>
+<p><strong>Time</strong>: 30–40 minutes<br />
+<strong>Project Type</strong>: Drama<br />
+<strong>Difficulty</strong>: Beginner</p>
+<h2 id="what-youll-learn">What You'll Learn</h2>
+<ul>
+<li>Creating a Drama project</li>
+<li>Writing with DML: scene headings, dialogue, parentheticals, stage directions, transitions</li>
+<li>Previewing formatted output</li>
+<li>Switching between Film and Stage format</li>
+<li>Organizing scenes into acts</li>
+<li>Viewing scenes grouped by act</li>
+</ul>
+<h2 id="what-is-dml">What Is DML?</h2>
+<p>Drama Markup Language (DML) is Writing Shed Pro's simple markup for scripts. You write plain text with a few special characters, and it renders as a properly formatted screenplay or stage play. The same source works for both formats — only the output styling changes.</p>
+<h2 id="step-1-create-a-drama-project">Step 1: Create a Drama Project</h2>
+<ol>
+<li>From the project list, tap <strong>+</strong></li>
+<li>Name it <strong>"The Waiting Room"</strong></li>
+<li>Select <strong>Drama</strong> as the project type</li>
+<li>Optionally select a story structure (or leave as Freeform)</li>
+<li>Tap <strong>Create</strong></li>
+</ol>
+<p>The project opens with Drama folders: Scenes, Acts, Plot Elements, Characters, Locations, and more.</p>
+<h2 id="step-2-create-your-first-scene">Step 2: Create Your First Scene</h2>
+<ol>
+<li>Open <strong>Scenes</strong></li>
+<li>Tap <strong>+</strong></li>
+<li>Name it: <strong>"Opening"</strong></li>
+<li>Tap <strong>Create</strong></li>
+</ol>
+<p>The scene opens in the editor. Unlike other project types, Drama scenes use DML markup.</p>
+<h2 id="step-3-learn-the-dml-basics">Step 3: Learn the DML Basics</h2>
+<p>Type the following into your scene. Each line type is explained below.</p>
+<pre><code># Scene 1
+@ INT. WAITING ROOM - DAY
+= A sterile, fluorescent-lit room with plastic chairs. A clock ticks loudly.
+
+&gt; Two people sit at opposite ends. ANNA (30s, crisp suit, checking her phone) and BEN (40s, paint-stained jeans, fidgeting).
+
+&gt; The clock ticks. Beat.
+
+BEN
+(clearing his throat)
+Been waiting long?
+
+ANNA
+(not looking up)
+Depends what you mean by long.
+
+BEN
+I mean... hours? Minutes?
+
+ANNA
+(finally looks up)
+I stopped counting.
+
+&gt; Ben shifts in his chair. The clock seems louder.
+
+BEN
+I'm Ben, by the way.
+
+ANNA
+I didn't ask.
+
+~ CUT TO:
+</code></pre>
+<h3 id="what-each-marker-means">What Each Marker Means</h3>
+<table>
+<thead>
+<tr>
+<th>Marker</th>
+<th>Purpose</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>#</code></td>
+<td>Scene heading / slug line</td>
+<td><code># Scene 1</code></td>
+</tr>
+<tr>
+<td><code>@</code></td>
+<td>Location line (INT./EXT.)</td>
+<td><code>@ INT. WAITING ROOM - DAY</code></td>
+</tr>
+<tr>
+<td><code>=</code></td>
+<td>Scene description / setting</td>
+<td><code>= A sterile room...</code></td>
+</tr>
+<tr>
+<td><code>&gt;</code></td>
+<td>Stage direction / action</td>
+<td><code>&gt; Two people sit...</code></td>
+</tr>
+<tr>
+<td><code>NAME</code></td>
+<td>Character name (all caps on its own line)</td>
+<td><code>BEN</code></td>
+</tr>
+<tr>
+<td><code>(text)</code></td>
+<td>Parenthetical (in brackets, after character name)</td>
+<td><code>(clearing his throat)</code></td>
+</tr>
+<tr>
+<td>Text after name</td>
+<td>Dialogue lines</td>
+<td><code>Been waiting long?</code></td>
+</tr>
+<tr>
+<td><code>~</code></td>
+<td>Transition</td>
+<td><code>~ CUT TO:</code></td>
+</tr>
+</tbody>
+</table>
+<p>That's the core of DML. Six markers cover most script writing needs.</p>
+<h2 id="step-4-preview-your-formatted-output">Step 4: Preview Your Formatted Output</h2>
+<p>Now see how your markup looks as a proper script:</p>
+<ol>
+<li>Tap the <strong>Preview</strong> toggle in the toolbar (the eye icon)</li>
+<li>The raw DML transforms into formatted script output</li>
+</ol>
+<p>In <strong>Film format</strong>, you'll see:
+- Scene headings left-aligned and underlined
+- Character names centered
+- Dialogue in a narrow column
+- Parentheticals indented under character names
+- Transitions right-aligned</p>
+<p>Toggle back to source view to continue editing.</p>
+<h2 id="step-5-switch-between-film-and-stage-format">Step 5: Switch Between Film and Stage Format</h2>
+<p>The same DML produces different output depending on format:</p>
+<h3 id="switch-format">Switch Format</h3>
+<ol>
+<li>Open <strong>Project Settings</strong> (gear icon)</li>
+<li>Find <strong>Script Format</strong></li>
+<li>Switch from <strong>Film</strong> to <strong>Stage</strong> (or vice versa)</li>
+<li>Return to your scene and preview again</li>
+</ol>
+<h3 id="differences-youll-see">Differences You'll See</h3>
+<table>
+<thead>
+<tr>
+<th>Element</th>
+<th>Film Format</th>
+<th>Stage Format</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Scene headings</td>
+<td>INT./EXT. slug lines</td>
+<td>ACT/Scene headings</td>
+</tr>
+<tr>
+<td>Character names</td>
+<td>Centered, caps</td>
+<td>Left-aligned, caps</td>
+</tr>
+<tr>
+<td>Dialogue</td>
+<td>Narrow center column</td>
+<td>Full-width</td>
+</tr>
+<tr>
+<td>Stage directions</td>
+<td>Full-width, italicized</td>
+<td>Italicized, indented</td>
+</tr>
+<tr>
+<td>Transitions</td>
+<td>Right-aligned</td>
+<td>Centered</td>
+</tr>
+</tbody>
+</table>
+<p>Both render from the same DML source, so you can write once and output in either format.</p>
+<h2 id="step-6-write-a-second-scene">Step 6: Write a Second Scene</h2>
+<ol>
+<li>Go back to <strong>Scenes</strong></li>
+<li>Tap <strong>+</strong></li>
+<li>Name it: <strong>"The Reveal"</strong></li>
+<li>Write:</li>
+</ol>
+<pre><code># Scene 2
+@ INT. WAITING ROOM - CONTINUOUS
+= The same room. The clock has stopped.
+
+&gt; Anna stands and walks to the clock. She taps it. Nothing.
+
+ANNA
+(to herself)
+That's odd.
+
+BEN
+It stopped about an hour ago. Maybe two. Hard to tell.
+
+ANNA
+And you didn't think to mention that?
+
+BEN
+(smiling)
+I was waiting for the right moment.
+
+&gt; Anna looks at Ben properly for the first time. Something shifts.
+
+ANNA
+What are we waiting for, exactly?
+
+BEN
+(standing)
+I was hoping you could tell me.
+
+&gt; They face each other. The fluorescent light flickers.
+
+= BLACKOUT
+</code></pre>
+<h3 id="new-elements">New Elements</h3>
+<ul>
+<li><code>= BLACKOUT</code> uses the scene description marker for a stage direction that ends the scene</li>
+<li>Dialogue flows naturally — just character name, optional parenthetical, then dialogue lines</li>
+<li>Continuous scene headings (<code>CONTINUOUS</code>) tell the reader we're in the same location</li>
+</ul>
+<h2 id="step-7-create-acts-and-organize-scenes">Step 7: Create Acts and Organize Scenes</h2>
+<p>For longer scripts, you'll want to organize scenes into acts.</p>
+<h3 id="create-acts">Create Acts</h3>
+<ol>
+<li>Open the <strong>Acts</strong> folder</li>
+<li>Tap <strong>+</strong></li>
+<li>Name it: <strong>"Act I"</strong></li>
+<li>Tap <strong>Create</strong></li>
+</ol>
+<h3 id="assign-scenes-to-acts">Assign Scenes to Acts</h3>
+<ol>
+<li>Open a scene's details</li>
+<li>Tap <strong>Act</strong></li>
+<li>Select <strong>"Act I"</strong></li>
+</ol>
+<p>Assign both scenes to Act I. For a longer script, you might have:
+- <strong>Act I</strong>: Setup and inciting incident
+- <strong>Act II</strong>: Complications and rising action
+- <strong>Act III</strong>: Climax and resolution</p>
+<h3 id="reorder-scenes-within-acts">Reorder Scenes Within Acts</h3>
+<ol>
+<li>Open an act</li>
+<li>Tap <strong>Edit</strong></li>
+<li>Drag scenes into performance order</li>
+<li>Tap <strong>Done</strong></li>
+</ol>
+<h2 id="step-8-view-scenes-grouped-by-act">Step 8: View Scenes Grouped by Act</h2>
+<p>In the main Scenes view:</p>
+<ol>
+<li>Open <strong>Scenes</strong></li>
+<li>Scenes appear grouped under their assigned act in collapsible sections</li>
+<li>Expand or collapse acts to focus on specific sections</li>
+<li>Unassigned scenes appear separately</li>
+</ol>
+<p>This view helps you see the overall structure of your script at a glance.</p>
+<h2 id="step-9-add-more-dml-features">Step 9: Add More DML Features</h2>
+<p>As your script grows, you'll want these additional DML features:</p>
+<h3 id="simultaneous-dialogue-dual-column">Simultaneous Dialogue (Dual Column)</h3>
+<pre><code>BEN                    | ANNA
+I think we should —    | No, listen —
+</code></pre>
+<h3 id="emphasis">Emphasis</h3>
+<pre><code>BEN
+I *really* don't think that's a good idea.
+</code></pre>
+<h3 id="notes-not-printed-in-output">Notes (Not Printed in Output)</h3>
+<pre><code>// TODO: Add more tension to this exchange
+</code></pre>
+<h3 id="for-the-full-reference">For the Full Reference</h3>
+<p>See <strong><a href="guide:84-dml-reference">DML Reference</a></strong> for every available markup option, including lyrics, sound effects, and more.</p>
+<h2 id="step-10-export-your-script">Step 10: Export Your Script</h2>
+<ol>
+<li>Open <strong>Export Options</strong></li>
+<li>Select <strong>PDF</strong></li>
+<li>Choose your script format (Film or Stage)</li>
+<li>Preview the output</li>
+<li>Export</li>
+</ol>
+<p>The PDF uses industry-standard formatting appropriate for the chosen format — ready for a table read, submission, or production.</p>
+<h2 id="what-youve-learned">What You've Learned</h2>
+<ul>
+<li>Creating a Drama project for script writing</li>
+<li>The six core DML markers: <code>#</code>, <code>@</code>, <code>=</code>, <code>&gt;</code>, <code>~</code>, and character names</li>
+<li>Previewing formatted output from DML source</li>
+<li>Switching between Film and Stage format</li>
+<li>Organizing scenes into acts</li>
+<li>Viewing scenes grouped by act</li>
+</ul>
+<h2 id="dml-quick-reference">DML Quick Reference</h2>
+<table>
+<thead>
+<tr>
+<th>Marker</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>#</code></td>
+<td>Scene heading</td>
+</tr>
+<tr>
+<td><code>@</code></td>
+<td>Location</td>
+</tr>
+<tr>
+<td><code>=</code></td>
+<td>Setting / scene description</td>
+</tr>
+<tr>
+<td><code>&gt;</code></td>
+<td>Stage direction / action</td>
+</tr>
+<tr>
+<td><code>CHARACTER</code></td>
+<td>Character name (caps, own line)</td>
+</tr>
+<tr>
+<td><code>(text)</code></td>
+<td>Parenthetical</td>
+</tr>
+<tr>
+<td><code>~</code></td>
+<td>Transition</td>
+</tr>
+<tr>
+<td><code>//</code></td>
+<td>Note (hidden in output)</td>
+</tr>
+<tr>
+<td><code>*text*</code></td>
+<td>Emphasis</td>
+</tr>
+</tbody>
+</table>
+<h2 id="whats-next">What's Next</h2>
+<ul>
+<li><strong><a href="guide:84-dml-reference">DML Reference</a></strong> — Complete markup reference</li>
+<li><strong><a href="guide:83-film-vs-stage-formats">Film vs Stage Formats</a></strong> — Detailed format comparison</li>
+<li><strong><a href="guide:81-drama-mode-overview">Drama Mode Overview</a></strong> — Full feature reference</li>
+<li><strong><a href="guide:138-tutorial-professional-manuscript">Tutorial: Formatting a Professional Manuscript</a></strong> — Advanced export for scripts</li>
+</ul>
+<hr />
+
+
+<hr>
+</body>
+</html>

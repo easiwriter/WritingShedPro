@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Writing Shed Pro Guide</title>
+    <style>body { 
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 20px;
+    line-height: 1.6;
+    color: #333;
+}
+h1, h2, h3, h4, h5, h6 { margin-top: 1.5em; margin-bottom: 0.5em; }
+h1 { font-size: 2em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+pre { background: #f4f4f4; padding: 16px; border-radius: 6px; overflow-x: auto; }
+pre code { background: none; padding: 0; }
+blockquote { border-left: 4px solid #ddd; margin-left: 0; padding-left: 16px; color: #666; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+th { background: #f4f4f4; font-weight: bold; }
+ul, ol { padding-left: 2em; }
+a { color: #0066cc; }
+hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
+/* Back to Contents link */
+.back-to-top {
+    text-align: right;
+    font-size: 0.9em;
+    margin: 1.5em 0 0.5em 0;
+}
+.back-to-top a {
+    color: #666;
+    text-decoration: none;
+}
+.back-to-top a:hover {
+    color: #0066cc;
+    text-decoration: underline;
+}
+@media (prefers-color-scheme: dark) {
+    body { background: #1a1a1a; color: #e0e0e0; }
+    code, pre { background: #2d2d2d; }
+    th { background: #2d2d2d; }
+    th, td { border-color: #444; }
+    blockquote { border-color: #555; color: #aaa; }
+    h1, h2 { border-color: #444; }
+    a { color: #4da3ff; }
+    .back-to-top a { color: #999; }
+}
+/* In-app overrides */
+body { margin-top: 0 !important; padding-top: 8px !important; }
+body > *:first-child { margin-top: 0 !important; }
+.back-nav { margin-bottom: 0.5em; }
+.back-nav a { color: #0066cc; text-decoration: none; font-size: 0.95em; }
+@media (prefers-color-scheme: dark) {
+    .back-nav a { color: #4da3ff; }
+}
+</style>
+</head>
+<body>
+<p class="back-nav"><a href="guide:00-toc">← Contents</a></p>
+<a id="135-tutorial-verse-novel"></a>
+
+<h1 id="tutorial-writing-a-verse-novel">Tutorial: Writing a Verse Novel</h1>
+<p>A verse novel tells a story through poetry — combining the narrative arc of fiction with the precision and rhythm of verse. This tutorial shows you how to use Writing Shed Pro's Verse Novel mode to plan, write, and assemble one.</p>
+<p><strong>Time</strong>: 30–40 minutes<br />
+<strong>Project Type</strong>: Fiction (Verse Novel)<br />
+<strong>Difficulty</strong>: Intermediate<br />
+<strong>Prerequisites</strong>: Familiarity with Poetry editing tools (see <a href="guide:131-tutorial-first-poem">Tutorial: Your First Poem</a>)</p>
+<h2 id="what-youll-learn">What You'll Learn</h2>
+<ul>
+<li>Creating a Verse Novel project</li>
+<li>Understanding the Books → Episodes hierarchy</li>
+<li>Writing episodes using the poetry editor</li>
+<li>Organizing episodes into books</li>
+<li>Adding books to body matter</li>
+<li>Exporting with poetry-aware formatting</li>
+</ul>
+<h2 id="what-is-a-verse-novel">What Is a Verse Novel?</h2>
+<p>A verse novel is a full-length narrative written in verse rather than prose. Famous examples include <em>The Odyssey</em>, <em>Aurora Leigh</em>, and modern works like <em>The Crossover</em> by Kwame Alexander. The text reads as poetry — with attention to line breaks, rhythm, and compression — but follows a story arc with characters, conflict, and resolution.</p>
+<p>In Writing Shed Pro, a verse novel uses:
+- <strong>Books</strong> instead of chapters (like sections of an epic poem)
+- <strong>Episodes</strong> instead of scenes (each episode is a poem or verse passage)
+- <strong>The poetry editor</strong> with syllable counting, stress analysis, and rhyme tools</p>
+<h2 id="step-1-create-a-verse-novel-project">Step 1: Create a Verse Novel Project</h2>
+<ol>
+<li>From the project list, tap <strong>+</strong></li>
+<li>Name it <strong>"Salt Roads"</strong></li>
+<li>Select <strong>Fiction</strong> as the project type</li>
+<li>Choose <strong>Verse Novel</strong> as the fiction class</li>
+<li>Optionally select a story structure (or leave as Freeform)</li>
+<li>Tap <strong>Create</strong></li>
+</ol>
+<p>The project opens with Verse Novel folders: Episodes (instead of Scenes), Books (instead of Chapters), Plot Elements, Characters, Locations, and more.</p>
+<h2 id="step-2-understand-the-structure">Step 2: Understand the Structure</h2>
+<p>The Verse Novel hierarchy mirrors a novel but uses poetry terminology:</p>
+<table>
+<thead>
+<tr>
+<th>Novel</th>
+<th>Verse Novel</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Chapter</td>
+<td>Book</td>
+<td>Major section of the narrative</td>
+</tr>
+<tr>
+<td>Scene</td>
+<td>Episode</td>
+<td>Individual verse passage or poem</td>
+</tr>
+<tr>
+<td>Prose editor</td>
+<td>Poetry editor</td>
+<td>Writing environment</td>
+</tr>
+</tbody>
+</table>
+<p>Each <strong>episode</strong> is written using the poetry editor, so you have access to syllable counting, stress patterns, and all poetry tools while writing your narrative.</p>
+<h2 id="step-3-plan-your-books">Step 3: Plan Your Books</h2>
+<p>Think of books as the major sections of your narrative. For <em>"Salt Roads"</em>, we might plan:</p>
+<table>
+<thead>
+<tr>
+<th>Book</th>
+<th>Theme</th>
+<th>Episodes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Book I: Departure</td>
+<td>Leaving home, the journey begins</td>
+<td>5–7 episodes</td>
+</tr>
+<tr>
+<td>Book II: The Crossing</td>
+<td>The difficult middle, trials and growth</td>
+<td>6–8 episodes</td>
+</tr>
+<tr>
+<td>Book III: Arrival</td>
+<td>New land, resolution, transformation</td>
+<td>5–7 episodes</td>
+</tr>
+</tbody>
+</table>
+<h3 id="create-books">Create Books</h3>
+<ol>
+<li>Open the <strong>Books</strong> folder</li>
+<li>Tap <strong>+</strong></li>
+<li>Name it: <strong>"Book I: Departure"</strong></li>
+<li>Add a synopsis: <em>"Mira leaves the salt flats for the coast"</em></li>
+<li>Tap <strong>Create</strong></li>
+</ol>
+<p>Repeat for Books II and III.</p>
+<h2 id="step-4-write-your-first-episode">Step 4: Write Your First Episode</h2>
+<ol>
+<li>Open <strong>Episodes</strong></li>
+<li>Tap <strong>+</strong></li>
+<li>Name it: <strong>"The Salt Flats at Dawn"</strong></li>
+<li>Tap <strong>Create</strong></li>
+</ol>
+<p>The episode opens in the <strong>poetry editor</strong>. Notice you have all the poetry tools available:
+- Syllable counter in the toolbar
+- Stress pattern display
+- Rhyme tools
+- Verse highlighting</p>
+<h3 id="write-your-verse">Write Your Verse</h3>
+<pre><code>The flats stretch white as bone beneath the sun,
+each crystal catching light like tiny fires.
+Mira kneels. Her fingers find the seam
+where earth and salt divide — the place her mother
+said to listen. Pressed against the ground,
+she hears it: low vibration, half a song,
+the sound the land makes when it knows
+you're leaving.
+</code></pre>
+<p>The poetry editor counts syllables per line and shows stress patterns — essential tools even for free verse, where rhythm matters.</p>
+<h3 id="assign-the-episode-to-a-book">Assign the Episode to a Book</h3>
+<ol>
+<li>Open the episode's details</li>
+<li>Tap <strong>Book</strong></li>
+<li>Select <strong>"Book I: Departure"</strong></li>
+</ol>
+<h2 id="step-5-write-more-episodes">Step 5: Write More Episodes</h2>
+<p>Continue writing episodes for your first book. Here's a possible sequence:</p>
+<table>
+<thead>
+<tr>
+<th>Episode</th>
+<th>Book</th>
+<th>Summary</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The Salt Flats at Dawn</td>
+<td>Book I</td>
+<td>Mira says goodbye to the landscape</td>
+</tr>
+<tr>
+<td>Packing Light</td>
+<td>Book I</td>
+<td>What she takes, what she leaves behind</td>
+</tr>
+<tr>
+<td>Her Mother's Hands</td>
+<td>Book I</td>
+<td>Memory of learning salt harvesting</td>
+</tr>
+<tr>
+<td>The Road Out</td>
+<td>Book I</td>
+<td>First steps of the journey</td>
+</tr>
+<tr>
+<td>Night Camp</td>
+<td>Book I</td>
+<td>Alone for the first time</td>
+</tr>
+</tbody>
+</table>
+<h3 id="writing-tips-for-verse-novels">Writing Tips for Verse Novels</h3>
+<ul>
+<li><strong>Each episode is a poem</strong>: It should stand on its own as verse, even while advancing the plot</li>
+<li><strong>Use white space</strong>: Let the page breathe — verse novels are often shorter per page than prose novels</li>
+<li><strong>Mix forms</strong>: Some episodes might be sonnets, others free verse, others prose poems</li>
+<li><strong>Voice matters</strong>: The compression of poetry forces every word to earn its place</li>
+<li><strong>Line breaks carry meaning</strong>: Where you break a line affects pacing and emphasis</li>
+</ul>
+<h2 id="step-6-use-poetry-tools-for-narrative-verse">Step 6: Use Poetry Tools for Narrative Verse</h2>
+<p>While writing each episode, the poetry tools support your craft:</p>
+<h3 id="syllable-counting">Syllable Counting</h3>
+<ul>
+<li>Monitor line length for consistency or intentional variation</li>
+<li>A passage about urgency might use shorter lines (fewer syllables)</li>
+<li>A meditative passage might use longer, flowing lines</li>
+</ul>
+<h3 id="stress-patterns">Stress Patterns</h3>
+<ul>
+<li>Check that your rhythms support the mood</li>
+<li>Heavy stress patterns convey weight and importance</li>
+<li>Light, tripping patterns suggest speed or lightness</li>
+</ul>
+<h3 id="rhyme-tools">Rhyme Tools</h3>
+<ul>
+<li>Use rhyme intentionally — perhaps rhyming couplets for moments of resolution</li>
+<li>Slant rhyme for tension or unease</li>
+<li>The rhyme tool helps you find options without breaking your flow</li>
+</ul>
+<h2 id="step-7-organize-episodes-within-books">Step 7: Organize Episodes Within Books</h2>
+<p>Once you have several episodes written:</p>
+<ol>
+<li>Open a <strong>Book</strong> (e.g., "Book I: Departure")</li>
+<li>View the episodes assigned to it</li>
+<li>Tap <strong>Edit</strong> to reorder episodes</li>
+<li>Drag episodes into narrative sequence</li>
+<li>Tap <strong>Done</strong></li>
+</ol>
+<p>The order within a book is the reading order: how the episodes will appear in the manuscript.</p>
+<h3 id="check-for-gaps">Check for Gaps</h3>
+<p>Look at your book from a narrative perspective:
+- Does the sequence create forward momentum?
+- Are there emotional peaks and valleys?
+- Does each episode reveal something new?</p>
+<h2 id="step-8-add-books-to-body-matter">Step 8: Add Books to Body Matter</h2>
+<p>Assemble your manuscript:</p>
+<ol>
+<li>Open <strong>Manuscript</strong> → <strong>Body Matter</strong></li>
+<li>Tap <strong>+</strong></li>
+<li>Add <strong>Book I: Departure</strong></li>
+<li>Add <strong>Book II: The Crossing</strong></li>
+<li>Add <strong>Book III: Arrival</strong></li>
+</ol>
+<p>Each book expands to show its episodes. The body matter order is the manuscript reading order.</p>
+<h3 id="reorder-if-needed">Reorder if Needed</h3>
+<ol>
+<li>Tap <strong>Edit</strong> in Body Matter</li>
+<li>Drag books to reorder</li>
+<li>Tap <strong>Done</strong></li>
+</ol>
+<h2 id="step-9-set-up-front-matter">Step 9: Set Up Front Matter</h2>
+<p>Verse novels benefit from clean, minimal front matter:</p>
+<ol>
+<li>Open <strong>Manuscript</strong> → <strong>Front Matter</strong></li>
+<li><strong>Title Page</strong>: Add the title, your name, and optionally an epigraph</li>
+<li><strong>Copyright</strong>: Standard copyright notice</li>
+<li><strong>Dedication</strong>: Optional</li>
+</ol>
+<p><strong>Tip</strong>: Some verse novels include a brief note about the form — explaining that the story is told in verse. This can go in the front matter as a brief author's note.</p>
+<h2 id="step-10-export-your-verse-novel">Step 10: Export Your Verse Novel</h2>
+<ol>
+<li>Open <strong>Export Options</strong></li>
+<li>Select <strong>PDF</strong></li>
+<li>Key settings for verse novels:</li>
+<li>Line spacing that respects verse formatting</li>
+<li>Page breaks between episodes (optional — some poets prefer continuous flow within a book)</li>
+<li>Page breaks between books (recommended)</li>
+<li>Preview the output</li>
+<li>Export</li>
+</ol>
+<p>The poetry formatting is preserved in the export — line breaks, stanza spacing, and indentation all appear as you wrote them.</p>
+<h2 id="what-youve-learned">What You've Learned</h2>
+<ul>
+<li>Creating a Verse Novel project (Fiction with poetry tools)</li>
+<li>The Books → Episodes hierarchy</li>
+<li>Writing episodes with the poetry editor's full toolkit</li>
+<li>Organizing episodes into books with meaningful order</li>
+<li>Assembling body matter from books</li>
+<li>Exporting with poetry-aware formatting</li>
+</ul>
+<h2 id="tips-for-verse-novels">Tips for Verse Novels</h2>
+<ul>
+<li><strong>Think in images</strong>: Poetry compresses — one vivid image can do the work of a paragraph</li>
+<li><strong>Vary episode length</strong>: Short episodes create urgency; longer ones create depth</li>
+<li><strong>Use form intentionally</strong>: A formal sonnet in the middle of free verse can mark a turning point</li>
+<li><strong>Read aloud</strong>: Verse novels should sound good spoken — rhythm carries the reader forward</li>
+<li><strong>Let the form serve the story</strong>: Don't force meter where the narrative needs to breathe</li>
+</ul>
+<h2 id="whats-next">What's Next</h2>
+<ul>
+<li><strong><a href="guide:71-fiction-mode-overview">Fiction Mode Overview</a></strong> — Full fiction reference including verse novels</li>
+<li><strong><a href="guide:61-poetry-mode-overview">Poetry Mode Overview</a></strong> — Deep dive into poetry tools</li>
+<li><strong><a href="guide:36-manuscript-structure">Manuscript Structure</a></strong> — Body matter assembly for all types</li>
+<li><strong><a href="guide:138-tutorial-professional-manuscript">Tutorial: Formatting a Professional Manuscript</a></strong> — Advanced export settings</li>
+</ul>
+<hr />
+
+
+<hr>
+</body>
+</html>

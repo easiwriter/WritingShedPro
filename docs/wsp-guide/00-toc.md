@@ -85,3 +85,14 @@
 - [Version History](12-appendices/121-version-history.md)
 - [Credits](12-appendices/122-credits.md)
 - [Legal](12-appendices/123-legal.md)
+
+## 13. Tutorials
+- [Your First Poem](13-tutorials/131-tutorial-first-poem.md)
+- [Assembling a Poetry Chapbook](13-tutorials/132-tutorial-poetry-chapbook.md)
+- [Planning and Writing a Novel](13-tutorials/133-tutorial-planning-novel.md)
+- [Writing and Collecting Short Fiction](13-tutorials/134-tutorial-short-fiction.md)
+- [Writing a Verse Novel](13-tutorials/135-tutorial-verse-novel.md)
+- [Writing Your First Script](13-tutorials/136-tutorial-first-script.md)
+- [Submitting Your Work](13-tutorials/137-tutorial-submitting-work.md)
+- [Formatting a Professional Manuscript](13-tutorials/138-tutorial-professional-manuscript.md)
+- [Organizing a Large Prose Project](13-tutorials/139-tutorial-large-prose-project.md)

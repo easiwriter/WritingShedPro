@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Writing Shed Pro Guide</title>
+    <style>body { 
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 20px;
+    line-height: 1.6;
+    color: #333;
+}
+h1, h2, h3, h4, h5, h6 { margin-top: 1.5em; margin-bottom: 0.5em; }
+h1 { font-size: 2em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+pre { background: #f4f4f4; padding: 16px; border-radius: 6px; overflow-x: auto; }
+pre code { background: none; padding: 0; }
+blockquote { border-left: 4px solid #ddd; margin-left: 0; padding-left: 16px; color: #666; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+th { background: #f4f4f4; font-weight: bold; }
+ul, ol { padding-left: 2em; }
+a { color: #0066cc; }
+hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
+/* Back to Contents link */
+.back-to-top {
+    text-align: right;
+    font-size: 0.9em;
+    margin: 1.5em 0 0.5em 0;
+}
+.back-to-top a {
+    color: #666;
+    text-decoration: none;
+}
+.back-to-top a:hover {
+    color: #0066cc;
+    text-decoration: underline;
+}
+@media (prefers-color-scheme: dark) {
+    body { background: #1a1a1a; color: #e0e0e0; }
+    code, pre { background: #2d2d2d; }
+    th { background: #2d2d2d; }
+    th, td { border-color: #444; }
+    blockquote { border-color: #555; color: #aaa; }
+    h1, h2 { border-color: #444; }
+    a { color: #4da3ff; }
+    .back-to-top a { color: #999; }
+}
+/* In-app overrides */
+body { margin-top: 0 !important; padding-top: 8px !important; }
+body > *:first-child { margin-top: 0 !important; }
+.back-nav { margin-bottom: 0.5em; }
+.back-nav a { color: #0066cc; text-decoration: none; font-size: 0.95em; }
+@media (prefers-color-scheme: dark) {
+    .back-nav a { color: #4da3ff; }
+}
+</style>
+</head>
+<body>
+<p class="back-nav"><a href="guide:00-toc">← Contents</a></p>
+<a id="139-tutorial-large-prose-project"></a>
+
+<h1 id="tutorial-organizing-a-large-prose-project">Tutorial: Organizing a Large Prose Project</h1>
+<p>This tutorial walks you through managing a large Prose project in Writing Shed Pro — using sections, subfolders, search and replace, and manuscript assembly to keep a complex work organized and export-ready.</p>
+<p><strong>Time</strong>: 30–40 minutes<br />
+<strong>Project Type</strong>: Prose<br />
+<strong>Difficulty</strong>: Intermediate<br />
+<strong>Best for</strong>: User guides, essay collections, multi-part articles, research projects, memoirs</p>
+<h2 id="what-youll-learn">What You'll Learn</h2>
+<ul>
+<li>Creating a Prose project for multi-part writing</li>
+<li>Using sections to group related files</li>
+<li>Using subfolders for additional organization</li>
+<li>Viewing files grouped by section</li>
+<li>Using search and replace across the project</li>
+<li>Assembling a manuscript from sections</li>
+<li>Exporting the complete document</li>
+</ul>
+<h2 id="step-1-create-a-prose-project">Step 1: Create a Prose Project</h2>
+<ol>
+<li>From the project list, tap <strong>+</strong></li>
+<li>Name it <strong>"Field Guide to Urban Trees"</strong></li>
+<li>Select <strong>Prose</strong> as the project type</li>
+<li>Tap <strong>Create</strong></li>
+</ol>
+<p>The project opens with the Prose folder structure: Manuscript, Sections, Prose, Collections, Submissions, Research, and more.</p>
+<p>For this tutorial, we're writing a reference guide with multiple parts and many files. Prose mode's sections and organization tools are designed for exactly this.</p>
+<h2 id="step-2-plan-your-sections">Step 2: Plan Your Sections</h2>
+<p>Sections in Prose projects work like chapters in fiction — they group related files into logical units. Plan your structure before writing:</p>
+<table>
+<thead>
+<tr>
+<th>Section</th>
+<th>Contents</th>
+<th>Files</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Introduction</td>
+<td>Overview, how to use this guide</td>
+<td>2–3 files</td>
+</tr>
+<tr>
+<td>Broadleaf Trees</td>
+<td>Oak, beech, birch, etc.</td>
+<td>8–10 files</td>
+</tr>
+<tr>
+<td>Coniferous Trees</td>
+<td>Pine, spruce, cedar, etc.</td>
+<td>6–8 files</td>
+</tr>
+<tr>
+<td>Ornamental Trees</td>
+<td>Cherry, magnolia, etc.</td>
+<td>5–7 files</td>
+</tr>
+<tr>
+<td>Appendices</td>
+<td>Glossary, further reading</td>
+<td>2–3 files</td>
+</tr>
+</tbody>
+</table>
+<h3 id="create-sections">Create Sections</h3>
+<ol>
+<li>Open the <strong>Sections</strong> folder</li>
+<li>Tap <strong>+</strong></li>
+<li>Name it: <strong>"Introduction"</strong></li>
+<li>Add a synopsis: <em>"Overview of urban trees and how to use this guide"</em></li>
+<li>Tap <strong>Create</strong></li>
+</ol>
+<p>Repeat for each section: Broadleaf Trees, Coniferous Trees, Ornamental Trees, and Appendices.</p>
+<h3 id="reorder-sections">Reorder Sections</h3>
+<ol>
+<li>In the Sections folder, tap <strong>Edit</strong></li>
+<li>Drag sections into your preferred order</li>
+<li>Tap <strong>Done</strong></li>
+</ol>
+<p>This order determines how sections appear in the file list and (later) in the manuscript.</p>
+<h2 id="step-3-create-files-and-assign-to-sections">Step 3: Create Files and Assign to Sections</h2>
+<h3 id="create-your-files">Create Your Files</h3>
+<ol>
+<li>Open the <strong>Prose</strong> folder (your main writing area)</li>
+<li>Tap <strong>+</strong> to create files:</li>
+<li>"How to Use This Guide"</li>
+<li>"English Oak"</li>
+<li>"Silver Birch"</li>
+<li>"Scots Pine"</li>
+<li>"Japanese Cherry"</li>
+<li>(and more as needed)</li>
+</ol>
+<h3 id="assign-files-to-sections">Assign Files to Sections</h3>
+<ol>
+<li>Open a file's context menu (long-press or tap ⋯)</li>
+<li>Select <strong>Assign to Section</strong></li>
+<li>Choose the appropriate section</li>
+</ol>
+<p>For example:
+- "How to Use This Guide" → <strong>Introduction</strong>
+- "English Oak" → <strong>Broadleaf Trees</strong>
+- "Scots Pine" → <strong>Coniferous Trees</strong>
+- "Japanese Cherry" → <strong>Ornamental Trees</strong></p>
+<h3 id="batch-assignment">Batch Assignment</h3>
+<p>To assign multiple files at once:
+1. Tap <strong>Edit</strong> in the file list
+2. Select multiple files (e.g., all the broadleaf tree entries)
+3. Tap <strong>Assign to Section</strong>
+4. Select <strong>Broadleaf Trees</strong></p>
+<h2 id="step-4-view-files-grouped-by-section">Step 4: View Files Grouped by Section</h2>
+<p>In the main Prose file list, files appear grouped under their section headings:</p>
+<pre><code>▼ Introduction
+    How to Use This Guide
+    About Urban Trees
+▼ Broadleaf Trees
+    English Oak
+    Silver Birch
+    Common Beech
+    Horse Chestnut
+▼ Coniferous Trees
+    Scots Pine
+    Norway Spruce
+▼ Ornamental Trees
+    Japanese Cherry
+    Star Magnolia
+▶ Appendices (collapsed)
+  Unassigned
+    (files not yet assigned to a section)
+</code></pre>
+<ul>
+<li>Tap a section header to <strong>collapse</strong> or <strong>expand</strong> it</li>
+<li>Unassigned files appear at the bottom</li>
+<li>This view gives you an overview of the project's structure</li>
+</ul>
+<h2 id="step-5-use-subfolders-for-research">Step 5: Use Subfolders for Research</h2>
+<p>While sections organize your writing, subfolders help with supporting material:</p>
+<ol>
+<li>Open the <strong>Research</strong> folder</li>
+<li>Create subfolders for source material:</li>
+<li><strong>Research</strong> → <strong>Field Photos</strong></li>
+<li><strong>Research</strong> → <strong>Reference Books</strong></li>
+<li><strong>Research</strong> → <strong>Expert Interviews</strong></li>
+<li>Add reference files to each subfolder</li>
+</ol>
+<p><strong>Tip</strong>: Use subfolders sparingly for writing itself. For the main content, sections are a better organizing tool because they integrate with manuscript assembly and the section-grouped view. Keep subfolders for supporting material.</p>
+<h2 id="step-6-write-your-content">Step 6: Write Your Content</h2>
+<p>Now write! Open any file and start. A few tips for large projects:</p>
+<h3 id="use-consistent-structure">Use Consistent Structure</h3>
+<p>For a reference guide, each tree entry might follow a template:</p>
+<pre><code># English Oak
+
+## Identification
+- **Height**: 20–40 meters
+- **Leaves**: Lobed, 10–12 cm long
+- **Bark**: Grey-brown, deeply fissured
+
+## Where to Find It
+Common in parks, streets, and gardens throughout the UK...
+
+## Interesting Facts
+The English oak can live for over 1,000 years...
+</code></pre>
+<p>Consistent structure makes the final document feel cohesive.</p>
+<h3 id="use-heading-styles">Use Heading Styles</h3>
+<p>Apply heading styles (Heading 1, Heading 2, Heading 3) consistently:
+- <strong>Heading 1</strong>: Tree name (generates TOC entries)
+- <strong>Heading 2</strong>: Section within each entry
+- <strong>Heading 3</strong>: Sub-sections if needed</p>
+<p>These headings matter for the auto-generated table of contents.</p>
+<h2 id="step-7-search-and-replace-across-the-project">Step 7: Search and Replace Across the Project</h2>
+<p>When writing a large project, you'll often need to make consistent changes across many files. For example, you realize you've been inconsistently writing "metres" and "meters".</p>
+<h3 id="open-search-and-replace">Open Search and Replace</h3>
+<ol>
+<li>Tap the <strong>Search</strong> icon in the toolbar (🔍)</li>
+<li>Enter your search term: <code>meters</code></li>
+<li>Enter the replacement: <code>metres</code></li>
+</ol>
+<h3 id="search-across-all-files">Search Across All Files</h3>
+<ol>
+<li>Ensure <strong>Search in Project</strong> is selected (not just the current file)</li>
+<li>Tap <strong>Find All</strong></li>
+<li>See all occurrences across every file, grouped by file name</li>
+<li>Review each match in context</li>
+</ol>
+<h3 id="replace-carefully">Replace Carefully</h3>
+<ul>
+<li><strong>Replace one at a time</strong>: Tap <strong>Replace</strong> for each match to review it</li>
+<li><strong>Replace All</strong>: Use with caution — preview results first</li>
+<li><strong>Case-sensitive search</strong>: Enable if you need to match exact capitalization</li>
+</ul>
+<h3 id="other-search-use-cases">Other Search Use Cases</h3>
+<ul>
+<li>Find all mentions of a topic across your guide</li>
+<li>Locate inconsistent spelling or terminology</li>
+<li>Find placeholder text you need to fill in (search for "TODO" or "TBD")</li>
+</ul>
+<h2 id="step-8-reorder-files-within-sections">Step 8: Reorder Files Within Sections</h2>
+<p>Control the reading order within each section:</p>
+<ol>
+<li>Open the <strong>Sections</strong> folder</li>
+<li>Tap a section (e.g., <strong>Broadleaf Trees</strong>)</li>
+<li>See the files assigned to it</li>
+<li>Tap <strong>Edit</strong></li>
+<li>Drag files into your preferred order (e.g., alphabetical, or by importance)</li>
+<li>Tap <strong>Done</strong></li>
+</ol>
+<p>This order determines the manuscript reading order within each section.</p>
+<h2 id="step-9-assemble-the-manuscript">Step 9: Assemble the Manuscript</h2>
+<p>Now bring everything together for export:</p>
+<h3 id="add-sections-to-body-matter">Add Sections to Body Matter</h3>
+<ol>
+<li>Open <strong>Manuscript</strong> → <strong>Body Matter</strong></li>
+<li>Tap <strong>+</strong></li>
+<li>Add sections in reading order:</li>
+<li>Introduction</li>
+<li>Broadleaf Trees</li>
+<li>Coniferous Trees</li>
+<li>Ornamental Trees</li>
+<li>Appendices</li>
+<li>Each section expands to show its files</li>
+</ol>
+<h3 id="exclude-work-in-progress-files">Exclude Work-in-Progress Files</h3>
+<p>If some files aren't ready for the manuscript:
+1. Open the file's context menu
+2. Toggle <strong>Include in Manuscript</strong> off
+3. The file is skipped during assembly but remains in your project</p>
+<h3 id="set-up-front-matter">Set Up Front Matter</h3>
+<ol>
+<li>Open <strong>Manuscript</strong> → <strong>Front Matter</strong></li>
+<li>Add content to:</li>
+<li><strong>Title Page</strong>: Book title, author name</li>
+<li><strong>Table of Contents</strong>: Mark as TOC file for auto-generation</li>
+<li><strong>Introduction or Preface</strong>: If separate from the main Introduction section</li>
+</ol>
+<h3 id="set-up-back-matter">Set Up Back Matter</h3>
+<ol>
+<li>Open <strong>Manuscript</strong> → <strong>Back Matter</strong></li>
+<li>Useful for a guide:</li>
+<li><strong>Glossary</strong>: Define terms</li>
+<li><strong>Index</strong>: Add index markers to your content, then enable auto-generation</li>
+<li><strong>References</strong>: Cite sources</li>
+</ol>
+<h2 id="step-10-export-the-complete-document">Step 10: Export the Complete Document</h2>
+<ol>
+<li>Open <strong>Export Options</strong></li>
+<li>Select <strong>PDF</strong></li>
+<li>Configure:</li>
+<li><strong>Include Table of Contents</strong>: Yes (auto-generated from headings)</li>
+<li><strong>Include Index</strong>: If you've added index markers</li>
+<li><strong>Page numbers</strong>: Yes</li>
+<li>Preview the output — check:</li>
+<li>Sections appear in correct order</li>
+<li>Files within sections are properly ordered</li>
+<li>TOC is accurate</li>
+<li>Page numbering is correct</li>
+<li>Export</li>
+</ol>
+<p>For an editable version, also export as <strong>RTF</strong>.</p>
+<h2 id="what-youve-learned">What You've Learned</h2>
+<ul>
+<li>Creating a Prose project for large, multi-part writing</li>
+<li>Using sections to organize files into logical groups</li>
+<li>Assigning files to sections individually or in batches</li>
+<li>Viewing files grouped by section for structural overview</li>
+<li>Using subfolders for supporting material</li>
+<li>Searching and replacing across the entire project</li>
+<li>Reordering files within sections</li>
+<li>Assembling body matter from sections</li>
+<li>Exporting a complete, structured document</li>
+</ul>
+<h2 id="tips-for-large-projects">Tips for Large Projects</h2>
+<ul>
+<li><strong>Consistent naming</strong>: Use clear, descriptive file names — you'll have many files</li>
+<li><strong>Section synopses</strong>: Add synopses to sections to remind yourself what goes where</li>
+<li><strong>Regular organization</strong>: Assign files to sections as you create them, not all at the end</li>
+<li><strong>Use the grouped view</strong>: The section-grouped file list is your project dashboard</li>
+<li><strong>Search is your friend</strong>: In a 50+ file project, Search and Replace keeps consistency manageable</li>
+<li><strong>Exclude generously</strong>: Keep reference notes and drafts in the project but out of the manuscript</li>
+</ul>
+<h2 id="whats-next">What's Next</h2>
+<ul>
+<li><strong><a href="guide:52-working-with-sections">Working with Sections</a></strong> — Full sections reference</li>
+<li><strong><a href="guide:36-manuscript-structure">Manuscript Structure</a></strong> — Body matter details</li>
+<li><strong><a href="guide:101-search-and-replace">Search and Replace</a></strong> — Advanced search features</li>
+<li><strong><a href="guide:138-tutorial-professional-manuscript">Tutorial: Formatting a Professional Manuscript</a></strong> — Advanced export settings</li>
+</ul>
+<hr />
+
+
+<hr>
+</body>
+</html>

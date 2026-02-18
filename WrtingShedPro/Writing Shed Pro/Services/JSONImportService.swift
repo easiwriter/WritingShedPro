@@ -97,6 +97,13 @@ class JSONImportService {
         print("[JSONImport] Format Version: \(data.formatVersion)")
         print("[JSONImport] Folders: \(data.folders.count)")
         print("[JSONImport] Prose Sections: \(data.proseSections?.count ?? 0)")
+        print("[JSONImport] Poetry Collections: \(data.poetryCollections?.count ?? 0)")
+        print("[JSONImport] Books: \(data.books?.count ?? 0)")
+        print("[JSONImport] Chapters: \(data.chapters?.count ?? 0)")
+        print("[JSONImport] Acts: \(data.acts?.count ?? 0)")
+        print("[JSONImport] Scenes: \(data.scenes?.count ?? 0)")
+        print("[JSONImport] Characters: \(data.characters?.count ?? 0)")
+        print("[JSONImport] Locations: \(data.locations?.count ?? 0)")
         #endif
         
         // Create project
@@ -115,6 +122,7 @@ class JSONImportService {
         project.statusRaw = data.project.status
         project.fictionClassRaw = data.project.fictionClass
         project.useMonomyth = data.project.useMonomyth
+        project.storyStructureRaw = data.project.storyStructure
         
         modelContext.insert(project)
         
@@ -123,6 +131,11 @@ class JSONImportService {
         var versionMap: [String: Version] = [:]
         var publicationMap: [String: Publication] = [:]
         var proseSectionMap: [String: ProseSection] = [:]
+        var poetryCollectionMap: [String: PoetryCollection] = [:]
+        var bookMap: [String: Book] = [:]
+        var chapterMap: [String: Chapter] = [:]
+        var actMap: [String: Act] = [:]
+        var sceneMap: [String: StoryScene] = [:]
         
         // Import prose sections first (so text files can link to them)
         for sectionData in data.proseSections ?? [] {
@@ -134,15 +147,150 @@ class JSONImportService {
             section.id = generateNewUUIDs ? UUID() : (UUID(uuidString: sectionData.id) ?? UUID())
             section.createdDate = sectionData.createdDate
             section.modifiedDate = sectionData.modifiedDate
+            section.bodyMatterOrder = sectionData.bodyMatterOrder
+            section.isInBodyMatter = sectionData.isInBodyMatter ?? false
             section.project = project
             proseSectionMap[sectionData.id] = section
             modelContext.insert(section)
         }
         
+        // Feature 036: Import poetry collections (so text files can link to them)
+        for collectionData in data.poetryCollections ?? [] {
+            let collection = PoetryCollection()
+            collection.id = generateNewUUIDs ? UUID() : (UUID(uuidString: collectionData.id) ?? UUID())
+            collection.name = collectionData.name
+            collection.userOrder = collectionData.userOrder
+            collection.synopsis = collectionData.synopsis
+            collection.createdDate = collectionData.createdDate
+            collection.modifiedDate = collectionData.modifiedDate
+            collection.bodyMatterOrder = collectionData.bodyMatterOrder
+            collection.isInBodyMatter = collectionData.isInBodyMatter
+            collection.project = project
+            poetryCollectionMap[collectionData.id] = collection
+            modelContext.insert(collection)
+        }
+        
+        // Feature 036: Import books (before scenes, so scenes can link to them)
+        for bookData in data.books ?? [] {
+            let book = Book()
+            book.id = generateNewUUIDs ? UUID() : (UUID(uuidString: bookData.id) ?? UUID())
+            book.name = bookData.name
+            book.userOrder = bookData.userOrder
+            book.synopsis = bookData.synopsis
+            book.createdDate = bookData.createdDate
+            book.modifiedDate = bookData.modifiedDate
+            book.bodyMatterOrder = bookData.bodyMatterOrder
+            book.isInBodyMatter = bookData.isInBodyMatter
+            book.project = project
+            bookMap[bookData.id] = book
+            modelContext.insert(book)
+        }
+        
+        // Feature 036: Import chapters (before scenes, so scenes can link to them)
+        for chapterData in data.chapters ?? [] {
+            let chapter = Chapter(
+                name: chapterData.name,
+                synopsis: chapterData.synopsis,
+                userOrder: chapterData.userOrder
+            )
+            chapter.id = generateNewUUIDs ? UUID() : (UUID(uuidString: chapterData.id) ?? UUID())
+            chapter.createdDate = chapterData.createdDate
+            chapter.modifiedDate = chapterData.modifiedDate
+            chapter.bodyMatterOrder = chapterData.bodyMatterOrder
+            chapter.isInBodyMatter = chapterData.isInBodyMatter
+            chapter.project = project
+            chapterMap[chapterData.id] = chapter
+            modelContext.insert(chapter)
+        }
+        
+        // Feature 036: Import acts (before scenes, so scenes can link to them)
+        for actData in data.acts ?? [] {
+            let act = Act()
+            act.id = generateNewUUIDs ? UUID() : (UUID(uuidString: actData.id) ?? UUID())
+            act.name = actData.name
+            act.userOrder = actData.userOrder
+            act.synopsis = actData.synopsis
+            act.createdDate = actData.createdDate
+            act.modifiedDate = actData.modifiedDate
+            act.bodyMatterOrder = actData.bodyMatterOrder
+            act.isInBodyMatter = actData.isInBodyMatter
+            act.project = project
+            actMap[actData.id] = act
+            modelContext.insert(act)
+        }
+        
         // Import folders (includes text files and versions)
-        // Folders are now inserted inside importWSPFolder, so we don't insert them again here
         for folderData in data.folders {
-            _ = importWSPFolder(folderData, project: project, parentFolder: nil, textFileMap: &textFileMap, versionMap: &versionMap, proseSectionMap: proseSectionMap)
+            _ = importWSPFolder(folderData, project: project, parentFolder: nil, textFileMap: &textFileMap, versionMap: &versionMap, proseSectionMap: proseSectionMap, poetryCollectionMap: poetryCollectionMap)
+        }
+        
+        // Feature 036: Import scenes (after folders/text files so we can link textFile)
+        for sceneData in data.scenes ?? [] {
+            let scene = StoryScene()
+            scene.id = generateNewUUIDs ? UUID() : (UUID(uuidString: sceneData.id) ?? UUID())
+            scene.name = sceneData.name
+            scene.userOrder = sceneData.userOrder
+            scene.synopsis = sceneData.synopsis
+            scene.createdDate = sceneData.createdDate
+            scene.modifiedDate = sceneData.modifiedDate
+            scene.bodyMatterOrder = sceneData.bodyMatterOrder
+            scene.isInBodyMatter = sceneData.isInBodyMatter
+            scene.isTrashed = sceneData.isTrashed
+            scene.trashedDate = sceneData.trashedDate
+            scene.monomythStageRaw = sceneData.monomythStageRaw
+            scene.campbellStageRaw = sceneData.campbellStageRaw
+            scene.threeActStageRaw = sceneData.threeActStageRaw
+            scene.project = project
+            
+            // Link to chapter, act, book
+            if let chapterId = sceneData.chapterId {
+                scene.chapter = chapterMap[chapterId]
+            }
+            if let actId = sceneData.actId {
+                scene.act = actMap[actId]
+            }
+            if let bookId = sceneData.bookId {
+                scene.book = bookMap[bookId]
+            }
+            
+            // Link to text file (bidirectional)
+            if let textFileId = sceneData.textFileId, let textFile = textFileMap[textFileId] {
+                scene.textFile = textFile
+                textFile.scene = scene
+            }
+            
+            sceneMap[sceneData.id] = scene
+            modelContext.insert(scene)
+        }
+        
+        // Feature 036: Import characters
+        for charData in data.characters ?? [] {
+            let character = Character(
+                name: charData.name,
+                role: charData.role,
+                archetype: charData.archetypeRaw.flatMap { CharacterArchetype(rawValue: $0) },
+                history: charData.history,
+                looks: charData.looks,
+                traits: charData.traits,
+                work: charData.work
+            )
+            character.id = generateNewUUIDs ? UUID() : (UUID(uuidString: charData.id) ?? UUID())
+            character.project = project
+            modelContext.insert(character)
+        }
+        
+        // Feature 036: Import locations
+        for locData in data.locations ?? [] {
+            let location = Location(
+                name: locData.name,
+                detail: locData.detail,
+                sights: locData.sights,
+                sounds: locData.sounds,
+                smells: locData.smells
+            )
+            location.id = generateNewUUIDs ? UUID() : (UUID(uuidString: locData.id) ?? UUID())
+            location.project = project
+            modelContext.insert(location)
         }
         
         // Import publications
@@ -209,7 +357,7 @@ class JSONImportService {
     }
     
     /// Import a folder from WSP format (recursive)
-    private func importWSPFolder(_ data: WSPFolderData, project: Project, parentFolder: Folder?, textFileMap: inout [String: TextFile], versionMap: inout [String: Version], proseSectionMap: [String: ProseSection]) -> Folder {
+    private func importWSPFolder(_ data: WSPFolderData, project: Project, parentFolder: Folder?, textFileMap: inout [String: TextFile], versionMap: inout [String: Version], proseSectionMap: [String: ProseSection], poetryCollectionMap: [String: PoetryCollection]) -> Folder {
         let folder = Folder(
             name: data.name,
             project: parentFolder == nil ? project : nil,
@@ -224,7 +372,7 @@ class JSONImportService {
         
         // Import text files
         for tfData in data.textFiles {
-            let textFile = importWSPTextFile(tfData, folder: folder, versionMap: &versionMap, proseSectionMap: proseSectionMap)
+            let textFile = importWSPTextFile(tfData, folder: folder, versionMap: &versionMap, proseSectionMap: proseSectionMap, poetryCollectionMap: poetryCollectionMap)
             textFileMap[tfData.id] = textFile
             modelContext.insert(textFile)
         }
@@ -232,14 +380,14 @@ class JSONImportService {
         // Import subfolders recursively - parent is already in context
         for subfolderData in data.subfolders {
             // Subfolder is inserted inside this recursive call, we don't insert it again here
-            _ = importWSPFolder(subfolderData, project: project, parentFolder: folder, textFileMap: &textFileMap, versionMap: &versionMap, proseSectionMap: proseSectionMap)
+            _ = importWSPFolder(subfolderData, project: project, parentFolder: folder, textFileMap: &textFileMap, versionMap: &versionMap, proseSectionMap: proseSectionMap, poetryCollectionMap: poetryCollectionMap)
         }
         
         return folder
     }
     
     /// Import a text file from WSP format
-    private func importWSPTextFile(_ data: WSPTextFileData, folder: Folder, versionMap: inout [String: Version], proseSectionMap: [String: ProseSection]) -> TextFile {
+    private func importWSPTextFile(_ data: WSPTextFileData, folder: Folder, versionMap: inout [String: Version], proseSectionMap: [String: ProseSection], poetryCollectionMap: [String: PoetryCollection]) -> TextFile {
         let textFile = TextFile()
         textFile.id = generateNewUUIDs ? UUID() : (UUID(uuidString: data.id) ?? UUID())
         textFile.name = data.name
@@ -255,6 +403,11 @@ class JSONImportService {
         // Link to prose section if specified
         if let sectionId = data.sectionId {
             textFile.section = proseSectionMap[sectionId]
+        }
+        
+        // Feature 036: Link to poetry collection if specified
+        if let collectionId = data.poetryCollectionId {
+            textFile.poetryCollection = poetryCollectionMap[collectionId]
         }
         
         // Set manuscript inclusion flag (default to true for backward compatibility)
@@ -1505,7 +1658,21 @@ class JSONImportService {
                     "Characters",
                     "Locations",
                     "Plot",
-                    "Collections",
+                    "Submissions",
+                    "Research",
+                    "Magazines",
+                    "Competitions",
+                    "Other",
+                    "Trash"
+                ]
+            } else if project.fictionClass == .verseNovel {
+                // Feature 036: Verse Novel — Books containing Episodes (poems)
+                folderNames = [
+                    "Books",
+                    "Episodes",
+                    "Characters",
+                    "Locations",
+                    "Plot",
                     "Submissions",
                     "Research",
                     "Magazines",
@@ -1521,7 +1688,6 @@ class JSONImportService {
                     "Characters",
                     "Locations",
                     "Plot",
-                    "Collections",
                     "Submissions",
                     "Research",
                     "Magazines",
@@ -1535,7 +1701,6 @@ class JSONImportService {
             // New Drama structure: single Scripts folder (workflow is on files)
             folderNames = [
                 "Scripts",
-                "Collections",
                 "Submissions",
                 "Research",
                 "Competitions",
@@ -1552,7 +1717,7 @@ class JSONImportService {
         }
         
         #if DEBUG
-        print("[JSONImport] Created \(folderNames.count) standard folders")
+        print("[JSONImport] Created \(folderNames.count) standard folders for \(project.type) project (fictionClass: \(project.fictionClass?.rawValue ?? "none"))")
         #endif
     }
     
