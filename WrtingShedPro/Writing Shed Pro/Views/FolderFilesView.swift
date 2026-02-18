@@ -124,6 +124,9 @@ struct FolderFilesView: View {
     @State var showCollectionPicker = false
     @State var filesToAssignToCollection: [TextFile] = []
     
+    // State for collection grouping expand/collapse (shared with FileListView)
+    @State var collectionExpandedSections: Set<String> = []
+    
     // State for early dismissal - prevents continued rendering during navigation
     @State var isDismissing = false
     
@@ -149,13 +152,15 @@ struct FolderFilesView: View {
             onFileSelected: handleFileSelected,
             onMove: (isProseProject && !isReadOnly) ? handleMove : nil,
             onDelete: isReadOnly ? { _ in } : deleteFiles,
-            onExport: isReadOnly ? nil : handleExport,
+            onExport: (isReadOnly || (isPoetryProject && isContentFolder)) ? nil : handleExport,
             onSubmit: fileListOnSubmit,
             onReorder: (!isReadOnly && isContentFolder) ? moveContentFiles : nil,
-            onRename: isReadOnly ? { _ in } : handleRename,
+            onRename: (isReadOnly || (isPoetryProject && isContentFolder)) ? nil : handleRename,
             onDeletePermanently: isReadOnly ? { _ in } : deleteFilesPermanently,
             onChangeStatus: (isContentFolder && !isReadOnly) ? handleChangeStatus : nil,
-            onAddToCollection: (isPoetryProject && isContentFolder && !isReadOnly) ? handleAddToCollection : nil
+            onAddToCollection: (isPoetryProject && isContentFolder && !isReadOnly) ? handleAddToCollection : nil,
+            collectionGroups: poetryCollectionGroups,
+            expandedCollections: $collectionExpandedSections
         )
     }
     
@@ -690,7 +695,8 @@ struct FolderFilesView: View {
         Spacer()
         
         // Submit button (only when files selected, no folders)
-        if filesOnlySelected {
+        // Hidden when all selected files are still in draft
+        if filesOnlySelected && selectedFiles.contains(where: { $0.workflowStatus != .draft }) {
             Button {
                 filesToSubmit = selectedFiles
                 showSubmissionPicker = true
@@ -937,7 +943,7 @@ struct FolderFilesView: View {
         }
     }
     
-    func createSubmission(for publication: Publication, name: String, expectedResponseDate: Date? = nil) {
+    func createSubmission(for publication: Publication, name: String, expectedResponseDate: Date? = nil, reminderDate: Date? = nil) {
         guard let project = folder.project else { return }
         
         // Create submission
@@ -950,6 +956,27 @@ struct FolderFilesView: View {
         submission.name = name
         submission.isCollection = false  // This is a submission to a publication
         submission.returnExpectedBy = expectedResponseDate
+        
+        // Schedule reminder notification if requested
+        if let reminderDate = reminderDate {
+            submission.reminderDate = reminderDate
+            let pubName = publication.name
+            let subName = name
+            Task {
+                let notifId = await NotificationReminderService.shared.scheduleSubmissionReminder(
+                    submissionId: UUID().uuidString,
+                    publicationName: pubName,
+                    submissionName: subName,
+                    reminderDate: reminderDate
+                )
+                if let notifId = notifId {
+                    await MainActor.run {
+                        submission.reminderNotificationId = notifId
+                    }
+                }
+            }
+        }
+        
         modelContext.insert(submission)
         
         // Create submitted file records for each selected file

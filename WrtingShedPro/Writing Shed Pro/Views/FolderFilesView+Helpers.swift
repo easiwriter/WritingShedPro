@@ -69,9 +69,50 @@ extension FolderFilesView {
 
     var supportsSubmissions: Bool {
         if isContentFolder {
-            return statusFilter == .ready
+            return isPoetryProject || statusFilter == .ready
         }
         return false
+    }
+
+    /// Collection groups for displaying poems arranged by collection (Poetry content folders only)
+    var poetryCollectionGroups: [CollectionGroup]? {
+        guard isPoetryProject && isContentFolder else { return nil }
+        guard let collections = folder.project?.poetryCollections, !collections.isEmpty else { return nil }
+        
+        let currentFiles = Set(sortedFiles.map { $0.id })
+        var groups: [CollectionGroup] = []
+        
+        // Sort collections by userOrder, then by name
+        let sortedCollections = collections.sorted {
+            let order0 = $0.userOrder ?? Int.max
+            let order1 = $1.userOrder ?? Int.max
+            if order0 != order1 { return order0 < order1 }
+            return ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending
+        }
+        
+        for collection in sortedCollections {
+            let collectionFiles = (collection.textFiles ?? []).filter { currentFiles.contains($0.id) }
+            if !collectionFiles.isEmpty {
+                groups.append(CollectionGroup(
+                    id: collection.id.uuidString,
+                    name: collection.name ?? NSLocalizedString("poetry.collection.unnamed", comment: "Unnamed"),
+                    files: collectionFiles
+                ))
+            }
+        }
+        
+        // Add unassigned poems
+        let assignedFileIDs = Set(groups.flatMap { $0.files.map { $0.id } })
+        let unassignedFiles = sortedFiles.filter { !assignedFileIDs.contains($0.id) }
+        if !unassignedFiles.isEmpty {
+            groups.append(CollectionGroup(
+                id: "__unassigned__",
+                name: NSLocalizedString("poetry.collection.unassigned", comment: "Unassigned"),
+                files: unassignedFiles
+            ))
+        }
+        
+        return groups.isEmpty ? nil : groups
     }
 
     var isMixedContentFolder: Bool {

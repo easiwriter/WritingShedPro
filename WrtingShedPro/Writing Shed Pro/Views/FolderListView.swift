@@ -42,7 +42,24 @@ struct FolderListView: View {
         let order = folderOrderForProjectType(project.type)
         
         // Filter to only top-level folders (no parent folder)
-        let topLevelFolders = loadedFolders.filter { $0.parentFolder == nil }
+        var topLevelFolders = loadedFolders.filter { $0.parentFolder == nil }
+        
+        // Hide redundant folders based on fiction class
+        if project.type == .fiction {
+            switch project.fictionClass {
+            case .verseNovel:
+                // Verse novels use Books/Episodes, not Chapters/Scenes
+                topLevelFolders = topLevelFolders.filter { ($0.name ?? "") != "Chapters" && ($0.name ?? "") != "Scenes" }
+            case .shortFiction:
+                // Short fiction uses Stories/Scenes, not Chapters
+                topLevelFolders = topLevelFolders.filter { ($0.name ?? "") != "Chapters" }
+            case .novel:
+                // Novels use Chapters/Scenes, not Stories/Books/Episodes
+                topLevelFolders = topLevelFolders.filter { ($0.name ?? "") != "Stories" && ($0.name ?? "") != "Books" && ($0.name ?? "") != "Episodes" }
+            default:
+                break
+            }
+        }
         
         // Sort folders by predefined order
         return topLevelFolders.sorted { folder1, folder2 in
@@ -71,12 +88,12 @@ struct FolderListView: View {
             ]
             
         case .poetry:
-            // Manuscript, Poems // Collections, Submissions, Research // Magazines, Competitions, Other // Trash
+            // Manuscript, Collections, Poems // Submissions, Research // Magazines, Competitions, Other // Trash
             return [
                 // Section 1: Primary Content
-                "Manuscript", "Poems",
+                "Manuscript", "Collections", "Poems",
                 // Section 2: Organization & Support
-                "Collections", "Submissions", "Research",
+                "Submissions", "Research",
                 // Section 3: Publications
                 "Magazines", "Competitions", "Other",
                 // Section 4: System
@@ -348,7 +365,7 @@ struct FolderListView: View {
                             // Special handling for Manuscript Body subfolder (Feature 029)
                             // Body folder is named "Body Matter" (new) or with "All" prefix (legacy)
                             let isManuscriptBodyFolder = selectedFolder?.name == "Manuscript" && 
-                                ["Body", "Body Matter", "All Acts", "All Poems", "All Sections", "All Chapters", "All Stories"].contains(subfolderName)
+                                ["Body", "Body Matter", "All Acts", "All Poems", "All Sections", "All Chapters", "All Stories", "All Books"].contains(subfolderName)
                             
                             if isManuscriptBodyFolder {
                                 NavigationLink(destination: BodyMatterView(project: project)) {
@@ -537,8 +554,8 @@ struct FolderListView: View {
                     project: project,
                     filesToSubmit: manuscriptFilesToSubmit,
                     collectionToSubmit: nil,
-                    onPublicationSelected: { publication, name, expectedDate in
-                        createManuscriptSubmission(for: publication, name: name, expectedResponseDate: expectedDate)
+                    onPublicationSelected: { publication, name, expectedDate, reminderDate in
+                        createManuscriptSubmission(for: publication, name: name, expectedResponseDate: expectedDate, reminderDate: reminderDate)
                         showSubmitManuscript = false
                     },
                     onCancel: {
@@ -576,7 +593,7 @@ struct FolderListView: View {
     }
     
     /// Create a Submission for manuscript body matter files
-    private func createManuscriptSubmission(for publication: Publication, name: String, expectedResponseDate: Date? = nil) {
+    private func createManuscriptSubmission(for publication: Publication, name: String, expectedResponseDate: Date? = nil, reminderDate: Date? = nil) {
         let submission = Submission(
             publication: publication,
             project: project,
@@ -586,6 +603,27 @@ struct FolderListView: View {
         submission.name = name
         submission.isCollection = false
         submission.returnExpectedBy = expectedResponseDate
+        
+        // Schedule reminder notification if requested
+        if let reminderDate = reminderDate {
+            submission.reminderDate = reminderDate
+            let pubName = publication.name
+            let subName = name
+            Task {
+                let notifId = await NotificationReminderService.shared.scheduleSubmissionReminder(
+                    submissionId: UUID().uuidString,
+                    publicationName: pubName,
+                    submissionName: subName,
+                    reminderDate: reminderDate
+                )
+                if let notifId = notifId {
+                    await MainActor.run {
+                        submission.reminderNotificationId = notifId
+                    }
+                }
+            }
+        }
+        
         modelContext.insert(submission)
         
         for file in manuscriptFilesToSubmit {
@@ -811,6 +849,10 @@ struct FolderListView: View {
             return .competition
         case "Commissions":
             return .commission
+        case "Publishers":
+            return .publisher
+        case "Agents":
+            return .agent
         case "Other":
             return .other
         default:
@@ -837,7 +879,7 @@ struct FolderRowView: View {
     // Check if this is a publication folder
     private var isPublicationFolder: Bool {
         let name = folder.name ?? ""
-        return ["Magazines", "Competitions", "Commissions", "Other"].contains(name)
+        return ["Magazines", "Competitions", "Commissions", "Publishers", "Agents", "Other"].contains(name)
     }
     
     // Check if this is the Submissions folder
@@ -901,6 +943,12 @@ struct FolderRowView: View {
         return name == "Sections" && folder.project?.type == .prose
     }
     
+    // Check if this is the Collections folder (poetry projects only)
+    private var isCollectionsFolder: Bool {
+        let name = folder.name ?? ""
+        return name == "Collections" && folder.project?.type == .poetry
+    }
+    
     // Get plot element count for Plot folder
     private var plotElementCount: Int {
         guard isPlotFolder, let project = folder.project else { return 0 }
@@ -943,6 +991,12 @@ struct FolderRowView: View {
         return project.sections?.count ?? 0
     }
     
+    // Get collection count for Collections folder (poetry)
+    private var collectionCount: Int {
+        guard isCollectionsFolder, let project = folder.project else { return 0 }
+        return project.poetryCollections?.count ?? 0
+    }
+    
     // Get submission count for Submissions folder
     private var submissionCount: Int {
         guard isSubmissionsFolder, let project = folder.project else { return 0 }
@@ -966,6 +1020,10 @@ struct FolderRowView: View {
             publicationType = .competition
         case "Commissions":
             publicationType = .commission
+        case "Publishers":
+            publicationType = .publisher
+        case "Agents":
+            publicationType = .agent
         case "Other":
             publicationType = .other
         default:
@@ -1008,6 +1066,8 @@ struct FolderRowView: View {
             count = chapterCount
         } else if isSectionsFolder {
             count = sectionCount
+        } else if isCollectionsFolder {
+            count = collectionCount
         } else if isAllFolder {
             count = fileCount
         } else if isTrashFolder {

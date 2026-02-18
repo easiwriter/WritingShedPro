@@ -18,6 +18,11 @@ class Publication {
     var notes: String?
     var deadline: Date?
     
+    /// Optional reminder: the date/time to fire a local notification for the deadline
+    var reminderDate: Date?
+    /// The local notification identifier, used to cancel/update the notification
+    var reminderNotificationId: String?
+    
     var project: Project?
     
     @Relationship(deleteRule: .cascade, inverse: \Submission.publication)

@@ -23,6 +23,9 @@ struct PublicationFormView: View {
     @State private var hasDeadline: Bool = false
     @State private var deadline: Date = Date().addingTimeInterval(86400 * 30) // 30 days default
     @State private var notes: String = ""
+    @State private var setReminder: Bool = false
+    @State private var reminderDate: Date = Date()
+    @State private var showReminderPermissionAlert = false
     
     @State private var showingError = false
     @State private var errorMessage = ""
@@ -81,6 +84,23 @@ struct PublicationFormView: View {
                             displayedComponents: .date
                         )
                         .labelsHidden()
+                        .onChange(of: deadline) { _, newDate in
+                            let dayBefore = Calendar.current.date(byAdding: .day, value: -1, to: newDate) ?? newDate
+                            reminderDate = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: dayBefore) ?? dayBefore
+                        }
+                        
+                        Toggle(isOn: $setReminder) {
+                            Label(NSLocalizedString("reminder.set", comment: "Set Reminder"), systemImage: "bell")
+                        }
+                        
+                        if setReminder {
+                            DatePicker(
+                                NSLocalizedString("reminder.date.label", comment: "Reminder Date"),
+                                selection: $reminderDate,
+                                in: Date()...,
+                                displayedComponents: [.date, .hourAndMinute]
+                            )
+                        }
                     }
                 } header: {
                     Text(NSLocalizedString("publications.form.deadline.label", comment: "Deadline label"))
@@ -159,6 +179,11 @@ struct PublicationFormView: View {
             .onAppear {
                 loadPublication()
             }
+            .alert(NSLocalizedString("reminder.permission.title", comment: "Notifications Disabled"), isPresented: $showReminderPermissionAlert) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(NSLocalizedString("reminder.permission.message", comment: "Please enable notifications in Settings"))
+            }
         }
     }
     
@@ -176,9 +201,16 @@ struct PublicationFormView: View {
             hasDeadline = publication.hasDeadline
             deadline = publication.deadline ?? Date().addingTimeInterval(86400 * 30)
             notes = publication.notes ?? ""
+            setReminder = publication.reminderDate != nil
+            reminderDate = publication.reminderDate ?? {
+                let dayBefore = Calendar.current.date(byAdding: .day, value: -1, to: publication.deadline ?? Date()) ?? Date()
+                return Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: dayBefore) ?? dayBefore
+            }()
         } else {
             // Creating new publication - set default type for project
             selectedType = availableTypes.first ?? .other
+            let dayBefore = Calendar.current.date(byAdding: .day, value: -1, to: deadline) ?? deadline
+            reminderDate = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: dayBefore) ?? dayBefore
         }
     }
     
@@ -212,6 +244,9 @@ struct PublicationFormView: View {
             publication.deadline = hasDeadline ? deadline : nil
             publication.notes = trimmedNotes.isEmpty ? nil : trimmedNotes
             publication.modifiedDate = Date()
+            
+            // Handle reminder
+            scheduleOrCancelReminder(for: publication)
         } else {
             // Create new
             let newPublication = Publication(
@@ -223,9 +258,63 @@ struct PublicationFormView: View {
                 project: project
             )
             modelContext.insert(newPublication)
+            
+            // Handle reminder for new publication
+            if hasDeadline && setReminder {
+                newPublication.reminderDate = reminderDate
+                let pubName = finalName
+                let remDate = reminderDate
+                Task {
+                    let granted = await NotificationReminderService.shared.requestPermission()
+                    guard granted else { return }
+                    let notifId = await NotificationReminderService.shared.scheduleDeadlineReminder(
+                        publicationId: UUID().uuidString,
+                        publicationName: pubName,
+                        reminderDate: remDate
+                    )
+                    if let notifId = notifId {
+                        await MainActor.run {
+                            newPublication.reminderNotificationId = notifId
+                        }
+                    }
+                }
+            }
         }
         
         dismiss()
+    }
+    
+    private func scheduleOrCancelReminder(for publication: Publication) {
+        // Cancel existing reminder if any
+        if let existingId = publication.reminderNotificationId {
+            NotificationReminderService.shared.cancelReminder(notificationId: existingId)
+            publication.reminderNotificationId = nil
+        }
+        
+        if hasDeadline && setReminder {
+            publication.reminderDate = reminderDate
+            let pubName = publication.name
+            let remDate = reminderDate
+            Task {
+                let granted = await NotificationReminderService.shared.requestPermission()
+                guard granted else {
+                    await MainActor.run { showReminderPermissionAlert = true }
+                    return
+                }
+                let notifId = await NotificationReminderService.shared.scheduleDeadlineReminder(
+                    publicationId: UUID().uuidString,
+                    publicationName: pubName,
+                    reminderDate: remDate
+                )
+                if let notifId = notifId {
+                    await MainActor.run {
+                        publication.reminderNotificationId = notifId
+                    }
+                }
+            }
+        } else {
+            publication.reminderDate = nil
+        }
     }
     
     private func hasDuplicateName(_ name: String) -> Bool {

@@ -67,6 +67,10 @@ struct FileListView: View {
     /// Called when user wants to add files to a poetry collection (optional - only for Poetry content folders)
     let onAddToCollection: (([TextFile]) -> Void)?
     
+    /// Optional: Collection groups for displaying files grouped by collection (Poetry projects)
+    /// When provided, a toggle button appears in the toolbar to switch between flat and collection-grouped views
+    let collectionGroups: [CollectionGroup]?
+    
     // MARK: - State
     
     /// Edit mode state - read from environment (set by parent view with EditButton)
@@ -92,6 +96,9 @@ struct FileListView: View {
     
     /// Tracks the most recently opened section for quick return
     @State private var lastOpenedSection: String?
+    
+    /// Tracks which collection sections are expanded (bound from parent)
+    @Binding var expandedCollections: Set<String>
     
     /// Feature 021: Poetry form picker for changing form
     @State private var showPoetryFormPicker = false
@@ -149,15 +156,40 @@ struct FileListView: View {
     /// Never use sections when reordering is enabled — drag-to-reorder
     /// requires a flat ForEach with .onMove, and cross-section drag
     /// doesn't make sense for user-ordered content folders.
+    /// Disabled when collection grouping is active.
     private var useSections: Bool {
-        onReorder == nil && uniqueFiles.count > 15
+        !useCollectionGrouping && onReorder == nil && uniqueFiles.count > 15
+    }
+    
+    /// Whether collection grouping is currently active (always on when data exists)
+    private var useCollectionGrouping: Bool {
+        collectionGroups != nil && !(collectionGroups?.isEmpty ?? true)
     }
     
     // MARK: - Body
     
     var body: some View {
         List {
-            if useSections {
+            if useCollectionGrouping, let groups = collectionGroups {
+                // Show files grouped by collection (Poetry projects)
+                ForEach(groups) { group in
+                    Section {
+                        if expandedCollections.contains(group.id) {
+                            ForEach(group.files) { file in
+                                fileRow(for: file)
+                                    .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                        if !isEditMode {
+                                            swipeActionButtons(for: file)
+                                        }
+                                    }
+                            }
+                        }
+                    } header: {
+                        collectionSectionHeader(for: group)
+                    }
+                }
+            } else if useSections {
                 // Show alphabetical sections for long lists
                 ForEach(sections) { section in
                     Section {
@@ -193,7 +225,7 @@ struct FileListView: View {
         }
         .listStyle(.plain)
         .toolbar {
-            // Top toolbar for expand/collapse all button (only when using sections and not in edit mode)
+            // Top toolbar for alphabetical expand/collapse (only when using sections and not in edit mode)
             ToolbarItemGroup(placement: .topBarTrailing) {
                 if useSections && !isEditMode {
                     expandCollapseButtons
@@ -229,7 +261,11 @@ struct FileListView: View {
             Text(NSLocalizedString("fileList.deleteConfirmation.messageEnhanced", comment: "Delete moves to trash, Delete Forever is permanent"))
         }
         .onChange(of: editMode?.wrappedValue) { _, newValue in
-            if useSections {
+            if useCollectionGrouping, let groups = collectionGroups {
+                if newValue == .active {
+                    expandedCollections = Set(groups.map { $0.id })
+                }
+            } else if useSections {
                 if newValue == .active {
                     // Expand all sections when entering edit mode for easier multi-select
                     expandedSections = Set(sections.map { $0.letter })
@@ -249,7 +285,12 @@ struct FileListView: View {
             }
         }
         .onAppear {
-            if useSections {
+            if useCollectionGrouping, let groups = collectionGroups {
+                // Start with all collections expanded (like Prose sections)
+                if expandedCollections.isEmpty {
+                    expandedCollections = Set(groups.map { $0.id })
+                }
+            } else if useSections {
                 loadLastOpenedSection()
             }
         }
@@ -491,6 +532,51 @@ struct FileListView: View {
             "fileList.expandAll.hint"))
     }
     
+    /// Collection section header with name, count, and expand/collapse
+    @ViewBuilder
+    private func collectionSectionHeader(for group: CollectionGroup) -> some View {
+        let isExpanded = expandedCollections.contains(group.id)
+        
+        Button {
+            withAnimation {
+                if expandedCollections.contains(group.id) {
+                    expandedCollections.remove(group.id)
+                } else {
+                    expandedCollections.insert(group.id)
+                }
+            }
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                    .foregroundStyle(.secondary)
+                    .font(.body)
+                    .fontWeight(.semibold)
+                    .frame(width: 20)
+                
+                Image(systemName: "folder")
+                    .foregroundStyle(.secondary)
+                    .font(.title3)
+                
+                Text(group.name)
+                    .font(.title3)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.primary)
+                
+                Text("(\(group.count))")
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                
+                Spacer()
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text("\(group.name), \(group.count) files"))
+        .accessibilityHint(Text(isExpanded ?
+            NSLocalizedString("section.collapse.hint", comment: "Tap to collapse") :
+            NSLocalizedString("section.expand.hint", comment: "Tap to expand")))
+    }
+    
     /// Bottom toolbar content for edit mode
     @ViewBuilder
     private var bottomToolbarContent: some View {
@@ -505,39 +591,39 @@ struct FileListView: View {
                 )
             }
             .disabled(selectedFiles.isEmpty)
-            
-            Spacer()
         }
         
         // Add to Collection button (if onAddToCollection callback provided - Poetry projects)
+        // Hidden when all selected files are still in draft
         if let onAddToCollection = onAddToCollection {
-            Button {
-                onAddToCollection(selectedFiles)
-            } label: {
-                Label(
-                    NSLocalizedString("fileList.addToCollection", comment: "Add to Collection"),
-                    systemImage: "rectangle.stack.badge.plus"
-                )
+            if selectedFiles.contains(where: { $0.workflowStatus != .draft }) {
+                Button {
+                    onAddToCollection(selectedFiles)
+                } label: {
+                    Label(
+                        NSLocalizedString("fileList.addToCollection", comment: "Add to Collection"),
+                        systemImage: "doc.text"
+                    )
+                }
+                .disabled(selectedFiles.isEmpty)
             }
-            .disabled(selectedFiles.isEmpty)
-            
-            Spacer()
         }
         
         // Submit button (if onSubmit callback provided)
+        // Hidden when all selected files are still in draft
         if let onSubmit = onSubmit {
-            Button {
-                onSubmit(selectedFiles)
-                exitEditMode()
-            } label: {
-                Label(
-                    NSLocalizedString("fileList.submit", comment: "Submit files"),
-                    systemImage: "book.badge.plus"
-                )
+            if selectedFiles.contains(where: { $0.workflowStatus != .draft }) {
+                Button {
+                    onSubmit(selectedFiles)
+                    exitEditMode()
+                } label: {
+                    Label(
+                        NSLocalizedString("fileList.submit", comment: "Submit files"),
+                        systemImage: "paperplane"
+                    )
+                }
+                .disabled(selectedFiles.isEmpty)
             }
-            .disabled(selectedFiles.isEmpty)
-            
-            Spacer()
         }
         
         // Rename button (only when exactly 1 file is selected)
@@ -552,8 +638,6 @@ struct FileListView: View {
                 )
             }
             .accessibilityLabel("fileList.rename.accessibility")
-            
-            Spacer()
         }
         
         // Export button (if onExport callback provided)
@@ -569,9 +653,9 @@ struct FileListView: View {
             }
             .disabled(selectedFiles.isEmpty)
             .accessibilityLabel("Export selected files")
-            
-            Spacer()
         }
+        
+        Spacer()
         
         Button(role: .destructive) {
             prepareDelete(selectedFiles)
@@ -785,4 +869,15 @@ private struct SubmissionsButton: View {
             }
         }
     }
+}
+
+// MARK: - Collection Group
+
+/// Represents a group of files belonging to a poetry collection
+struct CollectionGroup: Identifiable {
+    let id: String
+    let name: String
+    let files: [TextFile]
+    
+    var count: Int { files.count }
 }

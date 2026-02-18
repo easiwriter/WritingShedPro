@@ -170,8 +170,8 @@ struct SubmissionsView: View {
                     project: project,
                     filesToSubmit: nil,
                     collectionToSubmit: nil,
-                    onPublicationSelected: { publication, name, expectedDate in
-                        submitSelectedToPublication(publication, name: name, expectedResponseDate: expectedDate)
+                    onPublicationSelected: { publication, name, expectedDate, reminderDate in
+                        submitSelectedToPublication(publication, name: name, expectedResponseDate: expectedDate, reminderDate: reminderDate)
                         showPublicationPicker = false
                     },
                     onCancel: {
@@ -184,7 +184,7 @@ struct SubmissionsView: View {
     
     // MARK: - Submit to Publication
     
-    private func submitSelectedToPublication(_ publication: Publication, name: String, expectedResponseDate: Date? = nil) {
+    private func submitSelectedToPublication(_ publication: Publication, name: String, expectedResponseDate: Date? = nil, reminderDate: Date? = nil) {
         let selectedSubmissions = sortedSubmissions.filter { selectedSubmissionIDs.contains($0.id) }
         
         for existingSubmission in selectedSubmissions {
@@ -199,6 +199,27 @@ struct SubmissionsView: View {
             newSubmission.name = name.isEmpty ? existingSubmission.name : name
             newSubmission.isCollection = false
             newSubmission.returnExpectedBy = expectedResponseDate
+            
+            // Schedule reminder notification if requested
+            if let reminderDate = reminderDate {
+                newSubmission.reminderDate = reminderDate
+                let pubName = publication.name
+                let subName = name.isEmpty ? (existingSubmission.name ?? "Submission") : name
+                Task {
+                    let notifId = await NotificationReminderService.shared.scheduleSubmissionReminder(
+                        submissionId: UUID().uuidString,
+                        publicationName: pubName,
+                        submissionName: subName,
+                        reminderDate: reminderDate
+                    )
+                    if let notifId = notifId {
+                        await MainActor.run {
+                            newSubmission.reminderNotificationId = notifId
+                        }
+                    }
+                }
+            }
+            
             modelContext.insert(newSubmission)
             
             // Copy all files from the existing submission

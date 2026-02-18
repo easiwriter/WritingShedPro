@@ -119,25 +119,20 @@ final class ManuscriptAssemblyService {
             .sorted { ($0.bodyMatterOrder ?? 0) < ($1.bodyMatterOrder ?? 0) }
         
         if !bodyCollections.isEmpty {
-            var sections: [ManuscriptSection] = []
-            for collection in bodyCollections {
-                let files = (collection.textFiles ?? [])
-                    .filter { $0.includedInManuscript }
-                    .sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
-                if !files.isEmpty {
-                    sections.append(ManuscriptSection(
-                        title: collection.name ?? NSLocalizedString("poetry.collection.untitled", comment: "Untitled"),
-                        sectionType: .body,
-                        sourceFolder: nil,
-                        files: files,
-                        level: 1
-                    ))
-                }
-            }
-            return sections
+            return collectionsToSections(bodyCollections)
         }
         
-        // Fallback: all poems from Poems folder (pre-migration projects)
+        // Fallback: all collections by userOrder (when none are explicitly marked for body matter)
+        let allCollections = (project.poetryCollections ?? [])
+            .sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+        if !allCollections.isEmpty {
+            let sections = collectionsToSections(allCollections)
+            if !sections.isEmpty {
+                return sections
+            }
+        }
+        
+        // Legacy fallback: all poems from Poems folder (pre-collection projects)
         guard let poemsFolder = project.folders?.first(where: { $0.name == "Poems" }) else {
             return []
         }
@@ -152,6 +147,26 @@ final class ManuscriptAssemblyService {
             files: files,
             level: 1
         )]
+    }
+    
+    /// Convert poetry collections to manuscript sections
+    private func collectionsToSections(_ collections: [PoetryCollection]) -> [ManuscriptSection] {
+        var sections: [ManuscriptSection] = []
+        for collection in collections {
+            let files = (collection.textFiles ?? [])
+                .filter { $0.includedInManuscript }
+                .sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+            if !files.isEmpty {
+                sections.append(ManuscriptSection(
+                    title: collection.name ?? NSLocalizedString("poetry.collection.untitled", comment: "Untitled"),
+                    sectionType: .body,
+                    sourceFolder: nil,
+                    files: files,
+                    level: 1
+                ))
+            }
+        }
+        return sections
     }
     
     /// Get body sections for Fiction projects

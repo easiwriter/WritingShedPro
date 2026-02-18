@@ -163,8 +163,8 @@ struct ActListView: View {
                     project: project,
                     filesToSubmit: filesToSubmit,
                     collectionToSubmit: nil,
-                    onPublicationSelected: { publication, name, expectedDate in
-                        createSubmission(for: publication, name: name, expectedResponseDate: expectedDate)
+                    onPublicationSelected: { publication, name, expectedDate, reminderDate in
+                        createSubmission(for: publication, name: name, expectedResponseDate: expectedDate, reminderDate: reminderDate)
                         showSubmissionPicker = false
                         exitEditMode()
                     },
@@ -339,7 +339,7 @@ struct ActListView: View {
     
     // MARK: - Submission Actions
     
-    private func createSubmission(for publication: Publication, name: String, expectedResponseDate: Date?) {
+    private func createSubmission(for publication: Publication, name: String, expectedResponseDate: Date?, reminderDate: Date? = nil) {
         // Create submission
         let submission = Submission(
             publication: publication,
@@ -350,6 +350,27 @@ struct ActListView: View {
         submission.name = name
         submission.isCollection = false
         submission.returnExpectedBy = expectedResponseDate
+        
+        // Schedule reminder notification if requested
+        if let reminderDate = reminderDate {
+            submission.reminderDate = reminderDate
+            let pubName = publication.name
+            let subName = name
+            Task {
+                let notifId = await NotificationReminderService.shared.scheduleSubmissionReminder(
+                    submissionId: UUID().uuidString,
+                    publicationName: pubName,
+                    submissionName: subName,
+                    reminderDate: reminderDate
+                )
+                if let notifId = notifId {
+                    await MainActor.run {
+                        submission.reminderNotificationId = notifId
+                    }
+                }
+            }
+        }
+        
         modelContext.insert(submission)
         
         // Create SubmittedFile records for each file

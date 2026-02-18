@@ -77,6 +77,10 @@ struct ProseListView: View {
     @State private var showImportError = false
     @State private var importErrorMessage = ""
     
+    /// Submission state
+    @State private var showSubmissionPicker = false
+    @State private var filesToSubmit: [TextFile] = []
+    
     /// Header/Footer editor state
     @State private var showHeaderFooterEditor = false
     @State private var showHeaderFooterWarning = false
@@ -241,6 +245,23 @@ struct ProseListView: View {
             }
             .sheet(isPresented: $showHeaderFooterEditor) {
                 headerFooterSheet
+            }
+            .sheet(isPresented: $showSubmissionPicker) {
+                NavigationStack {
+                    SubmissionPickerView(
+                        project: project,
+                        filesToSubmit: filesToSubmit,
+                        collectionToSubmit: nil,
+                        onPublicationSelected: { publication, name, expectedDate, reminderDate in
+                            createSubmission(for: publication, name: name, expectedResponseDate: expectedDate, reminderDate: reminderDate)
+                            showSubmissionPicker = false
+                            exitEditMode()
+                        },
+                        onCancel: {
+                            showSubmissionPicker = false
+                        }
+                    )
+                }
             }
             .alert(NSLocalizedString("headerFooter.notEnabled.title", comment: "Headers & Footers Not Enabled"), isPresented: $showHeaderFooterWarning) {
                 Button(NSLocalizedString("button.ok", comment: "OK"), role: .cancel) {}
@@ -642,6 +663,17 @@ struct ProseListView: View {
             .disabled(readyFiles.isEmpty)
         }
         
+        // Submit button — hidden when all selected files are still in draft
+        if selectedFiles.contains(where: { $0.workflowStatus != .draft }) {
+            Button {
+                filesToSubmit = selectedFiles
+                showSubmissionPicker = true
+            } label: {
+                Label(NSLocalizedString("submissions.button.submit", comment: "Submit"), systemImage: "paperplane")
+            }
+            .disabled(selectedFiles.isEmpty)
+        }
+        
         Spacer()
         
         Button(role: .destructive) {
@@ -857,6 +889,59 @@ struct ProseListView: View {
             editMode = .inactive
             selectedFileIDs.removeAll()
         }
+    }
+    
+    // MARK: - Submission Actions
+    
+    private func createSubmission(for publication: Publication, name: String, expectedResponseDate: Date?, reminderDate: Date? = nil) {
+        let submission = Submission(
+            publication: publication,
+            project: project,
+            submittedDate: Date(),
+            notes: nil
+        )
+        submission.name = name
+        submission.isCollection = false
+        submission.returnExpectedBy = expectedResponseDate
+        
+        // Schedule reminder notification if requested
+        if let reminderDate = reminderDate {
+            submission.reminderDate = reminderDate
+            let pubName = publication.name
+            let subName = name
+            Task {
+                let notifId = await NotificationReminderService.shared.scheduleSubmissionReminder(
+                    submissionId: UUID().uuidString,
+                    publicationName: pubName,
+                    submissionName: subName,
+                    reminderDate: reminderDate
+                )
+                if let notifId = notifId {
+                    await MainActor.run {
+                        submission.reminderNotificationId = notifId
+                    }
+                }
+            }
+        }
+        
+        modelContext.insert(submission)
+        
+        for file in filesToSubmit {
+            if let currentVersion = file.currentVersion {
+                let submittedFile = SubmittedFile(
+                    submission: submission,
+                    textFile: file,
+                    version: currentVersion,
+                    status: .pending,
+                    statusDate: Date(),
+                    project: project
+                )
+                modelContext.insert(submittedFile)
+            }
+        }
+        
+        try? modelContext.save()
+        filesToSubmit = []
     }
     
     private func prepareDelete(_ files: [TextFile]) {

@@ -116,6 +116,13 @@ struct AddPoetryCollectionSheet: View {
         )
         collection.project = project
         
+        // Auto-add to Body Matter so it appears in manuscript assembly
+        collection.isInBodyMatter = true
+        let existingBodyOrders = (project.poetryCollections ?? [])
+            .filter { $0.isInBodyMatter }
+            .compactMap { $0.bodyMatterOrder }
+        collection.bodyMatterOrder = (existingBodyOrders.max() ?? -1) + 1
+        
         modelContext.insert(collection)
         
         do {

@@ -12,7 +12,14 @@ final class ManuscriptAssemblyServiceTests: XCTestCase {
         // Create in-memory model container for testing
         let schema = Schema([
             Project.self, Folder.self, TextFile.self, Version.self,
-            Chapter.self, StoryScene.self
+            TrashItem.self, StyleSheet.self, TextStyleModel.self,
+            PageSetup.self, PrinterPaper.self,
+            Publication.self, Submission.self, SubmittedFile.self,
+            CommentModel.self, FootnoteModel.self, PoetryFormModel.self,
+            StoryScene.self, Chapter.self, Character.self, Location.self,
+            CustomAttribute.self, PlotElement.self,
+            Act.self, ProseSection.self,
+            PoetryCollection.self, Book.self
         ])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         modelContainer = try! ModelContainer(for: schema, configurations: config)
@@ -166,7 +173,7 @@ final class ManuscriptAssemblyServiceTests: XCTestCase {
         XCTAssertEqual(subfolders.count, 3, "Should have 3 subfolders")
         XCTAssertTrue(subfolderNames.contains("Front Matter"))
         // Body folder name is now project-type specific (e.g., "All Poems" for poetry)
-        XCTAssertTrue(subfolderNames.contains("All Poems"), "Poetry project should have 'All Poems' body folder")
+        XCTAssertTrue(subfolderNames.contains("Body Matter"), "Poetry project should have 'Body Matter' body folder")
         XCTAssertTrue(subfolderNames.contains("Back Matter"))
     }
     

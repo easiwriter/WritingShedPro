@@ -16,6 +16,9 @@ struct PublicationDetailView: View {
     
     @State private var showingEditSheet = false
     @State private var showingAddSubmissionSheet = false
+    @State private var showReminderPicker = false
+    @State private var reminderDate = Date()
+    @State private var showReminderPermissionAlert = false
     
     var body: some View {
         NavigationStack {
@@ -61,6 +64,61 @@ struct PublicationDetailView: View {
                                 .foregroundStyle(deadlineColor)
                             }
                         }
+                    }
+                }
+                
+                // Reminder section (only when deadline exists)
+                if publication.hasDeadline {
+                    Section {
+                        if let existingReminder = publication.reminderDate {
+                            LabeledContent(NSLocalizedString("reminder.scheduled.label", comment: "Reminder")) {
+                                Text(existingReminder, style: .date)
+                            }
+                            
+                            Button {
+                                reminderDate = existingReminder
+                                showReminderPicker = true
+                            } label: {
+                                Label(NSLocalizedString("reminder.change", comment: "Change Reminder"), systemImage: "bell.badge")
+                            }
+                            
+                            Button(role: .destructive) {
+                                cancelDeadlineReminder()
+                            } label: {
+                                Label(NSLocalizedString("reminder.remove", comment: "Remove Reminder"), systemImage: "bell.slash")
+                            }
+                        } else if showReminderPicker {
+                            DatePicker(
+                                NSLocalizedString("reminder.date.label", comment: "Reminder Date"),
+                                selection: $reminderDate,
+                                in: Date()...,
+                                displayedComponents: [.date, .hourAndMinute]
+                            )
+                            
+                            HStack {
+                                Button(NSLocalizedString("button.cancel", comment: "Cancel")) {
+                                    showReminderPicker = false
+                                }
+                                Spacer()
+                                Button(NSLocalizedString("reminder.save", comment: "Save Reminder")) {
+                                    scheduleDeadlineReminder()
+                                }
+                                .fontWeight(.semibold)
+                            }
+                        } else {
+                            Button {
+                                if let deadline = publication.deadline {
+                                    // Default to 1 day before deadline at 9am
+                                    let dayBefore = Calendar.current.date(byAdding: .day, value: -1, to: deadline) ?? deadline
+                                    reminderDate = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: dayBefore) ?? dayBefore
+                                }
+                                showReminderPicker = true
+                            } label: {
+                                Label(NSLocalizedString("reminder.set", comment: "Set Reminder"), systemImage: "bell")
+                            }
+                        }
+                    } header: {
+                        Text(NSLocalizedString("reminder.section.title", comment: "Reminder"))
                     }
                 }
                 
@@ -118,6 +176,11 @@ struct PublicationDetailView: View {
                     .accessibilityHint(Text(NSLocalizedString("accessibility.edit.publication.hint", comment: "Edit hint")))
                 }
             }
+            .alert(NSLocalizedString("reminder.permission.title", comment: "Notifications Disabled"), isPresented: $showReminderPermissionAlert) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(NSLocalizedString("reminder.permission.message", comment: "Please enable notifications in Settings"))
+            }
             .sheet(isPresented: $showingEditSheet) {
                 if let project = publication.project {
                     PublicationFormView(project: project, publication: publication)
@@ -129,6 +192,41 @@ struct PublicationDetailView: View {
                 }
             }
         }
+    }
+    
+    // MARK: - Reminders
+    
+    private func scheduleDeadlineReminder() {
+        Task {
+            let granted = await NotificationReminderService.shared.requestPermission()
+            guard granted else {
+                await MainActor.run {
+                    showReminderPermissionAlert = true
+                    showReminderPicker = false
+                }
+                return
+            }
+            
+            let notificationId = await NotificationReminderService.shared.scheduleDeadlineReminder(
+                publicationId: publication.persistentModelID.hashValue.description,
+                publicationName: publication.name,
+                reminderDate: reminderDate
+            )
+            
+            await MainActor.run {
+                publication.reminderDate = reminderDate
+                publication.reminderNotificationId = notificationId
+                showReminderPicker = false
+            }
+        }
+    }
+    
+    private func cancelDeadlineReminder() {
+        if let notificationId = publication.reminderNotificationId {
+            NotificationReminderService.shared.cancelReminder(notificationId: notificationId)
+        }
+        publication.reminderDate = nil
+        publication.reminderNotificationId = nil
     }
     
     private var deadlineIcon: String {

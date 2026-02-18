@@ -14,7 +14,7 @@ struct SubmissionPickerView: View {
     let project: Project
     let filesToSubmit: [TextFile]?
     let collectionToSubmit: Submission?
-    let onPublicationSelected: (Publication, String, Date?) -> Void  // Includes submission name and optional expected response date
+    let onPublicationSelected: (Publication, String, Date?, Date?) -> Void  // Includes submission name, optional expected response date, and optional reminder date
     let onCancel: () -> Void
     
     @Query private var allPublications: [Publication]
@@ -23,6 +23,8 @@ struct SubmissionPickerView: View {
     @State private var selectedPublication: Publication? = nil
     @State private var setExpectedResponseDate: Bool = false
     @State private var expectedResponseDate: Date = Calendar.current.date(byAdding: .month, value: 3, to: Date()) ?? Date()
+    @State private var setReminder: Bool = false
+    @State private var reminderDate: Date = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Calendar.current.date(byAdding: .month, value: 3, to: Date()) ?? Date()) ?? Date()
     
     // Filter publications for this project
     private var projectPublications: [Publication] {
@@ -76,6 +78,22 @@ struct SubmissionPickerView: View {
                         in: Date()...,
                         displayedComponents: .date
                     )
+                    .onChange(of: expectedResponseDate) { _, newDate in
+                        reminderDate = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: newDate) ?? newDate
+                    }
+                    
+                    Toggle(isOn: $setReminder) {
+                        Label(NSLocalizedString("reminder.set", comment: "Set Reminder"), systemImage: "bell")
+                    }
+                    
+                    if setReminder {
+                        DatePicker(
+                            NSLocalizedString("reminder.date.label", comment: "Reminder Date"),
+                            selection: $reminderDate,
+                            in: Date()...,
+                            displayedComponents: [.date, .hourAndMinute]
+                        )
+                    }
                 }
             } header: {
                 Text(NSLocalizedString("submissions.response.section", comment: "Response"))
@@ -97,7 +115,8 @@ struct SubmissionPickerView: View {
                         Button(action: {
                             let name = submissionName.trimmingCharacters(in: .whitespaces).isEmpty ? defaultSubmissionName : submissionName.trimmingCharacters(in: .whitespaces)
                             let expectedDate = setExpectedResponseDate ? expectedResponseDate : nil
-                            onPublicationSelected(publication, name, expectedDate)
+                            let reminder = (setExpectedResponseDate && setReminder) ? reminderDate : nil
+                            onPublicationSelected(publication, name, expectedDate, reminder)
                         }) {
                             HStack {
                                 Text(publication.type?.icon ?? "")
@@ -163,7 +182,8 @@ struct SubmissionPickerView: View {
                         showingNewPublicationSheet = false
                         let name = submissionName.trimmingCharacters(in: .whitespaces).isEmpty ? defaultSubmissionName : submissionName.trimmingCharacters(in: .whitespaces)
                         let expectedDate = setExpectedResponseDate ? expectedResponseDate : nil
-                        onPublicationSelected(publication, name, expectedDate)
+                        let reminder = (setExpectedResponseDate && setReminder) ? reminderDate : nil
+                        onPublicationSelected(publication, name, expectedDate, reminder)
                     },
                     onCancel: {
                         showingNewPublicationSheet = false

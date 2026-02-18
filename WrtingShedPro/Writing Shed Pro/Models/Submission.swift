@@ -31,6 +31,11 @@ class Submission {
     var returnedOn: Date?  // When response was actually received
     var notes: String?
     
+    /// Optional reminder: the date/time to fire a local notification
+    var reminderDate: Date?
+    /// The local notification identifier, used to cancel/update the notification
+    var reminderNotificationId: String?
+    
     var createdDate: Date = Date()
     var modifiedDate: Date = Date()
     

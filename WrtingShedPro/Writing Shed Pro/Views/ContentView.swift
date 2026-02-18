@@ -22,11 +22,8 @@ struct ContentView: View {
     }
     
     /// Run data migrations for new features
-    /// DISABLED: MigrationService was breaking CloudKit sync
     private func runMigrations() {
-        // Task(priority: .utility) {
-        //     MigrationService.runMigrations(context: modelContext)
-        // }
+        MigrationService.runMigrations(context: modelContext)
     }
     
     /// Prefetch project relationships async to warm up Swift type system

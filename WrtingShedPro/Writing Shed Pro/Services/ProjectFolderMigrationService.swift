@@ -412,31 +412,17 @@ struct ProjectFolderMigrationService {
                 #endif
                 
                 // Determine the correct body folder name based on project type
-                // Uses "All" prefix to distinguish from root-level content folders
-                let correctBodyName: String
-                switch project.type {
-                case .drama:
-                    correctBodyName = "All Acts"
-                case .poetry:
-                    correctBodyName = "All Poems"
-                case .prose:
-                    correctBodyName = "All Sections"
-                case .fiction:
-                    if project.fictionClass == .shortFiction {
-                        correctBodyName = "All Stories"
-                    } else {
-                        correctBodyName = "All Chapters"
-                    }
-                }
+                // Feature 036: All project types now use "Body Matter"
+                let correctBodyName = "Body Matter"
                 
                 #if DEBUG
                 print("[ProjectFolderMigration]   Correct body name for this project: '\(correctBodyName)'")
                 #endif
                 
                 // Folder names that should ONLY exist inside Manuscript (not at root level)
-                // Includes all variations of Body, Front Matter, Back Matter and "All X" folders
+                // Includes all variations of Body, Front Matter, Back Matter and legacy "All X" folders
                 let manuscriptOnlyNames: Set<String> = [
-                    "Body", "Front Matter", "Back Matter",
+                    "Body", "Body Matter", "Front Matter", "Back Matter",
                     "All Acts", "All Poems", "All Sections", "All Chapters", "All Stories",
                     "Acts", "Poems", "Sections", "Chapters", "Stories"
                 ]
@@ -444,7 +430,7 @@ struct ProjectFolderMigrationService {
                 // Old body folder names (without "All" prefix) that should be renamed inside Manuscript
                 let oldBodyFolderNames: Set<String> = ["Acts", "Poems", "Sections", "Chapters", "Stories"]
                 
-                // All valid "All X" body folder names
+                // Legacy "All X" body folder names that should be renamed to "Body Matter"
                 let allBodyFolderNames: Set<String> = ["All Acts", "All Poems", "All Sections", "All Chapters", "All Stories"]
                 
                 var madeChanges = false
@@ -549,18 +535,19 @@ struct ProjectFolderMigrationService {
                         subfolder.name = correctBodyName
                         subfolder.userOrder = 1
                         madeChanges = true
+                    } else if allBodyFolderNames.contains(name) {
+                        // This is a legacy "All X" body folder — rename to "Body Matter"
+                        #if DEBUG
+                        print("[ProjectFolderMigration]   Renaming '\(name)' to '\(correctBodyName)'")
+                        #endif
+                        subfolder.name = correctBodyName
+                        subfolder.userOrder = 1
+                        madeChanges = true
                     } else if name == correctBodyName {
-                        // This is the correct body type for this project
-                        // Skip - we already found and will keep this one in the first pass
+                        // Already correct — keep as-is
                         #if DEBUG
                         print("[ProjectFolderMigration]   Keeping '\(correctBodyName)'")
                         #endif
-                    } else if allBodyFolderNames.contains(name) && name != correctBodyName {
-                        // This is an "All X" body folder that's WRONG for this project - delete it
-                        #if DEBUG
-                        print("[ProjectFolderMigration]   Marking '\(name)' for deletion (wrong body type for \(project.type.rawValue))")
-                        #endif
-                        foldersToDelete.append(subfolder)
                     }
                     // Other folders (not manuscript-related) are left alone
                 }
@@ -645,11 +632,19 @@ struct ProjectFolderMigrationService {
                     requiredFolders = [("Sections", 1), ("Prose", 2)]
                     
                 case .fiction:
-                    // Fiction needs: Chapters or Stories (based on fictionClass), Scenes, Characters, Locations, Plot
+                    // Fiction needs: Chapters/Stories/Books (based on fictionClass), Scenes/Episodes, Characters, Locations, Plot
                     if project.fictionClass == .shortFiction {
                         requiredFolders = [
                             ("Stories", 1),
                             ("Scenes", 2),
+                            ("Characters", 3),
+                            ("Locations", 4),
+                            ("Plot", 5)
+                        ]
+                    } else if project.fictionClass == .verseNovel {
+                        requiredFolders = [
+                            ("Books", 1),
+                            ("Episodes", 2),
                             ("Characters", 3),
                             ("Locations", 4),
                             ("Plot", 5)
@@ -722,21 +717,8 @@ struct ProjectFolderMigrationService {
             
             for project in projects {
                 // Determine the correct body folder name for this project type
-                let correctBodyName: String
-                switch project.type {
-                case .drama:
-                    correctBodyName = "All Acts"
-                case .poetry:
-                    correctBodyName = "All Poems"
-                case .prose:
-                    correctBodyName = "All Sections"
-                case .fiction:
-                    if project.fictionClass == .shortFiction {
-                        correctBodyName = "All Stories"
-                    } else {
-                        correctBodyName = "All Chapters"
-                    }
-                }
+                // Feature 036: All project types now use "Body Matter"
+                let correctBodyName = "Body Matter"
                 
                 // Find Manuscript folder
                 guard let manuscriptFolder = project.folders?.first(where: { 

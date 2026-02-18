@@ -59,7 +59,7 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
         // Then: Root folders are accessible directly from project
         // Note: Manuscript subfolders are NOT in project.folders - they're linked via parentFolder only
         // This is by design for CloudKit sync (see ProjectTemplateService line 97)
-        XCTAssertEqual(projectFolders.count, 10, "Prose project should have 10 root folders")
+        XCTAssertEqual(projectFolders.count, 9, "Prose project should have 9 root folders")
         
         for folder in projectFolders {
             XCTAssertNotNil(folder.name, "Folder should have name")
@@ -114,7 +114,7 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
         
         // Then: Each has its own folder structure
         XCTAssertEqual(poetryRootFolders.count, 9, "Poetry project should have 9 root folders")
-        XCTAssertEqual(proseRootFolders.count, 10, "Prose project should have 10 root folders")
+        XCTAssertEqual(proseRootFolders.count, 9, "Prose project should have 9 root folders")
         
         // Verify type-specific folders
         let poetryFolderNames = Set(poetryRootFolders.compactMap { $0.name })
@@ -174,7 +174,7 @@ final class ProjectTemplateIntegrationTests: XCTestCase {
             if folder.name == "Manuscript" {
                 XCTAssertEqual(folder.folders?.count ?? 0, 3, "Manuscript should have 3 subfolders")
                 let subfolderNames = Set(folder.folders?.compactMap { $0.name } ?? [])
-                XCTAssertEqual(subfolderNames, ["Front Matter", "All Poems", "Back Matter"], "Manuscript subfolders should match spec for poetry project")
+                XCTAssertEqual(subfolderNames, ["Front Matter", "Body Matter", "Back Matter"], "Manuscript subfolders should match spec for poetry project")
             } else {
                 XCTAssertEqual(folder.folders?.count ?? 0, 0, "\(folder.name ?? "unknown") should have no subfolders")
             }

@@ -111,19 +111,8 @@ class MigrationService {
             }
 
             // Determine the correct body folder name for this project type
-            // Uses "All" prefix to distinguish from root-level content folders
-            let bodyFolderName: String
-            switch project.type {
-            case .drama:
-                bodyFolderName = "All Acts"
-            case .poetry:
-                bodyFolderName = "All Poems"
-            case .prose:
-                bodyFolderName = "All Sections"
-            case .fiction:
-                // Use fictionClass to determine folder name
-                bodyFolderName = project.fictionClass == .shortFiction ? "All Stories" : "All Chapters"
-            }
+            // Feature 036: All project types now use "Body Matter"
+            let bodyFolderName = "Body Matter"
 
             // Check which subfolders already exist
             let existingSubfolders = manuscriptFolder.folders ?? []
@@ -131,15 +120,15 @@ class MigrationService {
             let existingNames = Set(existingSubfolders.compactMap { $0.name })
             let missingNames = requiredNames.subtracting(existingNames)
             
-            // Delete any "Body" folder if it exists (we now use project-type-specific names with "All" prefix)
+            // Delete any "Body" folder if it exists (we now use "Body Matter" for all project types)
             // Also delete any wrong body type folders (old names without "All" prefix)
             let oldBodyFolderNames: Set<String> = ["Body", "Acts", "Poems", "Sections", "Chapters", "Stories"]
-            let allBodyFolderNames: Set<String> = ["All Acts", "All Poems", "All Sections", "All Chapters", "All Stories"]
+            let legacyAllBodyNames: Set<String> = ["All Acts", "All Poems", "All Sections", "All Chapters", "All Stories", "All Books"]
             let wrongBodyFolders = existingSubfolders.filter { folder in
                 guard let name = folder.name else { return false }
-                // Delete if it's an old body folder name OR wrong "All X" name for this project
+                // Delete if it's an old body folder name OR legacy "All X" name
                 if oldBodyFolderNames.contains(name) { return true }
-                return allBodyFolderNames.contains(name) && name != bodyFolderName
+                return legacyAllBodyNames.contains(name)
             }
             
             for folder in wrongBodyFolders {
@@ -219,12 +208,8 @@ class MigrationService {
     /// - Removes Collections folder from non-Poetry projects
     /// - Repositions Collections folder in Poetry projects
     static func migrateFeature036(context: ModelContext) {
-        guard !UserDefaults.standard.bool(forKey: feature036MigrationKey) else {
-            #if DEBUG
-            print("✅ [MigrationService] Feature 036 migration already completed, skipping")
-            #endif
-            return
-        }
+        // Migration is idempotent — each sub-function checks if work is needed.
+        // No UserDefaults guard so that newly synced projects get migrated too.
         
         #if DEBUG
         print("🔄 [MigrationService] Starting Feature 036 migration...")

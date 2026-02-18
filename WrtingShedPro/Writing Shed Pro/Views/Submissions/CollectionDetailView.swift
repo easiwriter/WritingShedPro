@@ -170,8 +170,8 @@ struct CollectionDetailView: View {
                         project: project,
                         filesToSubmit: nil,
                         collectionToSubmit: submission,
-                        onPublicationSelected: { publication, name, expectedDate in
-                            createSubmissionFromCollection(to: publication, name: name, expectedResponseDate: expectedDate)
+                        onPublicationSelected: { publication, name, expectedDate, reminderDate in
+                            createSubmissionFromCollection(to: publication, name: name, expectedResponseDate: expectedDate, reminderDate: reminderDate)
                             showSubmissionPicker = false
                         },
                         onCancel: {
@@ -250,7 +250,7 @@ struct CollectionDetailView: View {
         }
     }
     
-    private func createSubmissionFromCollection(to publication: Publication, name: String, expectedResponseDate: Date? = nil) {
+    private func createSubmissionFromCollection(to publication: Publication, name: String, expectedResponseDate: Date? = nil, reminderDate: Date? = nil) {
         guard let project = submission.project else { return }
         
         // Create new Submission as Publication Submission
@@ -263,6 +263,26 @@ struct CollectionDetailView: View {
         pubSubmission.collectionDescription = submission.collectionDescription
         pubSubmission.isCollection = false  // This is a submission to publication, not a collection
         pubSubmission.returnExpectedBy = expectedResponseDate
+        
+        // Schedule reminder notification if requested
+        if let reminderDate = reminderDate {
+            pubSubmission.reminderDate = reminderDate
+            let pubName = publication.name
+            let subName = name.isEmpty ? (submission.name ?? "Submission") : name
+            Task {
+                let notifId = await NotificationReminderService.shared.scheduleSubmissionReminder(
+                    submissionId: UUID().uuidString,
+                    publicationName: pubName,
+                    submissionName: subName,
+                    reminderDate: reminderDate
+                )
+                if let notifId = notifId {
+                    await MainActor.run {
+                        pubSubmission.reminderNotificationId = notifId
+                    }
+                }
+            }
+        }
         
         // Copy SubmittedFiles from Collection with preserved versions
         let copiedFiles = (submission.submittedFiles ?? []).map { original in

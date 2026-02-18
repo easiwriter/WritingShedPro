@@ -28,6 +28,11 @@ extension FolderFilesView {
             
             // Hide all other buttons for Front/Back Matter folders (except Edit for reordering)
             if !isMatterFolder {
+                // Collection expand/collapse button (Poetry content folders with collections)
+                if isPoetryProject && isContentFolder && poetryCollectionGroups != nil {
+                    collectionExpandCollapseToolbarButton
+                }
+                
                 if !sortedFiles.isEmpty {
                     Button {
                         showSearchView = true
@@ -102,5 +107,28 @@ extension FolderFilesView {
                 }
             }
         }
+    }
+    
+    /// Expand/Collapse all button for collection-grouped view in Poetry content folders
+    @ViewBuilder
+    var collectionExpandCollapseToolbarButton: some View {
+        let groups = poetryCollectionGroups ?? []
+        let allExpanded = collectionExpandedSections.count == groups.count
+        
+        Button {
+            withAnimation {
+                if allExpanded {
+                    collectionExpandedSections.removeAll()
+                } else {
+                    collectionExpandedSections = Set(groups.map { $0.id })
+                }
+            }
+        } label: {
+            Image(systemName: allExpanded ? "chevron.up.circle" : "chevron.down.circle")
+        }
+        .disabled(editMode == .active)
+        .accessibilityLabel(Text(allExpanded ?
+            NSLocalizedString("fileList.collapseAll", comment: "Collapse all") :
+            NSLocalizedString("fileList.expandAll", comment: "Expand all")))
     }
 }

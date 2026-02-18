@@ -724,7 +724,7 @@ final class PaginatedTextLayoutManagerTests: XCTestCase {
             pageSetup: pageSetup
         )
         
-        let height = layoutManager.calculateFootnoteHeight(for: [], pageWidth: 468.0)
+        let height = layoutManager.calculateFootnoteHeight(for: [FootnoteModel](), pageWidth: 468.0)
         XCTAssertEqual(height, 0)
     }
     

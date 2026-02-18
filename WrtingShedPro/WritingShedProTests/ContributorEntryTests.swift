@@ -171,10 +171,9 @@ final class ContributorEntryTests: XCTestCase {
         // Small delay to ensure modifiedAt changes
         Thread.sleep(forTimeInterval: 0.01)
         
-        contributor.update(firstName: "New", surname: "Updated", biography: "New bio")
+        contributor.update(name: "New Updated", biography: "New bio")
         
-        XCTAssertEqual(contributor.firstName, "New")
-        XCTAssertEqual(contributor.surname, "Updated")
+        XCTAssertEqual(contributor.displayName, "New Updated")
         XCTAssertEqual(contributor.biography, "New bio")
         XCTAssertGreaterThan(contributor.modifiedAt, originalModifiedAt)
     }

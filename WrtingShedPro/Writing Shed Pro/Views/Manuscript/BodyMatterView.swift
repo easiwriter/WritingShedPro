@@ -35,6 +35,8 @@ struct BodyMatterView: View {
     @Environment(\.dismiss) private var dismiss
     
     @State private var showAddItemSheet = false
+    @State private var showNoItemsAlert = false
+    @State private var editMode: EditMode = .inactive
     
     // MARK: - Body
     
@@ -57,16 +59,44 @@ struct BodyMatterView: View {
                 PopToRootBackButton()
             }
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button {
-                    showAddItemSheet = true
-                } label: {
-                    Image(systemName: "plus")
+                HStack(spacing: 16) {
+                    if !bodyMatterItems.isEmpty {
+                        Button {
+                            withAnimation {
+                                editMode = editMode == .active ? .inactive : .active
+                            }
+                        } label: {
+                            Text(editMode == .active
+                                 ? NSLocalizedString("button.done", comment: "Done")
+                                 : NSLocalizedString("button.edit", comment: "Edit"))
+                        }
+                    }
+                    Button {
+                        if availableItems.isEmpty {
+                            showNoItemsAlert = true
+                        } else {
+                            showAddItemSheet = true
+                        }
+                    } label: {
+                        Image(systemName: "plus")
+                    }
                 }
-                .disabled(availableItems.isEmpty)
             }
         }
         .sheet(isPresented: $showAddItemSheet) {
             addItemSheet
+        }
+        .alert(
+            NSLocalizedString("bodyMatter.noItems.title", comment: "No Items Available"),
+            isPresented: $showNoItemsAlert
+        ) {
+            Button(NSLocalizedString("button.ok", comment: "OK"), role: .cancel) { }
+        } message: {
+            if bodyMatterItems.isEmpty {
+                Text(String(format: NSLocalizedString("bodyMatter.noItems.message", comment: "Create %@ first, then add them to Body Matter."), itemTypeName))
+            } else {
+                Text(String(format: NSLocalizedString("bodyMatter.noItems.messageAllAdded", comment: "Create another item first, then add it to Body Matter."), itemTypeName))
+            }
         }
     }
     
@@ -76,17 +106,21 @@ struct BodyMatterView: View {
     private var itemList: some View {
         List {
             ForEach(bodyMatterItems, id: \.id) { item in
-                HStack {
-                    Image(systemName: iconForItem)
-                        .foregroundStyle(.secondary)
-                    
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(item.name ?? NSLocalizedString("bodyMatter.untitled", comment: "Untitled"))
-                            .font(.body)
-                        
-                        Text(subtitleForItem(item))
-                            .font(.caption)
+                NavigationLink {
+                    destinationView(for: item)
+                } label: {
+                    HStack {
+                        Image(systemName: iconForItem)
                             .foregroundStyle(.secondary)
+                        
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(item.name ?? NSLocalizedString("bodyMatter.untitled", comment: "Untitled"))
+                                .font(.body)
+                            
+                            Text(subtitleForItem(item))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
             }
@@ -94,7 +128,45 @@ struct BodyMatterView: View {
             .onMove(perform: moveItems)
         }
         .listStyle(.plain)
-        .environment(\.editMode, .constant(.active))
+        .environment(\.editMode, $editMode)
+    }
+    
+    // MARK: - Navigation Destination
+    
+    /// Returns the appropriate detail view for a body matter item based on project type
+    @ViewBuilder
+    private func destinationView(for item: any BodyMatterItem) -> some View {
+        switch project.type {
+        case .poetry:
+            if let collection = item as? PoetryCollection {
+                PoetryCollectionPoemsView(project: project, collection: collection)
+            }
+        case .prose:
+            if let section = item as? ProseSection {
+                ProseFilesView(project: project, section: section)
+            }
+        case .fiction:
+            switch project.fictionClass {
+            case .novel:
+                if let chapter = item as? Chapter {
+                    SceneListView(project: project, chapter: chapter)
+                }
+            case .shortFiction:
+                if let scene = item as? StoryScene, let textFile = scene.textFile {
+                    FileEditView(file: textFile)
+                }
+            case .verseNovel:
+                if let book = item as? Book {
+                    SceneListView(project: project, book: book)
+                }
+            case .none:
+                EmptyView()
+            }
+        case .drama:
+            if let act = item as? Act {
+                SceneListView(project: project, act: act)
+            }
+        }
     }
     
     // MARK: - Empty State
@@ -184,6 +256,29 @@ struct BodyMatterView: View {
             return (project.acts ?? [])
                 .filter { $0.isInBodyMatter }
                 .sorted { ($0.bodyMatterOrder ?? Int.max) < ($1.bodyMatterOrder ?? Int.max) }
+        }
+    }
+    
+    /// All source items (both in and not in Body Matter)
+    private var allSourceItems: [any BodyMatterItem] {
+        switch project.type {
+        case .poetry:
+            return project.poetryCollections ?? []
+        case .prose:
+            return project.sections ?? []
+        case .fiction:
+            switch project.fictionClass {
+            case .novel:
+                return project.chapters ?? []
+            case .shortFiction:
+                return project.scenes ?? []
+            case .verseNovel:
+                return project.books ?? []
+            case .none:
+                return []
+            }
+        case .drama:
+            return project.acts ?? []
         }
     }
     
@@ -468,7 +563,10 @@ struct BodyMatterView: View {
     }
     
     private var emptyStateDescription: String {
-        String(format: NSLocalizedString("bodyMatter.empty.description", comment: "Add %@ to include them in the manuscript body."), itemTypeName)
+        if allSourceItems.isEmpty {
+            return String(format: NSLocalizedString("bodyMatter.empty.noSource", comment: "Create %@ first, then add them here."), itemTypeName)
+        }
+        return String(format: NSLocalizedString("bodyMatter.empty.description", comment: "Add %@ to include them in the manuscript body."), itemTypeName)
     }
     
     private func subtitleForItem(_ item: any BodyMatterItem) -> String {

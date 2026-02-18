@@ -65,10 +65,10 @@ final class ProjectTemplateServiceTests: XCTestCase {
         let allFolders = project.folders ?? []
         let rootFolders = allFolders.filter { $0.parentFolder == nil }
         
-        XCTAssertEqual(rootFolders.count, 10, "Should have 10 root folders for prose project")
+        XCTAssertEqual(rootFolders.count, 9, "Should have 9 root folders for prose project")
         
         let folderNames = Set(rootFolders.compactMap { $0.name })
-        let expectedNames: Set<String> = ["Manuscript", "Sections", "Prose", "Collections", "Submissions", "Research", "Publishers", "Agents", "Other", "Trash"]
+        let expectedNames: Set<String> = ["Manuscript", "Sections", "Prose", "Submissions", "Research", "Publishers", "Agents", "Other", "Trash"]
         XCTAssertEqual(folderNames, expectedNames, "Should have correct folder names")
     }
     
@@ -86,12 +86,12 @@ final class ProjectTemplateServiceTests: XCTestCase {
         let allFolders = project.folders ?? []
         let rootFolders = allFolders.filter { $0.parentFolder == nil }
         
-        XCTAssertEqual(rootFolders.count, 12, "Should have 12 root folders for Short Fiction project")
+        XCTAssertEqual(rootFolders.count, 11, "Should have 11 root folders for Short Fiction project")
         
         let folderNames = Set(rootFolders.compactMap { $0.name })
         let expectedNames: Set<String> = [
             "Scenes", "Characters", "Locations", "Plot", "Manuscript",
-            "Collections", "Submissions", "Research",
+            "Submissions", "Research",
             "Magazines", "Competitions", "Other", "Trash"
         ]
         XCTAssertEqual(folderNames, expectedNames, "Should have correct folder names for Short Fiction")
@@ -111,12 +111,12 @@ final class ProjectTemplateServiceTests: XCTestCase {
         let allFolders = project.folders ?? []
         let rootFolders = allFolders.filter { $0.parentFolder == nil }
         
-        XCTAssertEqual(rootFolders.count, 13, "Should have 13 root folders for Novel project")
+        XCTAssertEqual(rootFolders.count, 12, "Should have 12 root folders for Novel project")
         
         let folderNames = Set(rootFolders.compactMap { $0.name })
         let expectedNames: Set<String> = [
             "Scenes", "Characters", "Locations", "Chapters", "Plot", "Manuscript",
-            "Collections", "Submissions", "Research",
+            "Submissions", "Research",
             "Publishers", "Agents", "Other", "Trash"
         ]
         XCTAssertEqual(folderNames, expectedNames, "Should have correct folder names for Novel")
@@ -136,12 +136,12 @@ final class ProjectTemplateServiceTests: XCTestCase {
         let allFolders = project.folders ?? []
         let rootFolders = allFolders.filter { $0.parentFolder == nil }
         
-        XCTAssertEqual(rootFolders.count, 13, "Should have 13 root folders for Short Fiction project")
+        XCTAssertEqual(rootFolders.count, 12, "Should have 12 root folders for Short Fiction project")
         
         let folderNames = Set(rootFolders.compactMap { $0.name })
         let expectedNames: Set<String> = [
             "Stories", "Scenes", "Characters", "Locations", "Plot", "Manuscript",
-            "Collections", "Submissions", "Research",
+            "Submissions", "Research",
             "Magazines", "Competitions", "Other", "Trash"
         ]
         XCTAssertEqual(folderNames, expectedNames, "Should have correct folder names for Short Fiction")
@@ -161,12 +161,12 @@ final class ProjectTemplateServiceTests: XCTestCase {
         let allFolders = project.folders ?? []
         let rootFolders = allFolders.filter { $0.parentFolder == nil }
         
-        XCTAssertEqual(rootFolders.count, 13, "Should have 13 root folders for drama project")
+        XCTAssertEqual(rootFolders.count, 12, "Should have 12 root folders for drama project")
         
         let folderNames = Set(rootFolders.compactMap { $0.name })
         let expectedNames: Set<String> = [
             "Manuscript", "Acts", "Scenes", "Characters", "Locations", "Plot",
-            "Collections", "Submissions", "Research",
+            "Submissions", "Research",
             "Publishers", "Agents", "Other", "Trash"
         ]
         XCTAssertEqual(folderNames, expectedNames, "Should have correct folder names")
@@ -203,7 +203,7 @@ final class ProjectTemplateServiceTests: XCTestCase {
             let subfolders = manuscriptFolder.folders ?? []
             let subfolderNames = Set(subfolders.compactMap { $0.name })
             // Poetry uses "All Poems" as body folder
-            XCTAssertEqual(subfolderNames, ["Front Matter", "All Poems", "Back Matter"], "Manuscript should have correct subfolders for poetry project")
+            XCTAssertEqual(subfolderNames, ["Front Matter", "Body Matter", "Back Matter"], "Manuscript should have correct subfolders for poetry project")
             for subfolder in subfolders {
                 XCTAssertEqual(subfolder.parentFolder?.id, manuscriptFolder.id, "\(subfolder.name ?? "unknown") should have Manuscript as parent")
             }
@@ -307,7 +307,7 @@ final class ProjectTemplateServiceTests: XCTestCase {
         }
         
         // Verify special fiction folders exist
-        let fictionFolders = ["Scenes", "Characters", "Locations", "Plot", "Manuscript", "Collections", "Submissions"]
+        let fictionFolders = ["Scenes", "Characters", "Locations", "Plot", "Manuscript", "Submissions"]
         for name in fictionFolders {
             XCTAssertNotNil(folders.first(where: { $0.name == name }),
                            "\(name) folder should exist")
@@ -408,7 +408,7 @@ final class ProjectTemplateServiceTests: XCTestCase {
         let rootFolders2 = allFolders2.filter { $0.parentFolder == nil }
         
         XCTAssertEqual(rootFolders1.count, 9, "Project 1 (Poetry) should have 9 root folders")
-        XCTAssertEqual(rootFolders2.count, 10, "Project 2 (Prose) should have 10 root folders")
+        XCTAssertEqual(rootFolders2.count, 9, "Project 2 (Prose) should have 9 root folders")
         
         // Verify no overlap in folder IDs
         let ids1 = Set(allFolders1.map { $0.id })

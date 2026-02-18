@@ -81,6 +81,7 @@
 
 /* Manuscript Export/Preview/Print */
 "manuscript.preview" = "Preview";
+"manuscript.submit" = "Submit";
 "manuscript.preview.title" = "Manuscript Preview";
 "manuscript.preview.generating" = "Generating preview…";
 "manuscript.preview.generationFailed" = "Could not generate the manuscript preview. Please try again.";
@@ -850,6 +851,12 @@
 "fileList.expandAll.hint" = "Show all files in all sections";
 "fileList.collapseAll.accessibility" = "Collapse all sections";
 "fileList.collapseAll.hint" = "Hide all file sections";
+"fileList.showCollections" = "Show Collections";
+"fileList.showFlat" = "Show All";
+
+/* Poetry collection grouping */
+"poetry.collection.unassigned" = "Unassigned";
+"poetry.collection.unnamed" = "Unnamed";
 
 /* File info */
 "file.empty" = "Empty";
@@ -2602,3 +2609,76 @@
 "settings.poetry.dialectFooter" = "Affects syllable counting and stress patterns. American and British English have different pronunciations for some words.";
 "dialect.american" = "American English";
 "dialect.british" = "British English";
+
+// Body Matter
+"bodyMatter.title" = "Body Matter";
+"bodyMatter.untitled" = "Untitled";
+"bodyMatter.empty.title" = "No Body Matter";
+"bodyMatter.empty.description" = "Add %@ to include them in the manuscript body.";
+"bodyMatter.empty.noSource" = "Create %@ first, then add them here.";
+"bodyMatter.addItems" = "Add Items";
+"bodyMatter.add.title" = "Add %@";
+"bodyMatter.noItems.title" = "No Items Available";
+"bodyMatter.noItems.message" = "Create %@ first, then add them to Body Matter.";
+"bodyMatter.noItems.messageAllAdded" = "All %@ have been added. Create another one first, then add it to Body Matter.";
+"bodyMatter.type.collections" = "Collections";
+"bodyMatter.type.sections" = "Sections";
+"bodyMatter.type.chapters" = "Chapters";
+"bodyMatter.type.stories" = "Stories";
+"bodyMatter.type.books" = "Books";
+"bodyMatter.type.acts" = "Acts";
+"bodyMatter.subtitle.poems" = "%d poems";
+"bodyMatter.subtitle.files" = "%d files";
+"bodyMatter.subtitle.scenes" = "%d scenes";
+"bodyMatter.subtitle.episodes" = "%d episodes";
+"bodyMatter.subtitle.hasContent" = "Has content";
+"bodyMatter.subtitle.empty" = "Empty";
+
+// Poetry Collections
+"poetry.collection.add.title" = "Add Collection";
+"poetry.collection.defaultTitle" = "Collection %d";
+"poetry.collection.name" = "Name";
+"poetry.collection.name.accessibility" = "Collection name";
+"poetry.collection.section.basic" = "Basic Info";
+"poetry.collection.number" = "Collection %d";
+"poetry.collection.synopsis" = "Synopsis";
+"poetry.collection.synopsis.accessibility" = "Collection synopsis";
+"poetry.collection.synopsis.footer" = "Brief description of this collection";
+"poetry.collection.error.nameRequired" = "Please enter a collection name";
+"poetry.collection.rename.title" = "Rename Collection";
+"poetry.collection.untitled" = "Untitled";
+"poetry.collection.assignment" = "Collection Assignment";
+"poetry.collection.addTo" = "Add to Collection";
+"poetry.collection.currentAssignment" = "Current Assignment";
+"poetry.collection.removeFromNamed" = "Remove from %@";
+"poetry.collection.assignedTo" = "Assigned to %@";
+"poetry.collection.assignCount" = "Assign %d poems to this collection";
+"poetry.collections.picker.createHint" = "Create collections in the Collections folder";
+"poetry.collection.poemCount" = "%d poems";
+"poetry.collection.inBodyMatter" = "In Body Matter";
+"poetry.collections.title" = "Collections";
+"poetry.collections.add" = "Add Collection";
+"poetry.collections.deleteConfirm.title" = "Delete Collection?";
+"poetry.collections.deleteMultiple.title" = "Delete %d Collections?";
+"poetry.collections.deleteConfirm.message" = "Are you sure you want to delete \"%@\"? Poems in this collection will be unassigned but not deleted.";
+"poetry.collections.deleteMultiple.message" = "Poems in these collections will be unassigned but not deleted.";
+"poetry.collections.deleteCount" = "Delete (%d)";
+"poetry.collections.empty.title" = "No Collections";
+"poetry.collections.empty.message" = "Create collections to group your poems for manuscript assembly.";
+
+// MARK: - Reminders
+"reminder.set" = "Set Reminder";
+"reminder.date.label" = "Reminder Date";
+"reminder.section.title" = "Reminder";
+"reminder.scheduled.label" = "Reminder";
+"reminder.change" = "Change Reminder";
+"reminder.remove" = "Remove Reminder";
+"reminder.save" = "Save Reminder";
+"reminder.permission.title" = "Notifications Disabled";
+"reminder.permission.message" = "Please enable notifications in Settings to use reminders.";
+"reminder.submission.title" = "Submission Reminder";
+"reminder.submission.body" = "Check on your submission \"%@\" to %@";
+"reminder.deadline.title" = "Deadline Reminder";
+"reminder.deadline.body" = "Deadline approaching for %@";
+"reminder.unknown.publication" = "Unknown Publication";
+"reminder.submission" = "Submission";
