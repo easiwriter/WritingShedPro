@@ -19,10 +19,12 @@ struct FolderListView: View {
     @State private var showExportSaveDialog = false
     @State private var exportData: Data?
     @State private var exportFilename = ""
+    @State private var exportContentType: UTType = .pdf
     @State private var showPreview = false
     @State private var previewPDFData: Data?
     @State private var showPrintError = false
     @State private var printErrorMessage = ""
+    @State private var showDramaExportFormatPicker = false
     
     // Manuscript submit state
     @State private var showSubmitManuscript = false
@@ -438,7 +440,11 @@ struct FolderListView: View {
                         .disabled(isExporting)
                         
                         Button {
-                            exportManuscriptPDF()
+                            if project.type == .drama {
+                                showDramaExportFormatPicker = true
+                            } else {
+                                exportManuscriptPDF()
+                            }
                         } label: {
                             Label(NSLocalizedString("manuscript.export", comment: "Export"), systemImage: "square.and.arrow.up")
                         }
@@ -464,14 +470,30 @@ struct FolderListView: View {
         } message: {
             Text(printErrorMessage)
         }
+        .confirmationDialog(
+            NSLocalizedString("manuscript.export.formatTitle", comment: "Export Format"),
+            isPresented: $showDramaExportFormatPicker,
+            titleVisibility: .visible
+        ) {
+            Button(NSLocalizedString("export.format.pdf", comment: "PDF Document")) {
+                exportManuscriptPDF()
+            }
+            Button(NSLocalizedString("export.format.fountain", comment: "Fountain (Screenplay)")) {
+                exportManuscriptFountain()
+            }
+            Button(NSLocalizedString("export.format.finalDraft", comment: "Final Draft (.fdx)")) {
+                exportManuscriptFinalDraft()
+            }
+            Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) { }
+        }
         .fileExporter(
             isPresented: $showExportSaveDialog,
             document: ExportDocument(
                 data: exportData ?? Data(),
                 filename: exportFilename,
-                contentType: .pdf
+                contentType: exportContentType
             ),
-            contentType: .pdf,
+            contentType: exportContentType,
             defaultFilename: exportFilename
         ) { result in
             switch result {
@@ -655,11 +677,72 @@ struct FolderListView: View {
             if let data = await generateManuscriptPDF() {
                 await MainActor.run {
                     exportData = data
+                    exportContentType = .pdf
                     exportFilename = "\(projectName).pdf"
                     showExportSaveDialog = true
                     isExporting = false
                 }
             } else {
+                await MainActor.run {
+                    exportErrorMessage = NSLocalizedString("manuscript.error.exportFailedGeneric", comment: "Export failed")
+                    showExportError = true
+                    isExporting = false
+                }
+            }
+        }
+    }
+    
+    /// Export the full drama manuscript as Fountain (.fountain)
+    private func exportManuscriptFountain() {
+        isExporting = true
+        let projectName = project.name ?? "Manuscript"
+        
+        Task {
+            let assemblyService = ManuscriptAssemblyService(context: modelContext)
+            do {
+                let dml = try await assemblyService.assembleDML(for: project)
+                let fountain = FountainConverter.shared.dmlToFountain(dml)
+                guard let data = fountain.data(using: .utf8) else {
+                    throw AssemblyError.noFilesFound
+                }
+                await MainActor.run {
+                    exportData = data
+                    exportContentType = UTType(filenameExtension: "fountain") ?? .plainText
+                    exportFilename = "\(projectName).fountain"
+                    showExportSaveDialog = true
+                    isExporting = false
+                }
+            } catch {
+                await MainActor.run {
+                    exportErrorMessage = NSLocalizedString("manuscript.error.exportFailedGeneric", comment: "Export failed")
+                    showExportError = true
+                    isExporting = false
+                }
+            }
+        }
+    }
+    
+    /// Export the full drama manuscript as Final Draft (.fdx)
+    private func exportManuscriptFinalDraft() {
+        isExporting = true
+        let projectName = project.name ?? "Manuscript"
+        
+        Task {
+            let assemblyService = ManuscriptAssemblyService(context: modelContext)
+            do {
+                let dml = try await assemblyService.assembleDML(for: project)
+                let fdxString = FinalDraftConverter.shared.dmlToFDX(dml, title: projectName)
+                guard let data = fdxString.data(using: .utf8) else {
+                    throw AssemblyError.noFilesFound
+                }
+                await MainActor.run {
+                    exportData = data
+                    exportContentType = UTType(filenameExtension: "fdx") ?? .xml
+                    exportFilename = "\(projectName).fdx"
+                    showExportSaveDialog = true
+                    isExporting = false
+                }
+            } catch {
                 await MainActor.run {
                     exportErrorMessage = NSLocalizedString("manuscript.error.exportFailedGeneric", comment: "Export failed")
                     showExportError = true

@@ -1266,7 +1266,7 @@ struct FolderFilesView: View {
                     data = try await Task.detached {
                         try MarkdownExportService.exportMultipleToMarkdownData(attributedStrings, filename: filename)
                     }.value
-                case .pdf, .plainText:
+            case .pdf, .plainText, .fountain, .finalDraft:
                     // Not supported for combined folder export
                     return
                 }
@@ -1366,7 +1366,7 @@ struct FolderFilesView: View {
                 exportData = try exportService.exportToDOCX(content, filename: filename)
             case .markdown:
                 exportData = try MarkdownExportService.exportToMarkdownData(content, filename: filename)
-            case .pdf, .plainText:
+            case .pdf, .plainText, .fountain, .finalDraft:
                 // Not supported for single file export from this view
                 #if DEBUG
                 print("   ❌ Format not supported for single file export")
@@ -1435,6 +1435,10 @@ struct FolderFilesView: View {
             return .plainText
         case .markdown:
             return UTType(filenameExtension: "md") ?? .plainText
+        case .fountain:
+            return UTType(filenameExtension: "fountain") ?? .plainText
+        case .finalDraft:
+            return UTType(filenameExtension: "fdx") ?? .xml
         }
     }
     
@@ -1461,11 +1465,11 @@ struct FolderFilesView: View {
 
 struct ExportDocument: FileDocument {
     static var readableContentTypes: [UTType] { 
-        [.pdf, .rtf, .html, UTType("org.openxmlformats.wordprocessingml.document") ?? .data, UTType(filenameExtension: "md") ?? .plainText, .data] 
+        [.pdf, .rtf, .html, .xml, UTType("org.openxmlformats.wordprocessingml.document") ?? .data, UTType(filenameExtension: "md") ?? .plainText, UTType(filenameExtension: "fountain") ?? .plainText, UTType(filenameExtension: "fdx") ?? .xml, .data] 
     }
     
     static var writableContentTypes: [UTType] { 
-        [.pdf, .rtf, .html, UTType("org.openxmlformats.wordprocessingml.document") ?? .data, UTType(filenameExtension: "md") ?? .plainText, .data] 
+        [.pdf, .rtf, .html, .xml, UTType("org.openxmlformats.wordprocessingml.document") ?? .data, UTType(filenameExtension: "md") ?? .plainText, UTType(filenameExtension: "fountain") ?? .plainText, UTType(filenameExtension: "fdx") ?? .xml, .data] 
     }
     
     var data: Data

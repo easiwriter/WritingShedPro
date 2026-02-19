@@ -524,7 +524,13 @@ struct SceneListView: View {
         }
         .fileImporter(
             isPresented: $showImportPicker,
-            allowedContentTypes: [.rtf, .init("org.openxmlformats.wordprocessingml.document") ?? .data, UTType(filenameExtension: "md") ?? .plainText],
+            allowedContentTypes: [
+                .rtf,
+                .init("org.openxmlformats.wordprocessingml.document") ?? .data,
+                UTType(filenameExtension: "md") ?? .plainText,
+                UTType(filenameExtension: "fountain") ?? .plainText,
+                UTType(filenameExtension: "fdx") ?? .xml
+            ],
             allowsMultipleSelection: false,
             onCompletion: handleImport
         )
@@ -1249,7 +1255,27 @@ struct SceneListView: View {
                 // Check file extension to determine import method
                 let fileExtension = url.pathExtension.lowercased()
                 
-                if fileExtension == "md" || fileExtension == "markdown" {
+                if fileExtension == "fountain" {
+                    // Import Fountain file → convert to DML
+                    _ = url.startAccessingSecurityScopedResource()
+                    defer { url.stopAccessingSecurityScopedResource() }
+                    let fountainText = try String(contentsOf: url, encoding: .utf8)
+                    plainText = FountainConverter.shared.fountainToDML(fountainText)
+                    rtfData = nil  // Drama scenes store DML as plain text, no RTF
+                    fileName = url.deletingPathExtension().lastPathComponent
+                } else if fileExtension == "fdx" {
+                    // Import Final Draft file → convert to DML
+                    _ = url.startAccessingSecurityScopedResource()
+                    defer { url.stopAccessingSecurityScopedResource() }
+                    let fdxData = try Data(contentsOf: url)
+                    guard let dml = FinalDraftConverter.shared.fdxToDML(fdxData) else {
+                        print("Failed to parse Final Draft file")
+                        return
+                    }
+                    plainText = dml
+                    rtfData = nil  // Drama scenes store DML as plain text, no RTF
+                    fileName = url.deletingPathExtension().lastPathComponent
+                } else if fileExtension == "md" || fileExtension == "markdown" {
                     // Import Markdown file
                     let styleSheet = project.styleSheet
                     let attributedString = try MarkdownImportService.importMarkdown(from: url, styleSheet: styleSheet)

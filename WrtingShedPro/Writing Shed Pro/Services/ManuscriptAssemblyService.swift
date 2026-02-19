@@ -488,6 +488,48 @@ final class ManuscriptAssemblyService {
         )]
     }
     
+    // MARK: - DML Assembly (for Fountain/FDX Export)
+    
+    /// Assemble raw DML content from all drama scenes in manuscript order.
+    /// This produces a single combined DML string suitable for conversion to
+    /// Fountain or Final Draft format via the respective converters.
+    /// - Parameter project: The drama project to assemble
+    /// - Returns: Combined DML string with scene breaks
+    /// - Throws: AssemblyError if assembly fails or project is not a drama project
+    func assembleDML(for project: Project) async throws -> String {
+        guard project.type == .drama else {
+            throw AssemblyError.noFilesFound
+        }
+        
+        let sections = getSections(for: project)
+        let hasContent = sections.contains { !$0.files.isEmpty }
+        guard hasContent else {
+            throw AssemblyError.noFilesFound
+        }
+        
+        var dmlParts: [String] = []
+        
+        for section in sections {
+            for file in section.files {
+                if file.isCoverFile { continue }
+                
+                if let version = file.currentVersion {
+                    let dmlSource = version.content
+                    if !dmlSource.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        dmlParts.append(dmlSource)
+                    }
+                }
+            }
+        }
+        
+        guard !dmlParts.isEmpty else {
+            throw AssemblyError.noFilesFound
+        }
+        
+        // Join scenes with double newlines (scene separator)
+        return dmlParts.joined(separator: "\n\n")
+    }
+    
     // MARK: - Content Assembly
     
     /// Assemble complete manuscript content

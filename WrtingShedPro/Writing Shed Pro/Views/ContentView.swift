@@ -21,9 +21,54 @@ struct ContentView: View {
         )
     }
     
-    /// Run data migrations for new features
+    /// Run data migrations for new features, delayed to avoid CloudKit sync race conditions.
+    /// When the app launches with a fresh database, CloudKit imports records immediately.
+    /// Running migrations during that import can cause duplicate records because the
+    /// migration modifies imported records, causing CloudKit to treat them as new local records.
     private func runMigrations() {
-        MigrationService.runMigrations(context: modelContext)
+        let throttler = CloudKitSyncThrottler.shared
+        
+        Task { @MainActor in
+            // Wait for any initial CloudKit import burst to settle.
+            // On first launch / fresh database, CloudKit fires rapid notifications
+            // as it imports records. We must not mutate those records during import.
+            var waitCycles = 0
+            let maxWait = 30  // Up to 30 seconds
+            
+            // Give CloudKit a moment to START syncing before we check
+            try? await Task.sleep(nanoseconds: 2_000_000_000)  // 2 seconds
+            
+            // If sync is active, wait for it to settle
+            while throttler.isSyncing && waitCycles < maxWait {
+                try? await Task.sleep(nanoseconds: 1_000_000_000)  // 1 second
+                waitCycles += 1
+                #if DEBUG
+                if waitCycles % 5 == 0 {
+                    print("⏳ [ContentView] Waiting for CloudKit sync to settle before migration... (\(waitCycles)s)")
+                }
+                #endif
+            }
+            
+            #if DEBUG
+            if waitCycles > 0 {
+                print("✅ [ContentView] CloudKit sync settled after \(waitCycles)s, running migrations")
+            } else {
+                print("✅ [ContentView] No active sync detected, running migrations immediately")
+            }
+            #endif
+            
+            // Now safe to run migrations
+            MigrationService.runMigrations(context: modelContext)
+            
+            // After migration, check for and remove duplicate projects
+            // (caused by previous sync race conditions)
+            let result = DeduplicationService.deduplicateProjects(context: modelContext)
+            if result.duplicatesRemoved > 0 {
+                #if DEBUG
+                print("🧹 [ContentView] Deduplication removed \(result.duplicatesRemoved) duplicate(s): \(result.projectsAffected.joined(separator: ", "))")
+                #endif
+            }
+        }
     }
     
     /// Prefetch project relationships async to warm up Swift type system
@@ -348,7 +393,7 @@ struct ContentView: View {
                     // Create error handler
                     let errorHandler = ImportErrorHandler()
                     
-                    // Create JSON importer
+                    // JSON/WSP/WSD import
                     let jsonImporter = JSONImportService(
                         modelContext: modelContext,
                         errorHandler: errorHandler

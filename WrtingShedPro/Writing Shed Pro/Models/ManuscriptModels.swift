@@ -268,6 +268,8 @@ enum ExportFormat: String, CaseIterable, Identifiable {
     case html
     // case epub  // Reserved for future release
     case markdown
+    case fountain
+    case finalDraft
     
     var id: String { rawValue }
     
@@ -280,6 +282,8 @@ enum ExportFormat: String, CaseIterable, Identifiable {
         case .html: return "html"
         // case .epub: return "epub"
         case .markdown: return "md"
+        case .fountain: return "fountain"
+        case .finalDraft: return "fdx"
         }
     }
     
@@ -299,6 +303,10 @@ enum ExportFormat: String, CaseIterable, Identifiable {
         //     return NSLocalizedString("export.format.epub", comment: "EPUB (eBook)")
         case .markdown:
             return NSLocalizedString("export.format.markdown", comment: "Markdown")
+        case .fountain:
+            return NSLocalizedString("export.format.fountain", comment: "Fountain (Screenplay)")
+        case .finalDraft:
+            return NSLocalizedString("export.format.finalDraft", comment: "Final Draft (.fdx)")
         }
     }
     
@@ -311,6 +319,8 @@ enum ExportFormat: String, CaseIterable, Identifiable {
         case .html: return "text/html"
         // case .epub: return "application/epub+zip"
         case .markdown: return "text/markdown"
+        case .fountain: return "text/plain"
+        case .finalDraft: return "application/xml"
         }
     }
     
@@ -323,6 +333,8 @@ enum ExportFormat: String, CaseIterable, Identifiable {
         case .html: return "chevron.left.slash.chevron.right"
         // case .epub: return "book"
         case .markdown: return "number.square"
+        case .fountain: return "doc.text"
+        case .finalDraft: return "doc.badge.gearshape"
         }
     }
 }

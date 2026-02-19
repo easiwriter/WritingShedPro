@@ -1049,7 +1049,7 @@ struct ProseListView: View {
                 exportData = try exportService.exportToDOCX(content, filename: filename)
             case .markdown:
                 exportData = try MarkdownExportService.exportToMarkdownData(content, filename: filename)
-            case .pdf, .plainText:
+            case .pdf, .plainText, .fountain, .finalDraft:
                 #if DEBUG
                 print("   ❌ Format not supported for single file export")
                 #endif
@@ -1110,6 +1110,10 @@ struct ProseListView: View {
             return .pdf
         case .plainText:
             return .plainText
+        case .fountain:
+            return UTType(filenameExtension: "fountain") ?? .plainText
+        case .finalDraft:
+            return UTType(filenameExtension: "fdx") ?? .xml
         }
     }
     

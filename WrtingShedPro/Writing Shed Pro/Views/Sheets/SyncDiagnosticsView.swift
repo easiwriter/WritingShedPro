@@ -20,6 +20,7 @@ struct SyncDiagnosticsView: View {
     @State private var iCloudStatus: String = "Checking..."
     @State private var containerStatus: String = "Checking..."
     @State private var duplicateCount: Int = 0
+    @State private var duplicateProjectCount: Int = 0
     @State private var orphanedFileCount: Int = 0
     @State private var orphanedFolderCount: Int = 0
     @State private var repairMessage: String = ""
@@ -55,6 +56,26 @@ struct SyncDiagnosticsView: View {
                 }
                 
                 Section("Database Health") {
+                    HStack {
+                        Text("Duplicate Projects")
+                        Spacer()
+                        Text("\(duplicateProjectCount) found")
+                            .foregroundColor(duplicateProjectCount > 0 ? .red : .secondary)
+                    }
+                    
+                    if duplicateProjectCount > 0 {
+                        HStack {
+                            Image(systemName: "doc.on.doc")
+                            Text("Remove Duplicate Projects")
+                            Spacer()
+                        }
+                        .foregroundColor(.red)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            deduplicateProjects()
+                        }
+                    }
+                    
                     HStack {
                         Text("Check for Duplicates")
                         Spacer()
@@ -153,6 +174,7 @@ struct SyncDiagnosticsView: View {
                 checkiCloudStatus()
                 checkForDuplicates()
                 checkForOrphans()
+                checkForDuplicateProjects()
             }
             .alert("Repair Complete", isPresented: $showRepairResult) {
                 Button("OK") { }
@@ -160,6 +182,26 @@ struct SyncDiagnosticsView: View {
                 Text(repairMessage)
             }
         }
+    }
+    
+    /// Check for duplicate projects (same name + creation date)
+    private func checkForDuplicateProjects() {
+        duplicateProjectCount = DeduplicationService.countDuplicateProjects(context: modelContext)
+    }
+    
+    /// Remove duplicate projects, keeping the one with the most content
+    private func deduplicateProjects() {
+        let result = DeduplicationService.deduplicateProjects(context: modelContext)
+        duplicateProjectCount = 0
+        
+        if !result.errors.isEmpty {
+            repairMessage = result.errors.joined(separator: "\n")
+        } else if result.duplicatesRemoved > 0 {
+            repairMessage = "Removed \(result.duplicatesRemoved) duplicate project(s): \(result.projectsAffected.joined(separator: ", ")). Please restart the app."
+        } else {
+            repairMessage = "No duplicate projects found."
+        }
+        showRepairResult = true
     }
     
     /// Check for duplicate file references in folder relationships
