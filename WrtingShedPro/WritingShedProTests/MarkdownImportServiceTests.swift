@@ -55,7 +55,7 @@ final class MarkdownImportServiceTests: XCTestCase {
         let font = result.attribute(.font, at: 0, effectiveRange: nil) as? UIFont
         XCTAssertNotNil(font)
         let largeTitleSize = UIFont.preferredFont(forTextStyle: .largeTitle).pointSize
-        XCTAssertEqual(font?.pointSize, largeTitleSize, accuracy: 1.0, "H1 should use largeTitle font size")
+        XCTAssertEqual(font!.pointSize, largeTitleSize, accuracy: 1.0, "H1 should use largeTitle font size")
     }
     
     func testImportHeading2() throws {
@@ -68,7 +68,7 @@ final class MarkdownImportServiceTests: XCTestCase {
         let font = result.attribute(.font, at: 0, effectiveRange: nil) as? UIFont
         XCTAssertNotNil(font)
         let title1Size = UIFont.preferredFont(forTextStyle: .title1).pointSize
-        XCTAssertEqual(font?.pointSize, title1Size, accuracy: 1.0, "H2 should use title1 font size")
+        XCTAssertEqual(font!.pointSize, title1Size, accuracy: 1.0, "H2 should use title1 font size")
     }
     
     func testImportHeading3() throws {
