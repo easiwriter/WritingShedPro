@@ -1008,7 +1008,7 @@ struct ProseListView: View {
         }
         
         // Get the content to export
-        let content: NSAttributedString
+        var content: NSAttributedString
         if let attributedContent = version.attributedContent {
             content = attributedContent
         } else if !version.content.isEmpty {
@@ -1021,6 +1021,21 @@ struct ProseListView: View {
             showImportError = true
             filesToExport = []
             return
+        }
+        
+        // For markdown files exporting to rich text formats, render markdown to rich text first
+        if file.isMarkdown && format != .markdown && format != .plainText {
+            do {
+                let styleSheet = file.project?.styleSheet
+                content = try MarkdownImportService.importMarkdown(from: content.string, styleSheet: styleSheet)
+                #if DEBUG
+                print("📝 [ProseListView] Rendered markdown to rich text for '\(file.name)'")
+                #endif
+            } catch {
+                #if DEBUG
+                print("⚠️ [ProseListView] Failed to render markdown for '\(file.name)': \(error)")
+                #endif
+            }
         }
         
         performSingleFileExport(format: format, content: content, filename: file.name)

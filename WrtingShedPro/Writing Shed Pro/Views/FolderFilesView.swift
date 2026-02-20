@@ -1137,8 +1137,24 @@ struct FolderFilesView: View {
         
         for (index, file) in sortedFiles.enumerated() {
             guard let version = file.currentVersion,
-                  let attributedString = version.attributedContent else {
+                  var attributedString = version.attributedContent else {
                 continue
+            }
+            
+            // For markdown files, render markdown to rich text for combined export
+            if file.isMarkdown {
+                do {
+                    let styleSheet = file.project?.styleSheet
+                    attributedString = try MarkdownImportService.importMarkdown(from: attributedString.string, styleSheet: styleSheet)
+                    #if DEBUG
+                    print("📝 FolderFilesView: Rendered markdown to rich text for '\(file.name)'")
+                    #endif
+                } catch {
+                    #if DEBUG
+                    print("⚠️ FolderFilesView: Failed to render markdown for '\(file.name)': \(error)")
+                    #endif
+                    // Fall through with raw markdown text if rendering fails
+                }
             }
             
             #if DEBUG
@@ -1308,7 +1324,7 @@ struct FolderFilesView: View {
         }
         
         // Get content - try formatted content first, fall back to plain text
-        let attributedString: NSAttributedString
+        var attributedString: NSAttributedString
         if let formattedContent = version.attributedContent {
             attributedString = formattedContent
         } else if !version.content.isEmpty {
@@ -1330,6 +1346,27 @@ struct FolderFilesView: View {
             return
         }
         
+        // For markdown files exporting to rich text formats, render markdown to rich text first
+        #if DEBUG
+        print("📝 Export: file.isMarkdown=\(firstFile.isMarkdown), contentTypeRaw='\(firstFile.contentTypeRaw)', format=\(format)")
+        print("📝 Export: attributedString preview: '\(attributedString.string.prefix(100))'")
+        #endif
+        if firstFile.isMarkdown && format != .markdown && format != .plainText {
+            let markdownText = attributedString.string
+            do {
+                let styleSheet = firstFile.project?.styleSheet
+                attributedString = try MarkdownImportService.importMarkdown(from: markdownText, styleSheet: styleSheet)
+                #if DEBUG
+                print("📝 Export: ✅ Rendered markdown to rich text for '\(firstFile.name)' — \(markdownText.count) chars → \(attributedString.length) styled")
+                #endif
+            } catch {
+                #if DEBUG
+                print("⚠️ Export: ❌ Failed to render markdown for '\(firstFile.name)': \(error)")
+                #endif
+                // Fall through with raw markdown text if rendering fails
+            }
+        }
+        
         // Check for images in RTF export
         if format == .rtf && RTFImageEncoder.containsImages(attributedString) {
             imageWarningMessage = "RTF format does not support embedded images. Images will be replaced with '[Image omitted]' placeholders. For documents with images, please use HTML or EPUB export instead."
@@ -1348,6 +1385,17 @@ struct FolderFilesView: View {
         print("   format: \(format)")
         print("   filename: \(filename)")
         print("   content length: \(content.length)")
+        print("   content preview: '\(content.string.prefix(200))'")
+        // Check if content has formatting (bold/italic)
+        var boldRuns = 0, italicRuns = 0
+        content.enumerateAttribute(.font, in: NSRange(location: 0, length: content.length), options: []) { value, _, _ in
+            if let font = value as? UIFont {
+                if font.fontDescriptor.symbolicTraits.contains(.traitBold) { boldRuns += 1 }
+                if font.fontDescriptor.symbolicTraits.contains(.traitItalic) { italicRuns += 1 }
+            }
+        }
+        print("   formatting: bold=\(boldRuns) italic=\(italicRuns)")
+        print("   has markdown syntax: \(content.string.contains("# ") || content.string.contains("**") || content.string.contains("## "))")
         #endif
         
         // Prepare export data based on format

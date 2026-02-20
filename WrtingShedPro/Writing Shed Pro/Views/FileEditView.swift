@@ -645,16 +645,18 @@ struct FileEditView: View {
             compactReferenceSubmenu()
         }
         
-        // Lists submenu
-        Menu {
-            Button(action: { insertList(numbered: true) }) {
-                Label(NSLocalizedString("insertMenu.numberedList", comment: "Numbered List"), systemImage: "list.number")
+        // Lists submenu (only if stylesheet has list styles)
+        if file.project?.styleSheet?.hasListStyles == true {
+            Menu {
+                Button(action: { insertList(numbered: true) }) {
+                    Label(NSLocalizedString("insertMenu.numberedList", comment: "Numbered List"), systemImage: "list.number")
+                }
+                Button(action: { insertList(numbered: false) }) {
+                    Label(NSLocalizedString("insertMenu.bulletList", comment: "Bullet List"), systemImage: "list.bullet")
+                }
+            } label: {
+                Label(NSLocalizedString("insertMenu.list", comment: "List"), systemImage: "list.bullet.rectangle")
             }
-            Button(action: { insertList(numbered: false) }) {
-                Label(NSLocalizedString("insertMenu.bulletList", comment: "Bullet List"), systemImage: "list.bullet")
-            }
-        } label: {
-            Label(NSLocalizedString("insertMenu.list", comment: "List"), systemImage: "list.bullet.rectangle")
         }
         
         // Section marking menu (poetry projects only)
@@ -1207,16 +1209,18 @@ struct FileEditView: View {
                 }
             }
 
-            // Lists submenu
-            Menu {
-                Button(action: { insertList(numbered: true) }) {
-                    Label(NSLocalizedString("insertMenu.numberedList", comment: "Numbered List"), systemImage: "list.number")
+            // Lists submenu (only if stylesheet has list styles)
+            if file.project?.styleSheet?.hasListStyles == true {
+                Menu {
+                    Button(action: { insertList(numbered: true) }) {
+                        Label(NSLocalizedString("insertMenu.numberedList", comment: "Numbered List"), systemImage: "list.number")
+                    }
+                    Button(action: { insertList(numbered: false) }) {
+                        Label(NSLocalizedString("insertMenu.bulletList", comment: "Bullet List"), systemImage: "list.bullet")
+                    }
+                } label: {
+                    Label(NSLocalizedString("insertMenu.list", comment: "List"), systemImage: "list.bullet.rectangle")
                 }
-                Button(action: { insertList(numbered: false) }) {
-                    Label(NSLocalizedString("insertMenu.bulletList", comment: "Bullet List"), systemImage: "list.bullet")
-                }
-            } label: {
-                Label(NSLocalizedString("insertMenu.list", comment: "List"), systemImage: "list.bullet.rectangle")
             }
 
             if isPoetryProject {
@@ -5950,12 +5954,24 @@ struct FileEditView: View {
     /// Creates an empty paragraph with the appropriate list style
     /// - Parameter numbered: If true, creates a numbered list; otherwise creates a bullet list
     private func insertList(numbered: Bool) {
-        guard let project = file.project else { return }
+        guard let project = file.project else {
+            #if DEBUG
+            print("⚠️ insertList: No project found for file")
+            #endif
+            return
+        }
         
         let listStyleName = numbered ? "list-numbered" : "list-bullet"
         guard let listStyle = project.styleSheet?.style(named: listStyleName) else {
             #if DEBUG
             print("⚠️ insertList: Could not find style '\(listStyleName)'")
+            if let styleSheet = project.styleSheet {
+                let styleNames = styleSheet.textStyles?.map { "\($0.name) (\($0.styleCategory.rawValue))" } ?? []
+                print("⚠️ insertList: Stylesheet '\(styleSheet.name)' has \(styleSheet.textStyles?.count ?? 0) styles: \(styleNames)")
+                print("⚠️ insertList: hasListStyles = \(styleSheet.hasListStyles)")
+            } else {
+                print("⚠️ insertList: Project has no stylesheet assigned")
+            }
             #endif
             return
         }
@@ -6248,6 +6264,14 @@ struct FileEditView: View {
             textView.textStorage.addAttributes(styleAttributes, range: paragraphRange)
             textView.textStorage.endEditing()
             
+            // Also update typing attributes so new characters get the correct style
+            for (key, value) in styleAttributes {
+                textView.typingAttributes[key] = value
+            }
+            #if DEBUG
+            print("⌨️ increaseListIndent - set typingAttributes to \(nextStyleName) (non-empty paragraph)")
+            #endif
+            
             // Sync with our binding
             attributedContent = NSAttributedString(attributedString: textView.textStorage)
             
@@ -6342,6 +6366,11 @@ struct FileEditView: View {
                         textView.textStorage.addAttributes(styleAttributes, range: paragraphRange)
                         textView.textStorage.endEditing()
                         
+                        // Also update typing attributes so new characters get the correct style
+                        for (key, value) in styleAttributes {
+                            textView.typingAttributes[key] = value
+                        }
+                        
                         attributedContent = NSAttributedString(attributedString: textView.textStorage)
                         
                         let command = FormatApplyCommand(
@@ -6409,6 +6438,14 @@ struct FileEditView: View {
         textView.textStorage.beginEditing()
         textView.textStorage.addAttributes(styleAttributes, range: paragraphRange)
         textView.textStorage.endEditing()
+        
+        // Also update typing attributes so new characters get the correct style
+        for (key, value) in styleAttributes {
+            textView.typingAttributes[key] = value
+        }
+        #if DEBUG
+        print("⌨️ decreaseListIndent - set typingAttributes to \(prevStyleName) (non-empty paragraph)")
+        #endif
         
         attributedContent = NSAttributedString(attributedString: textView.textStorage)
         

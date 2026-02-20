@@ -155,7 +155,7 @@ final class ExportOptionsTests: XCTestCase {
     func testExportFormatAllCases() {
         let allCases = ExportFormat.allCases
         
-        XCTAssertEqual(allCases.count, 6)  // EPUB reserved for future release
+        XCTAssertEqual(allCases.count, 8)  // EPUB reserved for future release
         XCTAssertTrue(allCases.contains(.pdf))
         XCTAssertTrue(allCases.contains(.rtf))
         XCTAssertTrue(allCases.contains(.plainText))
@@ -164,5 +164,7 @@ final class ExportOptionsTests: XCTestCase {
         // EPUB reserved for future release
         // XCTAssertTrue(allCases.contains(.epub))
         XCTAssertTrue(allCases.contains(.markdown))
+        XCTAssertTrue(allCases.contains(.fountain))
+        XCTAssertTrue(allCases.contains(.finalDraft))
     }
 }

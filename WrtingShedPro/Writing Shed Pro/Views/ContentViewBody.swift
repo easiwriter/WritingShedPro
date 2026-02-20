@@ -180,6 +180,8 @@ struct ContentViewBody: View {
                 state.htmlManualSection = nil
             }) {
                 HTMLManualView(section: state.htmlManualSection)
+                    .presentationDetents([.large])
+                    .presentationSizing(.page)
             }
             .alert(guideImportAlertTitle, isPresented: $state.showManualImportConfirmation) {
                 Button("Cancel", role: .cancel) { }

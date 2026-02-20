@@ -219,7 +219,13 @@ extension FolderFilesView {
             performCombinedExport(format: exportFormat, content: content)
         } else if let firstFile = filesToExport.first,
                   let version = firstFile.currentVersion,
-                  let attributedString = version.attributedContent {
+                  var attributedString = version.attributedContent {
+            // For markdown files exporting to rich text formats, render markdown to rich text first
+            if firstFile.isMarkdown && exportFormat != .markdown && exportFormat != .plainText {
+                if let rendered = try? MarkdownImportService.importMarkdown(from: attributedString.string, styleSheet: firstFile.project?.styleSheet) {
+                    attributedString = rendered
+                }
+            }
             performSingleFileExport(format: exportFormat, content: attributedString, filename: firstFile.name)
         }
     }

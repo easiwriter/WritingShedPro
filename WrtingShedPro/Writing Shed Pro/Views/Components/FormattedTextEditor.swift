@@ -740,7 +740,47 @@ struct FormattedTextEditor: UIViewRepresentable {
                         return false
                     }
                     
-                    // No follow-on style - continue with same style after newline
+                    // For list/numbered styles (no follow-on), manually insert newline + ZWS
+                    // to ensure the new paragraph has a glyph so NumberingLayoutManager's
+                    // drawBackground clip rect extends to it (prevents number clipping)
+                    if let styleName = attrs[.textStyle] as? String,
+                       let project = parent.project,
+                       let styleSheet = project.styleSheet,
+                       let currentStyle = styleSheet.textStyles?.first(where: { $0.name == styleName }),
+                       currentStyle.numberFormat != .none {
+                        
+                        #if DEBUG
+                        print("📝 Enter on numbered style: '\(styleName)' (category: \(currentStyle.styleCategory.rawValue), numberFormat: \(currentStyle.numberFormat.rawValue))")
+                        #endif
+                        
+                        // Insert newline with CURRENT style + ZWS with same style
+                        let currentAttrs = attrText.attributes(at: range.location > 0 ? range.location - 1 : 0, effectiveRange: nil)
+                        
+                        let mutableString = NSMutableAttributedString()
+                        mutableString.append(NSAttributedString(string: "\n", attributes: currentAttrs))
+                        mutableString.append(NSAttributedString(string: "\u{200B}", attributes: attrs)) // ZWS anchors the style
+                        
+                        #if DEBUG
+                        let zwsStyle = attrs[.textStyle] as? String ?? "nil"
+                        print("📝 ZWS will have .textStyle = '\(zwsStyle)'")
+                        #endif
+                        
+                        textView.textStorage.replaceCharacters(in: range, with: mutableString)
+                        
+                        let newCursorPosition = range.location + 2
+                        textView.selectedRange = NSRange(location: newCursorPosition, length: 0)
+                        textView.typingAttributes = attrs
+                        
+                        textView.setNeedsDisplay()
+                        if let layoutManager = textView.layoutManager as? NumberingLayoutManager {
+                            layoutManager.invalidateDisplay(forCharacterRange: NSRange(location: 0, length: textView.textStorage.length))
+                        }
+                        
+                        self.textViewDidChange(textView)
+                        return false
+                    }
+                    
+                    // No follow-on style and no numbering - continue with same style after newline
                     DispatchQueue.main.async { [weak textView] in
                         guard let textView = textView else { return }
                         

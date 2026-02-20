@@ -71,6 +71,11 @@ final class StyleSheet {
     var sortedImageStyles: [ImageStyle] {
         return imageStyles?.sorted(by: { $0.displayOrder < $1.displayOrder }) ?? []
     }
+    
+    /// Whether this stylesheet contains any list styles
+    var hasListStyles: Bool {
+        return textStyles?.contains(where: { $0.styleCategory == .list }) ?? false
+    }
 }
 
 // MARK: - TextStyle Model

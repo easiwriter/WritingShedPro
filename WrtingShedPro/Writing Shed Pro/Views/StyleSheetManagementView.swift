@@ -151,6 +151,7 @@ struct StyleSheetManagementView: View {
                 // Copy all attributes
                 newStyle.fontSize = style.fontSize
                 newStyle.fontFamily = style.fontFamily
+                newStyle.fontName = style.fontName
                 newStyle.isBold = style.isBold
                 newStyle.isItalic = style.isItalic
                 newStyle.isUnderlined = style.isUnderlined
@@ -167,6 +168,12 @@ struct StyleSheetManagementView: View {
                 newStyle.minimumLineHeight = style.minimumLineHeight
                 newStyle.maximumLineHeight = style.maximumLineHeight
                 newStyle.numberFormat = style.numberFormat
+                newStyle.numberAdornment = style.numberAdornment
+                newStyle.styleCategory = style.styleCategory
+                newStyle.parentStyleName = style.parentStyleName
+                newStyle.followOnStyleName = style.followOnStyleName
+                newStyle.includeInTOC = style.includeInTOC
+                newStyle.tocLevel = style.tocLevel
                 
                 newStyle.styleSheet = duplicate
             }
@@ -356,6 +363,7 @@ struct CreateStyleSheetView: View {
                     // Copy all attributes
                     newStyle.fontSize = style.fontSize
                     newStyle.fontFamily = style.fontFamily
+                    newStyle.fontName = style.fontName
                     newStyle.isBold = style.isBold
                     newStyle.isItalic = style.isItalic
                     newStyle.isUnderlined = style.isUnderlined
@@ -372,6 +380,12 @@ struct CreateStyleSheetView: View {
                     newStyle.minimumLineHeight = style.minimumLineHeight
                     newStyle.maximumLineHeight = style.maximumLineHeight
                     newStyle.numberFormat = style.numberFormat
+                    newStyle.numberAdornment = style.numberAdornment
+                    newStyle.styleCategory = style.styleCategory
+                    newStyle.parentStyleName = style.parentStyleName
+                    newStyle.followOnStyleName = style.followOnStyleName
+                    newStyle.includeInTOC = style.includeInTOC
+                    newStyle.tocLevel = style.tocLevel
                     
                     newStyle.styleSheet = newSheet
                 }

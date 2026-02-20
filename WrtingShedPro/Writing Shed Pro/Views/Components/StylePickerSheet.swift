@@ -36,8 +36,16 @@ struct StylePickerSheet: View {
               let stylesheet = project.styleSheet,
               let textStyles = stylesheet.textStyles else {
             // Fallback to default system styles if no project/stylesheet
+            #if DEBUG
+            print("⚠️ StylePickerSheet: No project/stylesheet/textStyles - using fallback. project=\(project != nil), stylesheet=\(project?.styleSheet != nil), textStyles=\(project?.styleSheet?.textStyles != nil)")
+            #endif
             return defaultSystemStyles()
         }
+        
+        #if DEBUG
+        let listCount = textStyles.filter { $0.styleCategory == .list }.count
+        print("📋 StylePickerSheet: Loaded \(textStyles.count) styles from '\(stylesheet.name)' (\(listCount) list styles)")
+        #endif
         
         // Filter out footnote styles (they're used internally, not user-selectable)
         return textStyles
