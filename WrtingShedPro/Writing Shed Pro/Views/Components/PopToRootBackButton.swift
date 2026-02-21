@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import TipKit
 
 // MARK: - Notification for Pop to Root
 
@@ -36,6 +37,10 @@ struct PopToRootBackButton: View {
                     Text(title)
                 }
             }
+        }
+        // FR-2.3: Long-Press Back tip (shown when navigating 2+ levels deep)
+        .if(TipKitConfiguration.tipsEnabled) { view in
+            view.popoverTip(LongPressBackTip())
         }
         .simultaneousGesture(
             LongPressGesture(minimumDuration: 0.5)

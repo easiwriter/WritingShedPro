@@ -1462,6 +1462,13 @@ struct FileEditView: View {
             
             // Main content area - switch between edit and pagination modes
             if isPaginationMode {
+                // FR-7.3: PDF Export tip (shown after entering Page Preview)
+                if TipKitConfiguration.tipsEnabled {
+                    TipView(PDFExportTip()) { action in
+                        TipActionHandler.handle(action, guideSection: PDFExportTip.guideSection)
+                    }
+                    .padding(.horizontal)
+                }
                 paginationSection()
             } else {
                 textEditorSection()
@@ -1472,6 +1479,34 @@ struct FileEditView: View {
                     }
                     .padding(.horizontal)
                 }
+                // FR-3.5: Word Count tip (shown on first file open)
+                if isFileEditable && TipKitConfiguration.tipsEnabled {
+                    TipView(WordCountTip()) { action in
+                        TipActionHandler.handle(action, guideSection: WordCountTip.guideSection)
+                    }
+                    .padding(.horizontal)
+                }
+                // FR-8.3: Comments tip (shown after 3+ editing sessions)
+                if isFileEditable && TipKitConfiguration.tipsEnabled {
+                    TipView(CommentsTip()) { action in
+                        TipActionHandler.handle(action, guideSection: CommentsTip.guideSection)
+                    }
+                    .padding(.horizontal)
+                }
+                // FR-8.4: Footnotes tip (shown for editable files)
+                if isFileEditable && TipKitConfiguration.tipsEnabled {
+                    TipView(FootnotesTip()) { action in
+                        TipActionHandler.handle(action, guideSection: FootnotesTip.guideSection)
+                    }
+                    .padding(.horizontal)
+                }
+                // FR-8.5: Search & Replace tip (shown after 5+ editing sessions)
+                if isFileEditable && TipKitConfiguration.tipsEnabled {
+                    TipView(SearchReplaceTip()) { action in
+                        TipActionHandler.handle(action, guideSection: SearchReplaceTip.guideSection)
+                    }
+                    .padding(.horizontal)
+                }
                 // Formatting toolbar (only shown for editable rich text files, not when displaying as markdown)
                 if isFileEditable && !isDisplayingAsMarkdown {
                     formattingToolbar()
@@ -1479,6 +1514,13 @@ struct FileEditView: View {
                 // Markdown indicator bar (only when displaying as markdown)
                 if isDisplayingAsMarkdown {
                     markdownIndicatorBar()
+                    // FR-3.2: Markdown Toggle tip (shown when file supports markdown)
+                    if TipKitConfiguration.tipsEnabled {
+                        TipView(markdownToggleTip) { action in
+                            TipActionHandler.handle(action, guideSection: MarkdownToggleTip.guideSection)
+                        }
+                        .padding(.horizontal)
+                    }
                 }
             }
         }

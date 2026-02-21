@@ -71,6 +71,15 @@ struct SyllableCountView: View {
                     }
             }
             
+            // FR-4.3: CMU Dictionary tip (shown when syllable mismatch detected)
+            if TipKitConfiguration.tipsEnabled {
+                TipView(CMUDictionaryTip()) { action in
+                    TipActionHandler.handle(action, guideSection: CMUDictionaryTip.guideSection)
+                }
+                .padding(.horizontal)
+                .padding(.bottom, 4)
+            }
+            
             // Header
             headerRow
             
@@ -253,6 +262,10 @@ struct SyllableCountView: View {
         }
         
         comparisons = results
+        
+        // FR-4.3: Update CMUDictionaryTip parameter when mismatches detected
+        let hasMismatch = results.contains { $0.accuracy == .off || $0.accuracy == .close }
+        CMUDictionaryTip.hasSyllableMismatch = hasMismatch
     }
     
     /// Identify which line indices are excluded (non-poem sections)

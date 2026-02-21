@@ -367,8 +367,14 @@ struct SceneListView: View {
                         TipView(sceneListToolbarTip)
                     }
                 } else {
-                    TipView(FolderOrganisationTip()) { action in
-                        TipActionHandler.handle(action, guideSection: FolderOrganisationTip.guideSection)
+                    VStack(spacing: 0) {
+                        TipView(FolderOrganisationTip()) { action in
+                            TipActionHandler.handle(action, guideSection: FolderOrganisationTip.guideSection)
+                        }
+                        // FR-5.3: Scene Info tip (shown in scene list)
+                        TipView(SceneInfoTip()) { action in
+                            TipActionHandler.handle(action, guideSection: SceneInfoTip.guideSection)
+                        }
                     }
                 }
             }

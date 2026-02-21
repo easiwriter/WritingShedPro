@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import TipKit
 import UniformTypeIdentifiers
 
 struct FolderListView: View {
@@ -423,6 +424,14 @@ struct FolderListView: View {
             
             // Manuscript folder: preview, export, and print toolbar items
             if isManuscriptFolder {
+                // FR-7.2: Manuscript Assembly tip (shown when 3+ chapters exist)
+                ToolbarItem(placement: .bottomBar) {
+                    if TipKitConfiguration.tipsEnabled {
+                        TipView(ManuscriptAssemblyTip()) { action in
+                            TipActionHandler.handle(action, guideSection: ManuscriptAssemblyTip.guideSection)
+                        }
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 16) {
                         Button {

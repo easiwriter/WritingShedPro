@@ -1,29 +1,26 @@
-# Tips Without Views
+# Tips View Attachment Status
 
-14 tips are defined but not attached to any view via `TipView()` or `.popoverTip()`.
+All 33 tips are now attached to views via `TipView()` or `.popoverTip()`.
 
-| Tip | Defined In | Intended Purpose |
-|-----|-----------|-----------------|
-| `MarkdownToggleTip` | EditorTips.swift | Markdown toggle in editor |
-| `StylesheetTip` | EditorTips.swift | Stylesheet feature |
-| `PagePreviewTip` | EditorTips.swift | Page preview/paginated view |
-| `WordCountTip` | EditorTips.swift | Word count feature |
-| `CommentsTip` | WorkflowTips.swift | Comments feature |
-| `FootnotesTip` | WorkflowTips.swift | Footnotes feature |
-| `SearchReplaceTip` | WorkflowTips.swift | Search & replace |
-| `CMUDictionaryTip` | PoetryTips.swift | CMU pronunciation dictionary |
-| `WordImportTip` | ImportExportTips.swift | Word document import |
-| `ManuscriptAssemblyTip` | ImportExportTips.swift | Manuscript assembly |
-| `PDFExportTip` | ImportExportTips.swift | PDF export |
-| `SceneInfoTip` | FictionTips.swift | Scene info panel |
-| `FirstProjectTip` | ProjectTips.swift | First-time project creation |
-| `LongPressBackTip` | ProjectTips.swift | Long-press back to root navigation |
-
-## Tips WITH Views (19 used)
+## Tips WITH Views (33 used)
 
 | Tip | View(s) |
 |-----|---------|
 | `FormattingToolbarTip` | FileEditView.swift |
+| `MarkdownToggleTip` | FileEditView.swift (markdown indicator bar) |
+| `StylesheetTip` | StyleSheetManagementView.swift |
+| `PagePreviewTip` | FileEditView.swift (edit mode, event-based) |
+| `WordCountTip` | FileEditView.swift (edit mode) |
+| `CommentsTip` | FileEditView.swift (edit mode, event-based) |
+| `FootnotesTip` | FileEditView.swift (edit mode) |
+| `SearchReplaceTip` | FileEditView.swift (edit mode, event-based) |
+| `CMUDictionaryTip` | SyllableCountView.swift (parameter-based) |
+| `WordImportTip` | FolderFilesView.swift (empty folder state) |
+| `ManuscriptAssemblyTip` | FolderListView.swift (manuscript folder toolbar) |
+| `PDFExportTip` | FileEditView.swift (pagination mode, event-based) |
+| `SceneInfoTip` | SceneListView.swift (after folder organisation tip) |
+| `FirstProjectTip` | ContentViewBody.swift (empty project list, parameter-based) |
+| `LongPressBackTip` | PopToRootBackButton.swift (popover on back button) |
 | `FolderOrganisationTip` | ProseListView, FolderFilesView+Modifiers, SceneListView |
 | `FileListToolbarTip` | ProseListView, FolderFilesView+Modifiers |
 | `DramaStructureTip` | ActListView |
@@ -42,4 +39,4 @@
 | `ToolbarGuideTip` | ContentViewBody |
 | `ProjectTypesTip` | AddProjectSheet |
 
-*Generated: 2026-02-20*
+*Updated: 2026-02-21*

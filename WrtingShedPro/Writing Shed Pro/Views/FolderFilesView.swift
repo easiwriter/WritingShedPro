@@ -266,6 +266,13 @@ struct FolderFilesView: View {
                             Text("folderFiles.noFiles.matterHint")
                         }
                     } else {
+                        // FR-7.1: Word Import tip (shown when folder is empty)
+                        if TipKitConfiguration.tipsEnabled {
+                            TipView(WordImportTip()) { action in
+                                TipActionHandler.handle(action, guideSection: WordImportTip.guideSection)
+                            }
+                            .padding(.horizontal)
+                        }
                         ContentUnavailableView {
                             Label("folderFiles.noFiles", systemImage: "doc.text")
                         } description: {

@@ -94,6 +94,11 @@ struct ContentViewBody: View {
                             break
                         }
                     }
+                } else if TipKitConfiguration.tipsEnabled {
+                    // FR-2.1: First Project tip (shown when project list is empty)
+                    TipView(FirstProjectTip()) { action in
+                        TipActionHandler.handle(action, guideSection: FirstProjectTip.guideSection)
+                    }
                 }
             }
             // When the toolbar guide tip is dismissed, donate the event so
@@ -111,6 +116,9 @@ struct ContentViewBody: View {
             #endif
             .onAppear {
                 onInitialize()
+                
+                // FR-2.1: Update FirstProjectTip parameter on appear
+                FirstProjectTip.hasNoProjects = projects.filter({ !$0.isTrashed }).isEmpty
                 
                 // Initialize stylesheets in background (moved from Write_App)
                 onInitializeStyleSheets()
@@ -140,6 +148,8 @@ struct ContentViewBody: View {
                         state.editMode = .inactive
                     }
                 }
+                // FR-2.1: Update FirstProjectTip parameter
+                FirstProjectTip.hasNoProjects = projects.filter({ !$0.isTrashed }).isEmpty
             }
             .navigationTitle(NSLocalizedString("contentView.title", comment: "Title of projects list"))
             .toolbar {
