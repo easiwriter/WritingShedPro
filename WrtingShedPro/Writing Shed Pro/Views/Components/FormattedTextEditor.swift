@@ -2264,8 +2264,9 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
             // List items: number goes just before headIndent position
             numberX = textContainerInset.left + style.headIndent - numberSize.width - gap
         } else {
-            // Non-list numbered styles: draw at the start
-            numberX = textContainerInset.left - 60
+            // Non-list numbered styles: draw at the start of the line
+            // (matching NumberingLayoutManager.drawNumber which uses origin.x + lineFragmentRect.origin.x)
+            numberX = textContainerInset.left + textContainer.lineFragmentPadding
         }
         
         let numberRect = CGRect(

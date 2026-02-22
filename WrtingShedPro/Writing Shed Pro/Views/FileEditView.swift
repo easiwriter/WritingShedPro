@@ -6860,9 +6860,11 @@ struct FileEditView: View {
                 attributedContent = styledEmptyString
                 currentParagraphStyle = style
                 
-                textViewCoordinator.modifyTypingAttributes { textView in
+                // Set typing attributes and trigger redraw synchronously
+                // Using async dispatch here would race with SwiftUI's view update cycle,
+                // causing the number to not appear until the user types
+                if let textView = textViewCoordinator.textView {
                     textView.typingAttributes = typingAttrs
-                    // Trigger redraw so the list number appears immediately
                     textView.setNeedsDisplay()
                 }
                 
