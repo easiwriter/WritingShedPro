@@ -208,10 +208,22 @@ class NumberingLayoutManager: NSLayoutManager {
             let lineFragmentRect: CGRect
             if glyphRange.length > 0 {
                 lineFragmentRect = self.lineFragmentRect(forGlyphAt: glyphRange.location, effectiveRange: nil)
+            } else if paragraphRange.location > 0 {
+                // Empty paragraph mid-document: find position from the preceding character's
+                // line fragment, then offset by its height so the number draws on the next line
+                let prevCharGlyphRange = self.glyphRange(forCharacterRange: NSRange(location: paragraphRange.location - 1, length: 1), actualCharacterRange: nil)
+                if prevCharGlyphRange.length > 0 {
+                    let prevRect = self.lineFragmentRect(forGlyphAt: prevCharGlyphRange.location, effectiveRange: nil)
+                    let font = style.generateFont(applyPlatformScaling: true)
+                    lineFragmentRect = CGRect(x: 0, y: prevRect.origin.y + prevRect.height, width: 100, height: font.lineHeight)
+                } else {
+                    let font = style.generateFont(applyPlatformScaling: true)
+                    lineFragmentRect = CGRect(x: 0, y: 0, width: 100, height: font.lineHeight)
+                }
             } else {
-                // For empty paragraph, use a default line height
+                // Empty first paragraph
                 let font = style.generateFont(applyPlatformScaling: true)
-                lineFragmentRect = CGRect(x: 0, y: CGFloat(styleCounters[styleName]! - 1) * font.lineHeight, width: 100, height: font.lineHeight)
+                lineFragmentRect = CGRect(x: 0, y: 0, width: 100, height: font.lineHeight)
             }
             
             // Draw the number at the paragraph position with matching attributes
