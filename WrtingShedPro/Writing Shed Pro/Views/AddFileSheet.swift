@@ -1,6 +1,5 @@
 import SwiftUI
 import SwiftData
-import TipKit
 
 struct AddFileSheet: View {
     @Binding var isPresented: Bool
@@ -59,13 +58,6 @@ struct AddFileSheet: View {
                                 addFile()
                             }
                         }
-                }
-                
-                // FR-2.5: New File tip
-                if TipKitConfiguration.tipsEnabled {
-                    TipView(NewFileTip()) { action in
-                        TipActionHandler.handle(action, guideSection: NewFileTip.guideSection)
-                    }
                 }
                 
                 // Poetry form picker section (for Poetry projects and Verse Novel episodes)

@@ -2,76 +2,125 @@
 //  ContactSupportView.swift
 //  Writing Shed Pro
 //
-//  Contact support screen
+//  Contact support form — bug reports & suggestions
 //  Feature 019: Settings Menu
 //
 
 import SwiftUI
 import MessageUI
 
+// MARK: - Mail Compose Representable
+
+struct MailComposeView: UIViewControllerRepresentable {
+    let recipients: [String]
+    let subject: String
+    let body: String
+    var onDismiss: () -> Void
+
+    func makeCoordinator() -> Coordinator { Coordinator(onDismiss: onDismiss) }
+
+    func makeUIViewController(context: Context) -> MFMailComposeViewController {
+        let vc = MFMailComposeViewController()
+        vc.mailComposeDelegate = context.coordinator
+        vc.setToRecipients(recipients)
+        vc.setSubject(subject)
+        vc.setMessageBody(body, isHTML: false)
+        return vc
+    }
+
+    func updateUIViewController(_ uiViewController: MFMailComposeViewController, context: Context) {}
+
+    class Coordinator: NSObject, MFMailComposeViewControllerDelegate {
+        let onDismiss: () -> Void
+        init(onDismiss: @escaping () -> Void) { self.onDismiss = onDismiss }
+        func mailComposeController(_ controller: MFMailComposeViewController,
+                                   didFinishWith result: MFMailComposeResult,
+                                   error: Error?) {
+            controller.dismiss(animated: true) { self.onDismiss() }
+        }
+    }
+}
+
+// MARK: - Contact Support View
+
 struct ContactSupportView: View {
     @Environment(\.dismiss) private var dismiss
-    
-    private let supportURL = "https://www.writing-shed.com/support-2"
-    
+
+    enum ReportType: String, CaseIterable, Identifiable {
+        case bug = "Bug Report"
+        case suggestion = "Suggestion"
+        var id: String { rawValue }
+    }
+
+    @State private var reportType: ReportType = .bug
+    @State private var subject: String = ""
+    @State private var details: String = ""
+    @State private var stepsToReproduce: String = ""
+    @State private var notARobot: Bool = false
+
+    @State private var showMailCompose = false
+    @State private var showMailUnavailable = false
+    @State private var showRobotAlert = false
+    @State private var showValidationAlert = false
+    @State private var validationMessage = ""
+
+    // Robot-check: simple arithmetic challenge
+    @State private var challengeA: Int = Int.random(in: 2...9)
+    @State private var challengeB: Int = Int.random(in: 2...9)
+    @State private var challengeAnswer: String = ""
+
+    private let supportEmail = "easiwriter@writing-shed.com"
+
     var body: some View {
         NavigationStack {
-            List {
+            Form {
+                // MARK: Type picker
                 Section {
-                    // Web Support
-                    Link(destination: URL(string: supportURL)!) {
-                        HStack {
-                            Image(systemName: "questionmark.circle.fill")
-                                .foregroundStyle(.blue)
-                                .frame(width: 30)
-                            
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Get Support")
-                                    .foregroundStyle(.primary)
-                                Text("Visit our support page")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
+                    Picker("Type", selection: $reportType) {
+                        ForEach(ReportType.allCases) { type in
+                            Text(type.rawValue).tag(type)
                         }
                     }
+                    .pickerStyle(.segmented)
                 } header: {
-                    Text("Get Help")
+                    Text("What would you like to send?")
                 }
-                
+
+                // MARK: Subject
                 Section {
-                    // Documentation
-                    Link(destination: URL(string: "https://writing-shed.com/docs")!) {
-                        HStack {
-                            Image(systemName: "book.fill")
-                                .foregroundStyle(.blue)
-                                .frame(width: 30)
-                            Text("Documentation")
-                            Spacer()
-                            Image(systemName: "arrow.up.forward")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    
-                    // FAQ
-                    Link(destination: URL(string: "https://writing-shed.com/faq")!) {
-                        HStack {
-                            Image(systemName: "questionmark.circle.fill")
-                                .foregroundStyle(.blue)
-                                .frame(width: 30)
-                            Text("FAQ")
-                            Spacer()
-                            Image(systemName: "arrow.up.forward")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
+                    TextField("Brief summary", text: $subject)
                 } header: {
-                    Text("Resources")
+                    Text("Subject")
                 }
-                
+
+                // MARK: Details
                 Section {
-                    // App Version (for support reference)
+                    TextEditor(text: $details)
+                        .frame(minHeight: 120)
+                } header: {
+                    Text(reportType == .bug ? "Describe the problem" : "Your suggestion")
+                }
+
+                // MARK: Steps to Reproduce (bug only)
+                if reportType == .bug {
+                    Section {
+                        TextEditor(text: $stepsToReproduce)
+                            .frame(minHeight: 80)
+                    } header: {
+                        Text("Steps to reproduce (optional)")
+                    }
+                }
+
+                // MARK: Device / system info (read-only)
+                Section {
+                    HStack {
+                        Text("Device")
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text(deviceInfo)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.trailing)
+                    }
                     HStack {
                         Text("App Version")
                             .foregroundStyle(.secondary)
@@ -79,41 +128,156 @@ struct ContactSupportView: View {
                         Text(appVersion)
                             .foregroundStyle(.secondary)
                     }
-                    
-                    // Device Info (for support reference)
-                    HStack {
-                        Text("Device")
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                        Text("\(UIDevice.current.model) - iOS \(UIDevice.current.systemVersion)")
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.trailing)
-                    }
                 } header: {
                     Text("System Information")
+                } footer: {
+                    Text("This information is included automatically to help us diagnose issues.")
+                }
+
+                // MARK: Robot check
+                Section {
+                    HStack {
+                        Text("What is \(challengeA) + \(challengeB)?")
+                        Spacer()
+                        TextField("Answer", text: $challengeAnswer)
+                            .keyboardType(.numberPad)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 60)
+                    }
+                } header: {
+                    Text("Verify you are not a robot")
+                }
+
+                // MARK: Send button
+                Section {
+                    Button {
+                        attemptSend()
+                    } label: {
+                        HStack {
+                            Spacer()
+                            Label("Send", systemImage: "paperplane.fill")
+                                .font(.headline)
+                            Spacer()
+                        }
+                    }
+                    .disabled(subject.trimmingCharacters(in: .whitespaces).isEmpty ||
+                              details.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }
             .navigationTitle("Contact Support")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
-                        dismiss()
-                    }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
                 }
+            }
+            .sheet(isPresented: $showMailCompose) {
+                MailComposeView(
+                    recipients: [supportEmail],
+                    subject: mailSubject,
+                    body: mailBody,
+                    onDismiss: { dismiss() }
+                )
+            }
+            .alert("Cannot Send Email", isPresented: $showMailUnavailable) {
+                Button("Copy to Clipboard") {
+                    UIPasteboard.general.string = "\(mailSubject)\n\n\(mailBody)"
+                }
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("Mail is not configured on this device. You can copy the message and email it to \(supportEmail) manually.")
+            }
+            .alert("Robot Check Failed", isPresented: $showRobotAlert) {
+                Button("OK", role: .cancel) {
+                    // Generate a new challenge
+                    challengeA = Int.random(in: 2...9)
+                    challengeB = Int.random(in: 2...9)
+                    challengeAnswer = ""
+                }
+            } message: {
+                Text("Please answer the arithmetic question correctly to verify you are not a robot.")
+            }
+            .alert("Missing Information", isPresented: $showValidationAlert) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(validationMessage)
             }
         }
     }
-    
+
+    // MARK: - Actions
+
+    private func attemptSend() {
+        // Validate required fields
+        let trimmedSubject = subject.trimmingCharacters(in: .whitespaces)
+        let trimmedDetails = details.trimmingCharacters(in: .whitespaces)
+
+        if trimmedSubject.isEmpty || trimmedDetails.isEmpty {
+            validationMessage = "Please fill in both the subject and the description."
+            showValidationAlert = true
+            return
+        }
+
+        // Verify robot check
+        guard let answer = Int(challengeAnswer.trimmingCharacters(in: .whitespaces)),
+              answer == challengeA + challengeB else {
+            showRobotAlert = true
+            return
+        }
+
+        // Send
+        if MFMailComposeViewController.canSendMail() {
+            showMailCompose = true
+        } else {
+            showMailUnavailable = true
+        }
+    }
+
+    // MARK: - Mail Content
+
+    private var mailSubject: String {
+        let prefix = reportType == .bug ? "[Bug]" : "[Suggestion]"
+        return "\(prefix) \(subject)"
+    }
+
+    private var mailBody: String {
+        var body = """
+        \(reportType == .bug ? "Bug Report" : "Suggestion")
+        ============================
+
+        \(details)
+        """
+
+        if reportType == .bug && !stepsToReproduce.trimmingCharacters(in: .whitespaces).isEmpty {
+            body += """
+
+
+            Steps to Reproduce
+            ----------------------------
+            \(stepsToReproduce)
+            """
+        }
+
+        body += """
+
+
+        ----------------------------
+        Device: \(deviceInfo)
+        App Version: \(appVersion)
+        """
+
+        return body
+    }
+
     // MARK: - Helpers
-    
+
     private var appVersion: String {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
         return "\(version) (\(build))"
     }
-}
 
-#Preview {
-    ContactSupportView()
+    private var deviceInfo: String {
+        "\(UIDevice.current.model) — \(UIDevice.current.systemName) \(UIDevice.current.systemVersion)"
+    }
 }

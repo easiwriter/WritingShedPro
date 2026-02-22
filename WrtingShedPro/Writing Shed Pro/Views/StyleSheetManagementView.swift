@@ -7,7 +7,6 @@
 
 import SwiftUI
 import SwiftData
-import TipKit
 
 // Alias for consistency
 typealias StyleSheetListView = StyleSheetManagementView
@@ -23,13 +22,6 @@ struct StyleSheetManagementView: View {
     
     var body: some View {
         NavigationStack {
-            // FR-3.3: Stylesheet tip (shown after user applies a paragraph style)
-            if TipKitConfiguration.tipsEnabled {
-                TipView(StylesheetTip()) { action in
-                    TipActionHandler.handle(action, guideSection: StylesheetTip.guideSection)
-                }
-                .padding(.horizontal)
-            }
             List {
                 ForEach(styleSheets, id: \.id) { sheet in
                     NavigationLink {

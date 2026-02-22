@@ -20,64 +20,58 @@ struct AboutView: View {
     
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 24) {
-                    // App Icon
-                    Image("AboutIcon")
-                        .resizable()
-                        .frame(width: 120, height: 120)
-                        .cornerRadius(20)
-                        .shadow(radius: 5)
-                    
-                    // App Name
-                    Text("Writing Shed Pro")
-                        .font(.title)
-                        .fontWeight(.bold)
-                    
-                    // Version
-                    Text(appVersion)
-                        .font(.subheadline)
+            List {
+                // MARK: - App Identity
+                Section {
+                    VStack(spacing: 12) {
+                        Image("AboutIcon")
+                            .resizable()
+                            .frame(width: 100, height: 100)
+                            .cornerRadius(20)
+                            .shadow(radius: 5)
+                        
+                        Text("Writing Shed Pro")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                        
+                        Text(appVersion)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .listRowBackground(Color.clear)
+                }
+                
+                // MARK: - Description & Help Hint
+                Section {
+                    Text("A professional writing environment for authors, poets, and screenwriters.")
                         .foregroundStyle(.secondary)
                     
-                    Divider()
-                        .padding(.horizontal)
-                    
-                    // Description
-                    VStack(spacing: 12) {
-                        Text("A professional writing environment for authors, poets, and screenwriters.")
-                            .multilineTextAlignment(.center)
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal)
-                        
-                        Text("Organize your projects, manage versions, track submissions, and format your work for publication.")
-                            .font(.subheadline)
-                            .multilineTextAlignment(.center)
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal)
-                    }
-                    
-                    Divider()
-                        .padding(.horizontal)
-                    
-                    // Copyright
-                    VStack(spacing: 8) {
-                        Text("© 2025 Writing Shed")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        
-                        Text("All rights reserved")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    
-                    // Future: Add links to website, privacy policy, terms of service
+                    (Text("You can find out how to use Writing Shed Pro by tapping the ")
+                     + Text(Image(systemName: "questionmark.circle"))
+                     + Text(" button in the toolbar"))
+                    .font(.subheadline)
+                    .foregroundStyle(.blue)
                 }
-                .padding()
+                
+                // MARK: - Copyright
+                Section {
+                    VStack(spacing: 4) {
+                        Text("© 2025 Writing Shed")
+                        Text("All rights reserved")
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity)
+                    .listRowBackground(Color.clear)
+                }
             }
+            .scrollIndicatorsFlash(onAppear: true)
             .navigationTitle("About")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .confirmationAction) {
                     Button("Done") {
                         dismiss()
                     }

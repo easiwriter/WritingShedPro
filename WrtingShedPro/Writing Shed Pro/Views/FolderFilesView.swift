@@ -8,7 +8,6 @@
 
 import SwiftUI
 import SwiftData
-import TipKit
 import UniformTypeIdentifiers
 
 /// View for displaying and managing files within a folder
@@ -79,9 +78,6 @@ struct FolderFilesView: View {
     @State var showHeaderFooterEditor = false
     @State var showHeaderFooterWarning = false
     
-    /// File list toolbar tip
-    let fileListToolbarTip = FileListToolbarTip()
-    @State var toolbarTipDismissed = false
     @State var headerLeft: String = ""
     @State var headerCenter: String = ""
     @State var headerRight: String = ""
@@ -266,13 +262,6 @@ struct FolderFilesView: View {
                             Text("folderFiles.noFiles.matterHint")
                         }
                     } else {
-                        // FR-7.1: Word Import tip (shown when folder is empty)
-                        if TipKitConfiguration.tipsEnabled {
-                            TipView(WordImportTip()) { action in
-                                TipActionHandler.handle(action, guideSection: WordImportTip.guideSection)
-                            }
-                            .padding(.horizontal)
-                        }
                         ContentUnavailableView {
                             Label("folderFiles.noFiles", systemImage: "doc.text")
                         } description: {

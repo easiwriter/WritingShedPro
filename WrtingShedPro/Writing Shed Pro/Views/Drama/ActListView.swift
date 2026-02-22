@@ -7,7 +7,6 @@
 
 import SwiftUI
 import SwiftData
-import TipKit
 
 /// List view showing all acts for a Drama project
 struct ActListView: View {
@@ -32,9 +31,6 @@ struct ActListView: View {
     @State private var newActName: String = ""
     @State private var showSubmissionPicker = false
     @State private var filesToSubmit: [TextFile] = []
-    
-    /// Act list toolbar tip
-    private let actListToolbarTip = ActListToolbarTip()
     
     // MARK: - Computed
     
@@ -77,12 +73,6 @@ struct ActListView: View {
         }
         .navigationTitle(NSLocalizedString("drama.acts.title", comment: "Acts"))
         .navigationBarTitleDisplayMode(.inline)
-        // Act list toolbar guide tip
-        .safeAreaInset(edge: .top, spacing: 0) {
-            if TipKitConfiguration.tipsEnabled {
-                TipView(actListToolbarTip)
-            }
-        }
         // Use native iOS back button - immune to SwiftUI render blocking
         .navigationBarBackButtonHidden(false)
         .onPopToRoot {
@@ -253,14 +243,6 @@ struct ActListView: View {
     
     private var emptyState: some View {
         VStack(spacing: 16) {
-            // FR-6.1: Drama Structure tip
-            if TipKitConfiguration.tipsEnabled {
-                TipView(DramaStructureTip()) { action in
-                    TipActionHandler.handle(action, guideSection: DramaStructureTip.guideSection)
-                }
-                .padding(.horizontal)
-            }
-            
             Image(systemName: "theatermasks")
                 .font(.system(size: 60))
                 .foregroundColor(.secondary)

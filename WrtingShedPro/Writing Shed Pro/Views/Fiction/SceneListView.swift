@@ -7,7 +7,6 @@
 
 import SwiftUI
 import SwiftData
-import TipKit
 import UniformTypeIdentifiers
 
 /// List view showing scenes - either for entire project (Short Fiction) or within a chapter (Novel)
@@ -94,11 +93,6 @@ struct SceneListView: View {
     
     /// Act grouping: tracks which act sections are expanded (Drama only)
     @State private var actExpandedSections: Set<String> = []
-    
-    /// Scene/Episode list toolbar tip — uses correct variant for verse novels
-    private let sceneListToolbarTip = SceneListToolbarTip()
-    private let episodeListToolbarTip = EpisodeListToolbarTip()
-    @State private var toolbarTipDismissed = false
     
     // MARK: - Init
     
@@ -356,39 +350,6 @@ struct SceneListView: View {
         }
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
-        // Scene list toolbar guide tip — placed in safeAreaInset so it doesn't
-        // break the navigation title rendering.
-        .safeAreaInset(edge: .top, spacing: 0) {
-            if TipKitConfiguration.tipsEnabled {
-                if !toolbarTipDismissed {
-                    if isVerseNovel {
-                        TipView(episodeListToolbarTip)
-                    } else {
-                        TipView(sceneListToolbarTip)
-                    }
-                } else {
-                    VStack(spacing: 0) {
-                        TipView(FolderOrganisationTip()) { action in
-                            TipActionHandler.handle(action, guideSection: FolderOrganisationTip.guideSection)
-                        }
-                        // FR-5.3: Scene Info tip (shown in scene list)
-                        TipView(SceneInfoTip()) { action in
-                            TipActionHandler.handle(action, guideSection: SceneInfoTip.guideSection)
-                        }
-                    }
-                }
-            }
-        }
-        // When the toolbar tip is dismissed, donate the event so
-        // FolderOrganisationTip becomes eligible to appear.
-        .task {
-            for await status in isVerseNovel ? episodeListToolbarTip.statusUpdates : sceneListToolbarTip.statusUpdates {
-                if case .invalidated = status {
-                    toolbarTipDismissed = true
-                    FolderOrganisationTip.fileListToolbarTipDismissed.sendDonation()
-                }
-            }
-        }
         // Use native iOS back button - immune to SwiftUI render blocking
         .navigationBarBackButtonHidden(false)
         .onPopToRoot {
@@ -648,9 +609,6 @@ struct SceneListView: View {
         }
         .onAppear {
             initializeHeaderFooterFields()
-            
-            // FR-5.4: Update Verse Novel tip parameter
-            VerseNovelTip.isVerseNovel = isVerseNovel
             
             // Expand all chapter sections by default on first appear
             if chapterExpandedSections.isEmpty, let groups = chapterGroups {
@@ -956,14 +914,6 @@ struct SceneListView: View {
     
     private var emptyState: some View {
         VStack(spacing: 16) {
-            // FR-5.1: Scenes & Chapters tip
-            if TipKitConfiguration.tipsEnabled {
-                TipView(ScenesAndChaptersTip()) { action in
-                    TipActionHandler.handle(action, guideSection: ScenesAndChaptersTip.guideSection)
-                }
-                .padding(.horizontal)
-            }
-            
             Image(systemName: isVerseNovel ? "music.note.list" : "film")
                 .font(.system(size: 60))
                 .foregroundColor(.secondary)

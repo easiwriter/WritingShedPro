@@ -9,7 +9,6 @@
 
 import SwiftUI
 import SwiftData
-import TipKit
 
 /// View for displaying Submissions in the Submissions folder
 /// Submissions are Submission objects with a publication attached
@@ -313,14 +312,6 @@ struct SubmissionsView: View {
     
     private var emptyStateView: some View {
         VStack(spacing: 16) {
-            // FR-8.2: Submissions tip
-            if TipKitConfiguration.tipsEnabled {
-                TipView(SubmissionsTip()) { action in
-                    TipActionHandler.handle(action, guideSection: SubmissionsTip.guideSection)
-                }
-                .padding(.horizontal)
-            }
-            
             Image(systemName: "tray")
                 .font(.system(size: 60))
                 .foregroundColor(.secondary)

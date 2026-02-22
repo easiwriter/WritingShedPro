@@ -7,7 +7,6 @@
 
 import SwiftUI
 import SwiftData
-import TipKit
 
 /// View for managing plot elements and Hero's Journey structure
 struct PlotOutlineView: View {
@@ -200,14 +199,6 @@ struct PlotOutlineView: View {
     
     private var emptyState: some View {
         VStack(spacing: 16) {
-            // FR-5.2: Plot Elements tip
-            if TipKitConfiguration.tipsEnabled {
-                TipView(PlotElementsTip()) { action in
-                    TipActionHandler.handle(action, guideSection: PlotElementsTip.guideSection)
-                }
-                .padding(.horizontal)
-            }
-            
             Image(systemName: "chart.line.uptrend.xyaxis")
                 .font(.system(size: 60))
                 .foregroundColor(.secondary)

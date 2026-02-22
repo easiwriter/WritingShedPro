@@ -7,7 +7,6 @@
 
 import SwiftUI
 import UniformTypeIdentifiers
-import TipKit
 
 // MARK: - Custom UTTypes for Writing Shed files
 extension UTType {
@@ -39,22 +38,16 @@ struct ContentViewBody: View {
     
 
     @State private var showProjectTrash = false
+    @State private var showWelcomeAbout = false
+
+    /// Whether the user has completed the welcome flow (opened guide or created a project).
+    /// Device-local — each device shows welcome independently until dismissed by action.
+    private var hasCompletedWelcome: Bool {
+        UserDefaults.standard.bool(forKey: "hasCompletedWelcome")
+    }
 
     private var trashedProjects: [Project] {
         projects.filter { $0.isTrashed == true }
-    }
-
-    private let toolbarGuideTip = ToolbarGuideTip()
-    
-    /// Show the toolbar guide tip on the first launch.
-    /// Uses UserDefaults directly instead of TipKit @Parameter rules, which have
-    /// unreliable persistence timing across launches.
-    private var shouldShowToolbarTip: Bool {
-        // configureTipKit increments AFTER reading, so by the time the view
-        // appears the stored value is launchCount+1.
-        // First launch: original count 0, stored as 1.
-        let storedCount = UserDefaults.standard.integer(forKey: "tipkit.appLaunchCount")
-        return storedCount == 1  // Was launchCount==0 before increment
     }
 
     var body: some View {
@@ -79,37 +72,6 @@ struct ContentViewBody: View {
                     .padding(.vertical, 8)
                 }
             }
-            // FR-2.7: Toolbar Guide tip — placed in safeAreaInset so it doesn't
-            // break the large navigation title rendering.
-            // Display timing controlled by UserDefaults, dismiss state by TipKit.
-            .safeAreaInset(edge: .top, spacing: 0) {
-                if shouldShowToolbarTip && TipKitConfiguration.tipsEnabled {
-                    TipView(toolbarGuideTip) { action in
-                        switch action.id {
-                        case "interface-tour":
-                            GuideNavigationService.shared.openGuideSection("23-the-interface-tour")
-                        case "settings-guide":
-                            GuideNavigationService.shared.openGuideSection("25-application-settings")
-                        default:
-                            break
-                        }
-                    }
-                } else if TipKitConfiguration.tipsEnabled {
-                    // FR-2.1: First Project tip (shown when project list is empty)
-                    TipView(FirstProjectTip()) { action in
-                        TipActionHandler.handle(action, guideSection: FirstProjectTip.guideSection)
-                    }
-                }
-            }
-            // When the toolbar guide tip is dismissed, donate the event so
-            // CreateProjectTip becomes eligible to appear.
-            .task {
-                for await status in toolbarGuideTip.statusUpdates {
-                    if case .invalidated = status {
-                        CreateProjectTip.toolbarTipDismissed.sendDonation()
-                    }
-                }
-            }
             .environment(\.editMode, $state.editMode)
             #if !targetEnvironment(macCatalyst)
             .preferredColorScheme(state.appearancePreferences.colorScheme)
@@ -117,8 +79,10 @@ struct ContentViewBody: View {
             .onAppear {
                 onInitialize()
                 
-                // FR-2.1: Update FirstProjectTip parameter on appear
-                FirstProjectTip.hasNoProjects = projects.filter({ !$0.isTrashed }).isEmpty
+                // Show welcome About sheet if the flag hasn't been set on this device
+                if !hasCompletedWelcome {
+                    showWelcomeAbout = true
+                }
                 
                 // Initialize stylesheets in background (moved from Write_App)
                 onInitializeStyleSheets()
@@ -148,8 +112,6 @@ struct ContentViewBody: View {
                         state.editMode = .inactive
                     }
                 }
-                // FR-2.1: Update FirstProjectTip parameter
-                FirstProjectTip.hasNoProjects = projects.filter({ !$0.isTrashed }).isEmpty
             }
             .navigationTitle(NSLocalizedString("contentView.title", comment: "Title of projects list"))
             .toolbar {
@@ -174,6 +136,9 @@ struct ContentViewBody: View {
             .sheet(isPresented: $state.showAbout) {
                 AboutView()
             }
+            .sheet(isPresented: $showWelcomeAbout) {
+                AboutView()
+            }
             .sheet(isPresented: $state.showStore) {
                 StoreView()
             }
@@ -188,6 +153,10 @@ struct ContentViewBody: View {
             }
             .sheet(isPresented: $state.showHTMLManual, onDismiss: {
                 state.htmlManualSection = nil
+                // Mark welcome complete when user opens the guide
+                if !hasCompletedWelcome {
+                    UserDefaults.standard.set(true, forKey: "hasCompletedWelcome")
+                }
             }) {
                 HTMLManualView(section: state.htmlManualSection)
                     .presentationDetents([.large])

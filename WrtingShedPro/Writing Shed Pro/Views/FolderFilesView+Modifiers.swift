@@ -1,5 +1,4 @@
 import SwiftUI
-import TipKit
 import UniformTypeIdentifiers
 
 extension FolderFilesView {
@@ -10,29 +9,6 @@ extension FolderFilesView {
         content
             .navigationTitle(folder.name ?? "Files")
             .navigationBarTitleDisplayMode(.inline)
-            // File list toolbar guide tip — placed in safeAreaInset so it doesn't
-            // break the navigation title rendering.
-            .safeAreaInset(edge: .top, spacing: 0) {
-                if TipKitConfiguration.tipsEnabled && !isMatterFolder {
-                    if !toolbarTipDismissed {
-                        TipView(fileListToolbarTip)
-                    } else {
-                        TipView(FolderOrganisationTip()) { action in
-                            TipActionHandler.handle(action, guideSection: FolderOrganisationTip.guideSection)
-                        }
-                    }
-                }
-            }
-            // When the toolbar tip is dismissed, donate the event so
-            // FolderOrganisationTip becomes eligible to appear.
-            .task {
-                for await status in fileListToolbarTip.statusUpdates {
-                    if case .invalidated = status {
-                        toolbarTipDismissed = true
-                        FolderOrganisationTip.fileListToolbarTipDismissed.sendDonation()
-                    }
-                }
-            }
             // Use native iOS back button - it's rendered by UIKit and immune to SwiftUI render blocking
             .navigationBarBackButtonHidden(false)
             .navigationDestination(isPresented: $navigateToFile) {

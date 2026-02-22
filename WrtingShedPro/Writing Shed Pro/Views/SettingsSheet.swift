@@ -7,7 +7,6 @@
 
 import SwiftUI
 import StoreKit
-import TipKit
 
 struct SettingsSheet: View {
     @Binding var isPresented: Bool
@@ -15,8 +14,6 @@ struct SettingsSheet: View {
     let onImport: () -> Void
     
     @Environment(\.requestReview) var requestReview
-    @State private var showTipsResetConfirmation = false
-    @State private var tipsEnabled = TipKitConfiguration.tipsEnabled
     
     var body: some View {
         NavigationStack {
@@ -83,6 +80,18 @@ struct SettingsSheet: View {
                 }
                 #endif
                 
+                #if DEBUG
+                // MARK: - Debug Section
+                Section("Debug") {
+                    Button(role: .destructive) {
+                        UserDefaults.standard.removeObject(forKey: "hasCompletedWelcome")
+                        isPresented = false
+                    } label: {
+                        Label("Reset Welcome Flag", systemImage: "arrow.counterclockwise")
+                    }
+                }
+                #endif
+                
                 // MARK: - Support Section
                 Section {
                     Button {
@@ -91,20 +100,6 @@ struct SettingsSheet: View {
                     } label: {
                         Label("Sync Diagnostics", systemImage: "arrow.triangle.2.circlepath")
                     }
-                    
-                    Toggle(isOn: $tipsEnabled) {
-                        Label("Show Tips", systemImage: "lightbulb")
-                    }
-                    .onChange(of: tipsEnabled) { _, newValue in
-                        TipKitConfiguration.setDisabled(!newValue)
-                    }
-                    
-                    Button {
-                        showTipsResetConfirmation = true
-                    } label: {
-                        Label("Reset All Tips", systemImage: "arrow.counterclockwise")
-                    }
-                    .disabled(!tipsEnabled)
                     
                     Button {
                         isPresented = false
@@ -126,6 +121,7 @@ struct SettingsSheet: View {
                     }
                 }
             }
+            .scrollIndicatorsFlash(onAppear: true)
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -136,17 +132,8 @@ struct SettingsSheet: View {
                 }
             }
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.large])
         .presentationDragIndicator(.visible)
         .presentationBackground(Color(uiColor: .systemBackground))
-        .alert("Reset All Tips", isPresented: $showTipsResetConfirmation) {
-            Button("Reset", role: .destructive) {
-                Write_App.configureTipKit(isReset: true)
-                isPresented = false
-            }
-            Button("Cancel", role: .cancel) { }
-        } message: {
-            Text("All tips will be shown again starting from the next app launch.")
-        }
     }
 }

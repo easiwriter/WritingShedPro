@@ -2,8 +2,7 @@
 //  GuideNavigationService.swift
 //  Writing Shed Pro
 //
-//  Feature 035: TipKit Tips
-//  FR-9: Guide link buttons — navigates to guide sections from tip "Learn More" actions
+//  Service for navigating to guide sections in the HTML manual
 //
 
 import Foundation

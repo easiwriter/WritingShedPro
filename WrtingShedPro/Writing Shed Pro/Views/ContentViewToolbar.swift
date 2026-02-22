@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import TipKit
 
 struct ContentViewToolbar: ToolbarContent {
     var state: ContentViewState
@@ -48,11 +47,6 @@ struct ContentViewToolbar: ToolbarContent {
                 
                 Button(action: { state.showAddProject = true }) {
                     Label(NSLocalizedString("contentView.addProject", comment: "Button to add new project"), systemImage: "plus")
-                        .if(TipKitConfiguration.tipsEnabled) { view in
-                            view.popoverTip(CreateProjectTip()) { action in
-                                TipActionHandler.handle(action, guideSection: CreateProjectTip.guideSection)
-                            }
-                        }
                 }
                 .accessibilityLabel(NSLocalizedString("contentView.addProjectAccessibility", comment: "Accessibility label for add project button"))
                 .disabled(state.editMode == .active)

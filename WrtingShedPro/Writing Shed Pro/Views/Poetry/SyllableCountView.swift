@@ -1,5 +1,4 @@
 import SwiftUI
-import TipKit
 
 /// A view displaying line-by-line syllable counts with visual feedback
 /// Shows actual vs expected counts and color-codes accuracy
@@ -61,25 +60,6 @@ struct SyllableCountView: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // FR-4.2: Syllable Counter tip
-            if expectedPattern != nil && TipKitConfiguration.tipsEnabled {
-                TipView(SyllableCounterTip())
-                    .padding(.horizontal)
-                    .padding(.bottom, 4)
-                    .onAppear {
-                        SyllableCounterTip.hasPoetryForm = true
-                    }
-            }
-            
-            // FR-4.3: CMU Dictionary tip (shown when syllable mismatch detected)
-            if TipKitConfiguration.tipsEnabled {
-                TipView(CMUDictionaryTip()) { action in
-                    TipActionHandler.handle(action, guideSection: CMUDictionaryTip.guideSection)
-                }
-                .padding(.horizontal)
-                .padding(.bottom, 4)
-            }
-            
             // Header
             headerRow
             
@@ -262,10 +242,6 @@ struct SyllableCountView: View {
         }
         
         comparisons = results
-        
-        // FR-4.3: Update CMUDictionaryTip parameter when mismatches detected
-        let hasMismatch = results.contains { $0.accuracy == .off || $0.accuracy == .close }
-        CMUDictionaryTip.hasSyllableMismatch = hasMismatch
     }
     
     /// Identify which line indices are excluded (non-poem sections)

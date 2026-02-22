@@ -200,6 +200,14 @@ struct HTMLManualView: View {
             // Remove all background colors (prevents nav bar bleed-through)
             mutable.removeAttribute(.backgroundColor, range: fullRange)
             
+            // Ensure all links are explicitly blue (Catalyst may not apply link color automatically
+            // after CSS color stripping)
+            mutable.enumerateAttribute(.link, in: fullRange, options: []) { value, range, _ in
+                if value != nil {
+                    mutable.addAttribute(.foregroundColor, value: UIColor.link, range: range)
+                }
+            }
+            
             attributedContent = AttributedString(mutable)
         } else {
             attributedContent = AttributedString("Failed to render section.")

@@ -7,7 +7,6 @@
 
 import SwiftUI
 import SwiftData
-import TipKit
 
 /// List view showing all chapters (Novel) or stories (Short Fiction) for a fiction project
 struct ChapterListView: View {
@@ -32,9 +31,6 @@ struct ChapterListView: View {
     @State private var newChapterName: String = ""
     @State private var showSubmissionPicker = false
     @State private var filesToSubmit: [TextFile] = []
-    
-    /// Chapter list toolbar tip
-    private let chapterListToolbarTip = ChapterListToolbarTip()
     
     // MARK: - Computed
     
@@ -234,20 +230,8 @@ struct ChapterListView: View {
         }
         .navigationTitle(fictionClass.chapterDisplayName)
         .navigationBarTitleDisplayMode(.inline)
-        // Chapter list toolbar guide tip
-        .safeAreaInset(edge: .top, spacing: 0) {
-            if TipKitConfiguration.tipsEnabled {
-                TipView(chapterListToolbarTip)
-            }
-        }
         // Use native iOS back button - immune to SwiftUI render blocking
         .navigationBarBackButtonHidden(false)
-        .onAppear {
-            // FR-7.2: Update manuscript assembly tip parameter
-            ManuscriptAssemblyTip.hasEnoughChapters = sortedChapters.count >= 3
-            // FR-5.4: Update Verse Novel tip parameter
-            VerseNovelTip.isVerseNovel = isVerseNovel
-        }
         .onPopToRoot {
             dismiss()
         }
@@ -423,14 +407,6 @@ struct ChapterListView: View {
     
     private var emptyState: some View {
         VStack(spacing: 16) {
-            // FR-5.4: Verse Novel tip (only for verse novels)
-            if isVerseNovel && TipKitConfiguration.tipsEnabled {
-                TipView(VerseNovelTip()) { action in
-                    TipActionHandler.handle(action, guideSection: VerseNovelTip.guideSection)
-                }
-                .padding(.horizontal)
-            }
-            
             Image(systemName: emptyStateIcon)
                 .font(.system(size: 60))
                 .foregroundColor(.secondary)

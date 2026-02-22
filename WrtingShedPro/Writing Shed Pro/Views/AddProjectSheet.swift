@@ -1,6 +1,5 @@
 import SwiftUI
 import SwiftData
-import TipKit
 
 struct AddProjectSheet: View {
     @Binding var isPresented: Bool
@@ -22,8 +21,6 @@ struct AddProjectSheet: View {
     @Environment(\.modelContext) var modelContext
     @Query private var allProjects: [Project]
     
-    private let projectTypesTip = ProjectTypesTip()
-    
     var body: some View {
         NavigationView {
             Form {
@@ -41,13 +38,6 @@ struct AddProjectSheet: View {
                         }
                     }
                     .accessibilityLabel(NSLocalizedString("addProject.typeAccessibility", comment: "Accessibility label for project type picker"))
-                    
-                    // FR-2.2: Project Types tip
-                    if TipKitConfiguration.tipsEnabled {
-                        TipView(projectTypesTip) { action in
-                            TipActionHandler.handle(action, guideSection: ProjectTypesTip.guideSection)
-                        }
-                    }
                     
                     // Fiction-specific options
                     if selectedType == .fiction {
@@ -181,8 +171,11 @@ struct AddProjectSheet: View {
             
             // Record significant event for review prompts
             ReviewManager.shared.recordSignificantEvent()
-            
-            // Force CloudKit sync by attempting a fetch
+                    
+                    // Mark welcome complete when user creates their first project
+                    if !UserDefaults.standard.bool(forKey: "hasCompletedWelcome") {
+                        UserDefaults.standard.set(true, forKey: "hasCompletedWelcome")
+                    }
             DispatchQueue.global(qos: .background).asyncAfter(deadline: .now() + 0.5) {
                 do {
                     // Force the sync by doing a no-op fetch

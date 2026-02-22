@@ -8,7 +8,6 @@
 import SwiftUI
 import SwiftData
 import CloudKit
-import TipKit
 import os
 
 @main
@@ -185,9 +184,6 @@ struct Write_App: App {
         Write_App.logToFile("✅ [CloudKit Config] Container: iCloud.com.appworks.writingshedpro")
         Write_App.logToFile("✅ [CloudKit Config] Database: private")
         Write_App.logToFile("✅ [CloudKit Config] aps-environment: production")
-        
-        // Configure TipKit for contextual tips (Feature 035)
-        Self.configureTipKit()
     }
 
     var body: some Scene {
@@ -288,47 +284,6 @@ struct Write_App: App {
         }
     }
     
-    
-    /// Configure TipKit — called on launch and after reset
-    /// - Parameter isReset: When true, resets the launch counter so tips replay from first-launch
-    static func configureTipKit(isReset: Bool = false) {
-        if isReset {
-            // Mark for reset on next launch — resetDatastore() must be called BEFORE configure(),
-            // and configure() can only be called once per process, so we defer the actual reset.
-            UserDefaults.standard.set(true, forKey: "tipkit.pendingReset")
-            UserDefaults.standard.set(0, forKey: "tipkit.appLaunchCount")
-            return
-        }
-        
-        // Handle pending reset from previous session
-        let pendingReset = UserDefaults.standard.bool(forKey: "tipkit.pendingReset")
-        if pendingReset {
-            UserDefaults.standard.set(false, forKey: "tipkit.pendingReset")
-            UserDefaults.standard.set(0, forKey: "tipkit.appLaunchCount")
-            try? Tips.resetDatastore()
-        }
-        
-        let launchCount = UserDefaults.standard.integer(forKey: "tipkit.appLaunchCount")
-        
-        do {
-            try Tips.configure([
-                .displayFrequency(.immediate),
-                .datastoreLocation(.applicationDefault)
-            ])
-        } catch {
-            #if DEBUG
-            print("⚠️ [TipKit] Configuration failed: \(error.localizedDescription)")
-            #endif
-        }
-        
-        // Increment for next launch — done here (not onAppear) to avoid
-        // Mac Catalyst firing onAppear multiple times per launch
-        UserDefaults.standard.set(launchCount + 1, forKey: "tipkit.appLaunchCount")
-        
-        #if DEBUG
-        print("✅ [TipKit] Ready (launchCount: \(launchCount), pendingReset: \(pendingReset))")
-        #endif
-    }
     
     /// Log messages to a file in the app's documents directory for TestFlight diagnostics
     private static func logToFile(_ message: String) {

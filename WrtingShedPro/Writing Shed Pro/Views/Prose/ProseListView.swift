@@ -8,7 +8,6 @@
 
 import SwiftUI
 import SwiftData
-import TipKit
 import UniformTypeIdentifiers
 
 /// List view showing text files for a Prose project
@@ -85,9 +84,6 @@ struct ProseListView: View {
     @State private var showHeaderFooterEditor = false
     @State private var showHeaderFooterWarning = false
     
-    /// File list toolbar tip
-    private let fileListToolbarTip = FileListToolbarTip()
-    @State private var toolbarTipDismissed = false
     @State private var headerLeft: String = ""
     @State private var headerCenter: String = ""
     @State private var headerRight: String = ""
@@ -336,29 +332,6 @@ struct ProseListView: View {
         }
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
-        // File list toolbar guide tip — placed in safeAreaInset so it doesn't
-        // break the navigation title rendering.
-        .safeAreaInset(edge: .top, spacing: 0) {
-            if TipKitConfiguration.tipsEnabled {
-                if !toolbarTipDismissed {
-                    TipView(fileListToolbarTip)
-                } else {
-                    TipView(FolderOrganisationTip()) { action in
-                        TipActionHandler.handle(action, guideSection: FolderOrganisationTip.guideSection)
-                    }
-                }
-            }
-        }
-        // When the toolbar tip is dismissed, donate the event so
-        // FolderOrganisationTip becomes eligible to appear.
-        .task {
-            for await status in fileListToolbarTip.statusUpdates {
-                if case .invalidated = status {
-                    toolbarTipDismissed = true
-                    FolderOrganisationTip.fileListToolbarTipDismissed.sendDonation()
-                }
-            }
-        }
         // Use native iOS back button - immune to SwiftUI render blocking
         .navigationBarBackButtonHidden(false)
         .onPopToRoot {

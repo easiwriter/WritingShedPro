@@ -1,6 +1,5 @@
 import SwiftUI
 import SwiftData
-import TipKit
 import ToolbarSUI
 import UniformTypeIdentifiers
 import PhotosUI
@@ -16,10 +15,6 @@ struct NewIndexEntryData: Identifiable {
 struct FileEditView: View {
         @State private var presentDeleteBackMatterAlert = false
     @Bindable var file: TextFile
-    
-    // TipKit tips (Feature 035)
-    private let formattingToolbarTip = FormattingToolbarTip()
-    private let markdownToggleTip = MarkdownToggleTip()
     
     // Track version index changes explicitly for toolbar updates
     @State private var currentVersionIndex: Int = 0
@@ -577,8 +572,6 @@ struct FileEditView: View {
             withAnimation(.easeInOut(duration: 0.3)) {
                 isPaginationMode.toggle()
             }
-            // FR-7.3: Donate page preview event for PDF Export tip
-            if isPaginationMode { Task { await PDFExportTip.pagePreviewUsed.donate() } }
         }) {
             Label(isPaginationMode ? "Edit Mode" : "Page Preview", systemImage: isPaginationMode ? "pencil" : "document.on.document")
         }
@@ -942,7 +935,6 @@ struct FileEditView: View {
                             withAnimation(.easeInOut(duration: 0.3)) {
                                 isPaginationMode.toggle()
                             }
-                            if isPaginationMode { Task { await PDFExportTip.pagePreviewUsed.donate() } }
                         }) {
                             Image(systemName: "document.on.document.fill")
                         }
@@ -954,7 +946,6 @@ struct FileEditView: View {
                         withAnimation(.easeInOut(duration: 0.3)) {
                             isPaginationMode.toggle()
                         }
-                        if isPaginationMode { Task { await PDFExportTip.pagePreviewUsed.donate() } }
                     }) {
                         Image(systemName: isPaginationMode ? "document.on.document.fill" : "document.on.document")
                     }
@@ -1462,51 +1453,9 @@ struct FileEditView: View {
             
             // Main content area - switch between edit and pagination modes
             if isPaginationMode {
-                // FR-7.3: PDF Export tip (shown after entering Page Preview)
-                if TipKitConfiguration.tipsEnabled {
-                    TipView(PDFExportTip()) { action in
-                        TipActionHandler.handle(action, guideSection: PDFExportTip.guideSection)
-                    }
-                    .padding(.horizontal)
-                }
                 paginationSection()
             } else {
                 textEditorSection()
-                // FR-3.1: Formatting Toolbar tip (shown above toolbar on first open)
-                if isFileEditable && !isDisplayingAsMarkdown && TipKitConfiguration.tipsEnabled {
-                    TipView(formattingToolbarTip) { action in
-                        TipActionHandler.handle(action, guideSection: FormattingToolbarTip.guideSection)
-                    }
-                    .padding(.horizontal)
-                }
-                // FR-3.5: Word Count tip (shown on first file open)
-                if isFileEditable && TipKitConfiguration.tipsEnabled {
-                    TipView(WordCountTip()) { action in
-                        TipActionHandler.handle(action, guideSection: WordCountTip.guideSection)
-                    }
-                    .padding(.horizontal)
-                }
-                // FR-8.3: Comments tip (shown after 3+ editing sessions)
-                if isFileEditable && TipKitConfiguration.tipsEnabled {
-                    TipView(CommentsTip()) { action in
-                        TipActionHandler.handle(action, guideSection: CommentsTip.guideSection)
-                    }
-                    .padding(.horizontal)
-                }
-                // FR-8.4: Footnotes tip (shown for editable files)
-                if isFileEditable && TipKitConfiguration.tipsEnabled {
-                    TipView(FootnotesTip()) { action in
-                        TipActionHandler.handle(action, guideSection: FootnotesTip.guideSection)
-                    }
-                    .padding(.horizontal)
-                }
-                // FR-8.5: Search & Replace tip (shown after 5+ editing sessions)
-                if isFileEditable && TipKitConfiguration.tipsEnabled {
-                    TipView(SearchReplaceTip()) { action in
-                        TipActionHandler.handle(action, guideSection: SearchReplaceTip.guideSection)
-                    }
-                    .padding(.horizontal)
-                }
                 // Formatting toolbar (only shown for editable rich text files, not when displaying as markdown)
                 if isFileEditable && !isDisplayingAsMarkdown {
                     formattingToolbar()
@@ -1514,13 +1463,6 @@ struct FileEditView: View {
                 // Markdown indicator bar (only when displaying as markdown)
                 if isDisplayingAsMarkdown {
                     markdownIndicatorBar()
-                    // FR-3.2: Markdown Toggle tip (shown when file supports markdown)
-                    if TipKitConfiguration.tipsEnabled {
-                        TipView(markdownToggleTip) { action in
-                            TipActionHandler.handle(action, guideSection: MarkdownToggleTip.guideSection)
-                        }
-                        .padding(.horizontal)
-                    }
                 }
             }
         }
@@ -2503,16 +2445,6 @@ struct FileEditView: View {
         // Sync back matter settings with actual files (handles imported projects)
         syncBackMatterSettingsWithActualFiles()
         
-        // Feature 035: TipKit parameter updates
-        // FR-3.2: Update markdown toggle tip parameter
-        MarkdownToggleTip.supportsMarkdown = supportsMarkdown
-        
-        // FR-3.4 / FR-8.3 / FR-8.5: Donate editing session for event-based tips
-        Task {
-            await PagePreviewTip.editingSession.donate()
-            await CommentsTip.editingSession.donate()
-            await SearchReplaceTip.editingSession.donate()
-        }
     }
     
     /// Update the cached validation issue count asynchronously
@@ -6862,9 +6794,6 @@ struct FileEditView: View {
     
     /// Apply a paragraph style to the current selection
     private func applyParagraphStyle(_ style: UIFont.TextStyle) {
-        // FR-3.3: Donate style-applied event for Stylesheet tip
-        Task { await StylesheetTip.styleApplied.donate() }
-        
         #if DEBUG
         print("📝 ========== APPLY PARAGRAPH STYLE START ==========")
         #if DEBUG
