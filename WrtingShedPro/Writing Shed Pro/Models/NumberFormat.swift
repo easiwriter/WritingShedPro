@@ -180,8 +180,11 @@ extension NumberFormat {
     ///   - adornment: The number adornment style
     ///   - hasParent: Whether this is a child style with hierarchical numbering (e.g., "1.a")
     /// - Returns: Estimated width needed for the number plus a small gap
-    func estimatedWidth(for font: UIFont, adornment: NumberingAdornment = .period, hasParent: Bool = false) -> CGFloat {
+    func estimatedWidth(for font: UIFont, adornment: NumberingAdornment = .period, hasParent: Bool = false, ancestorDepth: Int = 0) -> CGFloat {
         guard self != .none else { return 0 }
+        
+        // Use the greater of hasParent (legacy) and ancestorDepth
+        let depth = max(ancestorDepth, hasParent ? 1 : 0)
         
         // Use a representative "wide" number for estimation
         // For most formats, index 8 ("9" or "ix") is a reasonable worst case for single digits
@@ -190,15 +193,21 @@ extension NumberFormat {
         case .none:
             return 0
         case .decimal:
-            sampleNumber = hasParent ? "99.9" : "99" // Allow for 2 digits
+            // Build "99.9.9" with one segment per ancestor + self
+            let segments = Array(repeating: "9", count: depth + 1)
+            sampleNumber = segments.joined(separator: ".")
         case .lowercaseRoman:
-            sampleNumber = hasParent ? "x.viii" : "viii" // Roman numeral 8
+            let segments = ["viii"] + Array(repeating: "viii", count: depth)
+            sampleNumber = segments.joined(separator: ".")
         case .uppercaseRoman:
-            sampleNumber = hasParent ? "X.VIII" : "VIII"
+            let segments = ["VIII"] + Array(repeating: "VIII", count: depth)
+            sampleNumber = segments.joined(separator: ".")
         case .lowercaseLetter:
-            sampleNumber = hasParent ? "9.m" : "m" // Wide letter
+            let segments = ["m"] + Array(repeating: "m", count: depth)
+            sampleNumber = segments.joined(separator: ".")
         case .uppercaseLetter:
-            sampleNumber = hasParent ? "9.M" : "M"
+            let segments = ["M"] + Array(repeating: "M", count: depth)
+            sampleNumber = segments.joined(separator: ".")
         case .footnoteSymbols, .bulletSymbols:
             sampleNumber = "•" // Single character
         }

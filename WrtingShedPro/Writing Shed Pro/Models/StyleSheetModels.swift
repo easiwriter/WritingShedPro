@@ -344,8 +344,19 @@ final class TextStyleModel {
         } else if numberFormat != .none {
             // For non-list numbered paragraphs (headings, etc.), add number width
             let font = generateFont()
-            let hasParent = parentStyleName != nil && !parentStyleName!.isEmpty
-            let numberWidth = numberFormat.estimatedWidth(for: font, adornment: numberAdornment, hasParent: hasParent)
+            // Walk the ancestor chain through the stylesheet to determine full depth
+            var ancestorDepth = 0
+            var currentParent = parentStyleName
+            while let pName = currentParent, !pName.isEmpty {
+                ancestorDepth += 1
+                // Look up the parent style via the stylesheet relationship
+                if let parentModel = styleSheet?.textStyles?.first(where: { $0.name == pName }) {
+                    currentParent = parentModel.parentStyleName
+                } else {
+                    break
+                }
+            }
+            let numberWidth = numberFormat.estimatedWidth(for: font, adornment: numberAdornment, ancestorDepth: ancestorDepth)
             effectiveFirstLineIndent += numberWidth
         }
         paragraphStyle.firstLineHeadIndent = effectiveFirstLineIndent

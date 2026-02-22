@@ -727,6 +727,17 @@ struct FormattedTextEditor: UIViewRepresentable {
                         // Set typingAttributes to follow-on style for continued typing
                         textView.typingAttributes = attrs
                         
+                        // Fix stale .textStyle on the character now after the insertion
+                        // (e.g., an old \n that still carries a different numbered style)
+                        if let followOnStyleName = attrs[.textStyle] as? String,
+                           newCursorPosition < textView.textStorage.length {
+                            let nextAttrs = textView.textStorage.attributes(at: newCursorPosition, effectiveRange: nil)
+                            if let nextStyle = nextAttrs[.textStyle] as? String,
+                               nextStyle != followOnStyleName {
+                                textView.textStorage.addAttribute(.textStyle, value: followOnStyleName, range: NSRange(location: newCursorPosition, length: 1))
+                            }
+                        }
+                        
                         // Force layout manager to redraw numbers
                         textView.setNeedsDisplay()
                         if let layoutManager = textView.layoutManager as? NumberingLayoutManager {
@@ -749,10 +760,6 @@ struct FormattedTextEditor: UIViewRepresentable {
                        let currentStyle = styleSheet.textStyles?.first(where: { $0.name == styleName }),
                        currentStyle.numberFormat != .none {
                         
-                        #if DEBUG
-                        print("📝 Enter on numbered style: '\(styleName)' (category: \(currentStyle.styleCategory.rawValue), numberFormat: \(currentStyle.numberFormat.rawValue))")
-                        #endif
-                        
                         // Insert newline with CURRENT style + ZWS with same style
                         let currentAttrs = attrText.attributes(at: range.location > 0 ? range.location - 1 : 0, effectiveRange: nil)
                         
@@ -760,16 +767,21 @@ struct FormattedTextEditor: UIViewRepresentable {
                         mutableString.append(NSAttributedString(string: "\n", attributes: currentAttrs))
                         mutableString.append(NSAttributedString(string: "\u{200B}", attributes: attrs)) // ZWS anchors the style
                         
-                        #if DEBUG
-                        let zwsStyle = attrs[.textStyle] as? String ?? "nil"
-                        print("📝 ZWS will have .textStyle = '\(zwsStyle)'")
-                        #endif
-                        
                         textView.textStorage.replaceCharacters(in: range, with: mutableString)
                         
                         let newCursorPosition = range.location + 2
                         textView.selectedRange = NSRange(location: newCursorPosition, length: 0)
                         textView.typingAttributes = attrs
+                        
+                        // Fix stale .textStyle on the character now after the insertion
+                        if let numberedStyleName = attrs[.textStyle] as? String,
+                           newCursorPosition < textView.textStorage.length {
+                            let nextAttrs = textView.textStorage.attributes(at: newCursorPosition, effectiveRange: nil)
+                            if let nextStyle = nextAttrs[.textStyle] as? String,
+                               nextStyle != numberedStyleName {
+                                textView.textStorage.addAttribute(.textStyle, value: numberedStyleName, range: NSRange(location: newCursorPosition, length: 1))
+                            }
+                        }
                         
                         textView.setNeedsDisplay()
                         if let layoutManager = textView.layoutManager as? NumberingLayoutManager {
@@ -780,19 +792,38 @@ struct FormattedTextEditor: UIViewRepresentable {
                         return false
                     }
                     
-                    // No follow-on style and no numbering - continue with same style after newline
-                    DispatchQueue.main.async { [weak textView] in
-                        guard let textView = textView else { return }
-                        
-                        // Apply the same attributes for the next paragraph
-                        textView.typingAttributes = attrs
-                        
-                        // Force layout manager to redraw numbers
-                        textView.setNeedsDisplay()
-                        if let layoutManager = textView.layoutManager as? NumberingLayoutManager {
-                            layoutManager.invalidateDisplay(forCharacterRange: NSRange(location: 0, length: textView.textStorage.length))
+                    // No follow-on style and no numbering - handle insertion manually
+                    // to ensure correct .textStyle on the newline and fix stale styles
+                    // on any existing \n that follows (which could cause ghost numbers)
+                    
+                    // Insert newline with current paragraph's attributes
+                    let newlineString = NSAttributedString(string: "\n", attributes: attrs)
+                    textView.textStorage.replaceCharacters(in: range, with: newlineString)
+                    
+                    // Move cursor after the new \n
+                    let newCursorPosition = range.location + 1
+                    textView.selectedRange = NSRange(location: newCursorPosition, length: 0)
+                    textView.typingAttributes = attrs
+                    
+                    // Fix stale .textStyle on the character now at the cursor position
+                    // (e.g., an old \n from a follow-on that still carries a numbered style)
+                    if let currentStyle = attrs[.textStyle] as? String,
+                       newCursorPosition < textView.textStorage.length {
+                        let nextAttrs = textView.textStorage.attributes(at: newCursorPosition, effectiveRange: nil)
+                        if let nextStyle = nextAttrs[.textStyle] as? String,
+                           nextStyle != currentStyle {
+                            textView.textStorage.addAttribute(.textStyle, value: currentStyle, range: NSRange(location: newCursorPosition, length: 1))
                         }
                     }
+                    
+                    // Force layout manager to redraw numbers
+                    textView.setNeedsDisplay()
+                    if let layoutManager = textView.layoutManager as? NumberingLayoutManager {
+                        layoutManager.invalidateDisplay(forCharacterRange: NSRange(location: 0, length: textView.textStorage.length))
+                    }
+                    
+                    self.textViewDidChange(textView)
+                    return false
                 }
             }
             

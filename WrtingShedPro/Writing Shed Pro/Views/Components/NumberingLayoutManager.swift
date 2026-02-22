@@ -46,6 +46,61 @@ class NumberingLayoutManager: NSLayoutManager {
     
     /// Build a map of child style → parent style from parentStyleName relationships
     /// If Title2.parentStyleName == "Title1", then Title2's numbers are prefixed with Title1's
+    
+    /// Build the full hierarchical number string by walking the ancestor chain.
+    /// For a style with parent chain: Title2 → Title3 → Headline
+    /// Returns "1.1.1" (Title2=1, Title3=1, Headline=1)
+    private func buildHierarchicalNumber(
+        for styleName: String,
+        counter: Int,
+        parentStyleMap: [String: String],
+        lastNumberForStyle: [String: Int],
+        styleSheet: StyleSheet
+    ) -> String {
+        // Walk up the ancestor chain to collect segments: [grandparent, parent, self]
+        var segments: [(styleName: String, number: Int)] = []
+        var current: String? = styleName
+        
+        // First, collect from self up to root
+        while let name = current {
+            let num: Int
+            if name == styleName {
+                num = counter
+            } else {
+                num = lastNumberForStyle[name] ?? 0
+            }
+            segments.append((name, num))
+            current = parentStyleMap[name]
+        }
+        
+        // Reverse so root is first: [root, ..., self]
+        segments.reverse()
+        
+        // If only one segment (no parent), format normally
+        guard segments.count > 1 else {
+            let style = styleSheet.style(named: styleName)
+            let level = bulletLevel(from: styleName)
+            let numberFormat = style?.numberFormat ?? .decimal
+            let adornment = style?.numberAdornment ?? .period
+            return numberFormat.symbol(for: counter - 1, adornment: adornment, level: level)
+        }
+        
+        // Build "1.1.1" from segments, each formatted with its own style's numberFormat
+        let parts: [String] = segments.map { seg in
+            let level = bulletLevel(from: seg.styleName)
+            if let style = styleSheet.style(named: seg.styleName),
+               style.numberFormat != .none {
+                return style.numberFormat.symbol(for: max(seg.number - 1, 0), adornment: .plain, level: level)
+            }
+            return "\(seg.number)"
+        }
+        
+        // Apply the final style's adornment to the combined string
+        let combined = parts.joined(separator: ".")
+        let style = styleSheet.style(named: styleName)
+        let adornment = style?.numberAdornment ?? .period
+        return adornment.apply(to: combined)
+    }
     private func buildParentStyleMap(from styleSheet: StyleSheet) -> [String: String] {
         var parentMap: [String: String] = [:]
         
@@ -183,23 +238,14 @@ class NumberingLayoutManager: NSLayoutManager {
                 return
             }
             
-            // Build the formatted number, with parent prefix for hierarchical numbering
-            let formattedNumber: String
-            let level = bulletLevel(from: styleName)
-            if let parentName = parentStyleName,
-               let parentStyle = styleSheet.style(named: parentName),
-               parentStyle.numberFormat != .none,
-               let parentNumber = lastNumberForStyle[parentName] {
-                // Hierarchical: format as "parentNumber.childNumber" (e.g., "1.1", "1.2")
-                let parentLevel = bulletLevel(from: parentName)
-                let parentSymbol = parentStyle.numberFormat.symbol(for: parentNumber - 1, adornment: .plain, level: parentLevel)
-                let childSymbol = style.numberFormat.symbol(for: counter - 1, adornment: .plain, level: level)
-                // Apply adornment to the final combined number
-                formattedNumber = style.numberAdornment.apply(to: "\(parentSymbol).\(childSymbol)")
-            } else {
-                // No parent or parent has no numbering - use standard format
-                formattedNumber = style.numberFormat.symbol(for: counter - 1, adornment: style.numberAdornment, level: level)
-            }
+            // Build the formatted number using the full ancestor chain
+            let formattedNumber = self.buildHierarchicalNumber(
+                for: styleName,
+                counter: counter,
+                parentStyleMap: parentStyleMap,
+                lastNumberForStyle: lastNumberForStyle,
+                styleSheet: styleSheet
+            )
             
             // Get the line fragment for this paragraph
             let glyphRange = self.glyphRange(forCharacterRange: paragraphRange, actualCharacterRange: nil)
@@ -260,20 +306,14 @@ class NumberingLayoutManager: NSLayoutManager {
                     styleCounters[styleName] = counter
                     lastNumberForStyle[styleName] = counter
                     
-                    // Build the formatted number, with parent prefix for hierarchical numbering
-                    let formattedNumber: String
-                    let level = bulletLevel(from: styleName)
-                    if let parentName = parentStyleName,
-                       let parentStyle = styleSheet.style(named: parentName),
-                       parentStyle.numberFormat != .none,
-                       let parentNumber = lastNumberForStyle[parentName] {
-                        let parentLevel = bulletLevel(from: parentName)
-                        let parentSymbol = parentStyle.numberFormat.symbol(for: parentNumber - 1, adornment: .plain, level: parentLevel)
-                        let childSymbol = style.numberFormat.symbol(for: counter - 1, adornment: .plain, level: level)
-                        formattedNumber = style.numberAdornment.apply(to: "\(parentSymbol).\(childSymbol)")
-                    } else {
-                        formattedNumber = style.numberFormat.symbol(for: counter - 1, adornment: style.numberAdornment, level: level)
-                    }
+                    // Build the formatted number using the full ancestor chain
+                    let formattedNumber = self.buildHierarchicalNumber(
+                        for: styleName,
+                        counter: counter,
+                        parentStyleMap: parentStyleMap,
+                        lastNumberForStyle: lastNumberForStyle,
+                        styleSheet: styleSheet
+                    )
                     
                     // Calculate Y position for empty paragraph (after last line)
                     let font = style.generateFont(applyPlatformScaling: true)
