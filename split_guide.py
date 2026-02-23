@@ -135,9 +135,12 @@ def split_guide():
 
         section_content = html[pos:end_pos].strip()
 
-        # Remove old "Back to Contents" links
+        # Convert "Back to Contents" links to guide: scheme for WKWebView
         section_content = re.sub(
-            r'<p class="back-to-top">.*?</p>', "", section_content, flags=re.DOTALL
+            r'<p class="back-to-top"><a href="#contents">.*?</a></p>',
+            '<p class="back-to-top"><a href="guide:00-toc">↑ Back to Contents</a></p>',
+            section_content,
+            flags=re.DOTALL,
         )
 
         # Convert internal anchor links to guide: scheme

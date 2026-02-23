@@ -895,8 +895,10 @@ struct FileEditView: View {
                 }
                 
                 // Character and Location insert buttons (for Fiction and Drama projects)
+                // Only show when there are characters, locations, or plot elements to display
                 if let project = file.project,
-                   (project.type == .fiction || project.type == .drama) {
+                   (project.type == .fiction || project.type == .drama),
+                   hasCharactersLocationsOrPlotElements(project: project) {
                     characterLocationInsertMenu(project: project)
                 }
                 
@@ -1049,6 +1051,13 @@ struct FileEditView: View {
     
     /// Menu for inserting character or location names (Fiction and Drama projects)
     @ViewBuilder
+    private func hasCharactersLocationsOrPlotElements(project: Project) -> Bool {
+        let hasCharacters = !(project.characters ?? []).isEmpty
+        let hasLocations = !(project.locations ?? []).isEmpty
+        let hasPlotElements = !(file.scene?.plotElements ?? []).isEmpty
+        return hasCharacters || hasLocations || hasPlotElements
+    }
+    
     private func characterLocationInsertMenu(project: Project) -> some View {
         Menu {
             characterInsertSection(project: project)

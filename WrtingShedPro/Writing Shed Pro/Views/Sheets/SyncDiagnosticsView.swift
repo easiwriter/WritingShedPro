@@ -21,8 +21,6 @@ struct SyncDiagnosticsView: View {
     @State private var containerStatus: String = "Checking..."
     @State private var duplicateCount: Int = 0
     @State private var duplicateProjectCount: Int = 0
-    @State private var orphanedFileCount: Int = 0
-    @State private var orphanedFolderCount: Int = 0
     @State private var repairMessage: String = ""
     @State private var showRepairResult = false
     
@@ -99,33 +97,6 @@ struct SyncDiagnosticsView: View {
                             repairDuplicates()
                         }
                     }
-                    
-                    HStack {
-                        Text("Orphaned Files (no parent folder)")
-                        Spacer()
-                        Text("\(orphanedFileCount) found")
-                            .foregroundColor(orphanedFileCount > 0 ? .orange : .secondary)
-                    }
-                    
-                    HStack {
-                        Text("Orphaned Folders (no project/parent)")
-                        Spacer()
-                        Text("\(orphanedFolderCount) found")
-                            .foregroundColor(orphanedFolderCount > 0 ? .orange : .secondary)
-                    }
-                    
-                    if orphanedFileCount > 0 || orphanedFolderCount > 0 {
-                        HStack {
-                            Image(systemName: "trash")
-                            Text("Delete Orphaned Records")
-                            Spacer()
-                        }
-                        .foregroundColor(.red)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            deleteOrphans()
-                        }
-                    }
                 }
                 
                 Section("StyleSheets") {
@@ -173,7 +144,6 @@ struct SyncDiagnosticsView: View {
             .onAppear {
                 checkiCloudStatus()
                 checkForDuplicates()
-                checkForOrphans()
                 checkForDuplicateProjects()
             }
             .alert("Repair Complete", isPresented: $showRepairResult) {
@@ -264,65 +234,6 @@ struct SyncDiagnosticsView: View {
             }
         } else {
             repairMessage = "No duplicates found to repair."
-        }
-        
-        showRepairResult = true
-    }
-    
-    /// Check for orphaned records (TextFiles with no parent, Folders with no project/parent)
-    private func checkForOrphans() {
-        // Find TextFiles with no parentFolder
-        orphanedFileCount = allTextFiles.filter { $0.parentFolder == nil }.count
-        
-        // Find Folders with no project AND no parentFolder (truly orphaned)
-        orphanedFolderCount = allFolders.filter { $0.project == nil && $0.parentFolder == nil }.count
-        
-        #if DEBUG
-        if orphanedFileCount > 0 {
-            print("⚠️ Found \(orphanedFileCount) orphaned TextFile(s)")
-            for file in allTextFiles where file.parentFolder == nil {
-                print("  - \(file.name) (id: \(file.id))")
-            }
-        }
-        if orphanedFolderCount > 0 {
-            print("⚠️ Found \(orphanedFolderCount) orphaned Folder(s)")
-            for folder in allFolders where folder.project == nil && folder.parentFolder == nil {
-                print("  - \(folder.name ?? "unnamed") (id: \(folder.id))")
-            }
-        }
-        #endif
-    }
-    
-    /// Delete orphaned records from the database
-    private func deleteOrphans() {
-        var deletedFiles = 0
-        var deletedFolders = 0
-        
-        // Delete orphaned TextFiles
-        for file in allTextFiles where file.parentFolder == nil {
-            #if DEBUG
-            print("🗑️ Deleting orphaned file: \(file.name)")
-            #endif
-            modelContext.delete(file)
-            deletedFiles += 1
-        }
-        
-        // Delete orphaned Folders (no project and no parent)
-        for folder in allFolders where folder.project == nil && folder.parentFolder == nil {
-            #if DEBUG
-            print("🗑️ Deleting orphaned folder: \(folder.name ?? "unnamed")")
-            #endif
-            modelContext.delete(folder)
-            deletedFolders += 1
-        }
-        
-        do {
-            try modelContext.save()
-            repairMessage = "Deleted \(deletedFiles) orphaned file(s) and \(deletedFolders) orphaned folder(s)."
-            orphanedFileCount = 0
-            orphanedFolderCount = 0
-        } catch {
-            repairMessage = "Error deleting orphans: \(error.localizedDescription)"
         }
         
         showRepairResult = true

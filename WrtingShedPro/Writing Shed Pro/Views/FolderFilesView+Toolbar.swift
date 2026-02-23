@@ -43,6 +43,9 @@ extension FolderFilesView {
                     .help("Search and replace across all files")
                     .disabled(editMode == .active)
                 }
+                
+                #if targetEnvironment(macCatalyst)
+                // On Mac, show import and header/footer buttons directly in the toolbar
                 if FolderCapabilityService.canAddFile(to: folder) {
                     Button {
                         showImportPicker = true
@@ -53,9 +56,9 @@ extension FolderFilesView {
                     .help("Import Word document")
                     .disabled(editMode == .active)
                 }
-                let enabled = headersOrFootersEnabled
+                let enabledMac = headersOrFootersEnabled
                 Button {
-                    if enabled {
+                    if enabledMac {
                         showHeaderFooterEditor = true
                     } else {
                         showHeaderFooterWarning = true
@@ -65,7 +68,9 @@ extension FolderFilesView {
                 }
                 .accessibilityLabel("Edit headers and footers")
                 .help("Edit page headers and footers")
-                .foregroundStyle(enabled ? Color.accentColor : Color.secondary)
+                .foregroundStyle(enabledMac ? Color.accentColor : Color.secondary)
+                #endif
+                
                 if FolderCapabilityService.canAddFile(to: folder) {
                     if isMixedContentFolder {
                         Menu {
@@ -106,8 +111,43 @@ extension FolderFilesView {
                     Text(editMode == .inactive ? "button.edit" : "button.done")
                 }
             }
+            
+            #if !targetEnvironment(macCatalyst)
+            // On iPhone/iPad, show overflow menu as rightmost button
+            if !isMatterFolder {
+                iPhoneOverflowMenu
+            }
+            #endif
         }
     }
+    
+    #if !targetEnvironment(macCatalyst)
+    /// Overflow menu for iPhone/iPad showing import and header/footer options
+    @ViewBuilder
+    private var iPhoneOverflowMenu: some View {
+        Menu {
+            if FolderCapabilityService.canAddFile(to: folder) {
+                Button {
+                    showImportPicker = true
+                } label: {
+                    Label("Import Word document", systemImage: "square.and.arrow.down")
+                }
+            }
+            Button {
+                if headersOrFootersEnabled {
+                    showHeaderFooterEditor = true
+                } else {
+                    showHeaderFooterWarning = true
+                }
+            } label: {
+                Label("Edit headers and footers", systemImage: "rectangle.and.pencil.and.ellipsis")
+            }
+        } label: {
+            Image(systemName: "ellipsis.circle")
+        }
+        .disabled(editMode == .active)
+    }
+    #endif
     
     /// Expand/Collapse all button for collection-grouped view in Poetry content folders
     @ViewBuilder

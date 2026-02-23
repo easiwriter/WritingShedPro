@@ -38,7 +38,7 @@ class NumberingLayoutManager: NSLayoutManager {
     
     /// Determine the bullet level from a style name
     /// Returns 0 for base level, 1 for level-2, 2 for level-3, etc.
-    private func bulletLevel(from styleName: String) -> Int {
+    func bulletLevel(from styleName: String) -> Int {
         if styleName.contains("level-3") { return 2 }
         if styleName.contains("level-2") { return 1 }
         return 0
@@ -50,7 +50,7 @@ class NumberingLayoutManager: NSLayoutManager {
     /// Build the full hierarchical number string by walking the ancestor chain.
     /// For a style with parent chain: Title2 → Title3 → Headline
     /// Returns "1.1.1" (Title2=1, Title3=1, Headline=1)
-    private func buildHierarchicalNumber(
+    func buildHierarchicalNumber(
         for styleName: String,
         counter: Int,
         parentStyleMap: [String: String],
@@ -101,7 +101,7 @@ class NumberingLayoutManager: NSLayoutManager {
         let adornment = style?.numberAdornment ?? .period
         return adornment.apply(to: combined)
     }
-    private func buildParentStyleMap(from styleSheet: StyleSheet) -> [String: String] {
+    func buildParentStyleMap(from styleSheet: StyleSheet) -> [String: String] {
         var parentMap: [String: String] = [:]
         
         guard let styles = styleSheet.textStyles else { return parentMap }
@@ -585,8 +585,8 @@ class NumberingLayoutManager: NSLayoutManager {
         let tabSymbol: NSString = "→"         // Arrow for tabs
         let returnSymbol: NSString = "¶"      // Pilcrow for newlines
         
-        // Use a subtle color so they don't overpower the text
-        let invisibleColor = UIColor.tertiaryLabel
+        // Use a visible blue so invisible characters stand out clearly
+        let invisibleColor = UIColor.systemBlue.withAlphaComponent(0.5)
         
         text.enumerateSubstrings(in: charRange, options: .byComposedCharacterSequences) { [weak self] substring, substringRange, _, _ in
             guard let self = self,
@@ -628,7 +628,7 @@ class NumberingLayoutManager: NSLayoutManager {
                 charFont = UIFont.systemFont(ofSize: 14)
             }
             
-            let symbolFontSize: CGFloat = useSmallFont ? charFont.pointSize * 0.6 : charFont.pointSize * 0.75
+            let symbolFontSize: CGFloat = useSmallFont ? charFont.pointSize * 0.8 : charFont.pointSize * 0.9
             let symbolFont = UIFont.systemFont(ofSize: symbolFontSize)
             
             let attrs: [NSAttributedString.Key: Any] = [

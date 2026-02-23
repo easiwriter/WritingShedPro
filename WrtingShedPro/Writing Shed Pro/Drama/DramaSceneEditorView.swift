@@ -273,16 +273,6 @@ struct DramaSceneEditorView: View {
                 .accessibilityLabel(NSLocalizedString("fileEdit.redo.accessibility", comment: "Redo"))
             }
         }
-        
-        // Print button
-        ToolbarItem(placement: .topBarTrailing) {
-            Button {
-                printScript()
-            } label: {
-                Image(systemName: "printer")
-            }
-            .accessibilityLabel(NSLocalizedString("fileEdit.print.accessibility", comment: "Print"))
-        }
     }
     
     // MARK: - Version Toolbar

@@ -155,6 +155,7 @@ struct FolderFilesView: View {
             onDeletePermanently: isReadOnly ? { _ in } : deleteFilesPermanently,
             onChangeStatus: (isContentFolder && !isReadOnly) ? handleChangeStatus : nil,
             onAddToCollection: (isPoetryProject && isContentFolder && !isReadOnly) ? handleAddToCollection : nil,
+            onPrint: handlePrint,
             collectionGroups: poetryCollectionGroups,
             expandedCollections: $collectionExpandedSections
         )
@@ -704,6 +705,18 @@ struct FolderFilesView: View {
             Spacer()
         }
         
+        // Print button (only when files selected)
+        if filesOnlySelected {
+            Button {
+                printSelectedFiles()
+            } label: {
+                Image(systemName: "printer")
+            }
+            .accessibilityLabel(NSLocalizedString("fileList.print", comment: "Print"))
+            
+            Spacer()
+        }
+        
         // Trash button
         Button(role: .destructive) {
             // Delete selected files and folders
@@ -817,6 +830,34 @@ struct FolderFilesView: View {
     }
     
     // MARK: - Actions
+    
+    private func printSelectedFiles() {
+        guard !selectedFiles.isEmpty, let project = folder.project else { return }
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let window = windowScene.windows.first,
+              let viewController = window.rootViewController else { return }
+        
+        PrintService.printFiles(
+            selectedFiles,
+            project: project,
+            context: modelContext,
+            from: viewController
+        ) { _, _ in }
+    }
+    
+    private func handlePrint(_ files: [TextFile]) {
+        guard !files.isEmpty, let project = folder.project else { return }
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let window = windowScene.windows.first,
+              let viewController = window.rootViewController else { return }
+        
+        PrintService.printFiles(
+            files,
+            project: project,
+            context: modelContext,
+            from: viewController
+        ) { _, _ in }
+    }
     
     private func deleteFiles(_ files: [TextFile]) {
         let service = FileMoveService(modelContext: modelContext)

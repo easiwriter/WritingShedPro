@@ -79,6 +79,15 @@ struct ContentViewBody: View {
             .onAppear {
                 onInitialize()
                 
+                // Reset welcome flag on every new install or build change,
+                // so test/debug builds don't suppress the welcome screen in release.
+                let currentBuild = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? ""
+                let lastBuild = UserDefaults.standard.string(forKey: "lastSeenBuildNumber")
+                if lastBuild != currentBuild {
+                    UserDefaults.standard.removeObject(forKey: "hasCompletedWelcome")
+                    UserDefaults.standard.set(currentBuild, forKey: "lastSeenBuildNumber")
+                }
+                
                 // Show welcome About sheet if the flag hasn't been set on this device
                 if !hasCompletedWelcome {
                     showWelcomeAbout = true
@@ -136,7 +145,11 @@ struct ContentViewBody: View {
             .sheet(isPresented: $state.showAbout) {
                 AboutView()
             }
-            .sheet(isPresented: $showWelcomeAbout) {
+            .sheet(isPresented: $showWelcomeAbout, onDismiss: {
+                if !hasCompletedWelcome {
+                    UserDefaults.standard.set(true, forKey: "hasCompletedWelcome")
+                }
+            }) {
                 AboutView()
             }
             .sheet(isPresented: $state.showStore) {

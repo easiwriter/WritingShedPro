@@ -94,12 +94,14 @@ struct SettingsSheet: View {
                 
                 // MARK: - Support Section
                 Section {
+                    #if DEBUG
                     Button {
                         isPresented = false
                         state.showSyncDiagnostics = true
                     } label: {
                         Label("Sync Diagnostics", systemImage: "arrow.triangle.2.circlepath")
                     }
+                    #endif
                     
                     Button {
                         isPresented = false

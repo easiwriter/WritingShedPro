@@ -370,7 +370,8 @@ struct ProseListView: View {
             .help(NSLocalizedString("search.help", comment: "Search and replace across all files"))
         }
         
-        // Import button (only when not in section view and not in edit mode)
+        #if targetEnvironment(macCatalyst)
+        // Import button (only when not in section view and not in edit mode) - Mac only
         if section == nil && !isEditMode {
             Button {
                 showImportPicker = true
@@ -381,7 +382,7 @@ struct ProseListView: View {
             .help(NSLocalizedString("import.help", comment: "Import Word or Markdown document"))
         }
         
-        // Header/Footer editor button
+        // Header/Footer editor button - Mac only
         if !isEditMode {
             Button {
                 if headersOrFootersEnabled {
@@ -396,6 +397,7 @@ struct ProseListView: View {
             .help(NSLocalizedString("headerFooter.help", comment: "Edit page headers and footers"))
             .foregroundStyle(headersOrFootersEnabled ? Color.accentColor : Color.secondary)
         }
+        #endif
         
         // Add file button (hidden when viewing a section's files)
         if section == nil && !isEditMode {
@@ -422,6 +424,32 @@ struct ProseListView: View {
                 Text(isEditMode ? NSLocalizedString("button.done", comment: "Done") : NSLocalizedString("button.edit", comment: "Edit"))
             }
         }
+        
+        #if !targetEnvironment(macCatalyst)
+        // On iPhone/iPad, show import and header/footer in overflow menu (rightmost)
+        if !isEditMode {
+            Menu {
+                if section == nil {
+                    Button {
+                        showImportPicker = true
+                    } label: {
+                        Label("Import document", systemImage: "square.and.arrow.down")
+                    }
+                }
+                Button {
+                    if headersOrFootersEnabled {
+                        showHeaderFooterEditor = true
+                    } else {
+                        showHeaderFooterWarning = true
+                    }
+                } label: {
+                    Label("Edit headers and footers", systemImage: "rectangle.and.pencil.and.ellipsis")
+                }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+            }
+        }
+        #endif
     }
     
     /// Whether headers or footers are enabled for this project
@@ -646,6 +674,14 @@ struct ProseListView: View {
             }
             .disabled(selectedFiles.isEmpty)
         }
+        
+        // Print button
+        Button {
+            printSelectedFiles()
+        } label: {
+            Label(NSLocalizedString("fileList.print", comment: "Print"), systemImage: "printer")
+        }
+        .disabled(selectedFiles.isEmpty)
         
         Spacer()
         
@@ -920,6 +956,20 @@ struct ProseListView: View {
     private func prepareDelete(_ files: [TextFile]) {
         filesToDelete = files
         showDeleteConfirmation = true
+    }
+    
+    private func printSelectedFiles() {
+        guard !selectedFiles.isEmpty else { return }
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let window = windowScene.windows.first,
+              let viewController = window.rootViewController else { return }
+        
+        PrintService.printFiles(
+            selectedFiles,
+            project: project,
+            context: modelContext,
+            from: viewController
+        ) { _, _ in }
     }
     
     private func moveFilesToTrash(_ files: [TextFile]) {

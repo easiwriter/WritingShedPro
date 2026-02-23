@@ -249,6 +249,10 @@ def build_guide():
             # Clean up internal links
             html_content = clean_internal_links(html_content)
 
+            # Strip trailing <hr /> produced by the markdown --- separator
+            # so we can insert the back-to-top link before a single <hr>
+            html_content = re.sub(r'\s*<hr\s*/?\s*>\s*$', '', html_content)
+
             # Add section anchor and back-to-top link
             section_block = f'\n<a id="{section_id}"></a>\n\n'
             section_block += html_content

@@ -67,6 +67,9 @@ struct FileListView: View {
     /// Called when user wants to add files to a poetry collection (optional - only for Poetry content folders)
     let onAddToCollection: (([TextFile]) -> Void)?
     
+    /// Called when user wants to print selected files (optional)
+    let onPrint: (([TextFile]) -> Void)?
+    
     /// Optional: Collection groups for displaying files grouped by collection (Poetry projects)
     /// When provided, a toggle button appears in the toolbar to switch between flat and collection-grouped views
     let collectionGroups: [CollectionGroup]?
@@ -653,6 +656,19 @@ struct FileListView: View {
             }
             .disabled(selectedFiles.isEmpty)
             .accessibilityLabel("Export selected files")
+        }
+        
+        // Print button (if onPrint callback provided)
+        if let onPrint = onPrint {
+            Button {
+                onPrint(selectedFiles)
+            } label: {
+                Label(
+                    NSLocalizedString("fileList.print", comment: "Print"),
+                    systemImage: "printer"
+                )
+            }
+            .disabled(selectedFiles.isEmpty)
         }
         
         Spacer()

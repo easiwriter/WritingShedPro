@@ -379,7 +379,8 @@ struct SceneListView: View {
                     .disabled(editMode == .active)
                 }
                 
-                // Import button
+                #if targetEnvironment(macCatalyst)
+                // Import button - Mac only, shown directly in toolbar
                 Button {
                     showImportPicker = true
                 } label: {
@@ -388,7 +389,7 @@ struct SceneListView: View {
                 .accessibilityLabel(NSLocalizedString("sceneList.import.accessibility", comment: "Import document"))
                 .disabled(editMode == .active)
                 
-                // Header/Footer button
+                // Header/Footer button - Mac only
                 Button {
                     if headersOrFootersEnabled {
                         initializeHeaderFooterFields()
@@ -401,6 +402,7 @@ struct SceneListView: View {
                 }
                 .accessibilityLabel(NSLocalizedString("sceneList.headerFooter.accessibility", comment: "Edit headers and footers"))
                 .foregroundStyle(headersOrFootersEnabled ? Color.accentColor : Color.secondary)
+                #endif
                 
                 // Add scene button (hidden when viewing an act's or chapter's scenes)
                 if act == nil && chapter == nil {
@@ -433,6 +435,30 @@ struct SceneListView: View {
                         ? NSLocalizedString("fiction.episodes.edit", comment: "Edit episodes")
                         : NSLocalizedString("fiction.scenes.edit", comment: "Edit scenes")))
                 }
+                
+                #if !targetEnvironment(macCatalyst)
+                // On iPhone/iPad, show import and header/footer in overflow menu (rightmost)
+                Menu {
+                    Button {
+                        showImportPicker = true
+                    } label: {
+                        Label("Import document", systemImage: "square.and.arrow.down")
+                    }
+                    Button {
+                        if headersOrFootersEnabled {
+                            initializeHeaderFooterFields()
+                            showHeaderFooterEditor = true
+                        } else {
+                            showHeaderFooterWarning = true
+                        }
+                    } label: {
+                        Label("Edit headers and footers", systemImage: "rectangle.and.pencil.and.ellipsis")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+                .disabled(editMode == .active)
+                #endif
             }
             
             // Bottom toolbar for multi-select actions
@@ -733,6 +759,14 @@ struct SceneListView: View {
             .disabled(selectedScenes.isEmpty)
         }
         
+        // Print button
+        Button {
+            printSelectedScenes()
+        } label: {
+            Label(NSLocalizedString("fileList.print", comment: "Print"), systemImage: "printer")
+        }
+        .disabled(selectedScenes.isEmpty)
+        
         Spacer()
         
         Button(role: .destructive) {
@@ -956,6 +990,21 @@ struct SceneListView: View {
     private func prepareDelete(_ scenes: [StoryScene]) {
         scenesToDelete = scenes
         showDeleteConfirmation = true
+    }
+    
+    private func printSelectedScenes() {
+        let files = selectedScenes.compactMap { $0.textFile }
+        guard !files.isEmpty else { return }
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let window = windowScene.windows.first,
+              let viewController = window.rootViewController else { return }
+        
+        PrintService.printFiles(
+            files,
+            project: project,
+            context: modelContext,
+            from: viewController
+        ) { _, _ in }
     }
     
     private func moveScenesToTrash(_ scenes: [StoryScene]) {

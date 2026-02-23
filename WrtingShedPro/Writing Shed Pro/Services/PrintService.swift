@@ -60,6 +60,74 @@ class PrintService {
         )
     }
     
+    // MARK: - Multiple Files Printing
+    
+    /// Print multiple text files as a single combined document
+    /// - Parameters:
+    ///   - files: The text files to print
+    ///   - project: The project (for stylesheet)
+    ///   - context: Model context
+    ///   - viewController: The view controller to present the print dialog from
+    ///   - completion: Called when printing completes or is cancelled
+    static func printFiles(
+        _ files: [TextFile],
+        project: Project,
+        context: ModelContext,
+        from viewController: UIViewController,
+        completion: @escaping (Bool, Error?) -> Void
+    ) {
+        // Single file: use standard single-file print path
+        if files.count == 1, let file = files.first {
+            printFile(file, project: project, context: context, from: viewController, completion: completion)
+            return
+        }
+        
+        #if DEBUG
+        print("🖨️ [PrintService] Printing \(files.count) files")
+        #endif
+        
+        guard !files.isEmpty else {
+            completion(false, PrintError.noContent)
+            return
+        }
+        
+        // Format multiple files
+        guard let content = PrintFormatter.formatMultipleFiles(files) else {
+            #if DEBUG
+            print("❌ [PrintService] Failed to format files for printing")
+            #endif
+            completion(false, PrintError.noContent)
+            return
+        }
+        
+        // Get page setup
+        let pageSetup = PageSetupPreferences.shared.createPageSetup()
+        
+        // Check if page breaks are enabled
+        let usePageBreaks = PageSetupPreferences.shared.pageBreakBetweenFiles
+        
+        let title = files.count == 1 ? files[0].name : "\(project.name ?? "Project") (\(files.count) files)"
+        
+        if usePageBreaks {
+            presentCustomRendererPrintDialog(
+                content: content,
+                pageSetup: pageSetup,
+                title: title,
+                project: project,
+                from: viewController,
+                completion: completion
+            )
+        } else {
+            presentSimplePrintDialog(
+                content: content,
+                pageSetup: pageSetup,
+                title: title,
+                from: viewController,
+                completion: completion
+            )
+        }
+    }
+    
     // MARK: - Collection Printing
     
     /// Print an entire collection (multiple files)
