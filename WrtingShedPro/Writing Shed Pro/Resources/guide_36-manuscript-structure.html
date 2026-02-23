@@ -226,36 +226,75 @@ body > *:first-child { margin-top: 0 !important; }
 </ul>
 <h2 id="back-matter">Back Matter</h2>
 <p>Back matter appears at the end of your manuscript. Some sections are <strong>auto-generated</strong> from references in your text, while others are <strong>user-created</strong>.</p>
+<h3 id="enabling-back-matter-sections">Enabling Back Matter Sections</h3>
+<p>Back matter sections must be enabled before they appear in export:</p>
+<ol>
+<li>Open your project's <strong>Manuscript</strong> folder</li>
+<li>Open <strong>Back Matter</strong></li>
+<li>Tap the settings icon to manage which sections are included</li>
+<li>Toggle sections on or off</li>
+</ol>
+<p>Only enabled sections with actual content appear in the exported manuscript.</p>
 <h3 id="auto-generated-back-matter">Auto-Generated Back Matter</h3>
-<p>These sections are created automatically based on content you've added to your files:</p>
+<p>These sections are created automatically based on content you've added to your files using the <strong>Insert menu</strong> (⊕) in the editor toolbar. Each reference type creates an inline marker in your text and a corresponding entry in the back matter.</p>
 <h4 id="endnotes">Endnotes</h4>
 <p>If you use footnotes in endnotes mode, they appear here:
 - Collected from all files in order
 - Numbered sequentially across the manuscript
 - Preserves all footnote formatting</p>
-<p><strong>Note</strong>: Footnotes vs. endnotes is a display setting—your footnote content can appear either at page bottoms (footnotes) or collected at the end (endnotes).</p>
+<p><strong>Note</strong>: Footnotes vs. endnotes is a display setting — your footnote content can appear either at page bottoms (footnotes) or collected at the end (endnotes).</p>
 <p>See <a href="guide:45-footnotes">Footnotes</a> for details on adding footnotes.</p>
 <h4 id="glossary">Glossary</h4>
 <p>Terms you've marked for the glossary appear here:
-- Alphabetically sorted
+- Alphabetically sorted, grouped by first letter
 - Each entry shows the term and its definition
-- Terms are highlighted in the text with special formatting</p>
-<p>To add glossary entries, use the References menu in the editor toolbar.</p>
+- Terms appear as styled inline markers in the text
+- Only terms actually referenced in your text are included</p>
+<p>To add a glossary entry:
+1. Place the cursor where you want the term to appear
+2. Tap <strong>⊕</strong> → <strong>Glossary Term</strong>
+3. Enter the term and its definition
+4. The term appears as an inline marker in your text</p>
+<p>You can also select text and use the context menu's <strong>Add to Glossary</strong> action.</p>
 <h4 id="references-bibliography">References / Bibliography</h4>
-<p>Citations and works cited appear here:
-- Formatted according to your chosen citation style
-- Includes all works referenced in your text
-- Sorted alphabetically by author</p>
-<p>To add reference entries, use the References menu in the editor toolbar.</p>
+<p>Bibliographic citations appear here:
+- Formatted in citation style (author/date)
+- Only referenced works are included
+- Sorted alphabetically by author
+- Each reference shows author, publication date, and details</p>
+<p>To add a reference:
+1. Place the cursor at the citation point
+2. Tap <strong>⊕</strong> → <strong>Reference</strong>
+3. Enter the author, publication date, and details — or select an existing reference
+4. A marker like <code>[Author, 2026]</code> appears in your text</p>
+<p>References support full academic citation fields including title, source, URL, DOI, volume, issue, pages, and more.</p>
+<h4 id="table-of-figures">Table of Figures</h4>
+<p>Figure references placed in your text are collected into a table of figures:
+- Listed in document order
+- Each entry shows the figure number and caption
+- Numbered sequentially across the manuscript</p>
+<p>To add a figure reference, use <strong>⊕</strong> → <strong>Figure Reference</strong> in the editor toolbar.</p>
 <h4 id="index">Index</h4>
 <p>Index entries with page numbers appear here:
 - Alphabetically sorted main entries
-- Sub-entries indented under parents (up to 3 levels)
-- Page numbers calculated from pagination
+- Sub-entries indented under parents (up to 3 levels of hierarchy)
+- Page numbers calculated from pagination, with ranges (e.g., "1, 3, 5–7, 12")
 - Cross-references ("See" and "See also")
 - Primary references shown in bold</p>
+<p>To add an index entry:
+1. Place the cursor at the relevant location
+2. Tap <strong>⊕</strong> → <strong>Index Entry</strong>
+3. Enter the keyword
+4. Optionally set a parent entry for sub-entries
+5. Mark as a primary reference if desired</p>
 <p>See <a href="guide:108-index-generation">Index Generation</a> for details on creating index entries.</p>
 <p><strong>Note</strong>: Index with page numbers is only available in PDF export, since other formats don't have fixed page numbers.</p>
+<h4 id="how-reference-markers-appear">How Reference Markers Appear</h4>
+<p>All reference types insert inline markers in your text:
+- <strong>In the editor</strong>: Markers appear as coloured inline elements
+- <strong>In PDF export</strong>: Markers are rendered in the appropriate format for the reference type
+- <strong>In plain text export</strong>: Markers are converted to readable text (e.g., "see Note 1", "see Glossary")</p>
+<p>Markers are stored as metadata — they don't alter your text content. Deleting a marker removes the reference without affecting surrounding text.</p>
 <h3 id="user-created-back-matter">User-Created Back Matter</h3>
 <h4 id="contributors">Contributors</h4>
 <p>For anthologies, magazines, and collaborative works:
@@ -284,6 +323,7 @@ body > *:first-child { margin-top: 0 !important; }
 <li>☑️ Include Endnotes</li>
 <li>☑️ Include Glossary</li>
 <li>☑️ Include Bibliography</li>
+<li>☑️ Include Table of Figures</li>
 <li>☑️ Include Index</li>
 <li>☑️ Include Contributors</li>
 </ol>

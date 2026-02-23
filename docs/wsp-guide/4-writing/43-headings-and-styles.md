@@ -161,6 +161,68 @@ Each part title might be Heading 1, each chapter Heading 2.
 - Block quotes for citations
 - Footnotes for references
 
+## Heading Numbering
+
+Heading styles can display automatic numbering — numbers that appear before the heading text without being part of the document content. Numbering is configured per style in the Stylesheet Editor.
+
+### Number Formats
+
+| Format | Example |
+|--------|----------|
+| **Decimal** | 1, 2, 3… |
+| **Lowercase Roman** | i, ii, iii… |
+| **Uppercase Roman** | I, II, III… |
+| **Lowercase Letter** | a, b, c… |
+| **Uppercase Letter** | A, B, C… |
+
+### Number Adornments
+
+Adornments control what appears around the number:
+
+| Adornment | Example |
+|-----------|----------|
+| **Plain** | `1` |
+| **Period** | `1.` |
+| **Parentheses** | `(1)` |
+| **Right Paren** | `1)` |
+| **Dash Before** | `-1` |
+| **Dash After** | `1-` |
+| **Dash Both** | `-1-` |
+
+### Hierarchical Numbering
+
+Styles can have a **parent style** to create compound numbering like `1.a` or `1.1.1`:
+
+- A Heading 2 style with Heading 1 as its parent displays `1.1`, `1.2`, etc.
+- A Heading 3 with Heading 2 as its parent creates a third level: `1.1.1`, `1.1.2`
+- Each level uses its own number format — for example, decimal for Heading 1 and lowercase letter for Heading 2 gives `1.a`, `1.b`
+- The parent style picker in the Stylesheet Editor shows all styles that have numbering enabled
+
+### Where Numbers Appear
+
+Heading numbers are **not stored in your text** — they are rendered dynamically:
+- In the editor while writing
+- In pagination/print preview
+- In PDF export
+
+This means changing a numbering style instantly updates all headings using that style, and numbers are always correct even when you reorder content.
+
+### Enabling Numbering
+
+1. Open the **Stylesheet Editor** (Project Settings → Stylesheet)
+2. Select a heading style
+3. Enable **Numbering**
+4. Choose a number format and adornment
+5. Optionally set a parent style for hierarchical numbering
+6. Save
+
+### Lists
+
+Numbered and bullet lists also use the numbering system:
+- The formatting toolbar has numbered list and bullet list buttons
+- Tab and Shift-Tab increase/decrease list indent level
+- Three indent levels are supported for both numbered and bullet lists
+
 ## Troubleshooting Styles
 
 ### Style Not Applying

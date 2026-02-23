@@ -96,6 +96,11 @@ body > *:first-child { margin-top: 0 !important; }
 <td>Text only, no formatting</td>
 </tr>
 <tr>
+<td><strong>WSP</strong></td>
+<td>Backup, sharing, device transfer</td>
+<td>Complete project archive</td>
+</tr>
+<tr>
 <td><strong>Print</strong></td>
 <td>Physical copies</td>
 <td>All formatting via printing</td>
@@ -248,6 +253,111 @@ body > *:first-child { margin-top: 0 !important; }
 <li>Keep copies of important work</li>
 <li>Multiple formats for redundancy</li>
 </ol>
+<h2 id="wsp-project-export-and-import">WSP Project Export and Import</h2>
+<p>The <code>.wsp</code> format is Writing Shed Pro's native project archive — a single JSON file containing your entire project.</p>
+<h3 id="whats-included">What's Included</h3>
+<table>
+<thead>
+<tr>
+<th>Data</th>
+<th>Included</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>All files and their content</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>All file versions</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Formatted text (rich text)</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Comments and footnotes</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Folder structure and subfolders</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Project settings and metadata</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Publications and submissions</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Poetry collections</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Fiction structure (books, chapters, acts, scenes)</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Characters and locations</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Prose sections</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Workflow status for each file</td>
+<td>✅</td>
+</tr>
+</tbody>
+</table>
+<h3 id="whats-not-included">What's Not Included</h3>
+<table>
+<thead>
+<tr>
+<th>Data</th>
+<th>Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Stylesheets</td>
+<td>Projects use the device's stylesheets</td>
+</tr>
+<tr>
+<td>Reference entries (notes, glossary, index, etc.)</td>
+<td>Regenerated from in-text markers</td>
+</tr>
+<tr>
+<td>Trash contents</td>
+<td>Excluded from export</td>
+</tr>
+<tr>
+<td>Undo history</td>
+<td>Session-only data</td>
+</tr>
+</tbody>
+</table>
+<h3 id="exporting-a-project">Exporting a Project</h3>
+<ol>
+<li>From the project list, long-press (or right-click) the project</li>
+<li>Select <strong>Export</strong></li>
+<li>A save dialog appears with the filename <code>ProjectName.wsp</code></li>
+<li>Choose a destination (Files, iCloud Drive, etc.)</li>
+<li>Tap <strong>Save</strong></li>
+</ol>
+<h3 id="importing-a-wsp-file">Importing a WSP File</h3>
+<ol>
+<li>Open <strong>Settings</strong> (gear icon on the project list)</li>
+<li>Tap <strong>Import</strong></li>
+<li>Select the <code>.wsp</code> file from your device or iCloud Drive</li>
+<li>The project is added to your project list</li>
+</ol>
+<p>Importing a project with the same name as an existing project creates a separate copy — it does not overwrite or merge.</p>
+<p>See <a href="guide:32-creating-projects">Creating Projects</a> for more about importing.</p>
 <h2 id="troubleshooting-export">Troubleshooting Export</h2>
 <h3 id="export-takes-too-long">Export Takes Too Long</h3>
 <ul>
@@ -274,6 +384,7 @@ body > *:first-child { margin-top: 0 !important; }
 <li><a href="guide:96-markdown-import-export">Markdown Import and Export</a></li>
 <li><a href="guide:94-printing">Printing</a></li>
 <li><a href="guide:103-page-setup">Page Setup</a></li>
+<li><a href="guide:32-creating-projects">Creating Projects</a> — importing WSP files</li>
 </ul>
 
 <p class="back-to-top"><a href="guide:00-toc">↑ Back to Contents</a></p>

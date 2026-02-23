@@ -54,6 +54,13 @@ Tap **⊕** to insert:
 - **Image**: Add a photo or illustration
 - **Footnote**: Create a numbered footnote
 - **Comment**: Add a revision note
+- **Endnote**: Add an endnote (collected at the end of the manuscript)
+- **Glossary Term**: Mark a term for the glossary
+- **Reference**: Add a bibliographic reference
+- **Index Entry**: Add an index entry at the cursor position
+- **Figure Reference**: Insert a figure reference marker
+
+> **Note**: Reference options appear only when the corresponding back matter section is enabled in your project's manuscript settings. See [Manuscript Structure](../3-projects/36-manuscript-structure.md) for details.
 
 ## Text Selection Menu
 
@@ -149,6 +156,43 @@ The editor shows a live word count:
 
 See [Word Count and Statistics](47-word-count-and-statistics.md) for detailed statistics.
 
+## File Versions
+
+Every file in Writing Shed Pro supports multiple versions — snapshots of your content that you can create, navigate, and manage.
+
+### The Version Toolbar
+
+When editing a file, the version toolbar appears with four controls:
+
+| Button | Action |
+|--------|--------|
+| **◀** | Go to previous version |
+| **▶** | Go to next version |
+| **＋** | Create a new version (duplicates current) |
+| **🗑** | Delete the current version |
+
+A label shows your position: *"Version 2 of 3"*.
+
+### Creating Versions
+
+Tap **＋** to create a new version. This duplicates the current version's content (including all formatting, comments, and footnotes) with the next sequential version number. You can then edit the new version independently.
+
+### Navigating Versions
+
+Use **◀** and **▶** to move between versions. The editor reloads with the selected version's content. Your current position is saved when you switch.
+
+### Deleting Versions
+
+Tap **🗑** to delete the current version (a confirmation dialog appears). You cannot delete the last remaining version.
+
+### Version Notes
+
+Each version can have optional notes — useful for recording what changed or why. Access notes from the formatting toolbar's **Notes** action.
+
+### Submission Locking
+
+When a version is linked to a submission that has been sent to a publication, the version becomes **locked**. Locked versions show a warning if you try to edit them, with an option to "Edit Anyway" or cancel. This protects submitted content from accidental changes.
+
 ## Tips for Effective Editing
 
 ### Let It Flow
@@ -180,6 +224,8 @@ Keyboard shortcuts dramatically speed up your workflow. See [Keyboard Shortcuts]
 ## See Also
 - [Text Formatting](42-text-formatting.md)
 - [Headings and Styles](43-headings-and-styles.md)
+- [Footnotes](45-footnotes.md)
+- [Manuscript Structure](../3-projects/36-manuscript-structure.md)
 - [Keyboard Shortcuts](../11-reference/111-keyboard-shortcut-list.md)
 
 ---

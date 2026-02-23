@@ -100,9 +100,20 @@ Each project type has unique assembly features documented in its own guide:
 
 Back matter appears at the end of your manuscript. Some sections are **auto-generated** from references in your text, while others are **user-created**.
 
+### Enabling Back Matter Sections
+
+Back matter sections must be enabled before they appear in export:
+
+1. Open your project's **Manuscript** folder
+2. Open **Back Matter**
+3. Tap the settings icon to manage which sections are included
+4. Toggle sections on or off
+
+Only enabled sections with actual content appear in the exported manuscript.
+
 ### Auto-Generated Back Matter
 
-These sections are created automatically based on content you've added to your files:
+These sections are created automatically based on content you've added to your files using the **Insert menu** (⊕) in the editor toolbar. Each reference type creates an inline marker in your text and a corresponding entry in the back matter.
 
 #### Endnotes
 
@@ -111,40 +122,79 @@ If you use footnotes in endnotes mode, they appear here:
 - Numbered sequentially across the manuscript
 - Preserves all footnote formatting
 
-**Note**: Footnotes vs. endnotes is a display setting—your footnote content can appear either at page bottoms (footnotes) or collected at the end (endnotes).
+**Note**: Footnotes vs. endnotes is a display setting — your footnote content can appear either at page bottoms (footnotes) or collected at the end (endnotes).
 
 See [Footnotes](../4-writing/45-footnotes.md) for details on adding footnotes.
 
 #### Glossary
 
 Terms you've marked for the glossary appear here:
-- Alphabetically sorted
+- Alphabetically sorted, grouped by first letter
 - Each entry shows the term and its definition
-- Terms are highlighted in the text with special formatting
+- Terms appear as styled inline markers in the text
+- Only terms actually referenced in your text are included
 
-To add glossary entries, use the References menu in the editor toolbar.
+To add a glossary entry:
+1. Place the cursor where you want the term to appear
+2. Tap **⊕** → **Glossary Term**
+3. Enter the term and its definition
+4. The term appears as an inline marker in your text
+
+You can also select text and use the context menu's **Add to Glossary** action.
 
 #### References / Bibliography
 
-Citations and works cited appear here:
-- Formatted according to your chosen citation style
-- Includes all works referenced in your text
+Bibliographic citations appear here:
+- Formatted in citation style (author/date)
+- Only referenced works are included
 - Sorted alphabetically by author
+- Each reference shows author, publication date, and details
 
-To add reference entries, use the References menu in the editor toolbar.
+To add a reference:
+1. Place the cursor at the citation point
+2. Tap **⊕** → **Reference**
+3. Enter the author, publication date, and details — or select an existing reference
+4. A marker like `[Author, 2026]` appears in your text
+
+References support full academic citation fields including title, source, URL, DOI, volume, issue, pages, and more.
+
+#### Table of Figures
+
+Figure references placed in your text are collected into a table of figures:
+- Listed in document order
+- Each entry shows the figure number and caption
+- Numbered sequentially across the manuscript
+
+To add a figure reference, use **⊕** → **Figure Reference** in the editor toolbar.
 
 #### Index
 
 Index entries with page numbers appear here:
 - Alphabetically sorted main entries
-- Sub-entries indented under parents (up to 3 levels)
-- Page numbers calculated from pagination
+- Sub-entries indented under parents (up to 3 levels of hierarchy)
+- Page numbers calculated from pagination, with ranges (e.g., "1, 3, 5–7, 12")
 - Cross-references ("See" and "See also")
 - Primary references shown in bold
+
+To add an index entry:
+1. Place the cursor at the relevant location
+2. Tap **⊕** → **Index Entry**
+3. Enter the keyword
+4. Optionally set a parent entry for sub-entries
+5. Mark as a primary reference if desired
 
 See [Index Generation](../10-advanced-features/108-index-generation.md) for details on creating index entries.
 
 **Note**: Index with page numbers is only available in PDF export, since other formats don't have fixed page numbers.
+
+#### How Reference Markers Appear
+
+All reference types insert inline markers in your text:
+- **In the editor**: Markers appear as coloured inline elements
+- **In PDF export**: Markers are rendered in the appropriate format for the reference type
+- **In plain text export**: Markers are converted to readable text (e.g., "see Note 1", "see Glossary")
+
+Markers are stored as metadata — they don't alter your text content. Deleting a marker removes the reference without affecting surrounding text.
 
 ### User-Created Back Matter
 
@@ -183,6 +233,7 @@ When exporting your manuscript, you can control which sections are included:
    - ☑️ Include Endnotes
    - ☑️ Include Glossary
    - ☑️ Include Bibliography
+   - ☑️ Include Table of Figures
    - ☑️ Include Index
    - ☑️ Include Contributors
 

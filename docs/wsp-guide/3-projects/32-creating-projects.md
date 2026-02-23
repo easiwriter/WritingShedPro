@@ -103,19 +103,50 @@ The duplicate is independent of the original—changes to one don't affect the o
 
 ## Importing Projects
 
-You can import content into Writing Shed Pro from:
-- **WSP files**: Projects exported from Writing Shed Pro
-- **Markdown files**: Plain text with formatting (coming soon)
+You can import projects into Writing Shed Pro from `.wsp` files — the native project archive format.
 
-### Importing WSP Files
-1. From the project list, tap the settings gear
-2. Select **Import...**
-3. Choose the .wsp file
-4. The project is added to your list
+### How to Import
+
+1. Open **Settings** (gear icon on the project list)
+2. Tap **Import**
+3. Select a `.wsp` file from your device or iCloud Drive
+4. The project is imported and appears in your project list
+
+### What's Included in a WSP File
+
+A `.wsp` file contains your complete project:
+- All files with their content and formatting
+- All file versions, comments, and footnotes
+- Folder structure and subfolders
+- Project settings and metadata
+- Publications, submissions, and poetry collections
+- Fiction structure (books, chapters, acts, scenes, characters, locations)
+
+### What's Not Included
+
+- **Stylesheets**: Projects use the device's stylesheets after import
+- **Reference entries**: Notes, glossary terms, index entries, and other references are regenerated from markers in your text
+- **Trash contents**: Excluded from export
+
+### Importing Duplicates
+
+Importing a project with the same name as an existing project creates a separate copy. Projects are never overwritten or merged during import.
+
+## Exporting Projects
+
+To export a project as a `.wsp` file:
+
+1. From the project list, long-press (or right-click) the project
+2. Select **Export**
+3. Choose a save location
+4. The file is saved as `ProjectName.wsp`
+
+See [Export Options](../9-publishing/91-export-options.md) for details on all export formats including WSP.
 
 ## See Also
 - [Project Types Overview](31-project-types-overview.md)
 - [Project Settings](33-project-settings.md)
 - [Folders and Files](34-folders-and-files.md)
+- [Export Options](../9-publishing/91-export-options.md)
 
 ---

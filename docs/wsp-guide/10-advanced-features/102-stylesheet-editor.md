@@ -65,6 +65,14 @@ Tap a style to modify it:
 - **Space Before**: Gap above paragraph
 - **Space After**: Gap below paragraph
 
+### Numbering
+- **Enable Numbering**: Toggle on to display automatic numbers before paragraphs using this style
+- **Number Format**: Decimal, Roman (upper/lower), Letter (upper/lower)
+- **Adornment**: Plain, Period, Parentheses, Right Paren, or Dash variants
+- **Parent Style**: Select a numbered parent style for hierarchical numbering (e.g., `1.a`, `1.1.1`)
+
+See [Headings and Styles](../4-writing/43-headings-and-styles.md) for details on heading numbering and lists.
+
 ### Save
 Tap **Save** or **Done** to apply changes.
 

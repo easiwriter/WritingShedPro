@@ -1026,7 +1026,7 @@ hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
 <p>Open the stylesheet editor to create and customise stylesheets for your documents. Stylesheets control fonts, sizes, spacing, and other formatting when you export or print. See <a href="#102-stylesheet-editor">Stylesheet Editor</a> for details.</p>
 <h2 id="import">Import</h2>
 <h3 id="import_1">Import</h3>
-<p>Import a <code>.wsp</code> file — a Writing Shed Pro project archive. Choose the file from your device or iCloud Drive, and it will be added to your project list. See <a href="#91-export-options">Export Options</a> for details on the WSP format.</p>
+<p>Import a <code>.wsp</code> file — a Writing Shed Pro project archive. Choose the file from your device or iCloud Drive, and it will be added to your project list. The <code>.wsp</code> format includes all project data: files, versions, folders, submissions, and metadata. See <a href="#32-creating-projects">Creating Projects</a> for details on what's included and the full import/export workflow.</p>
 <h3 id="import-user-guide">Import User Guide</h3>
 <p>Import the Writing Shed Pro User Guide as a project in your project list. This creates a fully browsable copy of the guide that you can read alongside your own work.</p>
 <h2 id="appearance-iphone-and-ipad-only">Appearance (iPhone and iPad only)</h2>
@@ -1382,21 +1382,45 @@ Resets all popover tips and inline tips so they appear again as you use the app.
 4. Tap <strong>Create</strong></p>
 <p>The duplicate is independent of the original—changes to one don't affect the other.</p>
 <h2 id="importing-projects">Importing Projects</h2>
-<p>You can import content into Writing Shed Pro from:
-- <strong>WSP files</strong>: Projects exported from Writing Shed Pro
-- <strong>Markdown files</strong>: Plain text with formatting (coming soon)</p>
-<h3 id="importing-wsp-files">Importing WSP Files</h3>
+<p>You can import projects into Writing Shed Pro from <code>.wsp</code> files — the native project archive format.</p>
+<h3 id="how-to-import">How to Import</h3>
 <ol>
-<li>From the project list, tap the settings gear</li>
-<li>Select <strong>Import...</strong></li>
-<li>Choose the .wsp file</li>
-<li>The project is added to your list</li>
+<li>Open <strong>Settings</strong> (gear icon on the project list)</li>
+<li>Tap <strong>Import</strong></li>
+<li>Select a <code>.wsp</code> file from your device or iCloud Drive</li>
+<li>The project is imported and appears in your project list</li>
 </ol>
+<h3 id="whats-included-in-a-wsp-file">What's Included in a WSP File</h3>
+<p>A <code>.wsp</code> file contains your complete project:
+- All files with their content and formatting
+- All file versions, comments, and footnotes
+- Folder structure and subfolders
+- Project settings and metadata
+- Publications, submissions, and poetry collections
+- Fiction structure (books, chapters, acts, scenes, characters, locations)</p>
+<h3 id="whats-not-included">What's Not Included</h3>
+<ul>
+<li><strong>Stylesheets</strong>: Projects use the device's stylesheets after import</li>
+<li><strong>Reference entries</strong>: Notes, glossary terms, index entries, and other references are regenerated from markers in your text</li>
+<li><strong>Trash contents</strong>: Excluded from export</li>
+</ul>
+<h3 id="importing-duplicates">Importing Duplicates</h3>
+<p>Importing a project with the same name as an existing project creates a separate copy. Projects are never overwritten or merged during import.</p>
+<h2 id="exporting-projects">Exporting Projects</h2>
+<p>To export a project as a <code>.wsp</code> file:</p>
+<ol>
+<li>From the project list, long-press (or right-click) the project</li>
+<li>Select <strong>Export</strong></li>
+<li>Choose a save location</li>
+<li>The file is saved as <code>ProjectName.wsp</code></li>
+</ol>
+<p>See <a href="#91-export-options">Export Options</a> for details on all export formats including WSP.</p>
 <h2 id="see-also">See Also</h2>
 <ul>
 <li><a href="#31-project-types-overview">Project Types Overview</a></li>
 <li><a href="#33-project-settings">Project Settings</a></li>
 <li><a href="#34-folders-and-files">Folders and Files</a></li>
+<li><a href="#91-export-options">Export Options</a></li>
 </ul>
 
 <p class="back-to-top"><a href="#contents">↑ Back to Contents</a></p>
@@ -2103,36 +2127,75 @@ Trash
 </ul>
 <h2 id="back-matter">Back Matter</h2>
 <p>Back matter appears at the end of your manuscript. Some sections are <strong>auto-generated</strong> from references in your text, while others are <strong>user-created</strong>.</p>
+<h3 id="enabling-back-matter-sections">Enabling Back Matter Sections</h3>
+<p>Back matter sections must be enabled before they appear in export:</p>
+<ol>
+<li>Open your project's <strong>Manuscript</strong> folder</li>
+<li>Open <strong>Back Matter</strong></li>
+<li>Tap the settings icon to manage which sections are included</li>
+<li>Toggle sections on or off</li>
+</ol>
+<p>Only enabled sections with actual content appear in the exported manuscript.</p>
 <h3 id="auto-generated-back-matter">Auto-Generated Back Matter</h3>
-<p>These sections are created automatically based on content you've added to your files:</p>
+<p>These sections are created automatically based on content you've added to your files using the <strong>Insert menu</strong> (⊕) in the editor toolbar. Each reference type creates an inline marker in your text and a corresponding entry in the back matter.</p>
 <h4 id="endnotes">Endnotes</h4>
 <p>If you use footnotes in endnotes mode, they appear here:
 - Collected from all files in order
 - Numbered sequentially across the manuscript
 - Preserves all footnote formatting</p>
-<p><strong>Note</strong>: Footnotes vs. endnotes is a display setting—your footnote content can appear either at page bottoms (footnotes) or collected at the end (endnotes).</p>
+<p><strong>Note</strong>: Footnotes vs. endnotes is a display setting — your footnote content can appear either at page bottoms (footnotes) or collected at the end (endnotes).</p>
 <p>See <a href="#45-footnotes">Footnotes</a> for details on adding footnotes.</p>
 <h4 id="glossary">Glossary</h4>
 <p>Terms you've marked for the glossary appear here:
-- Alphabetically sorted
+- Alphabetically sorted, grouped by first letter
 - Each entry shows the term and its definition
-- Terms are highlighted in the text with special formatting</p>
-<p>To add glossary entries, use the References menu in the editor toolbar.</p>
+- Terms appear as styled inline markers in the text
+- Only terms actually referenced in your text are included</p>
+<p>To add a glossary entry:
+1. Place the cursor where you want the term to appear
+2. Tap <strong>⊕</strong> → <strong>Glossary Term</strong>
+3. Enter the term and its definition
+4. The term appears as an inline marker in your text</p>
+<p>You can also select text and use the context menu's <strong>Add to Glossary</strong> action.</p>
 <h4 id="references-bibliography">References / Bibliography</h4>
-<p>Citations and works cited appear here:
-- Formatted according to your chosen citation style
-- Includes all works referenced in your text
-- Sorted alphabetically by author</p>
-<p>To add reference entries, use the References menu in the editor toolbar.</p>
+<p>Bibliographic citations appear here:
+- Formatted in citation style (author/date)
+- Only referenced works are included
+- Sorted alphabetically by author
+- Each reference shows author, publication date, and details</p>
+<p>To add a reference:
+1. Place the cursor at the citation point
+2. Tap <strong>⊕</strong> → <strong>Reference</strong>
+3. Enter the author, publication date, and details — or select an existing reference
+4. A marker like <code>[Author, 2026]</code> appears in your text</p>
+<p>References support full academic citation fields including title, source, URL, DOI, volume, issue, pages, and more.</p>
+<h4 id="table-of-figures">Table of Figures</h4>
+<p>Figure references placed in your text are collected into a table of figures:
+- Listed in document order
+- Each entry shows the figure number and caption
+- Numbered sequentially across the manuscript</p>
+<p>To add a figure reference, use <strong>⊕</strong> → <strong>Figure Reference</strong> in the editor toolbar.</p>
 <h4 id="index">Index</h4>
 <p>Index entries with page numbers appear here:
 - Alphabetically sorted main entries
-- Sub-entries indented under parents (up to 3 levels)
-- Page numbers calculated from pagination
+- Sub-entries indented under parents (up to 3 levels of hierarchy)
+- Page numbers calculated from pagination, with ranges (e.g., "1, 3, 5–7, 12")
 - Cross-references ("See" and "See also")
 - Primary references shown in bold</p>
+<p>To add an index entry:
+1. Place the cursor at the relevant location
+2. Tap <strong>⊕</strong> → <strong>Index Entry</strong>
+3. Enter the keyword
+4. Optionally set a parent entry for sub-entries
+5. Mark as a primary reference if desired</p>
 <p>See <a href="#108-index-generation">Index Generation</a> for details on creating index entries.</p>
 <p><strong>Note</strong>: Index with page numbers is only available in PDF export, since other formats don't have fixed page numbers.</p>
+<h4 id="how-reference-markers-appear">How Reference Markers Appear</h4>
+<p>All reference types insert inline markers in your text:
+- <strong>In the editor</strong>: Markers appear as coloured inline elements
+- <strong>In PDF export</strong>: Markers are rendered in the appropriate format for the reference type
+- <strong>In plain text export</strong>: Markers are converted to readable text (e.g., "see Note 1", "see Glossary")</p>
+<p>Markers are stored as metadata — they don't alter your text content. Deleting a marker removes the reference without affecting surrounding text.</p>
 <h3 id="user-created-back-matter">User-Created Back Matter</h3>
 <h4 id="contributors">Contributors</h4>
 <p>For anthologies, magazines, and collaborative works:
@@ -2161,6 +2224,7 @@ Trash
 <li>☑️ Include Endnotes</li>
 <li>☑️ Include Glossary</li>
 <li>☑️ Include Bibliography</li>
+<li>☑️ Include Table of Figures</li>
 <li>☑️ Include Index</li>
 <li>☑️ Include Contributors</li>
 </ol>
@@ -2278,7 +2342,15 @@ Trash
 <p>Tap <strong>⊕</strong> to insert:
 - <strong>Image</strong>: Add a photo or illustration
 - <strong>Footnote</strong>: Create a numbered footnote
-- <strong>Comment</strong>: Add a revision note</p>
+- <strong>Comment</strong>: Add a revision note
+- <strong>Endnote</strong>: Add an endnote (collected at the end of the manuscript)
+- <strong>Glossary Term</strong>: Mark a term for the glossary
+- <strong>Reference</strong>: Add a bibliographic reference
+- <strong>Index Entry</strong>: Add an index entry at the cursor position
+- <strong>Figure Reference</strong>: Insert a figure reference marker</p>
+<blockquote>
+<p><strong>Note</strong>: Reference options appear only when the corresponding back matter section is enabled in your project's manuscript settings. See <a href="#36-manuscript-structure">Manuscript Structure</a> for details.</p>
+</blockquote>
 <h2 id="text-selection-menu">Text Selection Menu</h2>
 <p>When you select text, a menu appears with options:</p>
 <h3 id="standard-actions">Standard Actions</h3>
@@ -2369,6 +2441,47 @@ Trash
 - Updates as you type
 - Shows words, characters, and paragraphs</p>
 <p>See <a href="#47-word-count-and-statistics">Word Count and Statistics</a> for detailed statistics.</p>
+<h2 id="file-versions">File Versions</h2>
+<p>Every file in Writing Shed Pro supports multiple versions — snapshots of your content that you can create, navigate, and manage.</p>
+<h3 id="the-version-toolbar">The Version Toolbar</h3>
+<p>When editing a file, the version toolbar appears with four controls:</p>
+<table>
+<thead>
+<tr>
+<th>Button</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>◀</strong></td>
+<td>Go to previous version</td>
+</tr>
+<tr>
+<td><strong>▶</strong></td>
+<td>Go to next version</td>
+</tr>
+<tr>
+<td><strong>＋</strong></td>
+<td>Create a new version (duplicates current)</td>
+</tr>
+<tr>
+<td><strong>🗑</strong></td>
+<td>Delete the current version</td>
+</tr>
+</tbody>
+</table>
+<p>A label shows your position: <em>"Version 2 of 3"</em>.</p>
+<h3 id="creating-versions">Creating Versions</h3>
+<p>Tap <strong>＋</strong> to create a new version. This duplicates the current version's content (including all formatting, comments, and footnotes) with the next sequential version number. You can then edit the new version independently.</p>
+<h3 id="navigating-versions">Navigating Versions</h3>
+<p>Use <strong>◀</strong> and <strong>▶</strong> to move between versions. The editor reloads with the selected version's content. Your current position is saved when you switch.</p>
+<h3 id="deleting-versions">Deleting Versions</h3>
+<p>Tap <strong>🗑</strong> to delete the current version (a confirmation dialog appears). You cannot delete the last remaining version.</p>
+<h3 id="version-notes">Version Notes</h3>
+<p>Each version can have optional notes — useful for recording what changed or why. Access notes from the formatting toolbar's <strong>Notes</strong> action.</p>
+<h3 id="submission-locking">Submission Locking</h3>
+<p>When a version is linked to a submission that has been sent to a publication, the version becomes <strong>locked</strong>. Locked versions show a warning if you try to edit them, with an option to "Edit Anyway" or cancel. This protects submitted content from accidental changes.</p>
 <h2 id="tips-for-effective-editing">Tips for Effective Editing</h2>
 <h3 id="let-it-flow">Let It Flow</h3>
 <p>Write first, format later. Get your ideas down, then apply styles.</p>
@@ -2397,6 +2510,8 @@ Trash
 <ul>
 <li><a href="#42-text-formatting">Text Formatting</a></li>
 <li><a href="#43-headings-and-styles">Headings and Styles</a></li>
+<li><a href="#45-footnotes">Footnotes</a></li>
+<li><a href="#36-manuscript-structure">Manuscript Structure</a></li>
 <li><a href="#111-keyboard-shortcut-list">Keyboard Shortcuts</a></li>
 </ul>
 
@@ -2880,6 +2995,107 @@ Trash
 <li>Block quotes for citations</li>
 <li>Footnotes for references</li>
 </ul>
+<h2 id="heading-numbering">Heading Numbering</h2>
+<p>Heading styles can display automatic numbering — numbers that appear before the heading text without being part of the document content. Numbering is configured per style in the Stylesheet Editor.</p>
+<h3 id="number-formats">Number Formats</h3>
+<table>
+<thead>
+<tr>
+<th>Format</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Decimal</strong></td>
+<td>1, 2, 3…</td>
+</tr>
+<tr>
+<td><strong>Lowercase Roman</strong></td>
+<td>i, ii, iii…</td>
+</tr>
+<tr>
+<td><strong>Uppercase Roman</strong></td>
+<td>I, II, III…</td>
+</tr>
+<tr>
+<td><strong>Lowercase Letter</strong></td>
+<td>a, b, c…</td>
+</tr>
+<tr>
+<td><strong>Uppercase Letter</strong></td>
+<td>A, B, C…</td>
+</tr>
+</tbody>
+</table>
+<h3 id="number-adornments">Number Adornments</h3>
+<p>Adornments control what appears around the number:</p>
+<table>
+<thead>
+<tr>
+<th>Adornment</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Plain</strong></td>
+<td><code>1</code></td>
+</tr>
+<tr>
+<td><strong>Period</strong></td>
+<td><code>1.</code></td>
+</tr>
+<tr>
+<td><strong>Parentheses</strong></td>
+<td><code>(1)</code></td>
+</tr>
+<tr>
+<td><strong>Right Paren</strong></td>
+<td><code>1)</code></td>
+</tr>
+<tr>
+<td><strong>Dash Before</strong></td>
+<td><code>-1</code></td>
+</tr>
+<tr>
+<td><strong>Dash After</strong></td>
+<td><code>1-</code></td>
+</tr>
+<tr>
+<td><strong>Dash Both</strong></td>
+<td><code>-1-</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="hierarchical-numbering">Hierarchical Numbering</h3>
+<p>Styles can have a <strong>parent style</strong> to create compound numbering like <code>1.a</code> or <code>1.1.1</code>:</p>
+<ul>
+<li>A Heading 2 style with Heading 1 as its parent displays <code>1.1</code>, <code>1.2</code>, etc.</li>
+<li>A Heading 3 with Heading 2 as its parent creates a third level: <code>1.1.1</code>, <code>1.1.2</code></li>
+<li>Each level uses its own number format — for example, decimal for Heading 1 and lowercase letter for Heading 2 gives <code>1.a</code>, <code>1.b</code></li>
+<li>The parent style picker in the Stylesheet Editor shows all styles that have numbering enabled</li>
+</ul>
+<h3 id="where-numbers-appear">Where Numbers Appear</h3>
+<p>Heading numbers are <strong>not stored in your text</strong> — they are rendered dynamically:
+- In the editor while writing
+- In pagination/print preview
+- In PDF export</p>
+<p>This means changing a numbering style instantly updates all headings using that style, and numbers are always correct even when you reorder content.</p>
+<h3 id="enabling-numbering">Enabling Numbering</h3>
+<ol>
+<li>Open the <strong>Stylesheet Editor</strong> (Project Settings → Stylesheet)</li>
+<li>Select a heading style</li>
+<li>Enable <strong>Numbering</strong></li>
+<li>Choose a number format and adornment</li>
+<li>Optionally set a parent style for hierarchical numbering</li>
+<li>Save</li>
+</ol>
+<h3 id="lists">Lists</h3>
+<p>Numbered and bullet lists also use the numbering system:
+- The formatting toolbar has numbered list and bullet list buttons
+- Tab and Shift-Tab increase/decrease list indent level
+- Three indent levels are supported for both numbered and bullet lists</p>
 <h2 id="troubleshooting-styles">Troubleshooting Styles</h2>
 <h3 id="style-not-applying">Style Not Applying</h3>
 <ul>
@@ -7256,6 +7472,11 @@ Hi.
 <td>Text only, no formatting</td>
 </tr>
 <tr>
+<td><strong>WSP</strong></td>
+<td>Backup, sharing, device transfer</td>
+<td>Complete project archive</td>
+</tr>
+<tr>
 <td><strong>Print</strong></td>
 <td>Physical copies</td>
 <td>All formatting via printing</td>
@@ -7408,6 +7629,111 @@ Hi.
 <li>Keep copies of important work</li>
 <li>Multiple formats for redundancy</li>
 </ol>
+<h2 id="wsp-project-export-and-import">WSP Project Export and Import</h2>
+<p>The <code>.wsp</code> format is Writing Shed Pro's native project archive — a single JSON file containing your entire project.</p>
+<h3 id="whats-included">What's Included</h3>
+<table>
+<thead>
+<tr>
+<th>Data</th>
+<th>Included</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>All files and their content</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>All file versions</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Formatted text (rich text)</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Comments and footnotes</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Folder structure and subfolders</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Project settings and metadata</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Publications and submissions</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Poetry collections</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Fiction structure (books, chapters, acts, scenes)</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Characters and locations</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Prose sections</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Workflow status for each file</td>
+<td>✅</td>
+</tr>
+</tbody>
+</table>
+<h3 id="whats-not-included">What's Not Included</h3>
+<table>
+<thead>
+<tr>
+<th>Data</th>
+<th>Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Stylesheets</td>
+<td>Projects use the device's stylesheets</td>
+</tr>
+<tr>
+<td>Reference entries (notes, glossary, index, etc.)</td>
+<td>Regenerated from in-text markers</td>
+</tr>
+<tr>
+<td>Trash contents</td>
+<td>Excluded from export</td>
+</tr>
+<tr>
+<td>Undo history</td>
+<td>Session-only data</td>
+</tr>
+</tbody>
+</table>
+<h3 id="exporting-a-project">Exporting a Project</h3>
+<ol>
+<li>From the project list, long-press (or right-click) the project</li>
+<li>Select <strong>Export</strong></li>
+<li>A save dialog appears with the filename <code>ProjectName.wsp</code></li>
+<li>Choose a destination (Files, iCloud Drive, etc.)</li>
+<li>Tap <strong>Save</strong></li>
+</ol>
+<h3 id="importing-a-wsp-file">Importing a WSP File</h3>
+<ol>
+<li>Open <strong>Settings</strong> (gear icon on the project list)</li>
+<li>Tap <strong>Import</strong></li>
+<li>Select the <code>.wsp</code> file from your device or iCloud Drive</li>
+<li>The project is added to your project list</li>
+</ol>
+<p>Importing a project with the same name as an existing project creates a separate copy — it does not overwrite or merge.</p>
+<p>See <a href="#32-creating-projects">Creating Projects</a> for more about importing.</p>
 <h2 id="troubleshooting-export">Troubleshooting Export</h2>
 <h3 id="export-takes-too-long">Export Takes Too Long</h3>
 <ul>
@@ -7434,6 +7760,7 @@ Hi.
 <li><a href="#96-markdown-import-export">Markdown Import and Export</a></li>
 <li><a href="#94-printing">Printing</a></li>
 <li><a href="#103-page-setup">Page Setup</a></li>
+<li><a href="#32-creating-projects">Creating Projects</a> — importing WSP files</li>
 </ul>
 
 <p class="back-to-top"><a href="#contents">↑ Back to Contents</a></p>
@@ -8835,6 +9162,14 @@ Hi.
 <li><strong>Space Before</strong>: Gap above paragraph</li>
 <li><strong>Space After</strong>: Gap below paragraph</li>
 </ul>
+<h3 id="numbering">Numbering</h3>
+<ul>
+<li><strong>Enable Numbering</strong>: Toggle on to display automatic numbers before paragraphs using this style</li>
+<li><strong>Number Format</strong>: Decimal, Roman (upper/lower), Letter (upper/lower)</li>
+<li><strong>Adornment</strong>: Plain, Period, Parentheses, Right Paren, or Dash variants</li>
+<li><strong>Parent Style</strong>: Select a numbered parent style for hierarchical numbering (e.g., <code>1.a</code>, <code>1.1.1</code>)</li>
+</ul>
+<p>See <a href="#43-headings-and-styles">Headings and Styles</a> for details on heading numbering and lists.</p>
 <h3 id="save">Save</h3>
 <p>Tap <strong>Save</strong> or <strong>Done</strong> to apply changes.</p>
 <h2 id="creating-a-custom-style">Creating a Custom Style</h2>

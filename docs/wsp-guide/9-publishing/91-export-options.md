@@ -10,6 +10,7 @@ Writing Shed Pro offers multiple ways to export your work for sharing, submissio
 | **RTF** | Editor collaboration | Most formatting, editable |
 | **Markdown** | Plain text with structure | Headings, bold, italic, links |
 | **Plain Text** | Maximum compatibility | Text only, no formatting |
+| **WSP** | Backup, sharing, device transfer | Complete project archive |
 | **Print** | Physical copies | All formatting via printing |
 
 ## Accessing Export
@@ -126,6 +127,55 @@ For the overall manuscript structure (front matter, back matter), see [Manuscrip
 2. Keep copies of important work
 3. Multiple formats for redundancy
 
+## WSP Project Export and Import
+
+The `.wsp` format is Writing Shed Pro's native project archive — a single JSON file containing your entire project.
+
+### What's Included
+
+| Data | Included |
+|------|----------|
+| All files and their content | ✅ |
+| All file versions | ✅ |
+| Formatted text (rich text) | ✅ |
+| Comments and footnotes | ✅ |
+| Folder structure and subfolders | ✅ |
+| Project settings and metadata | ✅ |
+| Publications and submissions | ✅ |
+| Poetry collections | ✅ |
+| Fiction structure (books, chapters, acts, scenes) | ✅ |
+| Characters and locations | ✅ |
+| Prose sections | ✅ |
+| Workflow status for each file | ✅ |
+
+### What's Not Included
+
+| Data | Reason |
+|------|--------|
+| Stylesheets | Projects use the device's stylesheets |
+| Reference entries (notes, glossary, index, etc.) | Regenerated from in-text markers |
+| Trash contents | Excluded from export |
+| Undo history | Session-only data |
+
+### Exporting a Project
+
+1. From the project list, long-press (or right-click) the project
+2. Select **Export**
+3. A save dialog appears with the filename `ProjectName.wsp`
+4. Choose a destination (Files, iCloud Drive, etc.)
+5. Tap **Save**
+
+### Importing a WSP File
+
+1. Open **Settings** (gear icon on the project list)
+2. Tap **Import**
+3. Select the `.wsp` file from your device or iCloud Drive
+4. The project is added to your project list
+
+Importing a project with the same name as an existing project creates a separate copy — it does not overwrite or merge.
+
+See [Creating Projects](../3-projects/32-creating-projects.md) for more about importing.
+
 ## Troubleshooting Export
 
 ### Export Takes Too Long
@@ -149,5 +199,6 @@ For the overall manuscript structure (front matter, back matter), see [Manuscrip
 - [Markdown Import and Export](96-markdown-import-export.md)
 - [Printing](94-printing.md)
 - [Page Setup](../10-advanced-features/103-page-setup.md)
+- [Creating Projects](../3-projects/32-creating-projects.md) — importing WSP files
 
 ---
