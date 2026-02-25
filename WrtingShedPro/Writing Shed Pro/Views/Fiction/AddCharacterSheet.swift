@@ -25,6 +25,7 @@ struct AddCharacterSheet: View {
     @State private var name: String = ""
     @State private var role: String = ""
     @State private var selectedArchetype: CharacterArchetype?
+    @State private var selectedPearsonArchetype: PearsonArchetype?
     @State private var history: String = ""
     @State private var looks: String = ""
     @State private var traits: String = ""
@@ -56,20 +57,48 @@ struct AddCharacterSheet: View {
                 
                 // Archetype (optional)
                 Section {
-                    Picker(NSLocalizedString("fiction.character.archetype", comment: "Archetype"), selection: $selectedArchetype) {
-                        Text(NSLocalizedString("fiction.character.archetype.none", comment: "None"))
-                            .tag(nil as CharacterArchetype?)
-                        
-                        ForEach(CharacterArchetype.allCases, id: \.self) { archetype in
-                            Text(NSLocalizedString("archetype.\(archetype.rawValue)", comment: "Archetype name"))
-                                .tag(archetype as CharacterArchetype?)
+                    if project.storyStructure.usesPearsonArchetypes {
+                        // Pearson's 12 archetypes grouped by phase
+                        Picker(NSLocalizedString("fiction.character.archetype", comment: "Archetype"), selection: $selectedPearsonArchetype) {
+                            Text(NSLocalizedString("fiction.character.archetype.none", comment: "None"))
+                                .tag(nil as PearsonArchetype?)
+                            
+                            ForEach(PearsonStage.allCases, id: \.self) { phase in
+                                Section(header: Text(phase.localizedName)) {
+                                    ForEach(phase.archetypes, id: \.self) { archetype in
+                                        Text(archetype.localizedName)
+                                            .tag(archetype as PearsonArchetype?)
+                                    }
+                                }
+                            }
                         }
-                    }
-                    
-                    if let archetype = selectedArchetype {
-                        Text(NSLocalizedString("archetype.\(archetype.rawValue).description", comment: "Archetype description"))
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                        
+                        if let archetype = selectedPearsonArchetype {
+                            Text(archetype.description)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            
+                            Text(String(format: NSLocalizedString("fiction.character.pearsonPhase", comment: "Phase: %@"), archetype.phase.localizedName))
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                    } else {
+                        // Vogler's 8 archetypes (default)
+                        Picker(NSLocalizedString("fiction.character.archetype", comment: "Archetype"), selection: $selectedArchetype) {
+                            Text(NSLocalizedString("fiction.character.archetype.none", comment: "None"))
+                                .tag(nil as CharacterArchetype?)
+                            
+                            ForEach(CharacterArchetype.allCases, id: \.self) { archetype in
+                                Text(NSLocalizedString("archetype.\(archetype.rawValue)", comment: "Archetype name"))
+                                    .tag(archetype as CharacterArchetype?)
+                            }
+                        }
+                        
+                        if let archetype = selectedArchetype {
+                            Text(NSLocalizedString("archetype.\(archetype.rawValue).description", comment: "Archetype description"))
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
                     }
                 } header: {
                     Text(NSLocalizedString("fiction.character.section.archetype", comment: "Archetype"))
@@ -151,6 +180,7 @@ struct AddCharacterSheet: View {
             name: trimmedName,
             role: role.isEmpty ? nil : role,
             archetype: selectedArchetype,
+            pearsonArchetype: selectedPearsonArchetype,
             history: history.isEmpty ? nil : history,
             looks: looks.isEmpty ? nil : looks,
             traits: traits.isEmpty ? nil : traits,

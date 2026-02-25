@@ -171,11 +171,7 @@ struct AddProjectSheet: View {
             
             // Record significant event for review prompts
             ReviewManager.shared.recordSignificantEvent()
-                    
-                    // Mark welcome complete when user creates their first project
-                    if !UserDefaults.standard.bool(forKey: "hasCompletedWelcome") {
-                        UserDefaults.standard.set(true, forKey: "hasCompletedWelcome")
-                    }
+
             DispatchQueue.global(qos: .background).asyncAfter(deadline: .now() + 0.5) {
                 do {
                     // Force the sync by doing a no-op fetch

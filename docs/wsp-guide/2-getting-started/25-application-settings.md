@@ -38,11 +38,6 @@ Choose how Writing Shed Pro's interface appears:
 ### Sync Diagnostics
 View the status of iCloud sync and troubleshoot any issues. This shows details about your sync container, pending operations, and recent sync activity. See [iCloud Sync](24-icloud-sync.md) for more about sync.
 
-<!-- Copilot remove
-### Reset All Tips
-Resets all popover tips and inline tips so they appear again as you use the app. Use this if you dismissed a tip early and want to see it again.
--->
-
 ### Contact Support
 Send a message to the Writing Shed Pro support team. This opens a pre-filled email with your app version and device information included, helping us assist you more quickly.
 

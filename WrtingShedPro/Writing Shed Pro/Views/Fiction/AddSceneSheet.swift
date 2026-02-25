@@ -30,6 +30,7 @@ struct AddSceneSheet: View {
     @State private var selectedMonomythStage: MonomythStage?
     @State private var selectedCampbellStage: CampbellMonomythStage?
     @State private var selectedThreeActStage: ThreeActStage?
+    @State private var selectedPearsonStage: PearsonStage?
     @State private var selectedLocation: Location?
     @State private var selectedCharacters: Set<Character> = []
     @State private var selectedContentType: FileContentType = .richText
@@ -225,6 +226,29 @@ struct AddSceneSheet: View {
                     } header: {
                         Text(NSLocalizedString("fiction.scene.section.monomyth", comment: "Hero's Journey"))
                     }
+                } else if project.storyStructure == .monomythPearson {
+                    Section {
+                        Picker(NSLocalizedString("fiction.scene.monomythStage", comment: "Story Stage"), selection: $selectedPearsonStage) {
+                            Text(NSLocalizedString("fiction.scene.monomythStage.none", comment: "None"))
+                                .tag(nil as PearsonStage?)
+                            
+                            ForEach(PearsonStage.allCases, id: \.self) { stage in
+                                HStack {
+                                    Text("\(stage.order).")
+                                    Text(stage.localizedName)
+                                }
+                                .tag(stage as PearsonStage?)
+                            }
+                        }
+                        
+                        if let stage = selectedPearsonStage {
+                            Text(stage.description)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    } header: {
+                        Text(NSLocalizedString("fiction.scene.section.monomyth", comment: "Hero's Journey"))
+                    }
                 } else if project.storyStructure == .threeAct {
                     Section {
                         Picker(NSLocalizedString("fiction.scene.storyStage", comment: "Act"), selection: $selectedThreeActStage) {
@@ -327,6 +351,8 @@ struct AddSceneSheet: View {
             scene.monomythStage = selectedMonomythStage
         case .monomythCampbell:
             scene.campbellStage = selectedCampbellStage
+        case .monomythPearson:
+            scene.pearsonStage = selectedPearsonStage
         case .threeAct:
             scene.threeActStage = selectedThreeActStage
         case .freeform:

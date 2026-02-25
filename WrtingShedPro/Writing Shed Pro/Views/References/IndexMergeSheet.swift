@@ -39,12 +39,12 @@ struct IndexMergeSheet: View {
     
     private var filteredTargets: [IndexEntry] {
         if searchText.isEmpty {
-            return availableTargets.sorted { $0.keyword.localizedCaseInsensitiveCompare($1.keyword) == .orderedAscending }
+            return availableTargets.sorted { (a: IndexEntry, b: IndexEntry) -> Bool in a.keyword.localizedCaseInsensitiveCompare(b.keyword) == .orderedAscending }
         }
-        let lowercasedSearch = searchText.lowercased()
-        return availableTargets.filter { entry in
+        let lowercasedSearch: String = searchText.lowercased()
+        return availableTargets.filter { (entry: IndexEntry) -> Bool in
             entry.keyword.lowercased().contains(lowercasedSearch)
-        }.sorted { $0.keyword.localizedCaseInsensitiveCompare($1.keyword) == .orderedAscending }
+        }.sorted { (a: IndexEntry, b: IndexEntry) -> Bool in a.keyword.localizedCaseInsensitiveCompare(b.keyword) == .orderedAscending }
     }
     
     // MARK: - Body

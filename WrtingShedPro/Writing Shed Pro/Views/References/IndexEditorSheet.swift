@@ -88,13 +88,13 @@ struct IndexEditorSheet: View {
     /// Keyword suggestions based on partial input (for autocomplete)
     private var keywordSuggestions: [IndexEntry] {
         guard !keyword.isEmpty, keyword.count >= 2, existingEntry == nil else { return [] }
-        let searchTerm = keyword.lowercased()
+        let searchTerm: String = keyword.lowercased()
         guard let entries = project.indexEntries else { return [] }
-        return entries.filter { entry in
+        return entries.filter { (entry: IndexEntry) -> Bool in
             entry.keyword.lowercased().contains(searchTerm) &&
             entry.keyword.lowercased() != searchTerm  // Don't suggest exact match
         }
-        .sorted { $0.keyword.localizedCaseInsensitiveCompare($1.keyword) == .orderedAscending }
+        .sorted { (a: IndexEntry, b: IndexEntry) -> Bool in a.keyword.localizedCaseInsensitiveCompare(b.keyword) == .orderedAscending }
         .prefix(5)
         .map { $0 }
     }
@@ -102,19 +102,19 @@ struct IndexEditorSheet: View {
     /// Available parent entries (only show entries that can have children - depth < 3)
     private var availableParents: [IndexEntry] {
         guard let entries = project.indexEntries else { return [] }
-        return entries.filter { entry in
+        return entries.filter { (entry: IndexEntry) -> Bool in
             entry.id != existingEntry?.id &&  // Can't be parent of itself
             entry.canHaveChildren &&  // Respects max depth
             !isDescendant(entry, of: existingEntry)  // Prevent circular references
-        }.sorted { $0.keyword.localizedCaseInsensitiveCompare($1.keyword) == .orderedAscending }
+        }.sorted { (a: IndexEntry, b: IndexEntry) -> Bool in a.keyword.localizedCaseInsensitiveCompare(b.keyword) == .orderedAscending }
     }
     
     /// Available entries for "see also" cross-references (exclude self)
     private var availableSeeAlsoEntries: [IndexEntry] {
         guard let entries = project.indexEntries else { return [] }
-        return entries.filter { entry in
+        return entries.filter { (entry: IndexEntry) -> Bool in
             entry.id != existingEntry?.id  // Can't reference itself
-        }.sorted { $0.keyword.localizedCaseInsensitiveCompare($1.keyword) == .orderedAscending }
+        }.sorted { (a: IndexEntry, b: IndexEntry) -> Bool in a.keyword.localizedCaseInsensitiveCompare(b.keyword) == .orderedAscending }
     }
     
     /// Check if potentialDescendant is a descendant of ancestor (for circular reference prevention)

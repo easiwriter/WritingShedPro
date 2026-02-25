@@ -99,6 +99,7 @@ Choose a story structure to help organize your plot:
 - **Three-Act**: Classic beginning, middle, end
 - **Monomyth (Vogler)**: 12-stage Hero's Journey
 - **Monomyth (Campbell)**: 17-stage mythic structure
+- **Hero's Inner Journey (Pearson)**: 3 phases and 12 archetypes
 
 ### Features
 - **Scene Management**: Create and organize scenes with status tracking

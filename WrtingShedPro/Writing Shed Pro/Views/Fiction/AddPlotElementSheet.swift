@@ -27,6 +27,7 @@ struct AddPlotElementSheet: View {
     @State private var selectedMonomythStage: MonomythStage = .ordinaryWorld
     @State private var selectedCampbellStage: CampbellMonomythStage = .theOrdinaryWorld
     @State private var selectedThreeActStage: ThreeActStage = .actOne
+    @State private var selectedPearsonStage: PearsonStage = .preparation
     @State private var selectedCharacters: Set<Character> = []
     @State private var selectedLocations: Set<Location> = []
     @State private var selectedScenes: Set<StoryScene> = []
@@ -142,6 +143,17 @@ struct AddPlotElementSheet: View {
                             // Campbell's 17 stages
                             Picker(selectedCampbellStage.description, selection: $selectedCampbellStage) {
                                 ForEach(CampbellMonomythStage.allCases, id: \.self) { stage in
+                                    HStack {
+                                        Text("\(stage.order).")
+                                        Text(stage.localizedName)
+                                    }
+                                    .tag(stage)
+                                }
+                            }
+                        } else if project.storyStructure == .monomythPearson {
+                            // Pearson's 3 phases
+                            Picker(selectedPearsonStage.description, selection: $selectedPearsonStage) {
+                                ForEach(PearsonStage.allCases, id: \.self) { stage in
                                     HStack {
                                         Text("\(stage.order).")
                                         Text(stage.localizedName)
@@ -343,6 +355,13 @@ struct AddPlotElementSheet: View {
                 campbellStage: selectedCampbellStage,
                 userOrder: nextOrderIndex
             )
+        case .monomythPearson:
+            element = PlotElement(
+                name: trimmedTitle,
+                notes: plotDescription.isEmpty ? nil : plotDescription,
+                pearsonStage: selectedPearsonStage,
+                userOrder: nextOrderIndex
+            )
         case .threeAct:
             element = PlotElement(
                 name: trimmedTitle,
@@ -396,6 +415,8 @@ struct AddPlotElementSheet: View {
                 scene.monomythStage = selectedMonomythStage
             case .monomythCampbell:
                 scene.campbellStage = selectedCampbellStage
+            case .monomythPearson:
+                scene.pearsonStage = selectedPearsonStage
             case .threeAct:
                 scene.threeActStage = selectedThreeActStage
             case .freeform:

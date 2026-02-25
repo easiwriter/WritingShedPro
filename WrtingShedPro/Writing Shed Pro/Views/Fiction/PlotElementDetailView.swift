@@ -29,6 +29,7 @@ struct PlotElementDetailView: View {
     @State private var editMonomythStage: MonomythStage?
     @State private var editCampbellStage: CampbellMonomythStage?
     @State private var editThreeActStage: ThreeActStage?
+    @State private var editPearsonStage: PearsonStage?
     @State private var editCharacters: Set<Character> = []
     @State private var editLocations: Set<Location> = []
     @State private var editLinkedScenes: Set<StoryScene> = []
@@ -306,6 +307,29 @@ struct PlotElementDetailView: View {
             } header: {
                 Text(NSLocalizedString("fiction.plot.element.section.monomyth", comment: "Hero's Journey"))
             }
+        } else if project.storyStructure == .monomythPearson {
+            Section {
+                Picker(NSLocalizedString("fiction.plot.element.stage", comment: "Stage"), selection: $editPearsonStage) {
+                    Text(NSLocalizedString("fiction.plot.element.stage.none", comment: "None"))
+                        .tag(nil as PearsonStage?)
+                    
+                    ForEach(PearsonStage.allCases, id: \.self) { stage in
+                        HStack {
+                            Text("\(stage.order).")
+                            Text(stage.localizedName)
+                        }
+                        .tag(stage as PearsonStage?)
+                    }
+                }
+                
+                if let stage = editPearsonStage {
+                    Text(stage.description)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            } header: {
+                Text(NSLocalizedString("fiction.plot.element.section.monomyth", comment: "Hero's Journey"))
+            }
         } else if project.storyStructure == .threeAct {
             Section {
                 Picker(NSLocalizedString("fiction.plot.element.stage", comment: "Stage"), selection: $editThreeActStage) {
@@ -446,6 +470,7 @@ struct PlotElementDetailView: View {
         editMonomythStage = plotElement.monomythStage
         editCampbellStage = plotElement.campbellStage
         editThreeActStage = plotElement.threeActStage
+        editPearsonStage = plotElement.pearsonStage
         editCharacters = Set(plotElement.characters ?? [])
         editLocations = Set(plotElement.locations ?? [])
         editLinkedScenes = Set(plotElement.linkedScenes ?? [])
@@ -462,18 +487,27 @@ struct PlotElementDetailView: View {
             plotElement.monomythStage = editMonomythStage
             plotElement.campbellStage = nil
             plotElement.threeActStage = nil
+            plotElement.pearsonStage = nil
         case .monomythCampbell:
             plotElement.campbellStage = editCampbellStage
             plotElement.monomythStage = nil
+            plotElement.threeActStage = nil
+            plotElement.pearsonStage = nil
+        case .monomythPearson:
+            plotElement.pearsonStage = editPearsonStage
+            plotElement.monomythStage = nil
+            plotElement.campbellStage = nil
             plotElement.threeActStage = nil
         case .threeAct:
             plotElement.threeActStage = editThreeActStage
             plotElement.monomythStage = nil
             plotElement.campbellStage = nil
+            plotElement.pearsonStage = nil
         case .freeform:
             plotElement.monomythStage = nil
             plotElement.campbellStage = nil
             plotElement.threeActStage = nil
+            plotElement.pearsonStage = nil
         }
         
         plotElement.characters = Array(editCharacters)
@@ -633,6 +667,8 @@ struct CreateSceneForPlotElementSheet: View {
         project.scenes?.append(scene)
         
         scene.monomythStage = plotElement.monomythStage
+        scene.campbellStage = plotElement.campbellStage
+        scene.pearsonStage = plotElement.pearsonStage
         scene.characters = plotElement.characters
         scene.location = plotElement.locations?.first
         

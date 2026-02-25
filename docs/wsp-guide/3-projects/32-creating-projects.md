@@ -40,6 +40,7 @@ Optionally select a story structure:
 - **Three-Act**: Setup, Confrontation, Resolution
 - **Monomyth (Vogler)**: 12-stage Hero's Journey
 - **Monomyth (Campbell)**: 17-stage mythic structure
+- **Hero's Inner Journey (Pearson)**: 3 phases and 12 archetypes
 
 You can change the structure later in Project Settings.
 
@@ -51,13 +52,6 @@ Your new project opens automatically, showing its folder structure. Depending on
 1. **Explore the folders**: Understand the organization structure
 2. **Create your first file**: Tap a folder, then tap **+**
 3. **Start writing**: Open the file and begin
-
-### Creating Subfolders
-You can create additional folders within the standard folders:
-1. Open a folder (like Draft)
-2. Tap **+**
-3. Choose **New Folder**
-4. Enter a name
 
 ## Project Naming Best Practices
 
@@ -117,7 +111,7 @@ You can import projects into Writing Shed Pro from `.wsp` files — the native p
 A `.wsp` file contains your complete project:
 - All files with their content and formatting
 - All file versions, comments, and footnotes
-- Folder structure and subfolders
+- Folder structure
 - Project settings and metadata
 - Publications, submissions, and poetry collections
 - Fiction structure (books, chapters, acts, scenes, characters, locations)

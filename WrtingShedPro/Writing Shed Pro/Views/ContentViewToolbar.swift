@@ -17,6 +17,12 @@ struct ContentViewToolbar: ToolbarContent {
     /// Poetry preferences accessed via state for proper observation in ToolbarContent
     private var poetryPrefs: PoetryPreferences { state.poetryPreferences }
     
+    init(state: ContentViewState, projects: [Project], onHandleImportMenu: @escaping () -> Void) {
+        self.state = state
+        self.projects = projects
+        self.onHandleImportMenu = onHandleImportMenu
+    }
+    
     var body: some ToolbarContent {
         // Action buttons (trailing)
         ToolbarItem(placement: .navigationBarTrailing) {

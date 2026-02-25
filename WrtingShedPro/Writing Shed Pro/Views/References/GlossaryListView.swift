@@ -311,9 +311,10 @@ struct GlossaryListView: View {
                     // Metadata
                     HStack(spacing: 8) {
                         // Reference count
+                        let refCountStyle: Color = term.referenceCount == 0 ? .orange : .secondary
                         Label("\(term.referenceCount)", systemImage: "link")
                             .font(.caption2)
-                            .foregroundStyle(term.referenceCount == 0 ? .orange : .secondary)
+                            .foregroundStyle(refCountStyle)
                         
                         // Modified date
                         Text(term.modifiedAt, style: .date)
@@ -431,7 +432,8 @@ struct GlossaryListView: View {
     
     private func deleteTerm(_ term: GlossaryEntry) {
         // Remove from project
-        project.glossaryEntries?.removeAll { $0.id == term.id }
+        let termID: UUID = term.id
+        project.glossaryEntries?.removeAll { (entry: GlossaryEntry) -> Bool in entry.id == termID }
         
         // Delete from context
         modelContext.delete(term)

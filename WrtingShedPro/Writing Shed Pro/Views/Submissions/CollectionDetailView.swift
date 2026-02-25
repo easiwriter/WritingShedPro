@@ -450,7 +450,7 @@ struct AddFilesToCollectionSheet: View {
                 .foregroundStyle(.secondary)
                 .padding(.leading, 32)
             
-            let versions = file.sortedVersions
+            let versions: [Version] = file.sortedVersions
             if !versions.isEmpty {
                 ForEach(versions, id: \.id) { version in
                     HStack {
@@ -570,7 +570,7 @@ struct EditVersionSheet: View {
     let onSave: () -> Void
     
     var body: some View {
-        let versions = textFile.sortedVersions
+        let versions: [Version] = textFile.sortedVersions
         
         return Group {
             if !versions.isEmpty {

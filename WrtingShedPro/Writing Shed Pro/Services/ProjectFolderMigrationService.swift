@@ -225,8 +225,13 @@ struct ProjectFolderMigrationService {
         #endif
         
         // Fetch all Prose projects (includes legacy "generalPurpose" type)
+        let proseType: String = "prose"
+        let gpType: String = "generalPurpose"
+        let prosePredicate: Predicate<Project> = #Predicate<Project> { (project: Project) in
+            project.typeRaw == proseType || project.typeRaw == gpType
+        }
         let descriptor = FetchDescriptor<Project>(
-            predicate: #Predicate { $0.typeRaw == "prose" || $0.typeRaw == "generalPurpose" }
+            predicate: prosePredicate
         )
         
         do {

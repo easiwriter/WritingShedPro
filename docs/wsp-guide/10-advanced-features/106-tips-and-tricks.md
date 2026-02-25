@@ -27,9 +27,6 @@ Moving files to Ready isn't just organization—it's a psychological commitment 
 ### Empty Trash Regularly
 Old deleted files take up space and clutter your backups. Clean up monthly.
 
-### Use Subfolders Sparingly
-Two or three levels deep is plenty. Too much nesting makes things hard to find.
-
 ## Editing Tips
 
 ### Use Find and Replace Carefully

@@ -82,7 +82,7 @@ Classic narrative structure:
 
 ### The Monomyth (Hero's Journey)
 
-The monomyth, or Hero's Journey, is a narrative pattern identified by mythologist Joseph Campbell in *The Hero with a Thousand Faces* (1949). Campbell observed that myths and stories across cultures share a common structure in which a hero ventures from the ordinary world into a realm of adventure, faces trials, and returns transformed. Christopher Vogler later adapted Campbell's work for screenwriters and novelists in *The Writer's Journey: Mythic Structure for Writers* (1992), condensing it into a practical 12-stage framework. Writing Shed Pro offers both versions as story structures.
+The monomyth, or Hero's Journey, is a narrative pattern identified by mythologist Joseph Campbell in *The Hero with a Thousand Faces* (1949). Campbell observed that myths and stories across cultures share a common structure in which a hero ventures from the ordinary world into a realm of adventure, faces trials, and returns transformed. Christopher Vogler later adapted Campbell's work for screenwriters and novelists in *The Writer's Journey: Mythic Structure for Writers* (1992), condensing it into a practical 12-stage framework. Carol S. Pearson took a different approach in *Awakening the Heroes Within* (1991), organizing the journey into three broad phases—Preparation, Journey, and Return—and mapping twelve character archetypes across them. Writing Shed Pro offers all three versions as story structures.
 
 ### Monomyth (Vogler)
 Christopher Vogler's 12-stage Hero's Journey:
@@ -119,6 +119,20 @@ Joseph Campbell's 17-stage Hero's Journey:
 16. Crossing the Return Threshold
 17. Master of Two Worlds
 
+### Monomyth (Pearson)
+Carol S. Pearson's framework from *Awakening the Heroes Within* organizes the hero's journey into three broad phases, each associated with four character archetypes:
+
+**Preparation** — The soul prepares to embark on the journey:
+- Innocent, Orphan, Warrior, Caregiver
+
+**Journey** — The soul searches for identity and wholeness:
+- Seeker, Destroyer, Lover, Creator
+
+**Return** — The soul returns to transform the world:
+- Ruler, Magician, Sage, Jester
+
+When you select Monomyth (Pearson) as your story structure, plot elements are assigned to one of the three phases instead of individual stages. In addition, the character archetype picker switches from Vogler's eight archetypes to Pearson's twelve, grouped by phase.
+
 You can change the structure later in Project Settings.
 
 ## Core Concepts
@@ -146,6 +160,7 @@ Story beats and events:
 ### Characters
 Your story's people:
 - Names and descriptions
+- Character archetype (Vogler's 8 or Pearson's 12, depending on story structure)
 - Relationships
 - Arcs and development
 

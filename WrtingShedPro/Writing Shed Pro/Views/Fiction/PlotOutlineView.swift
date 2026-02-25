@@ -60,6 +60,12 @@ struct PlotOutlineView: View {
                     result.append((stage.order, stage.localizedName, elements))
                 }
             }
+        case .monomythPearson:
+            for stage in PearsonStage.allCases {
+                if let elements = grouped[stage.order], !elements.isEmpty {
+                    result.append((stage.order, stage.localizedName, elements))
+                }
+            }
         case .threeAct:
             for stage in ThreeActStage.allCases {
                 if let elements = grouped[stage.order], !elements.isEmpty {

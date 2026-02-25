@@ -184,6 +184,7 @@ struct Write_App: App {
         Write_App.logToFile("✅ [CloudKit Config] Container: iCloud.com.appworks.writingshedpro")
         Write_App.logToFile("✅ [CloudKit Config] Database: private")
         Write_App.logToFile("✅ [CloudKit Config] aps-environment: production")
+        
     }
 
     var body: some Scene {

@@ -1050,7 +1050,6 @@ struct FileEditView: View {
     }
     
     /// Menu for inserting character or location names (Fiction and Drama projects)
-    @ViewBuilder
     private func hasCharactersLocationsOrPlotElements(project: Project) -> Bool {
         let hasCharacters = !(project.characters ?? []).isEmpty
         let hasLocations = !(project.locations ?? []).isEmpty
@@ -1588,7 +1587,7 @@ struct FileEditView: View {
     }
     
     var body: some View {
-        mainContent
+        mainContentWithAllSheets
             // For poetry projects, hide the navigation title since we use a custom title view
             .navigationTitle(isPoetryProject ? "" : file.name)
             .navigationBarTitleDisplayMode(.inline)
@@ -1625,6 +1624,53 @@ struct FileEditView: View {
                 insertNewFootnote: insertNewFootnote,
                 showCommentsList: { showCommentsList = true }
             ))
+            .onDisappear {
+                // Unregister stylesheet from provider
+                StyleSheetProvider.shared.unregister(fileID: file.id)
+                
+                // Disconnect search manager to clean up highlights and observers
+                searchManager.disconnect()
+                
+                // Cancel debounce timer and save immediately
+                saveDebounceTimer?.invalidate()
+                saveDebounceTimer = nil
+                
+                saveChanges()
+                saveUndoState()
+            }
+            .onAppear {
+                setupOnAppear()
+            }
+            .onChange(of: selectedRange) { oldValue, newValue in
+                updateCurrentParagraphStyle()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ImageWasPasted"))) { _ in
+                handleImagePasted()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ProjectStyleSheetChanged"))) { notification in
+                handleStyleSheetChanged(notification)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("StyleSheetModified"))) { notification in
+                handleStyleSheetModified(notification)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .footnoteNumbersDidChange)) { notification in
+                handleFootnoteNumbersChanged(notification)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("UndoRedoContentRestored"))) { notification in
+                handleUndoRedoContentRestored(notification)
+            }
+            .alert("Print Error", isPresented: $showPrintError) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(printErrorMessage)
+            }
+    }
+    
+    // MARK: - Sheet Groupings (extracted to reduce body type-checking complexity)
+    
+    /// Top-level: chains alert sheets on top of comment/footnote/note/reference sheets
+    private var mainContentWithAllSheets: some View {
+        mainContentWithReferenceAndUtilitySheets
             .alert(isPresented: $presentDeleteBackMatterAlert) {
                 Alert(
                     title: Text("Delete Back Matter File?"),
@@ -1653,101 +1699,167 @@ struct FileEditView: View {
                     secondaryButton: .cancel()
                 )
             }
-            .sheet(isPresented: $showCommentsList) {
-                if let currentVersion = file.currentVersion {
-                    CommentsListView(
-                        version: currentVersion,
-                        onJumpToComment: { comment in
-                            jumpToComment(comment)
-                        },
-                        onDismiss: {
-                            showCommentsList = false
-                        },
-                        onCommentResolvedChanged: { comment in
-                            // Comment resolved state was changed in the list
-                            // Update the visual marker in the text
-                            refreshCommentMarker(comment)
-                        },
-                        onCommentDeleted: { comment in
-                            // Comment was deleted, remove marker from text
-                            removeCommentMarker(comment)
-                        }
-                    )
+    }
+    
+    /// Reference, poetry, and utility sheets
+    private var mainContentWithReferenceAndUtilitySheets: some View {
+        mainContentWithNoteAndGlossarySheets
+            // Feature 029: References sheets
+            .sheet(isPresented: $showReferencesList) {
+                if let project = file.project {
+                    ReferencesListView(project: project)
                 }
             }
-            .sheet(item: $selectedCommentForDetail) { comment in
-                NavigationView {
-                    CommentDetailView(
-                        comment: comment,
-                        onUpdate: {
-                            // Comment text was updated
-                            saveChanges()
-                        },
-                        onDelete: { deletedComment in
-                            // Comment was deleted, remove marker from text
-                            removeCommentMarker(deletedComment)
-                            selectedCommentForDetail = nil
-                        },
-                        onResolveToggle: {
-                            // Comment resolved state was toggled
-                            refreshCommentMarker(comment)
-                        },
-                        onClose: {
-                            selectedCommentForDetail = nil
+            .sheet(isPresented: $showNewReferenceDialog) {
+                if let project = file.project {
+                    ReferenceCreatorSheet(
+                        project: project,
+                        onSave: { reference in
+                            insertReferenceMarker(for: reference)
                         }
                     )
-                    .navigationBarTitleDisplayMode(.inline)
-                    .navigationTitle(NSLocalizedString("fileEdit.commentSheet.title", comment: ""))
-                }
-                .presentationDetents([.medium, .large])
-            }
-            .sheet(isPresented: $showFootnotesList) {
-                if let currentVersion = file.currentVersion {
-                    FootnotesListView(
-                        version: currentVersion,
-                        onJumpToFootnote: { footnote in
-                            jumpToFootnote(footnote)
-                        },
-                        onDismiss: {
-                            showFootnotesList = false
-                        },
-                        onFootnoteChanged: {
-                            // Footnote was updated, refresh display
-                            saveChanges()
-                        },
-                        onFootnoteDeleted: { footnote in
-                            // Footnote was deleted, remove marker from text
-                            removeFootnoteFromText(footnote)
-                        }
-                    )
+                    .presentationDetents([.medium, .large])
                 }
             }
-            .sheet(item: $selectedFootnoteForDetail) { footnote in
-                NavigationView {
-                    FootnoteDetailView(
-                        footnote: footnote,
-                        onUpdate: {
-                            // Footnote text was updated - no need to save, already saved in FootnoteManager
-                            // Just refresh the view
+            .sheet(item: $selectedReference) { reference in
+                if let project = file.project {
+                    ReferenceCreatorSheet(
+                        project: project,
+                        existingReference: reference,
+                        onSave: { _ in
                             forceRefresh.toggle()
                         },
-                        onDelete: {
-                            // Footnote was deleted, remove it from the text
-                            #if DEBUG
-                            print("🗑️ FootnoteDetailView onDelete callback triggered for footnote: \(footnote.id)")
-                            #endif
-                            removeFootnoteFromText(footnote)
-                            selectedFootnoteForDetail = nil
-                        },
-                        onClose: {
-                            selectedFootnoteForDetail = nil
+                        onCancel: {
+                            selectedReference = nil
                         }
                     )
-                    .navigationBarTitleDisplayMode(.inline)
-                    .navigationTitle(NSLocalizedString("fileEdit.footnoteSheet.title", comment: ""))
+                    .presentationDetents([.medium, .large])
                 }
-                .presentationDetents([.medium, .large])
             }
+            // Feature 029: Reference editor sheet (shows appropriate editor based on reference type)
+            .sheet(isPresented: $showReferenceEditor) {
+                if let attachment = selectedReferenceAttachment {
+                    ReferenceEditorSheet(
+                        project: file.project,
+                        referenceAttachment: attachment
+                    )
+                }
+            }
+            .sheet(isPresented: $showNotesEditor) {
+                if let currentVersion = file.currentVersion {
+                    NotesEditorSheet(version: currentVersion)
+                }
+            }
+            .sheet(isPresented: $showPoetryFormReference) {
+                if let form = file.poetryForm {
+                    PoetryFormReference(form: form)
+                } else {
+                    // Default to free verse reference if no form set
+                    FreeVerseReference()
+                }
+            }
+            .sheet(isPresented: $showTOCSettings) {
+                TOCSettingsView(file: file) {
+                    // Regenerate TOC when settings change
+                    // Need to traverse folder hierarchy since file.project may be nil
+                    var project: Project? = file.project
+                    if project == nil {
+                        var currentFolder = file.parentFolder
+                        while let folder = currentFolder {
+                            if let proj = folder.project {
+                                project = proj
+                                break
+                            }
+                            currentFolder = folder.parentFolder
+                        }
+                    }
+                    if let project = project {
+                        regenerateTOCContent(for: project)
+                    }
+                }
+            }
+            .sheet(isPresented: $showTableOfFiguresSettings) {
+                TableOfFiguresSettingsView(file: file) {
+                    // Refresh content when settings change
+                    // Content is dynamically generated in BackMatterGeneratedContentView
+                }
+            }
+            .sheet(isPresented: $showPoetryMetrics) {
+                NavigationStack {
+                    PoetryMetricsDashboard(
+                        attributedText: attributedContent,
+                        form: file.poetryForm
+                    )
+                    .navigationTitle(NSLocalizedString("poetryMetrics.title", comment: "Poetry Metrics"))
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button(NSLocalizedString("poetryMetrics.done", comment: "Done")) {
+                                showPoetryMetrics = false
+                            }
+                        }
+                    }
+                }
+            }
+            .sheet(item: $selectedPlotElement) { plotElement in
+                PlotElementQuickView(plotElement: plotElement)
+            }
+            .sheet(item: $selectedCharacter) { character in
+                CharacterQuickView(character: character)
+            }
+            .sheet(item: $selectedLocation) { location in
+                LocationQuickView(location: location)
+            }
+            .sheet(isPresented: $showPoetryFormPicker) {
+                PoetryFormPickerSheet(file: file)
+            }
+            .sheet(isPresented: $showProjectCharacters) {
+                NavigationStack {
+                    if let project = file.project {
+                        CharacterListView(project: project)
+                            .toolbar {
+                                ToolbarItem(placement: .confirmationAction) {
+                                    Button(NSLocalizedString("button.done", comment: "Done")) {
+                                        showProjectCharacters = false
+                                    }
+                                }
+                            }
+                    }
+                }
+            }
+            .sheet(isPresented: $showProjectLocations) {
+                NavigationStack {
+                    if let project = file.project {
+                        LocationListView(project: project)
+                            .toolbar {
+                                ToolbarItem(placement: .confirmationAction) {
+                                    Button(NSLocalizedString("button.done", comment: "Done")) {
+                                        showProjectLocations = false
+                                    }
+                                }
+                            }
+                    }
+                }
+            }
+            .sheet(isPresented: $showProjectPlot) {
+                NavigationStack {
+                    if let project = file.project {
+                        PlotOutlineView(project: project)
+                            .toolbar {
+                                ToolbarItem(placement: .confirmationAction) {
+                                    Button(NSLocalizedString("button.done", comment: "Done")) {
+                                        showProjectPlot = false
+                                    }
+                                }
+                            }
+                    }
+                }
+            }
+    }
+    
+    /// Notes, endnotes, glossary, and index sheets
+    private var mainContentWithNoteAndGlossarySheets: some View {
+        mainContentWithCommentAndFootnoteSheets
             // Feature 029: Notes & Endnotes sheets
             .sheet(isPresented: $showNotesList) {
                 if let project = file.project {
@@ -1901,196 +2013,105 @@ struct FileEditView: View {
                     )
                 }
             }
-            // Feature 029: References sheets
-            .sheet(isPresented: $showReferencesList) {
-                if let project = file.project {
-                    ReferencesListView(project: project)
-                }
-            }
-            .sheet(isPresented: $showNewReferenceDialog) {
-                if let project = file.project {
-                    ReferenceCreatorSheet(
-                        project: project,
-                        onSave: { reference in
-                            insertReferenceMarker(for: reference)
+    }
+    
+    /// Comment and footnote list/detail sheets
+    private var mainContentWithCommentAndFootnoteSheets: some View {
+        mainContent
+            .sheet(isPresented: $showCommentsList) {
+                if let currentVersion = file.currentVersion {
+                    CommentsListView(
+                        version: currentVersion,
+                        onJumpToComment: { comment in
+                            jumpToComment(comment)
+                        },
+                        onDismiss: {
+                            showCommentsList = false
+                        },
+                        onCommentResolvedChanged: { comment in
+                            // Comment resolved state was changed in the list
+                            // Update the visual marker in the text
+                            refreshCommentMarker(comment)
+                        },
+                        onCommentDeleted: { comment in
+                            // Comment was deleted, remove marker from text
+                            removeCommentMarker(comment)
                         }
                     )
-                    .presentationDetents([.medium, .large])
                 }
             }
-            .sheet(item: $selectedReference) { reference in
-                if let project = file.project {
-                    ReferenceCreatorSheet(
-                        project: project,
-                        existingReference: reference,
-                        onSave: { _ in
+            .sheet(item: $selectedCommentForDetail) { comment in
+                NavigationView {
+                    CommentDetailView(
+                        comment: comment,
+                        onUpdate: {
+                            // Comment text was updated
+                            saveChanges()
+                        },
+                        onDelete: { deletedComment in
+                            // Comment was deleted, remove marker from text
+                            removeCommentMarker(deletedComment)
+                            selectedCommentForDetail = nil
+                        },
+                        onResolveToggle: {
+                            // Comment resolved state was toggled
+                            refreshCommentMarker(comment)
+                        },
+                        onClose: {
+                            selectedCommentForDetail = nil
+                        }
+                    )
+                    .navigationBarTitleDisplayMode(.inline)
+                    .navigationTitle(NSLocalizedString("fileEdit.commentSheet.title", comment: ""))
+                }
+                .presentationDetents([.medium, .large])
+            }
+            .sheet(isPresented: $showFootnotesList) {
+                if let currentVersion = file.currentVersion {
+                    FootnotesListView(
+                        version: currentVersion,
+                        onJumpToFootnote: { footnote in
+                            jumpToFootnote(footnote)
+                        },
+                        onDismiss: {
+                            showFootnotesList = false
+                        },
+                        onFootnoteChanged: {
+                            // Footnote was updated, refresh display
+                            saveChanges()
+                        },
+                        onFootnoteDeleted: { footnote in
+                            // Footnote was deleted, remove marker from text
+                            removeFootnoteFromText(footnote)
+                        }
+                    )
+                }
+            }
+            .sheet(item: $selectedFootnoteForDetail) { footnote in
+                NavigationView {
+                    FootnoteDetailView(
+                        footnote: footnote,
+                        onUpdate: {
+                            // Footnote text was updated - no need to save, already saved in FootnoteManager
+                            // Just refresh the view
                             forceRefresh.toggle()
                         },
-                        onCancel: {
-                            selectedReference = nil
+                        onDelete: {
+                            // Footnote was deleted, remove it from the text
+                            #if DEBUG
+                            print("🗑️ FootnoteDetailView onDelete callback triggered for footnote: \(footnote.id)")
+                            #endif
+                            removeFootnoteFromText(footnote)
+                            selectedFootnoteForDetail = nil
+                        },
+                        onClose: {
+                            selectedFootnoteForDetail = nil
                         }
                     )
-                    .presentationDetents([.medium, .large])
-                }
-            }
-            // Feature 029: Reference editor sheet (shows appropriate editor based on reference type)
-            .sheet(isPresented: $showReferenceEditor) {
-                if let attachment = selectedReferenceAttachment {
-                    ReferenceEditorSheet(
-                        project: file.project,
-                        referenceAttachment: attachment
-                    )
-                }
-            }
-            .sheet(isPresented: $showNotesEditor) {
-                if let currentVersion = file.currentVersion {
-                    NotesEditorSheet(version: currentVersion)
-                }
-            }
-            .sheet(isPresented: $showPoetryFormReference) {
-                if let form = file.poetryForm {
-                    PoetryFormReference(form: form)
-                } else {
-                    // Default to free verse reference if no form set
-                    FreeVerseReference()
-                }
-            }
-            .sheet(isPresented: $showTOCSettings) {
-                TOCSettingsView(file: file) {
-                    // Regenerate TOC when settings change
-                    // Need to traverse folder hierarchy since file.project may be nil
-                    var project: Project? = file.project
-                    if project == nil {
-                        var currentFolder = file.parentFolder
-                        while let folder = currentFolder {
-                            if let proj = folder.project {
-                                project = proj
-                                break
-                            }
-                            currentFolder = folder.parentFolder
-                        }
-                    }
-                    if let project = project {
-                        regenerateTOCContent(for: project)
-                    }
-                }
-            }
-            .sheet(isPresented: $showTableOfFiguresSettings) {
-                TableOfFiguresSettingsView(file: file) {
-                    // Refresh content when settings change
-                    // Content is dynamically generated in BackMatterGeneratedContentView
-                }
-            }
-            .sheet(isPresented: $showPoetryMetrics) {
-                NavigationStack {
-                    PoetryMetricsDashboard(
-                        attributedText: attributedContent,
-                        form: file.poetryForm
-                    )
-                    .navigationTitle(NSLocalizedString("poetryMetrics.title", comment: "Poetry Metrics"))
                     .navigationBarTitleDisplayMode(.inline)
-                    .toolbar {
-                        ToolbarItem(placement: .confirmationAction) {
-                            Button(NSLocalizedString("poetryMetrics.done", comment: "Done")) {
-                                showPoetryMetrics = false
-                            }
-                        }
-                    }
+                    .navigationTitle(NSLocalizedString("fileEdit.footnoteSheet.title", comment: ""))
                 }
-            }
-            .sheet(item: $selectedPlotElement) { plotElement in
-                PlotElementQuickView(plotElement: plotElement)
-            }
-            .sheet(item: $selectedCharacter) { character in
-                CharacterQuickView(character: character)
-            }
-            .sheet(item: $selectedLocation) { location in
-                LocationQuickView(location: location)
-            }
-            .sheet(isPresented: $showPoetryFormPicker) {
-                PoetryFormPickerSheet(file: file)
-            }
-            .sheet(isPresented: $showProjectCharacters) {
-                NavigationStack {
-                    if let project = file.project {
-                        CharacterListView(project: project)
-                            .toolbar {
-                                ToolbarItem(placement: .confirmationAction) {
-                                    Button(NSLocalizedString("button.done", comment: "Done")) {
-                                        showProjectCharacters = false
-                                    }
-                                }
-                            }
-                    }
-                }
-            }
-            .sheet(isPresented: $showProjectLocations) {
-                NavigationStack {
-                    if let project = file.project {
-                        LocationListView(project: project)
-                            .toolbar {
-                                ToolbarItem(placement: .confirmationAction) {
-                                    Button(NSLocalizedString("button.done", comment: "Done")) {
-                                        showProjectLocations = false
-                                    }
-                                }
-                            }
-                    }
-                }
-            }
-            .sheet(isPresented: $showProjectPlot) {
-                NavigationStack {
-                    if let project = file.project {
-                        PlotOutlineView(project: project)
-                            .toolbar {
-                                ToolbarItem(placement: .confirmationAction) {
-                                    Button(NSLocalizedString("button.done", comment: "Done")) {
-                                        showProjectPlot = false
-                                    }
-                                }
-                            }
-                    }
-                }
-            }
-            .onDisappear {
-                // Unregister stylesheet from provider
-                StyleSheetProvider.shared.unregister(fileID: file.id)
-                
-                // Disconnect search manager to clean up highlights and observers
-                searchManager.disconnect()
-                
-                // Cancel debounce timer and save immediately
-                saveDebounceTimer?.invalidate()
-                saveDebounceTimer = nil
-                
-                saveChanges()
-                saveUndoState()
-            }
-            .onAppear {
-                setupOnAppear()
-            }
-            .onChange(of: selectedRange) { oldValue, newValue in
-                updateCurrentParagraphStyle()
-            }
-            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ImageWasPasted"))) { _ in
-                handleImagePasted()
-            }
-            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ProjectStyleSheetChanged"))) { notification in
-                handleStyleSheetChanged(notification)
-            }
-            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("StyleSheetModified"))) { notification in
-                handleStyleSheetModified(notification)
-            }
-            .onReceive(NotificationCenter.default.publisher(for: .footnoteNumbersDidChange)) { notification in
-                handleFootnoteNumbersChanged(notification)
-            }
-            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("UndoRedoContentRestored"))) { notification in
-                handleUndoRedoContentRestored(notification)
-            }
-            .alert("Print Error", isPresented: $showPrintError) {
-                Button("OK", role: .cancel) { }
-            } message: {
-                Text(printErrorMessage)
+                .presentationDetents([.medium, .large])
             }
     }
     

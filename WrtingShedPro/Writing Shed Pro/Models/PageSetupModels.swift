@@ -140,16 +140,23 @@ final class PageSetup {
     /// Check if two PageSetup instances have equivalent layout values
     /// Used to avoid resetting scroll position when CloudKit syncs create new instances with same values
     func isLayoutEquivalent(to other: PageSetup) -> Bool {
-        return paperName == other.paperName &&
-               orientation == other.orientation &&
-               marginTop == other.marginTop &&
-               marginBottom == other.marginBottom &&
-               marginLeft == other.marginLeft &&
-               marginRight == other.marginRight &&
-               headerDepth == other.headerDepth &&
-               footerDepth == other.footerDepth &&
-               headers == other.headers &&
-               footers == other.footers
+        let samePaper: Bool = paperName == other.paperName
+        let sameOrientation: Bool = orientation == other.orientation
+        let sameSize: Bool = samePaper && sameOrientation
+        
+        let sameTop: Bool = marginTop == other.marginTop
+        let sameBottom: Bool = marginBottom == other.marginBottom
+        let sameLeft: Bool = marginLeft == other.marginLeft
+        let sameRight: Bool = marginRight == other.marginRight
+        let sameMargins: Bool = sameTop && sameBottom && sameLeft && sameRight
+        
+        let sameHDepth: Bool = headerDepth == other.headerDepth
+        let sameFDepth: Bool = footerDepth == other.footerDepth
+        let sameHeaders: Bool = headers == other.headers
+        let sameFooters: Bool = footers == other.footers
+        let sameHeaderFooter: Bool = sameHDepth && sameFDepth && sameHeaders && sameFooters
+        
+        return sameSize && sameMargins && sameHeaderFooter
     }
 }
 

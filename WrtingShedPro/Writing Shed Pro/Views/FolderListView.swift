@@ -165,6 +165,118 @@ struct FolderListView: View {
         return folderName == "Research" || folderName == "Other"
     }
     
+    // MARK: - Folder Navigation Routing
+    
+    @ViewBuilder
+    private func folderNavigationLink(for folder: Folder) -> some View {
+        let folderName: String = folder.name ?? ""
+        if folderName == "Trash" {
+            let trashedItemsForProject = allTrashItems.filter { $0.project?.id == project.id }
+            if !trashedItemsForProject.isEmpty {
+                NavigationLink(destination: TrashView(project: project)) {
+                    FolderRowView(folder: folder)
+                }
+            }
+        } else if let publicationType = publicationTypeForFolder(folderName) {
+            NavigationLink(destination: PublicationsListView(project: project, publicationType: publicationType)) {
+                FolderRowView(folder: folder)
+            }
+        } else if folderName == "Submissions" {
+            NavigationLink(destination: SubmissionsView(project: project)) {
+                FolderRowView(folder: folder)
+            }
+        } else if folderName == "Characters" && (project.type == .fiction || project.type == .drama) {
+            NavigationLink(destination: CharacterListView(project: project)) {
+                FolderRowView(folder: folder)
+            }
+        } else if folderName == "Locations" && (project.type == .fiction || project.type == .drama) {
+            NavigationLink(destination: LocationListView(project: project)) {
+                FolderRowView(folder: folder)
+            }
+        } else if folderName == "Plot" && (project.type == .fiction || project.type == .drama) {
+            NavigationLink(destination: PlotOutlineView(project: project)) {
+                FolderRowView(folder: folder)
+            }
+        } else if folderName == "Acts" && project.type == .drama {
+            NavigationLink(destination: ActListView(project: project)) {
+                FolderRowView(folder: folder)
+            }
+        } else if folderName == "Chapters" && project.type == .fiction {
+            NavigationLink(destination: ChapterListView(project: project)) {
+                FolderRowView(folder: folder)
+            }
+        } else if folderName == "Stories" && project.type == .fiction && project.fictionClass == .shortFiction {
+            NavigationLink(destination: ChapterListView(project: project)) {
+                FolderRowView(folder: folder)
+            }
+        } else if folderName == "Books" && project.type == .fiction && project.fictionClass == .verseNovel {
+            NavigationLink(destination: ChapterListView(project: project)) {
+                FolderRowView(folder: folder)
+            }
+        } else if folderName == "Episodes" && project.type == .fiction && project.fictionClass == .verseNovel {
+            NavigationLink(destination: SceneListView(project: project)) {
+                FolderRowView(folder: folder)
+            }
+        } else if folderName == "Sections" && project.type == .prose {
+            NavigationLink(destination: SectionListView(project: project)) {
+                FolderRowView(folder: folder)
+            }
+        } else if folderName == "Prose" && project.type == .prose {
+            NavigationLink(destination: ProseListView(project: project)) {
+                FolderRowView(folder: folder)
+            }
+        } else if folderName == "Collections" && project.type == .poetry {
+            NavigationLink(destination: PoetryCollectionsView(project: project)) {
+                FolderRowView(folder: folder)
+            }
+        } else if folderName == "Scenes" && (project.type == .fiction || project.type == .drama) {
+            NavigationLink(destination: SceneListView(project: project)) {
+                FolderRowView(folder: folder)
+            }
+        } else if folderName == "Manuscript" {
+            NavigationLink(destination: FolderListView(project: project, selectedFolder: folder)) {
+                FolderRowView(folder: folder)
+            }
+        } else {
+            capabilityBasedLink(for: folder)
+        }
+    }
+    
+    @ViewBuilder
+    private func subfolderNavigationLink(for subfolder: Folder) -> some View {
+        let subfolderName: String = subfolder.name ?? ""
+        let isManuscriptBodyFolder: Bool = selectedFolder?.name == "Manuscript" &&
+            ["Body", "Body Matter", "All Acts", "All Poems", "All Sections", "All Chapters", "All Stories", "All Books"].contains(subfolderName)
+        
+        if isManuscriptBodyFolder {
+            NavigationLink(destination: BodyMatterView(project: project)) {
+                FolderRowView(folder: subfolder)
+            }
+        } else {
+            capabilityBasedLink(for: subfolder)
+        }
+    }
+    
+    @ViewBuilder
+    private func capabilityBasedLink(for folder: Folder) -> some View {
+        let canAddSubfolder: Bool = FolderCapabilityService.canAddSubfolder(to: folder)
+        let canAddFile: Bool = FolderCapabilityService.canAddFile(to: folder)
+        
+        if canAddFile {
+            NavigationLink(destination: FolderFilesView(folder: folder)) {
+                FolderRowView(folder: folder)
+            }
+        } else if canAddSubfolder {
+            NavigationLink(destination: FolderListView(project: project, selectedFolder: folder)) {
+                FolderRowView(folder: folder)
+            }
+        } else {
+            NavigationLink(destination: FolderFilesView(folder: folder)) {
+                FolderRowView(folder: folder)
+            }
+        }
+    }
+    
     // Get subfolders for the selected folder
     var currentSubfolders: [Folder] {
         guard let selectedFolder = selectedFolder else { return [] }
@@ -221,136 +333,7 @@ struct FolderListView: View {
             if selectedFolder == nil {
                 // Show all project folders in a simple list
                 ForEach(projectFolders) { folder in
-                    // Special handling for Trash folder: only show if not empty
-                    if folder.name == "Trash" {
-                        let trashedItemsForProject = allTrashItems.filter { $0.project?.id == project.id }
-                        if !trashedItemsForProject.isEmpty {
-                            NavigationLink(destination: TrashView(project: project)) {
-                                FolderRowView(folder: folder)
-                            }
-                        }
-                    } else {
-                        // Check if this is a publication folder (Magazines, Competitions, Commissions, Other)
-                        let folderName = folder.name ?? ""
-                        if let publicationType = publicationTypeForFolder(folderName) {
-                            // Navigate to publications list filtered by type
-                            NavigationLink(destination: PublicationsListView(project: project, publicationType: publicationType)) {
-                                FolderRowView(folder: folder)
-                            }
-                        } else if folderName == "Submissions" {
-                            // Special handling for Submissions folder - show publication submissions
-                            NavigationLink(destination: SubmissionsView(project: project)) {
-                                FolderRowView(folder: folder)
-                            }
-                        } else if folderName == "Characters" && project.type == .fiction {
-                            // Fiction: Characters folder navigates to CharacterListView
-                            NavigationLink(destination: CharacterListView(project: project)) {
-                                FolderRowView(folder: folder)
-                            }
-                        } else if folderName == "Characters" && project.type == .drama {
-                            // Drama: Characters folder navigates to CharacterListView
-                            NavigationLink(destination: CharacterListView(project: project)) {
-                                FolderRowView(folder: folder)
-                            }
-                        } else if folderName == "Locations" && project.type == .fiction {
-                            // Fiction: Locations folder navigates to LocationListView
-                            NavigationLink(destination: LocationListView(project: project)) {
-                                FolderRowView(folder: folder)
-                            }
-                        } else if folderName == "Locations" && project.type == .drama {
-                            // Drama: Locations folder navigates to LocationListView
-                            NavigationLink(destination: LocationListView(project: project)) {
-                                FolderRowView(folder: folder)
-                            }
-                        } else if folderName == "Plot" && project.type == .fiction {
-                            // Fiction: Plot folder navigates to PlotOutlineView
-                            NavigationLink(destination: PlotOutlineView(project: project)) {
-                                FolderRowView(folder: folder)
-                            }
-                        } else if folderName == "Plot" && project.type == .drama {
-                            // Drama: Plot folder navigates to PlotOutlineView
-                            NavigationLink(destination: PlotOutlineView(project: project)) {
-                                FolderRowView(folder: folder)
-                            }
-                        } else if folderName == "Acts" && project.type == .drama {
-                            // Drama: Acts folder navigates to ActListView
-                            NavigationLink(destination: ActListView(project: project)) {
-                                FolderRowView(folder: folder)
-                            }
-                        } else if folderName == "Chapters" && project.type == .fiction {
-                            // Fiction (Novel): Chapters folder navigates to ChapterListView
-                            NavigationLink(destination: ChapterListView(project: project)) {
-                                FolderRowView(folder: folder)
-                            }
-                        } else if folderName == "Stories" && project.type == .fiction && project.fictionClass == .shortFiction {
-                            // Fiction (Short Fiction): Stories folder navigates to ChapterListView (reuses same view)
-                            NavigationLink(destination: ChapterListView(project: project)) {
-                                FolderRowView(folder: folder)
-                            }
-                        } else if folderName == "Books" && project.type == .fiction && project.fictionClass == .verseNovel {
-                            // Verse Novel: Books folder navigates to ChapterListView
-                            NavigationLink(destination: ChapterListView(project: project)) {
-                                FolderRowView(folder: folder)
-                            }
-                        } else if folderName == "Episodes" && project.type == .fiction && project.fictionClass == .verseNovel {
-                            // Verse Novel: Episodes folder navigates to SceneListView
-                            NavigationLink(destination: SceneListView(project: project)) {
-                                FolderRowView(folder: folder)
-                            }
-                        } else if folderName == "Sections" && project.type == .prose {
-                            // Prose: Sections folder navigates to SectionListView
-                            NavigationLink(destination: SectionListView(project: project)) {
-                                FolderRowView(folder: folder)
-                            }
-                        } else if folderName == "Prose" && project.type == .prose {
-                            // Prose: Prose folder navigates to ProseListView
-                            NavigationLink(destination: ProseListView(project: project)) {
-                                FolderRowView(folder: folder)
-                            }
-                        } else if folderName == "Collections" && project.type == .poetry {
-                            // Poetry: Collections folder navigates to PoetryCollectionsView
-                            NavigationLink(destination: PoetryCollectionsView(project: project)) {
-                                FolderRowView(folder: folder)
-                            }
-                        } else if folderName == "Scenes" && project.type == .fiction {
-                            // Fiction (Short Fiction): Scenes folder navigates to SceneListView
-                            NavigationLink(destination: SceneListView(project: project)) {
-                                FolderRowView(folder: folder)
-                            }
-                        } else if folderName == "Scenes" && project.type == .drama {
-                            // Drama: Scenes folder navigates to SceneListView
-                            NavigationLink(destination: SceneListView(project: project)) {
-                                FolderRowView(folder: folder)
-                            }
-                        } else if folderName == "Manuscript" {
-                            // Manuscript folder (Feature 029): Navigate to show subfolders (Front Matter, Body, Back Matter)
-                            NavigationLink(destination: FolderListView(project: project, selectedFolder: folder)) {
-                                FolderRowView(folder: folder)
-                            }
-                        } else {
-                            // Navigate based on folder capabilities
-                            let canAddSubfolder = FolderCapabilityService.canAddSubfolder(to: folder)
-                            let canAddFile = FolderCapabilityService.canAddFile(to: folder)
-                            
-                            if canAddFile {
-                                // Mixed content or file-only folders - navigate to FolderFilesView
-                                // FolderFilesView handles both files and subfolders for mixed-content folders
-                                NavigationLink(destination: FolderFilesView(folder: folder)) {
-                                    FolderRowView(folder: folder)
-                                }
-                            } else if canAddSubfolder {
-                                // Subfolder-only folders (Chapters, Acts, etc.) - navigate to FolderListView
-                                NavigationLink(destination: FolderListView(project: project, selectedFolder: folder)) {
-                                    FolderRowView(folder: folder)
-                                }
-                            } else {
-                                // Read-only folders - navigate to FolderFilesView (view-only)
-                                NavigationLink(destination: FolderFilesView(folder: folder)) {
-                                    FolderRowView(folder: folder)
-                                }
-                            }
-                        }
-                    }
+                    folderNavigationLink(for: folder)
                     if shouldAddSpacingAfter(folder: folder) {
                         Divider()
                             .listRowBackground(Color.clear)
@@ -362,39 +345,7 @@ struct FolderListView: View {
                 if !currentSubfolders.isEmpty {
                     Section {
                         ForEach(currentSubfolders) { subfolder in
-                            let subfolderName = subfolder.name ?? ""
-                            
-                            // Special handling for Manuscript Body subfolder (Feature 029)
-                            // Body folder is named "Body Matter" (new) or with "All" prefix (legacy)
-                            let isManuscriptBodyFolder = selectedFolder?.name == "Manuscript" && 
-                                ["Body", "Body Matter", "All Acts", "All Poems", "All Sections", "All Chapters", "All Stories", "All Books"].contains(subfolderName)
-                            
-                            if isManuscriptBodyFolder {
-                                NavigationLink(destination: BodyMatterView(project: project)) {
-                                    FolderRowView(folder: subfolder)
-                                }
-                            } else {
-                                // Navigate based on folder capabilities
-                                let canAddSubfolder = FolderCapabilityService.canAddSubfolder(to: subfolder)
-                                let canAddFile = FolderCapabilityService.canAddFile(to: subfolder)
-                                
-                                if canAddFile {
-                                    // Mixed content or file-only folders - navigate to FolderFilesView
-                                    NavigationLink(destination: FolderFilesView(folder: subfolder)) {
-                                        FolderRowView(folder: subfolder)
-                                    }
-                                } else if canAddSubfolder {
-                                    // Subfolder-only folders - navigate to FolderListView
-                                    NavigationLink(destination: FolderListView(project: project, selectedFolder: subfolder)) {
-                                        FolderRowView(folder: subfolder)
-                                    }
-                                } else {
-                                    // Read-only folders - navigate to FolderFilesView
-                                    NavigationLink(destination: FolderFilesView(folder: subfolder)) {
-                                        FolderRowView(folder: subfolder)
-                                    }
-                                }
-                            }
+                            subfolderNavigationLink(for: subfolder)
                         }
                     } header: {
                         Text(NSLocalizedString("folderList.foldersHeader", comment: "Folders section header"))
@@ -514,52 +465,7 @@ struct FolderListView: View {
             ManuscriptPreviewView(
                 pdfData: previewPDFData,
                 title: project.name ?? NSLocalizedString("manuscript.preview.title", comment: "Manuscript Preview"),
-                pdfGenerator: previewPDFData == nil ? { [project, modelContext] report in
-                    let assemblyService = ManuscriptAssemblyService(context: modelContext)
-                    do {
-                        // Phase 0: Regenerate TOC so it includes all current headings + correct page numbers
-                        let tocService = TOCGenerationService(context: modelContext)
-                        await tocService.regenerateTOCForExport(project: project)
-                        
-                        // Phase 1: Assembly (0% → 5%) — fast for most projects
-                        let content = try await assemblyService.assembleContent(for: project) { current, total in
-                            let frac = total > 0 ? 0.05 * Double(current) / Double(total) : 0
-                            let text = String(format: NSLocalizedString("manuscript.preview.assembling", comment: ""), current, total)
-                            report(frac, text)
-                        }
-                        guard content.attributedString.length > 0 else { return nil }
-                        let finalContent = FolderListView.insertCoverImages(into: content, project: project)
-                        
-                        report(0.05, NSLocalizedString("manuscript.preview.layouting", comment: "Laying out pages…"))
-                        
-                        // Phase 2+3: Layout + Render (5% → 100%)
-                        // For documents with form-feed page breaks and no footnotes,
-                        // the fast path combines layout+render into one linear pass.
-                        return await PrintService.generatePDFWithProgress(
-                            from: finalContent,
-                            project: project,
-                            pageSetup: project.pageSetup,
-                            context: modelContext,
-                            layoutProgress: { pagesCalculated, estimatedTotal in
-                                let frac = estimatedTotal > 0 ? min(Double(pagesCalculated) / Double(estimatedTotal), 1.0) : 0
-                                let overallFrac = 0.05 + 0.90 * frac
-                                let text = String(format: NSLocalizedString("manuscript.preview.renderingPage", comment: ""), pagesCalculated, estimatedTotal)
-                                report(overallFrac, text)
-                            },
-                            renderProgress: { currentPage, totalPages in
-                                let renderFrac = totalPages > 0 ? Double(currentPage) / Double(totalPages) : 0
-                                let frac = 0.95 + 0.05 * renderFrac
-                                let text = String(format: NSLocalizedString("manuscript.preview.renderingPage", comment: ""), currentPage, totalPages)
-                                report(frac, text)
-                            }
-                        )
-                    } catch {
-                        #if DEBUG
-                        print("❌ [Manuscript] Preview PDF generation error: \(error)")
-                        #endif
-                        return nil
-                    }
-                } : nil
+                pdfGenerator: previewPDFData == nil ? makeManuscriptPDFGenerator() : nil
             )
         }
         .sheet(isPresented: $showAddFolderSheet) {
@@ -599,6 +505,56 @@ struct FolderListView: View {
     private func generatePreview() {
         previewPDFData = nil
         showPreview = true
+    }
+    
+    /// Build the async PDF generator closure for the manuscript preview sheet
+    private func makeManuscriptPDFGenerator() -> (@escaping (Double, String) -> Void) async -> Data? {
+        let project = project
+        let modelContext = modelContext
+        return { report in
+            let assemblyService = ManuscriptAssemblyService(context: modelContext)
+            do {
+                // Phase 0: Regenerate TOC so it includes all current headings + correct page numbers
+                let tocService = TOCGenerationService(context: modelContext)
+                await tocService.regenerateTOCForExport(project: project)
+                
+                // Phase 1: Assembly (0% → 5%) — fast for most projects
+                let content = try await assemblyService.assembleContent(for: project) { current, total in
+                    let frac: Double = total > 0 ? 0.05 * Double(current) / Double(total) : 0
+                    let text: String = String(format: NSLocalizedString("manuscript.preview.assembling", comment: ""), current, total)
+                    report(frac, text)
+                }
+                guard content.attributedString.length > 0 else { return nil }
+                let finalContent = FolderListView.insertCoverImages(into: content, project: project)
+                
+                report(0.05, NSLocalizedString("manuscript.preview.layouting", comment: "Laying out pages…"))
+                
+                // Phase 2+3: Layout + Render (5% → 100%)
+                return await PrintService.generatePDFWithProgress(
+                    from: finalContent,
+                    project: project,
+                    pageSetup: project.pageSetup,
+                    context: modelContext,
+                    layoutProgress: { (pagesCalculated: Int, estimatedTotal: Int) in
+                        let frac: Double = estimatedTotal > 0 ? min(Double(pagesCalculated) / Double(estimatedTotal), 1.0) : 0
+                        let overallFrac: Double = 0.05 + 0.90 * frac
+                        let text: String = String(format: NSLocalizedString("manuscript.preview.renderingPage", comment: ""), pagesCalculated, estimatedTotal)
+                        report(overallFrac, text)
+                    },
+                    renderProgress: { (currentPage: Int, totalPages: Int) in
+                        let renderFrac: Double = totalPages > 0 ? Double(currentPage) / Double(totalPages) : 0
+                        let frac: Double = 0.95 + 0.05 * renderFrac
+                        let text: String = String(format: NSLocalizedString("manuscript.preview.renderingPage", comment: ""), currentPage, totalPages)
+                        report(frac, text)
+                    }
+                )
+            } catch {
+                #if DEBUG
+                print("❌ [Manuscript] Preview PDF generation error: \(error)")
+                #endif
+                return nil
+            }
+        }
     }
     
     /// Submit the manuscript body matter files to a publication
@@ -1083,18 +1039,18 @@ struct FolderRowView: View {
     // Get submission count for Submissions folder
     private var submissionCount: Int {
         guard isSubmissionsFolder, let project = folder.project else { return 0 }
-        
-        return allSubmissions.filter { submission in
-            !submission.isCollection && submission.project?.id == project.id
+        let projectID: UUID = project.id
+        return allSubmissions.filter { (submission: Submission) -> Bool in
+            !submission.isCollection && submission.project?.id == projectID
         }.count
     }
     
     // Get publication count for this folder type
     private var publicationCount: Int {
         guard isPublicationFolder, let project = folder.project else { return 0 }
-        
-        let folderName = folder.name ?? ""
-        var publicationType: PublicationType?
+        let projectID: UUID = project.id
+        let folderName: String = folder.name ?? ""
+        let publicationType: PublicationType?
         
         switch folderName {
         case "Magazines":
@@ -1113,8 +1069,8 @@ struct FolderRowView: View {
             return 0
         }
         
-        return allPublications.filter { pub in
-            pub.project?.id == project.id && pub.type == publicationType
+        return allPublications.filter { (pub: Publication) -> Bool in
+            pub.project?.id == projectID && pub.type == publicationType
         }.count
     }
     
@@ -1188,25 +1144,27 @@ struct FolderRowView: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)
         .task {
-            if isAllFolder, let project = folder.project {
-                // For "All" folder, compute total files from target folders
-                let projectFolders = allFolders.filter { $0.project?.id == project.id }
-                let targetFolderNames = ["Draft", "Ready", "Set Aside", "Published"]
-                
-                var totalCount = 0
-                for folder in projectFolders where targetFolderNames.contains(folder.name ?? "") {
-                    totalCount += folder.textFiles?.count ?? 0
-                }
-                fileCount = totalCount
-                subfolderCount = 0
-            } else if isTrashFolder, let project = folder.project {
-                // For "Trash" folder, count TrashItem objects (not files in folder)
-                fileCount = allTrashItems.filter { $0.project?.id == project.id }.count
-                subfolderCount = 0
-            } else {
-                fileCount = folder.textFiles?.count ?? 0
-                subfolderCount = folder.folders?.count ?? 0
+            await loadFolderCounts()
+        }
+    }
+    
+    private func loadFolderCounts() async {
+        if isAllFolder, let project = folder.project {
+            let projectFolders: [Folder] = allFolders.filter { (f: Folder) -> Bool in f.project?.id == project.id }
+            let targetFolderNames: Set<String> = ["Draft", "Ready", "Set Aside", "Published"]
+            
+            var totalCount: Int = 0
+            for folder in projectFolders where targetFolderNames.contains(folder.name ?? "") {
+                totalCount += folder.textFiles?.count ?? 0
             }
+            fileCount = totalCount
+            subfolderCount = 0
+        } else if isTrashFolder, let project = folder.project {
+            fileCount = allTrashItems.filter { (item: TrashItem) -> Bool in item.project?.id == project.id }.count
+            subfolderCount = 0
+        } else {
+            fileCount = folder.textFiles?.count ?? 0
+            subfolderCount = folder.folders?.count ?? 0
         }
     }
     

@@ -7,12 +7,11 @@ Writing Shed Pro organizes your work in a hierarchy of folders and files within 
 ```
 Project
 └── Folders
-    └── Subfolders (optional)
-        └── Files
+    └── Files
 ```
 
 - **Projects** contain folders
-- **Folders** contain files and other folders
+- **Folders** contain your files
 - **Files** contain your actual writing
 
 ## System Folders
@@ -43,21 +42,6 @@ Additional system folders:
 - **Submissions**: Track what you've sent
 - **Publishers / Agents**: Submission targets
 
-## Creating Folders
-
-You can create custom subfolders within system folders:
-
-1. Open a folder
-2. Tap the **+** button
-3. Select **New Folder**
-4. Enter a name
-5. Tap **Create**
-
-### Folder Naming
-- Use clear, descriptive names
-- Examples: "Nature Poems", "Chapter Drafts", "Research Notes"
-- Avoid special characters
-
 ## Creating Files
 
 Create a new file:
@@ -66,7 +50,7 @@ Create a new file:
 2. Tap the **+** button
 3. Select **New File** (or specific type for Poetry/Fiction)
 4. Enter a title
-5. For Poetry: Optionally select a form template
+5. For Poetry: Optionally select a form template, or tap **Create Custom Form** to define your own
 6. Tap **Create**
 
 The file opens automatically in the editor.
@@ -206,11 +190,6 @@ Writing Shed Pro automatically creates versions as you edit:
 The current content becomes a new version, so nothing is lost.
 
 ## Best Practices
-
-### Folder Organization
-- Use subfolders to group related work
-- Don't nest too deeply—2-3 levels is usually enough
-- Name folders clearly
 
 ### Regular Cleanup
 - Move completed work to Ready

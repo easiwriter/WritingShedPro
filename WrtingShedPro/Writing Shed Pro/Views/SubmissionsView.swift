@@ -51,13 +51,14 @@ struct SubmissionsView: View {
     // Submissions sorted by name (case-insensitive)
     // Additional filtering to ensure ONLY submissions for THIS project appear
     private var sortedSubmissions: [Submission] {
-        let submissionsForProject = allSubmissions.filter { 
-            !$0.isCollection && $0.project?.id == project.id
+        let projectID: UUID = project.id
+        let submissionsForProject: [Submission] = allSubmissions.filter { (sub: Submission) -> Bool in
+            !sub.isCollection && sub.project?.id == projectID
         }
         
         // Sort by case-insensitive name
-        return submissionsForProject.sorted { 
-            ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending
+        return submissionsForProject.sorted { (a: Submission, b: Submission) -> Bool in
+            (a.name ?? "").localizedCaseInsensitiveCompare(b.name ?? "") == .orderedAscending
         }
     }
     

@@ -670,6 +670,7 @@
 
 /* Poetry Form Picker (Phase 2) */
 "poetryForms.picker.manageButton" = "Manage Forms";
+"poetryForms.picker.createCustom" = "Create Custom Form";
 "poetryForms.reference.unknownForm" = "Unknown Form";
 "poetryForms.reference.unknownFormMessage" = "This form is no longer available. Tap to select a different form.";
 
@@ -949,6 +950,16 @@
 /* Common */
 "common.cancel" = "Cancel";
 "common.done" = "Done";
+"common.save" = "Save";
+"common.delete" = "Delete";
+"common.edit" = "Edit";
+"common.error" = "Error";
+"common.ok" = "OK";
+
+/* TipKit Tips */
+"tip.gettingStarted.title" = "Welcome to Writing Shed Pro";
+"tip.gettingStarted.message" = "Tap + to create your first project, or tap the ? button to explore the User Guide.";
+"tip.gettingStarted.learnMore" = "Open User Guide";
 
 /* Formatting Toolbar */
 "toolbar.moveCursorLeft" = "Move cursor left";
@@ -1993,10 +2004,12 @@
 "storyStructure.threeAct" = "Three-Act Structure";
 "storyStructure.monomythVogler" = "Heros Journey (Vogler)";
 "storyStructure.monomythCampbell" = "Heros Journey (Campbell)";
+"storyStructure.monomythPearson" = "Heros Journey (Pearson)";
 "storyStructure.freeform.description" = "No predefined structure - organize your story freely";
 "storyStructure.threeAct.description" = "Classic 3-act structure: Setup, Confrontation, Resolution";
 "storyStructure.monomythVogler.description" = "12 stages from The Writers Journey by Christopher Vogler";
 "storyStructure.monomythCampbell.description" = "17 stages from The Hero with a Thousand Faces by Joseph Campbell";
+"storyStructure.monomythPearson.description" = "3 phases and 12 archetypes from Awakening the Heroes Within by Carol S. Pearson";
 
 // Three-Act Structure stages
 "threeAct.actOne" = "Act I: Setup";
@@ -2043,6 +2056,43 @@
 "campbell.rescueFromWithout.description" = "The hero needs help from the ordinary world to return";
 "campbell.crossingTheReturnThreshold.description" = "The hero returns to the ordinary world transformed";
 "campbell.masterOfTwoWorlds.description" = "The hero achieves balance between inner and outer worlds";
+
+// Pearsons Hero's Journey phases (3 phases)
+"pearson.preparation" = "Preparation (Ego)";
+"pearson.journey" = "Journey (Soul)";
+"pearson.returnPhase" = "Return (Self)";
+"pearson.preparation.description" = "The ego stage — establishing identity through the Innocent, Orphan, Warrior, and Caregiver";
+"pearson.journey.description" = "The soul stage — transformation through the Seeker, Destroyer, Lover, and Creator";
+"pearson.returnPhase.description" = "The self stage — wholeness through the Ruler, Magician, Sage, and Jester";
+
+// Pearsons 12 Archetypes
+"pearsonArchetype.innocent" = "Innocent";
+"pearsonArchetype.orphan" = "Orphan";
+"pearsonArchetype.warrior" = "Warrior";
+"pearsonArchetype.caregiver" = "Caregiver";
+"pearsonArchetype.seeker" = "Seeker";
+"pearsonArchetype.destroyer" = "Destroyer";
+"pearsonArchetype.lover" = "Lover";
+"pearsonArchetype.creator" = "Creator";
+"pearsonArchetype.ruler" = "Ruler";
+"pearsonArchetype.magician" = "Magician";
+"pearsonArchetype.sage" = "Sage";
+"pearsonArchetype.jester" = "Jester";
+"pearsonArchetype.innocent.description" = "Trusts life, has faith, is optimistic — seeks safety and happiness";
+"pearsonArchetype.orphan.description" = "Feels abandoned or betrayed — develops resilience and realism";
+"pearsonArchetype.warrior.description" = "Fights for what matters — shows courage, discipline, and strength";
+"pearsonArchetype.caregiver.description" = "Cares for others with compassion and generosity";
+"pearsonArchetype.seeker.description" = "Searches for a better life — values autonomy and ambition";
+"pearsonArchetype.destroyer.description" = "Lets go of what no longer serves — embraces metamorphosis";
+"pearsonArchetype.lover.description" = "Follows the heart — driven by passion, commitment, and connection";
+"pearsonArchetype.creator.description" = "Brings vision to life — fuelled by imagination and innovation";
+"pearsonArchetype.ruler.description" = "Takes responsibility and creates order from chaos";
+"pearsonArchetype.magician.description" = "Transforms reality — a catalyst for change and healing";
+"pearsonArchetype.sage.description" = "Seeks truth and wisdom — values understanding above all";
+"pearsonArchetype.jester.description" = "Lives in the moment with joy and freedom — sees the absurd";
+
+// Pearson character archetype label
+"fiction.character.pearsonPhase" = "Phase: %@";
 
 // Add Project / Project Detail - Story Structure
 "addProject.storyStructure" = "Story Structure";

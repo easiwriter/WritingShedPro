@@ -3,8 +3,9 @@ import SwiftData
 import UniformTypeIdentifiers
 
 struct ContentView: View {
-    @Query var projects: [Project]
+    @Query(sort: \Project.creationDate) var projects: [Project]
     @State private var state = ContentViewState()
+    @State private var refreshTrigger = false
     @Environment(\.modelContext) var modelContext
     
     var body: some View {
@@ -19,6 +20,46 @@ struct ContentView: View {
             onPrefetchProjectData: prefetchProjectData,
             onRunMigrations: runMigrations
         )
+        .id(refreshTrigger)
+        .task {
+            await monitorSyncAndRefreshIfNeeded()
+        }
+    }
+    
+    /// On fresh install, @Query may not update after CloudKit bulk import.
+    /// Poll periodically and force a view refresh if data exists but @Query is empty.
+    private func monitorSyncAndRefreshIfNeeded() async {
+        let throttler = CloudKitSyncThrottler.shared
+        
+        // Only needed on fresh install (no projects yet)
+        guard projects.isEmpty else { return }
+        
+        // Check periodically for up to 60 seconds
+        for attempt in 1...12 {
+            try? await Task.sleep(nanoseconds: 5_000_000_000) // 5 seconds
+            
+            // If @Query has updated, we're done
+            if !projects.isEmpty { return }
+            
+            // Check if sync events have occurred (data may be in the store)
+            if throttler.syncEventCount > 0 {
+                // Do a direct fetch to see if data exists in the store
+                let descriptor = FetchDescriptor<Project>()
+                if let count = try? modelContext.fetchCount(descriptor), count > 0 {
+                    #if DEBUG
+                    print("🔄 [ContentView] @Query empty but \(count) projects in store (attempt \(attempt)) — forcing refresh")
+                    #endif
+                    refreshTrigger.toggle()
+                    return
+                }
+            }
+            
+            #if DEBUG
+            if attempt % 4 == 0 {
+                print("⏳ [ContentView] Waiting for CloudKit data... (attempt \(attempt), syncEvents: \(throttler.syncEventCount))")
+            }
+            #endif
+        }
     }
     
     /// Run data migrations for new features, delayed to avoid CloudKit sync race conditions.

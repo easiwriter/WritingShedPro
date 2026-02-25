@@ -96,6 +96,77 @@ final class FictionModelsTests: XCTestCase {
         XCTAssertEqual(CharacterArchetype.trickster.rawValue, "trickster")
     }
     
+    // MARK: - PearsonStage Tests
+    
+    func testPearsonStageCount() {
+        XCTAssertEqual(PearsonStage.allCases.count, 3)
+    }
+    
+    func testPearsonStageLocalizedNames() {
+        for stage in PearsonStage.allCases {
+            XCTAssertFalse(stage.localizedName.isEmpty, "\(stage) should have localized name")
+        }
+    }
+    
+    func testPearsonStageDescriptions() {
+        for stage in PearsonStage.allCases {
+            XCTAssertFalse(stage.description.isEmpty, "\(stage) should have description")
+        }
+    }
+    
+    func testPearsonStageOrdering() {
+        XCTAssertEqual(PearsonStage.preparation.order, 1)
+        XCTAssertEqual(PearsonStage.journey.order, 2)
+        XCTAssertEqual(PearsonStage.returnPhase.order, 3)
+    }
+    
+    func testPearsonStageArchetypes() {
+        XCTAssertEqual(PearsonStage.preparation.archetypes, [.innocent, .orphan, .warrior, .caregiver])
+        XCTAssertEqual(PearsonStage.journey.archetypes, [.seeker, .destroyer, .lover, .creator])
+        XCTAssertEqual(PearsonStage.returnPhase.archetypes, [.ruler, .magician, .sage, .jester])
+    }
+    
+    // MARK: - PearsonArchetype Tests
+    
+    func testPearsonArchetypeCount() {
+        XCTAssertEqual(PearsonArchetype.allCases.count, 12)
+    }
+    
+    func testPearsonArchetypeLocalizedNames() {
+        for archetype in PearsonArchetype.allCases {
+            XCTAssertFalse(archetype.localizedName.isEmpty, "\(archetype) should have localized name")
+        }
+    }
+    
+    func testPearsonArchetypeDescriptions() {
+        for archetype in PearsonArchetype.allCases {
+            XCTAssertFalse(archetype.description.isEmpty, "\(archetype) should have description")
+        }
+    }
+    
+    func testPearsonArchetypePhases() {
+        // Preparation (Ego)
+        XCTAssertEqual(PearsonArchetype.innocent.phase, .preparation)
+        XCTAssertEqual(PearsonArchetype.orphan.phase, .preparation)
+        XCTAssertEqual(PearsonArchetype.warrior.phase, .preparation)
+        XCTAssertEqual(PearsonArchetype.caregiver.phase, .preparation)
+        // Journey (Soul)
+        XCTAssertEqual(PearsonArchetype.seeker.phase, .journey)
+        XCTAssertEqual(PearsonArchetype.destroyer.phase, .journey)
+        XCTAssertEqual(PearsonArchetype.lover.phase, .journey)
+        XCTAssertEqual(PearsonArchetype.creator.phase, .journey)
+        // Return (Self)
+        XCTAssertEqual(PearsonArchetype.ruler.phase, .returnPhase)
+        XCTAssertEqual(PearsonArchetype.magician.phase, .returnPhase)
+        XCTAssertEqual(PearsonArchetype.sage.phase, .returnPhase)
+        XCTAssertEqual(PearsonArchetype.jester.phase, .returnPhase)
+    }
+    
+    func testPearsonArchetypeOrdering() {
+        let orders = PearsonArchetype.allCases.map { $0.order }.sorted()
+        XCTAssertEqual(orders, Array(1...12))
+    }
+    
     // MARK: - MonomythStage Tests
     
     func testMonomythStageCount() {

@@ -302,7 +302,8 @@ struct CitationsListView: View {
                     VStack(spacing: 0) {
                         Image(systemName: "quote.opening")
                             .font(.system(size: 12))
-                        Text(citation.year.map { String($0).suffix(2) }.map(String.init) ?? "--")
+                        let yearSuffix: String = citation.year.map { String($0).suffix(2) }.map(String.init) ?? "--"
+                        Text(yearSuffix)
                             .font(.system(size: 10, weight: .bold))
                     }
                     .foregroundColor(.indigo)
@@ -311,10 +312,12 @@ struct CitationsListView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     // Author and year
                     HStack {
-                        Text(citation.authors.first ?? NSLocalizedString("citation.unknownAuthor", comment: "Unknown Author"))
+                        let firstAuthor: String = citation.authors.first ?? NSLocalizedString("citation.unknownAuthor", comment: "Unknown Author")
+                        Text(firstAuthor)
                             .font(.headline)
                         
-                        Text("(\(citation.year.map { String($0) } ?? "n.d."))")
+                        let yearDisplay: String = citation.year.map { (y: Int) -> String in String(y) } ?? "n.d."
+                        Text("(\(yearDisplay))")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                     }
@@ -337,14 +340,16 @@ struct CitationsListView: View {
                     // Metadata
                     HStack(spacing: 8) {
                         // Reference count
+                        let refCountColor: Color = citation.referenceCount == 0 ? .orange : .secondary
                         Label("\(citation.referenceCount)", systemImage: "link")
                             .font(.caption2)
-                            .foregroundStyle(citation.referenceCount == 0 ? .orange : .secondary)
+                            .foregroundStyle(refCountColor)
                         
                         // Inline marker preview (e.g., "(Smith, 2024)")
-                        let authorName = citation.authors.first?.components(separatedBy: " ").last ?? "Author"
-                        let yearText = citation.year.map { String($0) } ?? "n.d."
-                        Text("(\(authorName), \(yearText))")
+                        let authorName: String = citation.authors.first?.components(separatedBy: " ").last ?? "Author"
+                        let yearText: String = citation.year.map { (y: Int) -> String in String(y) } ?? "n.d."
+                        let markerPreview: String = "(\(authorName), \(yearText))"
+                        Text(markerPreview)
                             .font(.caption2)
                             .foregroundColor(.indigo)
                             .padding(.horizontal, 4)
@@ -473,7 +478,8 @@ struct CitationsListView: View {
     
     private func deleteCitation(_ citation: CitationEntry) {
         // Remove from project
-        project.citationEntries?.removeAll { $0.id == citation.id }
+        let citationID: UUID = citation.id
+        project.citationEntries?.removeAll { (entry: CitationEntry) -> Bool in entry.id == citationID }
         
         // Delete from context
         modelContext.delete(citation)

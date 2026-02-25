@@ -419,9 +419,10 @@ final class ManuscriptAssemblyService {
         #endif
         
         // Body Matter path: sections marked for body matter
-        let bodySections = (project.sections ?? [])
-            .filter { $0.isInBodyMatter }
-            .sorted { ($0.bodyMatterOrder ?? 0) < ($1.bodyMatterOrder ?? 0) }
+        let allSections: [ProseSection] = project.sections ?? []
+        let bodySections: [ProseSection] = allSections
+            .filter { (section: ProseSection) -> Bool in section.isInBodyMatter }
+            .sorted { (a: ProseSection, b: ProseSection) -> Bool in (a.bodyMatterOrder ?? 0) < (b.bodyMatterOrder ?? 0) }
         
         if !bodySections.isEmpty {
             #if DEBUG
@@ -430,9 +431,9 @@ final class ManuscriptAssemblyService {
             
             var sections: [ManuscriptSection] = []
             for proseSection in bodySections {
-                let files = (proseSection.textFiles ?? [])
-                    .filter { $0.includedInManuscript }
-                    .sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+                let files: [TextFile] = (proseSection.textFiles ?? [])
+                    .filter { (file: TextFile) -> Bool in file.includedInManuscript }
+                    .sorted { (a: TextFile, b: TextFile) -> Bool in (a.userOrder ?? 0) < (b.userOrder ?? 0) }
                 
                 if !files.isEmpty {
                     sections.append(ManuscriptSection(

@@ -97,6 +97,57 @@ struct BackMatterGeneratedContentView: View {
     // MARK: - Body
     
     var body: some View {
+        bodyWithSheetsAndAlerts
+            .id(refreshTrigger) // Refresh content only, not sheets
+            .navigationTitle(file.name)
+            .navigationBarTitleDisplayMode(.inline)
+            .environment(\.editMode, $editMode)
+            .toolbar { toolbarContent }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+                // Refresh when app returns to foreground (handles changes from other views)
+                refreshTrigger = UUID()
+            }
+            .task(id: pageCalcTrigger) {
+                #if DEBUG
+                print("📑 BackMatter .task fired: backMatterType=\(String(describing: backMatterType)), fileName='\(file.name)'")
+                #endif
+                if backMatterType == .index {
+                    await calculateIndexPageNumbers()
+                }
+            }
+            .task(id: figurePageCalcTrigger) {
+                #if DEBUG
+                print("📑 BackMatter .task (figures) fired: backMatterType=\(String(describing: backMatterType)), fileName='\(file.name)'")
+                #endif
+                if backMatterType == .tableOfFigures {
+                    await loadAndCalculateFigureEntries()
+                }
+            }
+            .onChange(of: refreshTrigger) { _, _ in
+                // When data changes (edit/delete), recalculate page numbers or regenerate content
+                if backMatterType == .index {
+                    pageCalcTrigger = UUID()
+                } else if backMatterType == .tableOfFigures {
+                    figurePageCalcTrigger = UUID()
+                } else if backMatterType == .contributors {
+                    regenerateFileContent()
+                }
+            }
+            .onAppear {
+                #if DEBUG
+                print("📑 BackMatter .onAppear: backMatterType=\(String(describing: backMatterType)), fileName='\(file.name)'")
+                #endif
+                // Regenerate contributors file content on appear so PDF preview is up to date
+                if backMatterType == .contributors {
+                    regenerateFileContent()
+                }
+            }
+    }
+    
+    // MARK: - Extracted Body Content
+    
+    @ViewBuilder
+    private var bodyContent: some View {
         Group {
             // Contributors uses List for swipe actions and edit mode
             if backMatterType == .contributors {
@@ -127,240 +178,214 @@ struct BackMatterGeneratedContentView: View {
                 }
             }
         }
-        .id(refreshTrigger) // Refresh content only, not sheets
-        .navigationTitle(file.name)
-        .navigationBarTitleDisplayMode(.inline)
-        .environment(\.editMode, $editMode)
-        .toolbar {
-            // Section title edit button (not for covers or Table of Figures which has its own settings)
-            if let type = backMatterType, type != .backCover && type != .tableOfFigures {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        showTitleEditor = true
-                    } label: {
-                        Image(systemName: "textformat")
-                    }
-                    .accessibilityLabel(NSLocalizedString("backMatter.titleEditor.button", comment: "Edit Section Title"))
+    }
+    
+    // MARK: - Sheets and Alerts
+    
+    private var bodyWithSheetsAndAlerts: some View {
+        bodyContent
+            .sheet(isPresented: $showTableOfFiguresSettings) {
+                TableOfFiguresSettingsView(file: file) {
+                    // Refresh content when settings change
+                    figurePageCalcTrigger = UUID()
                 }
             }
-            
-            // Settings button for Table of Figures
-            if backMatterType == .tableOfFigures {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        showTableOfFiguresSettings = true
-                    } label: {
-                        Image(systemName: "gearshape")
-                    }
-                    .accessibilityLabel(NSLocalizedString("tof.settings.button.accessibility", comment: "Table of Figures Settings"))
+            .sheet(isPresented: $showTitleEditor) {
+                if let type = backMatterType {
+                    BackMatterTitleEditorSheet(
+                        item: type,
+                        folder: file.parentFolder,
+                        onSave: { regenerateFileContent() }
+                    )
                 }
             }
-            
-            // Edit and Add buttons for contributors
-            if backMatterType == .contributors {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    HStack {
-                        // Body style picker — shows text-category styles from the project's stylesheet
-                        Menu {
-                            ForEach(availableBodyStyles, id: \.id) { style in
-                                Button {
-                                    project.contributorBodyStyleName = style.name
-                                    try? modelContext.save()
-                                    refreshTrigger = UUID()
-                                } label: {
-                                    HStack {
-                                        Text(style.displayName)
-                                        if project.contributorBodyStyleName == style.name {
-                                            Image(systemName: "checkmark")
-                                        }
-                                    }
-                                }
-                            }
-                        } label: {
-                            Image(systemName: "textformat.size")
-                        }
-                        .accessibilityLabel(NSLocalizedString("contributor.bodyStyle", comment: "Body Style"))
-                        
-                        // Run together / separate rows toggle
-                        Button {
-                            withAnimation {
-                                project.contributorDisplayRunTogether.toggle()
-                                try? modelContext.save()
-                                refreshTrigger = UUID()
-                            }
-                        } label: {
-                            Image(systemName: project.contributorDisplayRunTogether ? "list.bullet" : "text.justify.leading")
-                        }
-                        .accessibilityLabel(project.contributorDisplayRunTogether
-                            ? NSLocalizedString("contributor.showSeparateRows", comment: "Show as Separate Rows")
-                            : NSLocalizedString("contributor.showRunTogether", comment: "Show as Continuous Text"))
-                        
-                        // Display order toggle
-                        Button {
-                            withAnimation {
-                                project.contributorDisplaySurnameFirst.toggle()
-                                try? modelContext.save()
-                                refreshTrigger = UUID()
-                            }
-                        } label: {
-                            Image(systemName: project.contributorDisplaySurnameFirst ? "arrow.left.arrow.right" : "arrow.right.arrow.left")
-                        }
-                        .accessibilityLabel(project.contributorDisplaySurnameFirst
-                            ? NSLocalizedString("contributor.showForenameFirst", comment: "Show as Forename Surname")
-                            : NSLocalizedString("contributor.showSurnameFirst", comment: "Show as Surname, Forename"))
-                        
-                        // Edit/Done button
-                        if !(project.contributorEntries ?? []).isEmpty {
-                            Button {
-                                withAnimation {
-                                    if editMode == .active {
-                                        editMode = .inactive
-                                        selectedContributorIDs.removeAll()
-                                    } else {
-                                        editMode = .active
-                                    }
-                                }
-                            } label: {
-                                Text(editMode == .active ? NSLocalizedString("button.done", comment: "Done") : NSLocalizedString("button.edit", comment: "Edit"))
-                            }
-                        }
-                        
-                        // Add button (only when not in edit mode)
-                        if editMode != .active {
-                            Button {
-                                showAddContributorSheet = true
-                            } label: {
-                                Image(systemName: "plus")
-                            }
-                            .accessibilityLabel(NSLocalizedString("contributor.add.button", comment: "Add Contributor"))
-                        }
-                    }
+            .sheet(isPresented: $showAddContributorSheet) {
+                ContributorEditorSheet(project: project, existingContributor: nil) {
+                    refreshTrigger = UUID()
                 }
+                .id("addContributor") // Stable identity prevents sheet flicker on desktop switch
             }
-        }
-        .sheet(isPresented: $showTableOfFiguresSettings) {
-            TableOfFiguresSettingsView(file: file) {
-                // Refresh content when settings change
-                figurePageCalcTrigger = UUID()
+            .sheet(item: $contributorToEdit) { contributor in
+                ContributorEditorSheet(project: project, existingContributor: contributor) {
+                    refreshTrigger = UUID()
+                }
+                .id(contributor.id) // Stable identity prevents sheet flicker on desktop switch
             }
-        }
-        .sheet(isPresented: $showTitleEditor) {
-            if let type = backMatterType {
-                BackMatterTitleEditorSheet(
-                    item: type,
-                    folder: file.parentFolder,
-                    onSave: { regenerateFileContent() }
+            // Index entry edit sheet
+            .sheet(item: $indexEntryToEdit) { (entry: IndexEntry) in
+                IndexEditorSheet(
+                    project: project,
+                    existingEntry: entry,
+                    onSave: { _, _ in
+                        refreshTrigger = UUID()
+                    }
                 )
             }
-        }
-        .sheet(isPresented: $showAddContributorSheet) {
-            ContributorEditorSheet(project: project, existingContributor: nil) {
-                refreshTrigger = UUID()
+            // Index occurrence finder sheet
+            .sheet(item: $indexEntryToFindOccurrences) { (entry: IndexEntry) in
+                IndexOccurrenceFinderSheet(
+                    entry: entry,
+                    project: project,
+                    onMarkersAdded: {
+                        refreshTrigger = UUID()
+                    }
+                )
             }
-            .id("addContributor") // Stable identity prevents sheet flicker on desktop switch
-        }
-        .sheet(item: $contributorToEdit) { contributor in
-            ContributorEditorSheet(project: project, existingContributor: contributor) {
-                refreshTrigger = UUID()
-            }
-            .id(contributor.id) // Stable identity prevents sheet flicker on desktop switch
-        }
-        // Index entry edit sheet
-        .sheet(item: $indexEntryToEdit) { entry in
-            IndexEditorSheet(
-                project: project,
-                existingEntry: entry,
-                onSave: { _, _ in
-                    refreshTrigger = UUID()
+            // Index entry delete confirmation
+            .confirmationDialog(
+                NSLocalizedString("indexList.confirmDelete.title", comment: "Delete Index Entry?"),
+                isPresented: $showIndexDeleteConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button(NSLocalizedString("button.delete", comment: "Delete"), role: .destructive) {
+                    if let entry = indexEntryToDelete {
+                        deleteIndexEntry(entry)
+                    }
+                    showIndexDeleteConfirmation = false
                 }
-            )
-        }
-        // Index occurrence finder sheet
-        .sheet(item: $indexEntryToFindOccurrences) { entry in
-            IndexOccurrenceFinderSheet(
-                entry: entry,
-                project: project,
-                onMarkersAdded: {
-                    refreshTrigger = UUID()
+                Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
+                    indexEntryToDelete = nil
+                    showIndexDeleteConfirmation = false
                 }
-            )
-        }
-        // Index entry delete confirmation
-        .confirmationDialog(
-            NSLocalizedString("indexList.confirmDelete.title", comment: "Delete Index Entry?"),
-            isPresented: $showIndexDeleteConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button(NSLocalizedString("button.delete", comment: "Delete"), role: .destructive) {
+            } message: {
                 if let entry = indexEntryToDelete {
-                    deleteIndexEntry(entry)
-                }
-                showIndexDeleteConfirmation = false
-            }
-            Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
-                indexEntryToDelete = nil
-                showIndexDeleteConfirmation = false
-            }
-        } message: {
-            if let entry = indexEntryToDelete {
-                if entry.referenceCount > 0 {
-                    Text(String(format: NSLocalizedString("indexList.confirmDelete.messageWithRefs", comment: ""), entry.referenceCount))
-                } else {
-                    Text(NSLocalizedString("indexList.confirmDelete.message", comment: "This entry will be permanently deleted."))
+                    if entry.referenceCount > 0 {
+                        Text(String(format: NSLocalizedString("indexList.confirmDelete.messageWithRefs", comment: ""), entry.referenceCount))
+                    } else {
+                        Text(NSLocalizedString("indexList.confirmDelete.message", comment: "This entry will be permanently deleted."))
+                    }
                 }
             }
-        }
-        .alert(
-            deleteAlertTitle,
-            isPresented: $showDeleteConfirmation
-        ) {
-            Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
-                contributorToDelete = nil
-                contributorsToDelete = []
+            .alert(
+                deleteAlertTitle,
+                isPresented: $showDeleteConfirmation
+            ) {
+                Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
+                    contributorToDelete = nil
+                    contributorsToDelete = []
+                }
+                Button(NSLocalizedString("button.delete", comment: "Delete"), role: .destructive) {
+                    performDeleteContributors()
+                }
+            } message: {
+                Text(deleteAlertMessage)
             }
-            Button(NSLocalizedString("button.delete", comment: "Delete"), role: .destructive) {
-                performDeleteContributors()
-            }
-        } message: {
-            Text(deleteAlertMessage)
-        }
-        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
-            // Refresh when app returns to foreground (handles changes from other views)
-            refreshTrigger = UUID()
-        }
-        .task(id: pageCalcTrigger) {
-            #if DEBUG
-            print("📑 BackMatter .task fired: backMatterType=\(String(describing: backMatterType)), fileName='\(file.name)'")
-            #endif
-            if backMatterType == .index {
-                await calculateIndexPageNumbers()
-            }
-        }
-        .task(id: figurePageCalcTrigger) {
-            #if DEBUG
-            print("📑 BackMatter .task (figures) fired: backMatterType=\(String(describing: backMatterType)), fileName='\(file.name)'")
-            #endif
-            if backMatterType == .tableOfFigures {
-                await loadAndCalculateFigureEntries()
+    }
+    
+    // MARK: - Extracted Toolbar Content
+    
+    @ToolbarContentBuilder
+    private var toolbarContent: some ToolbarContent {
+        // Section title edit button (not for covers or Table of Figures which has its own settings)
+        if let type = backMatterType, type != .backCover && type != .tableOfFigures {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
+                    showTitleEditor = true
+                } label: {
+                    Image(systemName: "textformat")
+                }
+                .accessibilityLabel(NSLocalizedString("backMatter.titleEditor.button", comment: "Edit Section Title"))
             }
         }
-        .onChange(of: refreshTrigger) { _, _ in
-            // When data changes (edit/delete), recalculate page numbers or regenerate content
-            if backMatterType == .index {
-                pageCalcTrigger = UUID()
-            } else if backMatterType == .tableOfFigures {
-                figurePageCalcTrigger = UUID()
-            } else if backMatterType == .contributors {
-                regenerateFileContent()
+        
+        // Settings button for Table of Figures
+        if backMatterType == .tableOfFigures {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
+                    showTableOfFiguresSettings = true
+                } label: {
+                    Image(systemName: "gearshape")
+                }
+                .accessibilityLabel(NSLocalizedString("tof.settings.button.accessibility", comment: "Table of Figures Settings"))
             }
         }
-        .onAppear {
-            #if DEBUG
-            print("📑 BackMatter .onAppear: backMatterType=\(String(describing: backMatterType)), fileName='\(file.name)'")
-            #endif
-            // Regenerate contributors file content on appear so PDF preview is up to date
-            if backMatterType == .contributors {
-                regenerateFileContent()
+        
+        // Edit and Add buttons for contributors
+        if backMatterType == .contributors {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                contributorsToolbarContent
+            }
+        }
+    }
+    
+    // MARK: - Toolbar Content
+    
+    @ViewBuilder
+    private var contributorsToolbarContent: some View {
+        HStack {
+            // Body style picker — shows text-category styles from the project's stylesheet
+            Menu {
+                ForEach(availableBodyStyles, id: \.id) { style in
+                    Button {
+                        project.contributorBodyStyleName = style.name
+                        try? modelContext.save()
+                        refreshTrigger = UUID()
+                    } label: {
+                        HStack {
+                            Text(style.displayName)
+                            if project.contributorBodyStyleName == style.name {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                }
+            } label: {
+                Image(systemName: "textformat.size")
+            }
+            .accessibilityLabel(NSLocalizedString("contributor.bodyStyle", comment: "Body Style"))
+            
+            // Run together / separate rows toggle
+            Button {
+                withAnimation {
+                    project.contributorDisplayRunTogether.toggle()
+                    try? modelContext.save()
+                    refreshTrigger = UUID()
+                }
+            } label: {
+                Image(systemName: project.contributorDisplayRunTogether ? "list.bullet" : "text.justify.leading")
+            }
+            .accessibilityLabel(project.contributorDisplayRunTogether
+                ? NSLocalizedString("contributor.showSeparateRows", comment: "Show as Separate Rows")
+                : NSLocalizedString("contributor.showRunTogether", comment: "Show as Continuous Text"))
+            
+            // Display order toggle
+            Button {
+                withAnimation {
+                    project.contributorDisplaySurnameFirst.toggle()
+                    try? modelContext.save()
+                    refreshTrigger = UUID()
+                }
+            } label: {
+                Image(systemName: project.contributorDisplaySurnameFirst ? "arrow.left.arrow.right" : "arrow.right.arrow.left")
+            }
+            .accessibilityLabel(project.contributorDisplaySurnameFirst
+                ? NSLocalizedString("contributor.showForenameFirst", comment: "Show as Forename Surname")
+                : NSLocalizedString("contributor.showSurnameFirst", comment: "Show as Surname, Forename"))
+            
+            // Edit/Done button
+            if !(project.contributorEntries ?? []).isEmpty {
+                Button {
+                    withAnimation {
+                        if editMode == .active {
+                            editMode = .inactive
+                            selectedContributorIDs.removeAll()
+                        } else {
+                            editMode = .active
+                        }
+                    }
+                } label: {
+                    Text(editMode == .active ? NSLocalizedString("button.done", comment: "Done") : NSLocalizedString("button.edit", comment: "Edit"))
+                }
+            }
+            
+            // Add button (only when not in edit mode)
+            if editMode != .active {
+                Button {
+                    showAddContributorSheet = true
+                } label: {
+                    Image(systemName: "plus")
+                }
+                .accessibilityLabel(NSLocalizedString("contributor.add.button", comment: "Add Contributor"))
             }
         }
     }

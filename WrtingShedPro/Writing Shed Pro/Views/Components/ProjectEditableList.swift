@@ -55,10 +55,6 @@ struct ProjectEditableList: View {
                 .accessibilityHint("Double tap to open project folders")
                 .listRowSeparator(.hidden)
                 .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
-                // Enable drag-to-reorder without edit mode
-                .onDrag {
-                    return NSItemProvider(object: project.id.uuidString as NSString)
-                }
             }
             .onDelete(perform: deleteProjects)
             .onMove(perform: moveProjects)

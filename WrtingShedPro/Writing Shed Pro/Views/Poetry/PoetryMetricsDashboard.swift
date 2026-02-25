@@ -127,7 +127,7 @@ struct PoetryMetricsDashboard: View {
                         
                         // Issues grouped by type
                         ForEach(LineValidationIssue.IssueType.allCases, id: \.self) { issueType in
-                            let issuesOfType = validation.issues.filter { $0.issueType == issueType }
+                            let issuesOfType: [LineValidationIssue] = validation.issues.filter { (issue: LineValidationIssue) -> Bool in issue.issueType == issueType }
                             if !issuesOfType.isEmpty {
                                 issueTypeSection(type: issueType, issues: issuesOfType)
                             }

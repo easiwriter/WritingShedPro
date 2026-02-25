@@ -33,6 +33,7 @@ You can't change a project's type after creation, so choose the one that best fi
    - Three-Act
    - Monomyth (Vogler's 12 stages)
    - Monomyth (Campbell's 17 stages)
+   - Hero's Inner Journey (Pearson's 3 phases and 12 archetypes)
 6. Tap **Create**
 
 Your new project opens automatically.
@@ -100,9 +101,6 @@ For poetry or short stories, you might keep a year's worth of poems in one proje
 
 ### Use Descriptive Names
 Name projects clearly: "Spring 2026 Poems" is better than "Poems." You can always rename later.
-
-### Set Up Folders Early
-Before diving into writing, take a moment to create any subfolders you'll need. It's easier than reorganizing later.
 
 ## Deleting a Project
 

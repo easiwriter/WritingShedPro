@@ -137,8 +137,9 @@ struct PublicationDetailView: View {
                 
                 // Submissions section
                 Section {
-                    if let submissions = publication.submissions?.sorted(by: { $0.submittedDate > $1.submittedDate }), !submissions.isEmpty {
-                        ForEach(submissions) { submission in
+                    let sortedSubs: [Submission] = (publication.submissions ?? []).sorted(by: { (a: Submission, b: Submission) -> Bool in a.submittedDate > b.submittedDate })
+                    if !sortedSubs.isEmpty {
+                        ForEach(sortedSubs) { submission in
                             NavigationLink(destination: SubmissionDetailView(submission: submission)) {
                                 SubmissionRowView(submission: submission)
                             }

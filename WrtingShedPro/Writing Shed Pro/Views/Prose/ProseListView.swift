@@ -122,21 +122,21 @@ struct ProseListView: View {
     }
     
     private var sortedFiles: [TextFile] {
-        var result = allFiles
+        var result: [TextFile] = allFiles
         
         // Sort by userOrder for drag-to-reorder, with name as secondary sort
-        result = result.sorted {
-            let order0 = $0.userOrder ?? Int.max
-            let order1 = $1.userOrder ?? Int.max
+        result = result.sorted { (a: TextFile, b: TextFile) -> Bool in
+            let order0: Int = a.userOrder ?? Int.max
+            let order1: Int = b.userOrder ?? Int.max
             if order0 != order1 {
                 return order0 < order1
             }
-            return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+            return a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending
         }
         
         // Apply workflow status filter if set
         if let filter = statusFilter {
-            result = result.filter { $0.workflowStatus == filter }
+            result = result.filter { (file: TextFile) -> Bool in file.workflowStatus == filter }
         }
         
         return result
@@ -145,7 +145,7 @@ struct ProseListView: View {
     /// Count files by workflow status
     private func fileCount(for status: WorkflowStatus?) -> Int {
         if let status = status {
-            return allFiles.filter { $0.workflowStatus == status }.count
+            return allFiles.filter { (file: TextFile) -> Bool in file.workflowStatus == status }.count
         }
         return allFiles.count
     }
@@ -469,10 +469,9 @@ struct ProseListView: View {
     private var sectionPickerSheet: some View {
         SectionPickerSheet(
             project: project,
-            selectedFiles: selectedFiles.filter { $0.workflowStatus == .ready },
+            selectedFiles: Array(selectedFiles),
             onAssign: { section in
-                let readyFiles = selectedFiles.filter { $0.workflowStatus == .ready }
-                assignFilesToSection(readyFiles, section: section)
+                assignFilesToSection(Array(selectedFiles), section: section)
                 showSectionPicker = false
                 exitEditMode()
             },
@@ -650,9 +649,8 @@ struct ProseListView: View {
         }
         .disabled(selectedFiles.isEmpty)
         
-        // Add to Section button (main file list only, ready files only)
+        // Add to Section button (main file list only)
         if section == nil {
-            let readyFiles = selectedFiles.filter { $0.workflowStatus == .ready }
             Button {
                 showSectionPicker = true
             } label: {
@@ -661,7 +659,7 @@ struct ProseListView: View {
                     systemImage: "doc.text"
                 )
             }
-            .disabled(readyFiles.isEmpty)
+            .disabled(selectedFiles.isEmpty)
         }
         
         // Submit button — hidden when all selected files are still in draft
@@ -1159,7 +1157,7 @@ struct ProseListView: View {
         // Find the current max userOrder in the target section so new files go to the end
         let existingMaxOrder: Int
         if let section = section {
-            let sectionFiles = (proseFolder?.textFiles ?? []).filter { $0.section?.id == section.id && $0.trashItem == nil }
+            let sectionFiles: [TextFile] = (proseFolder?.textFiles ?? []).filter { (file: TextFile) -> Bool in file.section?.id == section.id && file.trashItem == nil }
             existingMaxOrder = sectionFiles.compactMap(\.userOrder).max() ?? -1
         } else {
             existingMaxOrder = -1

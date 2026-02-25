@@ -38,42 +38,6 @@ Deleted items land here. You can:
 - Review before permanent deletion
 - Empty periodically to clean up
 
-## Using Subfolders
-
-Create subfolders to add another level of organization:
-
-### By Theme or Subject
-```
-Draft/
-├── Nature Poems
-├── Love Poems
-└── Political Poems
-```
-
-### By Form or Style
-```
-Draft/
-├── Sonnets
-├── Haiku
-└── Free Verse
-```
-
-### By Project or Collection
-```
-Draft/
-├── Competition Entry
-├── New Chapbook
-└── Experiments
-```
-
-### By Status
-```
-Draft/
-├── First Draft
-├── Needs Revision
-└── Almost Ready
-```
-
 ## Sorting and Ordering
 
 Control how files appear in lists:
@@ -140,7 +104,7 @@ Find files quickly with search:
 3. Results show matching files
 
 ### Within a Folder
-Search scope is limited to the current folder and its subfolders.
+Search scope is limited to the current folder.
 
 ### Search Options
 - Search by file name
@@ -179,9 +143,8 @@ Use the file details field for notes, tags, or metadata.
 
 ### General Writing Workflow
 1. Start in Draft
-2. Organize in subfolders by project/topic
-3. Move to Ready when done
-4. Export or print as needed
+2. Move to Ready when done
+3. Export or print as needed
 
 ## Cleanup and Maintenance
 

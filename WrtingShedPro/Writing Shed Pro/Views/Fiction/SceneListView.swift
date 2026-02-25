@@ -241,19 +241,19 @@ struct SceneListView: View {
         let chapters = project.chapters ?? []
         guard !chapters.isEmpty else { return nil }
         
-        let currentSceneIDs = Set(sortedScenes.map { $0.id })
+        let currentSceneIDs: Set<UUID> = Set(sortedScenes.map { $0.id })
         var groups: [SceneChapterGroup] = []
         
         // Sort chapters by userOrder, then by name
-        let sortedChapters = chapters.sorted {
-            let order0 = $0.userOrder ?? Int.max
-            let order1 = $1.userOrder ?? Int.max
+        let sortedChapters: [Chapter] = chapters.sorted { (ch0: Chapter, ch1: Chapter) -> Bool in
+            let order0: Int = ch0.userOrder ?? Int.max
+            let order1: Int = ch1.userOrder ?? Int.max
             if order0 != order1 { return order0 < order1 }
-            return ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending
+            return (ch0.name ?? "").localizedCaseInsensitiveCompare(ch1.name ?? "") == .orderedAscending
         }
         
         for ch in sortedChapters {
-            let chapterScenes = sortedScenes.filter { scene in
+            let chapterScenes: [StoryScene] = sortedScenes.filter { (scene: StoryScene) -> Bool in
                 scene.chapter?.id == ch.id && currentSceneIDs.contains(scene.id)
             }
             if !chapterScenes.isEmpty {
@@ -266,8 +266,8 @@ struct SceneListView: View {
         }
         
         // Add unassigned scenes (those not belonging to any chapter)
-        let assignedSceneIDs = Set(groups.flatMap { $0.scenes.map { $0.id } })
-        let unassignedScenes = sortedScenes.filter { !assignedSceneIDs.contains($0.id) }
+        let assignedSceneIDs: Set<UUID> = Set(groups.flatMap { (g: SceneChapterGroup) in g.scenes.map { $0.id } })
+        let unassignedScenes: [StoryScene] = sortedScenes.filter { (scene: StoryScene) -> Bool in !assignedSceneIDs.contains(scene.id) }
         if !unassignedScenes.isEmpty {
             groups.append(SceneChapterGroup(
                 id: "__unassigned__",
@@ -289,19 +289,19 @@ struct SceneListView: View {
         let acts = project.acts ?? []
         guard !acts.isEmpty else { return nil }
         
-        let currentSceneIDs = Set(sortedScenes.map { $0.id })
+        let currentSceneIDs: Set<UUID> = Set(sortedScenes.map { $0.id })
         var groups: [SceneActGroup] = []
         
         // Sort acts by userOrder, then by name
-        let sortedActs = acts.sorted {
-            let order0 = $0.userOrder ?? Int.max
-            let order1 = $1.userOrder ?? Int.max
+        let sortedActs: [Act] = acts.sorted { (a0: Act, a1: Act) -> Bool in
+            let order0: Int = a0.userOrder ?? Int.max
+            let order1: Int = a1.userOrder ?? Int.max
             if order0 != order1 { return order0 < order1 }
-            return ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending
+            return (a0.name ?? "").localizedCaseInsensitiveCompare(a1.name ?? "") == .orderedAscending
         }
         
         for a in sortedActs {
-            let actScenes = sortedScenes.filter { scene in
+            let actScenes: [StoryScene] = sortedScenes.filter { (scene: StoryScene) -> Bool in
                 scene.act?.id == a.id && currentSceneIDs.contains(scene.id)
             }
             if !actScenes.isEmpty {
@@ -314,8 +314,8 @@ struct SceneListView: View {
         }
         
         // Add unassigned scenes (those not belonging to any act)
-        let assignedSceneIDs = Set(groups.flatMap { $0.scenes.map { $0.id } })
-        let unassignedScenes = sortedScenes.filter { !assignedSceneIDs.contains($0.id) }
+        let assignedSceneIDs: Set<UUID> = Set(groups.flatMap { (g: SceneActGroup) in g.scenes.map { $0.id } })
+        let unassignedScenes: [StoryScene] = sortedScenes.filter { (scene: StoryScene) -> Bool in !assignedSceneIDs.contains(scene.id) }
         if !unassignedScenes.isEmpty {
             groups.append(SceneActGroup(
                 id: "__unassigned__",
@@ -329,7 +329,7 @@ struct SceneListView: View {
     
     // MARK: - Body
     
-    var body: some View {
+    private var bodyCore: some View {
         VStack(spacing: 0) {
             workflowStatusFilter
             
@@ -358,107 +358,7 @@ struct SceneListView: View {
         .environment(\.editMode, $editMode)
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
-                // Chapter expand/collapse button (only when chapter grouping is active)
-                if useChapterGrouping {
-                    chapterExpandCollapseButton
-                }
-                
-                // Act expand/collapse button (only when act grouping is active)
-                if useActGrouping {
-                    actExpandCollapseButton
-                }
-                
-                // Search button
-                if !sortedScenes.isEmpty {
-                    Button {
-                        showSearchView = true
-                    } label: {
-                        Image(systemName: "magnifyingglass")
-                    }
-                    .accessibilityLabel(NSLocalizedString("sceneList.search.accessibility", comment: "Search scenes"))
-                    .disabled(editMode == .active)
-                }
-                
-                #if targetEnvironment(macCatalyst)
-                // Import button - Mac only, shown directly in toolbar
-                Button {
-                    showImportPicker = true
-                } label: {
-                    Image(systemName: "square.and.arrow.down")
-                }
-                .accessibilityLabel(NSLocalizedString("sceneList.import.accessibility", comment: "Import document"))
-                .disabled(editMode == .active)
-                
-                // Header/Footer button - Mac only
-                Button {
-                    if headersOrFootersEnabled {
-                        initializeHeaderFooterFields()
-                        showHeaderFooterEditor = true
-                    } else {
-                        showHeaderFooterWarning = true
-                    }
-                } label: {
-                    Image(systemName: "rectangle.and.pencil.and.ellipsis")
-                }
-                .accessibilityLabel(NSLocalizedString("sceneList.headerFooter.accessibility", comment: "Edit headers and footers"))
-                .foregroundStyle(headersOrFootersEnabled ? Color.accentColor : Color.secondary)
-                #endif
-                
-                // Add scene button (hidden when viewing an act's or chapter's scenes)
-                if act == nil && chapter == nil {
-                    Button {
-                        showAddScene = true
-                    } label: {
-                        Image(systemName: "plus")
-                    }
-                    .accessibilityLabel(isVerseNovel
-                        ? NSLocalizedString("fiction.episodes.add", comment: "Add episode")
-                        : NSLocalizedString("fiction.scenes.add", comment: "Add scene"))
-                    .disabled(editMode == .active)
-                }
-                
-                // Edit/Done button
-                if !sortedScenes.isEmpty {
-                    Button {
-                        withAnimation {
-                            if editMode == .active {
-                                editMode = .inactive
-                                selectedSceneIDs.removeAll()
-                            } else {
-                                editMode = .active
-                            }
-                        }
-                    } label: {
-                        Text(isEditMode ? NSLocalizedString("button.done", comment: "Done") : NSLocalizedString("button.edit", comment: "Edit"))
-                    }
-                    .accessibilityLabel(isEditMode ? NSLocalizedString("button.done", comment: "Done") : (isVerseNovel
-                        ? NSLocalizedString("fiction.episodes.edit", comment: "Edit episodes")
-                        : NSLocalizedString("fiction.scenes.edit", comment: "Edit scenes")))
-                }
-                
-                #if !targetEnvironment(macCatalyst)
-                // On iPhone/iPad, show import and header/footer in overflow menu (rightmost)
-                Menu {
-                    Button {
-                        showImportPicker = true
-                    } label: {
-                        Label("Import document", systemImage: "square.and.arrow.down")
-                    }
-                    Button {
-                        if headersOrFootersEnabled {
-                            initializeHeaderFooterFields()
-                            showHeaderFooterEditor = true
-                        } else {
-                            showHeaderFooterWarning = true
-                        }
-                    } label: {
-                        Label("Edit headers and footers", systemImage: "rectangle.and.pencil.and.ellipsis")
-                    }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                }
-                .disabled(editMode == .active)
-                #endif
+                trailingToolbarContent
             }
             
             // Bottom toolbar for multi-select actions
@@ -527,47 +427,21 @@ struct SceneListView: View {
             allowsMultipleSelection: false,
             onCompletion: handleImport
         )
-        .navigationDestination(item: $navigateToScene) { scene in
-            // Navigate to file editor for the scene's associated text file
-            if let textFile = scene.textFile {
-                if project.type == .drama {
-                    DramaSceneEditorView(file: textFile, project: project)
-                } else {
-                    FileEditView(file: textFile)
-                }
-            } else {
-                // Scene has no file - show detail view to create one
-                SceneDetailView(scene: scene, project: project)
-            }
+    }
+    
+    var body: some View {
+        bodyCore
+        .navigationDestination(item: $navigateToScene) { (scene: StoryScene) in
+            sceneNavigationDestination(scene)
         }
         .confirmationDialog(
-            scenesToDelete.count == 1
-                ? (isVerseNovel
-                    ? NSLocalizedString("fiction.episodes.deleteConfirm.title", comment: "Delete episode?")
-                    : NSLocalizedString("fiction.scenes.deleteConfirm.title", comment: "Delete scene?"))
-                : (isVerseNovel
-                    ? String(format: NSLocalizedString("fiction.episodes.deleteMultiple.title", comment: "Delete episodes?"), scenesToDelete.count)
-                    : String(format: NSLocalizedString("fiction.scenes.deleteMultiple.title", comment: "Delete scenes?"), scenesToDelete.count)),
+            deleteConfirmationTitle,
             isPresented: $showDeleteConfirmation,
             titleVisibility: .visible
         ) {
-            Button(NSLocalizedString("fiction.scenes.delete.toTrash", comment: "Move to Trash"), role: .destructive) {
-                moveScenesToTrash(scenesToDelete)
-                scenesToDelete = []
-                exitEditMode()
-            }
-            Button(NSLocalizedString("fiction.scenes.delete.permanently", comment: "Delete Forever"), role: .destructive) {
-                deleteScenesPermanently(scenesToDelete)
-                scenesToDelete = []
-                exitEditMode()
-            }
-            Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
-                scenesToDelete = []
-            }
+            deleteConfirmationButtons
         } message: {
-            Text(isVerseNovel
-                ? NSLocalizedString("fiction.episodes.deleteConfirm.message.enhanced", comment: "Move to Trash keeps the episode's file, Delete Forever is permanent")
-                : NSLocalizedString("fiction.scenes.deleteConfirm.message.enhanced", comment: "Move to Trash keeps the scene's file, Delete Forever is permanent"))
+            Text(deleteConfirmationMessage)
         }
         .onChange(of: editMode) { _, newValue in
             if newValue == .inactive {
@@ -603,7 +477,7 @@ struct SceneListView: View {
             )
         }
         .sheet(isPresented: $showStatusPicker) {
-            let sceneFiles = selectedScenes.compactMap { $0.textFile }
+            let sceneFiles: [TextFile] = selectedScenes.compactMap { $0.textFile }
             WorkflowStatusPickerSheet(
                 files: sceneFiles,
                 onStatusSelected: { newStatus in
@@ -645,6 +519,56 @@ struct SceneListView: View {
             if actExpandedSections.isEmpty, let groups = actGroups {
                 actExpandedSections = Set(groups.map { $0.id })
             }
+        }
+    }
+    
+    // MARK: - Extracted Body Helpers
+    
+    @ViewBuilder
+    private func sceneNavigationDestination(_ scene: StoryScene) -> some View {
+        if let textFile = scene.textFile {
+            if project.type == .drama {
+                DramaSceneEditorView(file: textFile, project: project)
+            } else {
+                FileEditView(file: textFile)
+            }
+        } else {
+            SceneDetailView(scene: scene, project: project)
+        }
+    }
+    
+    private var deleteConfirmationTitle: String {
+        if scenesToDelete.count == 1 {
+            return isVerseNovel
+                ? NSLocalizedString("fiction.episodes.deleteConfirm.title", comment: "Delete episode?")
+                : NSLocalizedString("fiction.scenes.deleteConfirm.title", comment: "Delete scene?")
+        } else {
+            return isVerseNovel
+                ? String(format: NSLocalizedString("fiction.episodes.deleteMultiple.title", comment: "Delete episodes?"), scenesToDelete.count)
+                : String(format: NSLocalizedString("fiction.scenes.deleteMultiple.title", comment: "Delete scenes?"), scenesToDelete.count)
+        }
+    }
+    
+    private var deleteConfirmationMessage: String {
+        isVerseNovel
+            ? NSLocalizedString("fiction.episodes.deleteConfirm.message.enhanced", comment: "Move to Trash keeps the episode's file, Delete Forever is permanent")
+            : NSLocalizedString("fiction.scenes.deleteConfirm.message.enhanced", comment: "Move to Trash keeps the scene's file, Delete Forever is permanent")
+    }
+    
+    @ViewBuilder
+    private var deleteConfirmationButtons: some View {
+        Button(NSLocalizedString("fiction.scenes.delete.toTrash", comment: "Move to Trash"), role: .destructive) {
+            moveScenesToTrash(scenesToDelete)
+            scenesToDelete = []
+            exitEditMode()
+        }
+        Button(NSLocalizedString("fiction.scenes.delete.permanently", comment: "Delete Forever"), role: .destructive) {
+            deleteScenesPermanently(scenesToDelete)
+            scenesToDelete = []
+            exitEditMode()
+        }
+        Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
+            scenesToDelete = []
         }
     }
     
@@ -692,6 +616,113 @@ struct SceneListView: View {
         .buttonStyle(.plain)
     }
     
+    // MARK: - Trailing Toolbar
+    
+    @ViewBuilder
+    private var trailingToolbarContent: some View {
+        // Chapter expand/collapse button (only when chapter grouping is active)
+        if useChapterGrouping {
+            chapterExpandCollapseButton
+        }
+        
+        // Act expand/collapse button (only when act grouping is active)
+        if useActGrouping {
+            actExpandCollapseButton
+        }
+        
+        // Search button
+        if !sortedScenes.isEmpty {
+            Button {
+                showSearchView = true
+            } label: {
+                Image(systemName: "magnifyingglass")
+            }
+            .accessibilityLabel(NSLocalizedString("sceneList.search.accessibility", comment: "Search scenes"))
+            .disabled(editMode == .active)
+        }
+        
+        #if targetEnvironment(macCatalyst)
+        // Import button - Mac only, shown directly in toolbar
+        Button {
+            showImportPicker = true
+        } label: {
+            Image(systemName: "square.and.arrow.down")
+        }
+        .accessibilityLabel(NSLocalizedString("sceneList.import.accessibility", comment: "Import document"))
+        .disabled(editMode == .active)
+        
+        // Header/Footer button - Mac only
+        Button {
+            if headersOrFootersEnabled {
+                initializeHeaderFooterFields()
+                showHeaderFooterEditor = true
+            } else {
+                showHeaderFooterWarning = true
+            }
+        } label: {
+            Image(systemName: "rectangle.and.pencil.and.ellipsis")
+        }
+        .accessibilityLabel(NSLocalizedString("sceneList.headerFooter.accessibility", comment: "Edit headers and footers"))
+        .foregroundStyle(headersOrFootersEnabled ? Color.accentColor : Color.secondary)
+        #endif
+        
+        // Add scene button (hidden when viewing an act's or chapter's scenes)
+        if act == nil && chapter == nil {
+            Button {
+                showAddScene = true
+            } label: {
+                Image(systemName: "plus")
+            }
+            .accessibilityLabel(isVerseNovel
+                ? NSLocalizedString("fiction.episodes.add", comment: "Add episode")
+                : NSLocalizedString("fiction.scenes.add", comment: "Add scene"))
+            .disabled(editMode == .active)
+        }
+        
+        // Edit/Done button
+        if !sortedScenes.isEmpty {
+            Button {
+                withAnimation {
+                    if editMode == .active {
+                        editMode = .inactive
+                        selectedSceneIDs.removeAll()
+                    } else {
+                        editMode = .active
+                    }
+                }
+            } label: {
+                Text(isEditMode ? NSLocalizedString("button.done", comment: "Done") : NSLocalizedString("button.edit", comment: "Edit"))
+            }
+            .accessibilityLabel(isEditMode ? NSLocalizedString("button.done", comment: "Done") : (isVerseNovel
+                ? NSLocalizedString("fiction.episodes.edit", comment: "Edit episodes")
+                : NSLocalizedString("fiction.scenes.edit", comment: "Edit scenes")))
+        }
+        
+        #if !targetEnvironment(macCatalyst)
+        // On iPhone/iPad, show import and header/footer in overflow menu (rightmost)
+        Menu {
+            Button {
+                showImportPicker = true
+            } label: {
+                Label("Import document", systemImage: "square.and.arrow.down")
+            }
+            Button {
+                if headersOrFootersEnabled {
+                    initializeHeaderFooterFields()
+                    showHeaderFooterEditor = true
+                } else {
+                    showHeaderFooterWarning = true
+                }
+            } label: {
+                Label("Edit headers and footers", systemImage: "rectangle.and.pencil.and.ellipsis")
+            }
+        } label: {
+            Image(systemName: "ellipsis.circle")
+        }
+        .disabled(editMode == .active)
+        #endif
+    }
+    
     // MARK: - Bottom Toolbar
     
     @ViewBuilder
@@ -709,43 +740,35 @@ struct SceneListView: View {
         
         // Add to Act button (Drama projects, main scene list only)
         // Assigning to an act automatically sets the scene's status to ready
-        // Hidden when all selected scenes are still in draft
         if project.type == .drama && act == nil && chapter == nil {
-            let hasNonDraft = selectedScenes.contains { $0.textFile?.workflowStatus != .draft }
-            if hasNonDraft {
-                Button {
-                    showActPicker = true
-                } label: {
-                    Label(
-                        NSLocalizedString("drama.scenes.addToAct", comment: "Add to Act"),
-                        systemImage: "theatermasks"
-                    )
-                }
-                .disabled(selectedScenes.isEmpty)
+            Button {
+                showActPicker = true
+            } label: {
+                Label(
+                    NSLocalizedString("drama.scenes.addToAct", comment: "Add to Act"),
+                    systemImage: "theatermasks"
+                )
             }
+            .disabled(selectedScenes.isEmpty)
         }
         
         // Add to Chapter/Story/Book button (Fiction projects, main scene list only)
         // Assigning to a chapter/story/book automatically sets the scene's status to ready
-        // Hidden when all selected scenes are still in draft
         if project.type == .fiction && act == nil && chapter == nil {
-            let hasNonDraft = selectedScenes.contains { $0.textFile?.workflowStatus != .draft }
-            if hasNonDraft {
-                let isShortFiction = fictionClass == .shortFiction
-                Button {
-                    showChapterPicker = true
-                } label: {
-                    Label(
-                        isVerseNovel
-                            ? NSLocalizedString("fiction.episodes.addToBook", comment: "Add to Book")
-                            : (isShortFiction 
-                                ? NSLocalizedString("fiction.scenes.addToStory", comment: "Add to Story")
-                                : NSLocalizedString("fiction.scenes.addToChapter", comment: "Add to Chapter")),
-                        systemImage: isVerseNovel ? "text.book.closed" : (isShortFiction ? "books.vertical" : "book")
-                    )
-                }
-                .disabled(selectedScenes.isEmpty)
+            let isShortFiction = fictionClass == .shortFiction
+            Button {
+                showChapterPicker = true
+            } label: {
+                Label(
+                    isVerseNovel
+                        ? NSLocalizedString("fiction.episodes.addToBook", comment: "Add to Book")
+                        : (isShortFiction 
+                            ? NSLocalizedString("fiction.scenes.addToStory", comment: "Add to Story")
+                            : NSLocalizedString("fiction.scenes.addToChapter", comment: "Add to Chapter")),
+                    systemImage: isVerseNovel ? "text.book.closed" : (isShortFiction ? "books.vertical" : "book")
+                )
             }
+            .disabled(selectedScenes.isEmpty)
         }
         
         // Submit button — hidden when all selected scenes are still in draft
@@ -772,24 +795,35 @@ struct SceneListView: View {
         Button(role: .destructive) {
             prepareDelete(selectedScenes)
         } label: {
+            let deleteFormat: String = isVerseNovel
+                ? NSLocalizedString("fiction.episodes.deleteCount", comment: "Delete count")
+                : NSLocalizedString("fiction.scenes.deleteCount", comment: "Delete count")
             Label(
-                String(format: isVerseNovel
-                    ? NSLocalizedString("fiction.episodes.deleteCount", comment: "Delete count")
-                    : NSLocalizedString("fiction.scenes.deleteCount", comment: "Delete count"), selectedScenes.count),
+                String(format: deleteFormat, selectedScenes.count),
                 systemImage: "trash"
             )
         }
         .disabled(selectedScenes.isEmpty)
-        .accessibilityLabel(isVerseNovel
-            ? NSLocalizedString("fiction.episodes.deleteSelected", comment: "Delete selected episodes")
-            : NSLocalizedString("fiction.scenes.deleteSelected", comment: "Delete selected scenes"))
+        .accessibilityLabel({
+            let label: String = isVerseNovel
+                ? NSLocalizedString("fiction.episodes.deleteSelected", comment: "Delete selected episodes")
+                : NSLocalizedString("fiction.scenes.deleteSelected", comment: "Delete selected scenes")
+            return Text(label)
+        }())
     }
     
     // MARK: - Scene List
     
     private var sceneList: some View {
         List {
-            if useChapterGrouping, let groups = chapterGroups {
+            sceneListContent
+        }
+        .listStyle(.plain)
+    }
+    
+    @ViewBuilder
+    private var sceneListContent: some View {
+        if useChapterGrouping, let groups = chapterGroups {
                 // Show scenes grouped by chapter/story/book with disclosure sections
                 ForEach(groups) { group in
                     Section {
@@ -856,8 +890,6 @@ struct SceneListView: View {
                 }
                 .onMove(perform: moveScenes)
             }
-        }
-        .listStyle(.plain)
     }
     
     // MARK: - Chapter Section Header

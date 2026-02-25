@@ -217,52 +217,7 @@ struct NoteEditorSheet: View {
             ScrollView {
                 VStack(spacing: 0) {
                     ForEach(existingNotesOfType) { note in
-                        Button(action: { 
-                            if selectedExistingNoteID == note.id {
-                                selectedExistingNoteID = nil
-                            } else {
-                                selectedExistingNoteID = note.id
-                            }
-                        }) {
-                            HStack(spacing: 12) {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    if let tag = note.tag {
-                                        Text(tag)
-                                            .font(.headline)
-                                            .foregroundColor(.primary)
-                                    }
-                                    if let title = note.title {
-                                        Text(title)
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
-                                    }
-                                    Text(note.content)
-                                        .font(.caption)
-                                        .lineLimit(2)
-                                        .foregroundColor(.secondary)
-                                }
-                                Spacer()
-                                
-                                VStack(alignment: .trailing, spacing: 4) {
-                                    if selectedExistingNoteID == note.id {
-                                        Image(systemName: "checkmark.circle.fill")
-                                            .font(.headline)
-                                            .foregroundColor(.blue)
-                                    }
-                                    Text("\(note.referenceCount)")
-                                        .font(.caption2)
-                                        .foregroundColor(.secondary)
-                                }
-                            }
-                            .padding(12)
-                            .background(selectedExistingNoteID == note.id ? Color.blue.opacity(0.1) : Color.clear)
-                            .cornerRadius(8)
-                        }
-                        
-                        if note.id != existingNotesOfType.last?.id {
-                            Divider()
-                                .padding(.horizontal)
-                        }
+                        noteExistingRow(for: note)
                     }
                 }
                 .padding(8)
@@ -271,6 +226,61 @@ struct NoteEditorSheet: View {
             .border(Color.gray.opacity(0.2))
             .cornerRadius(8)
             .padding()
+        }
+    }
+    
+    @ViewBuilder
+    private func noteExistingRow(for note: NoteEntry) -> some View {
+        let isSelected: Bool = selectedExistingNoteID == note.id
+        let bgColor: Color = isSelected ? Color.blue.opacity(0.1) : Color.clear
+        let isLast: Bool = note.id == existingNotesOfType.last?.id
+        let refCountText: String = "\(note.referenceCount)"
+        
+        Button(action: {
+            if isSelected {
+                selectedExistingNoteID = nil
+            } else {
+                selectedExistingNoteID = note.id
+            }
+        }) {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    if let tag = note.tag {
+                        Text(tag)
+                            .font(.headline)
+                            .foregroundColor(.primary)
+                    }
+                    if let title = note.title {
+                        Text(title)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    Text(note.content)
+                        .font(.caption)
+                        .lineLimit(2)
+                        .foregroundColor(.secondary)
+                }
+                Spacer()
+                
+                VStack(alignment: .trailing, spacing: 4) {
+                    if isSelected {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.headline)
+                            .foregroundColor(.blue)
+                    }
+                    Text(refCountText)
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .padding(12)
+            .background(bgColor)
+            .cornerRadius(8)
+        }
+        
+        if !isLast {
+            Divider()
+                .padding(.horizontal)
         }
     }
     

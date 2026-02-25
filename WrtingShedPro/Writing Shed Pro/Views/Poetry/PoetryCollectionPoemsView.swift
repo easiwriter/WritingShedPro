@@ -47,12 +47,12 @@ struct PoetryCollectionPoemsView: View {
         isEditMode && !selectedFileIDs.isEmpty
     }
     
-    /// Available poems: ready-status poems from Poems folder not yet in this collection
+    /// Available poems: poems from Poems folder not yet in this collection
     private var availablePoems: [TextFile] {
         let poemsFolder = project.folders?.first { $0.name == "Poems" }
         let allPoems = poemsFolder?.textFiles ?? []
         let assignedIDs = Set((collection.textFiles ?? []).map { $0.id })
-        return allPoems.filter { $0.workflowStatus == .ready && !assignedIDs.contains($0.id) }
+        return allPoems.filter { !assignedIDs.contains($0.id) }
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
     

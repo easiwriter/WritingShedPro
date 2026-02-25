@@ -271,48 +271,7 @@ struct ReferenceCreatorSheet: View {
             ScrollView {
                 VStack(spacing: 0) {
                     ForEach(existingReferences) { reference in
-                        Button(action: {
-                            if selectedExistingReferenceID == reference.id {
-                                selectedExistingReferenceID = nil
-                            } else {
-                                selectedExistingReferenceID = reference.id
-                            }
-                        }) {
-                            HStack(spacing: 12) {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("\(reference.author), \(reference.publicationDate)")
-                                        .font(.headline)
-                                        .foregroundColor(.primary)
-                                    
-                                    if !reference.details.isEmpty {
-                                        Text(reference.details)
-                                            .font(.caption)
-                                            .lineLimit(2)
-                                            .foregroundColor(.secondary)
-                                    }
-                                }
-                                Spacer()
-                                
-                                VStack(alignment: .trailing, spacing: 4) {
-                                    if selectedExistingReferenceID == reference.id {
-                                        Image(systemName: "checkmark.circle.fill")
-                                            .font(.headline)
-                                            .foregroundColor(.blue)
-                                    }
-                                    Text("\(reference.referenceCount)")
-                                        .font(.caption2)
-                                        .foregroundColor(.secondary)
-                                }
-                            }
-                            .padding(12)
-                            .background(selectedExistingReferenceID == reference.id ? Color.blue.opacity(0.1) : Color.clear)
-                            .cornerRadius(8)
-                        }
-                        
-                        if reference.id != existingReferences.last?.id {
-                            Divider()
-                                .padding(.horizontal)
-                        }
+                        referenceExistingRow(for: reference)
                     }
                 }
                 .padding(8)
@@ -321,6 +280,58 @@ struct ReferenceCreatorSheet: View {
             .border(Color.gray.opacity(0.2))
             .cornerRadius(8)
             .padding()
+        }
+    }
+    
+    @ViewBuilder
+    private func referenceExistingRow(for reference: ReferenceEntry) -> some View {
+        let isSelected: Bool = selectedExistingReferenceID == reference.id
+        let authorLine: String = "\(reference.author), \(reference.publicationDate)"
+        let bgColor: Color = isSelected ? Color.blue.opacity(0.1) : Color.clear
+        let isLast: Bool = reference.id == existingReferences.last?.id
+        let refCountText: String = "\(reference.referenceCount)"
+        
+        Button(action: {
+            if isSelected {
+                selectedExistingReferenceID = nil
+            } else {
+                selectedExistingReferenceID = reference.id
+            }
+        }) {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(authorLine)
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                    
+                    if !reference.details.isEmpty {
+                        Text(reference.details)
+                            .font(.caption)
+                            .lineLimit(2)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                Spacer()
+                
+                VStack(alignment: .trailing, spacing: 4) {
+                    if isSelected {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.headline)
+                            .foregroundColor(.blue)
+                    }
+                    Text(refCountText)
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .padding(12)
+            .background(bgColor)
+            .cornerRadius(8)
+        }
+        
+        if !isLast {
+            Divider()
+                .padding(.horizontal)
         }
     }
     

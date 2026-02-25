@@ -7,7 +7,7 @@ Writing Shed Pro can automatically generate a Table of Contents (TOC) based on y
 A Table of Contents provides readers with a navigational overview of your manuscript. Writing Shed Pro generates the TOC from your document hierarchy:
 
 - **Automatic generation** - Built from your manuscript folder structure
-- **Hierarchical entries** - Shows folders, subfolders, and files
+- **Hierarchical entries** - Shows folders and files
 - **Page numbers** - Calculated from actual pagination
 - **Customizable display** - Control which levels and items appear
 

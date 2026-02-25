@@ -79,6 +79,8 @@ Writing Shed Pro includes templates for 30+ traditional forms:
 - **Ode** (varied structure)
 - **Free Verse** (no constraints)
 
+You can also **create your own custom forms** — see [Forms and Templates](65-forms-and-templates.md) for details.
+
 See [Forms and Templates](65-forms-and-templates.md) for the complete list.
 
 ## Poetry Tools in the Editor
@@ -175,7 +177,7 @@ Syllable counts are estimates—English pronunciation varies. Your ear is the fi
 No tool replaces hearing your poem. Read it aloud during revision.
 
 ### Organize by Theme
-Use subfolders or collections to group poems:
+Use collections to group poems:
 - By season or period
 - By subject
 - By form

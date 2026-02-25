@@ -26,9 +26,10 @@ struct FileSubmissionsView: View {
     
     // Filter to only submitted files for this specific file
     private var fileSubmissions: [SubmittedFile] {
-        allSubmittedFiles
-            .filter { $0.textFile?.id == file.id }
-            .sorted { ($0.submission?.submittedDate ?? Date.distantPast) > ($1.submission?.submittedDate ?? Date.distantPast) }
+        let fileID: UUID = file.id
+        return allSubmittedFiles
+            .filter { (sf: SubmittedFile) -> Bool in sf.textFile?.id == fileID }
+            .sorted { (a: SubmittedFile, b: SubmittedFile) -> Bool in (a.submission?.submittedDate ?? Date.distantPast) > (b.submission?.submittedDate ?? Date.distantPast) }
     }
     
     // Helper to find publication/collection name for a submittedFile
@@ -142,9 +143,10 @@ private struct SubmissionFilesView: View {
     @Query private var allSubmittedFiles: [SubmittedFile]
     
     private var filesInSubmission: [SubmittedFile] {
-        allSubmittedFiles
-            .filter { $0.submission?.id == submission.id }
-            .sorted { ($0.textFile?.name ?? "") < ($1.textFile?.name ?? "") }
+        let submissionID: UUID = submission.id
+        return allSubmittedFiles
+            .filter { (sf: SubmittedFile) -> Bool in sf.submission?.id == submissionID }
+            .sorted { (a: SubmittedFile, b: SubmittedFile) -> Bool in (a.textFile?.name ?? "") < (b.textFile?.name ?? "") }
     }
     
     var body: some View {

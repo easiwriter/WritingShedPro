@@ -671,7 +671,8 @@ final class BackMatterGenerator {
         result.append(heading)
         
         // Group entries by first letter
-        let grouped = Dictionary(grouping: entries.sorted()) { entry -> String in
+        let sortedEntries: [IndexEntry] = entries.sorted()
+        let grouped: [String: [IndexEntry]] = Dictionary(grouping: sortedEntries) { (entry: IndexEntry) -> String in
             String(entry.keyword.prefix(1)).uppercased()
         }
         

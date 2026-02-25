@@ -38,13 +38,6 @@ struct ContentViewBody: View {
     
 
     @State private var showProjectTrash = false
-    @State private var showWelcomeAbout = false
-
-    /// Whether the user has completed the welcome flow (opened guide or created a project).
-    /// Device-local — each device shows welcome independently until dismissed by action.
-    private var hasCompletedWelcome: Bool {
-        UserDefaults.standard.bool(forKey: "hasCompletedWelcome")
-    }
 
     private var trashedProjects: [Project] {
         projects.filter { $0.isTrashed == true }
@@ -78,20 +71,6 @@ struct ContentViewBody: View {
             #endif
             .onAppear {
                 onInitialize()
-                
-                // Reset welcome flag on every new install or build change,
-                // so test/debug builds don't suppress the welcome screen in release.
-                let currentBuild = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? ""
-                let lastBuild = UserDefaults.standard.string(forKey: "lastSeenBuildNumber")
-                if lastBuild != currentBuild {
-                    UserDefaults.standard.removeObject(forKey: "hasCompletedWelcome")
-                    UserDefaults.standard.set(currentBuild, forKey: "lastSeenBuildNumber")
-                }
-                
-                // Show welcome About sheet if the flag hasn't been set on this device
-                if !hasCompletedWelcome {
-                    showWelcomeAbout = true
-                }
                 
                 // Initialize stylesheets in background (moved from Write_App)
                 onInitializeStyleSheets()
@@ -145,13 +124,6 @@ struct ContentViewBody: View {
             .sheet(isPresented: $state.showAbout) {
                 AboutView()
             }
-            .sheet(isPresented: $showWelcomeAbout, onDismiss: {
-                if !hasCompletedWelcome {
-                    UserDefaults.standard.set(true, forKey: "hasCompletedWelcome")
-                }
-            }) {
-                AboutView()
-            }
             .sheet(isPresented: $state.showStore) {
                 StoreView()
             }
@@ -166,10 +138,6 @@ struct ContentViewBody: View {
             }
             .sheet(isPresented: $state.showHTMLManual, onDismiss: {
                 state.htmlManualSection = nil
-                // Mark welcome complete when user opens the guide
-                if !hasCompletedWelcome {
-                    UserDefaults.standard.set(true, forKey: "hasCompletedWelcome")
-                }
             }) {
                 HTMLManualView(section: state.htmlManualSection)
                     .presentationDetents([.large])

@@ -132,7 +132,8 @@ struct FolderFilesView: View {
     /// Returns the number of TrashItem objects for this folder's project
     private var trashItemCount: Int {
         guard let project = folder.project else { return 0 }
-        return allTrashItems.filter { $0.project?.id == project.id }.count
+        let projectID: UUID = project.id
+        return allTrashItems.filter { (item: TrashItem) -> Bool in item.project?.id == projectID }.count
     }
     
     // Computed properties moved to FolderFilesView+Helpers.swift

@@ -80,18 +80,6 @@ struct SettingsSheet: View {
                 }
                 #endif
                 
-                #if DEBUG
-                // MARK: - Debug Section
-                Section("Debug") {
-                    Button(role: .destructive) {
-                        UserDefaults.standard.removeObject(forKey: "hasCompletedWelcome")
-                        isPresented = false
-                    } label: {
-                        Label("Reset Welcome Flag", systemImage: "arrow.counterclockwise")
-                    }
-                }
-                #endif
-                
                 // MARK: - Support Section
                 Section {
                     #if DEBUG
@@ -101,6 +89,7 @@ struct SettingsSheet: View {
                     } label: {
                         Label("Sync Diagnostics", systemImage: "arrow.triangle.2.circlepath")
                     }
+                    
                     #endif
                     
                     Button {

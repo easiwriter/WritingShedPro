@@ -25,7 +25,8 @@ extension FolderFilesView {
     }
 
     var allFiles: [TextFile] {
-        allTextFiles.filter { $0.parentFolder?.id == folder.id }
+        let folderID: UUID = folder.id
+        return allTextFiles.filter { (file: TextFile) -> Bool in file.parentFolder?.id == folderID }
     }
 
     func fileCount(for status: WorkflowStatus?) -> Int {

@@ -33,17 +33,18 @@ struct ReferencesListView: View {
     // MARK: - Computed Properties
     
     private var filteredReferences: [ReferenceEntry] {
-        let refs = references.filter { $0.project?.id == project.id }
+        let projectID: UUID = project.id
+        let refs: [ReferenceEntry] = references.filter { (ref: ReferenceEntry) -> Bool in ref.project?.id == projectID }
         
         if searchText.isEmpty {
-            return refs.sorted { $0.author < $1.author }
+            return refs.sorted { (a: ReferenceEntry, b: ReferenceEntry) -> Bool in a.author < b.author }
         }
         
-        return refs.filter { reference in
+        return refs.filter { (reference: ReferenceEntry) -> Bool in
             reference.author.localizedCaseInsensitiveContains(searchText) ||
             reference.publicationDate.localizedCaseInsensitiveContains(searchText) ||
             reference.details.localizedCaseInsensitiveContains(searchText)
-        }.sorted { $0.author < $1.author }
+        }.sorted { (a: ReferenceEntry, b: ReferenceEntry) -> Bool in a.author < b.author }
     }
     
     // MARK: - Body

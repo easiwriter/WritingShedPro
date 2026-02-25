@@ -6,8 +6,12 @@ struct PoetryFormPicker: View {
     @Binding var selectedForm: PoetryForm?
     @State private var expandedCategories: Set<PoetryFormCategory> = Set(PoetryFormCategory.allCases)
     @State private var showingManagement = false
+    @State private var showingFormEditor = false
     @State private var formsByCategory: [PoetryFormCategory: [PoetryForm]] = [:]
     @State private var categories: [PoetryFormCategory] = []
+    @State private var showingDeleteConfirmation = false
+    @State private var formToDelete: PoetryForm?
+    @State private var deleteAffectedFilesCount = 0
     
     private let service = PoetryFormService.shared
     
@@ -60,6 +64,59 @@ struct PoetryFormPicker: View {
                 loadForms()
             }
         }
+        .sheet(isPresented: $showingFormEditor) {
+            PoetryFormEditorView(
+                existingForm: nil,
+                onSave: { form in
+                    _ = service.saveCustomForm(form)
+                    service.clearCache()
+                    loadForms()
+                    selectedForm = form
+                }
+            )
+        }
+        .confirmationDialog(
+            NSLocalizedString("poetryForms.delete.title", comment: "Delete Form?"),
+            isPresented: $showingDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button(NSLocalizedString("poetryForms.delete.confirm", comment: "Delete"), role: .destructive) {
+                confirmDelete()
+            }
+            Button(NSLocalizedString("common.cancel", comment: "Cancel"), role: .cancel) {
+                formToDelete = nil
+            }
+        } message: {
+            if let form = formToDelete {
+                if deleteAffectedFilesCount > 0 {
+                    Text(String(format: NSLocalizedString("poetryForms.delete.message", comment: "Delete message with files"), form.name, deleteAffectedFilesCount))
+                } else {
+                    Text(String(format: NSLocalizedString("poetryForms.delete.messageNoFiles", comment: "Delete message no files"), form.name))
+                }
+            }
+        }
+    }
+    
+    // MARK: - Delete Custom Form
+    
+    private func prepareDelete(_ form: PoetryForm) {
+        formToDelete = form
+        deleteAffectedFilesCount = service.countFilesUsingForm(form.id)
+        showingDeleteConfirmation = true
+    }
+    
+    private func confirmDelete() {
+        guard let form = formToDelete else { return }
+        if deleteAffectedFilesCount > 0 {
+            service.reassignFilesToFreeVerse(fromFormId: form.id)
+        }
+        _ = service.deleteCustomForm(form)
+        formToDelete = nil
+        if selectedForm?.id == form.id {
+            selectedForm = nil
+        }
+        service.clearCache()
+        loadForms()
     }
     
     private func loadForms() {
@@ -116,6 +173,26 @@ struct PoetryFormPicker: View {
                     ForEach(forms) { form in
                         formRow(form)
                     }
+                    
+                    // Show "Create Custom Form" in custom category
+                    if category == .custom {
+                        Button {
+                            showingFormEditor = true
+                        } label: {
+                            HStack {
+                                Image(systemName: "plus.circle.fill")
+                                    .foregroundColor(.accentColor)
+                                Text(NSLocalizedString("poetryForms.picker.createCustom", comment: "Create Custom Form"))
+                                    .font(.body)
+                                    .foregroundColor(.accentColor)
+                                Spacer()
+                            }
+                            .padding(.horizontal)
+                            .padding(.vertical, 10)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
             }
         }
@@ -124,7 +201,8 @@ struct PoetryFormPicker: View {
     // MARK: - Form Row
     
     private func formRow(_ form: PoetryForm) -> some View {
-        Button {
+        let isFormSelected: Bool = selectedForm?.id == form.id || (selectedForm == nil && form.id == PoetryForm.freeVerseId)
+        return Button {
             withAnimation(.easeInOut(duration: 0.15)) {
                 selectedForm = form
             }
@@ -153,7 +231,7 @@ struct PoetryFormPicker: View {
                 Spacer()
                 
                 // Show checkmark if selected, or if this is Free Verse and nothing is selected (default)
-                if selectedForm?.id == form.id || (selectedForm == nil && form.id == PoetryForm.freeVerseId) {
+                if isFormSelected {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundColor(.accentColor)
                 }
@@ -163,7 +241,16 @@ struct PoetryFormPicker: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .background((selectedForm?.id == form.id || (selectedForm == nil && form.id == PoetryForm.freeVerseId)) ? Color.accentColor.opacity(0.1) : Color.clear)
+        .background(isFormSelected ? Color.accentColor.opacity(0.1) : Color.clear)
+        .contextMenu {
+            if form.isCustom {
+                Button(role: .destructive) {
+                    prepareDelete(form)
+                } label: {
+                    Label(NSLocalizedString("common.delete", comment: "Delete"), systemImage: "trash")
+                }
+            }
+        }
     }
     
     // MARK: - Selected Form Preview
@@ -299,6 +386,10 @@ struct PoetryFormPickerCompact: View {
     @State private var isExpanded = true  // Start expanded
     @State private var formsByCategory: [PoetryFormCategory: [PoetryForm]] = [:]
     @State private var categories: [PoetryFormCategory] = []
+    @State private var showingFormEditor = false
+    @State private var showingDeleteConfirmation = false
+    @State private var formToDelete: PoetryForm?
+    @State private var deleteAffectedFilesCount = 0
     
     private let service = PoetryFormService.shared
     
@@ -337,7 +428,8 @@ struct PoetryFormPickerCompact: View {
                                         
                                         Spacer()
                                         
-                                        if selectedForm?.id == form.id || (selectedForm == nil && form.id == PoetryForm.freeVerseId) {
+                                        let isSelected: Bool = selectedForm?.id == form.id || (selectedForm == nil && form.id == PoetryForm.freeVerseId)
+                                        if isSelected {
                                             Image(systemName: "checkmark.circle.fill")
                                                 .foregroundColor(.accentColor)
                                         }
@@ -347,9 +439,41 @@ struct PoetryFormPickerCompact: View {
                                     .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain)
-                                .background((selectedForm?.id == form.id || (selectedForm == nil && form.id == PoetryForm.freeVerseId)) ? Color.accentColor.opacity(0.1) : Color.clear)
+                                .background({
+                                    let isFormSelected: Bool = selectedForm?.id == form.id || (selectedForm == nil && form.id == PoetryForm.freeVerseId)
+                                    return isFormSelected ? Color.accentColor.opacity(0.1) : Color.clear
+                                }())
+                                .contextMenu {
+                                    if form.isCustom {
+                                        Button(role: .destructive) {
+                                            prepareDelete(form)
+                                        } label: {
+                                            Label(NSLocalizedString("common.delete", comment: "Delete"), systemImage: "trash")
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            // Show "Create Custom Form" button in the custom category
+                            if category == .custom {
+                                createCustomFormButton
                             }
                         }
+                    }
+                    
+                    // Show "Create Custom Form" button at the end if custom category doesn't exist yet
+                    if !categories.contains(.custom) || (formsByCategory[.custom] ?? []).isEmpty {
+                        // Custom category header
+                        Text(PoetryFormCategory.custom.displayName)
+                            .font(.footnote)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.secondary)
+                            .padding(.horizontal)
+                            .padding(.vertical, 8)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color(.systemGray6))
+                        
+                        createCustomFormButton
                     }
                 }
                 .padding(.top, 8)
@@ -369,6 +493,84 @@ struct PoetryFormPickerCompact: View {
         .onAppear {
             loadForms()
         }
+        .sheet(isPresented: $showingFormEditor) {
+            PoetryFormEditorView(
+                existingForm: nil,
+                onSave: { form in
+                    saveNewCustomForm(form)
+                }
+            )
+        }
+        .confirmationDialog(
+            NSLocalizedString("poetryForms.delete.title", comment: "Delete Form?"),
+            isPresented: $showingDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button(NSLocalizedString("poetryForms.delete.confirm", comment: "Delete"), role: .destructive) {
+                confirmDelete()
+            }
+            Button(NSLocalizedString("common.cancel", comment: "Cancel"), role: .cancel) {
+                formToDelete = nil
+            }
+        } message: {
+            if let form = formToDelete {
+                if deleteAffectedFilesCount > 0 {
+                    Text(String(format: NSLocalizedString("poetryForms.delete.message", comment: "Delete message with files"), form.name, deleteAffectedFilesCount))
+                } else {
+                    Text(String(format: NSLocalizedString("poetryForms.delete.messageNoFiles", comment: "Delete message no files"), form.name))
+                }
+            }
+        }
+    }
+    
+    // MARK: - Create Custom Form Button
+    
+    private var createCustomFormButton: some View {
+        Button {
+            showingFormEditor = true
+        } label: {
+            HStack {
+                Image(systemName: "plus.circle.fill")
+                    .foregroundColor(.accentColor)
+                Text(NSLocalizedString("poetryForms.picker.createCustom", comment: "Create Custom Form"))
+                    .font(.body)
+                    .foregroundColor(.accentColor)
+                Spacer()
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 10)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+    
+    private func saveNewCustomForm(_ form: PoetryForm) {
+        _ = service.saveCustomForm(form)
+        service.clearCache()
+        loadForms()
+        selectedForm = form
+    }
+    
+    // MARK: - Delete Custom Form
+    
+    private func prepareDelete(_ form: PoetryForm) {
+        formToDelete = form
+        deleteAffectedFilesCount = service.countFilesUsingForm(form.id)
+        showingDeleteConfirmation = true
+    }
+    
+    private func confirmDelete() {
+        guard let form = formToDelete else { return }
+        if deleteAffectedFilesCount > 0 {
+            service.reassignFilesToFreeVerse(fromFormId: form.id)
+        }
+        _ = service.deleteCustomForm(form)
+        formToDelete = nil
+        if selectedForm?.id == form.id {
+            selectedForm = nil
+        }
+        service.clearCache()
+        loadForms()
     }
     
     private func loadForms() {
@@ -412,6 +614,10 @@ struct PoetryFormPickerSheet: View {
     @State private var selectedForm: PoetryForm?
     @State private var formsByCategory: [PoetryFormCategory: [PoetryForm]] = [:]
     @State private var categories: [PoetryFormCategory] = []
+    @State private var showingFormEditor = false
+    @State private var showingDeleteConfirmation = false
+    @State private var formToDelete: PoetryForm?
+    @State private var deleteAffectedFilesCount = 0
     @Environment(\.dismiss) private var dismiss
     
     private let service = PoetryFormService.shared
@@ -435,7 +641,18 @@ struct PoetryFormPickerSheet: View {
                             ForEach(forms) { form in
                                 formRow(form)
                             }
+                            
+                            if category == .custom {
+                                createCustomFormRow
+                            }
                         }
+                    }
+                }
+                
+                // Show create button even if no custom forms exist yet
+                if !categories.contains(.custom) || (formsByCategory[.custom] ?? []).isEmpty {
+                    Section(header: Text(PoetryFormCategory.custom.displayName)) {
+                        createCustomFormRow
                     }
                 }
             }
@@ -470,12 +687,80 @@ struct PoetryFormPickerSheet: View {
             // Pre-select current form if available
             selectedForm = file.poetryForm
         }
+        .sheet(isPresented: $showingFormEditor) {
+            PoetryFormEditorView(
+                existingForm: nil,
+                onSave: { form in
+                    saveNewCustomForm(form)
+                }
+            )
+        }
+        .confirmationDialog(
+            NSLocalizedString("poetryForms.delete.title", comment: "Delete Form?"),
+            isPresented: $showingDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button(NSLocalizedString("poetryForms.delete.confirm", comment: "Delete"), role: .destructive) {
+                confirmDelete()
+            }
+            Button(NSLocalizedString("common.cancel", comment: "Cancel"), role: .cancel) {
+                formToDelete = nil
+            }
+        } message: {
+            if let form = formToDelete {
+                if deleteAffectedFilesCount > 0 {
+                    Text(String(format: NSLocalizedString("poetryForms.delete.message", comment: "Delete message with files"), form.name, deleteAffectedFilesCount))
+                } else {
+                    Text(String(format: NSLocalizedString("poetryForms.delete.messageNoFiles", comment: "Delete message no files"), form.name))
+                }
+            }
+        }
     }
     
     private func loadForms() {
         service.clearCache()  // Clear cache to ensure fresh data
         categories = service.getCategories()
         formsByCategory = service.getFormsByCategory()
+    }
+    
+    // MARK: - Delete Custom Form
+    
+    private func prepareDelete(_ form: PoetryForm) {
+        formToDelete = form
+        deleteAffectedFilesCount = service.countFilesUsingForm(form.id)
+        showingDeleteConfirmation = true
+    }
+    
+    private func confirmDelete() {
+        guard let form = formToDelete else { return }
+        if deleteAffectedFilesCount > 0 {
+            service.reassignFilesToFreeVerse(fromFormId: form.id)
+        }
+        _ = service.deleteCustomForm(form)
+        formToDelete = nil
+        if selectedForm?.id == form.id {
+            selectedForm = nil
+        }
+        service.clearCache()
+        loadForms()
+    }
+    
+    // MARK: - Create Custom Form
+    
+    private var createCustomFormRow: some View {
+        Button {
+            showingFormEditor = true
+        } label: {
+            Label(NSLocalizedString("poetryForms.picker.createCustom", comment: "Create Custom Form"), systemImage: "plus.circle.fill")
+                .foregroundColor(.accentColor)
+        }
+    }
+    
+    private func saveNewCustomForm(_ form: PoetryForm) {
+        _ = service.saveCustomForm(form)
+        service.clearCache()
+        loadForms()
+        selectedForm = form
     }
     
     // MARK: - Form Row
@@ -507,6 +792,15 @@ struct PoetryFormPickerSheet: View {
                 if selectedForm?.id == form.id {
                     Image(systemName: "checkmark")
                         .foregroundColor(.accentColor)
+                }
+            }
+        }
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            if form.isCustom {
+                Button(role: .destructive) {
+                    prepareDelete(form)
+                } label: {
+                    Label(NSLocalizedString("common.delete", comment: "Delete"), systemImage: "trash")
                 }
             }
         }

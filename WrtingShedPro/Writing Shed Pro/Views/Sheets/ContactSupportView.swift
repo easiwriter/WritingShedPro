@@ -72,97 +72,18 @@ struct ContactSupportView: View {
     private let supportEmail = "easiwriter@writing-shed.com"
 
     var body: some View {
+        let clipboardString: String = "\(mailSubject)\n\n\(mailBody)"
+        let unavailableMessage: String = "Mail is not configured on this device. You can copy the message and email it to \(supportEmail) manually."
+        
         NavigationStack {
             Form {
-                // MARK: Type picker
-                Section {
-                    Picker("Type", selection: $reportType) {
-                        ForEach(ReportType.allCases) { type in
-                            Text(type.rawValue).tag(type)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                } header: {
-                    Text("What would you like to send?")
-                }
-
-                // MARK: Subject
-                Section {
-                    TextField("Brief summary", text: $subject)
-                } header: {
-                    Text("Subject")
-                }
-
-                // MARK: Details
-                Section {
-                    TextEditor(text: $details)
-                        .frame(minHeight: 120)
-                } header: {
-                    Text(reportType == .bug ? "Describe the problem" : "Your suggestion")
-                }
-
-                // MARK: Steps to Reproduce (bug only)
-                if reportType == .bug {
-                    Section {
-                        TextEditor(text: $stepsToReproduce)
-                            .frame(minHeight: 80)
-                    } header: {
-                        Text("Steps to reproduce (optional)")
-                    }
-                }
-
-                // MARK: Device / system info (read-only)
-                Section {
-                    HStack {
-                        Text("Device")
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                        Text(deviceInfo)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.trailing)
-                    }
-                    HStack {
-                        Text("App Version")
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                        Text(appVersion)
-                            .foregroundStyle(.secondary)
-                    }
-                } header: {
-                    Text("System Information")
-                } footer: {
-                    Text("This information is included automatically to help us diagnose issues.")
-                }
-
-                // MARK: Robot check
-                Section {
-                    HStack {
-                        Text("What is \(challengeA) + \(challengeB)?")
-                        Spacer()
-                        TextField("Answer", text: $challengeAnswer)
-                            .keyboardType(.numberPad)
-                            .multilineTextAlignment(.trailing)
-                            .frame(width: 60)
-                    }
-                } header: {
-                    Text("Verify you are not a robot")
-                }
-
-                // MARK: Send button
-                Section {
-                    Button {
-                        attemptSend()
-                    } label: {
-                        HStack {
-                            Spacer()
-                            Label("Send", systemImage: "paperplane.fill")
-                                .font(.headline)
-                            Spacer()
-                        }
-                    }
-                    .disabled(subject.trimmingCharacters(in: .whitespaces).isEmpty ||
-                              details.trimmingCharacters(in: .whitespaces).isEmpty)
-                }
+                typePickerSection
+                subjectSection
+                detailsSection
+                stepsSection
+                deviceInfoSection
+                robotCheckSection
+                sendButtonSection
             }
             .navigationTitle("Contact Support")
             .navigationBarTitleDisplayMode(.inline)
@@ -181,11 +102,11 @@ struct ContactSupportView: View {
             }
             .alert("Cannot Send Email", isPresented: $showMailUnavailable) {
                 Button("Copy to Clipboard") {
-                    UIPasteboard.general.string = "\(mailSubject)\n\n\(mailBody)"
+                    UIPasteboard.general.string = clipboardString
                 }
                 Button("OK", role: .cancel) {}
             } message: {
-                Text("Mail is not configured on this device. You can copy the message and email it to \(supportEmail) manually.")
+                Text(unavailableMessage)
             }
             .alert("Robot Check Failed", isPresented: $showRobotAlert) {
                 Button("OK", role: .cancel) {
@@ -202,6 +123,106 @@ struct ContactSupportView: View {
             } message: {
                 Text(validationMessage)
             }
+        }
+    }
+
+    // MARK: - Form Sections
+
+    private var typePickerSection: some View {
+        Section {
+            Picker("Type", selection: $reportType) {
+                ForEach(ReportType.allCases) { type in
+                    Text(type.rawValue).tag(type)
+                }
+            }
+            .pickerStyle(.segmented)
+        } header: {
+            Text("What would you like to send?")
+        }
+    }
+
+    private var subjectSection: some View {
+        Section {
+            TextField("Brief summary", text: $subject)
+        } header: {
+            Text("Subject")
+        }
+    }
+
+    private var detailsSection: some View {
+        Section {
+            TextEditor(text: $details)
+                .frame(minHeight: 120)
+        } header: {
+            Text(reportType == .bug ? "Describe the problem" : "Your suggestion")
+        }
+    }
+
+    @ViewBuilder
+    private var stepsSection: some View {
+        if reportType == .bug {
+            Section {
+                TextEditor(text: $stepsToReproduce)
+                    .frame(minHeight: 80)
+            } header: {
+                Text("Steps to reproduce (optional)")
+            }
+        }
+    }
+
+    private var deviceInfoSection: some View {
+        Section {
+            HStack {
+                Text("Device")
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text(deviceInfo)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.trailing)
+            }
+            HStack {
+                Text("App Version")
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text(appVersion)
+                    .foregroundStyle(.secondary)
+            }
+        } header: {
+            Text("System Information")
+        } footer: {
+            Text("This information is included automatically to help us diagnose issues.")
+        }
+    }
+
+    private var robotCheckSection: some View {
+        Section {
+            HStack {
+                Text("What is \(challengeA) + \(challengeB)?")
+                Spacer()
+                TextField("Answer", text: $challengeAnswer)
+                    .keyboardType(.numberPad)
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 60)
+            }
+        } header: {
+            Text("Verify you are not a robot")
+        }
+    }
+
+    private var sendButtonSection: some View {
+        Section {
+            Button {
+                attemptSend()
+            } label: {
+                HStack {
+                    Spacer()
+                    Label("Send", systemImage: "paperplane.fill")
+                        .font(.headline)
+                    Spacer()
+                }
+            }
+            .disabled(subject.trimmingCharacters(in: .whitespaces).isEmpty ||
+                      details.trimmingCharacters(in: .whitespaces).isEmpty)
         }
     }
 

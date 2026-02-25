@@ -255,20 +255,23 @@ struct NotesListView: View {
     
     @ViewBuilder
     private func noteRow(_ note: NoteEntry) -> some View {
+        let isEndnote: Bool = note.isEndnote
         HStack(alignment: .top, spacing: 12) {
             // Note type and tag/number badge
             VStack {
                 ZStack {
+                    let badgeColor: Color = isEndnote ? Color.indigo.opacity(0.1) : Color.blue.opacity(0.1)
                     Circle()
-                        .fill(note.isEndnote ? Color.indigo.opacity(0.1) : Color.blue.opacity(0.1))
+                        .fill(badgeColor)
                         .frame(width: 36, height: 36)
                     
                     if let tag = note.tag, !tag.isEmpty {
                         // Show tag abbreviation
+                        let tagColor: Color = isEndnote ? .indigo : .blue
                         Text(tag.prefix(1).uppercased())
                             .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(note.isEndnote ? .indigo : .blue)
-                    } else if note.isEndnote {
+                            .foregroundColor(tagColor)
+                    } else if isEndnote {
                         Text("\(note.displayNumber)")
                             .font(.system(size: 14, weight: .bold))
                             .foregroundColor(.indigo)
@@ -296,7 +299,7 @@ struct NotesListView: View {
                 if let tag = note.tag, !tag.isEmpty {
                     Text(tag)
                         .font(.headline)
-                        .foregroundColor(note.isEndnote ? .indigo : .blue)
+                        .foregroundColor(isEndnote ? .indigo : .blue)
                 }
                 if let title = note.title, !title.isEmpty {
                     Text(title)
@@ -313,13 +316,15 @@ struct NotesListView: View {
                 // Metadata
                 HStack(spacing: 8) {
                     // Type badge
-                    Text(note.isEndnote
+                    let typeBadge: String = isEndnote
                         ? NSLocalizedString("notesList.type.endnote", comment: "Endnote")
-                        : NSLocalizedString("notesList.type.note", comment: "Note"))
+                        : NSLocalizedString("notesList.type.note", comment: "Note")
+                    let typeBadgeBg: Color = isEndnote ? Color.indigo.opacity(0.1) : Color.blue.opacity(0.1)
+                    Text(typeBadge)
                         .font(.caption2)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(note.isEndnote ? Color.indigo.opacity(0.1) : Color.blue.opacity(0.1))
+                        .background(typeBadgeBg)
                         .cornerRadius(4)
                     
                     // Reference count
@@ -404,15 +409,17 @@ struct NotesListView: View {
         // Since we now store reference metadata separately from RTF content,
         // we can reliably remove references even from closed files
         
-        let referencingFileIDs = note.referencingFileIDs
+        let referencingFileIDs: [UUID] = note.referencingFileIDs
         
         #if DEBUG
         print("🗑️ Deleting note \(note.id) from \(referencingFileIDs.count) file(s): \(referencingFileIDs)")
         #endif
         
+        let allProjectFiles: [TextFile] = (project.folders ?? []).flatMap { (folder: Folder) -> [TextFile] in folder.files ?? [] }
+        
         for fileID in referencingFileIDs {
             // Find the file with this ID in the project
-            if let file = project.folders?.flatMap({ $0.files ?? [] }).first(where: { $0.id == fileID }) {
+            if let file = allProjectFiles.first(where: { (f: TextFile) -> Bool in f.id == fileID }) {
                 #if DEBUG
                 print("  📄 Found file: \(file.id)")
                 #endif
@@ -466,7 +473,8 @@ struct NotesListView: View {
         }
         
         // Remove from project
-        project.noteEntries?.removeAll { $0.id == note.id }
+        let noteID: UUID = note.id
+        project.noteEntries?.removeAll { (entry: NoteEntry) -> Bool in entry.id == noteID }
         
         // Delete from context
         modelContext.delete(note)

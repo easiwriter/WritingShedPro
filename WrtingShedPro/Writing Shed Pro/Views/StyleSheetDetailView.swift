@@ -17,111 +17,38 @@ struct StyleSheetDetailView: View {
     
     private var sortedStyles: [TextStyleModel] {
         guard let styles = styleSheet.textStyles else { return [] }
-        return styles.sorted { $0.displayOrder < $1.displayOrder }
+        return styles.sorted { (a: TextStyleModel, b: TextStyleModel) in a.displayOrder < b.displayOrder }
     }
     
     private var sortedImageStyles: [ImageStyle] {
         guard let styles = styleSheet.imageStyles else { return [] }
-        return styles.sorted { $0.displayOrder < $1.displayOrder }
+        return styles.sorted { (a: ImageStyle, b: ImageStyle) in a.displayOrder < b.displayOrder }
+    }
+    
+    private var headingStyles: [TextStyleModel] {
+        sortedStyles.filter { (s: TextStyleModel) in s.styleCategory == .heading }
+    }
+    
+    private var textStyles: [TextStyleModel] {
+        sortedStyles.filter { (s: TextStyleModel) in s.styleCategory == .text }
+    }
+    
+    private var listStyles: [TextStyleModel] {
+        sortedStyles.filter { (s: TextStyleModel) in s.styleCategory == .list }
+    }
+    
+    private var footnoteStyles: [TextStyleModel] {
+        sortedStyles.filter { (s: TextStyleModel) in s.styleCategory == .footnote }
     }
     
     var body: some View {
         List {
-            // Stylesheet Info
-            Section {
-                HStack {
-                    Text(NSLocalizedString("styleSheetDetail.name", comment: "Stylesheet name"))
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    if styleSheet.isSystemStyleSheet {
-                        Text(styleSheet.name)
-                    } else {
-                        TextField(NSLocalizedString("styleSheetDetail.name.placeholder", comment: "Name placeholder"), text: $styleSheet.name)
-                            .multilineTextAlignment(.trailing)
-                    }
-                }
-                
-                HStack {
-                    Text(NSLocalizedString("styleSheetDetail.stylesCount", comment: "Number of styles"))
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    Text("\(styleSheet.textStyles?.count ?? 0)")
-                        .foregroundStyle(.secondary)
-                }
-            }
-            
-            // Heading Styles
-            if sortedStyles.contains(where: { $0.styleCategory == .heading }) {
-                Section(NSLocalizedString("styleSheetDetail.headingStyles", comment: "Heading styles section")) {
-                    ForEach(sortedStyles.filter { $0.styleCategory == .heading }, id: \.id) { style in
-                        NavigationLink {
-                            TextStyleEditorView(style: style, isNewStyle: false)
-                        } label: {
-                            StyleListRow(style: style)
-                        }
-                    }
-                }
-            }
-            
-            // Text Styles
-            Section(NSLocalizedString("styleSheetDetail.textStyles", comment: "Text styles section")) {
-                ForEach(sortedStyles.filter { $0.styleCategory == .text }, id: \.id) { style in
-                    NavigationLink {
-                        TextStyleEditorView(style: style, isNewStyle: false)
-                    } label: {
-                        StyleListRow(style: style)
-                    }
-                }
-            }
-            
-            // List Styles
-            if sortedStyles.contains(where: { $0.styleCategory == .list }) {
-                Section(NSLocalizedString("styleSheetDetail.listStyles", comment: "List styles section")) {
-                    ForEach(sortedStyles.filter { $0.styleCategory == .list }, id: \.id) { style in
-                        NavigationLink {
-                            TextStyleEditorView(style: style, isNewStyle: false)
-                        } label: {
-                            StyleListRow(style: style)
-                        }
-                    }
-                }
-            }
-            
-            // Footnote Styles
-            if sortedStyles.contains(where: { $0.styleCategory == .footnote }) {
-                Section(NSLocalizedString("styleSheetDetail.footnoteStyles", comment: "Footnote styles section")) {
-                    ForEach(sortedStyles.filter { $0.styleCategory == .footnote }, id: \.id) { style in
-                        NavigationLink {
-                            TextStyleEditorView(style: style, isNewStyle: false)
-                        } label: {
-                            StyleListRow(style: style)
-                        }
-                    }
-                }
-            }
-            
-            // Image Styles
-            Section(NSLocalizedString("styleSheetDetail.imageStyles", comment: "Image styles section")) {
-                if sortedImageStyles.isEmpty {
-                    Text(NSLocalizedString("styleSheetDetail.noImageStyles", comment: "No image styles"))
-                        .foregroundStyle(.secondary)
-                        .italic()
-                } else {
-                    ForEach(sortedImageStyles, id: \.id) { imageStyle in
-                        if imageStyle.isSystemStyle && styleSheet.isSystemStyleSheet {
-                            // System style in system stylesheet - not editable
-                            ImageStyleRow(imageStyle: imageStyle)
-                        } else {
-                            // User stylesheet or editable style - make it a navigation link
-                            NavigationLink {
-                                ImageStyleSheetEditorView(imageStyle: imageStyle)
-                            } label: {
-                                ImageStyleRow(imageStyle: imageStyle)
-                            }
-                        }
-                    }
-                }
-            }
+            stylesheetInfoSection
+            headingStylesSection
+            textStylesSection
+            listStylesSection
+            footnoteStylesSection
+            imageStylesSection
         }
         .navigationTitle(styleSheet.name)
         .navigationBarTitleDisplayMode(.inline)
@@ -140,6 +67,113 @@ struct StyleSheetDetailView: View {
         .sheet(item: $newStyle) { style in
             NavigationStack {
                 TextStyleEditorView(style: style, isNewStyle: true)
+            }
+        }
+    }
+    
+    // MARK: - Body Sections
+    
+    private var stylesheetInfoSection: some View {
+        Section {
+            HStack {
+                Text(NSLocalizedString("styleSheetDetail.name", comment: "Stylesheet name"))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                if styleSheet.isSystemStyleSheet {
+                    Text(styleSheet.name)
+                } else {
+                    TextField(NSLocalizedString("styleSheetDetail.name.placeholder", comment: "Name placeholder"), text: $styleSheet.name)
+                        .multilineTextAlignment(.trailing)
+                }
+            }
+            
+            HStack {
+                Text(NSLocalizedString("styleSheetDetail.stylesCount", comment: "Number of styles"))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text("\(styleSheet.textStyles?.count ?? 0)")
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var headingStylesSection: some View {
+        if !headingStyles.isEmpty {
+            Section(NSLocalizedString("styleSheetDetail.headingStyles", comment: "Heading styles section")) {
+                ForEach(headingStyles, id: \.id) { (style: TextStyleModel) in
+                    NavigationLink {
+                        TextStyleEditorView(style: style, isNewStyle: false)
+                    } label: {
+                        StyleListRow(style: style)
+                    }
+                }
+            }
+        }
+    }
+    
+    private var textStylesSection: some View {
+        Section(NSLocalizedString("styleSheetDetail.textStyles", comment: "Text styles section")) {
+            ForEach(textStyles, id: \.id) { (style: TextStyleModel) in
+                NavigationLink {
+                    TextStyleEditorView(style: style, isNewStyle: false)
+                } label: {
+                    StyleListRow(style: style)
+                }
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var listStylesSection: some View {
+        if !listStyles.isEmpty {
+            Section(NSLocalizedString("styleSheetDetail.listStyles", comment: "List styles section")) {
+                ForEach(listStyles, id: \.id) { (style: TextStyleModel) in
+                    NavigationLink {
+                        TextStyleEditorView(style: style, isNewStyle: false)
+                    } label: {
+                        StyleListRow(style: style)
+                    }
+                }
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var footnoteStylesSection: some View {
+        if !footnoteStyles.isEmpty {
+            Section(NSLocalizedString("styleSheetDetail.footnoteStyles", comment: "Footnote styles section")) {
+                ForEach(footnoteStyles, id: \.id) { (style: TextStyleModel) in
+                    NavigationLink {
+                        TextStyleEditorView(style: style, isNewStyle: false)
+                    } label: {
+                        StyleListRow(style: style)
+                    }
+                }
+            }
+        }
+    }
+    
+    private var imageStylesSection: some View {
+        Section(NSLocalizedString("styleSheetDetail.imageStyles", comment: "Image styles section")) {
+            if sortedImageStyles.isEmpty {
+                Text(NSLocalizedString("styleSheetDetail.noImageStyles", comment: "No image styles"))
+                    .foregroundStyle(.secondary)
+                    .italic()
+            } else {
+                ForEach(sortedImageStyles, id: \.id) { imageStyle in
+                    if imageStyle.isSystemStyle && styleSheet.isSystemStyleSheet {
+                        // System style in system stylesheet - not editable
+                        ImageStyleRow(imageStyle: imageStyle)
+                    } else {
+                        // User stylesheet or editable style - make it a navigation link
+                        NavigationLink {
+                            ImageStyleSheetEditorView(imageStyle: imageStyle)
+                        } label: {
+                            ImageStyleRow(imageStyle: imageStyle)
+                        }
+                    }
+                }
             }
         }
     }

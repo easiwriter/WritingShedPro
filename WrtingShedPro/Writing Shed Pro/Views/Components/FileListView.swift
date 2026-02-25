@@ -172,130 +172,40 @@ struct FileListView: View {
     // MARK: - Body
     
     var body: some View {
-        List {
-            if useCollectionGrouping, let groups = collectionGroups {
-                // Show files grouped by collection (Poetry projects)
-                ForEach(groups) { group in
-                    Section {
-                        if expandedCollections.contains(group.id) {
-                            ForEach(group.files) { file in
-                                fileRow(for: file)
-                                    .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
-                                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                        if !isEditMode {
-                                            swipeActionButtons(for: file)
-                                        }
-                                    }
-                            }
-                        }
-                    } header: {
-                        collectionSectionHeader(for: group)
+        let deleteTitle: String = filesToDelete.count == 1
+            ? NSLocalizedString("fileList.deleteFile.title", comment: "Delete file?")
+            : String(format: NSLocalizedString("fileList.deleteFiles.title", comment: "Delete files?"), filesToDelete.count)
+        
+        fileListContainer
+            .toolbar {
+                // Top toolbar for alphabetical expand/collapse (only when using sections and not in edit mode)
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    if useSections && !isEditMode {
+                        expandCollapseButtons
                     }
                 }
-            } else if useSections {
-                // Show alphabetical sections for long lists
-                ForEach(sections) { section in
-                    Section {
-                        // Only show files if section is expanded
-                        if expandedSections.contains(section.letter) {
-                            ForEach(section.items) { file in
-                                fileRow(for: file)
-                                    .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
-                                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                        if !isEditMode {
-                                            swipeActionButtons(for: file)
-                                        }
-                                    }
-                            }
-                        }
-                    } header: {
-                        sectionHeader(for: section)
+                
+                // Bottom toolbar for multi-select actions (only in edit mode)
+                ToolbarItemGroup(placement: .bottomBar) {
+                    if showToolbar {
+                        bottomToolbarContent
                     }
                 }
-            } else {
-                // Show flat list for short lists
-                ForEach(uniqueFiles) { file in
-                    fileRow(for: file)
-                        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
-                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                            if !isEditMode {
-                                swipeActionButtons(for: file)
-                            }
-                        }
-                }
-                .onMove(perform: onReorder)
             }
-        }
-        .listStyle(.plain)
-        .toolbar {
-            // Top toolbar for alphabetical expand/collapse (only when using sections and not in edit mode)
-            ToolbarItemGroup(placement: .topBarTrailing) {
-                if useSections && !isEditMode {
-                    expandCollapseButtons
-                }
+            .confirmationDialog(
+                deleteTitle,
+                isPresented: $showDeleteConfirmation,
+                titleVisibility: .visible
+            ) {
+                deleteConfirmationButtons
+            } message: {
+                Text(NSLocalizedString("fileList.deleteConfirmation.messageEnhanced", comment: "Delete moves to trash, Delete Forever is permanent"))
             }
-            
-            // Bottom toolbar for multi-select actions (only in edit mode)
-            ToolbarItemGroup(placement: .bottomBar) {
-                if showToolbar {
-                    bottomToolbarContent
-                }
-            }
-        }
-        .confirmationDialog(
-            filesToDelete.count == 1 
-                ? NSLocalizedString("fileList.deleteFile.title", comment: "Delete file?")
-                : String(format: NSLocalizedString("fileList.deleteFiles.title", comment: "Delete files?"), filesToDelete.count),
-            isPresented: $showDeleteConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button(NSLocalizedString("fileList.delete", comment: "Delete"), role: .destructive) {
-                confirmDelete()
-            }
-            if onDeletePermanently != nil {
-                Button(NSLocalizedString("fileList.deletePermanently", comment: "Delete Forever"), role: .destructive) {
-                    confirmDeletePermanently()
-                }
-            }
-            Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
-                filesToDelete = []
-            }
-        } message: {
-            Text(NSLocalizedString("fileList.deleteConfirmation.messageEnhanced", comment: "Delete moves to trash, Delete Forever is permanent"))
-        }
         .onChange(of: editMode?.wrappedValue) { _, newValue in
-            if useCollectionGrouping, let groups = collectionGroups {
-                if newValue == .active {
-                    expandedCollections = Set(groups.map { $0.id })
-                }
-            } else if useSections {
-                if newValue == .active {
-                    // Expand all sections when entering edit mode for easier multi-select
-                    expandedSections = Set(sections.map { $0.letter })
-                } else if newValue == .inactive {
-                    // Collapse all sections except last opened when exiting edit mode
-                    if let lastSection = lastOpenedSection {
-                        expandedSections = [lastSection]
-                    } else {
-                        expandedSections.removeAll()
-                    }
-                }
-            }
-            
-            if newValue == .inactive {
-                // Clear selection when exiting edit mode
-                selectedFileIDs.removeAll()
-            }
+            handleEditModeChange(newValue)
         }
         .onAppear {
-            if useCollectionGrouping, let groups = collectionGroups {
-                // Start with all collections expanded (like Prose sections)
-                if expandedCollections.isEmpty {
-                    expandedCollections = Set(groups.map { $0.id })
-                }
-            } else if useSections {
-                loadLastOpenedSection()
-            }
+            handleAppear()
         }
         .alert("fileList.rename.title", isPresented: $showRenameModal) {
             TextField("fileList.rename.placeholder", text: $renameText)
@@ -327,6 +237,109 @@ struct FileListView: View {
             if let file = fileForDetails {
                 FileDetailsSheet(file: file)
             }
+        }
+    }
+    
+    private func handleEditModeChange(_ newValue: EditMode?) {
+        if useCollectionGrouping, let groups = collectionGroups {
+            if newValue == .active {
+                expandedCollections = Set(groups.map { $0.id })
+            }
+        } else if useSections {
+            if newValue == .active {
+                expandedSections = Set(sections.map { $0.letter })
+            } else if newValue == .inactive {
+                if let lastSection = lastOpenedSection {
+                    expandedSections = [lastSection]
+                } else {
+                    expandedSections.removeAll()
+                }
+            }
+        }
+        
+        if newValue == .inactive {
+            selectedFileIDs.removeAll()
+        }
+    }
+    
+    private func handleAppear() {
+        if useCollectionGrouping, let groups = collectionGroups {
+            if expandedCollections.isEmpty {
+                expandedCollections = Set(groups.map { $0.id })
+            }
+        } else if useSections {
+            loadLastOpenedSection()
+        }
+    }
+    
+    // MARK: - Extracted Content
+    
+    private var fileListContainer: some View {
+        List {
+            if useCollectionGrouping, let groups = collectionGroups {
+                ForEach(groups) { group in
+                    Section {
+                        if expandedCollections.contains(group.id) {
+                            ForEach(group.files) { file in
+                                fileRow(for: file)
+                                    .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                        if !isEditMode {
+                                            swipeActionButtons(for: file)
+                                        }
+                                    }
+                            }
+                        }
+                    } header: {
+                        collectionSectionHeader(for: group)
+                    }
+                }
+            } else if useSections {
+                ForEach(sections) { section in
+                    Section {
+                        if expandedSections.contains(section.letter) {
+                            ForEach(section.items) { file in
+                                fileRow(for: file)
+                                    .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                        if !isEditMode {
+                                            swipeActionButtons(for: file)
+                                        }
+                                    }
+                            }
+                        }
+                    } header: {
+                        sectionHeader(for: section)
+                    }
+                }
+            } else {
+                ForEach(uniqueFiles) { file in
+                    fileRow(for: file)
+                        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            if !isEditMode {
+                                swipeActionButtons(for: file)
+                            }
+                        }
+                }
+                .onMove(perform: onReorder)
+            }
+        }
+        .listStyle(.plain)
+    }
+    
+    @ViewBuilder
+    private var deleteConfirmationButtons: some View {
+        Button(NSLocalizedString("fileList.delete", comment: "Delete"), role: .destructive) {
+            confirmDelete()
+        }
+        if onDeletePermanently != nil {
+            Button(NSLocalizedString("fileList.deletePermanently", comment: "Delete Forever"), role: .destructive) {
+                confirmDeletePermanently()
+            }
+        }
+        Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
+            filesToDelete = []
         }
     }
     
@@ -597,19 +610,16 @@ struct FileListView: View {
         }
         
         // Add to Collection button (if onAddToCollection callback provided - Poetry projects)
-        // Hidden when all selected files are still in draft
         if let onAddToCollection = onAddToCollection {
-            if selectedFiles.contains(where: { $0.workflowStatus != .draft }) {
-                Button {
-                    onAddToCollection(selectedFiles)
-                } label: {
-                    Label(
-                        NSLocalizedString("fileList.addToCollection", comment: "Add to Collection"),
-                        systemImage: "doc.text"
-                    )
-                }
-                .disabled(selectedFiles.isEmpty)
+            Button {
+                onAddToCollection(selectedFiles)
+            } label: {
+                Label(
+                    NSLocalizedString("fileList.addToCollection", comment: "Add to Collection"),
+                    systemImage: "doc.text"
+                )
             }
+            .disabled(selectedFiles.isEmpty)
         }
         
         // Submit button (if onSubmit callback provided)

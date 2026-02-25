@@ -139,7 +139,7 @@ The `.wsp` format is Writing Shed Pro's native project archive — a single JSON
 | All file versions | ✅ |
 | Formatted text (rich text) | ✅ |
 | Comments and footnotes | ✅ |
-| Folder structure and subfolders | ✅ |
+| Folder structure | ✅ |
 | Project settings and metadata | ✅ |
 | Publications and submissions | ✅ |
 | Poetry collections | ✅ |

@@ -58,12 +58,14 @@ struct AddSubmissionView: View {
     private func isAlreadySubmitted(_ file: TextFile) -> Bool {
         guard let submissions = publication.submissions else { return false }
         guard let currentVersion = file.currentVersion else { return false }
+        let fileID: UUID = file.id
+        let versionNumber: Int = currentVersion.versionNumber
         
-        return submissions.contains { submission in
+        return submissions.contains { (submission: Submission) -> Bool in
             guard let submittedFiles = submission.submittedFiles else { return false }
-            return submittedFiles.contains { (submittedFile: SubmittedFile) in
-                submittedFile.textFile?.id == file.id && 
-                submittedFile.version?.versionNumber == currentVersion.versionNumber
+            return submittedFiles.contains { (submittedFile: SubmittedFile) -> Bool in
+                submittedFile.textFile?.id == fileID && 
+                submittedFile.version?.versionNumber == versionNumber
             }
         }
     }

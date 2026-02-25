@@ -78,6 +78,12 @@ Welcome to the first release of Writing Shed Pro! Here's everything you can do:
 - Reminders use the system notification center with alert and sound
 - Manage reminders from submission and publication detail views
 
+### Monomyth (Pearson) Story Structure
+- **New Hero's Journey variant** — Carol S. Pearson's framework from *Awakening the Heroes Within*
+- Three phases: Preparation, Journey, and Return
+- Twelve character archetypes (Innocent, Orphan, Warrior, Caregiver, Seeker, Destroyer, Lover, Creator, Ruler, Magician, Sage, Jester) grouped by phase
+- When Pearson is selected, the character archetype picker shows Pearson's twelve archetypes instead of Vogler's eight
+
 ### Other Improvements
 - Improved manuscript assembly for all project types
 - Migration service ensures smooth upgrades from version 1.0

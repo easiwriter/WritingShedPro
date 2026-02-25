@@ -210,6 +210,55 @@ Learn the form first, then decide when to deviate. Informed rule-breaking is cre
 ### Use Templates Repeatedly
 Write many poems in a form to truly learn it. One sonnet is practice; twenty is mastery.
 
+## Custom Poetry Forms
+
+You can create your own poetry forms to define personal structures, workshop exercises, or any form not included in the predefined list.
+
+### Creating a Custom Form
+
+There are two ways to create a custom form:
+
+**From the form picker (when creating or editing a poem):**
+1. When adding a new poem, expand the **Poetry Form** section
+2. Scroll to the **Custom** category
+3. Tap **Create Custom Form**
+4. Fill in the form details and tap **Save**
+5. Your new form is automatically selected for the poem
+
+**From Manage Forms:**
+1. In a Poetry project, long-press the project and tap **Manage Forms**, or tap the **Manage Forms** button in any form picker
+2. Tap **+** to create a new form
+3. Fill in the form details and tap **Save**
+
+### What You Can Define
+
+| Field | Description |
+|-------|-------------|
+| **Name** | The form's display name |
+| **Category** | Which group the form appears in |
+| **Description** | A brief explanation of the form (required) |
+| **Line Count** | Expected number of lines (optional) |
+| **Stanza Count** | Expected number of stanzas (optional) |
+| **Syllable Pattern** | Syllable counts per line, e.g. 5,7,5 (optional) |
+| **Rhyme Scheme** | Expected rhyme pattern, e.g. ABAB (optional) |
+| **Meter** | Meter pattern, e.g. iambic pentameter (optional) |
+| **Template Content** | Starting text for new poems using this form (optional) |
+
+### Editing and Deleting Custom Forms
+
+Open **Manage Forms** to edit or delete your custom forms:
+- Tap a custom form to edit its details
+- Swipe left on a custom form to delete it
+- If poems use a deleted form, they are reassigned to Free Verse
+
+### Duplicating Predefined Forms
+
+You can duplicate any predefined form as a starting point for a custom form:
+1. Open **Manage Forms**
+2. Tap a predefined form to view its details
+3. Tap **Duplicate as Custom**
+4. Modify the duplicate to suit your needs
+
 ## See Also
 - [Poetry Mode Overview](61-poetry-mode-overview.md)
 - [Syllable Counting](62-syllable-counting.md)

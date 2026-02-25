@@ -1,6 +1,6 @@
 # Tutorial: Organizing a Large Prose Project
 
-This tutorial walks you through managing a large Prose project in Writing Shed Pro — using sections, subfolders, search and replace, and manuscript assembly to keep a complex work organized and export-ready.
+This tutorial walks you through managing a large Prose project in Writing Shed Pro — using sections, search and replace, and manuscript assembly to keep a complex work organized and export-ready.
 
 **Time**: 30–40 minutes  
 **Project Type**: Prose  
@@ -11,7 +11,6 @@ This tutorial walks you through managing a large Prose project in Writing Shed P
 
 - Creating a Prose project for multi-part writing
 - Using sections to group related files
-- Using subfolders for additional organization
 - Viewing files grouped by section
 - Using search and replace across the project
 - Assembling a manuscript from sections
@@ -114,20 +113,7 @@ In the main Prose file list, files appear grouped under their section headings:
 - Unassigned files appear at the bottom
 - This view gives you an overview of the project's structure
 
-## Step 5: Use Subfolders for Research
-
-While sections organize your writing, subfolders help with supporting material:
-
-1. Open the **Research** folder
-2. Create subfolders for source material:
-   - **Research** → **Field Photos**
-   - **Research** → **Reference Books**
-   - **Research** → **Expert Interviews**
-3. Add reference files to each subfolder
-
-**Tip**: Use subfolders sparingly for writing itself. For the main content, sections are a better organizing tool because they integrate with manuscript assembly and the section-grouped view. Keep subfolders for supporting material.
-
-## Step 6: Write Your Content
+## Step 5: Write Your Content
 
 Now write! Open any file and start. A few tips for large projects:
 
@@ -159,7 +145,7 @@ Apply heading styles (Heading 1, Heading 2, Heading 3) consistently:
 
 These headings matter for the auto-generated table of contents.
 
-## Step 7: Search and Replace Across the Project
+## Step 6: Search and Replace Across the Project
 
 When writing a large project, you'll often need to make consistent changes across many files. For example, you realize you've been inconsistently writing "metres" and "meters".
 
@@ -184,7 +170,7 @@ When writing a large project, you'll often need to make consistent changes acros
 - Locate inconsistent spelling or terminology
 - Find placeholder text you need to fill in (search for "TODO" or "TBD")
 
-## Step 8: Reorder Files Within Sections
+## Step 7: Reorder Files Within Sections
 
 Control the reading order within each section:
 
@@ -197,7 +183,7 @@ Control the reading order within each section:
 
 This order determines the manuscript reading order within each section.
 
-## Step 9: Assemble the Manuscript
+## Step 8: Assemble the Manuscript
 
 Now bring everything together for export:
 
@@ -232,7 +218,7 @@ If some files aren't ready for the manuscript:
    - **Index**: Add index markers to your content, then enable auto-generation
    - **References**: Cite sources
 
-## Step 10: Export the Complete Document
+## Step 9: Export the Complete Document
 
 1. Open **Export Options**
 2. Select **PDF**
@@ -255,7 +241,6 @@ For an editable version, also export as **RTF**.
 - Using sections to organize files into logical groups
 - Assigning files to sections individually or in batches
 - Viewing files grouped by section for structural overview
-- Using subfolders for supporting material
 - Searching and replacing across the entire project
 - Reordering files within sections
 - Assembling body matter from sections

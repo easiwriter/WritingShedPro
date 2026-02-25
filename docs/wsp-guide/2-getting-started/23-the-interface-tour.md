@@ -44,7 +44,7 @@ The toolbar appears at the top of most screens and provides context-specific act
 ### Folder View Toolbar
 - **Back arrow**: Return to parent folder
 - **Folder name**: Current location
-- **Add (+)**: Create files or subfolders
+- **Add (+)**: Create files
 - **Edit**: Enter edit mode for reordering and deletion
 - **Sort**: Change sort order
 

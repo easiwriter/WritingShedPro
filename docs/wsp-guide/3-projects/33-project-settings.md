@@ -46,6 +46,7 @@ For Fiction and Drama projects, you can change the story structure at any time:
    - **Three-Act**: 3 stages (Setup, Confrontation, Resolution)
    - **Monomyth (Vogler)**: 12 stages from The Writer's Journey
    - **Monomyth (Campbell)**: 17 stages from The Hero with a Thousand Faces
+   - **Monomyth (Pearson)**: 3 phases and 12 archetypes from Awakening the Heroes Within
 
 ### Changing Structure
 When you change the structure:

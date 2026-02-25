@@ -104,7 +104,8 @@ class MigrationService {
 
         var migratedCount = 0
 
-        for project in projects {
+        // Skip trashed projects to avoid CloudKit sync conflicts
+        for project in projects where !project.isTrashed {
             // Find Manuscript folder
             guard let manuscriptFolder = project.folders?.first(where: { $0.name == "Manuscript" }) else {
                 continue
@@ -223,7 +224,11 @@ class MigrationService {
             return
         }
         
-        for project in projects {
+        // Skip trashed projects — modifying them during migration can cause CloudKit
+        // sync conflicts that resurrect deleted projects on other devices
+        let activeProjects = projects.filter { !$0.isTrashed }
+        
+        for project in activeProjects {
             renameBodySubfolder(project: project, context: context)
             populateBodyMatter(project: project, context: context)
             
@@ -239,15 +244,22 @@ class MigrationService {
             }
         }
         
-        do {
-            try context.save()
-            UserDefaults.standard.set(true, forKey: feature036MigrationKey)
+        // Only save if there are actual changes to avoid dirtying CloudKit records
+        if context.hasChanges {
+            do {
+                try context.save()
+                UserDefaults.standard.set(true, forKey: feature036MigrationKey)
+                #if DEBUG
+                print("✅ [MigrationService] Feature 036 migration complete for \(activeProjects.count) projects (saved changes)")
+                #endif
+            } catch {
+                #if DEBUG
+                print("❌ [MigrationService] Feature 036 migration save failed: \(error)")
+                #endif
+            }
+        } else {
             #if DEBUG
-            print("✅ [MigrationService] Feature 036 migration complete for \(projects.count) projects")
-            #endif
-        } catch {
-            #if DEBUG
-            print("❌ [MigrationService] Feature 036 migration save failed: \(error)")
+            print("✅ [MigrationService] Feature 036 migration complete — no changes needed")
             #endif
         }
     }
@@ -466,6 +478,11 @@ class MigrationService {
         // Manuscript is typically at order 0, so Collections should be 1
         let manuscriptOrder = project.folders?.first(where: { $0.name == "Manuscript" })?.userOrder ?? 0
         let newOrder = manuscriptOrder + 1
+        
+        // Skip if Collections is already at the correct position
+        if collectionsFolder.userOrder == newOrder {
+            return
+        }
         
         // Shift folders that are at or after the new position
         for folder in project.folders ?? [] {

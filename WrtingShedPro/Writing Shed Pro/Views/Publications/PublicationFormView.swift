@@ -318,21 +318,25 @@ struct PublicationFormView: View {
     }
     
     private func hasDuplicateName(_ name: String) -> Bool {
-        let projectPublications = allPublications.filter { pub in
-            pub.project?.id == project.id && pub.id != publication?.id
+        let projectID: UUID = project.id
+        let editingID: UUID? = publication?.id
+        let projectPublications: [Publication] = allPublications.filter { (pub: Publication) -> Bool in
+            pub.project?.id == projectID && pub.id != editingID
         }
-        return projectPublications.contains { $0.name.lowercased() == name.lowercased() }
+        return projectPublications.contains { (pub: Publication) -> Bool in pub.name.lowercased() == name.lowercased() }
     }
     
     private func makeUniqueName(_ baseName: String) -> String {
-        let projectPublications = allPublications.filter { pub in
-            pub.project?.id == project.id && pub.id != publication?.id
+        let projectID: UUID = project.id
+        let editingID: UUID? = publication?.id
+        let projectPublications: [Publication] = allPublications.filter { (pub: Publication) -> Bool in
+            pub.project?.id == projectID && pub.id != editingID
         }
         
         var counter = 1
         var uniqueName = "\(baseName)-1"
         
-        while projectPublications.contains(where: { $0.name.lowercased() == uniqueName.lowercased() }) {
+        while projectPublications.contains(where: { (pub: Publication) -> Bool in pub.name.lowercased() == uniqueName.lowercased() }) {
             counter += 1
             uniqueName = "\(baseName)-\(counter)"
         }

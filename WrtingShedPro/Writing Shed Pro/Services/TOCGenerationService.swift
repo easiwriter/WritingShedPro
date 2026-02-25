@@ -200,10 +200,11 @@ final class TOCGenerationService {
         let sections = assemblyService.getSections(for: project)
         
         // === STEP 1: Paginate body + back matter to get raw page numbers ===
-        let bodyBackSections = sections.filter { $0.sectionType != .frontMatter }
-        var updatedEntries = entries
-        let frontMatterFileIds = Set(
-            sections.filter { $0.sectionType == .frontMatter }.flatMap { $0.files.map { $0.id } }
+        let bodyBackSections: [ManuscriptSection] = sections.filter { (s: ManuscriptSection) -> Bool in s.sectionType != .frontMatter }
+        var updatedEntries: [TOCEntry] = entries
+        let frontMatterSections: [ManuscriptSection] = sections.filter { (s: ManuscriptSection) -> Bool in s.sectionType == .frontMatter }
+        let frontMatterFileIds: Set<UUID> = Set(
+            frontMatterSections.flatMap { (s: ManuscriptSection) -> [UUID] in s.files.map { (f: TextFile) -> UUID in f.id } }
         )
         var bodyTotalPages = 0
         

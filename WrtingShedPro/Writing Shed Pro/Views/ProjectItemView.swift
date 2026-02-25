@@ -38,7 +38,18 @@ struct ProjectItemView: View {
             
             Spacer()
             
-            Menu {
+            projectOptionsMenu
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Project: \(project.name ?? NSLocalizedString("projectItem.untitledProject", comment: "Untitled project"))")
+        .accessibilityValue(projectTypeDisplayName)
+        .accessibilityHint("Double tap to view project details")
+    }
+    
+    private var projectOptionsMenu: some View {
+        Menu {
                 Button(action: onInfoTapped) {
                     Label(NSLocalizedString("projectItem.projectDetails", comment: "Show project details"), systemImage: "info.circle")
                 }
@@ -59,35 +70,7 @@ struct ProjectItemView: View {
                     }
                 }
                 
-                Menu {
-                    ForEach(allStyleSheets, id: \.id) { sheet in
-                        Button {
-                            project.styleSheet = sheet
-                            NotificationCenter.default.post(
-                                name: NSNotification.Name("ProjectStyleSheetChanged"),
-                                object: nil,
-                                userInfo: [
-                                    "projectId": project.id.uuidString,
-                                    "styleSheetId": sheet.id.uuidString
-                                ]
-                            )
-                        } label: {
-                            HStack {
-                                Text(sheet.name)
-                                if sheet.isSystemStyleSheet {
-                                    Image(systemName: "star.fill")
-                                        .font(.caption)
-                                }
-                                Spacer()
-                                if project.styleSheet?.id == sheet.id {
-                                    Image(systemName: "checkmark")
-                                }
-                            }
-                        }
-                    }
-                } label: {
-                    Label("Select Stylesheet", systemImage: "textformat")
-                }
+                stylesheetSubmenu
                 
                 if let onExportTapped = onExportTapped {
                     Button(action: onExportTapped) {
@@ -104,12 +87,39 @@ struct ProjectItemView: View {
             .accessibilityLabel(NSLocalizedString("projectItem.projectOptions", comment: "Project options menu"))
             .accessibilityHint("Double tap to open options for this project")
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Project: \(project.name ?? NSLocalizedString("projectItem.untitledProject", comment: "Untitled project"))")
-        .accessibilityValue(projectTypeDisplayName)
-        .accessibilityHint("Double tap to view project details")
+    
+    @ViewBuilder
+    private var stylesheetSubmenu: some View {
+        Menu {
+            ForEach(allStyleSheets, id: \.id) { (sheet: StyleSheet) in
+                Button {
+                    project.styleSheet = sheet
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("ProjectStyleSheetChanged"),
+                        object: nil,
+                        userInfo: [
+                            "projectId": project.id.uuidString,
+                            "styleSheetId": sheet.id.uuidString
+                        ]
+                    )
+                } label: {
+                    let isCurrentSheet: Bool = project.styleSheet?.id == sheet.id
+                    HStack {
+                        Text(sheet.name)
+                        if sheet.isSystemStyleSheet {
+                            Image(systemName: "star.fill")
+                                .font(.caption)
+                        }
+                        Spacer()
+                        if isCurrentSheet {
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                }
+            }
+        } label: {
+            Label("Select Stylesheet", systemImage: "textformat")
+        }
     }
 }
 
