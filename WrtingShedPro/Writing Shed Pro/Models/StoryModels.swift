@@ -857,27 +857,57 @@ final class Character {
     // Plot elements this character is planned for (many-to-many)
     var plotElements: [PlotElement]?
     
+    /// Primary archetype (first selected, for backward compatibility)
     var archetype: CharacterArchetype? {
-        get { 
-            guard let raw = archetypeRaw else { return nil }
-            return CharacterArchetype(rawValue: raw) 
+        get { archetypes.first }
+        set {
+            if let value = newValue {
+                archetypes = [value]
+            } else {
+                archetypes = []
+            }
         }
-        set { archetypeRaw = newValue?.rawValue }
     }
     
-    var pearsonArchetype: PearsonArchetype? {
+    /// All selected Vogler archetypes (stored as comma-separated in archetypeRaw)
+    var archetypes: [CharacterArchetype] {
         get {
-            guard let raw = pearsonArchetypeRaw else { return nil }
-            return PearsonArchetype(rawValue: raw)
+            guard let raw = archetypeRaw, !raw.isEmpty else { return [] }
+            return raw.split(separator: ",").compactMap { CharacterArchetype(rawValue: String($0)) }
         }
-        set { pearsonArchetypeRaw = newValue?.rawValue }
+        set {
+            archetypeRaw = newValue.isEmpty ? nil : newValue.map(\.rawValue).joined(separator: ",")
+        }
     }
     
-    init(name: String? = nil, role: String? = nil, archetype: CharacterArchetype? = nil, pearsonArchetype: PearsonArchetype? = nil, history: String? = nil, looks: String? = nil, traits: String? = nil, work: String? = nil) {
+    /// Primary Pearson archetype (first selected, for backward compatibility)
+    var pearsonArchetype: PearsonArchetype? {
+        get { pearsonArchetypes.first }
+        set {
+            if let value = newValue {
+                pearsonArchetypes = [value]
+            } else {
+                pearsonArchetypes = []
+            }
+        }
+    }
+    
+    /// All selected Pearson archetypes (stored as comma-separated in pearsonArchetypeRaw)
+    var pearsonArchetypes: [PearsonArchetype] {
+        get {
+            guard let raw = pearsonArchetypeRaw, !raw.isEmpty else { return [] }
+            return raw.split(separator: ",").compactMap { PearsonArchetype(rawValue: String($0)) }
+        }
+        set {
+            pearsonArchetypeRaw = newValue.isEmpty ? nil : newValue.map(\.rawValue).joined(separator: ",")
+        }
+    }
+    
+    init(name: String? = nil, role: String? = nil, archetypes: [CharacterArchetype] = [], pearsonArchetypes: [PearsonArchetype] = [], history: String? = nil, looks: String? = nil, traits: String? = nil, work: String? = nil) {
         self.name = name
         self.role = role
-        self.archetypeRaw = archetype?.rawValue
-        self.pearsonArchetypeRaw = pearsonArchetype?.rawValue
+        self.archetypeRaw = archetypes.isEmpty ? nil : archetypes.map(\.rawValue).joined(separator: ",")
+        self.pearsonArchetypeRaw = pearsonArchetypes.isEmpty ? nil : pearsonArchetypes.map(\.rawValue).joined(separator: ",")
         self.history = history
         self.looks = looks
         self.traits = traits

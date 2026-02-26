@@ -265,10 +265,15 @@ class JSONImportService {
         
         // Feature 036: Import characters
         for charData in data.characters ?? [] {
+            // Parse comma-separated archetypes (backward compatible with single values)
+            let voglerArchetypes: [CharacterArchetype] = {
+                guard let raw = charData.archetypeRaw, !raw.isEmpty else { return [] }
+                return raw.split(separator: ",").compactMap { CharacterArchetype(rawValue: String($0)) }
+            }()
             let character = Character(
                 name: charData.name,
                 role: charData.role,
-                archetype: charData.archetypeRaw.flatMap { CharacterArchetype(rawValue: $0) },
+                archetypes: voglerArchetypes,
                 history: charData.history,
                 looks: charData.looks,
                 traits: charData.traits,

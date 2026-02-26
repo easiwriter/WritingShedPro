@@ -368,22 +368,47 @@ final class FictionModelsTests: XCTestCase {
     // MARK: - Character Tests
     
     func testCharacterCreation() {
-        let character = Character(name: "Frodo", role: "Protagonist", archetype: .hero, history: "Born in the Shire", looks: "Short with curly hair", traits: "Brave and loyal", work: "Ring bearer")
+        let character = Character(name: "Frodo", role: "Protagonist", archetypes: [.hero], history: "Born in the Shire", looks: "Short with curly hair", traits: "Brave and loyal", work: "Ring bearer")
         modelContext.insert(character)
         
         XCTAssertNotNil(character.id)
         XCTAssertEqual(character.name, "Frodo")
         XCTAssertEqual(character.role, "Protagonist")
         XCTAssertEqual(character.archetype, .hero)
+        XCTAssertEqual(character.archetypes, [.hero])
         XCTAssertEqual(character.history, "Born in the Shire")
         XCTAssertEqual(character.looks, "Short with curly hair")
         XCTAssertEqual(character.traits, "Brave and loyal")
         XCTAssertEqual(character.work, "Ring bearer")
     }
     
+    func testCharacterMultipleArchetypes() {
+        let character = Character(name: "Gandalf", archetypes: [.mentor, .hero, .shapeshifter])
+        XCTAssertEqual(character.archetypes.count, 3)
+        XCTAssertTrue(character.archetypes.contains(.mentor))
+        XCTAssertTrue(character.archetypes.contains(.hero))
+        XCTAssertTrue(character.archetypes.contains(.shapeshifter))
+        // Backward compatible: archetype returns first
+        XCTAssertEqual(character.archetype, .mentor)
+        // Raw stored as comma-separated
+        XCTAssertTrue(character.archetypeRaw?.contains(",") ?? false)
+    }
+    
+    func testCharacterMultiplePearsonArchetypes() {
+        let character = Character(name: "Athena", pearsonArchetypes: [.warrior, .sage, .ruler])
+        XCTAssertEqual(character.pearsonArchetypes.count, 3)
+        XCTAssertTrue(character.pearsonArchetypes.contains(.warrior))
+        XCTAssertTrue(character.pearsonArchetypes.contains(.sage))
+        XCTAssertTrue(character.pearsonArchetypes.contains(.ruler))
+        // Backward compatible: pearsonArchetype returns first
+        XCTAssertEqual(character.pearsonArchetype, .warrior)
+        // Raw stored as comma-separated
+        XCTAssertTrue(character.pearsonArchetypeRaw?.contains(",") ?? false)
+    }
+    
     func testCharacterArchetypeRoundTrip() {
         for archetype in CharacterArchetype.allCases {
-            let character = Character(name: "Test", archetype: archetype)
+            let character = Character(name: "Test", archetypes: [archetype])
             XCTAssertEqual(character.archetype, archetype)
             XCTAssertEqual(character.archetypeRaw, archetype.rawValue)
         }
@@ -395,6 +420,7 @@ final class FictionModelsTests: XCTestCase {
         
         XCTAssertNil(character.archetype)
         XCTAssertNil(character.archetypeRaw)
+        XCTAssertTrue(character.archetypes.isEmpty)
     }
     
     func testCharacterProjectRelationship() throws {
