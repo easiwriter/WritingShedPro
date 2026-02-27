@@ -755,6 +755,23 @@ struct FileEditView: View {
         }
     }
 
+    /// Info banner shown above the TOC editor content explaining that
+    /// the final preview/print includes dot leaders and right-aligned page numbers.
+    private var tocInfoBanner: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "info.circle.fill")
+                .foregroundColor(.accentColor)
+            Text(NSLocalizedString("toc.infoBanner", comment: "The final manuscript preview and print/export includes formatted dot leaders and right-aligned page numbers."))
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.secondarySystemBackground))
+    }
+
     @ViewBuilder
     private func navigationBarButtons() -> some View {
         // TOC files: show only settings button
@@ -1463,6 +1480,10 @@ struct FileEditView: View {
             if isPaginationMode {
                 paginationSection()
             } else {
+                // Info banner for TOC files
+                if file.isTOCFile {
+                    tocInfoBanner
+                }
                 textEditorSection()
                 // Formatting toolbar (only shown for editable rich text files, not when displaying as markdown)
                 if isFileEditable && !isDisplayingAsMarkdown {

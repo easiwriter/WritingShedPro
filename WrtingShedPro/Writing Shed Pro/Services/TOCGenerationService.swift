@@ -190,6 +190,8 @@ final class TOCGenerationService {
     /// Calculate page numbers for TOC entries by paginating the manuscript
     /// Approach: paginate body+back matter for raw page numbers, then calculate
     /// front matter page count (including TOC size) as an offset.
+    /// Must run on MainActor because it accesses SwiftData models and UIKit text layout.
+    @MainActor
     func calculatePageNumbers(for entries: [TOCEntry], project: Project, tocFile: TextFile?) async -> [TOCEntry] {
         #if DEBUG
         print("[TOCGeneration] ========== PAGE NUMBER CALCULATION START ==========")

@@ -1396,6 +1396,7 @@
 "toc.settings.level3" = "Level 4";
 "toc.settings.previewSection" = "Preview";
 "toc.calculatingPages" = "Calculating page numbers...";
+"toc.infoBanner" = "The final manuscript preview and print/export includes formatted dot leaders and right-aligned page numbers.";
 
 /* NumberFormat Display Names */
 "numberFormat.none" = "None";

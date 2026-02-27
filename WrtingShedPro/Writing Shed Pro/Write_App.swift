@@ -8,6 +8,7 @@
 import SwiftUI
 import SwiftData
 import CloudKit
+import CoreData
 import os
 
 @main
@@ -101,6 +102,73 @@ struct Write_App: App {
             #if DEBUG
             print("✅ [Write_App] CloudKitSyncThrottler initialized")
             #endif
+            
+            // Monitor CloudKit sync events for diagnostics and auto-retry
+            let syncRetryContext = mainContext
+            NotificationCenter.default.addObserver(
+                forName: NSPersistentCloudKitContainer.eventChangedNotification,
+                object: nil,
+                queue: nil
+            ) { notification in
+                guard let event = notification.userInfo?[NSPersistentCloudKitContainer.eventNotificationUserInfoKey]
+                        as? NSPersistentCloudKitContainer.Event else { return }
+                
+                let typeStr: String
+                switch event.type {
+                case .setup: typeStr = "setup"
+                case .import: typeStr = "import"
+                case .export: typeStr = "export"
+                @unknown default: typeStr = "unknown(\(event.type.rawValue))"
+                }
+                
+                let endDateStr = event.endDate?.description ?? "in-progress"
+                let startDateStr = event.startDate.description
+                
+                if event.endDate == nil {
+                    #if DEBUG
+                    print("⏳ [CloudKit Sync] STARTED: type=\(typeStr) at=\(startDateStr)")
+                    #endif
+                } else if !event.succeeded {
+                    let nsError = event.error as? NSError
+                    let errorMsg = nsError?.localizedDescription ?? "no error description"
+                    let errorDomain = nsError?.domain ?? "unknown"
+                    let errorCode = nsError?.code ?? -1
+                    let msg = "❌ [CloudKit Sync] FAILED: type=\(typeStr) domain=\(errorDomain) code=\(errorCode) error=\(errorMsg)"
+                    Write_App.logToFile(msg)
+                    #if DEBUG
+                    print(msg)
+                    if let underlying = nsError?.userInfo[NSUnderlyingErrorKey] as? NSError {
+                        print("   Underlying: domain=\(underlying.domain) code=\(underlying.code) \(underlying.localizedDescription)")
+                    }
+                    #endif
+                    
+                    // Auto-retry for export failures: the delegate's internal recovery
+                    // often stalls in debug sessions. Nudge it with a real data mutation
+                    // after a generous delay (90s) to ensure we're past the server's backoff.
+                    if event.type == .export {
+                        #if DEBUG
+                        print("🔄 [CloudKit Sync] Will nudge delegate in 90s if it hasn't retried...")
+                        #endif
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 90) {
+                            var descriptor = FetchDescriptor<Project>()
+                            descriptor.fetchLimit = 1
+                            if let project = try? syncRetryContext.fetch(descriptor).first {
+                                project.modifiedDate = Date()
+                                try? syncRetryContext.save()
+                                #if DEBUG
+                                print("🔄 [CloudKit Sync] Nudged: touched '\(project.name ?? "")' modifiedDate")
+                                #endif
+                            }
+                        }
+                    }
+                } else {
+                    #if DEBUG
+                    print("☁️ [CloudKit Sync] OK: type=\(typeStr) endDate=\(endDateStr)")
+                    #endif
+                }
+            }
+            
+            Write_App.logToFile("✅ CloudKit event monitoring active")
             
             // Check the actual store URL and configuration
             #if DEBUG

@@ -156,6 +156,47 @@ struct PoetryFormMigrationService {
         }
     }
     
+    /// Remove duplicate custom forms, keeping only one of each (earliest created)
+    /// Handles duplicates caused by CloudKit sync
+    /// - Parameter modelContext: The SwiftData context to use
+    static func removeDuplicateCustomForms(modelContext: ModelContext) {
+        let descriptor = FetchDescriptor<PoetryFormModel>(
+            predicate: #Predicate { $0.isCustom == true },
+            sortBy: [SortDescriptor(\.id), SortDescriptor(\.createdDate)]
+        )
+        
+        do {
+            let allCustom = try modelContext.fetch(descriptor)
+            
+            var seen = Set<UUID>()
+            var duplicatesToDelete: [PoetryFormModel] = []
+            
+            for form in allCustom {
+                if seen.contains(form.id) {
+                    duplicatesToDelete.append(form)
+                } else {
+                    seen.insert(form.id)
+                }
+            }
+            
+            guard !duplicatesToDelete.isEmpty else { return }
+            
+            for form in duplicatesToDelete {
+                modelContext.delete(form)
+            }
+            
+            try modelContext.save()
+            
+            #if DEBUG
+            print("[PoetryFormMigration] ✅ Removed \(duplicatesToDelete.count) duplicate custom forms")
+            #endif
+        } catch {
+            #if DEBUG
+            print("[PoetryFormMigration] ❌ Failed to remove custom duplicates: \(error)")
+            #endif
+        }
+    }
+    
     /// Check if a form with the given ID exists in the database
     /// - Parameters:
     ///   - id: The UUID to check
@@ -231,8 +272,8 @@ struct PoetryFormMigrationService {
             #if DEBUG
             print("[PoetryFormMigration] Version 4: Full reset of predefined forms to fix duplicates")
             #endif
+            // resetPredefinedForms already calls seedPredefinedForms internally
             resetPredefinedForms(modelContext: modelContext)
-            seedPredefinedForms(modelContext: modelContext)
             
         default:
             // Future versions: add incremental migrations here

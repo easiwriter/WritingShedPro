@@ -836,6 +836,7 @@ class JSONImportService {
             textFile.modifiedDate = textFileMetadata.modifiedDate ?? Date()
             textFile.parentFolder = targetFolder
             textFile.workflowStatus = workflowStatus
+            textFile.userOrder = index  // Preserve import order for deterministic sorting
             
             // Clear the auto-created initial version - we'll import the real versions
             textFile.versions = []

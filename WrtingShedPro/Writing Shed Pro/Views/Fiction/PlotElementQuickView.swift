@@ -2,19 +2,37 @@
 //  PlotElementQuickView.swift
 //  Writing Shed Pro
 //
-//  Quick read-only view of a plot element's description, characters, and locations
-//  Displayed when tapping a plot element in the editor insert menu
-//  Does not show story stage information
+//  Quick read-only view of a plot element's details
+//  Displayed when tapping a plot element in the editor toolbar
 //
 
 import SwiftUI
 
-/// Quick read-only view showing plot element details without story stage
+/// Quick read-only view showing plot element details including story stage and linked scenes
 struct PlotElementQuickView: View {
     
     @Environment(\.dismiss) private var dismiss
     
     let plotElement: PlotElement
+    
+    private var isVerseNovel: Bool {
+        plotElement.project?.fictionClass == .verseNovel
+    }
+    
+    private var linkedScenes: [StoryScene] {
+        (plotElement.linkedScenes ?? []).sorted {
+            ($0.userOrder ?? 0) < ($1.userOrder ?? 0)
+        }
+    }
+    
+    private var hasAnyContent: Bool {
+        if let notes = plotElement.notes, !notes.isEmpty { return true }
+        if plotElement.stageOrder != nil { return true }
+        if let characters = plotElement.characters, !characters.isEmpty { return true }
+        if let locations = plotElement.locations, !locations.isEmpty { return true }
+        if let scenes = plotElement.linkedScenes, !scenes.isEmpty { return true }
+        return false
+    }
     
     var body: some View {
         NavigationStack {
@@ -23,6 +41,11 @@ struct PlotElementQuickView: View {
                     // Description section
                     if let notes = plotElement.notes, !notes.isEmpty {
                         descriptionSection(notes)
+                    }
+                    
+                    // Story stage section
+                    if let stageOrder = plotElement.stageOrder, let stageName = plotElement.stageLocalizedName {
+                        stageSection(order: stageOrder, name: stageName)
                     }
                     
                     // Characters section
@@ -35,10 +58,13 @@ struct PlotElementQuickView: View {
                         locationsSection(locations)
                     }
                     
-                    // Show message if no content
-                    if (plotElement.notes?.isEmpty ?? true) &&
-                       (plotElement.characters?.isEmpty ?? true) &&
-                       (plotElement.locations?.isEmpty ?? true) {
+                    // Linked scenes/episodes section
+                    if !linkedScenes.isEmpty {
+                        linkedScenesSection
+                    }
+                    
+                    // Show message if no content at all
+                    if !hasAnyContent {
                         noContentMessage
                     }
                 }
@@ -94,6 +120,44 @@ struct PlotElementQuickView: View {
                 ForEach(locations.sorted { ($0.name ?? "") < ($1.name ?? "") }, id: \.id) { location in
                     Label(location.name ?? NSLocalizedString("fiction.untitled", comment: "Untitled"), systemImage: "mappin.circle.fill")
                         .font(.body)
+                }
+            }
+        }
+    }
+    
+    private func stageSection(order: Int, name: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(plotElement.project?.storyStructure.usesMonomyth == true
+                ? NSLocalizedString("fiction.plot.element.section.monomyth", comment: "Hero's Journey")
+                : NSLocalizedString("fiction.plot.element.section.threeAct", comment: "Three-Act Structure"))
+                .font(.headline)
+                .foregroundStyle(.secondary)
+            
+            Label("\(order). \(name)", systemImage: "star.circle.fill")
+                .font(.body)
+        }
+    }
+    
+    private var linkedScenesSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(isVerseNovel
+                ? NSLocalizedString("fiction.plot.element.section.linkedEpisodes", comment: "Linked Episodes")
+                : NSLocalizedString("fiction.plot.element.section.scenes", comment: "Scenes"))
+                .font(.headline)
+                .foregroundStyle(.secondary)
+            
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(linkedScenes, id: \.id) { scene in
+                    HStack {
+                        Label(scene.name ?? NSLocalizedString("fiction.untitled", comment: "Untitled"), systemImage: "film")
+                            .font(.body)
+                        Spacer()
+                        if let order = scene.userOrder {
+                            Text("#\(order + 1)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                 }
             }
         }

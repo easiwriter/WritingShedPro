@@ -92,7 +92,14 @@ extension FolderFilesView {
         }
         
         for collection in sortedCollections {
-            let collectionFiles = (collection.textFiles ?? []).filter { currentFiles.contains($0.id) }
+            let collectionFiles = (collection.textFiles ?? [])
+                .filter { currentFiles.contains($0.id) }
+                .sorted {
+                    let order0 = $0.userOrder ?? Int.max
+                    let order1 = $1.userOrder ?? Int.max
+                    if order0 != order1 { return order0 < order1 }
+                    return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+                }
             if !collectionFiles.isEmpty {
                 groups.append(CollectionGroup(
                     id: collection.id.uuidString,

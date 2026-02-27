@@ -43,6 +43,10 @@ final class PoetryFormService {
         
         // Ensure migration has run
         PoetryFormMigrationService.migrateIfNeeded(modelContext: context)
+        
+        // Clean up any duplicate records from CloudKit sync or migration issues
+        PoetryFormMigrationService.removeDuplicatePredefinedForms(modelContext: context)
+        PoetryFormMigrationService.removeDuplicateCustomForms(modelContext: context)
     }
     
     // MARK: - Public Methods
@@ -375,7 +379,7 @@ final class PoetryFormService {
         
         do {
             let models = try context.fetch(descriptor)
-            let forms = models.map { $0.toPoetryForm() }
+            let forms = deduplicateByID(models.map { $0.toPoetryForm() })
             
             #if DEBUG
             print("[PoetryFormService] ✅ Loaded \(forms.count) forms from database")
@@ -399,7 +403,7 @@ final class PoetryFormService {
         
         do {
             let models = try context.fetch(descriptor)
-            return models.map { $0.toPoetryForm() }
+            return deduplicateByID(models.map { $0.toPoetryForm() })
         } catch {
             #if DEBUG
             print("[PoetryFormService] ❌ Failed to load predefined forms: \(error)")
@@ -417,7 +421,7 @@ final class PoetryFormService {
         
         do {
             let models = try context.fetch(descriptor)
-            return models.map { $0.toPoetryForm() }
+            return deduplicateByID(models.map { $0.toPoetryForm() })
         } catch {
             #if DEBUG
             print("[PoetryFormService] ❌ Failed to load custom forms: \(error)")
@@ -474,6 +478,16 @@ final class PoetryFormService {
         }
         
         formsByCategory = grouped
+    }
+    
+    /// Remove duplicate forms by ID, keeping the first occurrence
+    private func deduplicateByID(_ forms: [PoetryForm]) -> [PoetryForm] {
+        var seen = Set<UUID>()
+        return forms.filter { form in
+            guard !seen.contains(form.id) else { return false }
+            seen.insert(form.id)
+            return true
+        }
     }
     
     private func createDefaultFreeVerse() -> PoetryForm {

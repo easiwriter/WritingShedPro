@@ -126,14 +126,10 @@ struct FolderFilesView: View {
     // State for early dismissal - prevents continued rendering during navigation
     @State var isDismissing = false
     
-    // Query all trash items (for trash count check)
-    @Query private var allTrashItems: [TrashItem]
-    
     /// Returns the number of TrashItem objects for this folder's project
+    /// Uses the project's existing relationship instead of a broad @Query
     private var trashItemCount: Int {
-        guard let project = folder.project else { return 0 }
-        let projectID: UUID = project.id
-        return allTrashItems.filter { (item: TrashItem) -> Bool in item.project?.id == projectID }.count
+        folder.project?.trashedItems?.count ?? 0
     }
     
     // Computed properties moved to FolderFilesView+Helpers.swift

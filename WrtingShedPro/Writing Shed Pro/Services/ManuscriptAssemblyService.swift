@@ -155,7 +155,12 @@ final class ManuscriptAssemblyService {
         for collection in collections {
             let files = (collection.textFiles ?? [])
                 .filter { $0.includedInManuscript }
-                .sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
+                .sorted {
+                    let order0 = $0.userOrder ?? Int.max
+                    let order1 = $1.userOrder ?? Int.max
+                    if order0 != order1 { return order0 < order1 }
+                    return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+                }
             if !files.isEmpty {
                 sections.append(ManuscriptSection(
                     title: collection.name ?? NSLocalizedString("poetry.collection.untitled", comment: "Untitled"),
