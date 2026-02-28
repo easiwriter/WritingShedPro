@@ -277,11 +277,13 @@ final class FootnoteManager: ObservableObject {
     ///   - context: SwiftData model context
     /// - Returns: Array of footnotes sorted by position
     nonisolated func getActiveFootnotes(forVersion version: Version, context: ModelContext) -> [FootnoteModel] {
-        // Use FetchDescriptor to query database directly instead of relying on cached relationship
-        let versionID = version.id
+        // Use FetchDescriptor to query database directly instead of relying on cached relationship.
+        // Filter by persistentModelID (not UUID) to avoid returning footnotes from a different
+        // project's version that happens to share the same UUID (e.g. after WSP re-import).
+        let versionPMID = version.persistentModelID
         let descriptor = FetchDescriptor<FootnoteModel>(
             predicate: #Predicate { footnote in
-                footnote.version?.id == versionID
+                footnote.version?.persistentModelID == versionPMID
             },
             sortBy: [SortDescriptor(\.characterPosition, order: .forward)]
         )

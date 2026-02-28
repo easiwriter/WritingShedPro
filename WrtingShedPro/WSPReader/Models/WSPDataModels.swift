@@ -20,6 +20,22 @@ struct WSPExportData: Codable {
     var proseSections: [WSPProseSectionData]?  // Optional for backward compatibility
     var publications: [WSPPublicationData] = []
     var submissions: [WSPSubmissionData] = []
+    // Feature 036
+    var poetryCollections: [WSPPoetryCollectionData]?
+    var books: [WSPBookData]?
+    var chapters: [WSPChapterData]?
+    var acts: [WSPActData]?
+    var scenes: [WSPStorySceneData]?
+    var characters: [WSPCharacterData]?
+    var locations: [WSPLocationData]?
+    var plotElements: [WSPPlotElementData]?
+    // Feature 029: Back Matter References
+    var noteEntries: [WSPNoteEntryData]?
+    var glossaryEntries: [WSPGlossaryEntryData]?
+    var referenceEntries: [WSPReferenceEntryData]?
+    var citationEntries: [WSPCitationEntryData]?
+    var indexEntries: [WSPIndexEntryData]?
+    var contributorEntries: [WSPContributorEntryData]?
 }
 
 // MARK: - Project Data
@@ -36,6 +52,15 @@ struct WSPProjectData: Codable {
     var fictionClass: String?
     var useMonomyth: Bool = false
     var storyStructure: String?
+    // Feature 023: Drama
+    var dramaScriptType: String?
+    // Feature 029: Manuscript Assembly
+    var manuscriptSettingsBase64: String?
+    var tocSettingsBase64: String?
+    // Feature 029: Contributor display settings
+    var contributorDisplaySurnameFirst: Bool?
+    var contributorDisplayRunTogether: Bool?
+    var contributorBodyStyleName: String?
 }
 
 // MARK: - Prose Section Data
@@ -158,4 +183,185 @@ struct WSPSubmittedFileData: Codable {
     var statusNotes: String?
     var createdDate: Date = Date()
     var modifiedDate: Date = Date()
+}
+
+// MARK: - Feature 036 Data Structures
+
+struct WSPPoetryCollectionData: Codable {
+    var id: String = ""
+    var name: String = ""
+    var userOrder: Int?
+    var synopsis: String?
+    var createdDate: Date = Date()
+    var modifiedDate: Date = Date()
+    var bodyMatterOrder: Int?
+    var isInBodyMatter: Bool = false
+}
+
+struct WSPBookData: Codable {
+    var id: String = ""
+    var name: String = ""
+    var userOrder: Int?
+    var synopsis: String?
+    var createdDate: Date = Date()
+    var modifiedDate: Date = Date()
+    var bodyMatterOrder: Int?
+    var isInBodyMatter: Bool = false
+}
+
+struct WSPChapterData: Codable {
+    var id: String = ""
+    var name: String = ""
+    var userOrder: Int?
+    var synopsis: String?
+    var createdDate: Date = Date()
+    var modifiedDate: Date = Date()
+    var bodyMatterOrder: Int?
+    var isInBodyMatter: Bool = false
+}
+
+struct WSPActData: Codable {
+    var id: String = ""
+    var name: String = ""
+    var userOrder: Int?
+    var synopsis: String?
+    var createdDate: Date = Date()
+    var modifiedDate: Date = Date()
+    var bodyMatterOrder: Int?
+    var isInBodyMatter: Bool = false
+}
+
+struct WSPStorySceneData: Codable {
+    var id: String = ""
+    var name: String = ""
+    var userOrder: Int?
+    var synopsis: String?
+    var createdDate: Date = Date()
+    var modifiedDate: Date = Date()
+    var bodyMatterOrder: Int?
+    var isInBodyMatter: Bool = false
+    var chapterId: String?
+    var actId: String?
+    var bookId: String?
+    var textFileId: String?
+    var isTrashed: Bool = false
+    var trashedDate: Date?
+    var monomythStageRaw: String?
+    var campbellStageRaw: String?
+    var threeActStageRaw: String?
+}
+
+struct WSPCharacterData: Codable {
+    var id: String = ""
+    var name: String?
+    var role: String?
+    var archetypeRaw: String?
+    var history: String?
+    var looks: String?
+    var traits: String?
+    var work: String?
+}
+
+struct WSPLocationData: Codable {
+    var id: String = ""
+    var name: String?
+    var detail: String?
+    var sights: String?
+    var sounds: String?
+    var smells: String?
+}
+
+struct WSPPlotElementData: Codable {
+    var id: String = ""
+    var name: String?
+    var notes: String?
+    var userOrder: Int?
+    var monomythStageRaw: String?
+    var campbellStageRaw: String?
+    var threeActStageRaw: String?
+    var pearsonStageRaw: String?
+    var createdDate: Date = Date()
+    var modifiedDate: Date = Date()
+    var linkedSceneIds: [String]?
+    var characterIds: [String]?
+    var locationIds: [String]?
+}
+
+// MARK: - Feature 029 Data Structures
+
+struct WSPNoteEntryData: Codable {
+    var id: String = ""
+    var content: String = ""
+    var formattedContentBase64: String?
+    var isEndnote: Bool = false
+    var displayNumber: Int = 0
+    var referenceCount: Int = 0
+    var referencingFileIDs: [String] = []
+    var createdAt: Date = Date()
+    var modifiedAt: Date = Date()
+    var title: String?
+    var tag: String?
+}
+
+struct WSPGlossaryEntryData: Codable {
+    var id: String = ""
+    var term: String = ""
+    var definition: String = ""
+    var citationId: String?
+    var referenceCount: Int = 0
+    var createdAt: Date = Date()
+    var modifiedAt: Date = Date()
+}
+
+struct WSPReferenceEntryData: Codable {
+    var id: String = ""
+    var author: String = ""
+    var publicationDate: String = ""
+    var details: String = ""
+    var referenceCount: Int = 0
+    var createdAt: Date = Date()
+    var modifiedAt: Date = Date()
+}
+
+struct WSPCitationEntryData: Codable {
+    var id: String = ""
+    var authors: [String] = []
+    var year: Int?
+    var title: String = ""
+    var source: String?
+    var url: String?
+    var doi: String?
+    var volume: String?
+    var issue: String?
+    var pages: String?
+    var edition: String?
+    var city: String?
+    var accessDate: Date?
+    var sourceTypeRaw: String?
+    var referenceCount: Int = 0
+    var createdAt: Date = Date()
+    var modifiedAt: Date = Date()
+}
+
+struct WSPIndexEntryData: Codable {
+    var id: String = ""
+    var keyword: String = ""
+    var parentEntryId: String?
+    var seeEntryID: String?
+    var seeAlsoEntryIDs: [String] = []
+    var referenceCount: Int = 0
+    var referencingFileIDs: [String] = []
+    var createdAt: Date = Date()
+    var modifiedAt: Date = Date()
+}
+
+struct WSPContributorEntryData: Codable {
+    var id: String = ""
+    var name: String = ""
+    var firstName: String = ""
+    var surname: String = ""
+    var biography: String = ""
+    var userOrder: Int = 0
+    var createdAt: Date = Date()
+    var modifiedAt: Date = Date()
 }

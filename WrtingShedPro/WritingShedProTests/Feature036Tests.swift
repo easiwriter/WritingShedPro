@@ -800,6 +800,11 @@ final class Feature036Tests: XCTestCase {
     func testMigrationSetsUserDefaultsFlag() throws {
         let project = createProject(name: "Test", type: .prose)
         modelContext.insert(project)
+        
+        // Add a section so migration actually has work to do (populate body matter)
+        let section = ProseSection(name: "Part 1", userOrder: 0)
+        section.project = project
+        modelContext.insert(section)
         try modelContext.save()
         
         XCTAssertFalse(UserDefaults.standard.bool(forKey: "hasRunFeature036Migration"))

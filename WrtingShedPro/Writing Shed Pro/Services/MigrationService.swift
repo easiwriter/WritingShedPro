@@ -10,6 +10,7 @@ class MigrationService {
     /// - Parameter context: The model context to use for migrations
     static func runMigrations(context: ModelContext) {
         cleanupOrphanedFolders(context: context)
+        deduplicateManuscriptSubfolders(context: context)
         migrateManuscriptSubfolders(context: context)
         migrateFeature036(context: context)
     }
@@ -84,6 +85,93 @@ class MigrationService {
     private static func cleanupOrphanedFolders(context: ModelContext) {
         // Just call the early cleanup - it's the same logic
         cleanupOrphanedFoldersEarly(context: context)
+    }
+    
+    /// Remove duplicate-named subfolders within Manuscript folders across all projects.
+    /// Keeps the subfolder with the most content (files + subfolders); deletes empty duplicates.
+    /// This cleans up data that may have been corrupted by CloudKit sync or bad imports.
+    private static func deduplicateManuscriptSubfolders(context: ModelContext) {
+        let descriptor = FetchDescriptor<Project>()
+        guard let projects = try? context.fetch(descriptor) else { return }
+        
+        var totalRemoved = 0
+        
+        for project in projects where !project.isTrashed {
+            guard let manuscriptFolder = project.folders?.first(where: { $0.name == "Manuscript" }) else {
+                continue
+            }
+            
+            // Deduplicate subfolders of Manuscript
+            totalRemoved += deduplicateFolderChildren(manuscriptFolder, context: context)
+            
+            // Also deduplicate text files within each subfolder (e.g. duplicate "Front Cover")
+            for subfolder in manuscriptFolder.folders ?? [] {
+                totalRemoved += deduplicateTextFileChildren(subfolder, context: context)
+            }
+        }
+        
+        if totalRemoved > 0 {
+            try? context.save()
+            #if DEBUG
+            print("🧹 [MigrationService] Removed \(totalRemoved) duplicate folders/files from Manuscript subfolders")
+            #endif
+        }
+    }
+    
+    /// Remove duplicate-named child folders from a parent folder.
+    /// Keeps the child with the most content. Returns number of duplicates removed.
+    private static func deduplicateFolderChildren(_ parent: Folder, context: ModelContext) -> Int {
+        guard let children = parent.folders, children.count > 1 else { return 0 }
+        
+        var groups: [String: [Folder]] = [:]
+        for child in children {
+            let name = child.name ?? ""
+            groups[name, default: []].append(child)
+        }
+        
+        var removed = 0
+        for (name, group) in groups where group.count > 1 {
+            // Keep the folder with the most content
+            let sorted = group.sorted { lhs, rhs in
+                let lhsScore = (lhs.textFiles?.count ?? 0) + (lhs.folders?.count ?? 0)
+                let rhsScore = (rhs.textFiles?.count ?? 0) + (rhs.folders?.count ?? 0)
+                return lhsScore > rhsScore
+            }
+            for dup in sorted.dropFirst() {
+                #if DEBUG
+                print("🧹 [MigrationService] Removing duplicate subfolder '\(name)' (id=\(dup.id)) from '\(parent.name ?? "")'")
+                #endif
+                context.delete(dup)
+                removed += 1
+            }
+        }
+        return removed
+    }
+    
+    /// Remove duplicate-named text files from a folder.
+    /// Keeps the file with the most versions. Returns number of duplicates removed.
+    private static func deduplicateTextFileChildren(_ folder: Folder, context: ModelContext) -> Int {
+        guard let files = folder.textFiles, files.count > 1 else { return 0 }
+        
+        var groups: [String: [TextFile]] = [:]
+        for file in files {
+            groups[file.name, default: []].append(file)
+        }
+        
+        var removed = 0
+        for (name, group) in groups where group.count > 1 {
+            let sorted = group.sorted { lhs, rhs in
+                (lhs.versions?.count ?? 0) > (rhs.versions?.count ?? 0)
+            }
+            for dup in sorted.dropFirst() {
+                #if DEBUG
+                print("🧹 [MigrationService] Removing duplicate file '\(name)' (id=\(dup.id)) from '\(folder.name ?? "")'")
+                #endif
+                context.delete(dup)
+                removed += 1
+            }
+        }
+        return removed
     }
     
     /// Feature 029: Add Front Matter, Body, Back Matter subfolders to existing Manuscript folders

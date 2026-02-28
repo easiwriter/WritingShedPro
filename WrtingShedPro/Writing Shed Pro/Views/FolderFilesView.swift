@@ -120,6 +120,10 @@ struct FolderFilesView: View {
     @State var showCollectionPicker = false
     @State var filesToAssignToCollection: [TextFile] = []
     
+    // State for container assignment dialog (Poetry projects only)
+    @State var showContainerAssignment = false
+    @State var filesToAssign: [TextFile] = []
+    
     // State for collection grouping expand/collapse (shared with FileListView)
     @State var collectionExpandedSections: Set<String> = []
     
@@ -152,6 +156,7 @@ struct FolderFilesView: View {
             onDeletePermanently: isReadOnly ? { _ in } : deleteFilesPermanently,
             onChangeStatus: (isContentFolder && !isReadOnly) ? handleChangeStatus : nil,
             onAddToCollection: (isPoetryProject && isContentFolder && !isReadOnly) ? handleAddToCollection : nil,
+            onManageContainers: (isPoetryProject && isContentFolder && !isReadOnly) ? { filesToAssign = selectedFiles; showContainerAssignment = true } : nil,
             onPrint: handlePrint,
             collectionGroups: poetryCollectionGroups,
             expandedCollections: $collectionExpandedSections
@@ -190,8 +195,8 @@ struct FolderFilesView: View {
     }
     
     private func handleAddToCollection(_ files: [TextFile]) {
-        filesToAssignToCollection = files
-        showCollectionPicker = true
+        filesToAssign = files
+        showContainerAssignment = true
     }
     
     @ViewBuilder
@@ -688,16 +693,15 @@ struct FolderFilesView: View {
         
         Spacer()
         
-        // Submit button (only when files selected, no folders)
-        // Hidden when all selected files are still in draft
-        if filesOnlySelected && selectedFiles.contains(where: { $0.workflowStatus != .draft }) {
+        // Add to submission button (only when files selected, no folders)
+        if filesOnlySelected {
             Button {
                 filesToSubmit = selectedFiles
                 showSubmissionPicker = true
             } label: {
-                Image(systemName: "book.badge.plus")
+                Image(systemName: "tray.and.arrow.down")
             }
-            .accessibilityLabel(NSLocalizedString("fileList.submit", comment: "Submit files"))
+            .accessibilityLabel(NSLocalizedString("fileList.addToSubmission", comment: "Add to submission"))
             
             Spacer()
         }
@@ -975,63 +979,6 @@ struct FolderFilesView: View {
             #endif
             // TODO: Show error alert
         }
-    }
-    
-    func createSubmission(for publication: Publication, name: String, expectedResponseDate: Date? = nil, reminderDate: Date? = nil) {
-        guard let project = folder.project else { return }
-        
-        // Create submission
-        let submission = Submission(
-            publication: publication,
-            project: project,
-            submittedDate: Date(),
-            notes: nil
-        )
-        submission.name = name
-        submission.isCollection = false  // This is a submission to a publication
-        submission.returnExpectedBy = expectedResponseDate
-        
-        // Schedule reminder notification if requested
-        if let reminderDate = reminderDate {
-            submission.reminderDate = reminderDate
-            let pubName = publication.name
-            let subName = name
-            Task {
-                let notifId = await NotificationReminderService.shared.scheduleSubmissionReminder(
-                    submissionId: UUID().uuidString,
-                    publicationName: pubName,
-                    submissionName: subName,
-                    reminderDate: reminderDate
-                )
-                if let notifId = notifId {
-                    await MainActor.run {
-                        submission.reminderNotificationId = notifId
-                    }
-                }
-            }
-        }
-        
-        modelContext.insert(submission)
-        
-        // Create submitted file records for each selected file
-        for file in filesToSubmit {
-            if let currentVersion = file.currentVersion {
-                let submittedFile = SubmittedFile(
-                    submission: submission,
-                    textFile: file,
-                    version: currentVersion,
-                    status: .pending,
-                    statusDate: Date(),
-                    project: project
-                )
-                modelContext.insert(submittedFile)
-            }
-        }
-        
-        // Clear selection after submission
-        selectedFileIDs.removeAll()
-        editMode = .inactive
-        filesToSubmit = []
     }
     
     func handleImport(result: Result<[URL], Error>) {

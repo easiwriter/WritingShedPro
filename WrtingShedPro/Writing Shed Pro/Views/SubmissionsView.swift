@@ -31,6 +31,10 @@ struct SubmissionsView: View {
     // State for submitting to publication
     @State private var showPublicationPicker = false
     
+    // State for creating a new submission
+    @State private var showNewSubmissionSheet = false
+    @State private var newSubmissionName = ""
+    
     // Query all Submissions for this project where publication is not nil
     @Query private var allSubmissions: [Submission]
     
@@ -147,6 +151,15 @@ struct SubmissionsView: View {
             ToolbarItem(placement: .topBarLeading) {
                 PopToRootBackButton()
             }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    newSubmissionName = ""
+                    showNewSubmissionSheet = true
+                } label: {
+                    Image(systemName: "plus")
+                }
+                .accessibilityLabel(NSLocalizedString("submissions.create", comment: "Create submission"))
+            }
         }
         .alert(submissionsToDelete.count == 1 ? "Delete Submission?" : "Delete \(submissionsToDelete.count) Submissions?", isPresented: $showDeleteConfirmation) {
             Button("Cancel", role: .cancel) {
@@ -179,6 +192,37 @@ struct SubmissionsView: View {
                     }
                 )
             }
+        }
+        .alert(NSLocalizedString("submissions.new.title", comment: "New Submission"), isPresented: $showNewSubmissionSheet) {
+            TextField(NSLocalizedString("submissions.name.placeholder", comment: "Name"), text: $newSubmissionName)
+            Button(NSLocalizedString("button.create", comment: "Create")) {
+                createEmptySubmission()
+            }
+            .disabled(newSubmissionName.trimmingCharacters(in: .whitespaces).isEmpty)
+            Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {}
+        }
+    }
+    
+    // MARK: - Create Empty Submission
+    
+    private func createEmptySubmission() {
+        let name = newSubmissionName.trimmingCharacters(in: .whitespaces)
+        guard !name.isEmpty else { return }
+        
+        let submission = Submission(
+            project: project,
+            submittedDate: Date()
+        )
+        submission.name = name
+        submission.isCollection = false
+        modelContext.insert(submission)
+        
+        do {
+            try modelContext.save()
+        } catch {
+            #if DEBUG
+            print("[SubmissionsView] Error creating submission: \(error)")
+            #endif
         }
     }
     
@@ -321,7 +365,7 @@ struct SubmissionsView: View {
                 .font(.title2)
                 .fontWeight(.semibold)
             
-            Text("Submissions from collections to publications will appear here")
+            Text("Tap + to create a submission, or add files from the file list")
                 .font(.body)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)

@@ -114,4 +114,13 @@ Views that already implement this: FolderFilesView, FolderListView (subfolders),
   - Extract logic into a separate method called without capture
   - Use captured properties instead of self
 - When you see `'weak' may only be applied to class and class-bound protocol types, not 'YourViewName'`, it means YourViewName is a struct
+
+## Localization: Always Add Strings to Localizable.strings
+**CRITICAL: Every `NSLocalizedString` key MUST have a corresponding entry in `Localizable.strings`**
+- Localizable.strings location: `WrtingShedPro/Writing Shed Pro/Resources/en.lproj/Localizable.strings`
+- When adding new `NSLocalizedString("key", comment: "...")` calls in Swift code, **immediately** add a matching `"key" = "English text";` entry to the Localizable.strings file
+- Before using a localization key, **grep the Localizable.strings file** to check if it already exists
+- Use existing keys where possible (e.g. `common.cancel`, `common.done`, `fiction.untitled`)
+- Group new keys under a `// MARK: -` comment section
+- Keys that exist without a Localizable.strings entry will display the raw key text at runtime
 <!-- MANUAL ADDITIONS END -->

@@ -379,7 +379,7 @@ struct FolderListView: View {
                         Button {
                             submitManuscript()
                         } label: {
-                            Label(NSLocalizedString("manuscript.submit", comment: "Submit"), systemImage: "paperplane")
+                            Label(NSLocalizedString("fileList.addToSubmission", comment: "Add to submission"), systemImage: "tray.and.arrow.down")
                         }
                         .disabled(isExporting)
                         
@@ -477,20 +477,10 @@ struct FolderListView: View {
             )
         }
         .sheet(isPresented: $showSubmitManuscript) {
-            NavigationStack {
-                SubmissionPickerView(
-                    project: project,
-                    filesToSubmit: manuscriptFilesToSubmit,
-                    collectionToSubmit: nil,
-                    onPublicationSelected: { publication, name, expectedDate, reminderDate in
-                        createManuscriptSubmission(for: publication, name: name, expectedResponseDate: expectedDate, reminderDate: reminderDate)
-                        showSubmitManuscript = false
-                    },
-                    onCancel: {
-                        showSubmitManuscript = false
-                    }
-                )
-            }
+            AddToSubmissionSheet(
+                project: project,
+                filesToAdd: manuscriptFilesToSubmit
+            )
         }
     }
     
@@ -568,60 +558,6 @@ struct FolderListView: View {
         }
         manuscriptFilesToSubmit = files
         showSubmitManuscript = true
-    }
-    
-    /// Create a Submission for manuscript body matter files
-    private func createManuscriptSubmission(for publication: Publication, name: String, expectedResponseDate: Date? = nil, reminderDate: Date? = nil) {
-        let submission = Submission(
-            publication: publication,
-            project: project,
-            submittedDate: Date(),
-            notes: nil
-        )
-        submission.name = name
-        submission.isCollection = false
-        submission.returnExpectedBy = expectedResponseDate
-        
-        // Schedule reminder notification if requested
-        if let reminderDate = reminderDate {
-            submission.reminderDate = reminderDate
-            let pubName = publication.name
-            let subName = name
-            Task {
-                let notifId = await NotificationReminderService.shared.scheduleSubmissionReminder(
-                    submissionId: UUID().uuidString,
-                    publicationName: pubName,
-                    submissionName: subName,
-                    reminderDate: reminderDate
-                )
-                if let notifId = notifId {
-                    await MainActor.run {
-                        submission.reminderNotificationId = notifId
-                    }
-                }
-            }
-        }
-        
-        modelContext.insert(submission)
-        
-        for file in manuscriptFilesToSubmit {
-            if let currentVersion = file.currentVersion {
-                let submittedFile = SubmittedFile(
-                    submission: submission,
-                    textFile: file,
-                    version: currentVersion,
-                    status: .pending,
-                    statusDate: Date(),
-                    project: project
-                )
-                modelContext.insert(submittedFile)
-            }
-        }
-        
-        manuscriptFilesToSubmit = []
-        #if DEBUG
-        print("✅ [Manuscript] Created submission '\(name)' with \(submission.submittedFiles?.count ?? 0) files for publication '\(publication.name)'")
-        #endif
     }
     
     /// Export the full manuscript as PDF

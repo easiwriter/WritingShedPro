@@ -435,9 +435,12 @@ struct ContentView: View {
                     let errorHandler = ImportErrorHandler()
                     
                     // JSON/WSP/WSD import
+                    // Always generate new UUIDs to prevent CloudKit from merging
+                    // duplicate-UUID folders/files across the original and imported projects
                     let jsonImporter = JSONImportService(
                         modelContext: modelContext,
-                        errorHandler: errorHandler
+                        errorHandler: errorHandler,
+                        generateNewUUIDs: true
                     )
                     
                     // Perform import

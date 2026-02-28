@@ -29,7 +29,7 @@ final class PoetryCollection {
     // Relationships
     var project: Project?
     
-    @Relationship(deleteRule: .nullify, inverse: \TextFile.poetryCollection)
+    @Relationship(deleteRule: .nullify, inverse: \TextFile.poetryCollections)
     var textFiles: [TextFile]?
     
     init(name: String? = nil, synopsis: String? = nil, userOrder: Int? = nil) {

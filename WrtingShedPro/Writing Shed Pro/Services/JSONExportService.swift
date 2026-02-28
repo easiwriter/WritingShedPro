@@ -120,7 +120,7 @@ class JSONExportService {
         var exportData = WSPExportData()
         
         // Project metadata
-        exportData.formatVersion = "1.1"
+        exportData.formatVersion = "1.3"
         exportData.exportDate = Date()
         exportData.appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
         
@@ -149,6 +149,15 @@ class JSONExportService {
         exportData.scenes = buildStorySceneData(from: project)
         exportData.characters = buildCharacterData(from: project)
         exportData.locations = buildLocationData(from: project)
+        exportData.plotElements = buildPlotElementData(from: project)
+        
+        // Feature 029: Back matter references
+        exportData.noteEntries = buildNoteEntryData(from: project)
+        exportData.glossaryEntries = buildGlossaryEntryData(from: project)
+        exportData.referenceEntries = buildReferenceEntryData(from: project)
+        exportData.citationEntries = buildCitationEntryData(from: project)
+        exportData.indexEntries = buildIndexEntryData(from: project)
+        exportData.contributorEntries = buildContributorEntryData(from: project)
         
         #if DEBUG
         print("[JSONExport] Built export data:")
@@ -163,6 +172,13 @@ class JSONExportService {
         print("[JSONExport]   Scenes: \(exportData.scenes?.count ?? 0)")
         print("[JSONExport]   Characters: \(exportData.characters?.count ?? 0)")
         print("[JSONExport]   Locations: \(exportData.locations?.count ?? 0)")
+        print("[JSONExport]   Plot Elements: \(exportData.plotElements?.count ?? 0)")
+        print("[JSONExport]   Note Entries: \(exportData.noteEntries?.count ?? 0)")
+        print("[JSONExport]   Glossary Entries: \(exportData.glossaryEntries?.count ?? 0)")
+        print("[JSONExport]   Reference Entries: \(exportData.referenceEntries?.count ?? 0)")
+        print("[JSONExport]   Citation Entries: \(exportData.citationEntries?.count ?? 0)")
+        print("[JSONExport]   Index Entries: \(exportData.indexEntries?.count ?? 0)")
+        print("[JSONExport]   Contributor Entries: \(exportData.contributorEntries?.count ?? 0)")
         #endif
         
         return exportData
@@ -182,7 +198,13 @@ class JSONExportService {
             notes: project.notes,
             fictionClass: project.fictionClassRaw,
             useMonomyth: project.useMonomyth,
-            storyStructure: project.storyStructureRaw
+            storyStructure: project.storyStructureRaw,
+            dramaScriptType: project.dramaScriptTypeRaw,
+            manuscriptSettingsBase64: project.manuscriptSettingsData?.base64EncodedString(),
+            tocSettingsBase64: project.tocSettingsData?.base64EncodedString(),
+            contributorDisplaySurnameFirst: project.contributorDisplaySurnameFirst,
+            contributorDisplayRunTogether: project.contributorDisplayRunTogether,
+            contributorBodyStyleName: project.contributorBodyStyleName != "body" ? project.contributorBodyStyleName : nil
         )
     }
     
@@ -214,7 +236,11 @@ class JSONExportService {
             userOrder: folder.userOrder,
             parentId: parentId,
             textFiles: textFiles,
-            subfolders: subfolders
+            subfolders: subfolders,
+            frontMatterSettingsBase64: folder.frontMatterSettingsData?.base64EncodedString(),
+            backMatterSettingsBase64: folder.backMatterSettingsData?.base64EncodedString(),
+            dramaFrontMatterSettingsBase64: folder.dramaFrontMatterSettingsData?.base64EncodedString(),
+            dramaBackMatterSettingsBase64: folder.dramaBackMatterSettingsData?.base64EncodedString()
         )
     }
     
@@ -229,6 +255,12 @@ class JSONExportService {
             tocSettingsBase64 = data.base64EncodedString()
         }
         
+        // Encode cover image as base64 if this is a cover file
+        var coverImageBase64: String? = nil
+        if textFile.isCoverFile, let data = textFile.coverImageData {
+            coverImageBase64 = data.base64EncodedString()
+        }
+        
         return WSPTextFileData(
             id: textFile.id.uuidString,
             name: textFile.name,
@@ -240,11 +272,15 @@ class JSONExportService {
             poetryFormId: textFile.poetryFormId?.uuidString,
             poetryFormName: textFile.poetryFormName,
             sectionId: textFile.section?.id.uuidString,
+            sectionIds: textFile.sections?.map { $0.id.uuidString },
             includedInManuscript: textFile.includedInManuscript,
             contentTypeRaw: textFile.contentTypeRaw != "richText" ? textFile.contentTypeRaw : nil,  // Only export if not default
             isTOCFile: textFile.isTOCFile ? true : nil,  // Only export if true
             tocSettingsBase64: tocSettingsBase64,
             poetryCollectionId: textFile.poetryCollection?.id.uuidString,
+            poetryCollectionIds: textFile.poetryCollections?.map { $0.id.uuidString },
+            isCoverFile: textFile.isCoverFile ? true : nil,  // Only export if true
+            coverImageBase64: coverImageBase64,
             versions: versions
         )
     }
@@ -476,8 +512,11 @@ class JSONExportService {
                 bodyMatterOrder: scene.bodyMatterOrder,
                 isInBodyMatter: scene.isInBodyMatter,
                 chapterId: scene.chapter?.id.uuidString,
+                chapterIds: scene.chapters?.map { $0.id.uuidString },
                 actId: scene.act?.id.uuidString,
+                actIds: scene.acts?.map { $0.id.uuidString },
                 bookId: scene.book?.id.uuidString,
+                bookIds: scene.books?.map { $0.id.uuidString },
                 textFileId: scene.textFile?.id.uuidString,
                 isTrashed: scene.isTrashed,
                 trashedDate: scene.trashedDate,
@@ -523,6 +562,155 @@ class JSONExportService {
             )
         }
     }
+    
+    // MARK: - Plot Element Data
+    
+    private func buildPlotElementData(from project: Project) -> [WSPPlotElementData] {
+        guard let plotElements = project.plotElements, !plotElements.isEmpty else { return [] }
+        
+        return plotElements.map { element in
+            WSPPlotElementData(
+                id: element.id.uuidString,
+                name: element.name,
+                notes: element.notes,
+                userOrder: element.userOrder,
+                monomythStageRaw: element.monomythStageRaw,
+                campbellStageRaw: element.campbellStageRaw,
+                threeActStageRaw: element.threeActStageRaw,
+                pearsonStageRaw: element.pearsonStageRaw,
+                createdDate: element.createdDate,
+                modifiedDate: element.modifiedDate,
+                linkedSceneIds: element.linkedScenes?.map { $0.id.uuidString },
+                characterIds: element.characters?.map { $0.id.uuidString },
+                locationIds: element.locations?.map { $0.id.uuidString }
+            )
+        }
+    }
+    
+    // MARK: - Feature 029: Note Entry Data
+    
+    private func buildNoteEntryData(from project: Project) -> [WSPNoteEntryData] {
+        guard let notes = project.noteEntries, !notes.isEmpty else { return [] }
+        
+        return notes.map { note in
+            WSPNoteEntryData(
+                id: note.id.uuidString,
+                content: note.content,
+                formattedContentBase64: note.formattedContentData?.base64EncodedString(),
+                isEndnote: note.isEndnote,
+                displayNumber: note.displayNumber,
+                referenceCount: note.referenceCount,
+                referencingFileIDs: note.referencingFileIDs.map { $0.uuidString },
+                createdAt: note.createdAt,
+                modifiedAt: note.modifiedAt,
+                title: note.title,
+                tag: note.tag
+            )
+        }
+    }
+    
+    // MARK: - Feature 029: Glossary Entry Data
+    
+    private func buildGlossaryEntryData(from project: Project) -> [WSPGlossaryEntryData] {
+        guard let entries = project.glossaryEntries, !entries.isEmpty else { return [] }
+        
+        return entries.map { entry in
+            WSPGlossaryEntryData(
+                id: entry.id.uuidString,
+                term: entry.term,
+                definition: entry.definition,
+                citationId: entry.citation?.id.uuidString,
+                referenceCount: entry.referenceCount,
+                createdAt: entry.createdAt,
+                modifiedAt: entry.modifiedAt
+            )
+        }
+    }
+    
+    // MARK: - Feature 029: Reference Entry Data
+    
+    private func buildReferenceEntryData(from project: Project) -> [WSPReferenceEntryData] {
+        guard let entries = project.referenceEntries, !entries.isEmpty else { return [] }
+        
+        return entries.map { entry in
+            WSPReferenceEntryData(
+                id: entry.id.uuidString,
+                author: entry.author,
+                publicationDate: entry.publicationDate,
+                details: entry.details,
+                referenceCount: entry.referenceCount,
+                createdAt: entry.createdAt,
+                modifiedAt: entry.modifiedAt
+            )
+        }
+    }
+    
+    // MARK: - Feature 029: Citation Entry Data
+    
+    private func buildCitationEntryData(from project: Project) -> [WSPCitationEntryData] {
+        guard let entries = project.citationEntries, !entries.isEmpty else { return [] }
+        
+        return entries.map { entry in
+            WSPCitationEntryData(
+                id: entry.id.uuidString,
+                authors: entry.authors,
+                year: entry.year,
+                title: entry.title,
+                source: entry.source,
+                url: entry.url,
+                doi: entry.doi,
+                volume: entry.volume,
+                issue: entry.issue,
+                pages: entry.pages,
+                edition: entry.edition,
+                city: entry.city,
+                accessDate: entry.accessDate,
+                sourceTypeRaw: entry.sourceTypeRaw,
+                referenceCount: entry.referenceCount,
+                createdAt: entry.createdAt,
+                modifiedAt: entry.modifiedAt
+            )
+        }
+    }
+    
+    // MARK: - Feature 029: Index Entry Data
+    
+    private func buildIndexEntryData(from project: Project) -> [WSPIndexEntryData] {
+        guard let entries = project.indexEntries, !entries.isEmpty else { return [] }
+        
+        return entries.map { entry in
+            WSPIndexEntryData(
+                id: entry.id.uuidString,
+                keyword: entry.keyword,
+                parentEntryId: entry.parentEntry?.id.uuidString,
+                seeEntryID: entry.seeEntryID?.uuidString,
+                seeAlsoEntryIDs: entry.seeAlsoEntryIDs.map { $0.uuidString },
+                referenceCount: entry.referenceCount,
+                referencingFileIDs: entry.referencingFileIDs.map { $0.uuidString },
+                createdAt: entry.createdAt,
+                modifiedAt: entry.modifiedAt
+            )
+        }
+    }
+    
+    // MARK: - Feature 029: Contributor Entry Data
+    
+    private func buildContributorEntryData(from project: Project) -> [WSPContributorEntryData] {
+        guard let entries = project.contributorEntries, !entries.isEmpty else { return [] }
+        
+        return entries.map { entry in
+            WSPContributorEntryData(
+                id: entry.id.uuidString,
+                name: entry.name,
+                firstName: entry.firstName,
+                surname: entry.surname,
+                biography: entry.biography,
+                userOrder: entry.userOrder,
+                createdAt: entry.createdAt,
+                modifiedAt: entry.modifiedAt
+            )
+        }
+    }
 }
 
 // MARK: - Export Data Structures
@@ -545,6 +733,14 @@ struct WSPExportData: Codable {
     var scenes: [WSPStorySceneData]?
     var characters: [WSPCharacterData]?
     var locations: [WSPLocationData]?
+    var plotElements: [WSPPlotElementData]?
+    // Feature 029: Back Matter References
+    var noteEntries: [WSPNoteEntryData]?
+    var glossaryEntries: [WSPGlossaryEntryData]?
+    var referenceEntries: [WSPReferenceEntryData]?
+    var citationEntries: [WSPCitationEntryData]?
+    var indexEntries: [WSPIndexEntryData]?
+    var contributorEntries: [WSPContributorEntryData]?
 }
 
 struct WSPProjectData: Codable {
@@ -559,6 +755,15 @@ struct WSPProjectData: Codable {
     var fictionClass: String?
     var useMonomyth: Bool = false  // Legacy, kept for backward compatibility
     var storyStructure: String?    // New: StoryStructure raw value
+    // Feature 023: Drama
+    var dramaScriptType: String?
+    // Feature 029: Manuscript Assembly
+    var manuscriptSettingsBase64: String?
+    var tocSettingsBase64: String?
+    // Feature 029: Contributor display settings
+    var contributorDisplaySurnameFirst: Bool?
+    var contributorDisplayRunTogether: Bool?
+    var contributorBodyStyleName: String?
 }
 
 struct WSPProseSectionData: Codable {
@@ -579,6 +784,11 @@ struct WSPFolderData: Codable {
     var parentId: String?
     var textFiles: [WSPTextFileData] = []
     var subfolders: [WSPFolderData] = []
+    // Matter settings (Base64-encoded JSON)
+    var frontMatterSettingsBase64: String?
+    var backMatterSettingsBase64: String?
+    var dramaFrontMatterSettingsBase64: String?
+    var dramaBackMatterSettingsBase64: String?
 }
 
 struct WSPTextFileData: Codable {
@@ -592,11 +802,15 @@ struct WSPTextFileData: Codable {
     var poetryFormId: String?
     var poetryFormName: String?
     var sectionId: String?
+    var sectionIds: [String]?  // v1.3: many-to-many sections
     var includedInManuscript: Bool?  // Optional for backward compatibility, defaults to true
     var contentTypeRaw: String?  // Optional for backward compatibility - "richText" or "markdown"
     var isTOCFile: Bool?  // Optional for backward compatibility - Feature 031
     var tocSettingsBase64: String?  // Base64 encoded TOCSettings JSON - Feature 031
     var poetryCollectionId: String?  // Feature 036: link to PoetryCollection
+    var poetryCollectionIds: [String]?  // v1.3: many-to-many poetry collections
+    var isCoverFile: Bool?  // Cover image file (Front Cover / Back Cover)
+    var coverImageBase64: String?  // Base64 encoded cover image data (JPEG/PNG)
     var versions: [WSPVersionData] = []
 }
 
@@ -726,8 +940,11 @@ struct WSPStorySceneData: Codable {
     var bodyMatterOrder: Int?
     var isInBodyMatter: Bool = false
     var chapterId: String?
+    var chapterIds: [String]?  // v1.3: many-to-many chapters
     var actId: String?
+    var actIds: [String]?  // v1.3: many-to-many acts
     var bookId: String?
+    var bookIds: [String]?  // v1.3: many-to-many books
     var textFileId: String?
     var isTrashed: Bool = false
     var trashedDate: Date?
@@ -754,4 +971,99 @@ struct WSPLocationData: Codable {
     var sights: String?
     var sounds: String?
     var smells: String?
+}
+
+struct WSPPlotElementData: Codable {
+    var id: String = ""
+    var name: String?
+    var notes: String?
+    var userOrder: Int?
+    var monomythStageRaw: String?
+    var campbellStageRaw: String?
+    var threeActStageRaw: String?
+    var pearsonStageRaw: String?
+    var createdDate: Date = Date()
+    var modifiedDate: Date = Date()
+    var linkedSceneIds: [String]?
+    var characterIds: [String]?
+    var locationIds: [String]?
+}
+
+// MARK: - Feature 029 Data Structures
+
+struct WSPNoteEntryData: Codable {
+    var id: String = ""
+    var content: String = ""
+    var formattedContentBase64: String?
+    var isEndnote: Bool = false
+    var displayNumber: Int = 0
+    var referenceCount: Int = 0
+    var referencingFileIDs: [String] = []
+    var createdAt: Date = Date()
+    var modifiedAt: Date = Date()
+    var title: String?
+    var tag: String?
+}
+
+struct WSPGlossaryEntryData: Codable {
+    var id: String = ""
+    var term: String = ""
+    var definition: String = ""
+    var citationId: String?
+    var referenceCount: Int = 0
+    var createdAt: Date = Date()
+    var modifiedAt: Date = Date()
+}
+
+struct WSPReferenceEntryData: Codable {
+    var id: String = ""
+    var author: String = ""
+    var publicationDate: String = ""
+    var details: String = ""
+    var referenceCount: Int = 0
+    var createdAt: Date = Date()
+    var modifiedAt: Date = Date()
+}
+
+struct WSPCitationEntryData: Codable {
+    var id: String = ""
+    var authors: [String] = []
+    var year: Int?
+    var title: String = ""
+    var source: String?
+    var url: String?
+    var doi: String?
+    var volume: String?
+    var issue: String?
+    var pages: String?
+    var edition: String?
+    var city: String?
+    var accessDate: Date?
+    var sourceTypeRaw: String?
+    var referenceCount: Int = 0
+    var createdAt: Date = Date()
+    var modifiedAt: Date = Date()
+}
+
+struct WSPIndexEntryData: Codable {
+    var id: String = ""
+    var keyword: String = ""
+    var parentEntryId: String?
+    var seeEntryID: String?
+    var seeAlsoEntryIDs: [String] = []
+    var referenceCount: Int = 0
+    var referencingFileIDs: [String] = []
+    var createdAt: Date = Date()
+    var modifiedAt: Date = Date()
+}
+
+struct WSPContributorEntryData: Codable {
+    var id: String = ""
+    var name: String = ""
+    var firstName: String = ""
+    var surname: String = ""
+    var biography: String = ""
+    var userOrder: Int = 0
+    var createdAt: Date = Date()
+    var modifiedAt: Date = Date()
 }

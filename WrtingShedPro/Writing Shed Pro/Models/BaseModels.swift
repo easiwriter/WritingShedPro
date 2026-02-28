@@ -778,11 +778,11 @@ final class TextFile {
     // A TextFile can be the content of a Scene
     var scene: StoryScene?
     
-    // Prose: A TextFile can belong to a ProseSection
-    var section: ProseSection?
+    // Prose: A TextFile can belong to multiple ProseSections
+    var sections: [ProseSection]?
     
-    // Feature 036: Poetry Collection membership
-    var poetryCollection: PoetryCollection?
+    // Feature 036: Poetry Collection membership (many-to-many)
+    var poetryCollections: [PoetryCollection]?
     
     // Feature 029: Manuscript Assembly
     // Whether this file is included in manuscript assembly (default: true)

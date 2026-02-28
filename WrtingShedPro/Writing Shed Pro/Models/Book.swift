@@ -29,7 +29,7 @@ final class Book {
     // Relationships
     var project: Project?
     
-    @Relationship(deleteRule: .nullify, inverse: \StoryScene.book)
+    @Relationship(deleteRule: .nullify, inverse: \StoryScene.books)
     var scenes: [StoryScene]?
     
     init(name: String? = nil, synopsis: String? = nil, userOrder: Int? = nil) {

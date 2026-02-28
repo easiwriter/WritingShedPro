@@ -67,6 +67,9 @@ struct FileListView: View {
     /// Called when user wants to add files to a poetry collection (optional - only for Poetry content folders)
     let onAddToCollection: (([TextFile]) -> Void)?
     
+    /// Called when user wants to manage container assignments (optional - shows full-screen assignment dialog)
+    let onManageContainers: (() -> Void)?
+    
     /// Called when user wants to print selected files (optional)
     let onPrint: (([TextFile]) -> Void)?
     
@@ -619,24 +622,20 @@ struct FileListView: View {
                     systemImage: "doc.text"
                 )
             }
-            .disabled(selectedFiles.isEmpty)
         }
         
-        // Submit button (if onSubmit callback provided)
-        // Hidden when all selected files are still in draft
+        // Add to submission button (if onSubmit callback provided)
         if let onSubmit = onSubmit {
-            if selectedFiles.contains(where: { $0.workflowStatus != .draft }) {
-                Button {
-                    onSubmit(selectedFiles)
-                    exitEditMode()
-                } label: {
-                    Label(
-                        NSLocalizedString("fileList.submit", comment: "Submit files"),
-                        systemImage: "paperplane"
-                    )
-                }
-                .disabled(selectedFiles.isEmpty)
+            Button {
+                onSubmit(selectedFiles)
+                exitEditMode()
+            } label: {
+                Label(
+                    NSLocalizedString("fileList.addToSubmission", comment: "Add to submission"),
+                    systemImage: "tray.and.arrow.down"
+                )
             }
+            .disabled(selectedFiles.isEmpty)
         }
         
         // Rename button (only when exactly 1 file is selected)

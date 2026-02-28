@@ -1092,6 +1092,12 @@
 "submissions.name.header" = "Submission Name";
 "submissions.name.placeholder" = "Enter submission name";
 "submissions.name.label" = "Submission name";
+"submissions.addTo" = "Add to Submission";
+"submissions.new" = "New Submission";
+"submissions.existing" = "Existing Submissions";
+"submissions.addingFiles" = "Adding %d file(s)";
+"submissions.new.message" = "Enter a name for the new submission";
+"submission.untitled" = "Untitled";
 "submissions.setExpectedDate" = "Set expected response date";
 "submissions.expectedBy.label" = "Expected by";
 "submissions.response.section" = "Response";
@@ -1140,6 +1146,7 @@
 
 /* File List */
 "fileList.submit" = "Submit";
+"fileList.addToSubmission" = "Add to Submission";
 
 /* Accessibility - File List */
 "accessibility.file.submissions" = "%d submission(s)";
@@ -2733,3 +2740,15 @@
 "reminder.deadline.body" = "Deadline approaching for %@";
 "reminder.unknown.publication" = "Unknown Publication";
 "reminder.submission" = "Submission";
+
+// MARK: - Container Assignment Dialog
+"containerAssignment.title" = "%@ Assignment";
+"containerAssignment.move" = "Move";
+"containerAssignment.copy" = "Copy";
+"containerAssignment.unassigned" = "Unassigned";
+
+// Container type names (singular)
+"poetry.collection" = "Collection";
+"fiction.chapter" = "Chapter";
+"fiction.story" = "Story";
+"fiction.book" = "Book";

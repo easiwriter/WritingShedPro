@@ -148,21 +148,10 @@ struct ActListView: View {
             .disabled(newActName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
         .sheet(isPresented: $showSubmissionPicker) {
-            NavigationStack {
-                SubmissionPickerView(
-                    project: project,
-                    filesToSubmit: filesToSubmit,
-                    collectionToSubmit: nil,
-                    onPublicationSelected: { publication, name, expectedDate, reminderDate in
-                        createSubmission(for: publication, name: name, expectedResponseDate: expectedDate, reminderDate: reminderDate)
-                        showSubmissionPicker = false
-                        exitEditMode()
-                    },
-                    onCancel: {
-                        showSubmissionPicker = false
-                    }
-                )
-            }
+            AddToSubmissionSheet(
+                project: project,
+                filesToAdd: filesToSubmit
+            )
         }
         .onChange(of: editMode) { _, newValue in
             if newValue == .inactive {
@@ -188,13 +177,13 @@ struct ActListView: View {
             }
         }
         
-        // Submit button
+        // Add to submission button
         if !selectedActFiles.isEmpty {
             Button {
                 filesToSubmit = selectedActFiles
                 showSubmissionPicker = true
             } label: {
-                Label(NSLocalizedString("button.submit", comment: "Submit"), systemImage: "paperplane")
+                Label(NSLocalizedString("fileList.addToSubmission", comment: "Add to submission"), systemImage: "tray.and.arrow.down")
             }
         }
         
@@ -317,61 +306,6 @@ struct ActListView: View {
         withAnimation {
             editMode = .inactive
         }
-    }
-    
-    // MARK: - Submission Actions
-    
-    private func createSubmission(for publication: Publication, name: String, expectedResponseDate: Date?, reminderDate: Date? = nil) {
-        // Create submission
-        let submission = Submission(
-            publication: publication,
-            project: project,
-            submittedDate: Date(),
-            notes: nil
-        )
-        submission.name = name
-        submission.isCollection = false
-        submission.returnExpectedBy = expectedResponseDate
-        
-        // Schedule reminder notification if requested
-        if let reminderDate = reminderDate {
-            submission.reminderDate = reminderDate
-            let pubName = publication.name
-            let subName = name
-            Task {
-                let notifId = await NotificationReminderService.shared.scheduleSubmissionReminder(
-                    submissionId: UUID().uuidString,
-                    publicationName: pubName,
-                    submissionName: subName,
-                    reminderDate: reminderDate
-                )
-                if let notifId = notifId {
-                    await MainActor.run {
-                        submission.reminderNotificationId = notifId
-                    }
-                }
-            }
-        }
-        
-        modelContext.insert(submission)
-        
-        // Create SubmittedFile records for each file
-        for file in filesToSubmit {
-            if let currentVersion = file.currentVersion {
-                let submittedFile = SubmittedFile(
-                    submission: submission,
-                    textFile: file,
-                    version: currentVersion,
-                    status: .pending,
-                    statusDate: Date(),
-                    project: project
-                )
-                modelContext.insert(submittedFile)
-            }
-        }
-        
-        try? modelContext.save()
-        filesToSubmit = []
     }
 }
 

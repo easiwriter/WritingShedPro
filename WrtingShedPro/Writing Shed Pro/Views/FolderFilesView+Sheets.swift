@@ -53,20 +53,10 @@ extension FolderFilesView {
     @ViewBuilder
     var submissionPickerSheet: some View {
         if let project = folder.project {
-            NavigationStack {
-                SubmissionPickerView(
-                    project: project,
-                    filesToSubmit: filesToSubmit,
-                    collectionToSubmit: nil,
-                    onPublicationSelected: { publication, name, expectedDate, reminderDate in
-                        createSubmission(for: publication, name: name, expectedResponseDate: expectedDate, reminderDate: reminderDate)
-                        showSubmissionPicker = false
-                    },
-                    onCancel: {
-                        showSubmissionPicker = false
-                    }
-                )
-            }
+            AddToSubmissionSheet(
+                project: project,
+                filesToAdd: filesToSubmit
+            )
         }
     }
     

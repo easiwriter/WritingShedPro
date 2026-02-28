@@ -644,7 +644,10 @@ final class ManuscriptAssemblyService {
                     let footnotes = FootnoteManager.shared.getActiveFootnotes(forVersion: version, context: context)
                     if !footnotes.isEmpty {
                         // Build a map from attachmentID → FootnoteModel for fast lookup
-                        let footnoteMap = Dictionary(uniqueKeysWithValues: footnotes.map { ($0.attachmentID, $0) })
+                        // Use reduce to safely handle duplicate attachmentIDs (keeps last)
+                        let footnoteMap = footnotes.reduce(into: [UUID: FootnoteModel]()) { dict, fn in
+                            dict[fn.attachmentID] = fn
+                        }
                         
                         // Scan the newly appended range for FootnoteAttachment objects
                         let appendedRange = NSRange(location: contentOffset, length: assembled.length - contentOffset)

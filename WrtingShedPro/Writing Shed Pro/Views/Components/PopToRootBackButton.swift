@@ -26,8 +26,15 @@ struct PopToRootBackButton: View {
     var title: String?
     
     var body: some View {
-        Button {
-            dismiss()
+        Menu {
+            Button {
+                NotificationCenter.default.post(name: .popToRootNavigation, object: nil)
+            } label: {
+                Label(
+                    NSLocalizedString("navigation.backToProjectList", comment: "Return to Project List"),
+                    systemImage: "list.bullet"
+                )
+            }
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: "chevron.left")
@@ -36,14 +43,9 @@ struct PopToRootBackButton: View {
                     Text(title)
                 }
             }
+        } primaryAction: {
+            dismiss()
         }
-        .simultaneousGesture(
-            LongPressGesture(minimumDuration: 0.5)
-                .onEnded { _ in
-                    // Post notification to trigger pop to root
-                    NotificationCenter.default.post(name: .popToRootNavigation, object: nil)
-                }
-        )
         .accessibilityLabel(NSLocalizedString("navigation.back", comment: "Back button accessibility label"))
         .accessibilityHint(NSLocalizedString("navigation.backLongPressHint", comment: "Long press to return to project list"))
     }

@@ -44,6 +44,15 @@ extension FolderFilesView {
             .sheet(isPresented: $showBackMatterSettings) {
                 BackMatterSettingsDialog(folder: folder)
             }
+            .sheet(isPresented: $showContainerAssignment) {
+                if let project = folder.resolvedProject, project.type == .poetry {
+                    ContainerAssignmentView.forPoetryCollections(
+                        project: project,
+                        selectedFiles: filesToAssign,
+                        modelContext: modelContext
+                    )
+                }
+            }
             .upgradePrompt(reason: $upgradePromptReason)
     }
     

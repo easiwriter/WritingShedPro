@@ -69,10 +69,7 @@ extension FolderFilesView {
     }
 
     var supportsSubmissions: Bool {
-        if isContentFolder {
-            return isPoetryProject || statusFilter == .ready
-        }
-        return false
+        isContentFolder
     }
 
     /// Collection groups for displaying poems arranged by collection (Poetry content folders only)

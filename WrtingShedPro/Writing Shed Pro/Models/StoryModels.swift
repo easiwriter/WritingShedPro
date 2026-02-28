@@ -651,15 +651,15 @@ final class StoryScene {
     var isTrashed: Bool = false
     var trashedDate: Date?
     
-    // Relationships
+    // Relationships (many-to-many: scenes can belong to multiple containers)
     @Relationship(inverse: \Chapter.scenes)
-    var chapter: Chapter?  // Used for both Novel and Short Fiction projects
+    var chapters: [Chapter]?  // Used for both Novel and Short Fiction projects
     
     @Relationship(inverse: \Act.scenes)
-    var act: Act?  // nil for Fiction projects, used for Drama projects
+    var acts: [Act]?  // nil for Fiction projects, used for Drama projects
     
-    // Feature 036: Verse Novel book membership
-    var book: Book?  // Used for Verse Novel projects (episodes within books)
+    // Feature 036: Verse Novel book membership (many-to-many)
+    var books: [Book]?  // Used for Verse Novel projects (episodes within books)
     
     var project: Project?
     
@@ -820,7 +820,7 @@ final class ProseSection {
     // Relationships
     var project: Project?
     
-    @Relationship(deleteRule: .nullify, inverse: \TextFile.section)
+    @Relationship(deleteRule: .nullify, inverse: \TextFile.sections)
     var textFiles: [TextFile]?
     
     init(name: String? = nil, synopsis: String? = nil, userOrder: Int? = nil) {

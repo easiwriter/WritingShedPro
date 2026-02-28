@@ -66,6 +66,10 @@ struct SceneListView: View {
     
     /// Show chapter picker for assigning scenes to chapters/stories (Fiction only)
     @State private var showChapterPicker = false
+    
+    /// Show container assignment dialog
+    @State private var showContainerAssignment = false
+    @State private var scenesToAssign: [StoryScene] = []
 
     /// Show workflow status picker
     @State private var showStatusPicker = false
@@ -491,21 +495,13 @@ struct SceneListView: View {
             )
         }
         .sheet(isPresented: $showSubmissionPicker) {
-            NavigationStack {
-                SubmissionPickerView(
-                    project: project,
-                    filesToSubmit: filesToSubmit,
-                    collectionToSubmit: nil,
-                    onPublicationSelected: { publication, name, expectedDate, reminderDate in
-                        createSubmission(for: publication, name: name, expectedResponseDate: expectedDate, reminderDate: reminderDate)
-                        showSubmissionPicker = false
-                        exitEditMode()
-                    },
-                    onCancel: {
-                        showSubmissionPicker = false
-                    }
-                )
-            }
+            AddToSubmissionSheet(
+                project: project,
+                filesToAdd: filesToSubmit
+            )
+        }
+        .sheet(isPresented: $showContainerAssignment) {
+            containerAssignmentContent
         }
         .onAppear {
             initializeHeaderFooterFields()
@@ -723,6 +719,34 @@ struct SceneListView: View {
         #endif
     }
     
+    // MARK: - Container Assignment
+    
+    @ViewBuilder
+    private var containerAssignmentContent: some View {
+        if project.type == .drama {
+            ContainerAssignmentView.forActs(
+                project: project,
+                selectedScenes: scenesToAssign,
+                modelContext: modelContext
+            )
+        } else if project.type == .fiction {
+            let fClass = project.fictionClass ?? .novel
+            if fClass == .verseNovel {
+                ContainerAssignmentView.forBooks(
+                    project: project,
+                    selectedScenes: scenesToAssign,
+                    modelContext: modelContext
+                )
+            } else {
+                ContainerAssignmentView.forChapters(
+                    project: project,
+                    selectedScenes: scenesToAssign,
+                    modelContext: modelContext
+                )
+            }
+        }
+    }
+    
     // MARK: - Bottom Toolbar
     
     @ViewBuilder
@@ -742,14 +766,14 @@ struct SceneListView: View {
         // Assigning to an act automatically sets the scene's status to ready
         if project.type == .drama && act == nil && chapter == nil {
             Button {
-                showActPicker = true
+                scenesToAssign = selectedScenes
+                showContainerAssignment = true
             } label: {
                 Label(
                     NSLocalizedString("drama.scenes.addToAct", comment: "Add to Act"),
                     systemImage: "theatermasks"
                 )
             }
-            .disabled(selectedScenes.isEmpty)
         }
         
         // Add to Chapter/Story/Book button (Fiction projects, main scene list only)
@@ -757,7 +781,8 @@ struct SceneListView: View {
         if project.type == .fiction && act == nil && chapter == nil {
             let isShortFiction = fictionClass == .shortFiction
             Button {
-                showChapterPicker = true
+                scenesToAssign = selectedScenes
+                showContainerAssignment = true
             } label: {
                 Label(
                     isVerseNovel
@@ -768,16 +793,15 @@ struct SceneListView: View {
                     systemImage: isVerseNovel ? "text.book.closed" : (isShortFiction ? "books.vertical" : "book")
                 )
             }
-            .disabled(selectedScenes.isEmpty)
         }
         
-        // Submit button — hidden when all selected scenes are still in draft
-        if selectedScenes.contains(where: { $0.textFile?.workflowStatus != .draft }) {
+        // Add to submission button
+        if !selectedScenes.isEmpty {
             Button {
                 filesToSubmit = selectedScenes.compactMap { $0.textFile }
                 showSubmissionPicker = true
             } label: {
-                Label(NSLocalizedString("submissions.button.submit", comment: "Submit"), systemImage: "paperplane")
+                Label(NSLocalizedString("fileList.addToSubmission", comment: "Add to submission"), systemImage: "tray.and.arrow.down")
             }
             .disabled(selectedScenes.isEmpty)
         }
@@ -1088,59 +1112,6 @@ struct SceneListView: View {
         withAnimation {
             editMode = .inactive
         }
-    }
-    
-    // MARK: - Submission Actions
-    
-    private func createSubmission(for publication: Publication, name: String, expectedResponseDate: Date?, reminderDate: Date? = nil) {
-        let submission = Submission(
-            publication: publication,
-            project: project,
-            submittedDate: Date(),
-            notes: nil
-        )
-        submission.name = name
-        submission.isCollection = false
-        submission.returnExpectedBy = expectedResponseDate
-        
-        // Schedule reminder notification if requested
-        if let reminderDate = reminderDate {
-            submission.reminderDate = reminderDate
-            let pubName = publication.name
-            let subName = name
-            Task {
-                let notifId = await NotificationReminderService.shared.scheduleSubmissionReminder(
-                    submissionId: UUID().uuidString,
-                    publicationName: pubName,
-                    submissionName: subName,
-                    reminderDate: reminderDate
-                )
-                if let notifId = notifId {
-                    await MainActor.run {
-                        submission.reminderNotificationId = notifId
-                    }
-                }
-            }
-        }
-        
-        modelContext.insert(submission)
-        
-        for file in filesToSubmit {
-            if let currentVersion = file.currentVersion {
-                let submittedFile = SubmittedFile(
-                    submission: submission,
-                    textFile: file,
-                    version: currentVersion,
-                    status: .pending,
-                    statusDate: Date(),
-                    project: project
-                )
-                modelContext.insert(submittedFile)
-            }
-        }
-        
-        try? modelContext.save()
-        filesToSubmit = []
     }
     
     private func assignScenesToAct(_ scenes: [StoryScene], act: Act?) {

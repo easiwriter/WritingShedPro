@@ -458,9 +458,8 @@ struct StyleSheetService {
             return nil
         }
         
-        // Assign default to project
+        // Assign default to project (will be persisted on next natural save)
         project.styleSheet = defaultSheet
-        try? context.save()
         
         return defaultSheet
     }

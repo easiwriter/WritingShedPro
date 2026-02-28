@@ -104,6 +104,13 @@ class JSONImportService {
         print("[JSONImport] Scenes: \(data.scenes?.count ?? 0)")
         print("[JSONImport] Characters: \(data.characters?.count ?? 0)")
         print("[JSONImport] Locations: \(data.locations?.count ?? 0)")
+        print("[JSONImport] Plot Elements: \(data.plotElements?.count ?? 0)")
+        print("[JSONImport] Note Entries: \(data.noteEntries?.count ?? 0)")
+        print("[JSONImport] Glossary Entries: \(data.glossaryEntries?.count ?? 0)")
+        print("[JSONImport] Reference Entries: \(data.referenceEntries?.count ?? 0)")
+        print("[JSONImport] Citation Entries: \(data.citationEntries?.count ?? 0)")
+        print("[JSONImport] Index Entries: \(data.indexEntries?.count ?? 0)")
+        print("[JSONImport] Contributor Entries: \(data.contributorEntries?.count ?? 0)")
         #endif
         
         // Create project
@@ -123,6 +130,25 @@ class JSONImportService {
         project.fictionClassRaw = data.project.fictionClass
         project.useMonomyth = data.project.useMonomyth
         project.storyStructureRaw = data.project.storyStructure
+        // Feature 023: Drama
+        project.dramaScriptTypeRaw = data.project.dramaScriptType
+        // Feature 029: Manuscript settings
+        if let base64 = data.project.manuscriptSettingsBase64, let settingsData = Data(base64Encoded: base64) {
+            project.manuscriptSettingsData = settingsData
+        }
+        if let base64 = data.project.tocSettingsBase64, let settingsData = Data(base64Encoded: base64) {
+            project.tocSettingsData = settingsData
+        }
+        // Feature 029: Contributor display settings
+        if let surnameFirst = data.project.contributorDisplaySurnameFirst {
+            project.contributorDisplaySurnameFirst = surnameFirst
+        }
+        if let runTogether = data.project.contributorDisplayRunTogether {
+            project.contributorDisplayRunTogether = runTogether
+        }
+        if let styleName = data.project.contributorBodyStyleName {
+            project.contributorBodyStyleName = styleName
+        }
         
         modelContext.insert(project)
         
@@ -219,8 +245,26 @@ class JSONImportService {
             modelContext.insert(act)
         }
         
+        // Deduplicate folder data BEFORE importing into SwiftData
+        // (Post-import dedup via SwiftData inverse relationships is unreliable)
+        #if DEBUG
+        print("[JSONImport] ===== PRE-DEDUP FOLDER TREE =====")
+        for f in data.folders {
+            printWSPFolderTree(f, indent: 0)
+        }
+        #endif
+        
+        let deduplicatedFolders = data.folders.map { deduplicateWSPFolderData($0) }
+        
+        #if DEBUG
+        print("[JSONImport] ===== POST-DEDUP FOLDER TREE =====")
+        for f in deduplicatedFolders {
+            printWSPFolderTree(f, indent: 0)
+        }
+        #endif
+        
         // Import folders (includes text files and versions)
-        for folderData in data.folders {
+        for folderData in deduplicatedFolders {
             _ = importWSPFolder(folderData, project: project, parentFolder: nil, textFileMap: &textFileMap, versionMap: &versionMap, proseSectionMap: proseSectionMap, poetryCollectionMap: poetryCollectionMap)
         }
         
@@ -242,15 +286,41 @@ class JSONImportService {
             scene.threeActStageRaw = sceneData.threeActStageRaw
             scene.project = project
             
-            // Link to chapter, act, book
-            if let chapterId = sceneData.chapterId {
-                scene.chapter = chapterMap[chapterId]
+            // Link to chapters (v1.3 array or v1.2 single)
+            if let chapterIds = sceneData.chapterIds, !chapterIds.isEmpty {
+                for chapterId in chapterIds {
+                    if let chapter = chapterMap[chapterId] {
+                        scene.addToChapter(chapter)
+                    }
+                }
+            } else if let chapterId = sceneData.chapterId {
+                if let chapter = chapterMap[chapterId] {
+                    scene.addToChapter(chapter)
+                }
             }
-            if let actId = sceneData.actId {
-                scene.act = actMap[actId]
+            // Link to acts (v1.3 array or v1.2 single)
+            if let actIds = sceneData.actIds, !actIds.isEmpty {
+                for actId in actIds {
+                    if let act = actMap[actId] {
+                        scene.addToAct(act)
+                    }
+                }
+            } else if let actId = sceneData.actId {
+                if let act = actMap[actId] {
+                    scene.addToAct(act)
+                }
             }
-            if let bookId = sceneData.bookId {
-                scene.book = bookMap[bookId]
+            // Link to books (v1.3 array or v1.2 single)
+            if let bookIds = sceneData.bookIds, !bookIds.isEmpty {
+                for bookId in bookIds {
+                    if let book = bookMap[bookId] {
+                        scene.addToBook(book)
+                    }
+                }
+            } else if let bookId = sceneData.bookId {
+                if let book = bookMap[bookId] {
+                    scene.addToBook(book)
+                }
             }
             
             // Link to text file (bidirectional)
@@ -296,6 +366,149 @@ class JSONImportService {
             location.id = generateNewUUIDs ? UUID() : (UUID(uuidString: locData.id) ?? UUID())
             location.project = project
             modelContext.insert(location)
+        }
+        
+        // Feature 036: Import plot elements (after scenes/characters/locations for linking)
+        for plotData in data.plotElements ?? [] {
+            let element = PlotElement()
+            element.id = generateNewUUIDs ? UUID() : (UUID(uuidString: plotData.id) ?? UUID())
+            element.name = plotData.name
+            element.notes = plotData.notes
+            element.userOrder = plotData.userOrder
+            element.monomythStageRaw = plotData.monomythStageRaw
+            element.campbellStageRaw = plotData.campbellStageRaw
+            element.threeActStageRaw = plotData.threeActStageRaw
+            element.pearsonStageRaw = plotData.pearsonStageRaw
+            element.createdDate = plotData.createdDate
+            element.modifiedDate = plotData.modifiedDate
+            element.project = project
+            
+            // Link to scenes
+            if let sceneIds = plotData.linkedSceneIds {
+                element.linkedScenes = sceneIds.compactMap { sceneMap[$0] }
+            }
+            
+            modelContext.insert(element)
+        }
+        
+        // Feature 029: Import citation entries (before glossary, which may reference them)
+        var citationMap: [String: CitationEntry] = [:]
+        for citData in data.citationEntries ?? [] {
+            let citation = CitationEntry(
+                id: generateNewUUIDs ? UUID() : (UUID(uuidString: citData.id) ?? UUID()),
+                project: project,
+                authors: citData.authors,
+                year: citData.year,
+                title: citData.title,
+                source: citData.source,
+                url: citData.url,
+                doi: citData.doi,
+                sourceType: CitationEntry.SourceType(rawValue: citData.sourceTypeRaw ?? "article") ?? .article
+            )
+            citation.volume = citData.volume
+            citation.issue = citData.issue
+            citation.pages = citData.pages
+            citation.edition = citData.edition
+            citation.city = citData.city
+            citation.accessDate = citData.accessDate
+            citation.referenceCount = citData.referenceCount
+            citation.createdAt = citData.createdAt
+            citation.modifiedAt = citData.modifiedAt
+            citationMap[citData.id] = citation
+            modelContext.insert(citation)
+        }
+        
+        // Feature 029: Import note entries
+        for noteData in data.noteEntries ?? [] {
+            let note = NoteEntry(
+                id: generateNewUUIDs ? UUID() : (UUID(uuidString: noteData.id) ?? UUID()),
+                project: project,
+                content: noteData.content,
+                isEndnote: noteData.isEndnote,
+                displayNumber: noteData.displayNumber,
+                title: noteData.title,
+                tag: noteData.tag
+            )
+            if let base64 = noteData.formattedContentBase64, let formattedData = Data(base64Encoded: base64) {
+                note.formattedContentData = formattedData
+            }
+            note.referenceCount = noteData.referenceCount
+            note.referencingFileIDs = noteData.referencingFileIDs.compactMap { UUID(uuidString: $0) }
+            note.createdAt = noteData.createdAt
+            note.modifiedAt = noteData.modifiedAt
+            modelContext.insert(note)
+        }
+        
+        // Feature 029: Import glossary entries
+        for glossData in data.glossaryEntries ?? [] {
+            let entry = GlossaryEntry(
+                id: generateNewUUIDs ? UUID() : (UUID(uuidString: glossData.id) ?? UUID()),
+                project: project,
+                term: glossData.term,
+                definition: glossData.definition,
+                citation: glossData.citationId.flatMap { citationMap[$0] }
+            )
+            entry.referenceCount = glossData.referenceCount
+            entry.createdAt = glossData.createdAt
+            entry.modifiedAt = glossData.modifiedAt
+            modelContext.insert(entry)
+        }
+        
+        // Feature 029: Import reference entries
+        for refData in data.referenceEntries ?? [] {
+            let entry = ReferenceEntry(
+                id: generateNewUUIDs ? UUID() : (UUID(uuidString: refData.id) ?? UUID()),
+                project: project,
+                author: refData.author,
+                publicationDate: refData.publicationDate,
+                details: refData.details
+            )
+            entry.referenceCount = refData.referenceCount
+            entry.createdAt = refData.createdAt
+            entry.modifiedAt = refData.modifiedAt
+            modelContext.insert(entry)
+        }
+        
+        // Feature 029: Import index entries (two passes: create then link parents)
+        var indexMap: [String: IndexEntry] = [:]
+        for idxData in data.indexEntries ?? [] {
+            let entry = IndexEntry(
+                id: generateNewUUIDs ? UUID() : (UUID(uuidString: idxData.id) ?? UUID()),
+                project: project,
+                keyword: idxData.keyword
+            )
+            entry.referenceCount = idxData.referenceCount
+            entry.referencingFileIDs = idxData.referencingFileIDs.compactMap { UUID(uuidString: $0) }
+            if let seeId = idxData.seeEntryID, let seeUUID = UUID(uuidString: seeId) {
+                entry.seeEntryID = seeUUID
+            }
+            entry.seeAlsoEntryIDs = idxData.seeAlsoEntryIDs.compactMap { UUID(uuidString: $0) }
+            entry.createdAt = idxData.createdAt
+            entry.modifiedAt = idxData.modifiedAt
+            indexMap[idxData.id] = entry
+            modelContext.insert(entry)
+        }
+        // Second pass: link parent entries
+        for idxData in data.indexEntries ?? [] {
+            if let parentId = idxData.parentEntryId, let parent = indexMap[parentId], let entry = indexMap[idxData.id] {
+                entry.parentEntry = parent
+            }
+        }
+        
+        // Feature 029: Import contributor entries
+        for contData in data.contributorEntries ?? [] {
+            let entry = ContributorEntry(
+                id: generateNewUUIDs ? UUID() : (UUID(uuidString: contData.id) ?? UUID()),
+                project: project,
+                name: contData.name,
+                firstName: contData.firstName,
+                surname: contData.surname,
+                biography: contData.biography,
+                userOrder: contData.userOrder
+            )
+            entry.createdAt = contData.createdAt
+            entry.modifiedAt = contData.modifiedAt
+            modelContext.insert(entry)
         }
         
         // Import publications
@@ -356,6 +569,24 @@ class JSONImportService {
         
         #if DEBUG
         print("[JSONImport] ===== WSP IMPORT COMPLETE =====")
+        
+        // Post-import verification: read back from SwiftData to check what's actually persisted
+        print("[JSONImport] ===== POST-SAVE SWIFTDATA VERIFICATION =====")
+        if let savedFolders = project.folders {
+            for folder in savedFolders {
+                let subs = folder.folders ?? []
+                let files = folder.textFiles ?? []
+                print("[JSONImport-VERIFY] FOLDER: '\(folder.name ?? "?")' id=\(folder.id) subs=\(subs.count) files=\(files.count)")
+                for sub in subs {
+                    let subFiles = sub.textFiles ?? []
+                    let subSubs = sub.folders ?? []
+                    print("[JSONImport-VERIFY]   SUB: '\(sub.name ?? "?")' id=\(sub.id) files=\(subFiles.count) subs=\(subSubs.count)")
+                    for f in subFiles {
+                        print("[JSONImport-VERIFY]     FILE: '\(f.name)' id=\(f.id)")
+                    }
+                }
+            }
+        }
         #endif
         
         return project
@@ -370,6 +601,20 @@ class JSONImportService {
             userOrder: data.userOrder
         )
         folder.id = generateNewUUIDs ? UUID() : (UUID(uuidString: data.id) ?? UUID())
+        
+        // Restore matter settings if present
+        if let base64 = data.frontMatterSettingsBase64, let settingsData = Data(base64Encoded: base64) {
+            folder.frontMatterSettingsData = settingsData
+        }
+        if let base64 = data.backMatterSettingsBase64, let settingsData = Data(base64Encoded: base64) {
+            folder.backMatterSettingsData = settingsData
+        }
+        if let base64 = data.dramaFrontMatterSettingsBase64, let settingsData = Data(base64Encoded: base64) {
+            folder.dramaFrontMatterSettingsData = settingsData
+        }
+        if let base64 = data.dramaBackMatterSettingsBase64, let settingsData = Data(base64Encoded: base64) {
+            folder.dramaBackMatterSettingsData = settingsData
+        }
         
         // Insert the folder into context BEFORE processing children
         // This ensures parent-child relationships are properly established in SwiftData
@@ -391,6 +636,84 @@ class JSONImportService {
         return folder
     }
     
+    #if DEBUG
+    private func printWSPFolderTree(_ folder: WSPFolderData, indent: Int) {
+        let prefix = String(repeating: "  ", count: indent)
+        print("\(prefix)FOLDER: '\(folder.name)' id=\(String(folder.id.prefix(8))) files=\(folder.textFiles.count) subs=\(folder.subfolders.count)")
+        for file in folder.textFiles {
+            print("\(prefix)  FILE: '\(file.name)' id=\(String(file.id.prefix(8)))")
+        }
+        for sub in folder.subfolders {
+            printWSPFolderTree(sub, indent: indent + 1)
+        }
+    }
+    #endif
+    
+    /// Deduplicate a WSPFolderData tree BEFORE importing into SwiftData.
+    /// Removes duplicate-named subfolders (keeps the one with most content) and
+    /// duplicate-named text files (keeps the one with most versions).
+    /// Works on plain Codable structs so it doesn't depend on SwiftData inverse relationships.
+    private func deduplicateWSPFolderData(_ folder: WSPFolderData) -> WSPFolderData {
+        var result = folder
+        
+        // Deduplicate subfolders by name
+        if result.subfolders.count > 1 {
+            var groups: [String: [WSPFolderData]] = [:]
+            for sub in result.subfolders {
+                groups[sub.name, default: []].append(sub)
+            }
+            var kept: [WSPFolderData] = []
+            for (name, group) in groups {
+                if group.count > 1 {
+                    // Keep the subfolder with the most content
+                    let sorted = group.sorted { lhs, rhs in
+                        (lhs.textFiles.count + lhs.subfolders.count) > (rhs.textFiles.count + rhs.subfolders.count)
+                    }
+                    #if DEBUG
+                    for dup in sorted.dropFirst() {
+                        print("[JSONImport] Removing duplicate subfolder '\(name)' (id=\(dup.id)) from '\(folder.name)')")
+                    }
+                    #endif
+                    kept.append(sorted[0])
+                } else {
+                    kept.append(group[0])
+                }
+            }
+            result.subfolders = kept
+        }
+        
+        // Deduplicate text files by name
+        if result.textFiles.count > 1 {
+            var fileGroups: [String: [WSPTextFileData]] = [:]
+            for file in result.textFiles {
+                fileGroups[file.name, default: []].append(file)
+            }
+            var keptFiles: [WSPTextFileData] = []
+            for (name, group) in fileGroups {
+                if group.count > 1 {
+                    // Keep the file with the most versions
+                    let sorted = group.sorted { lhs, rhs in
+                        lhs.versions.count > rhs.versions.count
+                    }
+                    #if DEBUG
+                    for dup in sorted.dropFirst() {
+                        print("[JSONImport] Removing duplicate file '\(name)' (id=\(dup.id)) from '\(folder.name)')")
+                    }
+                    #endif
+                    keptFiles.append(sorted[0])
+                } else {
+                    keptFiles.append(group[0])
+                }
+            }
+            result.textFiles = keptFiles
+        }
+        
+        // Recurse into kept subfolders
+        result.subfolders = result.subfolders.map { deduplicateWSPFolderData($0) }
+        
+        return result
+    }
+    
     /// Import a text file from WSP format
     private func importWSPTextFile(_ data: WSPTextFileData, folder: Folder, versionMap: inout [String: Version], proseSectionMap: [String: ProseSection], poetryCollectionMap: [String: PoetryCollection]) -> TextFile {
         let textFile = TextFile()
@@ -405,14 +728,30 @@ class JSONImportService {
         textFile.poetryFormName = data.poetryFormName
         textFile.parentFolder = folder
         
-        // Link to prose section if specified
-        if let sectionId = data.sectionId {
-            textFile.section = proseSectionMap[sectionId]
+        // Link to prose sections (v1.3 array or v1.2 single)
+        if let sectionIds = data.sectionIds, !sectionIds.isEmpty {
+            for sectionId in sectionIds {
+                if let section = proseSectionMap[sectionId] {
+                    textFile.addToSection(section)
+                }
+            }
+        } else if let sectionId = data.sectionId {
+            if let section = proseSectionMap[sectionId] {
+                textFile.addToSection(section)
+            }
         }
         
-        // Feature 036: Link to poetry collection if specified
-        if let collectionId = data.poetryCollectionId {
-            textFile.poetryCollection = poetryCollectionMap[collectionId]
+        // Link to poetry collections (v1.3 array or v1.2 single)
+        if let collectionIds = data.poetryCollectionIds, !collectionIds.isEmpty {
+            for collectionId in collectionIds {
+                if let collection = poetryCollectionMap[collectionId] {
+                    textFile.addToPoetryCollection(collection)
+                }
+            }
+        } else if let collectionId = data.poetryCollectionId {
+            if let collection = poetryCollectionMap[collectionId] {
+                textFile.addToPoetryCollection(collection)
+            }
         }
         
         // Set manuscript inclusion flag (default to true for backward compatibility)
@@ -427,6 +766,26 @@ class JSONImportService {
         textFile.isTOCFile = data.isTOCFile ?? false
         if let base64 = data.tocSettingsBase64, let settingsData = Data(base64Encoded: base64) {
             textFile.tocSettingsData = settingsData
+        }
+        
+        // Cover file support: restore from export data, or detect by name for legacy files
+        if let isCover = data.isCoverFile, isCover {
+            textFile.isCoverFile = true
+            if let base64 = data.coverImageBase64, let imageData = Data(base64Encoded: base64) {
+                textFile.coverImageData = imageData
+            }
+        } else {
+            // Legacy detection: mark files named "Front Cover" or "Back Cover" as cover files
+            let coverNames: Set<String> = [
+                FrontMatterItem.frontCover.fileName,
+                BackMatterItem.backCover.fileName
+            ]
+            if coverNames.contains(data.name) {
+                textFile.isCoverFile = true
+                #if DEBUG
+                print("[JSONImport] Detected legacy cover file '\(data.name)' — marked as cover")
+                #endif
+            }
         }
         
         // Clear auto-created version
@@ -466,7 +825,8 @@ class JSONImportService {
                 id: generateNewUUIDs ? UUID() : (UUID(uuidString: cData.id) ?? UUID()),
                 version: version,
                 characterPosition: cData.characterPosition,
-                attachmentID: generateNewUUIDs ? UUID() : (UUID(uuidString: cData.attachmentID) ?? UUID()),
+                // Always preserve attachmentID — it must match the embedded reference in formattedContent
+                attachmentID: UUID(uuidString: cData.attachmentID) ?? UUID(),
                 text: cData.text,
                 author: cData.author,
                 createdAt: cData.createdAt,
@@ -481,7 +841,8 @@ class JSONImportService {
                 id: generateNewUUIDs ? UUID() : (UUID(uuidString: fData.id) ?? UUID()),
                 version: version,
                 characterPosition: fData.characterPosition,
-                attachmentID: generateNewUUIDs ? UUID() : (UUID(uuidString: fData.attachmentID) ?? UUID()),
+                // Always preserve attachmentID — it must match the embedded reference in formattedContent
+                attachmentID: UUID(uuidString: fData.attachmentID) ?? UUID(),
                 text: fData.text,
                 number: fData.number,
                 createdAt: fData.createdAt,
