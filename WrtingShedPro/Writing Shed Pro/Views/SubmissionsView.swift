@@ -15,7 +15,6 @@ import SwiftData
 struct SubmissionsView: View {
     let project: Project
     @Environment(\.modelContext) var modelContext
-    @Environment(\.dismiss) var dismiss
     
     // State for sorting
     @State private var sortOrder: SubmissionSortOrder = .bySubmittedDate
@@ -143,14 +142,7 @@ struct SubmissionsView: View {
         }
         .navigationTitle("Submissions")
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(true)
-        .onPopToRoot {
-            dismiss()
-        }
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                PopToRootBackButton()
-            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     newSubmissionName = ""

@@ -469,7 +469,36 @@ final class TOCGenerationService {
     
     /// Find TOC entries within a single file
     private func findEntriesInFile(_ file: TextFile, tocStyles: [TextStyleModel]) -> [TOCEntry] {
-        var entries: [TOCEntry] = []
+        
+        // For generated back matter files (Endnotes, Glossary, References, Index, Contributors),
+        // regenerate content fresh so the TOC heading is always current.
+        // The stored attributedContent may be empty/stale if the user hasn't opened the file recently.
+        if let generatedType = ManuscriptAssemblyService.generatedBackMatterType(for: file),
+           let project = file.project {
+            let generator = BackMatterGenerator(context: context, project: project)
+            let generatedContent: NSAttributedString?
+            switch generatedType {
+            case .endnotes:
+                generatedContent = generator.generateNotesSection()
+            case .glossary:
+                generatedContent = generator.generateGlossarySection()
+            case .references:
+                generatedContent = generator.generateReferencesSection()
+            case .index:
+                generatedContent = generator.generateIndexSection(pageMap: [:])
+            case .contributors:
+                generatedContent = generator.generateContributorsSection()
+            default:
+                generatedContent = nil
+            }
+            if let content = generatedContent {
+                #if DEBUG
+                print("[TOCGeneration]   Using generated content for back matter: \(file.name) (\(content.length) chars)")
+                #endif
+                return scanForTOCEntries(in: content, file: file, tocStyles: tocStyles)
+            }
+            // If generation returned nil (no data), fall through to stored content
+        }
         
         // Get the current version's formatted content
         guard let versions = file.versions,
@@ -516,6 +545,13 @@ final class TOCGenerationService {
             #endif
             attributedString = NSAttributedString(string: version.content)
         }
+        
+        return scanForTOCEntries(in: attributedString, file: file, tocStyles: tocStyles)
+    }
+    
+    /// Scan an attributed string for paragraphs with TOC-enabled styles
+    private func scanForTOCEntries(in attributedString: NSAttributedString, file: TextFile, tocStyles: [TextStyleModel]) -> [TOCEntry] {
+        var entries: [TOCEntry] = []
         
         // Create a map of style names to their TOC info
         var styleNameToTOCInfo: [String: (level: Int, displayName: String)] = [:]

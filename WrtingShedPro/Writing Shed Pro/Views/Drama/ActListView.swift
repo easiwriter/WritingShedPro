@@ -14,7 +14,6 @@ struct ActListView: View {
     // MARK: - Environment
     
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.dismiss) private var dismiss
     
     // MARK: - Properties
     
@@ -29,8 +28,11 @@ struct ActListView: View {
     @State private var showRenameSheet = false
     @State private var actToRename: Act?
     @State private var newActName: String = ""
-    @State private var showSubmissionPicker = false
-    @State private var filesToSubmit: [TextFile] = []
+    @State private var showSubmissionNamePrompt = false
+    @State private var newSubmissionName: String = ""
+    @State private var showSubmissionCreated = false
+    @State private var createdSubmissionName: String = ""
+    @State private var showDuplicateSubmission = false
     
     // MARK: - Computed
     
@@ -50,16 +52,7 @@ struct ActListView: View {
         isEditMode && !selectedActIDs.isEmpty
     }
     
-    /// Get all ready text files from selected acts' scenes
-    private var selectedActFiles: [TextFile] {
-        selectedActs.flatMap { act in
-            (act.scenes ?? []).compactMap { scene in
-                guard let textFile = scene.textFile,
-                      textFile.workflowStatus == .ready else { return nil }
-                return textFile
-            }
-        }
-    }
+
     
     // MARK: - Body
     
@@ -73,11 +66,6 @@ struct ActListView: View {
         }
         .navigationTitle(NSLocalizedString("drama.acts.title", comment: "Acts"))
         .navigationBarTitleDisplayMode(.inline)
-        // Use native iOS back button - immune to SwiftUI render blocking
-        .navigationBarBackButtonHidden(false)
-        .onPopToRoot {
-            dismiss()
-        }
         .toolbar {
             ToolbarItemGroup(placement: .navigationBarTrailing) {
                 Button {
@@ -147,11 +135,28 @@ struct ActListView: View {
             }
             .disabled(newActName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
-        .sheet(isPresented: $showSubmissionPicker) {
-            AddToSubmissionSheet(
-                project: project,
-                filesToAdd: filesToSubmit
-            )
+        .alert(NSLocalizedString("submissions.name.title", comment: "Name Submission"), isPresented: $showSubmissionNamePrompt) {
+            TextField(NSLocalizedString("submissions.name.placeholder", comment: "Name"), text: $newSubmissionName)
+            Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
+                newSubmissionName = ""
+            }
+            Button(NSLocalizedString("button.create", comment: "Create")) {
+                createSubmissionFromActs(name: newSubmissionName)
+                newSubmissionName = ""
+            }
+            .disabled(newSubmissionName.trimmingCharacters(in: .whitespaces).isEmpty)
+        } message: {
+            Text(NSLocalizedString("submissions.name.message", comment: "Enter a name"))
+        }
+        .alert(NSLocalizedString("submissions.created.title", comment: "Submission Created"), isPresented: $showSubmissionCreated) {
+            Button(NSLocalizedString("button.ok", comment: "OK")) { }
+        } message: {
+            Text(String(format: NSLocalizedString("submissions.created.message", comment: "Created message"), createdSubmissionName))
+        }
+        .alert(NSLocalizedString("submissions.duplicate.title", comment: "Duplicate Submission"), isPresented: $showDuplicateSubmission) {
+            Button(NSLocalizedString("button.ok", comment: "OK")) { }
+        } message: {
+            Text(String(format: NSLocalizedString("submissions.duplicate.message", comment: "Duplicate message"), createdSubmissionName))
         }
         .onChange(of: editMode) { _, newValue in
             if newValue == .inactive {
@@ -178,13 +183,10 @@ struct ActListView: View {
         }
         
         // Add to submission button
-        if !selectedActFiles.isEmpty {
-            Button {
-                filesToSubmit = selectedActFiles
-                showSubmissionPicker = true
-            } label: {
-                Label(NSLocalizedString("fileList.addToSubmission", comment: "Add to submission"), systemImage: "tray.and.arrow.down")
-            }
+        Button {
+            showSubmissionNamePrompt = true
+        } label: {
+            Label(NSLocalizedString("fileList.addToSubmission", comment: "Add to submission"), systemImage: "tray.and.arrow.down")
         }
         
         Spacer()
@@ -300,6 +302,53 @@ struct ActListView: View {
             act.userOrder = index
         }
         try? modelContext.save()
+    }
+    
+    private func createSubmissionFromActs(name: String) {
+        let trimmedName = name.trimmingCharacters(in: .whitespaces)
+        guard !trimmedName.isEmpty else { return }
+        
+        // Check for duplicate
+        let projectID = project.id
+        var descriptor = FetchDescriptor<Submission>(predicate: #Predicate<Submission> { sub in
+            sub.name == trimmedName && sub.project?.id == projectID && sub.isCollection == false
+        })
+        descriptor.fetchLimit = 1
+        if let count = try? modelContext.fetchCount(descriptor), count > 0 {
+            createdSubmissionName = trimmedName
+            showDuplicateSubmission = true
+            return
+        }
+        
+        let submission = Submission(
+            project: project,
+            submittedDate: Date()
+        )
+        submission.name = trimmedName
+        submission.isCollection = false
+        modelContext.insert(submission)
+        
+        // Link files from all selected acts' scenes
+        for act in selectedActs {
+            let files = (act.scenes ?? []).compactMap { $0.textFile }.filter { $0.trashItem == nil }
+            for file in files {
+                let submittedFile = SubmittedFile(
+                    submission: submission,
+                    textFile: file,
+                    version: file.currentVersion,
+                    status: .pending,
+                    statusDate: Date(),
+                    project: project
+                )
+                modelContext.insert(submittedFile)
+            }
+        }
+        
+        try? modelContext.save()
+        createdSubmissionName = trimmedName
+        showSubmissionCreated = true
+        selectedActIDs.removeAll()
+        exitEditMode()
     }
     
     private func exitEditMode() {

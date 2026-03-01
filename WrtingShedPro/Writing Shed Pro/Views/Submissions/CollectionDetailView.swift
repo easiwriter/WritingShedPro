@@ -8,6 +8,7 @@
 
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
 
 // MARK: - Supporting Types
 
@@ -23,14 +24,22 @@ struct EditVersionItem: Identifiable {
 struct CollectionDetailView: View {
     @Bindable var submission: Submission
     @Environment(\.modelContext) var modelContext
-    @Environment(\.dismiss) private var dismiss
     
     @State private var showAddFilesSheet = false
     @State private var editingVersionItem: EditVersionItem?
     @State private var showSubmissionPicker = false
+    @State private var showDuplicateSubmission = false
+    @State private var duplicateSubmissionName: String = ""
     @State private var showPrintError = false
     @State private var printErrorMessage = ""
     @State private var showSearchView = false
+    
+    // Export state
+    @State private var showExportMenu = false
+    @State private var showExportSaveDialog = false
+    @State private var exportFormat: ExportFormat = .rtf
+    @State private var exportData: Data?
+    @State private var exportFilename: String = ""
     
     private var submittedFiles: [SubmittedFile] {
         let files = submission.submittedFiles ?? []
@@ -79,14 +88,7 @@ struct CollectionDetailView: View {
         }
         .navigationTitle("collectionsView.detail.title")
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(true)
-        .onPopToRoot {
-            dismiss()
-        }
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                PopToRootBackButton()
-            }
             ToolbarItem(placement: .principal) {
                 VStack(spacing: 2) {
                     Text(submission.name ?? NSLocalizedString("collectionsView.untitled", comment: "Untitled Collection"))
@@ -116,6 +118,10 @@ struct CollectionDetailView: View {
                         
                         if !submittedFiles.isEmpty {
                             Divider()
+                            
+                            Button(action: { prepareExport() }) {
+                                Label(NSLocalizedString("button.export", comment: "Export"), systemImage: "square.and.arrow.up")
+                            }
                             
                             Button(action: { showSubmissionPicker = true }) {
                                 Label("Submit to Publication", systemImage: "paperplane")
@@ -191,6 +197,181 @@ struct CollectionDetailView: View {
         } message: {
             Text(printErrorMessage)
         }
+        .alert(NSLocalizedString("submissions.duplicate.title", comment: "Duplicate Submission"), isPresented: $showDuplicateSubmission) {
+            Button(NSLocalizedString("button.ok", comment: "OK")) { }
+        } message: {
+            Text(String(format: NSLocalizedString("submissions.duplicate.message", comment: "Duplicate message"), duplicateSubmissionName))
+        }
+        .confirmationDialog(
+            NSLocalizedString("export.dialog.title", comment: "Export Format"),
+            isPresented: $showExportMenu,
+            titleVisibility: .visible
+        ) {
+            exportDialogButtons
+        }
+        .fileExporter(
+            isPresented: $showExportSaveDialog,
+            document: ExportDocument(
+                data: exportData ?? Data(),
+                filename: exportFilename,
+                contentType: contentTypeForFormat(exportFormat)
+            ),
+            contentType: contentTypeForFormat(exportFormat),
+            defaultFilename: exportFilename,
+            onCompletion: { result in
+                switch result {
+                case .success:
+                    #if DEBUG
+                    print("✅ Export saved successfully")
+                    #endif
+                case .failure(let error):
+                    #if DEBUG
+                    print("❌ Export save failed: \(error)")
+                    #endif
+                }
+            }
+        )
+    }
+    
+    // MARK: - Export
+    
+    private func prepareExport() {
+        showExportMenu = true
+    }
+    
+    @ViewBuilder
+    private var exportDialogButtons: some View {
+        Button(ExportFormat.pdf.localizedName) {
+            exportCollectionFiles(format: .pdf)
+        }
+        Button(ExportFormat.rtf.localizedName) {
+            exportCollectionFiles(format: .rtf)
+        }
+        Button(ExportFormat.html.localizedName) {
+            exportCollectionFiles(format: .html)
+        }
+        Button(ExportFormat.word.localizedName) {
+            exportCollectionFiles(format: .word)
+        }
+        Button(ExportFormat.markdown.localizedName) {
+            exportCollectionFiles(format: .markdown)
+        }
+        Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) { }
+    }
+    
+    private func exportCollectionFiles(format: ExportFormat) {
+        self.exportFormat = format
+        
+        // Use the submitted version, falling back to current version
+        let versions = submittedFiles
+            .compactMap { $0.version ?? $0.textFile?.currentVersion }
+        
+        guard !versions.isEmpty else { return }
+        
+        var attributedStrings: [NSAttributedString] = []
+        
+        for version in versions {
+            let content: NSAttributedString
+            if let formatted = version.attributedContent {
+                content = formatted
+            } else if !version.content.isEmpty {
+                content = NSAttributedString(
+                    string: version.content,
+                    attributes: [.font: UIFont.preferredFont(forTextStyle: .body)]
+                )
+            } else {
+                continue
+            }
+            attributedStrings.append(content)
+        }
+        
+        guard !attributedStrings.isEmpty else { return }
+        
+        let filename = submission.name ?? "Collection"
+        
+        Task {
+            do {
+                let data: Data
+                switch format {
+                case .pdf:
+                    let textFiles = submittedFiles
+                        .compactMap { $0.textFile }
+                    guard !textFiles.isEmpty, let project = submission.project else { return }
+                    
+                    // Assemble content like manuscript export for proper page views
+                    let assembled = NSMutableAttributedString()
+                    var isFirst = true
+                    for tf in textFiles {
+                        guard let version = tf.currentVersion, let content = version.attributedContent else { continue }
+                        if !isFirst {
+                            assembled.append(NSAttributedString(string: "\u{000C}"))
+                        }
+                        isFirst = false
+                        assembled.append(content)
+                    }
+                    guard assembled.length > 0 else { return }
+                    
+                    let manuscriptContent = ManuscriptContent(
+                        attributedString: assembled,
+                        sections: [],
+                        fileOffsets: [:],
+                        frontMatterFileCount: 0,
+                        frontMatterCharacterLength: 0,
+                        assembledFootnotes: []
+                    )
+                    guard let pdfData = PrintService.generatePDF(
+                        from: manuscriptContent,
+                        project: project,
+                        pageSetup: project.pageSetup,
+                        context: modelContext
+                    ) else { return }
+                    data = pdfData
+                case .rtf:
+                    data = try await Task.detached {
+                        try WordDocumentService.exportMultipleToRTF(attributedStrings, filename: filename)
+                    }.value
+                case .html:
+                    data = try await Task.detached {
+                        try HTMLExportService.exportMultipleToHTMLData(attributedStrings, filename: filename)
+                    }.value
+                case .word:
+                    data = try await Task.detached { [weak modelContext] in
+                        guard let modelContext = modelContext else { throw DOCXExportError.noContent }
+                        let exportService = DOCXExportService(modelContext: modelContext)
+                        return try exportService.exportMultipleToDOCX(attributedStrings, filename: filename)
+                    }.value
+                case .markdown:
+                    data = try await Task.detached {
+                        try MarkdownExportService.exportMultipleToMarkdownData(attributedStrings, filename: filename)
+                    }.value
+                default:
+                    return
+                }
+                
+                await MainActor.run {
+                    exportData = data
+                    exportFilename = "\(filename).\(format.fileExtension)"
+                    showExportSaveDialog = true
+                }
+            } catch {
+                #if DEBUG
+                print("❌ Export failed: \(error)")
+                #endif
+            }
+        }
+    }
+    
+    private func contentTypeForFormat(_ format: ExportFormat) -> UTType {
+        switch format {
+        case .rtf: return .rtf
+        case .html: return .html
+        case .word: return UTType("org.openxmlformats.wordprocessingml.document") ?? .data
+        case .pdf: return .pdf
+        case .plainText: return .plainText
+        case .markdown: return UTType(filenameExtension: "md") ?? .plainText
+        case .fountain: return UTType(filenameExtension: "fountain") ?? .plainText
+        case .finalDraft: return UTType(filenameExtension: "fdx") ?? .xml
+        }
     }
     
     // MARK: - Printing
@@ -252,6 +433,19 @@ struct CollectionDetailView: View {
     
     private func createSubmissionFromCollection(to publication: Publication, name: String, expectedResponseDate: Date? = nil, reminderDate: Date? = nil) {
         guard let project = submission.project else { return }
+        
+        // Check for duplicate submission name in this project
+        let trimmedName = name.isEmpty ? (submission.name ?? "") : name
+        let projectID = project.id
+        var duplicateCheck = FetchDescriptor<Submission>(predicate: #Predicate<Submission> { submission in
+            submission.name == trimmedName && submission.project?.id == projectID && submission.isCollection == false
+        })
+        duplicateCheck.fetchLimit = 1
+        if let count = try? modelContext.fetchCount(duplicateCheck), count > 0 {
+            duplicateSubmissionName = trimmedName
+            showDuplicateSubmission = true
+            return
+        }
         
         // Create new Submission as Publication Submission
         let pubSubmission = Submission(

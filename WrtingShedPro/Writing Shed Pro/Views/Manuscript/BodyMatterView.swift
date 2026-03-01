@@ -32,7 +32,6 @@ extension Act: BodyMatterItem {}
 struct BodyMatterView: View {
     let project: Project
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.dismiss) private var dismiss
     
     @State private var showAddItemSheet = false
     @State private var showNoItemsAlert = false
@@ -50,14 +49,7 @@ struct BodyMatterView: View {
         }
         .navigationTitle(NSLocalizedString("bodyMatter.title", comment: "Body Matter"))
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(true)
-        .onPopToRoot {
-            dismiss()
-        }
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                PopToRootBackButton()
-            }
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack(spacing: 16) {
                     if !bodyMatterItems.isEmpty {

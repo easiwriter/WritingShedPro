@@ -8,7 +8,6 @@ import UniformTypeIdentifiers
 struct ManuscriptBodyView: View {
     let project: Project
     @Environment(\.modelContext) private var context
-    @Environment(\.dismiss) private var dismiss
     
     @State private var assemblyService: ManuscriptAssemblyService?
     @State private var sections: [ManuscriptSection] = []
@@ -43,15 +42,7 @@ struct ManuscriptBodyView: View {
             }
         }
         .navigationTitle(NSLocalizedString("folder.body", comment: "Body"))
-        .navigationBarBackButtonHidden(true)
-        .onPopToRoot {
-            dismiss()
-        }
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                PopToRootBackButton()
-            }
-        }
+
         .task {
             await loadBodySections()
         }

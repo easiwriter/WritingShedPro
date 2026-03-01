@@ -638,6 +638,11 @@ struct FileEditView: View {
             compactReferenceSubmenu()
         }
         
+        // Index (top-level)
+        if backMatterSettings.isEnabled(.index) {
+            compactIndexSubmenu()
+        }
+        
         // Lists submenu (only if stylesheet has list styles)
         if file.project?.styleSheet?.hasListStyles == true {
             Menu {
@@ -655,14 +660,6 @@ struct FileEditView: View {
         // Section marking menu (poetry projects only)
         if isPoetryProject {
             sectionMarkingMenu
-        }
-        
-        Divider()
-        
-        Button(action: {
-            insertPageBreak()
-        }) {
-            Label("Insert Page Break", systemImage: "arrow.up.and.line.horizontal.and.arrow.down")
         }
         
         Divider()
@@ -752,6 +749,14 @@ struct FileEditView: View {
     private func compactReferenceSubmenu() -> some View {
         Button(action: { showNewReferenceDialog = true }) {
             Label(NSLocalizedString("insertMenu.addReference", comment: "Add Reference"), systemImage: "books.vertical.fill")
+        }
+    }
+    
+    /// Index button for compact mode
+    @ViewBuilder
+    private func compactIndexSubmenu() -> some View {
+        Button(action: { showIndexEntryDialogWithSelectedText() }) {
+            Label(NSLocalizedString("insertMenu.addIndexEntry", comment: "Add Index Entry"), systemImage: "character.book.closed.fill")
         }
     }
 
@@ -1224,6 +1229,13 @@ struct FileEditView: View {
                     Label(NSLocalizedString("insertMenu.addReference", comment: "Add Reference"), systemImage: "books.vertical.fill")
                 }
             }
+            
+            // Index - direct button, no submenu
+            if backMatterSettings.isEnabled(.index) {
+                Button(action: { showIndexEntryDialogWithSelectedText() }) {
+                    Label(NSLocalizedString("insertMenu.addIndexEntry", comment: "Add Index Entry"), systemImage: "character.book.closed.fill")
+                }
+            }
 
             // Lists submenu (only if stylesheet has list styles)
             if file.project?.styleSheet?.hasListStyles == true {
@@ -1612,11 +1624,6 @@ struct FileEditView: View {
             // For poetry projects, hide the navigation title since we use a custom title view
             .navigationTitle(isPoetryProject ? "" : file.name)
             .navigationBarTitleDisplayMode(.inline)
-            // Use native iOS back button - it's rendered by UIKit and immune to SwiftUI render blocking
-            .navigationBarBackButtonHidden(false)
-            .onPopToRoot {
-                dismiss()
-            }
             .toolbar {
                 // Custom title with form subtitle for poetry projects
                 if isPoetryProject {

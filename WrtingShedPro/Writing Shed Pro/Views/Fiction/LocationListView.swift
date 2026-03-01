@@ -14,7 +14,6 @@ struct LocationListView: View {
     // MARK: - Environment
     
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.dismiss) private var dismiss
     
     // MARK: - Properties
     
@@ -47,14 +46,7 @@ struct LocationListView: View {
         }
         .navigationTitle(NSLocalizedString("fiction.locations.title", comment: "Locations"))
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(true)
-        .onPopToRoot {
-            dismiss()
-        }
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                PopToRootBackButton()
-            }
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
                     showAddLocation = true

@@ -183,10 +183,6 @@ struct ContentViewBody: View {
             }
             #endif
         }
-        .onReceive(NotificationCenter.default.publisher(for: .popToRootNavigation)) { _ in
-            // Clear navigation path to pop all views to root
-            state.navigationPath = NavigationPath()
-        }
         .onReceive(NotificationCenter.default.publisher(for: GuideNavigationService.openGuideSectionNotification)) { notification in
             let section = notification.userInfo?["section"] as? String
             // Open in-app HTML manual sheet — uses WKWebView with JS scrollIntoView

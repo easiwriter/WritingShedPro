@@ -20,7 +20,6 @@ struct ProseListView: View {
     // MARK: - Environment
     
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.dismiss) private var dismiss
     
     // MARK: - Properties
     
@@ -81,8 +80,11 @@ struct ProseListView: View {
     @State private var importErrorMessage = ""
     
     /// Submission state
-    @State private var showSubmissionPicker = false
-    @State private var filesToSubmit: [TextFile] = []
+    @State private var showSubmissionNamePrompt = false
+    @State private var newSubmissionName: String = ""
+    @State private var showSubmissionCreated = false
+    @State private var createdSubmissionName: String = ""
+    @State private var showDuplicateSubmission = false
     
     /// Header/Footer editor state
     @State private var showHeaderFooterEditor = false
@@ -246,11 +248,28 @@ struct ProseListView: View {
             .sheet(isPresented: $showHeaderFooterEditor) {
                 headerFooterSheet
             }
-            .sheet(isPresented: $showSubmissionPicker) {
-                AddToSubmissionSheet(
-                    project: project,
-                    filesToAdd: filesToSubmit
-                )
+            .alert(NSLocalizedString("submissions.name.title", comment: "Name Submission"), isPresented: $showSubmissionNamePrompt) {
+                TextField(NSLocalizedString("submissions.name.placeholder", comment: "Name"), text: $newSubmissionName)
+                Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
+                    newSubmissionName = ""
+                }
+                Button(NSLocalizedString("button.create", comment: "Create")) {
+                    createSubmissionFromFiles(name: newSubmissionName)
+                    newSubmissionName = ""
+                }
+                .disabled(newSubmissionName.trimmingCharacters(in: .whitespaces).isEmpty)
+            } message: {
+                Text(NSLocalizedString("submissions.name.message", comment: "Enter a name"))
+            }
+            .alert(NSLocalizedString("submissions.created.title", comment: "Submission Created"), isPresented: $showSubmissionCreated) {
+                Button(NSLocalizedString("button.ok", comment: "OK")) { }
+            } message: {
+                Text(String(format: NSLocalizedString("submissions.created.message", comment: "Created message"), createdSubmissionName))
+            }
+            .alert(NSLocalizedString("submissions.duplicate.title", comment: "Duplicate Submission"), isPresented: $showDuplicateSubmission) {
+                Button(NSLocalizedString("button.ok", comment: "OK")) { }
+            } message: {
+                Text(String(format: NSLocalizedString("submissions.duplicate.message", comment: "Duplicate message"), createdSubmissionName))
             }
             .sheet(isPresented: $showContainerAssignment) {
                 ContainerAssignmentView.forProseSections(
@@ -332,11 +351,6 @@ struct ProseListView: View {
         }
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
-        // Use native iOS back button - immune to SwiftUI render blocking
-        .navigationBarBackButtonHidden(false)
-        .onPopToRoot {
-            dismiss()
-        }
         .environment(\.editMode, $editMode)
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
@@ -665,12 +679,10 @@ struct ProseListView: View {
         // Add to submission button
         if !selectedFiles.isEmpty {
             Button {
-                filesToSubmit = selectedFiles
-                showSubmissionPicker = true
+                showSubmissionNamePrompt = true
             } label: {
                 Label(NSLocalizedString("fileList.addToSubmission", comment: "Add to submission"), systemImage: "tray.and.arrow.down")
             }
-            .disabled(selectedFiles.isEmpty)
         }
         
         // Print button
@@ -896,6 +908,48 @@ struct ProseListView: View {
             editMode = .inactive
             selectedFileIDs.removeAll()
         }
+    }
+    
+    private func createSubmissionFromFiles(name: String) {
+        let trimmedName = name.trimmingCharacters(in: .whitespaces)
+        guard !trimmedName.isEmpty else { return }
+        
+        // Check for duplicate submission name in this project
+        let projectID = project.id
+        var duplicateCheck = FetchDescriptor<Submission>(predicate: #Predicate<Submission> { submission in
+            submission.name == trimmedName && submission.project?.id == projectID && submission.isCollection == false
+        })
+        duplicateCheck.fetchLimit = 1
+        if let count = try? modelContext.fetchCount(duplicateCheck), count > 0 {
+            createdSubmissionName = trimmedName
+            showDuplicateSubmission = true
+            return
+        }
+        
+        let submission = Submission(
+            project: project,
+            submittedDate: Date()
+        )
+        submission.name = trimmedName
+        submission.isCollection = false
+        modelContext.insert(submission)
+        
+        for file in selectedFiles {
+            let submittedFile = SubmittedFile(
+                submission: submission,
+                textFile: file,
+                version: file.currentVersion,
+                status: .pending,
+                statusDate: Date(),
+                project: project
+            )
+            modelContext.insert(submittedFile)
+        }
+        
+        try? modelContext.save()
+        createdSubmissionName = trimmedName
+        showSubmissionCreated = true
+        exitEditMode()
     }
     
     private func prepareDelete(_ files: [TextFile]) {

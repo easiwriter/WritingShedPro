@@ -10,7 +10,6 @@ import SwiftData
 
 struct PublicationsListView: View {
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.dismiss) private var dismiss
     @Query(sort: \Publication.name) private var publications: [Publication]
     
     let project: Project
@@ -70,14 +69,7 @@ struct PublicationsListView: View {
             }
         }
         .navigationTitle(navigationTitle)
-        .navigationBarBackButtonHidden(true)
-        .onPopToRoot {
-            dismiss()
-        }
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                PopToRootBackButton()
-            }
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button(action: { showingAddSheet = true }) {
                     Label("publications.button.add", systemImage: "plus")

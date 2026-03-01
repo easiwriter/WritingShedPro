@@ -8,6 +8,7 @@
 
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
 
 /// View for displaying and managing poems within a poetry collection
 struct PoetryCollectionPoemsView: View {
@@ -15,7 +16,6 @@ struct PoetryCollectionPoemsView: View {
     // MARK: - Environment
     
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.dismiss) private var dismiss
     
     // MARK: - Properties
     
@@ -28,6 +28,15 @@ struct PoetryCollectionPoemsView: View {
     @State private var editMode: EditMode = .inactive
     @State private var selectedFileIDs: Set<UUID> = []
     @State private var showRemoveConfirmation = false
+    @State private var showPrintError = false
+    @State private var printErrorMessage = ""
+    
+    // Export state
+    @State private var showExportMenu = false
+    @State private var showExportSaveDialog = false
+    @State private var exportFormat: ExportFormat = .rtf
+    @State private var exportData: Data?
+    @State private var exportFilename: String = ""
     
     // MARK: - Computed
     
@@ -68,14 +77,7 @@ struct PoetryCollectionPoemsView: View {
         }
         .navigationTitle(collection.name ?? NSLocalizedString("poetry.collection.untitled", comment: "Untitled"))
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(true)
-        .onPopToRoot {
-            dismiss()
-        }
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                PopToRootBackButton()
-            }
             ToolbarItemGroup(placement: .navigationBarTrailing) {
                 Button {
                     showAddPoemsSheet = true
@@ -98,6 +100,21 @@ struct PoetryCollectionPoemsView: View {
                         }
                     } label: {
                         Text(isEditMode ? NSLocalizedString("button.done", comment: "Done") : NSLocalizedString("button.edit", comment: "Edit"))
+                    }
+                }
+                
+                // More menu (export/print)
+                if !sortedFiles.isEmpty && !isEditMode {
+                    Menu {
+                        Button(action: { showExportMenu = true }) {
+                            Label(NSLocalizedString("button.export", comment: "Export"), systemImage: "square.and.arrow.up")
+                        }
+                        
+                        Button(action: { printCollection() }) {
+                            Label(NSLocalizedString("button.print", comment: "Print"), systemImage: "printer")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
                     }
                 }
             }
@@ -129,6 +146,33 @@ struct PoetryCollectionPoemsView: View {
             if newValue == .inactive {
                 selectedFileIDs.removeAll()
             }
+        }
+        .confirmationDialog(
+            NSLocalizedString("export.dialog.title", comment: "Export Format"),
+            isPresented: $showExportMenu,
+            titleVisibility: .visible
+        ) {
+            exportDialogButtons
+        }
+        .fileExporter(
+            isPresented: $showExportSaveDialog,
+            document: ExportDocument(data: exportData ?? Data(), filename: exportFilename, contentType: contentTypeForFormat(exportFormat)),
+            contentType: contentTypeForFormat(exportFormat),
+            defaultFilename: exportFilename
+        ) { result in
+            #if DEBUG
+            switch result {
+            case .success(let url):
+                print("✅ Exported to: \(url)")
+            case .failure(let error):
+                print("❌ Export save failed: \(error)")
+            }
+            #endif
+        }
+        .alert(NSLocalizedString("print.error.title", comment: "Print Error"), isPresented: $showPrintError) {
+            Button(NSLocalizedString("button.ok", comment: "OK")) { }
+        } message: {
+            Text(printErrorMessage)
         }
     }
     
@@ -263,6 +307,176 @@ struct PoetryCollectionPoemsView: View {
         }
         collection.modifiedDate = Date()
         try? modelContext.save()
+    }
+    
+    // MARK: - Export
+    
+    @ViewBuilder
+    private var exportDialogButtons: some View {
+        Button(ExportFormat.pdf.localizedName) {
+            exportCollectionPoems(format: .pdf)
+        }
+        Button(ExportFormat.rtf.localizedName) {
+            exportCollectionPoems(format: .rtf)
+        }
+        Button(ExportFormat.html.localizedName) {
+            exportCollectionPoems(format: .html)
+        }
+        Button(ExportFormat.word.localizedName) {
+            exportCollectionPoems(format: .word)
+        }
+        Button(ExportFormat.markdown.localizedName) {
+            exportCollectionPoems(format: .markdown)
+        }
+        Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) { }
+    }
+    
+    private func exportCollectionPoems(format: ExportFormat) {
+        self.exportFormat = format
+        
+        let files = sortedFiles
+        guard !files.isEmpty else { return }
+        
+        let filename = collection.name ?? "Collection"
+        
+        if format == .pdf {
+            // Use the same assembly approach as manuscript export for proper page views
+            Task {
+                let assembled = NSMutableAttributedString()
+                var isFirstFile = true
+                
+                for file in files {
+                    guard let version = file.currentVersion, let content = version.attributedContent else { continue }
+                    
+                    if !isFirstFile {
+                        // Add page break between files (same as manuscript assembly)
+                        let breakString = NSAttributedString(string: "\u{000C}")
+                        assembled.append(breakString)
+                    }
+                    isFirstFile = false
+                    assembled.append(content)
+                }
+                
+                guard assembled.length > 0 else { return }
+                
+                let manuscriptContent = ManuscriptContent(
+                    attributedString: assembled,
+                    sections: [],
+                    fileOffsets: [:],
+                    frontMatterFileCount: 0,
+                    frontMatterCharacterLength: 0,
+                    assembledFootnotes: []
+                )
+                
+                let pdfData = PrintService.generatePDF(
+                    from: manuscriptContent,
+                    project: project,
+                    pageSetup: project.pageSetup,
+                    context: modelContext
+                )
+                
+                await MainActor.run {
+                    guard let pdfData = pdfData else { return }
+                    exportData = pdfData
+                    exportFilename = "\(filename).pdf"
+                    showExportSaveDialog = true
+                }
+            }
+            return
+        }
+        
+        // Build attributed strings for other formats
+        var attributedStrings: [NSAttributedString] = []
+        for file in files {
+            guard let version = file.currentVersion else { continue }
+            let content: NSAttributedString
+            if let formatted = version.attributedContent {
+                content = formatted
+            } else if !version.content.isEmpty {
+                content = NSAttributedString(
+                    string: version.content,
+                    attributes: [.font: UIFont.preferredFont(forTextStyle: .body)]
+                )
+            } else {
+                continue
+            }
+            attributedStrings.append(content)
+        }
+        
+        guard !attributedStrings.isEmpty else { return }
+        
+        Task {
+            do {
+                let data: Data
+                switch format {
+                case .rtf:
+                    data = try await Task.detached {
+                        try WordDocumentService.exportMultipleToRTF(attributedStrings, filename: filename)
+                    }.value
+                case .html:
+                    data = try await Task.detached {
+                        try HTMLExportService.exportMultipleToHTMLData(attributedStrings, filename: filename)
+                    }.value
+                case .word:
+                    data = try await Task.detached { [weak modelContext] in
+                        guard let modelContext = modelContext else { throw DOCXExportError.noContent }
+                        let exportService = DOCXExportService(modelContext: modelContext)
+                        return try exportService.exportMultipleToDOCX(attributedStrings, filename: filename)
+                    }.value
+                case .markdown:
+                    data = try await Task.detached {
+                        try MarkdownExportService.exportMultipleToMarkdownData(attributedStrings, filename: filename)
+                    }.value
+                default:
+                    return
+                }
+                
+                await MainActor.run {
+                    exportData = data
+                    exportFilename = "\(filename).\(format.fileExtension)"
+                    showExportSaveDialog = true
+                }
+            } catch {
+                #if DEBUG
+                print("❌ Export failed: \(error)")
+                #endif
+            }
+        }
+    }
+    
+    private func contentTypeForFormat(_ format: ExportFormat) -> UTType {
+        switch format {
+        case .rtf: return .rtf
+        case .html: return .html
+        case .word: return UTType("org.openxmlformats.wordprocessingml.document") ?? .data
+        case .pdf: return .pdf
+        case .plainText: return .plainText
+        case .markdown: return UTType(filenameExtension: "md") ?? .plainText
+        case .fountain: return UTType(filenameExtension: "fountain") ?? .plainText
+        case .finalDraft: return UTType(filenameExtension: "fdx") ?? .xml
+        }
+    }
+    
+    // MARK: - Printing
+    
+    private func printCollection() {
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let window = windowScene.windows.first,
+              let viewController = window.rootViewController else {
+            printErrorMessage = "Unable to present print dialog"
+            showPrintError = true
+            return
+        }
+        
+        let files = sortedFiles
+        guard !files.isEmpty else { return }
+        
+        PrintService.printFiles(files, project: project, context: modelContext, from: viewController) { success, error in
+            if let error = error {
+                printErrorMessage = error.localizedDescription
+                showPrintError = true
+            }
+        }
     }
     
     private func moveFiles(from source: IndexSet, to destination: Int) {

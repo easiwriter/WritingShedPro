@@ -83,28 +83,6 @@ if folder.project == nil && folder.parentFolder == nil {
 
 <!-- MANUAL ADDITIONS START -->
 
-## Navigation: Long-Press Back to Root
-When creating **nested navigation views** (any view pushed via NavigationLink that is 2+ levels deep from the project list):
-1. Add `@Environment(\.dismiss) private var dismiss` if not already present
-2. Add `.navigationBarBackButtonHidden(true)` to hide the default back button
-3. Add `.onPopToRoot { dismiss() }` to respond to the pop-to-root notification
-4. Add `PopToRootBackButton()` in the toolbar with `placement: .topBarLeading`
-
-Example:
-```swift
-.navigationBarBackButtonHidden(true)
-.onPopToRoot {
-    dismiss()
-}
-.toolbar {
-    ToolbarItem(placement: .topBarLeading) {
-        PopToRootBackButton()
-    }
-}
-```
-
-Views that already implement this: FolderFilesView, FolderListView (subfolders), FileEditView, TrashView, CollectionsView, CollectionDetailView, SubmissionsView, SubmissionDetailView, PublicationsListView
-
 ## Swift Memory Management: Structs vs Classes
 **CRITICAL: Structs CANNOT use [weak self] in closures**
 - SwiftUI Views are structs, not classes

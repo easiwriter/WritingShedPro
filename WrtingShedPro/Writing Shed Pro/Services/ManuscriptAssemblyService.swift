@@ -1,6 +1,7 @@
 import Foundation
 import SwiftData
 import Observation
+import UIKit
 
 /// Service responsible for assembling manuscript content from source folders (Feature 029)
 @Observable
@@ -627,6 +628,60 @@ final class ManuscriptAssemblyService {
                     )
                     print("[ManuscriptAssemblyService] Rendered attributed string: \(rendered.string)")
                     assembled.append(rendered)
+                } else if file.isTableOfFiguresFile {
+                    // Generate Table of Figures content for export (Feature 112)
+                    // The TOF is generated dynamically in the editor, so we must generate it here for export
+                    print("[ManuscriptAssemblyService] Generating Table of Figures for file: \(file.name)")
+                    let tofService = TableOfFiguresGenerationService(context: context)
+                    var entries = tofService.generateEntries(for: project, tofFile: file)
+                    if !entries.isEmpty {
+                        entries = await tofService.calculatePageNumbers(for: entries, project: project, tofFile: file)
+                    }
+                    let settings = file.tableOfFiguresSettings
+                    let missingCaptionEntries = entries.filter { !$0.hasCaption }
+                    let renderedTOF = tofService.renderTableOfFigures(
+                        entries: entries,
+                        settings: settings,
+                        project: project,
+                        missingCaptionCount: missingCaptionEntries.count,
+                        missingCaptionPages: missingCaptionEntries.map { $0.pageNumber }
+                    )
+                    assembled.append(renderedTOF)
+                } else if let generatedType = Self.generatedBackMatterType(for: file) {
+                    // Regenerate back matter content fresh at export time so it's never stale.
+                    // Endnotes, Glossary, References, Contributors, and Index files store their
+                    // attributedContent only when the user views them in the editor. If the user
+                    // added references/notes without re-opening the back matter file, the stored
+                    // content would be out of date.
+                    let generator = BackMatterGenerator(context: context, project: project)
+                    let generated: NSAttributedString?
+                    switch generatedType {
+                    case .endnotes:
+                        generated = generator.generateNotesSection()
+                    case .glossary:
+                        generated = generator.generateGlossarySection()
+                    case .references:
+                        generated = generator.generateReferencesSection()
+                    case .index:
+                        // Calculate page numbers by paginating the content assembled so far
+                        // (front matter + body matter), then scanning for ReferenceAttachment
+                        // markers with referenceType == .index.
+                        let indexPageMap = Self.calculateIndexPageNumbers(
+                            from: assembled,
+                            pageSetup: project.pageSetup ?? PageSetup()
+                        )
+                        generated = generator.generateIndexSection(pageMap: indexPageMap)
+                    case .contributors:
+                        generated = generator.generateContributorsSection()
+                    default:
+                        generated = nil
+                    }
+                    if let content = generated {
+                        print("[ManuscriptAssemblyService] Generated back matter for: \(file.name) (\(generatedType.rawValue))")
+                        assembled.append(content)
+                    } else {
+                        print("[ManuscriptAssemblyService] No content for back matter: \(file.name) (\(generatedType.rawValue))")
+                    }
                 } else if let version = file.currentVersion, let content = version.attributedContent {
                     print("[ManuscriptAssemblyService] Appending attributedContent for file: \(file.name)")
                     let contentOffset = assembled.length
@@ -672,6 +727,23 @@ final class ManuscriptAssemblyService {
         if !frontMatterDone {
             frontMatterCharacterLength = assembled.length
         }
+
+        // Register the project stylesheet for all manuscript file IDs so that
+        // image captions can resolve their style during PDF rendering (TextKit 1 path).
+        // Without this, image(forBounds:) falls back to centered caption with no numbering.
+        if let styleSheet = project.styleSheet {
+            for section in sections {
+                for file in section.files {
+                    StyleSheetProvider.shared.register(styleSheet: styleSheet, for: file.id)
+                }
+            }
+        }
+        
+        // Update caption numbers for all images in document order (Feature 016).
+        // During editing, numbers are maintained by the editor views (PaginatedDocumentView,
+        // FormattedTextEditor). During export assembly, we must assign them so that
+        // PDF rendering includes the correct figure numbers in captions.
+        ImageAttachment.updateCaptionNumbersInAttributedString(assembled, styleSheet: project.styleSheet)
 
         return ManuscriptContent(
             attributedString: assembled,
@@ -788,6 +860,99 @@ final class ManuscriptAssemblyService {
         case .none:
             return NSAttributedString(string: "")
         }
+    }
+    
+    // MARK: - Generated Back Matter Detection
+    
+    /// Determine if a back matter file is a generated type (Endnotes, Glossary, etc.)
+    /// that should be regenerated fresh at export time rather than using stored attributedContent.
+    /// Returns the BackMatterItem type, or nil if this is a regular user-authored file.
+    static func generatedBackMatterType(for file: TextFile) -> BackMatterItem? {
+        // Only applies to files in the Back Matter folder
+        guard let folder = file.parentFolder, folder.isBackMatterFolder else {
+            return nil
+        }
+        // Cover files are handled separately
+        if file.isCoverFile { return nil }
+        // TOF files are handled by the isTableOfFiguresFile check
+        if file.isTableOfFiguresFile { return nil }
+        
+        let fileName = file.name.lowercased()
+        let generatedTypes: [BackMatterItem] = [.endnotes, .glossary, .references, .index, .contributors]
+        for item in generatedTypes {
+            if fileName.contains(item.rawValue.lowercased()) {
+                return item
+            }
+        }
+        return nil
+    }
+    
+    // MARK: - Index Page Number Calculation
+    
+    /// Calculate page numbers for index entries by paginating the assembled content so far
+    /// and scanning for ReferenceAttachment markers with referenceType == .index.
+    /// This mirrors the logic in BackMatterGeneratedContentView.calculateIndexPageNumbers().
+    static func calculateIndexPageNumbers(
+        from assembledContent: NSAttributedString,
+        pageSetup: PageSetup
+    ) -> [UUID: [IndexPageReference]] {
+        guard assembledContent.length > 0 else { return [:] }
+        
+        // Paginate the assembled content
+        let textStorage = NSTextStorage(attributedString: assembledContent)
+        let layoutManager = PaginatedTextLayoutManager(textStorage: textStorage, pageSetup: pageSetup)
+        let layoutResult = layoutManager.calculateLayout()
+        
+        #if DEBUG
+        print("[ManuscriptAssemblyService] Index page calc: \(assembledContent.length) chars -> \(layoutResult.totalPages) pages")
+        #endif
+        
+        // Scan for index reference markers
+        var result: [UUID: [IndexPageReference]] = [:]
+        let fullRange = NSRange(location: 0, length: assembledContent.length)
+        
+        assembledContent.enumerateAttribute(.attachment, in: fullRange, options: []) { value, range, _ in
+            guard let refAttachment = value as? ReferenceAttachment,
+                  refAttachment.referenceType == .index else {
+                return
+            }
+            
+            let globalPosition = range.location
+            
+            // Find which page this position falls on
+            var pageNumber = 1
+            for pageInfo in layoutResult.pageInfos {
+                if globalPosition >= pageInfo.characterRange.location &&
+                   globalPosition < pageInfo.characterRange.location + pageInfo.characterRange.length {
+                    pageNumber = pageInfo.pageIndex + 1
+                    break
+                }
+            }
+            // If past the last page range, use last page
+            if let lastPage = layoutResult.pageInfos.last,
+               globalPosition >= lastPage.characterRange.location + lastPage.characterRange.length {
+                pageNumber = lastPage.pageIndex + 1
+            }
+            
+            let ref = IndexPageReference(
+                pageNumber: pageNumber,
+                isPrimary: refAttachment.isPrimaryReference
+            )
+            
+            if result[refAttachment.entryID] == nil {
+                result[refAttachment.entryID] = []
+            }
+            // Avoid duplicate page numbers
+            if !result[refAttachment.entryID]!.contains(ref) {
+                result[refAttachment.entryID]!.append(ref)
+            }
+        }
+        
+        #if DEBUG
+        print("[ManuscriptAssemblyService] Index page map: \(result.count) entries with page numbers")
+        #endif
+        
+        return result
     }
 }
 

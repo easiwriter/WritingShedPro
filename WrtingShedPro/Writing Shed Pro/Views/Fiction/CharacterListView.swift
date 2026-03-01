@@ -14,7 +14,6 @@ struct CharacterListView: View {
     // MARK: - Environment
     
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.dismiss) private var dismiss
     
     // MARK: - Properties
     
@@ -72,14 +71,7 @@ struct CharacterListView: View {
         }
         .navigationTitle(NSLocalizedString("fiction.characters.title", comment: "Characters"))
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(true)
-        .onPopToRoot {
-            dismiss()
-        }
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                PopToRootBackButton()
-            }
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
                     showAddCharacter = true

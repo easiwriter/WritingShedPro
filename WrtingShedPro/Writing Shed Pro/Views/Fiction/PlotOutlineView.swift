@@ -14,7 +14,6 @@ struct PlotOutlineView: View {
     // MARK: - Environment
     
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.dismiss) private var dismiss
     
     // MARK: - Properties
     
@@ -97,14 +96,7 @@ struct PlotOutlineView: View {
         }
         .navigationTitle(NSLocalizedString("fiction.plot.title", comment: "Plot Outline"))
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(true)
-        .onPopToRoot {
-            dismiss()
-        }
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                PopToRootBackButton()
-            }
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
                     showAddPlotElement = true

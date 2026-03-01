@@ -15,7 +15,6 @@ struct PoetryCollectionsView: View {
     // MARK: - Environment
     
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.dismiss) private var dismiss
     
     // MARK: - Properties
     
@@ -61,14 +60,7 @@ struct PoetryCollectionsView: View {
         }
         .navigationTitle(NSLocalizedString("poetry.collections.title", comment: "Collections"))
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(true)
-        .onPopToRoot {
-            dismiss()
-        }
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                PopToRootBackButton()
-            }
             ToolbarItemGroup(placement: .navigationBarTrailing) {
                 Button {
                     showAddCollection = true

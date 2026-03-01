@@ -1092,10 +1092,17 @@
 "submissions.name.header" = "Submission Name";
 "submissions.name.placeholder" = "Enter submission name";
 "submissions.name.label" = "Submission name";
+"submissions.name.title" = "Name Submission";
+"submissions.name.message" = "Enter a name for the new submission.";
 "submissions.addTo" = "Add to Submission";
+"submissions.noFiles" = "No files selected to add";
 "submissions.new" = "New Submission";
 "submissions.existing" = "Existing Submissions";
 "submissions.addingFiles" = "Adding %d file(s)";
+"submissions.created.title" = "Submission Created";
+"submissions.created.message" = "'%@' has been added to submissions.";
+"submissions.duplicate.title" = "Duplicate Submission";
+"submissions.duplicate.message" = "A submission named '%@' already exists in this project.";
 "submissions.new.message" = "Enter a name for the new submission";
 "submission.untitled" = "Untitled";
 "submissions.setExpectedDate" = "Set expected response date";
@@ -1193,6 +1200,9 @@
 "button.add" = "Add";
 "button.edit" = "Edit";
 "button.rename" = "Rename";
+"button.export" = "Export";
+"button.print" = "Print";
+"print.error.title" = "Print Error";
 
 /* ContentView - New Keys */
 "contentView.manageStylesheets" = "Manage Stylesheets";
@@ -2723,6 +2733,15 @@
 "poetry.collections.deleteCount" = "Delete (%d)";
 "poetry.collections.empty.title" = "No Collections";
 "poetry.collections.empty.message" = "Create collections to group your poems for manuscript assembly.";
+"poetry.collection.charCount" = "%d characters";
+"poetry.collection.addPoems" = "Add Poems";
+"poetry.collection.addPoems.title" = "Add Poems";
+"poetry.collection.removeConfirm.title" = "Remove from Collection?";
+"poetry.collection.removeMultiple.title" = "Remove %d Poems?";
+"poetry.collection.removeCount" = "Remove (%d)";
+"poetry.collection.removeConfirm.message" = "Poems will be unassigned from this collection but not deleted.";
+"poetry.collection.empty.title" = "No Poems";
+"poetry.collection.empty.message" = "Add poems to this collection.";
 
 // MARK: - Reminders
 "reminder.set" = "Set Reminder";

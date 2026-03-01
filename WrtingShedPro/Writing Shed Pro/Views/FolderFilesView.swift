@@ -15,7 +15,6 @@ import UniformTypeIdentifiers
 struct FolderFilesView: View {
     @Bindable var folder: Folder
     @Environment(\.modelContext) var modelContext
-    @Environment(\.dismiss) var dismiss
     
     // Query all files (lazily loaded by SwiftData)
     @Query(sort: [SortDescriptor(\TextFile.name, order: .forward)]) var allTextFiles: [TextFile]
@@ -33,9 +32,12 @@ struct FolderFilesView: View {
     @State var selectedFile: TextFile?
     @State var navigateToFile = false
     
-    // State for submission picker
-    @State var showSubmissionPicker = false
-    @State var filesToSubmit: [TextFile] = []
+    // State for submission
+    @State var showSubmissionNamePrompt = false
+    @State var newSubmissionName: String = ""
+    @State var showSubmissionCreated = false
+    @State var createdSubmissionName: String = ""
+    @State var showDuplicateSubmission = false
     
     // State for rename
     @State var showRenamePicker = false
@@ -126,9 +128,6 @@ struct FolderFilesView: View {
     
     // State for collection grouping expand/collapse (shared with FileListView)
     @State var collectionExpandedSections: Set<String> = []
-    
-    // State for early dismissal - prevents continued rendering during navigation
-    @State var isDismissing = false
     
     /// Returns the number of TrashItem objects for this folder's project
     /// Uses the project's existing relationship instead of a broad @Query
@@ -234,14 +233,7 @@ struct FolderFilesView: View {
     
     @ViewBuilder
     private var mainContent: some View {
-        // Skip rendering file list when navigating away to improve back button responsiveness
-        if isDismissing {
-            #if DEBUG
-            let _ = print("🔙 [FolderFilesView] isDismissing=true, rendering Color.clear instead of file list")
-            #endif
-            ProgressView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else if folder.name == "Trash" && trashItemCount == 0 {
+        if folder.name == "Trash" && trashItemCount == 0 {
             EmptyView()
         } else {
             VStack(spacing: 0) {
@@ -279,9 +271,8 @@ struct FolderFilesView: View {
     // MARK: - Computed Properties for Callbacks
     
     private var fileListOnSubmit: (([TextFile]) -> Void)? {
-        supportsSubmissions ? { files in
-            filesToSubmit = files
-            showSubmissionPicker = true
+        supportsSubmissions ? { _ in
+            showSubmissionNamePrompt = true
         } : nil
     }
     
@@ -696,8 +687,7 @@ struct FolderFilesView: View {
         // Add to submission button (only when files selected, no folders)
         if filesOnlySelected {
             Button {
-                filesToSubmit = selectedFiles
-                showSubmissionPicker = true
+                showSubmissionNamePrompt = true
             } label: {
                 Image(systemName: "tray.and.arrow.down")
             }
@@ -831,6 +821,47 @@ struct FolderFilesView: View {
     }
     
     // MARK: - Actions
+    
+    func createSubmissionFromFiles(name: String) {
+        let trimmedName = name.trimmingCharacters(in: .whitespaces)
+        guard !trimmedName.isEmpty, let project = folder.project else { return }
+        
+        // Check for duplicate submission name in this project
+        let projectID = project.id
+        var duplicateCheck = FetchDescriptor<Submission>(predicate: #Predicate<Submission> { submission in
+            submission.name == trimmedName && submission.project?.id == projectID && submission.isCollection == false
+        })
+        duplicateCheck.fetchLimit = 1
+        if let count = try? modelContext.fetchCount(duplicateCheck), count > 0 {
+            createdSubmissionName = trimmedName
+            showDuplicateSubmission = true
+            return
+        }
+        
+        let submission = Submission(
+            project: project,
+            submittedDate: Date()
+        )
+        submission.name = trimmedName
+        submission.isCollection = false
+        modelContext.insert(submission)
+        
+        for file in selectedFiles {
+            let submittedFile = SubmittedFile(
+                submission: submission,
+                textFile: file,
+                version: file.currentVersion,
+                status: .pending,
+                statusDate: Date(),
+                project: project
+            )
+            modelContext.insert(submittedFile)
+        }
+        
+        try? modelContext.save()
+        createdSubmissionName = trimmedName
+        showSubmissionCreated = true
+    }
     
     private func printSelectedFiles() {
         guard !selectedFiles.isEmpty, let project = folder.project else { return }

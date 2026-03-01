@@ -19,7 +19,6 @@ struct SceneListView: View {
     // MARK: - Environment
     
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.dismiss) private var dismiss
     
     // MARK: - Properties
     
@@ -89,8 +88,11 @@ struct SceneListView: View {
     @State private var showHeaderFooterWarning = false
     
     /// Submission state
-    @State private var showSubmissionPicker = false
-    @State private var filesToSubmit: [TextFile] = []
+    @State private var showSubmissionNamePrompt = false
+    @State private var newSubmissionName: String = ""
+    @State private var showSubmissionCreated = false
+    @State private var createdSubmissionName: String = ""
+    @State private var showDuplicateSubmission = false
     
     /// Chapter grouping: tracks which chapter sections are expanded
     @State private var chapterExpandedSections: Set<String> = []
@@ -354,11 +356,6 @@ struct SceneListView: View {
         }
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
-        // Use native iOS back button - immune to SwiftUI render blocking
-        .navigationBarBackButtonHidden(false)
-        .onPopToRoot {
-            dismiss()
-        }
         .environment(\.editMode, $editMode)
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
@@ -494,11 +491,28 @@ struct SceneListView: View {
                 }
             )
         }
-        .sheet(isPresented: $showSubmissionPicker) {
-            AddToSubmissionSheet(
-                project: project,
-                filesToAdd: filesToSubmit
-            )
+        .alert(NSLocalizedString("submissions.name.title", comment: "Name Submission"), isPresented: $showSubmissionNamePrompt) {
+            TextField(NSLocalizedString("submissions.name.placeholder", comment: "Name"), text: $newSubmissionName)
+            Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
+                newSubmissionName = ""
+            }
+            Button(NSLocalizedString("button.create", comment: "Create")) {
+                createSubmissionFromScenes(name: newSubmissionName)
+                newSubmissionName = ""
+            }
+            .disabled(newSubmissionName.trimmingCharacters(in: .whitespaces).isEmpty)
+        } message: {
+            Text(NSLocalizedString("submissions.name.message", comment: "Enter a name"))
+        }
+        .alert(NSLocalizedString("submissions.created.title", comment: "Submission Created"), isPresented: $showSubmissionCreated) {
+            Button(NSLocalizedString("button.ok", comment: "OK")) { }
+        } message: {
+            Text(String(format: NSLocalizedString("submissions.created.message", comment: "Created message"), createdSubmissionName))
+        }
+        .alert(NSLocalizedString("submissions.duplicate.title", comment: "Duplicate Submission"), isPresented: $showDuplicateSubmission) {
+            Button(NSLocalizedString("button.ok", comment: "OK")) { }
+        } message: {
+            Text(String(format: NSLocalizedString("submissions.duplicate.message", comment: "Duplicate message"), createdSubmissionName))
         }
         .sheet(isPresented: $showContainerAssignment) {
             containerAssignmentContent
@@ -798,12 +812,10 @@ struct SceneListView: View {
         // Add to submission button
         if !selectedScenes.isEmpty {
             Button {
-                filesToSubmit = selectedScenes.compactMap { $0.textFile }
-                showSubmissionPicker = true
+                showSubmissionNamePrompt = true
             } label: {
                 Label(NSLocalizedString("fileList.addToSubmission", comment: "Add to submission"), systemImage: "tray.and.arrow.down")
             }
-            .disabled(selectedScenes.isEmpty)
         }
         
         // Print button
@@ -1034,6 +1046,51 @@ struct SceneListView: View {
     }
     
     // MARK: - Actions
+    
+    private func createSubmissionFromScenes(name: String) {
+        let trimmedName = name.trimmingCharacters(in: .whitespaces)
+        guard !trimmedName.isEmpty else { return }
+        
+        // Check for duplicate
+        let projectID = project.id
+        var descriptor = FetchDescriptor<Submission>(predicate: #Predicate<Submission> { sub in
+            sub.name == trimmedName && sub.project?.id == projectID && sub.isCollection == false
+        })
+        descriptor.fetchLimit = 1
+        if let count = try? modelContext.fetchCount(descriptor), count > 0 {
+            createdSubmissionName = trimmedName
+            showDuplicateSubmission = true
+            return
+        }
+        
+        let submission = Submission(
+            project: project,
+            submittedDate: Date()
+        )
+        submission.name = trimmedName
+        submission.isCollection = false
+        modelContext.insert(submission)
+        
+        // Link files from all selected scenes
+        for scene in selectedScenes {
+            if let file = scene.textFile, file.trashItem == nil {
+                let submittedFile = SubmittedFile(
+                    submission: submission,
+                    textFile: file,
+                    version: file.currentVersion,
+                    status: .pending,
+                    statusDate: Date(),
+                    project: project
+                )
+                modelContext.insert(submittedFile)
+            }
+        }
+        
+        try? modelContext.save()
+        createdSubmissionName = trimmedName
+        showSubmissionCreated = true
+        selectedSceneIDs.removeAll()
+    }
     
     private func toggleSelection(for scene: StoryScene) {
         if selectedSceneIDs.contains(scene.id) {

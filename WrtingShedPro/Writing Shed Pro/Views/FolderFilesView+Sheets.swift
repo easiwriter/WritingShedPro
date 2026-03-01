@@ -51,16 +51,6 @@ extension FolderFilesView {
     }
     
     @ViewBuilder
-    var submissionPickerSheet: some View {
-        if let project = folder.project {
-            AddToSubmissionSheet(
-                project: project,
-                filesToAdd: filesToSubmit
-            )
-        }
-    }
-    
-    @ViewBuilder
     var renamePickerSheet: some View {
         if let file = filesToRename.first {
             NavigationStack {

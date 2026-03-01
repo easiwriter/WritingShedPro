@@ -33,7 +33,6 @@ struct TrashView: View {
     let project: Project
     
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.dismiss) private var dismiss
     
     // MARK: - State
     
@@ -157,14 +156,7 @@ struct TrashView: View {
         }
         .navigationTitle("trashView.title")
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(true)
-        .onPopToRoot {
-            dismiss()
-        }
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                PopToRootBackButton()
-            }
             ToolbarItemGroup(placement: .navigationBarTrailing) {
                 // Manual Edit/Done button (EditButton doesn't work with local @State)
                 if hasAnyItems {

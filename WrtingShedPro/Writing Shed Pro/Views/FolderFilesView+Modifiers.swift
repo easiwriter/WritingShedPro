@@ -9,19 +9,10 @@ extension FolderFilesView {
         content
             .navigationTitle(folder.name ?? "Files")
             .navigationBarTitleDisplayMode(.inline)
-            // Use native iOS back button - it's rendered by UIKit and immune to SwiftUI render blocking
-            .navigationBarBackButtonHidden(false)
             .navigationDestination(isPresented: $navigateToFile) {
                 navigationDestinationContent
             }
             .environment(\.editMode, $editMode)
-            .onPopToRoot {
-                #if DEBUG
-                print("🔙 [FolderFilesView+Modifiers] onPopToRoot received, setting isDismissing = true")
-                #endif
-                isDismissing = true
-                dismiss()
-            }
             .toolbar { folderToolbar }
     }
     
@@ -33,7 +24,6 @@ extension FolderFilesView {
             .sheet(isPresented: $showSearchView) { searchSheet }
             .sheet(isPresented: $showAddFileSheet) { addFileSheetContent }
             .sheet(isPresented: $showAddFolderSheet) { addFolderSheet }
-            .sheet(isPresented: $showSubmissionPicker) { submissionPickerSheet }
             .sheet(isPresented: $showRenamePicker) { renamePickerSheet }
             .sheet(isPresented: $showFolderMoveDestinationPicker) { folderMoveDestinationSheet }
             .sheet(isPresented: $showStatusPicker) { statusPickerSheet }
@@ -100,6 +90,29 @@ extension FolderFilesView {
                 Button("Continue Export") { continueExportAfterImageWarning() }
                 Button("Cancel", role: .cancel) { }
             } message: { Text(imageWarningMessage) }
+            .alert(NSLocalizedString("submissions.name.title", comment: "Name Submission"), isPresented: $showSubmissionNamePrompt) {
+                TextField(NSLocalizedString("submissions.name.placeholder", comment: "Name"), text: $newSubmissionName)
+                Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
+                    newSubmissionName = ""
+                }
+                Button(NSLocalizedString("button.create", comment: "Create")) {
+                    createSubmissionFromFiles(name: newSubmissionName)
+                    newSubmissionName = ""
+                }
+                .disabled(newSubmissionName.trimmingCharacters(in: .whitespaces).isEmpty)
+            } message: {
+                Text(NSLocalizedString("submissions.name.message", comment: "Enter a name"))
+            }
+            .alert(NSLocalizedString("submissions.created.title", comment: "Submission Created"), isPresented: $showSubmissionCreated) {
+                Button(NSLocalizedString("button.ok", comment: "OK")) { }
+            } message: {
+                Text(String(format: NSLocalizedString("submissions.created.message", comment: "Created message"), createdSubmissionName))
+            }
+            .alert(NSLocalizedString("submissions.duplicate.title", comment: "Duplicate Submission"), isPresented: $showDuplicateSubmission) {
+                Button(NSLocalizedString("button.ok", comment: "OK")) { }
+            } message: {
+                Text(String(format: NSLocalizedString("submissions.duplicate.message", comment: "Duplicate message"), createdSubmissionName))
+            }
     }
     
     // MARK: - Confirmation Dialog Modifiers

@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
 
 struct SubmissionDetailView: View {
     @Environment(\.modelContext) private var modelContext
@@ -19,6 +20,13 @@ struct SubmissionDetailView: View {
     @State private var printErrorMessage = ""
     @State private var showingRecordResponse = false
     @State private var responseDate: Date = Date()
+    
+    // Export state
+    @State private var showExportMenu = false
+    @State private var showExportSaveDialog = false
+    @State private var exportFormat: ExportFormat = .rtf
+    @State private var exportData: Data?
+    @State private var exportFilename: String = ""
     
     var body: some View {
         List {
@@ -123,22 +131,55 @@ struct SubmissionDetailView: View {
         }
         .navigationTitle(Text(NSLocalizedString("submissions.detail.title", comment: "Submission details")))
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(true)
-        .onPopToRoot {
-            dismiss()
-        }
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                PopToRootBackButton()
-            }
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button(action: { printSubmission() }) {
-                    Image(systemName: "printer")
+                HStack(spacing: 16) {
+                    Menu {
+                        Button(action: { prepareExport() }) {
+                            Label(NSLocalizedString("button.export", comment: "Export"), systemImage: "square.and.arrow.up")
+                        }
+                        .disabled(submission.submittedFiles?.isEmpty ?? true)
+                        
+                        Button(action: { printSubmission() }) {
+                            Label(NSLocalizedString("button.print", comment: "Print"), systemImage: "printer")
+                        }
+                        .disabled(submission.submittedFiles?.isEmpty ?? true)
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                    }
+                    .accessibilityLabel("Actions")
                 }
-                .accessibilityLabel("Print Submission")
-                .disabled(submission.submittedFiles?.isEmpty ?? true)
             }
         }
+        .confirmationDialog(
+            NSLocalizedString("export.dialog.title", comment: "Export Format"),
+            isPresented: $showExportMenu,
+            titleVisibility: .visible
+        ) {
+            exportDialogButtons
+        }
+        .fileExporter(
+            isPresented: $showExportSaveDialog,
+            document: ExportDocument(
+                data: exportData ?? Data(),
+                filename: exportFilename,
+                contentType: contentTypeForFormat(exportFormat)
+            ),
+            contentType: contentTypeForFormat(exportFormat),
+            defaultFilename: exportFilename,
+            onCompletion: { result in
+                switch result {
+                case .success:
+                    #if DEBUG
+                    print("✅ Export saved successfully")
+                    #endif
+                case .failure(let error):
+                    #if DEBUG
+                    print("❌ Export save failed: \(error)")
+                    #endif
+                }
+            }
+        )
         .alert("Print Error", isPresented: $showPrintError) {
             Button("OK", role: .cancel) { }
         } message: {
@@ -202,6 +243,150 @@ struct SubmissionDetailView: View {
                 print("⚠️ Print was cancelled")
                 #endif
             }
+        }
+    }
+    
+    // MARK: - Export
+    
+    private func prepareExport() {
+        showExportMenu = true
+    }
+    
+    @ViewBuilder
+    private var exportDialogButtons: some View {
+        Button(ExportFormat.pdf.localizedName) {
+            exportSubmissionFiles(format: .pdf)
+        }
+        Button(ExportFormat.rtf.localizedName) {
+            exportSubmissionFiles(format: .rtf)
+        }
+        Button(ExportFormat.html.localizedName) {
+            exportSubmissionFiles(format: .html)
+        }
+        Button(ExportFormat.word.localizedName) {
+            exportSubmissionFiles(format: .word)
+        }
+        Button(ExportFormat.markdown.localizedName) {
+            exportSubmissionFiles(format: .markdown)
+        }
+        Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) { }
+    }
+    
+    private func exportSubmissionFiles(format: ExportFormat) {
+        self.exportFormat = format
+        
+        let files = (submission.submittedFiles ?? [])
+            .compactMap { $0.version ?? $0.textFile?.currentVersion }
+        
+        guard !files.isEmpty else { return }
+        
+        var attributedStrings: [NSAttributedString] = []
+        let combinedContent = NSMutableAttributedString()
+        
+        for version in files {
+            let content: NSAttributedString
+            if let formatted = version.attributedContent {
+                content = formatted
+            } else if !version.content.isEmpty {
+                content = NSAttributedString(
+                    string: version.content,
+                    attributes: [.font: UIFont.preferredFont(forTextStyle: .body)]
+                )
+            } else {
+                continue
+            }
+            
+            attributedStrings.append(content)
+            combinedContent.append(content)
+            combinedContent.append(NSAttributedString(string: "\u{000C}"))
+        }
+        
+        guard !attributedStrings.isEmpty else { return }
+        
+        let filename = submission.name ?? "Submission"
+        
+        Task {
+            do {
+                let data: Data
+                switch format {
+                case .pdf:
+                    let textFiles = (submission.submittedFiles ?? [])
+                        .compactMap { $0.textFile }
+                    guard !textFiles.isEmpty, let project = submission.project else { return }
+                    
+                    // Assemble content like manuscript export for proper page views
+                    let assembled = NSMutableAttributedString()
+                    var isFirst = true
+                    for tf in textFiles {
+                        guard let version = tf.currentVersion, let content = version.attributedContent else { continue }
+                        if !isFirst {
+                            assembled.append(NSAttributedString(string: "\u{000C}"))
+                        }
+                        isFirst = false
+                        assembled.append(content)
+                    }
+                    guard assembled.length > 0 else { return }
+                    
+                    let manuscriptContent = ManuscriptContent(
+                        attributedString: assembled,
+                        sections: [],
+                        fileOffsets: [:],
+                        frontMatterFileCount: 0,
+                        frontMatterCharacterLength: 0,
+                        assembledFootnotes: []
+                    )
+                    guard let pdfData = PrintService.generatePDF(
+                        from: manuscriptContent,
+                        project: project,
+                        pageSetup: project.pageSetup,
+                        context: modelContext
+                    ) else { return }
+                    data = pdfData
+                case .rtf:
+                    data = try await Task.detached {
+                        try WordDocumentService.exportMultipleToRTF(attributedStrings, filename: filename)
+                    }.value
+                case .html:
+                    data = try await Task.detached {
+                        try HTMLExportService.exportMultipleToHTMLData(attributedStrings, filename: filename)
+                    }.value
+                case .word:
+                    data = try await Task.detached { [weak modelContext] in
+                        guard let modelContext = modelContext else { throw DOCXExportError.noContent }
+                        let exportService = DOCXExportService(modelContext: modelContext)
+                        return try exportService.exportMultipleToDOCX(attributedStrings, filename: filename)
+                    }.value
+                case .markdown:
+                    data = try await Task.detached {
+                        try MarkdownExportService.exportMultipleToMarkdownData(attributedStrings, filename: filename)
+                    }.value
+                default:
+                    return
+                }
+                
+                await MainActor.run {
+                    exportData = data
+                    exportFilename = "\(filename).\(format.fileExtension)"
+                    showExportSaveDialog = true
+                }
+            } catch {
+                #if DEBUG
+                print("❌ Export failed: \(error)")
+                #endif
+            }
+        }
+    }
+    
+    private func contentTypeForFormat(_ format: ExportFormat) -> UTType {
+        switch format {
+        case .rtf: return .rtf
+        case .html: return .html
+        case .word: return UTType("org.openxmlformats.wordprocessingml.document") ?? .data
+        case .pdf: return .pdf
+        case .plainText: return .plainText
+        case .markdown: return UTType(filenameExtension: "md") ?? .plainText
+        case .fountain: return UTType(filenameExtension: "fountain") ?? .plainText
+        case .finalDraft: return UTType(filenameExtension: "fdx") ?? .xml
         }
     }
     
