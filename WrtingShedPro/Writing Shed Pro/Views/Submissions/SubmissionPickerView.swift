@@ -114,7 +114,11 @@ struct SubmissionPickerView: View {
                     ForEach(projectPublications) { publication in
                         Button(action: {
                             let name = submissionName.trimmingCharacters(in: .whitespaces).isEmpty ? defaultSubmissionName : submissionName.trimmingCharacters(in: .whitespaces)
-                            let expectedDate = setExpectedResponseDate ? expectedResponseDate : nil
+                            // Auto-populate expected response date from publication if not already set by user
+                            var expectedDate = setExpectedResponseDate ? expectedResponseDate : nil
+                            if expectedDate == nil, let days = publication.typicalResponseDays {
+                                expectedDate = Calendar.current.date(byAdding: .day, value: days, to: Date())
+                            }
                             let reminder = (setExpectedResponseDate && setReminder) ? reminderDate : nil
                             onPublicationSelected(publication, name, expectedDate, reminder)
                         }) {

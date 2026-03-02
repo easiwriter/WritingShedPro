@@ -23,6 +23,8 @@ struct PublicationFormView: View {
     @State private var hasDeadline: Bool = false
     @State private var deadline: Date = Date().addingTimeInterval(86400 * 30) // 30 days default
     @State private var notes: String = ""
+    @State private var hasResponseTime: Bool = false
+    @State private var typicalResponseDays: Int = 90
     @State private var setReminder: Bool = false
     @State private var reminderDate: Date = Date()
     @State private var showReminderPermissionAlert = false
@@ -104,6 +106,25 @@ struct PublicationFormView: View {
                     }
                 } header: {
                     Text(NSLocalizedString("publications.form.deadline.label", comment: "Deadline label"))
+                }
+                
+                // Expected response time section
+                Section {
+                    Toggle(isOn: $hasResponseTime) {
+                        Text(NSLocalizedString("publications.form.responseTime.label", comment: "Expected Response Time"))
+                    }
+                    
+                    if hasResponseTime {
+                        Stepper(
+                            value: $typicalResponseDays,
+                            in: 1...365,
+                            step: typicalResponseDays < 14 ? 1 : (typicalResponseDays < 60 ? 7 : 30)
+                        ) {
+                            Text(String(format: NSLocalizedString("publications.responseTime.days", comment: "N days"), typicalResponseDays))
+                        }
+                    }
+                } header: {
+                    Text(NSLocalizedString("publications.form.responseTime.label", comment: "Expected Response Time"))
                 }
                 
                 // URL section
@@ -200,6 +221,8 @@ struct PublicationFormView: View {
             url = publication.url ?? ""
             hasDeadline = publication.hasDeadline
             deadline = publication.deadline ?? Date().addingTimeInterval(86400 * 30)
+            hasResponseTime = publication.typicalResponseDays != nil
+            typicalResponseDays = publication.typicalResponseDays ?? 90
             notes = publication.notes ?? ""
             setReminder = publication.reminderDate != nil
             reminderDate = publication.reminderDate ?? {
@@ -242,6 +265,7 @@ struct PublicationFormView: View {
             publication.type = selectedType
             publication.url = trimmedURL.isEmpty ? nil : trimmedURL
             publication.deadline = hasDeadline ? deadline : nil
+            publication.typicalResponseDays = hasResponseTime ? typicalResponseDays : nil
             publication.notes = trimmedNotes.isEmpty ? nil : trimmedNotes
             publication.modifiedDate = Date()
             
@@ -257,6 +281,7 @@ struct PublicationFormView: View {
                 deadline: hasDeadline ? deadline : nil,
                 project: project
             )
+            newPublication.typicalResponseDays = hasResponseTime ? typicalResponseDays : nil
             modelContext.insert(newPublication)
             
             // Handle reminder for new publication

@@ -14,6 +14,7 @@ struct TOCSettingsView: View {
     @Environment(\.modelContext) private var modelContext
     
     @Bindable var file: TextFile
+    @Binding var isPresented: Bool
     
     // Local state for editing (copied from file on appear)
     @State private var title: String = "Contents"
@@ -21,7 +22,6 @@ struct TOCSettingsView: View {
     @State private var indentPoints: CGFloat = 20
     @State private var showPageNumbers: Bool = true
     @State private var useDotLeaders: Bool = true
-    @State private var titleStyleName: String = "UICTFontTextStyleTitle0"
     @State private var pageNumberPosition: CGFloat = 480
     
     // Per-level entry styles (Level 0-5)
@@ -36,6 +36,16 @@ struct TOCSettingsView: View {
     
     // Callback to regenerate TOC after settings change
     var onSettingsChanged: (() -> Void)?
+    
+    /// Resolve the project's matter heading style display name
+    private var matterHeadingDisplayName: String {
+        guard let project = file.project ?? file.parentFolder?.project,
+              let styleSheet = StyleSheetService.getStyleSheet(for: project, context: modelContext),
+              let style = styleSheet.textStyles?.first(where: { $0.name == project.matterHeadingStyleName }) else {
+            return "Title 1"
+        }
+        return style.displayName
+    }
     
     // Available styles from project stylesheet (name -> displayName pairs)
     private var availableStyles: [(name: String, displayName: String)] {
@@ -63,17 +73,10 @@ struct TOCSettingsView: View {
                 Section {
                     TextField(NSLocalizedString("toc.settings.titlePlaceholder", comment: "Table of Contents title"), text: $title)
                         .accessibilityLabel(NSLocalizedString("toc.settings.title.accessibility", comment: "TOC title"))
-                    
-                    // Title style picker
-                    Picker(NSLocalizedString("toc.settings.titleStyle", comment: "Title style"), selection: $titleStyleName) {
-                        ForEach(availableStyles, id: \.name) { style in
-                            Text(style.displayName).tag(style.name)
-                        }
-                    }
                 } header: {
                     Text(NSLocalizedString("toc.settings.titleSection", comment: "Title"))
                 } footer: {
-                    Text(NSLocalizedString("toc.settings.titleFooter", comment: "The heading displayed at the top of the Table of Contents"))
+                    Text(String(format: NSLocalizedString("tof.settings.titleFooter.withStyle", comment: ""), matterHeadingDisplayName))
                 }
                 
                 // Entry Styles Section - Per level
@@ -138,14 +141,14 @@ struct TOCSettingsView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(NSLocalizedString("button.cancel", comment: "Cancel")) {
-                        dismiss()
+                        dismissSheet()
                     }
                 }
                 
                 ToolbarItem(placement: .confirmationAction) {
                     Button(NSLocalizedString("button.save", comment: "Save")) {
                         saveSettings()
-                        dismiss()
+                        dismissSheet()
                     }
                 }
             }
@@ -193,13 +196,29 @@ struct TOCSettingsView: View {
         indentPoints = settings.indentPoints
         showPageNumbers = settings.showPageNumbers
         useDotLeaders = settings.useDotLeaders
-        titleStyleName = settings.titleStyleName
         pageNumberPosition = settings.pageNumberPosition
         
         // Load per-level styles
         for i in 0..<min(levelStyleNames.count, settings.levelStyleNames.count) {
             levelStyleNames[i] = settings.levelStyleNames[i]
         }
+    }
+    
+    /// Dismiss the sheet reliably on all platforms including Mac Catalyst
+    private func dismissSheet() {
+        isPresented = false
+        #if targetEnvironment(macCatalyst)
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let rootVC = windowScene.windows.first?.rootViewController {
+            var topVC = rootVC
+            while let presented = topVC.presentedViewController {
+                topVC = presented
+            }
+            if topVC != rootVC {
+                topVC.dismiss(animated: true)
+            }
+        }
+        #endif
     }
     
     private func saveSettings() {
@@ -209,7 +228,6 @@ struct TOCSettingsView: View {
         settings.indentPoints = indentPoints
         settings.showPageNumbers = showPageNumbers
         settings.useDotLeaders = useDotLeaders
-        settings.titleStyleName = titleStyleName
         settings.pageNumberPosition = pageNumberPosition
         settings.levelStyleNames = levelStyleNames
         

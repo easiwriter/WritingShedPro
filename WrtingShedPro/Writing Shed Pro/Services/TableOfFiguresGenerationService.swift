@@ -188,13 +188,26 @@ final class TableOfFiguresGenerationService {
         // Get stylesheet for styling
         let styleSheet = StyleSheetService.getStyleSheet(for: project, context: context)
         
-        // Add title
-        let titleStyle = styleSheet?.textStyles?.first { $0.name == settings.titleStyleName }
-        let titleAttributes: [NSAttributedString.Key: Any] = titleStyle?.generateAttributes() ?? [
+        // Add title using the project's matter heading style (falls back to the TOF's own title style)
+        let matterHeadingStyle = styleSheet?.textStyles?.first { $0.name == project.matterHeadingStyleName }
+        let titleStyle = matterHeadingStyle ?? styleSheet?.textStyles?.first { $0.name == settings.titleStyleName }
+        var titleAttributes: [NSAttributedString.Key: Any] = titleStyle?.generateAttributes() ?? [
             .font: UIFont.preferredFont(forTextStyle: .largeTitle).withSize(28)
         ]
+        // Enforce minimum space after heading
+        if let existingPara = titleAttributes[.paragraphStyle] as? NSParagraphStyle {
+            if existingPara.paragraphSpacing < 12 {
+                let mutablePara = existingPara.mutableCopy() as! NSMutableParagraphStyle
+                mutablePara.paragraphSpacing = 12
+                titleAttributes[.paragraphStyle] = mutablePara
+            }
+        } else {
+            let para = NSMutableParagraphStyle()
+            para.paragraphSpacing = 12
+            titleAttributes[.paragraphStyle] = para
+        }
         
-        result.append(NSAttributedString(string: settings.title + "\n\n", attributes: titleAttributes))
+        result.append(NSAttributedString(string: settings.title + "\n", attributes: titleAttributes))
         
         // Filter entries based on settings
         let filteredEntries: [FigureEntry]
@@ -206,7 +219,7 @@ final class TableOfFiguresGenerationService {
         
         // Add each entry
         for entry in filteredEntries {
-            let entryString = formatEntry(entry, settings: settings, styleSheet: styleSheet)
+            let entryString = formatEntry(entry, settings: settings, styleSheet: styleSheet, project: project)
             result.append(entryString)
             result.append(NSAttributedString(string: "\n"))
         }
@@ -280,15 +293,28 @@ final class TableOfFiguresGenerationService {
         return max(1, layoutResult.totalPages)
     }
     
-    /// Format a single figure entry
-    private func formatEntry(_ entry: FigureEntry, settings: TableOfFiguresSettings, styleSheet: StyleSheet?) -> NSAttributedString {
+    /// Format a single figure entry (simple format for editor/storage — dot leaders added at export time)
+    private func formatEntry(_ entry: FigureEntry, settings: TableOfFiguresSettings, styleSheet: StyleSheet?, project: Project? = nil) -> NSAttributedString {
         let result = NSMutableAttributedString()
         
-        // Get entry style attributes
-        let entryStyle = styleSheet?.textStyles?.first { $0.name == settings.entryStyleName }
-        let entryAttributes: [NSAttributedString.Key: Any] = entryStyle?.generateAttributes() ?? [
+        // Get entry style from the project's matter body style
+        let entryStyle: TextStyleModel? = project.flatMap { p in
+            styleSheet?.textStyles?.first { $0.name == p.matterBodyStyleName }
+        }
+        var entryAttributes: [NSAttributedString.Key: Any] = entryStyle?.generateAttributes() ?? [
             .font: UIFont.preferredFont(forTextStyle: .body)
         ]
+        
+        // Override paragraph spacing for compact entries
+        let para = NSMutableParagraphStyle()
+        para.paragraphSpacing = 4
+        if let existingPara = entryAttributes[.paragraphStyle] as? NSParagraphStyle {
+            para.alignment = existingPara.alignment
+            para.lineSpacing = existingPara.lineSpacing
+            para.firstLineHeadIndent = existingPara.firstLineHeadIndent
+            para.headIndent = existingPara.headIndent
+        }
+        entryAttributes[.paragraphStyle] = para
         
         // Build entry text
         var entryText = ""
@@ -303,10 +329,92 @@ final class TableOfFiguresGenerationService {
         }
         
         // Append entry text, optionally followed by page number
+        // Use "text  number" (2+ spaces) format — dot leaders added at export by formatTOFContentForExport
         if settings.showPageNumbers {
             result.append(NSAttributedString(string: "\(entryText)  \(entry.pageNumber)", attributes: entryAttributes))
         } else {
             result.append(NSAttributedString(string: entryText, attributes: entryAttributes))
+        }
+        
+        return result
+    }
+    
+    // MARK: - Export Formatting
+    
+    /// Reformat TOF content for PDF export with right-aligned page numbers and dot leaders.
+    /// Mirrors the approach used by TOCGenerationService.formatTOCContentForExport.
+    /// Parses each paragraph to detect entry lines ("heading  pageNumber") and reformats them
+    /// with dot leaders and a right-aligned page number. Non-entry lines (title, empty) pass through unchanged.
+    /// - Parameters:
+    ///   - content: The rendered TOF attributed string (simple editor format)
+    ///   - project: The project (for page setup dimensions)
+    /// - Returns: Reformatted attributed string suitable for PDF rendering
+    static func formatTOFContentForExport(_ content: NSAttributedString, project: Project) -> NSAttributedString {
+        let result = NSMutableAttributedString()
+        let fullString = content.string as NSString
+        let fullRange = NSRange(location: 0, length: content.length)
+        
+        // Calculate content width from page setup (in print points)
+        let pageSetup = project.pageSetup ?? PageSetup()
+        let paperDims = pageSetup.paperSize.dimensions
+        let isLandscape = pageSetup.orientationEnum == .landscape
+        let paperWidth = isLandscape ? paperDims.height : paperDims.width
+        let contentWidth = paperWidth - pageSetup.marginLeft - pageSetup.marginRight
+        
+        // Entry line regex: "entry text  page_number" (2+ spaces before trailing digits)
+        let entryRegex = try? NSRegularExpression(pattern: "^(.+?)\\s{2,}(\\d+)$")
+        
+        fullString.enumerateSubstrings(in: fullRange, options: .byParagraphs) { substring, substringRange, enclosingRange, _ in
+            guard let text = substring, !text.isEmpty else {
+                result.append(content.attributedSubstring(from: enclosingRange))
+                return
+            }
+            
+            let trimmed = text.trimmingCharacters(in: .whitespaces)
+            
+            if let match = entryRegex?.firstMatch(in: trimmed, range: NSRange(location: 0, length: trimmed.count)),
+               let entryRange = Range(match.range(at: 1), in: trimmed),
+               let pageNumRange = Range(match.range(at: 2), in: trimmed) {
+                
+                let entryText = String(trimmed[entryRange])
+                let pageNumStr = String(trimmed[pageNumRange])
+                
+                var attrs = content.attributes(at: substringRange.location, effectiveRange: nil)
+                
+                let existingPara = attrs[.paragraphStyle] as? NSParagraphStyle
+                let indent = existingPara?.firstLineHeadIndent ?? 0
+                let tabPosition = contentWidth
+                let textSpace = tabPosition - indent
+                
+                let para = NSMutableParagraphStyle()
+                para.firstLineHeadIndent = indent
+                para.headIndent = indent
+                para.paragraphSpacing = existingPara?.paragraphSpacing ?? 4
+                let tabStop = NSTextTab(textAlignment: .right, location: tabPosition, options: [:])
+                para.tabStops = [tabStop]
+                para.defaultTabInterval = 1000
+                attrs[.paragraphStyle] = para
+                
+                // Measure using print-size font (matches what renders after removePlatformScaling)
+                let catalystFont = attrs[.font] as? UIFont ?? UIFont.systemFont(ofSize: 14)
+                let printFont = catalystFont.withSize(catalystFont.pointSize / kCatalystFontScale)
+                let fillChar = "."
+                let padding: CGFloat = 4
+                
+                let titleWidth = (entryText as NSString).size(withAttributes: [.font: printFont]).width
+                let pageNumWidth = (pageNumStr as NSString).size(withAttributes: [.font: printFont]).width
+                let dotWidth = (fillChar as NSString).size(withAttributes: [.font: printFont]).width
+                
+                let spaceForDots = textSpace - titleWidth - pageNumWidth - (padding * 2)
+                let dotCount = dotWidth > 0 ? max(0, Int(floor(spaceForDots / dotWidth))) : 0
+                let dots = String(repeating: fillChar, count: dotCount)
+                
+                let lineStr = entryText + " " + dots + "\t" + pageNumStr + "\n"
+                result.append(NSAttributedString(string: lineStr, attributes: attrs))
+            } else {
+                // Title line or non-entry line — keep as-is
+                result.append(content.attributedSubstring(from: enclosingRange))
+            }
         }
         
         return result

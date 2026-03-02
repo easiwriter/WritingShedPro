@@ -6,10 +6,45 @@
 //
 
 import UIKit
+import CloudKit
 
 class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
+        // CRITICAL for Mac Catalyst: register for remote (silent push) notifications.
+        // NSPersistentCloudKitContainer relies on CKDatabaseSubscription pushes to
+        // trigger imports. Without this call the container starts an import event
+        // at launch but never receives the push that tells it to actually pull records,
+        // causing sync to stall indefinitely on Catalyst.
+        application.registerForRemoteNotifications()
+        #if DEBUG
+        print("📱 [AppDelegate] Registered for remote notifications")
+        #endif
         return true
+    }
+    
+    // MARK: - Remote Notification Handling
+    
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        let token = deviceToken.map { String(format: "%02x", $0) }.joined()
+        #if DEBUG
+        print("✅ [AppDelegate] Remote notification token: \(token.prefix(16))…")
+        #endif
+    }
+    
+    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        #if DEBUG
+        print("⚠️ [AppDelegate] Failed to register for remote notifications: \(error.localizedDescription)")
+        #endif
+    }
+    
+    func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable : Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+        // When a CKDatabaseSubscription push arrives, the persistent store
+        // coordinator processes it automatically.  We just need to tell the
+        // system we received it.
+        #if DEBUG
+        print("☁️ [AppDelegate] Received remote notification — CloudKit will process")
+        #endif
+        completionHandler(.newData)
     }
     
     override func buildMenu(with builder: UIMenuBuilder) {

@@ -12,7 +12,7 @@ import UIKit
 /// Service for encoding NSAttributedString to RTF format with image support
 class RTFImageEncoder {
     
-    /// Convert an attributed string to RTF data (images will be omitted)
+    /// Convert an attributed string to RTF data with embedded images
     /// - Parameter attributedString: The attributed string to convert
     /// - Returns: RTF data, or nil if conversion fails
     static func encodeToRTF(_ attributedString: NSAttributedString) -> Data? {
@@ -27,6 +27,10 @@ class RTFImageEncoder {
         var hasImages = false
         attributedString.enumerateAttribute(.attachment, in: NSRange(location: 0, length: attributedString.length)) { value, _, stop in
             if value is ImageAttachment {
+                hasImages = true
+                stop.pointee = true
+            } else if let attachment = value as? NSTextAttachment,
+                      attachment.image != nil || attachment.contents != nil {
                 hasImages = true
                 stop.pointee = true
             }
@@ -62,46 +66,35 @@ class RTFImageEncoder {
             let attributes = attributedString.attributes(at: i, effectiveRange: nil)
             let character = (attributedString.string as NSString).substring(with: range)
             
-            // Check if this is an attachment (image)
-            if let attachment = attributes[.attachment] as? ImageAttachment {
-                // Images are not supported in RTF export - skip them
-                #if DEBUG
-                print("📷 RTF: Skipping image at position \(i) (RTF image export not supported)")
-                #endif
-                #if DEBUG
-                print("📷 RTF: attachment.originalFilename = \(attachment.originalFilename ?? "nil")")
-                #endif
-                #if DEBUG
-                print("📷 RTF: attachment.captionText = \(attachment.captionText ?? "nil")")
-                #endif
-                
-                // Close any open formatting before skipping the image
+            // Check if this is an image attachment.
+            // Handle both ImageAttachment and generic NSTextAttachment (which can occur
+            // when copying attributed strings re-archives the custom subclass).
+            if let imageAttachment = attributes[.attachment] as? ImageAttachment {
+                // Close any open formatting before the image
                 if currentAttributes != nil {
                     rtf += closeFormatting(currentAttributes!)
                     currentAttributes = nil
                 }
                 
-                // Use original filename if available, otherwise caption, otherwise imageID
-                let imageName: String
-                if let filename = attachment.originalFilename, !filename.isEmpty {
-                    imageName = filename
-                    #if DEBUG
-                    print("📷 RTF: Using filename: \(imageName)")
-                    #endif
-                } else if let caption = attachment.captionText, !caption.isEmpty {
-                    imageName = caption
-                    #if DEBUG
-                    print("📷 RTF: Using caption: \(imageName)")
-                    #endif
-                } else {
-                    imageName = "Image-\(attachment.imageID.uuidString.prefix(8))"
-                    #if DEBUG
-                    print("📷 RTF: Using imageID: \(imageName)")
-                    #endif
+                #if DEBUG
+                print("📷 RTF: Embedding ImageAttachment at position \(i)")
+                #endif
+                
+                rtf += generateRTFImage(from: imageAttachment)
+                continue
+            } else if let genericAttachment = attributes[.attachment] as? NSTextAttachment,
+                      genericAttachment.image != nil || genericAttachment.contents != nil {
+                // Fallback for generic NSTextAttachment that has image data
+                if currentAttributes != nil {
+                    rtf += closeFormatting(currentAttributes!)
+                    currentAttributes = nil
                 }
                 
-                // Add a placeholder indicator with the image identifier
-                rtf += " [Image: \(imageName)] "
+                #if DEBUG
+                print("📷 RTF: Embedding generic NSTextAttachment at position \(i)")
+                #endif
+                
+                rtf += generateRTFImageFromAttachment(genericAttachment)
                 continue
             }
             
@@ -131,93 +124,193 @@ class RTFImageEncoder {
         return rtf
     }
     
-    /*
-    /// Generate RTF code for an embedded image
-    private static func generateRTFImage(image: UIImage, scale: CGFloat, alignment: ImageAttachment.ImageAlignment) -> String {
-        // Downscale large images before encoding
-        // RTF readers struggle with large embedded images
-        let maxDimension: CGFloat = 800 // Max width or height
+    // MARK: - Image Embedding
+    
+    /// Maximum dimension (width or height in pixels) for images embedded in RTF.
+    /// Larger images are downscaled to keep the file size reasonable.
+    private static let maxImageDimension: CGFloat = 1200
+    
+    /// Generate an RTF block that embeds the image inline using \\pict
+    /// Includes paragraph alignment and an optional caption line below.
+    private static func generateRTFImage(from attachment: ImageAttachment) -> String {
+        // Load the UIImage from the attachment
+        guard let image = attachment.image ?? (attachment.imageData.flatMap { UIImage(data: $0) }) else {
+            #if DEBUG
+            print("📷 RTF: No image data available — inserting placeholder")
+            #endif
+            let name = attachment.originalFilename ?? attachment.captionText ?? "Image"
+            return "\\par [Image: \(escapeRTFString(name))]\\par\n"
+        }
         
-        var imageToEncode = image
-        let size = image.size
+        // Determine the display size (pixels) after applying the attachment's scale
+        let originalSize = image.size
+        var pixelWidth  = originalSize.width  * attachment.scale
+        var pixelHeight = originalSize.height * attachment.scale
         
-        if size.width > maxDimension || size.height > maxDimension {
-            let scaleFactor = min(maxDimension / size.width, maxDimension / size.height)
-            let newSize = CGSize(width: size.width * scaleFactor, height: size.height * scaleFactor)
+        // Clamp to maxImageDimension to avoid enormous hex blobs
+        if pixelWidth > maxImageDimension || pixelHeight > maxImageDimension {
+            let factor = min(maxImageDimension / pixelWidth, maxImageDimension / pixelHeight)
+            pixelWidth  *= factor
+            pixelHeight *= factor
+        }
+        
+        // Re-render at the target pixel size (scale 1.0 so size == pixels)
+        let targetSize = CGSize(width: pixelWidth, height: pixelHeight)
+        let renderer = UIGraphicsImageRenderer(size: targetSize)
+        let resizedImage = renderer.image { _ in
+            image.draw(in: CGRect(origin: .zero, size: targetSize))
+        }
+        
+        // Encode to JPEG (good balance of quality and size for RTF)
+        guard let jpegData = resizedImage.jpegData(compressionQuality: 0.85) else {
+            #if DEBUG
+            print("📷 RTF: Failed to encode image as JPEG")
+            #endif
+            let name = attachment.originalFilename ?? attachment.captionText ?? "Image"
+            return "\\par [Image: \(escapeRTFString(name))]\\par\n"
+        }
+        
+        #if DEBUG
+        print("📷 RTF: Encoded JPEG \(Int(pixelWidth))×\(Int(pixelHeight)), \(jpegData.count) bytes")
+        #endif
+        
+        // RTF dimensions are in twips (1 twip = 1/1440 inch).
+        // Assume 72 dpi for display: 1 pixel = 20 twips.
+        let twipWidth  = Int(pixelWidth  * 20)
+        let twipHeight = Int(pixelHeight * 20)
+        
+        // Paragraph alignment
+        let alignmentCode: String
+        switch attachment.alignment {
+        case .center: alignmentCode = "\\qc"
+        case .right:  alignmentCode = "\\qr"
+        default:      alignmentCode = "\\ql"   // left / inline
+        }
+        
+        // Build the hex string from JPEG data
+        let hexString = jpegData.map { String(format: "%02x", $0) }.joined()
+        
+        // Build RTF: paragraph break, alignment, then {\pict ...}
+        var block = "\\par\n"
+        block += "\\pard\(alignmentCode)\\pardirnatural\\partightenfactor0\n"
+        block += "{\\pict\\jpegblip\\picw\(Int(pixelWidth))\\pich\(Int(pixelHeight))\\picwgoal\(twipWidth)\\pichgoal\(twipHeight)\n"
+        
+        // Write hex in 128-char lines for readability
+        var offset = hexString.startIndex
+        while offset < hexString.endIndex {
+            let end = hexString.index(offset, offsetBy: 128, limitedBy: hexString.endIndex) ?? hexString.endIndex
+            block += String(hexString[offset..<end]) + "\n"
+            offset = end
+        }
+        block += "}\n"
+        
+        // Add caption if present
+        if attachment.hasCaption {
+            let captionParts: [String] = [
+                attachment.captionPrefix,
+                attachment.captionNumber > 0 ? "\(attachment.captionNumber)" : nil,
+                attachment.captionText
+            ].compactMap { $0?.isEmpty == false ? $0 : nil }
             
-            #if DEBUG
-            print("📷 Downscaling image from \(size) to \(newSize) for RTF")
-            #endif
-            
-            UIGraphicsBeginImageContextWithOptions(newSize, false, 1.0)
-            image.draw(in: CGRect(origin: .zero, size: newSize))
-            imageToEncode = UIGraphicsGetImageFromCurrentImageContext() ?? image
-            UIGraphicsEndImageContext()
+            if !captionParts.isEmpty {
+                let captionLine = captionParts.joined(separator: " ")
+                // Caption in italic, centered, slightly smaller
+                block += "\\pard\\qc\\pardirnatural\\partightenfactor0\n"
+                block += "{\\f0\\fs20\\i " + escapeRTFString(captionLine) + "\\i0}\\par\n"
+            }
         }
         
-        // Use PNG for better quality at smaller sizes
-        guard let imageData = imageToEncode.pngData() else {
-            #if DEBUG
-            print("❌ Failed to get PNG data from image")
-            #endif
-            return ""
-        }
+        // Restore left-aligned paragraph for subsequent text
+        block += "\\pard\\pardirnatural\\partightenfactor0\n"
         
-        #if DEBUG
-        print("📷 Creating NSTextAttachment with PNG data (\(imageData.count) bytes)")
-        #endif
-        
-        let attachment = NSTextAttachment()
-        
-        // Set the image data on the attachment
-        attachment.contents = imageData
-        
-        // Set bounds for the attachment (using original scale parameter)
-        let scaledSize = CGSize(width: imageToEncode.size.width * scale, height: imageToEncode.size.height * scale)
-        attachment.bounds = CGRect(origin: .zero, size: scaledSize)
-        
-        // Create attributed string with just this attachment
-        let attrString = NSAttributedString(attachment: attachment)
-        
-        #if DEBUG
-        print("📷 Converting attachment to RTF...")
-        #endif
-        
-        // Convert to RTF data using Apple's converter
-        guard let rtfData = try? attrString.data(
-            from: NSRange(location: 0, length: attrString.length),
-            documentAttributes: [.documentType: NSAttributedString.DocumentType.rtf]
-        ), let rtfString = String(data: rtfData, encoding: .utf8) else {
-            #if DEBUG
-            print("❌ Failed to generate RTF for image")
-            #endif
-            return ""
-        }
-        
-        #if DEBUG
-        print("📷 RTF generated, length: \(rtfString.count) chars")
-        #endif
-        
-        // Extract just the picture part from the RTF (between \pict and the closing brace)
-        // Apple's RTF will have: {\pict...data...}
-        if let pictStart = rtfString.range(of: "{\\pict"),
-           let closingBrace = rtfString.range(of: "}", range: pictStart.upperBound..<rtfString.endIndex) {
-            let pictureCode = String(rtfString[pictStart.lowerBound..<closingBrace.upperBound])
-            #if DEBUG
-            print("📷 Extracted Apple RTF picture code (length: \(pictureCode.count) chars)")
-            #endif
-            return pictureCode
-        }
-        
-        #if DEBUG
-        print("⚠️ Could not extract picture code from Apple RTF")
-        #endif
-        #if DEBUG
-        print("📷 RTF sample: \(rtfString.prefix(500))")
-        #endif
-        return ""
+        return block
     }
-    */
+    
+    /// Generate an RTF image block from a generic NSTextAttachment.
+    /// Used when the original ImageAttachment was re-archived into a plain NSTextAttachment
+    /// during attributed string copy operations.
+    private static func generateRTFImageFromAttachment(_ attachment: NSTextAttachment) -> String {
+        // Try to get a UIImage from the attachment
+        let image: UIImage?
+        if let img = attachment.image {
+            image = img
+        } else if let data = attachment.contents {
+            image = UIImage(data: data)
+        } else if let fileWrapper = attachment.fileWrapper, let data = fileWrapper.regularFileContents {
+            image = UIImage(data: data)
+        } else {
+            image = nil
+        }
+        
+        guard let resolvedImage = image else {
+            #if DEBUG
+            print("📷 RTF: Generic attachment has no usable image data — skipping")
+            #endif
+            return "\\par [Image]\\par\n"
+        }
+        
+        let originalSize = resolvedImage.size
+        var pixelWidth  = originalSize.width
+        var pixelHeight = originalSize.height
+        
+        // Clamp to maxImageDimension
+        if pixelWidth > maxImageDimension || pixelHeight > maxImageDimension {
+            let factor = min(maxImageDimension / pixelWidth, maxImageDimension / pixelHeight)
+            pixelWidth  *= factor
+            pixelHeight *= factor
+        }
+        
+        let targetSize = CGSize(width: pixelWidth, height: pixelHeight)
+        let renderer = UIGraphicsImageRenderer(size: targetSize)
+        let resizedImage = renderer.image { _ in
+            resolvedImage.draw(in: CGRect(origin: .zero, size: targetSize))
+        }
+        
+        guard let jpegData = resizedImage.jpegData(compressionQuality: 0.85) else {
+            #if DEBUG
+            print("📷 RTF: Failed to encode generic attachment as JPEG")
+            #endif
+            return "\\par [Image]\\par\n"
+        }
+        
+        #if DEBUG
+        print("📷 RTF: Encoded generic attachment JPEG \(Int(pixelWidth))×\(Int(pixelHeight)), \(jpegData.count) bytes")
+        #endif
+        
+        let twipWidth  = Int(pixelWidth  * 20)
+        let twipHeight = Int(pixelHeight * 20)
+        
+        let hexString = jpegData.map { String(format: "%02x", $0) }.joined()
+        
+        var block = "\\par\n"
+        block += "\\pard\\qc\\pardirnatural\\partightenfactor0\n"
+        block += "{\\pict\\jpegblip\\picw\(Int(pixelWidth))\\pich\(Int(pixelHeight))\\picwgoal\(twipWidth)\\pichgoal\(twipHeight)\n"
+        
+        var offset = hexString.startIndex
+        while offset < hexString.endIndex {
+            let end = hexString.index(offset, offsetBy: 128, limitedBy: hexString.endIndex) ?? hexString.endIndex
+            block += String(hexString[offset..<end]) + "\n"
+            offset = end
+        }
+        block += "}\n"
+        
+        // Restore left-aligned paragraph for subsequent text
+        block += "\\pard\\pardirnatural\\partightenfactor0\n"
+        
+        return block
+    }
+    
+    /// Escape a plain string for safe inclusion in RTF (no formatting, just content)
+    private static func escapeRTFString(_ string: String) -> String {
+        var result = ""
+        for char in string {
+            let s = String(char)
+            result += escapeRTFCharacter(s)
+        }
+        return result
+    }
+    
+    // MARK: - Formatting Helpers
     
     /// Open RTF formatting codes for given attributes
     private static func openFormatting(_ attributes: [NSAttributedString.Key: Any]) -> String {

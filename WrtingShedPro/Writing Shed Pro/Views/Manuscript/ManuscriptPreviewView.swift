@@ -20,6 +20,10 @@ struct ManuscriptPreviewView: View {
     /// The closure receives a progress callback: (fraction 0–1, display text).
     var pdfGenerator: ((@escaping (Double, String) -> Void) async -> Data?)? = nil
     
+    /// Explicit binding to dismiss on Catalyst where @Environment(\.dismiss)
+    /// can fail inside NavigationStack within a .sheet.
+    @Binding var isPresented: Bool
+    
     @Environment(\.dismiss) private var dismiss
     @State private var generatedData: Data?
     @State private var isGenerating = false
@@ -27,9 +31,45 @@ struct ManuscriptPreviewView: View {
     @State private var progressFraction: Double = 0
     @State private var progressText: String = ""
     
+    /// Convenience init without binding (uses dismiss() only — works on iOS, may not on Catalyst)
+    init(pdfData: Data?, title: String, pdfGenerator: ((@escaping (Double, String) -> Void) async -> Data?)? = nil) {
+        self.pdfData = pdfData
+        self.title = title
+        self.pdfGenerator = pdfGenerator
+        self._isPresented = .constant(true)
+    }
+    
+    /// Init with explicit isPresented binding (reliable on all platforms)
+    init(pdfData: Data?, title: String, isPresented: Binding<Bool>, pdfGenerator: ((@escaping (Double, String) -> Void) async -> Data?)? = nil) {
+        self.pdfData = pdfData
+        self.title = title
+        self.pdfGenerator = pdfGenerator
+        self._isPresented = isPresented
+    }
+    
     /// The data to display — either pre-supplied or async-generated
     private var displayData: Data? {
         pdfData ?? generatedData
+    }
+    
+    private func dismissPreview() {
+        // On Mac Catalyst, SwiftUI's dismiss() and isPresented binding can both fail
+        // when a UIKit view (PDFView) is embedded. Fall through to UIKit dismissal.
+        
+        // First try: SwiftUI binding
+        isPresented = false
+        
+        // Second try: UIKit-level dismissal of the presented view controller
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let rootVC = windowScene.windows.first?.rootViewController {
+            var topVC = rootVC
+            while let presented = topVC.presentedViewController {
+                topVC = presented
+            }
+            if topVC != rootVC {
+                topVC.dismiss(animated: true)
+            }
+        }
     }
     
     var body: some View {
@@ -62,7 +102,7 @@ struct ManuscriptPreviewView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button(NSLocalizedString("button.done", comment: "Done")) {
-                        dismiss()
+                        dismissPreview()
                     }
                 }
             }

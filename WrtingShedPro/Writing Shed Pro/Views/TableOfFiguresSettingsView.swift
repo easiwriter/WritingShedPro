@@ -14,15 +14,11 @@ struct TableOfFiguresSettingsView: View {
     @Environment(\.modelContext) private var modelContext
     
     @Bindable var file: TextFile
+    @Binding var isPresented: Bool
     
     // Local state for editing (copied from file on appear)
     @State private var title: String = "List of Figures"
-    @State private var titleStyleName: String = "UICTFontTextStyleTitle0"
-    @State private var entryStyleName: String = "UICTFontTextStyleBody"
     @State private var showPageNumbers: Bool = true
-    @State private var separator: String = "."
-    @State private var useDotLeaders: Bool = true
-    @State private var pageNumberPosition: CGFloat = 480
     @State private var showMissingCaption: Bool = true
     @State private var captionPrefix: String = "Figure"
     @State private var useCaptionPrefix: Bool = true
@@ -30,23 +26,24 @@ struct TableOfFiguresSettingsView: View {
     // Callback to regenerate content after settings change
     var onSettingsChanged: (() -> Void)?
     
-    // Available styles from project stylesheet (name -> displayName pairs)
-    private var availableStyles: [(name: String, displayName: String)] {
+    /// Resolve the project's matter heading style display name
+    private var matterHeadingDisplayName: String {
         guard let project = file.project ?? file.parentFolder?.project,
               let styleSheet = StyleSheetService.getStyleSheet(for: project, context: modelContext),
-              let styles = styleSheet.textStyles else {
-            // Fallback defaults if no stylesheet found
-            return [
-                ("UICTFontTextStyleTitle0", "Large Title"),
-                ("UICTFontTextStyleTitle1", "Title 1"),
-                ("UICTFontTextStyleTitle2", "Title 2"),
-                ("UICTFontTextStyleTitle3", "Title 3"),
-                ("UICTFontTextStyleHeadline", "Headline"),
-                ("UICTFontTextStyleBody", "Body")
-            ]
+              let style = styleSheet.textStyles?.first(where: { $0.name == project.matterHeadingStyleName }) else {
+            return "Title 1"
         }
-        return styles.sorted { $0.displayOrder < $1.displayOrder }
-            .map { (name: $0.name, displayName: $0.displayName) }
+        return style.displayName
+    }
+    
+    /// Resolve the project's matter body style display name
+    private var matterBodyDisplayName: String {
+        guard let project = file.project ?? file.parentFolder?.project,
+              let styleSheet = StyleSheetService.getStyleSheet(for: project, context: modelContext),
+              let style = styleSheet.textStyles?.first(where: { $0.name == project.matterBodyStyleName }) else {
+            return "Body"
+        }
+        return style.displayName
     }
     
     var body: some View {
@@ -56,30 +53,10 @@ struct TableOfFiguresSettingsView: View {
                 Section {
                     TextField(NSLocalizedString("tof.settings.titlePlaceholder", comment: "Table of Figures title"), text: $title)
                         .accessibilityLabel(NSLocalizedString("tof.settings.title.accessibility", comment: "Title"))
-                    
-                    // Title style picker
-                    Picker(NSLocalizedString("tof.settings.titleStyle", comment: "Title style"), selection: $titleStyleName) {
-                        ForEach(availableStyles, id: \.name) { style in
-                            Text(style.displayName).tag(style.name)
-                        }
-                    }
                 } header: {
                     Text(NSLocalizedString("tof.settings.titleSection", comment: "Title"))
                 } footer: {
-                    Text(NSLocalizedString("tof.settings.titleFooter", comment: "The heading displayed at the top of the Table of Figures"))
-                }
-                
-                // Entry Style Section
-                Section {
-                    Picker(NSLocalizedString("tof.settings.entryStyle", comment: "Entry style"), selection: $entryStyleName) {
-                        ForEach(availableStyles, id: \.name) { style in
-                            Text(style.displayName).tag(style.name)
-                        }
-                    }
-                } header: {
-                    Text(NSLocalizedString("tof.settings.entryStyleSection", comment: "Entry Style"))
-                } footer: {
-                    Text(NSLocalizedString("tof.settings.entryStyleFooter", comment: "Style for figure entries in the list"))
+                    Text(String(format: NSLocalizedString("tof.settings.titleFooter.withStyle", comment: ""), matterHeadingDisplayName))
                 }
                 
                 // Caption Prefix Section
@@ -106,6 +83,8 @@ struct TableOfFiguresSettingsView: View {
                     Toggle(NSLocalizedString("tof.settings.showPageNumbers", comment: "Show page numbers"), isOn: $showPageNumbers)
                 } header: {
                     Text(NSLocalizedString("tof.settings.formattingSection", comment: "Formatting"))
+                } footer: {
+                    Text(String(format: NSLocalizedString("tof.settings.formattingFooter.withStyle", comment: ""), matterBodyDisplayName))
                 }
                 
                 // Missing Captions Section
@@ -125,7 +104,7 @@ struct TableOfFiguresSettingsView: View {
                 Section {
                     VStack(alignment: .leading, spacing: 8) {
                         Text(title)
-                            .font(.largeTitle)
+                            .font(.title)
                             .fontWeight(.bold)
                         
                         previewEntry(number: 1, caption: "Sunrise over the mountains", pageNumber: 12)
@@ -142,14 +121,14 @@ struct TableOfFiguresSettingsView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(NSLocalizedString("button.cancel", comment: "Cancel")) {
-                        dismiss()
+                        dismissSheet()
                     }
                 }
                 
                 ToolbarItem(placement: .confirmationAction) {
                     Button(NSLocalizedString("button.save", comment: "Save")) {
                         saveSettings()
-                        dismiss()
+                        dismissSheet()
                     }
                 }
             }
@@ -165,25 +144,25 @@ struct TableOfFiguresSettingsView: View {
     private func previewEntry(number: Int, caption: String?, pageNumber: Int) -> some View {
         if let caption = caption {
             HStack(spacing: 0) {
-                // Entry text with optional page number
+                // Entry text
                 if useCaptionPrefix && !captionPrefix.isEmpty {
-                    if showPageNumbers {
-                        Text("\(captionPrefix) \(number): \(caption)  \(pageNumber)")
-                            .font(.subheadline)
-                    } else {
-                        Text("\(captionPrefix) \(number): \(caption)")
-                            .font(.subheadline)
-                    }
+                    Text("\(captionPrefix) \(number): \(caption)")
+                        .font(.body)
                 } else {
-                    if showPageNumbers {
-                        Text("\(caption)  \(pageNumber)")
-                            .font(.subheadline)
-                    } else {
-                        Text(caption)
-                            .font(.subheadline)
-                    }
+                    Text(caption)
+                        .font(.body)
                 }
-                Spacer()
+                
+                if showPageNumbers {
+                    Text(" ")
+                    Text(String(repeating: ". ", count: 15))
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                    Text(" \(pageNumber)")
+                        .foregroundStyle(.secondary)
+                }
+                
+                Spacer(minLength: 0)
             }
         }
     }
@@ -193,26 +172,33 @@ struct TableOfFiguresSettingsView: View {
     private func loadSettings() {
         let settings = file.tableOfFiguresSettings
         title = settings.title
-        titleStyleName = settings.titleStyleName
-        entryStyleName = settings.entryStyleName
         showPageNumbers = settings.showPageNumbers
-        separator = settings.separator
-        useDotLeaders = settings.useDotLeaders
-        pageNumberPosition = settings.pageNumberPosition
         showMissingCaption = settings.showMissingCaption
         captionPrefix = settings.captionPrefix ?? "Figure"
         useCaptionPrefix = settings.captionPrefix != nil
     }
     
+    /// Dismiss the sheet reliably on all platforms including Mac Catalyst
+    private func dismissSheet() {
+        isPresented = false
+        #if targetEnvironment(macCatalyst)
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let rootVC = windowScene.windows.first?.rootViewController {
+            var topVC = rootVC
+            while let presented = topVC.presentedViewController {
+                topVC = presented
+            }
+            if topVC != rootVC {
+                topVC.dismiss(animated: true)
+            }
+        }
+        #endif
+    }
+    
     private func saveSettings() {
-        var settings = TableOfFiguresSettings()
+        var settings = file.tableOfFiguresSettings  // Preserve existing values for fields we don't edit
         settings.title = title
-        settings.titleStyleName = titleStyleName
-        settings.entryStyleName = entryStyleName
         settings.showPageNumbers = showPageNumbers
-        settings.separator = separator
-        settings.useDotLeaders = useDotLeaders
-        settings.pageNumberPosition = pageNumberPosition
         settings.showMissingCaption = showMissingCaption
         settings.captionPrefix = useCaptionPrefix ? captionPrefix : nil
         

@@ -646,7 +646,9 @@ final class ManuscriptAssemblyService {
                         missingCaptionCount: missingCaptionEntries.count,
                         missingCaptionPages: missingCaptionEntries.map { $0.pageNumber }
                     )
-                    assembled.append(renderedTOF)
+                    // Add dot leaders and right-aligned page numbers for export
+                    let exportTOF = TableOfFiguresGenerationService.formatTOFContentForExport(renderedTOF, project: project)
+                    assembled.append(exportTOF)
                 } else if let generatedType = Self.generatedBackMatterType(for: file) {
                     // Regenerate back matter content fresh at export time so it's never stale.
                     // Endnotes, Glossary, References, Contributors, and Index files store their
@@ -687,7 +689,7 @@ final class ManuscriptAssemblyService {
                     let contentOffset = assembled.length
                     // For TOC files, reformat with right-aligned page numbers and dot leaders for PDF
                     if file.isTOCFile {
-                        let exportContent = TOCGenerationService.formatTOCContentForExport(content, project: project)
+                        let exportContent = TOCGenerationService.formatTOCContentForExport(content, project: project, context: context)
                         assembled.append(exportContent)
                     } else {
                         assembled.append(content)

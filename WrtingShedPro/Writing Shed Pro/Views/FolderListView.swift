@@ -23,7 +23,10 @@ struct FolderListView: View {
     @State private var previewPDFData: Data?
     @State private var showPrintError = false
     @State private var printErrorMessage = ""
-    @State private var showDramaExportFormatPicker = false
+    @State private var showExportFormatPicker = false
+    @State private var showImageWarning = false
+    @State private var pendingExportFormat: ExportFormat? = nil
+    @State private var showMatterStylePicker = false
     
     // Manuscript submit state
     @State private var showSubmissionNamePrompt = false
@@ -372,13 +375,6 @@ struct FolderListView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 16) {
                         Button {
-                            submitManuscript()
-                        } label: {
-                            Label(NSLocalizedString("fileList.addToSubmission", comment: "Add to submission"), systemImage: "tray.and.arrow.down")
-                        }
-                        .disabled(isExporting)
-                        
-                        Button {
                             generatePreview()
                         } label: {
                             Label(NSLocalizedString("manuscript.preview", comment: "Preview"), systemImage: "eye")
@@ -386,11 +382,7 @@ struct FolderListView: View {
                         .disabled(isExporting)
                         
                         Button {
-                            if project.type == .drama {
-                                showDramaExportFormatPicker = true
-                            } else {
-                                exportManuscriptPDF()
-                            }
+                            showExportFormatPicker = true
                         } label: {
                             Label(NSLocalizedString("manuscript.export", comment: "Export"), systemImage: "square.and.arrow.up")
                         }
@@ -402,6 +394,12 @@ struct FolderListView: View {
                             Label(NSLocalizedString("manuscript.print", comment: "Print"), systemImage: "printer")
                         }
                         .disabled(isExporting || !PrintService.isPrintingAvailable())
+                        
+                        Button {
+                            showMatterStylePicker = true
+                        } label: {
+                            Label(NSLocalizedString("manuscript.matterStyles", comment: "Matter Styles"), systemImage: "textformat.size")
+                        }
                     }
                 }
             }
@@ -418,19 +416,55 @@ struct FolderListView: View {
         }
         .confirmationDialog(
             NSLocalizedString("manuscript.export.formatTitle", comment: "Export Format"),
-            isPresented: $showDramaExportFormatPicker,
+            isPresented: $showExportFormatPicker,
             titleVisibility: .visible
         ) {
             Button(NSLocalizedString("export.format.pdf", comment: "PDF Document")) {
                 exportManuscriptPDF()
             }
-            Button(NSLocalizedString("export.format.fountain", comment: "Fountain (Screenplay)")) {
-                exportManuscriptFountain()
+            Button(NSLocalizedString("export.format.rtf", comment: "RTF Document")) {
+                pendingExportFormat = .rtf
+                // Delay so alert isn't swallowed by dismissing dialog on Catalyst
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                    showImageWarning = true
+                }
             }
-            Button(NSLocalizedString("export.format.finalDraft", comment: "Final Draft (.fdx)")) {
-                exportManuscriptFinalDraft()
+            Button(NSLocalizedString("export.format.docx", comment: "DOCX (Word format)")) {
+                exportManuscriptDOCX()
+            }
+            Button(NSLocalizedString("export.format.markdown", comment: "Markdown")) {
+                pendingExportFormat = .markdown
+                // Delay so alert isn't swallowed by dismissing dialog on Catalyst
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                    showImageWarning = true
+                }
+            }
+            if project.type == .drama {
+                Button(NSLocalizedString("export.format.fountain", comment: "Fountain (Screenplay)")) {
+                    exportManuscriptFountain()
+                }
+                Button(NSLocalizedString("export.format.finalDraft", comment: "Final Draft (.fdx)")) {
+                    exportManuscriptFinalDraft()
+                }
             }
             Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) { }
+        }
+        .alert(NSLocalizedString("export.imageWarning.title", comment: "Images Not Included"), isPresented: $showImageWarning) {
+            Button(NSLocalizedString("export.imageWarning.continue", comment: "Continue")) {
+                if let format = pendingExportFormat {
+                    switch format {
+                    case .rtf: exportManuscriptRTF()
+                    case .markdown: exportManuscriptMarkdown()
+                    default: break
+                    }
+                }
+                pendingExportFormat = nil
+            }
+            Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
+                pendingExportFormat = nil
+            }
+        } message: {
+            Text(NSLocalizedString("export.imageWarning.message", comment: "Images will not be included in this export format. Use PDF or Word (.docx) to include images."))
         }
         .fileExporter(
             isPresented: $showExportSaveDialog,
@@ -460,8 +494,12 @@ struct FolderListView: View {
             ManuscriptPreviewView(
                 pdfData: previewPDFData,
                 title: project.name ?? NSLocalizedString("manuscript.preview.title", comment: "Manuscript Preview"),
+                isPresented: $showPreview,
                 pdfGenerator: previewPDFData == nil ? makeManuscriptPDFGenerator() : nil
             )
+        }
+        .sheet(isPresented: $showMatterStylePicker) {
+            MatterStylePickerSheet(project: project, isPresented: $showMatterStylePicker)
         }
         .sheet(isPresented: $showAddFolderSheet) {
             AddFolderSheet(
@@ -613,6 +651,104 @@ struct FolderListView: View {
         createdSubmissionName = trimmedName
         showSubmissionCreated = true
         manuscriptFilesToSubmit = []
+    }
+    
+    /// Export the full manuscript as RTF
+    private func exportManuscriptRTF() {
+        isExporting = true
+        let projectName = project.name ?? "Manuscript"
+        
+        Task {
+            let assemblyService = ManuscriptAssemblyService(context: modelContext)
+            do {
+                let content = try await assemblyService.assembleContent(for: project)
+                guard content.attributedString.length > 0 else {
+                    throw AssemblyError.noFilesFound
+                }
+                
+                let rtfData = try WordDocumentService.exportToRTF(content.attributedString, filename: projectName)
+                
+                await MainActor.run {
+                    exportData = rtfData
+                    exportContentType = .rtf
+                    exportFilename = "\(projectName).rtf"
+                    showExportSaveDialog = true
+                    isExporting = false
+                }
+            } catch {
+                await MainActor.run {
+                    exportErrorMessage = NSLocalizedString("manuscript.error.exportFailedGeneric", comment: "Export failed")
+                    showExportError = true
+                    isExporting = false
+                }
+            }
+        }
+    }
+    
+    /// Export the full manuscript as Markdown
+    private func exportManuscriptMarkdown() {
+        isExporting = true
+        let projectName = project.name ?? "Manuscript"
+        
+        Task {
+            let assemblyService = ManuscriptAssemblyService(context: modelContext)
+            do {
+                let content = try await assemblyService.assembleContent(for: project)
+                guard content.attributedString.length > 0 else {
+                    throw AssemblyError.noFilesFound
+                }
+                
+                let mdData = try MarkdownExportService.exportToMarkdownData(content.attributedString, filename: projectName)
+                
+                await MainActor.run {
+                    exportData = mdData
+                    exportContentType = UTType(filenameExtension: "md") ?? .plainText
+                    exportFilename = "\(projectName).md"
+                    showExportSaveDialog = true
+                    isExporting = false
+                }
+            } catch {
+                await MainActor.run {
+                    exportErrorMessage = NSLocalizedString("manuscript.error.exportFailedGeneric", comment: "Export failed")
+                    showExportError = true
+                    isExporting = false
+                }
+            }
+        }
+    }
+    
+    /// Export the full manuscript as DOCX (Word) with embedded images
+    private func exportManuscriptDOCX() {
+        isExporting = true
+        let projectName = project.name ?? "Manuscript"
+        
+        Task {
+            let assemblyService = ManuscriptAssemblyService(context: modelContext)
+            do {
+                let content = try await assemblyService.assembleContent(for: project)
+                guard content.attributedString.length > 0 else {
+                    throw AssemblyError.noFilesFound
+                }
+                
+                let helper = DOCXExportHelper()
+                let docXML = helper.createDocumentXML(withAttributedString: content.attributedString)
+                let docxData = try helper.createDOCXPackage(documentXML: docXML, images: helper.collectedImages)
+                
+                await MainActor.run {
+                    exportData = docxData
+                    exportContentType = UTType("org.openxmlformats.wordprocessingml.document") ?? .data
+                    exportFilename = "\(projectName).docx"
+                    showExportSaveDialog = true
+                    isExporting = false
+                }
+            } catch {
+                await MainActor.run {
+                    exportErrorMessage = NSLocalizedString("manuscript.error.exportFailedGeneric", comment: "Export failed")
+                    showExportError = true
+                    isExporting = false
+                }
+            }
+        }
     }
     
     /// Export the full manuscript as PDF

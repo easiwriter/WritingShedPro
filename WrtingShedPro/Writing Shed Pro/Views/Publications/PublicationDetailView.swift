@@ -44,6 +44,12 @@ struct PublicationDetailView: View {
                                 .lineLimit(1)
                         }
                     }
+                    
+                    if let days = publication.typicalResponseDays {
+                        LabeledContent(NSLocalizedString("publications.form.responseTime.label", comment: "Expected Response Time")) {
+                            Text(String(format: NSLocalizedString("publications.responseTime.days", comment: "N days"), days))
+                        }
+                    }
                 }
                 
                 // Deadline section

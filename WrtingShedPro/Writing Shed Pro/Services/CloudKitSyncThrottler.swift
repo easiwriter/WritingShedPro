@@ -10,6 +10,7 @@
 
 import Foundation
 import Combine
+import CoreData
 import Observation
 
 /// Manages CloudKit sync notifications to prevent UI disruption during burst sync activity.
@@ -32,6 +33,17 @@ final class CloudKitSyncThrottler {
     
     /// Number of sync events in the current burst
     private(set) var syncEventCount = 0
+    
+    /// Cumulative count of ALL sync events since app launch (never reset).
+    /// Used by the fresh-install waiting loop to detect whether ANY data arrived.
+    private(set) var totalSyncEventCount = 0
+    
+    /// Tracks whether an import event has completed (successfully or with error).
+    /// Remains false if the import started but never received an endDate.
+    private(set) var importCompleted = false
+    
+    /// Tracks whether the most recent import succeeded.
+    private(set) var importSucceeded = false
     
     /// Time of the last sync notification
     private(set) var lastSyncTime: Date?
@@ -59,6 +71,7 @@ final class CloudKitSyncThrottler {
     private init() {
         setupNotificationObservers()
         setupBurstDetection()
+        setupCloudKitEventTracking()
     }
     
     /// Sets up observers for CloudKit-related notifications
@@ -102,6 +115,7 @@ final class CloudKitSyncThrottler {
             guard let self = self else { return }
             
             self.syncEventCount += 1
+            self.totalSyncEventCount += 1
             self.lastSyncTime = Date()
             
             // Send to burst detector
@@ -112,7 +126,7 @@ final class CloudKitSyncThrottler {
             
             #if DEBUG
             if self.syncEventCount % 10 == 0 || self.syncEventCount <= 3 {
-                print("🔄 [CloudKitSyncThrottler] Sync event #\(self.syncEventCount), isSyncing: \(self.isSyncing)")
+                print("🔄 [CloudKitSyncThrottler] Sync event #\(self.syncEventCount) (total: \(self.totalSyncEventCount)), isSyncing: \(self.isSyncing)")
             }
             #endif
         }
@@ -156,6 +170,30 @@ final class CloudKitSyncThrottler {
         isSyncing = false
         syncEventCount = 0
         lastSyncTime = nil
+    }
+    
+    /// Track CloudKit import/export events via NSPersistentCloudKitContainer notifications
+    private func setupCloudKitEventTracking() {
+        NotificationCenter.default.addObserver(
+            forName: NSPersistentCloudKitContainer.eventChangedNotification,
+            object: nil,
+            queue: nil
+        ) { [weak self] notification in
+            guard let self = self,
+                  let event = notification.userInfo?[NSPersistentCloudKitContainer.eventNotificationUserInfoKey]
+                    as? NSPersistentCloudKitContainer.Event else { return }
+            
+            // Only interested in import completion
+            guard event.type == .import, event.endDate != nil else { return }
+            
+            DispatchQueue.main.async {
+                self.importCompleted = true
+                self.importSucceeded = event.succeeded
+                #if DEBUG
+                print("🔄 [CloudKitSyncThrottler] Import completed: succeeded=\(event.succeeded)")
+                #endif
+            }
+        }
     }
     
     deinit {

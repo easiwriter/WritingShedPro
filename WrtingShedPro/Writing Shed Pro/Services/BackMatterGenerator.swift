@@ -34,28 +34,39 @@ final class BackMatterGenerator {
         return StyleSheetService.resolveStyle(named: name, for: project, context: context)
     }
     
-    /// Get heading style attributes from the project's stylesheet (Title 1)
+    /// Get heading style attributes from the project's matter heading style.
+    /// Ensures a minimum paragraph spacing after the heading for visual separation.
     private var headingAttributes: [NSAttributedString.Key: Any] {
-        if let style = resolveStyle(.title1) {
-            return style.generateAttributes()
+        var attrs: [NSAttributedString.Key: Any]
+        if let style = resolveStyle(named: project.matterHeadingStyleName) {
+            attrs = style.generateAttributes()
+        } else if let style = resolveStyle(.title1) {
+            attrs = style.generateAttributes()
+        } else {
+            attrs = [
+                .font: UIFont.preferredFont(forTextStyle: .title1),
+                .foregroundColor: UIColor.label
+            ]
         }
-        // Fallback if style resolution fails completely
-        return [
-            .font: UIFont.preferredFont(forTextStyle: .title1),
-            .foregroundColor: UIColor.label
-        ]
+        // Enforce minimum space after heading (style may have 0 by default)
+        if let existingPara = attrs[.paragraphStyle] as? NSParagraphStyle {
+            if existingPara.paragraphSpacing < 12 {
+                let mutablePara = existingPara.mutableCopy() as! NSMutableParagraphStyle
+                mutablePara.paragraphSpacing = 12
+                attrs[.paragraphStyle] = mutablePara
+            }
+        } else {
+            let para = NSMutableParagraphStyle()
+            para.paragraphSpacing = 12
+            attrs[.paragraphStyle] = para
+        }
+        return attrs
     }
     
-    /// Get heading attributes for a specific back matter item, using its configured heading style
+    /// Get heading attributes for a specific back matter item.
+    /// Always uses the project-level matter heading style set in Matter Styles.
     private func headingAttributes(for item: BackMatterItem) -> [NSAttributedString.Key: Any] {
-        let config = backMatterSettings.titleConfig(for: item)
-        if let style = resolveStyle(config.headingStyle.textStyle) {
-            return style.generateAttributes()
-        }
-        return [
-            .font: UIFont.preferredFont(forTextStyle: config.headingStyle.textStyle),
-            .foregroundColor: UIColor.label
-        ]
+        return headingAttributes
     }
     
     /// Get the display title for a back matter item (custom or default localized name)
@@ -74,30 +85,32 @@ final class BackMatterGenerator {
         project.findBackMatterFolder()?.backMatterSettings ?? BackMatterSettings()
     }()
     
-    /// Get entry heading style attributes from the project's stylesheet (Headline)
+    /// Get entry heading style attributes — bold variant of the project's matter body style.
     /// Note: .textStyle is stripped so entry-level text doesn't appear in the TOC.
     private var entryHeadingAttributes: [NSAttributedString.Key: Any] {
-        if let style = resolveStyle(.headline) {
+        var attrs = bodyAttributes
+        // Make bold for entry labels
+        if let font = attrs[.font] as? UIFont {
+            let descriptor = font.fontDescriptor.withSymbolicTraits(.traitBold) ?? font.fontDescriptor
+            attrs[.font] = UIFont(descriptor: descriptor, size: font.pointSize)
+        }
+        return attrs
+    }
+    
+    /// Get body text style attributes from the project's matter body style.
+    /// Note: .textStyle is stripped so body text in back matter doesn't appear in the TOC.
+    private var bodyAttributes: [NSAttributedString.Key: Any] {
+        if let style = resolveStyle(named: project.matterBodyStyleName) {
             var attrs = style.generateAttributes()
             attrs.removeValue(forKey: .textStyle)
             return attrs
         }
-        // Fallback if style resolution fails completely
-        return [
-            .font: UIFont.preferredFont(forTextStyle: .headline),
-            .foregroundColor: UIColor.label
-        ]
-    }
-    
-    /// Get body text style attributes from the project's stylesheet (Body)
-    /// Note: .textStyle is stripped so body text in back matter doesn't appear in the TOC.
-    private var bodyAttributes: [NSAttributedString.Key: Any] {
+        // Fallback to Body style
         if let style = resolveStyle(.body) {
             var attrs = style.generateAttributes()
             attrs.removeValue(forKey: .textStyle)
             return attrs
         }
-        // Fallback if style resolution fails completely
         return [
             .font: UIFont.preferredFont(forTextStyle: .body),
             .foregroundColor: UIColor.label
@@ -246,10 +259,10 @@ final class BackMatterGenerator {
         
         let result = NSMutableAttributedString()
         
-        // Section heading with blank line after
+        // Section heading
         let headingText = sectionTitle(for: .endnotes, defaultKey: "backMatter.notes.heading", comment: "Notes")
         let heading = NSAttributedString(
-            string: headingText + "\n\n",
+            string: headingText + "\n",
             attributes: headingAttributes(for: .endnotes)
         )
         result.append(heading)
@@ -285,43 +298,27 @@ final class BackMatterGenerator {
     private func formatNoteEntry(_ note: NoteEntry) -> NSAttributedString {
         let result = NSMutableAttributedString()
         
-        // Note marker - use tag if available, otherwise use display number for backward compatibility
-        let marker: String
+        // Build the tag/label portion (displayed in bold on the same line as content)
+        let tagText: String
         if let tag = note.tag, !tag.isEmpty {
-            // Use tag-based marker
-            if note.isEndnote {
-                marker = "[\(tag)] "
-            } else {
-                marker = "[Note: \(tag)] "
-            }
+            tagText = tag
         } else {
-            // Fallback to number-based marker
+            // Fallback to number-based label
             if note.isEndnote {
-                marker = "[\(note.displayNumber)] "
+                tagText = String(note.displayNumber)
             } else {
-                marker = "[Note \(note.displayNumber)] "
+                tagText = "Note \(note.displayNumber)"
             }
         }
         
-        let markerAttr = NSAttributedString(
-            string: marker,
+        // Tag in bold, followed by colon and space
+        let tagAttr = NSAttributedString(
+            string: tagText + ": ",
             attributes: entryHeadingAttributes
         )
-        result.append(markerAttr)
+        result.append(tagAttr)
         
-        // Title on same line as marker (if present), followed by newline
-        if let title = note.title, !title.isEmpty {
-            let titleAttr = NSAttributedString(
-                string: title + "\n",
-                attributes: entryHeadingAttributes
-            )
-            result.append(titleAttr)
-        } else {
-            // No title, just add newline after marker
-            result.append(NSAttributedString(string: "\n", attributes: entryHeadingAttributes))
-        }
-        
-        // Content with paragraph spacing from body style
+        // Content on same line as tag, in body style
         let contentAttr = NSAttributedString(
             string: note.content + "\n",
             attributes: bodyAttributes
@@ -872,9 +869,14 @@ final class BackMatterGenerator {
         
         // Section heading
         let headingText = sectionTitle(for: .contributors, defaultKey: "backMatter.contributors.header", comment: "CONTRIBUTORS")
-        result.append(NSAttributedString(string: "\n\n"))
-        result.append(NSAttributedString(string: headingText, attributes: headingAttributes(for: .contributors)))
-        result.append(NSAttributedString(string: "\n\n"))
+        var contribHeadingAttrs = headingAttributes(for: .contributors)
+        // Add extra spacing before for section separation
+        if let existingStyle = contribHeadingAttrs[.paragraphStyle] as? NSParagraphStyle {
+            let mutableStyle = existingStyle.mutableCopy() as! NSMutableParagraphStyle
+            mutableStyle.paragraphSpacingBefore = 24
+            contribHeadingAttrs[.paragraphStyle] = mutableStyle
+        }
+        result.append(NSAttributedString(string: headingText + "\n", attributes: contribHeadingAttrs))
         
         // Add each contributor
         if project.contributorDisplayRunTogether {

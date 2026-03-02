@@ -122,7 +122,8 @@ extension FolderFilesView {
     @ViewBuilder
     var exportMenuButtons: some View {
         Button(ExportFormat.rtf.localizedName) {
-            exportFiles(format: .rtf)
+            pendingExportAction = { exportFiles(format: .rtf) }
+            showImageWarningAfterDelay()
         }
         Button(ExportFormat.html.localizedName) {
             exportFiles(format: .html)
@@ -135,7 +136,8 @@ extension FolderFilesView {
             exportFiles(format: .word)
         }
         Button(ExportFormat.markdown.localizedName) {
-            exportFiles(format: .markdown)
+            pendingExportAction = { exportFiles(format: .markdown) }
+            showImageWarningAfterDelay()
         }
         Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
             filesToExport = []
@@ -149,7 +151,8 @@ extension FolderFilesView {
     @ViewBuilder
     var exportFolderMenuButtons: some View {
         Button(ExportFormat.rtf.localizedName) {
-            exportCombinedFolder(format: .rtf)
+            pendingExportAction = { exportCombinedFolder(format: .rtf) }
+            showImageWarningAfterDelay()
         }
         Button(ExportFormat.html.localizedName) {
             exportCombinedFolder(format: .html)
@@ -162,7 +165,8 @@ extension FolderFilesView {
             exportCombinedFolder(format: .word)
         }
         Button(ExportFormat.markdown.localizedName) {
-            exportCombinedFolder(format: .markdown)
+            pendingExportAction = { exportCombinedFolder(format: .markdown) }
+            showImageWarningAfterDelay()
         }
         Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
             exportCombinedContent = nil
@@ -192,23 +196,7 @@ extension FolderFilesView {
         filesToPermanentlyDelete = []
     }
     
-    // MARK: - Image Warning Continue
-    
-    func continueExportAfterImageWarning() {
-        if let content = exportCombinedContent {
-            performCombinedExport(format: exportFormat, content: content)
-        } else if let firstFile = filesToExport.first,
-                  let version = firstFile.currentVersion,
-                  var attributedString = version.attributedContent {
-            // For markdown files exporting to rich text formats, render markdown to rich text first
-            if firstFile.isMarkdown && exportFormat != .markdown && exportFormat != .plainText {
-                if let rendered = try? MarkdownImportService.importMarkdown(from: attributedString.string, styleSheet: firstFile.project?.styleSheet) {
-                    attributedString = rendered
-                }
-            }
-            performSingleFileExport(format: exportFormat, content: attributedString, filename: firstFile.name)
-        }
-    }
+
     
     // MARK: - Header/Footer Dialog
     

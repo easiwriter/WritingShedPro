@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import UniformTypeIdentifiers
+import CloudKit
 
 struct ContentView: View {
     @Query(sort: \Project.creationDate) var projects: [Project]
@@ -28,37 +29,156 @@ struct ContentView: View {
     
     /// On fresh install, @Query may not update after CloudKit bulk import.
     /// Poll periodically and force a view refresh if data exists but @Query is empty.
+    /// If no data arrives, repeatedly nudge CloudKit since Mac Catalyst often
+    /// fails to receive push notifications that drive the import engine.
     private func monitorSyncAndRefreshIfNeeded() async {
-        let throttler = CloudKitSyncThrottler.shared
-        
         // Only needed on fresh install (no projects yet)
         guard projects.isEmpty else { return }
         
-        // Check periodically for up to 60 seconds
-        for attempt in 1...12 {
-            try? await Task.sleep(nanoseconds: 5_000_000_000) // 5 seconds
+        // Simple strategy: poll every 10s for up to 5 minutes.
+        // Re-kick CloudKit every 60s to keep the daemon awake.
+        // The ONLY exit conditions are:
+        //   a) Projects appear in the database → success, refresh view.
+        //   b) 5 minutes elapse with no projects → show recovery alert.
+        // We do NOT try to detect "stall" based on sync events — CloudKit can
+        // go long stretches between notification bursts and importCompleted
+        // fires after the first batch, not the last.
+        
+        // Initial kick: give APNs 2s to deliver token, then force a zone fetch
+        try? await Task.sleep(nanoseconds: 2_000_000_000)
+        
+        #if DEBUG
+        print("🔄 [ContentView] Initial kick — forcing CloudKit zone fetch…")
+        #endif
+        forceCloudKitImport()
+        
+        let totalChecks = 30               // 30 × 10s = 5 minutes
+        let reKickInterval = 6             // re-kick every 60s (every 6th check)
+        
+        for check in 1...totalChecks {
+            try? await Task.sleep(nanoseconds: 10_000_000_000) // 10s
             
-            // If @Query has updated, we're done
+            // --- Do we have projects yet? ---
             if !projects.isEmpty { return }
             
-            // Check if sync events have occurred (data may be in the store)
-            if throttler.syncEventCount > 0 {
-                // Do a direct fetch to see if data exists in the store
-                let descriptor = FetchDescriptor<Project>()
-                if let count = try? modelContext.fetchCount(descriptor), count > 0 {
-                    #if DEBUG
-                    print("🔄 [ContentView] @Query empty but \(count) projects in store (attempt \(attempt)) — forcing refresh")
-                    #endif
-                    refreshTrigger.toggle()
-                    return
-                }
+            let descriptor = FetchDescriptor<Project>()
+            if let count = try? modelContext.fetchCount(descriptor), count > 0 {
+                #if DEBUG
+                print("🔄 [ContentView] Found \(count) projects at check \(check)/\(totalChecks) — refreshing")
+                #endif
+                refreshTrigger.toggle()
+                return
             }
             
             #if DEBUG
-            if attempt % 4 == 0 {
-                print("⏳ [ContentView] Waiting for CloudKit data... (attempt \(attempt), syncEvents: \(throttler.syncEventCount))")
+            if check % 3 == 0 {
+                let events = CloudKitSyncThrottler.shared.totalSyncEventCount
+                print("⏳ [ContentView] Waiting for sync check \(check)/\(totalChecks): events=\(events)")
             }
             #endif
+            
+            // --- Re-kick CloudKit periodically to keep daemon active ---
+            if check % reKickInterval == 0 {
+                #if DEBUG
+                print("🔄 [ContentView] Re-kick at check \(check) — zone fetch")
+                #endif
+                forceCloudKitImport()
+                // Alternate with nudge on every other re-kick
+                if (check / reKickInterval) % 2 == 0 {
+                    nudgeCloudKitSync()
+                }
+            }
+        }
+        
+        #if DEBUG
+        print("⚠️ [ContentView] 5 minutes elapsed with no projects — sync may still be in progress")
+        #endif
+    }
+    
+    /// Nudge the CloudKit mirroring engine by performing a local write+delete cycle.
+    /// This triggers an export event which, as a side-effect, causes
+    /// NSPersistentCloudKitContainer to also check for pending imports.
+    private func nudgeCloudKitSync() {
+        // Insert a temporary project and save to trigger an export cycle
+        let tempProject = Project(name: "__sync_nudge_temp__")
+        modelContext.insert(tempProject)
+        try? modelContext.save()
+        
+        // Small delay to let the persistent store coordinator pick up the change
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [modelContext] in
+            // Delete so the nudge project doesn't persist
+            modelContext.delete(tempProject)
+            try? modelContext.save()
+            
+            // Also clean up any stale nudge projects that might have survived earlier crashes
+            var descriptor = FetchDescriptor<Project>(
+                predicate: #Predicate { $0.name == "__sync_nudge_temp__" }
+            )
+            descriptor.fetchLimit = 100
+            if let stales = try? modelContext.fetch(descriptor), !stales.isEmpty {
+                for stale in stales { modelContext.delete(stale) }
+                try? modelContext.save()
+                #if DEBUG
+                print("🗑️ [ContentView] Cleaned up \(stales.count) stale nudge project(s)")
+                #endif
+            }
+        }
+        
+        #if DEBUG
+        print("🔄 [ContentView] CloudKit nudge: temp project inserted, will delete in 0.5s")
+        #endif
+    }
+    
+    /// Forcibly wake up the CloudKit daemon by fetching record zone changes.
+    /// On Mac Catalyst the silent-push path is unreliable even after registering
+    /// for remote notifications, so this acts as a belt-and-suspenders fallback
+    /// that causes NSPersistentCloudKitContainer to notice outstanding changes.
+    private func forceCloudKitImport() {
+        let ckContainer = CKContainer(identifier: "iCloud.com.appworks.writingshedpro")
+        let database = ckContainer.privateCloudDatabase
+        
+        database.fetchAllRecordZones { zones, error in
+            guard let zones = zones, !zones.isEmpty else {
+                #if DEBUG
+                print("⚠️ [ContentView] forceCloudKitImport: no zones or error: \(error?.localizedDescription ?? "nil")")
+                #endif
+                return
+            }
+            
+            #if DEBUG
+            print("🔄 [ContentView] forceCloudKitImport: fetching changes from \(zones.count) zone(s)")
+            #endif
+            
+            // Build per-zone configs — passing nil for the server change token
+            // forces a full fetch from the server which is exactly what we need
+            // to wake up the mirroring engine.
+            var configs = [CKRecordZone.ID: CKFetchRecordZoneChangesOperation.ZoneConfiguration]()
+            for zone in zones {
+                let config = CKFetchRecordZoneChangesOperation.ZoneConfiguration()
+                config.previousServerChangeToken = nil   // full fetch
+                configs[zone.zoneID] = config
+            }
+            
+            let operation = CKFetchRecordZoneChangesOperation(
+                recordZoneIDs: zones.map(\.zoneID),
+                configurationsByRecordZoneID: configs
+            )
+            
+            // We don't process results ourselves — NSPersistentCloudKitContainer will
+            // react to the daemon activity and import the records.
+            operation.fetchRecordZoneChangesResultBlock = { result in
+                #if DEBUG
+                switch result {
+                case .success:
+                    print("✅ [ContentView] forceCloudKitImport: zone fetch completed — daemon should trigger import")
+                case .failure(let err):
+                    print("⚠️ [ContentView] forceCloudKitImport: zone fetch error: \(err.localizedDescription)")
+                }
+                #endif
+            }
+            
+            operation.qualityOfService = .userInitiated
+            database.add(operation)
         }
     }
     

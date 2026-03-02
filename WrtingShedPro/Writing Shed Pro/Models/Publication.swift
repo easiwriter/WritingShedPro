@@ -18,6 +18,9 @@ class Publication {
     var notes: String?
     var deadline: Date?
     
+    /// Typical number of days the publication takes to respond to submissions
+    var typicalResponseDays: Int?
+    
     /// Optional reminder: the date/time to fire a local notification for the deadline
     var reminderDate: Date?
     /// The local notification identifier, used to cancel/update the notification

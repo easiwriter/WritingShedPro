@@ -70,6 +70,8 @@ struct ProseListView: View {
     @State private var exportFormat: ExportFormat = .rtf
     @State private var exportData: Data?
     @State private var exportFilename: String = ""
+    @State private var showExportImageWarning = false
+    @State private var pendingExportAction: (() -> Void)?
     
     /// Search state
     @State private var showSearchView = false
@@ -300,6 +302,17 @@ struct ProseListView: View {
                 titleVisibility: .visible
             ) {
                 exportDialogButtons
+            }
+            .alert(NSLocalizedString("export.imageWarning.title", comment: "Images Not Included"), isPresented: $showExportImageWarning) {
+                Button(NSLocalizedString("export.imageWarning.continue", comment: "Continue")) {
+                    pendingExportAction?()
+                    pendingExportAction = nil
+                }
+                Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
+                    pendingExportAction = nil
+                }
+            } message: {
+                Text(NSLocalizedString("export.imageWarning.message", comment: "Images will not be included"))
             }
             .fileExporter(
                 isPresented: $showExportSaveDialog,
@@ -576,7 +589,9 @@ struct ProseListView: View {
     @ViewBuilder
     private var exportDialogButtons: some View {
         Button(NSLocalizedString("export.format.rtf", comment: "RTF")) {
-            exportFiles(filesToExport, format: .rtf)
+            let files = filesToExport
+            pendingExportAction = { [self] in exportFiles(files, format: .rtf) }
+            showImageWarningAfterDelay()
         }
         Button(NSLocalizedString("export.format.html", comment: "HTML")) {
             exportFiles(filesToExport, format: .html)
@@ -585,10 +600,18 @@ struct ProseListView: View {
             exportFiles(filesToExport, format: .word)
         }
         Button(ExportFormat.markdown.localizedName) {
-            exportFiles(filesToExport, format: .markdown)
+            let files = filesToExport
+            pendingExportAction = { [self] in exportFiles(files, format: .markdown) }
+            showImageWarningAfterDelay()
         }
         Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
             filesToExport = []
+        }
+    }
+    
+    private func showImageWarningAfterDelay() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            showExportImageWarning = true
         }
     }
     

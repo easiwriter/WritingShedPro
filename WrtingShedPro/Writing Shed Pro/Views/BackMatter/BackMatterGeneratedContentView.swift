@@ -94,6 +94,15 @@ struct BackMatterGeneratedContentView: View {
         return .body
     }
     
+    /// The resolved SwiftUI Font for matter headings, based on the project's matter heading style
+    private var matterHeadingFont: Font {
+        if let stylesheet = StyleSheetService.getStyleSheet(for: project, context: modelContext),
+           let style = stylesheet.style(named: project.matterHeadingStyleName) {
+            return Font(style.generateFont())
+        }
+        return .title
+    }
+    
     // MARK: - Body
     
     var body: some View {
@@ -185,7 +194,7 @@ struct BackMatterGeneratedContentView: View {
     private var bodyWithSheetsAndAlerts: some View {
         bodyContent
             .sheet(isPresented: $showTableOfFiguresSettings) {
-                TableOfFiguresSettingsView(file: file) {
+                TableOfFiguresSettingsView(file: file, isPresented: $showTableOfFiguresSettings) {
                     // Refresh content when settings change
                     figurePageCalcTrigger = UUID()
                 }
@@ -713,30 +722,20 @@ struct BackMatterGeneratedContentView: View {
     }
     
     private func endnoteRow(_ note: NoteEntry) -> some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: 4) {
             // Show tag if available, otherwise show number
             if let tag = note.tag, !tag.isEmpty {
-                Text("[\(tag)]")
+                Text("\(tag): ")
                     .font(.body)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.secondary)
-                    .frame(minWidth: 50, alignment: .trailing)
+                    .fontWeight(.bold)
             } else {
-                Text("\(note.displayNumber).")
+                Text("\(note.displayNumber): ")
                     .font(.body)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.secondary)
-                    .frame(width: 30, alignment: .trailing)
+                    .fontWeight(.bold)
             }
             
-            VStack(alignment: .leading, spacing: 4) {
-                if let title = note.title, !title.isEmpty {
-                    Text(title)
-                        .font(.headline)
-                }
-                Text(note.content)
-                    .font(.body)
-            }
+            Text(note.content)
+                .font(.body)
         }
         .padding(.vertical, 4)
     }
@@ -765,30 +764,20 @@ struct BackMatterGeneratedContentView: View {
     }
     
     private func noteRow(_ note: NoteEntry) -> some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: 4) {
             // Show tag if available, otherwise show number
             if let tag = note.tag, !tag.isEmpty {
-                Text("[Note: \(tag)]")
+                Text("\(tag): ")
                     .font(.body)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.secondary)
-                    .frame(minWidth: 80, alignment: .trailing)
+                    .fontWeight(.bold)
             } else {
-                Text("\(note.displayNumber).")
+                Text("Note \(note.displayNumber): ")
                     .font(.body)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.secondary)
-                    .frame(width: 30, alignment: .trailing)
+                    .fontWeight(.bold)
             }
             
-            VStack(alignment: .leading, spacing: 4) {
-                if let title = note.title, !title.isEmpty {
-                    Text(title)
-                        .font(.headline)
-                }
-                Text(note.content)
-                    .font(.body)
-            }
+            Text(note.content)
+                .font(.body)
         }
         .padding(.vertical, 4)
     }
@@ -913,8 +902,7 @@ struct BackMatterGeneratedContentView: View {
                 // Header with page calculation status
                 HStack {
                     Text(file.tableOfFiguresSettings.title)
-                        .font(.title2)
-                        .fontWeight(.bold)
+                        .font(matterHeadingFont)
                     
                     if isCalculatingFigurePageNumbers {
                         ProgressView()
@@ -971,24 +959,24 @@ struct BackMatterGeneratedContentView: View {
             
             if let caption = entry.captionText, !caption.isEmpty {
                 Text(caption)
+                    .layoutPriority(1)
             } else {
                 Text(NSLocalizedString("tof.missingCaption", comment: "Missing caption"))
                     .italic()
                     .foregroundStyle(.secondary)
+                    .layoutPriority(1)
             }
             
-            // Separator and page number
+            // Dot leaders and page number
             if settings.showPageNumbers {
-                if settings.useDotLeaders && !settings.separator.isEmpty {
-                    Text(" " + String(repeating: settings.separator + " ", count: 30))
-                        .foregroundStyle(.tertiary)
-                        .lineLimit(1)
-                } else {
-                    Spacer()
-                }
-                
-                Text("\(entry.pageNumber)")
+                Text(" " + String(repeating: ". ", count: 80))
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .layoutPriority(-1)
+                Text(" \(entry.pageNumber)")
                     .foregroundStyle(.secondary)
+                    .layoutPriority(1)
             }
         }
         .font(.body)
@@ -1321,12 +1309,20 @@ struct BackMatterGeneratedContentView: View {
     @ViewBuilder
     private func sectionTitleHeader(for item: BackMatterItem) -> some View {
         let settings = file.parentFolder?.backMatterSettings ?? BackMatterSettings()
-        let config = settings.titleConfig(for: item)
         let title = settings.displayTitle(for: item)
         
         Text(title)
-            .font(Font(UIFont.preferredFont(forTextStyle: config.headingStyle.textStyle)))
-            .fontWeight(config.headingStyle == .headline ? .bold : .regular)
+            .font(matterHeadingFont)
+            .padding(.bottom, matterHeadingSpacingAfter)
+    }
+    
+    /// The resolved spacing after the matter heading style (e.g. 18pt for Large Title)
+    private var matterHeadingSpacingAfter: CGFloat {
+        if let stylesheet = StyleSheetService.getStyleSheet(for: project, context: modelContext),
+           let style = stylesheet.style(named: project.matterHeadingStyleName) {
+            return max(style.paragraphSpacingAfter, 12)
+        }
+        return 12
     }
     
     // MARK: - File Content Regeneration

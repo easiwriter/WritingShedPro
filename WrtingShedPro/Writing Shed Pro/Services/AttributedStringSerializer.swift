@@ -788,24 +788,9 @@ struct AttributedStringSerializer {
     static func toRTF(_ attributedString: NSAttributedString) -> Data? {
         let range = NSRange(location: 0, length: attributedString.length)
         
-        // Check if the attributed string contains images
-        var hasImages = false
-        attributedString.enumerateAttribute(.attachment, in: range, options: []) { value, _, stop in
-            if value is ImageAttachment {
-                hasImages = true
-                stop.pointee = true
-            }
-        }
-        
-        // If there are images, use our custom RTF encoder
-        if hasImages {
-            #if DEBUG
-            print("📷 Using custom RTF encoder for image support")
-            #endif
-            return RTFImageEncoder.encodeToRTF(attributedString)
-        }
-        
-        // Otherwise, use Apple's standard RTF converter (more reliable for text-only)
+        // Use Apple's standard RTF converter.
+        // Note: Images are not supported in RTF export — they are stripped.
+        // Use PDF or DOCX for image-inclusive export.
         do {
             return try attributedString.data(
                 from: range,

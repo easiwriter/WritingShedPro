@@ -165,6 +165,14 @@ final class Project {
     /// Style name for contributor entries (references a TextStyleModel name in the project's stylesheet)
     var contributorBodyStyleName: String = "body"
     
+    /// Style name for front/back matter section headings (references a TextStyleModel name)
+    /// Default is Title 1 (UICTFontTextStyleTitle1)
+    var matterHeadingStyleName: String = "UICTFontTextStyleTitle1"
+    
+    /// Style name for front/back matter body text (references a TextStyleModel name)
+    /// Default is Body (UICTFontTextStyleBody)
+    var matterBodyStyleName: String = "UICTFontTextStyleBody"
+    
     // Fiction relationships
     @Relationship(deleteRule: .cascade, inverse: \StoryScene.project)
     var scenes: [StoryScene]? = []

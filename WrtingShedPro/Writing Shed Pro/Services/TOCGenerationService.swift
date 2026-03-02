@@ -631,11 +631,12 @@ final class TOCGenerationService {
         #if DEBUG
         print("📑 [TOC Render] Project: \(project.name ?? "unknown")")
         print("📑 [TOC Render] StyleSheet: \(styleSheet?.name ?? "nil")")
-        print("📑 [TOC Render] Title style name in settings: '\(settings.titleStyleName)'")
+        print("📑 [TOC Render] Matter heading style: '\(project.matterHeadingStyleName)'")
         #endif
         
-        // Get title style and generate full attributes
-        let titleStyle = styleSheet?.style(named: settings.titleStyleName)
+        // Get title style from project's matter heading style (consistent with all front/back matter)
+        let titleStyle = styleSheet?.style(named: project.matterHeadingStyleName)
+            ?? styleSheet?.style(named: settings.titleStyleName)
         
         #if DEBUG
         if let style = titleStyle {
@@ -664,16 +665,21 @@ final class TOCGenerationService {
         }
         #endif
         
-        // Override paragraph style for TOC-specific formatting
-        let titlePara = NSMutableParagraphStyle()
+        // Use the style's own paragraph style but ensure minimum spacing after the title
         if let style = titleStyle {
-            titlePara.alignment = style.alignment
-            titlePara.paragraphSpacing = style.paragraphSpacingAfter > 0 ? style.paragraphSpacingAfter : 12
+            let stylePara = titleAttrs[.paragraphStyle] as? NSParagraphStyle
+            let titlePara = (stylePara?.mutableCopy() as? NSMutableParagraphStyle) ?? NSMutableParagraphStyle()
+            // Ensure a minimum paragraph spacing after the heading for visual separation
+            if titlePara.paragraphSpacing < 12 {
+                titlePara.paragraphSpacing = 12
+            }
+            titleAttrs[.paragraphStyle] = titlePara
         } else {
+            let titlePara = NSMutableParagraphStyle()
             titlePara.alignment = .natural
             titlePara.paragraphSpacing = 12
+            titleAttrs[.paragraphStyle] = titlePara
         }
-        titleAttrs[.paragraphStyle] = titlePara
         
         result.append(NSAttributedString(string: settings.title + "\n", attributes: titleAttrs))
         
@@ -805,10 +811,21 @@ final class TOCGenerationService {
     ///   - content: The stored TOC attributed string (simple editor format)
     ///   - project: The project (for page setup dimensions)
     /// - Returns: Reformatted attributed string suitable for PDF rendering
-    static func formatTOCContentForExport(_ content: NSAttributedString, project: Project) -> NSAttributedString {
+    static func formatTOCContentForExport(_ content: NSAttributedString, project: Project, context: ModelContext? = nil) -> NSAttributedString {
         let result = NSMutableAttributedString()
         let fullString = content.string as NSString
         let fullRange = NSRange(location: 0, length: content.length)
+        
+        // Resolve the current matter heading style so the title line always
+        // reflects the latest Matter Styles setting, even if the stored TOC
+        // content was generated before the style was changed.
+        var matterHeadingAttrs: [NSAttributedString.Key: Any]?
+        if let ctx = context {
+            if let style = StyleSheetService.resolveStyle(named: project.matterHeadingStyleName, for: project, context: ctx) {
+                matterHeadingAttrs = style.generateAttributes()
+            }
+        }
+        var isFirstParagraph = true
         
         // Calculate content width from page setup (in print points)
         let pageSetup = project.pageSetup ?? PageSetup()
@@ -884,8 +901,26 @@ final class TOCGenerationService {
                 let lineStr = headingText + " " + dots + "\t" + pageNumStr + "\n"
                 result.append(NSAttributedString(string: lineStr, attributes: attrs))
             } else {
-                // Title line or non-entry line — keep as-is
-                result.append(content.attributedSubstring(from: enclosingRange))
+                // Title line or non-entry line
+                if isFirstParagraph, let headingAttrs = matterHeadingAttrs {
+                    // Re-apply the current matter heading style to the title
+                    let originalSub = content.attributedSubstring(from: enclosingRange)
+                    var attrs = headingAttrs
+                    // Preserve paragraph style from original (spacing, alignment may have been customised)
+                    if let origPara = originalSub.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle {
+                        let para = NSMutableParagraphStyle()
+                        para.setParagraphStyle(origPara)
+                        // Update alignment from the heading style
+                        if let style = StyleSheetService.resolveStyle(named: project.matterHeadingStyleName, for: project, context: context!) {
+                            para.alignment = style.alignment
+                        }
+                        attrs[.paragraphStyle] = para
+                    }
+                    result.append(NSAttributedString(string: originalSub.string, attributes: attrs))
+                } else {
+                    result.append(content.attributedSubstring(from: enclosingRange))
+                }
+                isFirstParagraph = false
             }
         }
         

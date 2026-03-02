@@ -37,6 +37,8 @@ struct PoetryCollectionPoemsView: View {
     @State private var exportFormat: ExportFormat = .rtf
     @State private var exportData: Data?
     @State private var exportFilename: String = ""
+    @State private var showExportImageWarning = false
+    @State private var pendingExportAction: (() -> Void)?
     
     // MARK: - Computed
     
@@ -153,6 +155,17 @@ struct PoetryCollectionPoemsView: View {
             titleVisibility: .visible
         ) {
             exportDialogButtons
+        }
+        .alert(NSLocalizedString("export.imageWarning.title", comment: "Images Not Included"), isPresented: $showExportImageWarning) {
+            Button(NSLocalizedString("export.imageWarning.continue", comment: "Continue")) {
+                pendingExportAction?()
+                pendingExportAction = nil
+            }
+            Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
+                pendingExportAction = nil
+            }
+        } message: {
+            Text(NSLocalizedString("export.imageWarning.message", comment: "Images will not be included"))
         }
         .fileExporter(
             isPresented: $showExportSaveDialog,
@@ -317,7 +330,8 @@ struct PoetryCollectionPoemsView: View {
             exportCollectionPoems(format: .pdf)
         }
         Button(ExportFormat.rtf.localizedName) {
-            exportCollectionPoems(format: .rtf)
+            pendingExportAction = { exportCollectionPoems(format: .rtf) }
+            showImageWarningAfterDelay()
         }
         Button(ExportFormat.html.localizedName) {
             exportCollectionPoems(format: .html)
@@ -326,9 +340,16 @@ struct PoetryCollectionPoemsView: View {
             exportCollectionPoems(format: .word)
         }
         Button(ExportFormat.markdown.localizedName) {
-            exportCollectionPoems(format: .markdown)
+            pendingExportAction = { exportCollectionPoems(format: .markdown) }
+            showImageWarningAfterDelay()
         }
         Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) { }
+    }
+    
+    private func showImageWarningAfterDelay() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            showExportImageWarning = true
+        }
     }
     
     private func exportCollectionPoems(format: ExportFormat) {

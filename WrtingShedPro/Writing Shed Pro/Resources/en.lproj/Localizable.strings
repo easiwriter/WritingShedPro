@@ -91,6 +91,7 @@
 "manuscript.preview.renderingPage" = "Rendering page %d of %d…";
 "manuscript.export" = "Export";
 "manuscript.print" = "Print";
+"manuscript.matterStyles" = "Matter Styles";
 "manuscript.error.printFailedTitle" = "Print Failed";
 "manuscript.error.printNoViewController" = "Unable to present print dialog";
 "export.format.pdf" = "PDF Document";
@@ -981,6 +982,8 @@
 "publications.form.url.label" = "Website (optional)";
 "publications.form.url.placeholder" = "https://";
 "publications.form.deadline.label" = "Deadline (optional)";
+"publications.form.responseTime.label" = "Expected Response Time";
+"publications.responseTime.days" = "%d days";
 "publications.form.notes.label" = "Notes (optional)";
 "publications.form.notes.placeholder" = "Add notes about this publication...";
 
@@ -1834,6 +1837,11 @@
 "export.dialog.message" = "Choose format to export %d file(s)";
 "export.error.failed" = "Export failed";
 
+/* Export Image Warning */
+"export.imageWarning.title" = "Images Not Included";
+"export.imageWarning.message" = "Images will not be included in this export format. Use PDF or Word (.docx) to include images.";
+"export.imageWarning.continue" = "Continue";
+
 /* HTML Export */
 "htmlExport.error.conversionFailed" = "Failed to convert to HTML";
 "htmlExport.error.encodingFailed" = "Failed to encode HTML file";
@@ -2194,6 +2202,18 @@
 "backMatter.headingStyle.title2" = "Title 2";
 "backMatter.headingStyle.title3" = "Title 3";
 "backMatter.headingStyle.headline" = "Headline";
+
+/* Matter Style Picker */
+"matterStyle.title" = "Matter Styles";
+"matterStyle.headingSection" = "Section Headings";
+"matterStyle.headingStyle" = "Heading Style";
+"matterStyle.headingFooter" = "Style used for headings in generated sections like Notes, Glossary, References, Index, and List of Figures.";
+"matterStyle.bodySection" = "Body Text";
+"matterStyle.bodyStyle" = "Body Style";
+"matterStyle.bodyFooter" = "Style used for body text in generated sections. Entry labels use a bold variant of this style.";
+"matterStyle.previewSection" = "Preview";
+"matterStyle.previewHeading" = "Notes";
+"matterStyle.previewBody" = "Sample body text for preview.";
 
 /* Cover Image Editor */
 "cover.processing" = "Processing...";
@@ -2602,6 +2622,7 @@
 "tof.settings.titlePlaceholder" = "List of Figures";
 "tof.settings.title.accessibility" = "Table of Figures title";
 "tof.settings.titleFooter" = "The heading displayed at the top of the Table of Figures";
+"tof.settings.titleFooter.withStyle" = "Uses the matter heading style (%@). Change in the manuscript toolbar.";
 "tof.settings.titleStyle" = "Title style";
 "tof.settings.entryStyleSection" = "Entry Style";
 "tof.settings.entryStyle" = "Entry style";
@@ -2613,6 +2634,7 @@
 "tof.settings.prefixFooter" = "Entries will appear as \"Figure 1: Caption text\"";
 "tof.settings.noPrefixFooter" = "Entries will show caption text only";
 "tof.settings.formattingSection" = "Formatting";
+"tof.settings.formattingFooter.withStyle" = "Entries use the matter body style (%@). Change in the manuscript toolbar.";
 "tof.settings.showPageNumbers" = "Show page numbers";
 "tof.settings.separator" = "Separator";
 "tof.settings.separator.space" = "Space";

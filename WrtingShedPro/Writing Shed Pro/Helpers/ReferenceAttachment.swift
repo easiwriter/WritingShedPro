@@ -269,7 +269,7 @@ final class ReferenceAttachment: NSTextAttachment {
         }
         
         // Determine text color based on context
-        let textColor = isForPageView ? UIColor.black : UIColor.systemBlue
+        let textColor = isForPageView ? UIColor.black : UIColor.label
         
         // Create attributed string using the surrounding text's font
         let attributes: [NSAttributedString.Key: Any] = [
@@ -305,7 +305,7 @@ final class ReferenceAttachment: NSTextAttachment {
     /// Fallback image generation when we can't get surrounding font
     private func createFallbackImage(at charIndex: Int) -> UIImage? {
         let font = UIFont.systemFont(ofSize: 16)
-        let textColor = isForPageView ? UIColor.black : UIColor.systemBlue
+        let textColor = isForPageView ? UIColor.black : UIColor.label
         
         let attributes: [NSAttributedString.Key: Any] = [
             .font: font,
@@ -386,11 +386,11 @@ final class ReferenceAttachment: NSTextAttachment {
     private func stylingForType() -> (textColor: UIColor, backgroundColor: UIColor, borderColor: UIColor, font: UIFont) {
         switch referenceType {
         case .endnote:
-            // Superscript blue
+            // Superscript style matching paragraph text color
             return (
-                textColor: UIColor.systemBlue,
-                backgroundColor: UIColor.systemBlue.withAlphaComponent(0.1),
-                borderColor: UIColor.systemBlue.withAlphaComponent(0.3),
+                textColor: UIColor.label,
+                backgroundColor: UIColor.label.withAlphaComponent(0.05),
+                borderColor: UIColor.label.withAlphaComponent(0.15),
                 font: UIFont.systemFont(ofSize: 11, weight: .semibold)
             )
             
@@ -405,29 +405,29 @@ final class ReferenceAttachment: NSTextAttachment {
             )
             
         case .glossary:
-            // Teal with underline (no background)
+            // Match paragraph text color
             return (
-                textColor: UIColor.systemTeal,
+                textColor: UIColor.label,
                 backgroundColor: UIColor.clear,
                 borderColor: UIColor.clear,
                 font: UIFont.systemFont(ofSize: 13, weight: .regular)
             )
             
         case .reference:
-            // Brown/orange for references
+            // Match paragraph text color
             return (
-                textColor: UIColor.systemBrown,
-                backgroundColor: UIColor.systemBrown.withAlphaComponent(0.1),
-                borderColor: UIColor.systemBrown.withAlphaComponent(0.3),
+                textColor: UIColor.label,
+                backgroundColor: UIColor.label.withAlphaComponent(0.05),
+                borderColor: UIColor.label.withAlphaComponent(0.15),
                 font: UIFont.systemFont(ofSize: 13, weight: .regular)
             )
             
         case .figure, .table:
-            // Green for figures/tables
+            // Match paragraph text color
             return (
-                textColor: UIColor.systemGreen.darker(by: 0.1) ?? .systemGreen,
-                backgroundColor: UIColor.systemGreen.withAlphaComponent(0.1),
-                borderColor: UIColor.systemGreen.withAlphaComponent(0.3),
+                textColor: UIColor.label,
+                backgroundColor: UIColor.label.withAlphaComponent(0.05),
+                borderColor: UIColor.label.withAlphaComponent(0.15),
                 font: UIFont.systemFont(ofSize: 13, weight: .medium)
             )
             

@@ -16,6 +16,24 @@ struct Write_App: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
     var sharedModelContainer: ModelContainer = {
+        // CRITICAL: Register for remote notifications BEFORE creating the container.
+        // NSPersistentCloudKitContainer needs the APNs device token to set up its
+        // CKDatabaseSubscription.  If the token isn't available in time the container
+        // logs "Giving up waiting to register for remote notifications" and the initial
+        // import stalls permanently (especially on Mac Catalyst where push delivery
+        // is slower than iOS).  Calling this here — before the ModelContainer is even
+        // constructed — gives APNs the maximum head-start to deliver the token.
+        if Thread.isMainThread {
+            UIApplication.shared.registerForRemoteNotifications()
+        } else {
+            DispatchQueue.main.sync {
+                UIApplication.shared.registerForRemoteNotifications()
+            }
+        }
+        #if DEBUG
+        print("📱 [Write_App] registerForRemoteNotifications called BEFORE container init")
+        #endif
+        
         let schema = Schema([
             Project.self,
             Folder.self,
@@ -181,41 +199,72 @@ struct Write_App: App {
             // NOTE: StyleSheet initialization moved to ContentView.onAppear to avoid blocking app launch
             
             return container
-        } catch let error as NSError {
-            let errorMsg = "❌ [Write_App] CRITICAL: ModelContainer initialization failed"
-            #if DEBUG
-            print(errorMsg)
-            #endif
-            #if DEBUG
-            print("   Error domain: \(error.domain)")
-            #endif
-            #if DEBUG
-            print("   Error code: \(error.code)")
-            #endif
-            #if DEBUG
-            print("   Error description: \(error.localizedDescription)")
-            #endif
-            #if DEBUG
-            print("   Full error: \(error)")
-            #endif
-            if let underlyingError = error.userInfo[NSUnderlyingErrorKey] as? NSError {
-                #if DEBUG
-                print("   Underlying error: \(underlyingError)")
-                #endif
-            }
-            // Log to file as well using direct file I/O
-            Write_App.logErrorToFile(errorMsg)
-            Write_App.logErrorToFile("   Error domain: \(error.domain)")
-            Write_App.logErrorToFile("   Error code: \(error.code)")
-            Write_App.logErrorToFile("   Error description: \(error.localizedDescription)")
-            fatalError(errorMsg)
         } catch {
-            let errorMsg = "❌ [Write_App] CRITICAL: ModelContainer initialization failed with unknown error: \(error)"
+            let nsError = error as NSError
+            let errorMsg = "⚠️ [Write_App] ModelContainer initialization failed — attempting recovery"
             #if DEBUG
             print(errorMsg)
+            print("   Error domain: \(nsError.domain)")
+            print("   Error code: \(nsError.code)")
+            print("   Error description: \(nsError.localizedDescription)")
+            print("   Full error: \(nsError)")
             #endif
             Write_App.logErrorToFile(errorMsg)
-            fatalError(errorMsg)
+            Write_App.logErrorToFile("   Error: \(nsError.localizedDescription)")
+            
+            // Migration failure recovery: delete the local SQLite store files
+            // and let CloudKit re-sync all data from the cloud.
+            // This handles schema migration conflicts (e.g. "table already exists")
+            // that lightweight migration cannot resolve automatically.
+            let filesToDelete = [
+                storeURL,
+                storeURL.deletingPathExtension().appendingPathExtension("sqlite-wal"),
+                storeURL.deletingPathExtension().appendingPathExtension("sqlite-shm"),
+                // Also remove the ckAssets metadata used by CloudKit mirroring
+                storeURL.deletingLastPathComponent().appending(path: "writingshed.sqlite-ckAssets"),
+                storeURL.deletingLastPathComponent().appending(path: ".writingshed.sqlite-ckAssets")
+            ]
+            
+            for fileURL in filesToDelete {
+                do {
+                    if FileManager.default.fileExists(atPath: fileURL.path) {
+                        try FileManager.default.removeItem(at: fileURL)
+                        #if DEBUG
+                        print("🗑️ [Write_App] Deleted: \(fileURL.lastPathComponent)")
+                        #endif
+                        Write_App.logErrorToFile("🗑️ Deleted: \(fileURL.lastPathComponent)")
+                    }
+                } catch {
+                    #if DEBUG
+                    print("⚠️ [Write_App] Could not delete \(fileURL.lastPathComponent): \(error)")
+                    #endif
+                }
+            }
+            
+            // Retry creating the container with a fresh database
+            do {
+                let freshConfig = ModelConfiguration(
+                    "WritingShedProConfiguration",
+                    schema: schema,
+                    url: storeURL,
+                    cloudKitDatabase: .automatic
+                )
+                let container = try ModelContainer(for: schema, configurations: [freshConfig])
+                #if DEBUG
+                print("✅ [Write_App] Recovery succeeded — fresh database created, CloudKit will re-sync")
+                #endif
+                Write_App.logErrorToFile("✅ Recovery succeeded — fresh database created")
+                container.mainContext.autosaveEnabled = true
+                _ = CloudKitSyncThrottler.shared
+                return container
+            } catch {
+                let fatalMsg = "❌ [Write_App] CRITICAL: Recovery also failed — \(error)"
+                #if DEBUG
+                print(fatalMsg)
+                #endif
+                Write_App.logErrorToFile(fatalMsg)
+                fatalError(fatalMsg)
+            }
         }
     }()
 

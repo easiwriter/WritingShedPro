@@ -70,8 +70,9 @@ struct FolderFilesView: View {
     @State var exportFilename: String = ""
     @State var exportCombinedContent: NSAttributedString?
     @State var exportAttributedStrings: [NSAttributedString] = []  // For HTML multi-file export
-    @State var showImageWarning = false  // Show warning for RTF with images
-    @State var imageWarningMessage = ""
+    @State var showExportImageWarning = false
+    @State var pendingExportAction: (() -> Void)? = nil
+
     
     // State for search
     @State var showSearchView = false
@@ -1234,14 +1235,6 @@ struct FolderFilesView: View {
             return
         }
         
-        // Check for images in RTF export
-        if format == .rtf && RTFImageEncoder.containsImages(combinedContent) {
-            imageWarningMessage = "RTF format does not support embedded images. Images will be replaced with '[Image omitted]' placeholders. For documents with images, please use HTML or EPUB export instead."
-            showImageWarning = true
-            // Don't proceed with export yet - wait for user to dismiss alert
-            return
-        }
-        
         // Perform the actual export
         performCombinedExport(format: format, content: combinedContent)
     }
@@ -1313,6 +1306,14 @@ struct FolderFilesView: View {
         }
     }
     
+    /// Show image warning alert after a short delay so it doesn't get swallowed
+    /// by the dismissing confirmationDialog on Mac Catalyst.
+    func showImageWarningAfterDelay() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            showExportImageWarning = true
+        }
+    }
+
     func exportFiles(format: ExportFormat) {
         // Check entitlement for export
         if let projectType = folder.project?.type {
@@ -1377,14 +1378,6 @@ struct FolderFilesView: View {
                 #endif
                 // Fall through with raw markdown text if rendering fails
             }
-        }
-        
-        // Check for images in RTF export
-        if format == .rtf && RTFImageEncoder.containsImages(attributedString) {
-            imageWarningMessage = "RTF format does not support embedded images. Images will be replaced with '[Image omitted]' placeholders. For documents with images, please use HTML or EPUB export instead."
-            showImageWarning = true
-            // Don't proceed with export yet - wait for user to dismiss alert
-            return
         }
         
         // Perform the actual export

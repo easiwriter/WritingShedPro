@@ -1787,7 +1787,7 @@ struct FileEditView: View {
                 }
             }
             .sheet(isPresented: $showTOCSettings) {
-                TOCSettingsView(file: file) {
+                TOCSettingsView(file: file, isPresented: $showTOCSettings) {
                     // Regenerate TOC when settings change
                     // Need to traverse folder hierarchy since file.project may be nil
                     var project: Project? = file.project
@@ -1807,7 +1807,7 @@ struct FileEditView: View {
                 }
             }
             .sheet(isPresented: $showTableOfFiguresSettings) {
-                TableOfFiguresSettingsView(file: file) {
+                TableOfFiguresSettingsView(file: file, isPresented: $showTableOfFiguresSettings) {
                     // Refresh content when settings change
                     // Content is dynamically generated in BackMatterGeneratedContentView
                 }

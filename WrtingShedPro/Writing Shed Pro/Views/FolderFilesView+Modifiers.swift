@@ -86,10 +86,7 @@ extension FolderFilesView {
             .alert("Import Failed", isPresented: $showImportError) {
                 Button("OK", role: .cancel) {}
             } message: { Text(importErrorMessage) }
-            .alert("Images Not Supported", isPresented: $showImageWarning) {
-                Button("Continue Export") { continueExportAfterImageWarning() }
-                Button("Cancel", role: .cancel) { }
-            } message: { Text(imageWarningMessage) }
+
             .alert(NSLocalizedString("submissions.name.title", comment: "Name Submission"), isPresented: $showSubmissionNamePrompt) {
                 TextField(NSLocalizedString("submissions.name.placeholder", comment: "Name"), text: $newSubmissionName)
                 Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
@@ -133,6 +130,17 @@ extension FolderFilesView {
             .confirmationDialog(NSLocalizedString("export.folder.dialog.title", comment: ""), isPresented: $showExportFolderMenu) {
                 exportFolderMenuButtons
             } message: { Text(exportFolderMenuMessage) }
+            .alert(NSLocalizedString("export.imageWarning.title", comment: "Images Not Included"), isPresented: $showExportImageWarning) {
+                Button(NSLocalizedString("export.imageWarning.continue", comment: "Continue")) {
+                    pendingExportAction?()
+                    pendingExportAction = nil
+                }
+                Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
+                    pendingExportAction = nil
+                }
+            } message: {
+                Text(NSLocalizedString("export.imageWarning.message", comment: "Images will not be included in this export format. Use PDF or Word (.docx) to include images."))
+            }
             .sheet(isPresented: $showHeaderFooterEditor) { headerFooterDialog }
             .alert(NSLocalizedString("headerFooter.notEnabled.title", comment: "Headers & Footers Not Enabled"), isPresented: $showHeaderFooterWarning) {
                 Button(NSLocalizedString("button.ok", comment: "OK"), role: .cancel) {}

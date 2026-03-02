@@ -161,6 +161,13 @@ struct AddSubmissionView: View {
                 }
             }
         }
+        .onAppear {
+            // Auto-populate expected response date from publication's typical response time
+            if let days = publication.typicalResponseDays {
+                showExpectedDate = true
+                returnExpectedBy = Calendar.current.date(byAdding: .day, value: days, to: Date())
+            }
+        }
     }
     
     private func toggleFileSelection(_ file: TextFile) {

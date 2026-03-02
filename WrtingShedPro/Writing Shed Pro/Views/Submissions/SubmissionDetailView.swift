@@ -27,6 +27,8 @@ struct SubmissionDetailView: View {
     @State private var exportFormat: ExportFormat = .rtf
     @State private var exportData: Data?
     @State private var exportFilename: String = ""
+    @State private var showExportImageWarning = false
+    @State private var pendingExportAction: (() -> Void)?
     
     var body: some View {
         List {
@@ -158,6 +160,17 @@ struct SubmissionDetailView: View {
         ) {
             exportDialogButtons
         }
+        .alert(NSLocalizedString("export.imageWarning.title", comment: "Images Not Included"), isPresented: $showExportImageWarning) {
+            Button(NSLocalizedString("export.imageWarning.continue", comment: "Continue")) {
+                pendingExportAction?()
+                pendingExportAction = nil
+            }
+            Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
+                pendingExportAction = nil
+            }
+        } message: {
+            Text(NSLocalizedString("export.imageWarning.message", comment: "Images will not be included"))
+        }
         .fileExporter(
             isPresented: $showExportSaveDialog,
             document: ExportDocument(
@@ -258,7 +271,8 @@ struct SubmissionDetailView: View {
             exportSubmissionFiles(format: .pdf)
         }
         Button(ExportFormat.rtf.localizedName) {
-            exportSubmissionFiles(format: .rtf)
+            pendingExportAction = { exportSubmissionFiles(format: .rtf) }
+            showImageWarningAfterDelay()
         }
         Button(ExportFormat.html.localizedName) {
             exportSubmissionFiles(format: .html)
@@ -267,9 +281,16 @@ struct SubmissionDetailView: View {
             exportSubmissionFiles(format: .word)
         }
         Button(ExportFormat.markdown.localizedName) {
-            exportSubmissionFiles(format: .markdown)
+            pendingExportAction = { exportSubmissionFiles(format: .markdown) }
+            showImageWarningAfterDelay()
         }
         Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) { }
+    }
+    
+    private func showImageWarningAfterDelay() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            showExportImageWarning = true
+        }
     }
     
     private func exportSubmissionFiles(format: ExportFormat) {

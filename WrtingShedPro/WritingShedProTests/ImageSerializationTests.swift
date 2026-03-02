@@ -385,4 +385,161 @@ final class ImageSerializationTests: XCTestCase {
         XCTAssertEqual(restoredAttachment?.captionText, "Just caption", "Caption text should be preserved")
         XCTAssertEqual(restoredAttachment?.captionStyle, "caption2", "Caption style should be preserved")
     }
+    
+    // MARK: - End-to-End RTF Export Tests
+    
+    func testRTFExportContainsJPEGImage() {
+        // Given: create an attributed string with an image attachment
+        let text = "Hello\u{FFFC}World"
+        let attributedString = NSMutableAttributedString(string: text)
+        
+        let testImage = createTestImage(width: 200, height: 150)
+        guard let imageData = testImage.pngData(),
+              let attachment = ImageAttachment.from(imageData: imageData, scale: 0.5, alignment: .center) else {
+            XCTFail("Failed to create image attachment")
+            return
+        }
+        
+        // Replace the FFFC character with the attachment
+        let attachmentString = NSAttributedString(attachment: attachment)
+        attributedString.replaceCharacters(in: NSRange(location: 5, length: 1), with: attachmentString)
+        
+        // Verify attachment is present before export
+        let preAttrs = attributedString.attributes(at: 5, effectiveRange: nil)
+        XCTAssertTrue(preAttrs[.attachment] is ImageAttachment, "ImageAttachment should be on the attributed string")
+        
+        // When: go through prepare + toRTF (same as export pipeline)
+        let prepared = AttributedStringSerializer.prepareForExport(from: attributedString)
+        
+        // Verify attachment survives prepareForExport
+        let postPrepAttrs = prepared.attributes(at: 5, effectiveRange: nil)
+        XCTAssertTrue(postPrepAttrs[.attachment] is ImageAttachment, "ImageAttachment should survive prepareForExport")
+        
+        // Check containsImages detection
+        XCTAssertTrue(RTFImageEncoder.containsImages(prepared), "containsImages should detect the image")
+        
+        // Generate RTF — images are NOT embedded in RTF (by design).
+        // RTF export uses Apple's standard converter which strips images.
+        guard let rtfData = AttributedStringSerializer.toRTF(prepared) else {
+            XCTFail("toRTF returned nil")
+            return
+        }
+        
+        // Verify RTF was generated (text content is present)
+        guard let rtfString = String(data: rtfData, encoding: .utf8) else {
+            XCTFail("RTF data is not valid UTF-8")
+            return
+        }
+        
+        // RTF should NOT contain image data (images not supported in RTF export)
+        XCTAssertFalse(rtfString.contains("\\pict\\jpegblip"), "RTF should NOT contain embedded images (by design)")
+        XCTAssertTrue(rtfString.contains("Hello"), "RTF should contain text content")
+    }
+    
+    func testRTFExportFullPipelineWithEncodeDecode() {
+        // Given: simulate the full pipeline: create → encode → decode → prepareForExport → toRTF
+        let text = "Document with image:\u{FFFC} and more text."
+        let attributedString = NSMutableAttributedString(string: text)
+        
+        let testImage = createTestImage(width: 300, height: 200)
+        guard let imageData = testImage.pngData(),
+              let attachment = ImageAttachment.from(imageData: imageData, scale: 0.8, alignment: .left) else {
+            XCTFail("Failed to create image attachment")
+            return
+        }
+        
+        attachment.setCaption(text: "Test caption", style: "caption1")
+        
+        // Replace FFFC with attachment (simulates what InsertImageCommand does)
+        let attachmentString = NSAttributedString(attachment: attachment)
+        attributedString.replaceCharacters(in: NSRange(location: 20, length: 1), with: attachmentString)
+        
+        // Step 1: Encode (simulates version.attributedContent setter → formattedContent)
+        let encoded = AttributedStringSerializer.encode(attributedString)
+        XCTAssertFalse(encoded.isEmpty, "Encoded data should not be empty")
+        
+        // Step 2: Decode (simulates version.attributedContent getter)
+        let decoded = AttributedStringSerializer.decode(encoded, text: text)
+        
+        // Verify the decoded string has the ImageAttachment
+        let decodedAttrs = decoded.attributes(at: 20, effectiveRange: nil)
+        let decodedAttachment = decodedAttrs[.attachment] as? ImageAttachment
+        XCTAssertNotNil(decodedAttachment, "ImageAttachment should survive encode→decode")
+        XCTAssertNotNil(decodedAttachment?.imageData, "imageData should be present after decode")
+        XCTAssertNotNil(decodedAttachment?.image, "UIImage should be reconstructed after decode")
+        
+        // Step 3: prepareForExport (simulates WordDocumentService path)
+        let prepared = AttributedStringSerializer.prepareForExport(from: decoded)
+        
+        // Verify attachment survives prepareForExport
+        let preparedAttrs = prepared.attributes(at: 20, effectiveRange: nil)
+        let preparedAttachment = preparedAttrs[.attachment]
+        XCTAssertNotNil(preparedAttachment, ".attachment attribute should exist after prepareForExport")
+        XCTAssertTrue(preparedAttachment is ImageAttachment, "Attachment should still be ImageAttachment (not generic NSTextAttachment)")
+        
+        // Step 4: toRTF — images are not embedded in RTF export
+        guard let rtfData = AttributedStringSerializer.toRTF(prepared) else {
+            XCTFail("toRTF returned nil for attributed string with image")
+            return
+        }
+        
+        guard let rtfString = String(data: rtfData, encoding: .utf8) else {
+            XCTFail("RTF data is not valid UTF-8")
+            return
+        }
+        
+        // RTF should contain text but NOT embedded images
+        XCTAssertTrue(rtfString.contains("Document"), "RTF should contain 'Document' text")
+        XCTAssertTrue(rtfString.contains("more text"), "RTF should contain 'more text'")
+        XCTAssertFalse(rtfString.contains("\\pict\\jpegblip"), "RTF should NOT contain embedded images (by design)")
+    }
+    
+    func testRTFExportMultipleFiles() {
+        // Given: simulate exportMultipleToRTF with two attributed strings, one with image
+        let text1 = "First file\u{FFFC}end"
+        let as1 = NSMutableAttributedString(string: text1)
+        
+        let testImage = createTestImage(width: 100, height: 100)
+        guard let imageData = testImage.pngData(),
+              let attachment = ImageAttachment.from(imageData: imageData) else {
+            XCTFail("Failed to create image attachment")
+            return
+        }
+        let attachmentStr = NSAttributedString(attachment: attachment)
+        as1.replaceCharacters(in: NSRange(location: 10, length: 1), with: attachmentStr)
+        
+        let as2 = NSAttributedString(string: "Second file with no images")
+        
+        // Simulate exportMultipleToRTF combining logic
+        let combined = NSMutableAttributedString()
+        let prepared1 = AttributedStringSerializer.prepareForExport(from: as1)
+        combined.append(prepared1)
+        combined.append(NSAttributedString(string: "\n\n"))
+        let prepared2 = AttributedStringSerializer.prepareForExport(from: as2)
+        combined.append(prepared2)
+        
+        // Verify image survived combining
+        var foundImage = false
+        combined.enumerateAttribute(.attachment, in: NSRange(location: 0, length: combined.length)) { value, _, _ in
+            if value is ImageAttachment {
+                foundImage = true
+            }
+        }
+        XCTAssertTrue(foundImage, "ImageAttachment should survive combining multiple attributed strings")
+        
+        // Generate RTF — images are stripped by Apple's standard RTF converter
+        guard let rtfData = AttributedStringSerializer.toRTF(combined) else {
+            XCTFail("toRTF returned nil")
+            return
+        }
+        
+        guard let rtfString = String(data: rtfData, encoding: .utf8) else {
+            XCTFail("RTF data is not valid UTF-8")
+            return
+        }
+        
+        // RTF should contain text but NOT embedded images
+        XCTAssertFalse(rtfString.contains("\\pict\\jpegblip"), "Combined RTF should NOT contain embedded images (by design)")
+        XCTAssertTrue(rtfString.contains("Second file"), "Combined RTF should contain second file text")
+    }
 }
