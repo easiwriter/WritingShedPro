@@ -927,6 +927,14 @@ class JSONImportService {
         // Import collections (text collections)
         try importCollections(from: writingShedData, into: project)
         
+        // For Poetry projects, create PoetryCollection objects from imported Submission collections.
+        // Feature 036 replaced the old CollectionsView (which showed Submission objects) with
+        // PoetryCollectionsView (which shows PoetryCollection objects). The .wsd import creates
+        // Submission objects, so we mirror them as PoetryCollection objects for display.
+        if project.type == .poetry {
+            createPoetryCollectionsFromSubmissions(for: project)
+        }
+        
         // Import Fiction-specific entities
         if project.type == .fiction {
             #if DEBUG
@@ -1779,6 +1787,54 @@ class JSONImportService {
         
         #if DEBUG
         print("[JSONImport] ✅ Linked \(linkedCount) files to collections")
+        #endif
+    }
+    
+    // MARK: - Poetry Collections from Legacy Submissions
+    
+    /// For Poetry projects, mirror Submission collections as PoetryCollection objects.
+    /// Feature 036 replaced the old CollectionsView (showing Submissions) with PoetryCollectionsView
+    /// (showing PoetryCollection objects). This ensures legacy .wsd imports display correctly.
+    private func createPoetryCollectionsFromSubmissions(for project: Project) {
+        #if DEBUG
+        print("[JSONImport] Creating PoetryCollection objects from Submission collections for Poetry project")
+        #endif
+        
+        // Find all Submission objects we just created that are collections (not submissions to publications)
+        let collectionSubmissions = submissionMap.values.filter { $0.isCollection && $0.project?.id == project.id }
+        // Deduplicate by UUID (submissionMap caches by multiple keys)
+        var seen = Set<UUID>()
+        let uniqueCollections = collectionSubmissions.filter { seen.insert($0.id).inserted }
+        
+        var createdCount = 0
+        for submission in uniqueCollections {
+            let poetryCollection = PoetryCollection(
+                name: submission.name ?? "Untitled Collection",
+                userOrder: createdCount
+            )
+            poetryCollection.project = project
+            modelContext.insert(poetryCollection)
+            
+            // Link the same text files from the Submission's SubmittedFiles
+            if let submittedFiles = submission.submittedFiles {
+                for submittedFile in submittedFiles {
+                    if let textFile = submittedFile.textFile {
+                        textFile.addToPoetryCollection(poetryCollection)
+                        #if DEBUG
+                        print("[JSONImport]   Linked '\(textFile.name)' to PoetryCollection '\(poetryCollection.name ?? "")'")
+                        #endif
+                    }
+                }
+            }
+            
+            createdCount += 1
+            #if DEBUG
+            print("[JSONImport]   Created PoetryCollection '\(poetryCollection.name ?? "")' with \(submission.submittedFiles?.count ?? 0) files")
+            #endif
+        }
+        
+        #if DEBUG
+        print("[JSONImport] ✅ Created \(createdCount) PoetryCollection objects from legacy Submission collections")
         #endif
     }
     

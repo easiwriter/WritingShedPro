@@ -2432,6 +2432,16 @@ struct FileEditView: View {
                     let endPosition = textView.attributedText.length
                     textView.selectedRange = NSRange(location: endPosition, length: 0)
                     textView.scrollRangeToVisible(NSRange(location: endPosition, length: 0))
+                    // Ensure keyboard stays hidden - UIKit may auto-focus editable text views
+                    textView.resignFirstResponder()
+                }
+            }
+            // Second resign after navigation transition completes
+            // iOS can auto-focus the first editable text view after push animation finishes
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                if let textView = self.textViewCoordinator.textView,
+                   textView.isFirstResponder {
+                    textView.resignFirstResponder()
                 }
             }
         }
