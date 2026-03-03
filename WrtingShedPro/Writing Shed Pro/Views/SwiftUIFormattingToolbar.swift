@@ -9,6 +9,11 @@ struct SwiftUIFormattingToolbar: View {
     let indexEnabled: Bool
     @State private var hasHardwareKeyboard = false
     @State private var isKeyboardVisible = false
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    
+    private var isCompactWidth: Bool {
+        horizontalSizeClass == .compact
+    }
     
     enum FormattingAction {
         case paragraphStyle
@@ -39,11 +44,6 @@ struct SwiftUIFormattingToolbar: View {
                 }
                 #endif
                 
-                // Paragraph style (disabled when image selected)
-                toolbarButton(systemName: "paragraph", action: .paragraphStyle)
-                    .opacity(hasSelectedImage ? 0.3 : 1.0)
-                    .disabled(hasSelectedImage)
-                
                 Divider()
                     .frame(height: 24)
                 
@@ -60,7 +60,15 @@ struct SwiftUIFormattingToolbar: View {
                 Divider()
                     .frame(height: 24)
                 
-                // Text formatting (disabled when image selected)
+                // Paragraph style (disabled when image selected)
+                // Moved to left of text formatting group
+                toolbarButton(systemName: "paragraph", action: .paragraphStyle)
+                    .opacity(hasSelectedImage ? 0.3 : 1.0)
+                    .disabled(hasSelectedImage)
+                
+                // Text formatting
+                #if targetEnvironment(macCatalyst)
+                // Mac/iPad: individual buttons
                 toolbarButton(systemName: "bold", action: .bold)
                     .opacity(hasSelectedImage ? 0.3 : 1.0)
                     .disabled(hasSelectedImage)
@@ -73,6 +81,28 @@ struct SwiftUIFormattingToolbar: View {
                 toolbarButton(systemName: "strikethrough", action: .strikethrough)
                     .opacity(hasSelectedImage ? 0.3 : 1.0)
                     .disabled(hasSelectedImage)
+                #else
+                if isCompactWidth {
+                    // iPhone: single menu button for B/I/U/S
+                    textFormattingMenuButton()
+                        .opacity(hasSelectedImage ? 0.3 : 1.0)
+                        .disabled(hasSelectedImage)
+                } else {
+                    // iPad: individual buttons
+                    toolbarButton(systemName: "bold", action: .bold)
+                        .opacity(hasSelectedImage ? 0.3 : 1.0)
+                        .disabled(hasSelectedImage)
+                    toolbarButton(systemName: "italic", action: .italic)
+                        .opacity(hasSelectedImage ? 0.3 : 1.0)
+                        .disabled(hasSelectedImage)
+                    toolbarButton(systemName: "underline", action: .underline)
+                        .opacity(hasSelectedImage ? 0.3 : 1.0)
+                        .disabled(hasSelectedImage)
+                    toolbarButton(systemName: "strikethrough", action: .strikethrough)
+                        .opacity(hasSelectedImage ? 0.3 : 1.0)
+                        .disabled(hasSelectedImage)
+                }
+                #endif
                 
                 Divider()
                     .frame(height: 24)
@@ -120,6 +150,38 @@ struct SwiftUIFormattingToolbar: View {
             detectHardwareKeyboard()
             observeKeyboardNotifications()
         }
+    }
+    
+    private func textFormattingMenuButton() -> some View {
+        Menu {
+            Button {
+                onFormatAction(.bold)
+            } label: {
+                Label(NSLocalizedString("toolbar.bold", comment: "Bold"), systemImage: "bold")
+            }
+            Button {
+                onFormatAction(.italic)
+            } label: {
+                Label(NSLocalizedString("toolbar.italic", comment: "Italic"), systemImage: "italic")
+            }
+            Button {
+                onFormatAction(.underline)
+            } label: {
+                Label(NSLocalizedString("toolbar.underline", comment: "Underline"), systemImage: "underline")
+            }
+            Button {
+                onFormatAction(.strikethrough)
+            } label: {
+                Label(NSLocalizedString("toolbar.strikethrough", comment: "Strikethrough"), systemImage: "strikethrough")
+            }
+        } label: {
+            Image(systemName: "bold.italic.underline")
+                .font(.system(size: 17))
+                .frame(width: 32, height: 44)
+        }
+        .buttonStyle(.plain)
+        .controlSize(.small)
+        .accessibilityLabel(NSLocalizedString("toolbar.textFormatting", comment: "Text formatting"))
     }
     
     private func toolbarButton(systemName: String, action: FormattingAction, tint: Color? = nil) -> some View {

@@ -967,6 +967,11 @@
 "toolbar.moveCursorRight" = "Move cursor right";
 "toolbar.dismissKeyboard" = "Hide keyboard";
 "toolbar.showKeyboard" = "Show keyboard";
+"toolbar.bold" = "Bold";
+"toolbar.italic" = "Italic";
+"toolbar.underline" = "Underline";
+"toolbar.strikethrough" = "Strikethrough";
+"toolbar.textFormatting" = "Text formatting";
 /* Publications Management - Feature 008b Phase 2 */
 
 /* Screen Titles */

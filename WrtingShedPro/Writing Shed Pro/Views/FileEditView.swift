@@ -2425,10 +2425,14 @@ struct FileEditView: View {
             #endif
         }
         
-        // Show keyboard/cursor when opening file (only if not locked and not coming from search)
+        // Position cursor at end of file without showing keyboard
         if file.currentVersion?.isLocked != true && searchContext == nil {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                self.textViewCoordinator.textView?.becomeFirstResponder()
+                if let textView = self.textViewCoordinator.textView {
+                    let endPosition = textView.attributedText.length
+                    textView.selectedRange = NSRange(location: endPosition, length: 0)
+                    textView.scrollRangeToVisible(NSRange(location: endPosition, length: 0))
+                }
             }
         }
         

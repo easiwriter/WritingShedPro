@@ -292,7 +292,6 @@ final class FictionModelsTests: XCTestCase {
         modelContext.insert(character)
         
         scene.characters = [character]
-        character.scenes = [scene]
         
         try modelContext.save()
         
@@ -340,8 +339,6 @@ final class FictionModelsTests: XCTestCase {
         let scene2 = StoryScene(name: "Scene 2", userOrder: 2)
         scene2.chapter = chapter
         modelContext.insert(scene2)
-        
-        chapter.scenes = [scene1, scene2]
         
         try modelContext.save()
         
@@ -581,8 +578,6 @@ final class FictionModelsTests: XCTestCase {
         modelContext.insert(scene2)
         
         element.linkedScenes = [scene1, scene2]
-        scene1.plotElements = [element]
-        scene2.plotElements = [element]
         
         try modelContext.save()
         
@@ -665,7 +660,7 @@ final class FictionModelsTests: XCTestCase {
         scene2.project = project
         modelContext.insert(scene2)
         
-        chapter.scenes = [scene1, scene2]
+        // chapter.scenes derived from scene.chapter = chapter (set above)
         project.chapters = [chapter]
         project.scenes = [scene1, scene2]
         
