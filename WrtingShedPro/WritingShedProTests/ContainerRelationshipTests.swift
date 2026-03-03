@@ -27,7 +27,11 @@ final class ContainerRelationshipTests: XCTestCase {
             StoryScene.self, Chapter.self, Character.self, Location.self,
             CustomAttribute.self, PlotElement.self,
             Act.self, ProseSection.self,
-            PoetryCollection.self, Book.self
+            PoetryCollection.self, Book.self,
+            TextFileSectionLink.self, TextFileCollectionLink.self,
+            SceneChapterLink.self, SceneActLink.self, SceneBookLink.self,
+            ScenePlotElementLink.self, SceneCharacterLink.self,
+            CharacterPlotElementLink.self, LocationPlotElementLink.self
         ])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         modelContainer = try! ModelContainer(for: schema, configurations: config)

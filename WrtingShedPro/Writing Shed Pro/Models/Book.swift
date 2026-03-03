@@ -29,8 +29,22 @@ final class Book {
     // Relationships
     var project: Project?
     
-    @Relationship(deleteRule: .nullify, inverse: \StoryScene.books)
-    var scenes: [StoryScene]?
+    @Relationship(deleteRule: .cascade, inverse: \SceneBookLink.book)
+    var sceneLinks: [SceneBookLink]? = []
+    
+    /// Scenes in this book (derived from join table)
+    var scenes: [StoryScene]? {
+        get { sceneLinks?.compactMap(\.scene) }
+        set {
+            for link in sceneLinks ?? [] { modelContext?.delete(link) }
+            sceneLinks = []
+            for scene in newValue ?? [] {
+                let link = SceneBookLink(scene: scene, book: self)
+                if sceneLinks == nil { sceneLinks = [] }
+                sceneLinks?.append(link)
+            }
+        }
+    }
     
     init(name: String? = nil, synopsis: String? = nil, userOrder: Int? = nil) {
         self.name = name

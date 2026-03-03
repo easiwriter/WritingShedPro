@@ -651,32 +651,97 @@ final class StoryScene {
     var isTrashed: Bool = false
     var trashedDate: Date?
     
-    // Relationships (many-to-many: scenes can belong to multiple containers)
-    @Relationship(inverse: \Chapter.scenes)
-    var chapters: [Chapter]?  // Used for both Novel and Short Fiction projects
+    // Relationships (via join tables for CloudKit compatibility)
+    @Relationship(deleteRule: .cascade, inverse: \SceneChapterLink.scene)
+    var chapterLinks: [SceneChapterLink]? = []
     
-    @Relationship(inverse: \Act.scenes)
-    var acts: [Act]?  // nil for Fiction projects, used for Drama projects
+    @Relationship(deleteRule: .cascade, inverse: \SceneActLink.scene)
+    var actLinks: [SceneActLink]? = []
     
-    // Feature 036: Verse Novel book membership (many-to-many)
-    var books: [Book]?  // Used for Verse Novel projects (episodes within books)
+    @Relationship(deleteRule: .cascade, inverse: \SceneBookLink.scene)
+    var bookLinks: [SceneBookLink]? = []
+    
+    @Relationship(deleteRule: .cascade, inverse: \ScenePlotElementLink.scene)
+    var plotElementLinks: [ScenePlotElementLink]? = []
+    
+    @Relationship(deleteRule: .cascade, inverse: \SceneCharacterLink.scene)
+    var characterLinks: [SceneCharacterLink]? = []
     
     var project: Project?
     
     @Relationship(deleteRule: .cascade, inverse: \TextFile.scene)
     var textFile: TextFile?  // Contains the actual scene content
     
-    // Many-to-many with PlotElement
-    @Relationship(inverse: \PlotElement.linkedScenes)
-    var plotElements: [PlotElement]?
-    
-    // Scene can have multiple characters
-    @Relationship(inverse: \Character.scenes)
-    var characters: [Character]?
-    
-    // Scene takes place at a location
+    // Scene takes place at a location (one-to-many, CloudKit compatible)
     @Relationship(inverse: \Location.scenes)
     var location: Location?
+    
+    // MARK: - Many-to-Many Computed Properties (via join tables)
+    
+    var chapters: [Chapter]? {
+        get { chapterLinks?.compactMap(\.chapter) }
+        set {
+            for link in chapterLinks ?? [] { modelContext?.delete(link) }
+            chapterLinks = []
+            for chapter in newValue ?? [] {
+                let link = SceneChapterLink(scene: self, chapter: chapter)
+                if chapterLinks == nil { chapterLinks = [] }
+                chapterLinks?.append(link)
+            }
+        }
+    }
+    
+    var acts: [Act]? {
+        get { actLinks?.compactMap(\.act) }
+        set {
+            for link in actLinks ?? [] { modelContext?.delete(link) }
+            actLinks = []
+            for act in newValue ?? [] {
+                let link = SceneActLink(scene: self, act: act)
+                if actLinks == nil { actLinks = [] }
+                actLinks?.append(link)
+            }
+        }
+    }
+    
+    var books: [Book]? {
+        get { bookLinks?.compactMap(\.book) }
+        set {
+            for link in bookLinks ?? [] { modelContext?.delete(link) }
+            bookLinks = []
+            for book in newValue ?? [] {
+                let link = SceneBookLink(scene: self, book: book)
+                if bookLinks == nil { bookLinks = [] }
+                bookLinks?.append(link)
+            }
+        }
+    }
+    
+    var plotElements: [PlotElement]? {
+        get { plotElementLinks?.compactMap(\.plotElement) }
+        set {
+            for link in plotElementLinks ?? [] { modelContext?.delete(link) }
+            plotElementLinks = []
+            for element in newValue ?? [] {
+                let link = ScenePlotElementLink(scene: self, plotElement: element)
+                if plotElementLinks == nil { plotElementLinks = [] }
+                plotElementLinks?.append(link)
+            }
+        }
+    }
+    
+    var characters: [Character]? {
+        get { characterLinks?.compactMap(\.character) }
+        set {
+            for link in characterLinks ?? [] { modelContext?.delete(link) }
+            characterLinks = []
+            for character in newValue ?? [] {
+                let link = SceneCharacterLink(scene: self, character: character)
+                if characterLinks == nil { characterLinks = [] }
+                characterLinks?.append(link)
+            }
+        }
+    }
     
     var monomythStage: MonomythStage? {
         get { 
@@ -764,8 +829,22 @@ final class Chapter {
     // Relationships
     var project: Project?
     
-    @Relationship(deleteRule: .nullify)
-    var scenes: [StoryScene]?
+    @Relationship(deleteRule: .cascade, inverse: \SceneChapterLink.chapter)
+    var sceneLinks: [SceneChapterLink]? = []
+    
+    /// Scenes in this chapter (derived from join table)
+    var scenes: [StoryScene]? {
+        get { sceneLinks?.compactMap(\.scene) }
+        set {
+            for link in sceneLinks ?? [] { modelContext?.delete(link) }
+            sceneLinks = []
+            for scene in newValue ?? [] {
+                let link = SceneChapterLink(scene: scene, chapter: self)
+                if sceneLinks == nil { sceneLinks = [] }
+                sceneLinks?.append(link)
+            }
+        }
+    }
     
     init(name: String? = nil, synopsis: String? = nil, userOrder: Int? = nil) {
         self.name = name
@@ -792,8 +871,22 @@ final class Act {
     // Relationships
     var project: Project?
     
-    @Relationship(deleteRule: .nullify)
-    var scenes: [StoryScene]?
+    @Relationship(deleteRule: .cascade, inverse: \SceneActLink.act)
+    var sceneLinks: [SceneActLink]? = []
+    
+    /// Scenes in this act (derived from join table)
+    var scenes: [StoryScene]? {
+        get { sceneLinks?.compactMap(\.scene) }
+        set {
+            for link in sceneLinks ?? [] { modelContext?.delete(link) }
+            sceneLinks = []
+            for scene in newValue ?? [] {
+                let link = SceneActLink(scene: scene, act: self)
+                if sceneLinks == nil { sceneLinks = [] }
+                sceneLinks?.append(link)
+            }
+        }
+    }
     
     init(name: String? = nil, synopsis: String? = nil, userOrder: Int? = nil) {
         self.name = name
@@ -820,8 +913,22 @@ final class ProseSection {
     // Relationships
     var project: Project?
     
-    @Relationship(deleteRule: .nullify, inverse: \TextFile.sections)
-    var textFiles: [TextFile]?
+    @Relationship(deleteRule: .cascade, inverse: \TextFileSectionLink.section)
+    var textFileLinks: [TextFileSectionLink]? = []
+    
+    /// Text files in this section (derived from join table)
+    var textFiles: [TextFile]? {
+        get { textFileLinks?.compactMap(\.textFile) }
+        set {
+            for link in textFileLinks ?? [] { modelContext?.delete(link) }
+            textFileLinks = []
+            for file in newValue ?? [] {
+                let link = TextFileSectionLink(textFile: file, section: self)
+                if textFileLinks == nil { textFileLinks = [] }
+                textFileLinks?.append(link)
+            }
+        }
+    }
     
     init(name: String? = nil, synopsis: String? = nil, userOrder: Int? = nil) {
         self.name = name
@@ -851,11 +958,41 @@ final class Character {
     @Relationship(deleteRule: .cascade, inverse: \CustomAttribute.character)
     var customAttributes: [CustomAttribute]?
     
-    // Scenes this character appears in (many-to-many)
-    var scenes: [StoryScene]?
+    // Scenes this character appears in (via join table for CloudKit)
+    @Relationship(deleteRule: .cascade, inverse: \SceneCharacterLink.character)
+    var sceneLinks: [SceneCharacterLink]? = []
     
-    // Plot elements this character is planned for (many-to-many)
-    var plotElements: [PlotElement]?
+    // Plot elements this character is planned for (via join table for CloudKit)
+    @Relationship(deleteRule: .cascade, inverse: \CharacterPlotElementLink.character)
+    var plotElementLinks: [CharacterPlotElementLink]? = []
+    
+    /// Scenes this character appears in (derived from join table)
+    var scenes: [StoryScene]? {
+        get { sceneLinks?.compactMap(\.scene) }
+        set {
+            for link in sceneLinks ?? [] { modelContext?.delete(link) }
+            sceneLinks = []
+            for scene in newValue ?? [] {
+                let link = SceneCharacterLink(scene: scene, character: self)
+                if sceneLinks == nil { sceneLinks = [] }
+                sceneLinks?.append(link)
+            }
+        }
+    }
+    
+    /// Plot elements this character is planned for (derived from join table)
+    var plotElements: [PlotElement]? {
+        get { plotElementLinks?.compactMap(\.plotElement) }
+        set {
+            for link in plotElementLinks ?? [] { modelContext?.delete(link) }
+            plotElementLinks = []
+            for element in newValue ?? [] {
+                let link = CharacterPlotElementLink(character: self, plotElement: element)
+                if plotElementLinks == nil { plotElementLinks = [] }
+                plotElementLinks?.append(link)
+            }
+        }
+    }
     
     /// Primary archetype (first selected, for backward compatibility)
     var archetype: CharacterArchetype? {
@@ -933,11 +1070,26 @@ final class Location {
     @Relationship(deleteRule: .cascade, inverse: \CustomAttribute.location)
     var customAttributes: [CustomAttribute]?
     
-    // Scenes that take place at this location
+    // Scenes that take place at this location (one-to-many, CloudKit compatible)
     var scenes: [StoryScene]?
     
-    // Plot elements this location is planned for (many-to-many)
-    var plotElements: [PlotElement]?
+    // Plot elements this location is planned for (via join table for CloudKit)
+    @Relationship(deleteRule: .cascade, inverse: \LocationPlotElementLink.location)
+    var plotElementLinks: [LocationPlotElementLink]? = []
+    
+    /// Plot elements for this location (derived from join table)
+    var plotElements: [PlotElement]? {
+        get { plotElementLinks?.compactMap(\.plotElement) }
+        set {
+            for link in plotElementLinks ?? [] { modelContext?.delete(link) }
+            plotElementLinks = []
+            for element in newValue ?? [] {
+                let link = LocationPlotElementLink(location: self, plotElement: element)
+                if plotElementLinks == nil { plotElementLinks = [] }
+                plotElementLinks?.append(link)
+            }
+        }
+    }
     
     init(name: String? = nil, detail: String? = nil, sights: String? = nil, sounds: String? = nil, smells: String? = nil) {
         self.name = name
@@ -984,16 +1136,59 @@ final class PlotElement {
     // Relationships
     var project: Project?
     
-    // Many-to-many with Scene (inverse defined on Scene.plotElements)
-    var linkedScenes: [StoryScene]?
+    // Many-to-many with Scene (via join table for CloudKit)
+    @Relationship(deleteRule: .cascade, inverse: \ScenePlotElementLink.plotElement)
+    var sceneLinks: [ScenePlotElementLink]? = []
     
-    // Characters involved in this plot beat (planned involvement)
-    @Relationship(inverse: \Character.plotElements)
-    var characters: [Character]?
+    // Characters involved in this plot beat (via join table for CloudKit)
+    @Relationship(deleteRule: .cascade, inverse: \CharacterPlotElementLink.plotElement)
+    var characterLinks: [CharacterPlotElementLink]? = []
     
-    // Locations for this plot beat (planned involvement)
-    @Relationship(inverse: \Location.plotElements)
-    var locations: [Location]?
+    // Locations for this plot beat (via join table for CloudKit)
+    @Relationship(deleteRule: .cascade, inverse: \LocationPlotElementLink.plotElement)
+    var locationLinks: [LocationPlotElementLink]? = []
+    
+    /// Linked scenes (derived from join table)
+    var linkedScenes: [StoryScene]? {
+        get { sceneLinks?.compactMap(\.scene) }
+        set {
+            for link in sceneLinks ?? [] { modelContext?.delete(link) }
+            sceneLinks = []
+            for scene in newValue ?? [] {
+                let link = ScenePlotElementLink(scene: scene, plotElement: self)
+                if sceneLinks == nil { sceneLinks = [] }
+                sceneLinks?.append(link)
+            }
+        }
+    }
+    
+    /// Characters involved in this plot beat (derived from join table)
+    var characters: [Character]? {
+        get { characterLinks?.compactMap(\.character) }
+        set {
+            for link in characterLinks ?? [] { modelContext?.delete(link) }
+            characterLinks = []
+            for character in newValue ?? [] {
+                let link = CharacterPlotElementLink(character: character, plotElement: self)
+                if characterLinks == nil { characterLinks = [] }
+                characterLinks?.append(link)
+            }
+        }
+    }
+    
+    /// Locations for this plot beat (derived from join table)
+    var locations: [Location]? {
+        get { locationLinks?.compactMap(\.location) }
+        set {
+            for link in locationLinks ?? [] { modelContext?.delete(link) }
+            locationLinks = []
+            for location in newValue ?? [] {
+                let link = LocationPlotElementLink(location: location, plotElement: self)
+                if locationLinks == nil { locationLinks = [] }
+                locationLinks?.append(link)
+            }
+        }
+    }
     
     var monomythStage: MonomythStage? {
         get { 

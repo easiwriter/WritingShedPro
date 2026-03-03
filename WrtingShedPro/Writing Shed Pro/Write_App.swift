@@ -67,7 +67,17 @@ struct Write_App: App {
             ProseSection.self,
             // Feature 036: Project Folder Revamp
             PoetryCollection.self,
-            Book.self
+            Book.self,
+            // Join tables for CloudKit-compatible many-to-many relationships
+            TextFileSectionLink.self,
+            TextFileCollectionLink.self,
+            SceneChapterLink.self,
+            SceneActLink.self,
+            SceneBookLink.self,
+            ScenePlotElementLink.self,
+            SceneCharacterLink.self,
+            CharacterPlotElementLink.self,
+            LocationPlotElementLink.self
         ])
         
         #if DEBUG

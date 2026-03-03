@@ -786,11 +786,13 @@ final class TextFile {
     // A TextFile can be the content of a Scene
     var scene: StoryScene?
     
-    // Prose: A TextFile can belong to multiple ProseSections
-    var sections: [ProseSection]?
+    // Prose: A TextFile can belong to multiple ProseSections (via join table for CloudKit)
+    @Relationship(deleteRule: .cascade, inverse: \TextFileSectionLink.textFile)
+    var sectionLinks: [TextFileSectionLink]? = []
     
-    // Feature 036: Poetry Collection membership (many-to-many)
-    var poetryCollections: [PoetryCollection]?
+    // Feature 036: Poetry Collection membership (via join table for CloudKit)
+    @Relationship(deleteRule: .cascade, inverse: \TextFileCollectionLink.textFile)
+    var poetryCollectionLinks: [TextFileCollectionLink]? = []
     
     // Feature 029: Manuscript Assembly
     // Whether this file is included in manuscript assembly (default: true)
@@ -853,6 +855,36 @@ final class TextFile {
     /// Check if this file is a back matter file (in Back Matter folder)
     var isBackMatterFile: Bool {
         return parentFolder?.name == "Back Matter"
+    }
+    
+    // MARK: - Many-to-Many Computed Properties (via join tables)
+    
+    /// Prose sections this file belongs to (derived from join table)
+    var sections: [ProseSection]? {
+        get { sectionLinks?.compactMap(\.section) }
+        set {
+            for link in sectionLinks ?? [] { modelContext?.delete(link) }
+            sectionLinks = []
+            for section in newValue ?? [] {
+                let link = TextFileSectionLink(textFile: self, section: section)
+                if sectionLinks == nil { sectionLinks = [] }
+                sectionLinks?.append(link)
+            }
+        }
+    }
+    
+    /// Poetry collections this file belongs to (derived from join table)
+    var poetryCollections: [PoetryCollection]? {
+        get { poetryCollectionLinks?.compactMap(\.poetryCollection) }
+        set {
+            for link in poetryCollectionLinks ?? [] { modelContext?.delete(link) }
+            poetryCollectionLinks = []
+            for collection in newValue ?? [] {
+                let link = TextFileCollectionLink(textFile: self, poetryCollection: collection)
+                if poetryCollectionLinks == nil { poetryCollectionLinks = [] }
+                poetryCollectionLinks?.append(link)
+            }
+        }
     }
     
     /// Get the poetry form for this file (if assigned)

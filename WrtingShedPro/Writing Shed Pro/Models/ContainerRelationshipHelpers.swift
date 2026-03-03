@@ -3,6 +3,7 @@
 //  Writing Shed Pro
 //
 //  Convenience methods for many-to-many container relationships.
+//  All many-to-many relationships use join tables for CloudKit compatibility.
 //  TextFile ↔ PoetryCollection, TextFile ↔ ProseSection
 //  StoryScene ↔ Chapter, StoryScene ↔ Act, StoryScene ↔ Book
 //
@@ -17,34 +18,39 @@ extension TextFile {
     
     /// Whether this file belongs to the given poetry collection
     func isInPoetryCollection(_ collection: PoetryCollection) -> Bool {
-        poetryCollections?.contains(where: { $0.id == collection.id }) ?? false
+        poetryCollectionLinks?.contains(where: { $0.poetryCollection?.id == collection.id }) ?? false
     }
     
     /// Add this file to a poetry collection (no-op if already a member)
     func addToPoetryCollection(_ collection: PoetryCollection) {
-        if poetryCollections == nil { poetryCollections = [] }
         guard !isInPoetryCollection(collection) else { return }
-        poetryCollections?.append(collection)
+        let link = TextFileCollectionLink(textFile: self, poetryCollection: collection)
+        if poetryCollectionLinks == nil { poetryCollectionLinks = [] }
+        poetryCollectionLinks?.append(link)
     }
     
     /// Remove this file from a specific poetry collection
     func removeFromPoetryCollection(_ collection: PoetryCollection) {
-        poetryCollections?.removeAll(where: { $0.id == collection.id })
+        guard let links = poetryCollectionLinks else { return }
+        for link in links where link.poetryCollection?.id == collection.id {
+            modelContext?.delete(link)
+        }
+        poetryCollectionLinks?.removeAll(where: { $0.poetryCollection?.id == collection.id })
     }
     
     /// Remove this file from all poetry collections
     func removeFromAllPoetryCollections() {
-        poetryCollections = []
+        for link in poetryCollectionLinks ?? [] { modelContext?.delete(link) }
+        poetryCollectionLinks = []
     }
     
     /// The first (or only) poetry collection — backwards-compat convenience
     var poetryCollection: PoetryCollection? {
         get { poetryCollections?.first }
         set {
+            removeFromAllPoetryCollections()
             if let c = newValue {
-                poetryCollections = [c]
-            } else {
-                poetryCollections = []
+                addToPoetryCollection(c)
             }
         }
     }
@@ -53,34 +59,39 @@ extension TextFile {
     
     /// Whether this file belongs to the given prose section
     func isInSection(_ section: ProseSection) -> Bool {
-        sections?.contains(where: { $0.id == section.id }) ?? false
+        sectionLinks?.contains(where: { $0.section?.id == section.id }) ?? false
     }
     
     /// Add this file to a prose section (no-op if already a member)
     func addToSection(_ section: ProseSection) {
-        if sections == nil { sections = [] }
         guard !isInSection(section) else { return }
-        sections?.append(section)
+        let link = TextFileSectionLink(textFile: self, section: section)
+        if sectionLinks == nil { sectionLinks = [] }
+        sectionLinks?.append(link)
     }
     
     /// Remove this file from a specific prose section
     func removeFromSection(_ section: ProseSection) {
-        sections?.removeAll(where: { $0.id == section.id })
+        guard let links = sectionLinks else { return }
+        for link in links where link.section?.id == section.id {
+            modelContext?.delete(link)
+        }
+        sectionLinks?.removeAll(where: { $0.section?.id == section.id })
     }
     
     /// Remove this file from all prose sections
     func removeFromAllSections() {
-        sections = []
+        for link in sectionLinks ?? [] { modelContext?.delete(link) }
+        sectionLinks = []
     }
     
     /// The first (or only) section — backwards-compat convenience
     var section: ProseSection? {
         get { sections?.first }
         set {
+            removeFromAllSections()
             if let s = newValue {
-                sections = [s]
-            } else {
-                sections = []
+                addToSection(s)
             }
         }
     }
@@ -94,34 +105,39 @@ extension StoryScene {
     
     /// Whether this scene belongs to the given chapter
     func isInChapter(_ chapter: Chapter) -> Bool {
-        chapters?.contains(where: { $0.id == chapter.id }) ?? false
+        chapterLinks?.contains(where: { $0.chapter?.id == chapter.id }) ?? false
     }
     
     /// Add this scene to a chapter (no-op if already a member)
     func addToChapter(_ chapter: Chapter) {
-        if chapters == nil { chapters = [] }
         guard !isInChapter(chapter) else { return }
-        chapters?.append(chapter)
+        let link = SceneChapterLink(scene: self, chapter: chapter)
+        if chapterLinks == nil { chapterLinks = [] }
+        chapterLinks?.append(link)
     }
     
     /// Remove this scene from a specific chapter
     func removeFromChapter(_ chapter: Chapter) {
-        chapters?.removeAll(where: { $0.id == chapter.id })
+        guard let links = chapterLinks else { return }
+        for link in links where link.chapter?.id == chapter.id {
+            modelContext?.delete(link)
+        }
+        chapterLinks?.removeAll(where: { $0.chapter?.id == chapter.id })
     }
     
     /// Remove this scene from all chapters
     func removeFromAllChapters() {
-        chapters = []
+        for link in chapterLinks ?? [] { modelContext?.delete(link) }
+        chapterLinks = []
     }
     
     /// The first (or only) chapter — backwards-compat convenience
     var chapter: Chapter? {
         get { chapters?.first }
         set {
+            removeFromAllChapters()
             if let c = newValue {
-                chapters = [c]
-            } else {
-                chapters = []
+                addToChapter(c)
             }
         }
     }
@@ -130,34 +146,39 @@ extension StoryScene {
     
     /// Whether this scene belongs to the given act
     func isInAct(_ act: Act) -> Bool {
-        acts?.contains(where: { $0.id == act.id }) ?? false
+        actLinks?.contains(where: { $0.act?.id == act.id }) ?? false
     }
     
     /// Add this scene to an act (no-op if already a member)
     func addToAct(_ act: Act) {
-        if acts == nil { acts = [] }
         guard !isInAct(act) else { return }
-        acts?.append(act)
+        let link = SceneActLink(scene: self, act: act)
+        if actLinks == nil { actLinks = [] }
+        actLinks?.append(link)
     }
     
     /// Remove this scene from a specific act
     func removeFromAct(_ act: Act) {
-        acts?.removeAll(where: { $0.id == act.id })
+        guard let links = actLinks else { return }
+        for link in links where link.act?.id == act.id {
+            modelContext?.delete(link)
+        }
+        actLinks?.removeAll(where: { $0.act?.id == act.id })
     }
     
     /// Remove this scene from all acts
     func removeFromAllActs() {
-        acts = []
+        for link in actLinks ?? [] { modelContext?.delete(link) }
+        actLinks = []
     }
     
     /// The first (or only) act — backwards-compat convenience
     var act: Act? {
         get { acts?.first }
         set {
+            removeFromAllActs()
             if let a = newValue {
-                acts = [a]
-            } else {
-                acts = []
+                addToAct(a)
             }
         }
     }
@@ -166,34 +187,39 @@ extension StoryScene {
     
     /// Whether this scene belongs to the given book
     func isInBook(_ book: Book) -> Bool {
-        books?.contains(where: { $0.id == book.id }) ?? false
+        bookLinks?.contains(where: { $0.book?.id == book.id }) ?? false
     }
     
     /// Add this scene to a book (no-op if already a member)
     func addToBook(_ book: Book) {
-        if books == nil { books = [] }
         guard !isInBook(book) else { return }
-        books?.append(book)
+        let link = SceneBookLink(scene: self, book: book)
+        if bookLinks == nil { bookLinks = [] }
+        bookLinks?.append(link)
     }
     
     /// Remove this scene from a specific book
     func removeFromBook(_ book: Book) {
-        books?.removeAll(where: { $0.id == book.id })
+        guard let links = bookLinks else { return }
+        for link in links where link.book?.id == book.id {
+            modelContext?.delete(link)
+        }
+        bookLinks?.removeAll(where: { $0.book?.id == book.id })
     }
     
     /// Remove this scene from all books
     func removeFromAllBooks() {
-        books = []
+        for link in bookLinks ?? [] { modelContext?.delete(link) }
+        bookLinks = []
     }
     
     /// The first (or only) book — backwards-compat convenience
     var book: Book? {
         get { books?.first }
         set {
+            removeFromAllBooks()
             if let b = newValue {
-                books = [b]
-            } else {
-                books = []
+                addToBook(b)
             }
         }
     }

@@ -286,6 +286,11 @@ class JSONImportService {
             scene.threeActStageRaw = sceneData.threeActStageRaw
             scene.project = project
             
+            // Insert into context BEFORE setting join-table relationships
+            // (join table computed setters need modelContext)
+            sceneMap[sceneData.id] = scene
+            modelContext.insert(scene)
+            
             // Link to chapters (v1.3 array or v1.2 single)
             if let chapterIds = sceneData.chapterIds, !chapterIds.isEmpty {
                 for chapterId in chapterIds {
@@ -328,9 +333,6 @@ class JSONImportService {
                 scene.textFile = textFile
                 textFile.scene = scene
             }
-            
-            sceneMap[sceneData.id] = scene
-            modelContext.insert(scene)
         }
         
         // Feature 036: Import characters
@@ -383,12 +385,13 @@ class JSONImportService {
             element.modifiedDate = plotData.modifiedDate
             element.project = project
             
+            // Insert into context BEFORE setting join-table relationships
+            modelContext.insert(element)
+            
             // Link to scenes
             if let sceneIds = plotData.linkedSceneIds {
                 element.linkedScenes = sceneIds.compactMap { sceneMap[$0] }
             }
-            
-            modelContext.insert(element)
         }
         
         // Feature 029: Import citation entries (before glossary, which may reference them)
@@ -624,7 +627,6 @@ class JSONImportService {
         for tfData in data.textFiles {
             let textFile = importWSPTextFile(tfData, folder: folder, versionMap: &versionMap, proseSectionMap: proseSectionMap, poetryCollectionMap: poetryCollectionMap)
             textFileMap[tfData.id] = textFile
-            modelContext.insert(textFile)
         }
         
         // Import subfolders recursively - parent is already in context
@@ -727,6 +729,10 @@ class JSONImportService {
         textFile.poetryFormId = data.poetryFormId.flatMap { UUID(uuidString: $0) }
         textFile.poetryFormName = data.poetryFormName
         textFile.parentFolder = folder
+        
+        // Insert into context BEFORE setting join-table relationships
+        // (addToSection/addToPoetryCollection create link objects that need modelContext)
+        modelContext.insert(textFile)
         
         // Link to prose sections (v1.3 array or v1.2 single)
         if let sectionIds = data.sectionIds, !sectionIds.isEmpty {
@@ -2557,10 +2563,9 @@ class JSONImportService {
             guard let character = characterMap[characterId] else { continue }
             for sceneId in sceneIds {
                 if let scene = sceneMap[sceneId] {
-                    if character.scenes == nil {
-                        character.scenes = []
-                    }
-                    character.scenes?.append(scene)
+                    var updatedScenes = character.scenes ?? []
+                    updatedScenes.append(scene)
+                    character.scenes = updatedScenes
                     #if DEBUG
                     print("[JSONImport] Linked character '\(character.name ?? "")' to scene '\(scene.name ?? "")'")
                     #endif
@@ -2790,13 +2795,16 @@ class JSONImportService {
         scene.synopsis = synopsis
         scene.userOrder = position
         scene.project = project
-        scene.chapter = chapter
         scene.textFile = linkedTextFile
         
         // Link the TextFile back to the scene
         linkedTextFile?.scene = scene
         
+        // Insert into context BEFORE setting join-table relationships
         modelContext.insert(scene)
+        
+        // Set chapter (uses join table link)
+        scene.chapter = chapter
         
         #if DEBUG
         print("[JSONImport] ✅ Imported scene: \(name ?? "unnamed") with textFile: \(linkedTextFile != nil), chapter: \(chapter?.name ?? "none")")

@@ -29,8 +29,22 @@ final class PoetryCollection {
     // Relationships
     var project: Project?
     
-    @Relationship(deleteRule: .nullify, inverse: \TextFile.poetryCollections)
-    var textFiles: [TextFile]?
+    @Relationship(deleteRule: .cascade, inverse: \TextFileCollectionLink.poetryCollection)
+    var textFileLinks: [TextFileCollectionLink]? = []
+    
+    /// Text files in this collection (derived from join table)
+    var textFiles: [TextFile]? {
+        get { textFileLinks?.compactMap(\.textFile) }
+        set {
+            for link in textFileLinks ?? [] { modelContext?.delete(link) }
+            textFileLinks = []
+            for file in newValue ?? [] {
+                let link = TextFileCollectionLink(textFile: file, poetryCollection: self)
+                if textFileLinks == nil { textFileLinks = [] }
+                textFileLinks?.append(link)
+            }
+        }
+    }
     
     init(name: String? = nil, synopsis: String? = nil, userOrder: Int? = nil) {
         self.name = name

@@ -11,7 +11,11 @@ final class FictionModelsTests: XCTestCase {
         let schema = Schema([
             Project.self, Folder.self, TextFile.self, Version.self,
             StoryScene.self, Chapter.self, Character.self,
-            Location.self, PlotElement.self, CustomAttribute.self
+            Location.self, PlotElement.self, CustomAttribute.self,
+            TextFileSectionLink.self, TextFileCollectionLink.self,
+            SceneChapterLink.self, SceneActLink.self, SceneBookLink.self,
+            ScenePlotElementLink.self, SceneCharacterLink.self,
+            CharacterPlotElementLink.self, LocationPlotElementLink.self
         ])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         modelContainer = try! ModelContainer(for: schema, configurations: config)
@@ -256,9 +260,8 @@ final class FictionModelsTests: XCTestCase {
         modelContext.insert(chapter)
         
         let scene = StoryScene(name: "Scene 1")
-        scene.chapter = chapter
-        chapter.scenes?.append(scene)
         modelContext.insert(scene)
+        scene.chapter = chapter
         
         try modelContext.save()
         
