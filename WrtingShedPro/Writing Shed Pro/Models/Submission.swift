@@ -31,6 +31,9 @@ class Submission {
     var returnedOn: Date?  // When response was actually received
     var notes: String?
     
+    /// Typical number of days the publication takes to respond (copied from publication at submission time)
+    var typicalResponseDays: Int?
+    
     /// Optional reminder: the date/time to fire a local notification
     var reminderDate: Date?
     /// The local notification identifier, used to cancel/update the notification

@@ -13,17 +13,24 @@ struct SubmissionRowView: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
-            // File names
-            Text(fileNames)
+            // Submission name
+            Text(submission.name ?? NSLocalizedString("submissions.untitled", comment: "Untitled Submission"))
                 .font(.body)
                 .fontWeight(.semibold)
             
-            // Submission date
+            // Submission date and file count
             HStack(spacing: 4) {
                 Image(systemName: "calendar")
                     .font(.footnote)
                 Text(String(format: NSLocalizedString("submissions.submitted.on", comment: "Submitted on"), submission.submittedDate.formatted(date: .abbreviated, time: .omitted)))
                     .font(.footnote)
+                
+                if submission.fileCount > 0 {
+                    Text("·")
+                        .font(.footnote)
+                    Text(String(format: NSLocalizedString("submissions.files.count.short", comment: "File count"), submission.fileCount))
+                        .font(.footnote)
+                }
             }
             .foregroundStyle(.secondary)
             
@@ -99,7 +106,7 @@ struct SubmissionRowView: View {
     }
     
     private var accessibilityLabel: Text {
-        var label = Text(fileNames)
+        var label = Text(submission.name ?? NSLocalizedString("submissions.untitled", comment: "Untitled Submission"))
         label = label + Text(", ")
         label = label + Text(String(format: NSLocalizedString("submissions.submitted.on", comment: "Submitted on"), submission.submittedDate.formatted(date: .abbreviated, time: .omitted)))
         label = label + Text(", ")

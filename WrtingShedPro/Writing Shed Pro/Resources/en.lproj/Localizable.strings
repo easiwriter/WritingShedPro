@@ -1091,6 +1091,8 @@
 "submissions.select.files" = "Select Files";
 "submissions.files.selected" = "%d file(s) selected";
 "submissions.files.count" = "%d files";
+"submissions.files.count.short" = "%d file(s)";
+"submissions.untitled" = "Untitled Submission";
 "submissions.date.label" = "Submission Date";
 "submissions.notes.label" = "Notes (optional)";
 "submissions.submitting.to" = "Submitting To";

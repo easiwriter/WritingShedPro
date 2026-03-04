@@ -171,10 +171,12 @@ struct SubmissionsView: View {
         }
         .sheet(isPresented: $showPublicationPicker) {
             NavigationStack {
+                // Pass the first selected submission so the picker defaults to its name
+                let selectedSubmission = sortedSubmissions.first { selectedSubmissionIDs.contains($0.id) }
                 SubmissionPickerView(
                     project: project,
                     filesToSubmit: nil,
-                    collectionToSubmit: nil,
+                    collectionToSubmit: selectedSubmission,
                     onPublicationSelected: { publication, name, expectedDate, reminderDate in
                         submitSelectedToPublication(publication, name: name, expectedResponseDate: expectedDate, reminderDate: reminderDate)
                         showPublicationPicker = false
@@ -224,54 +226,46 @@ struct SubmissionsView: View {
         let selectedSubmissions = sortedSubmissions.filter { selectedSubmissionIDs.contains($0.id) }
         
         for existingSubmission in selectedSubmissions {
-            // Create a new submission for this publication
-            let newSubmission = Submission(
-                publication: publication,
-                project: project,
-                submittedDate: Date(),
-                notes: nil
-            )
-            // Use the provided name, or fall back to existing submission name
-            newSubmission.name = name.isEmpty ? existingSubmission.name : name
-            newSubmission.isCollection = false
-            newSubmission.returnExpectedBy = expectedResponseDate
+            // Link the existing submission to the publication (don't create a new one)
+            existingSubmission.publication = publication
+            existingSubmission.submittedDate = Date()
+            existingSubmission.modifiedDate = Date()
+            
+            // Copy expected response time from publication
+            existingSubmission.typicalResponseDays = publication.typicalResponseDays
+            
+            // Update the name if one was provided, otherwise keep existing
+            if !name.isEmpty {
+                existingSubmission.name = name
+            }
+            
+            existingSubmission.returnExpectedBy = expectedResponseDate
             
             // Schedule reminder notification if requested
             if let reminderDate = reminderDate {
-                newSubmission.reminderDate = reminderDate
+                existingSubmission.reminderDate = reminderDate
                 let pubName = publication.name
                 let subName = name.isEmpty ? (existingSubmission.name ?? "Submission") : name
                 Task {
                     let notifId = await NotificationReminderService.shared.scheduleSubmissionReminder(
-                        submissionId: UUID().uuidString,
+                        submissionId: existingSubmission.id.uuidString,
                         publicationName: pubName,
                         submissionName: subName,
                         reminderDate: reminderDate
                     )
                     if let notifId = notifId {
                         await MainActor.run {
-                            newSubmission.reminderNotificationId = notifId
+                            existingSubmission.reminderNotificationId = notifId
                         }
                     }
                 }
             }
             
-            modelContext.insert(newSubmission)
-            
-            // Copy all files from the existing submission
+            // Update status of existing submitted files to pending with current date
             if let submittedFiles = existingSubmission.submittedFiles {
                 for submittedFile in submittedFiles {
-                    if let textFile = submittedFile.textFile, let version = submittedFile.version {
-                        let newSubmittedFile = SubmittedFile(
-                            submission: newSubmission,
-                            textFile: textFile,
-                            version: version,
-                            status: .pending,
-                            statusDate: Date(),
-                            project: project
-                        )
-                        modelContext.insert(newSubmittedFile)
-                    }
+                    submittedFile.status = .pending
+                    submittedFile.statusDate = Date()
                 }
             }
         }

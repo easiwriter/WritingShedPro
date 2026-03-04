@@ -27,10 +27,15 @@ struct CollectionSubmissionsView: View {
     }
     
     // Find publication submissions that contain files from this collection
+    // Excludes the current submission itself to avoid self-referencing duplicates
     private var publicationSubmissions: [Submission] {
+        let selfID = collection.id
         // Filter to only actual submissions (not collections) that contain files from this collection
-        allSubmissions
+        return allSubmissions
             .filter { submission in
+                // Exclude the current submission
+                guard submission.id != selfID else { return false }
+                
                 // Must be a publication submission, not a collection
                 guard !submission.isCollection && submission.publication != nil else { return false }
                 
@@ -159,9 +164,14 @@ struct CollectionSubmissionsButton: View {
     }
     
     // Count publication submissions that contain files from this collection
+    // Excludes the current submission itself to avoid self-referencing duplicates
     private var submissionCount: Int {
-        allSubmissions
+        let selfID = collection.id
+        return allSubmissions
             .filter { submission in
+                // Exclude the current submission
+                guard submission.id != selfID else { return false }
+                
                 // Must be a publication submission, not a collection
                 guard !submission.isCollection && submission.publication != nil else { return false }
                 

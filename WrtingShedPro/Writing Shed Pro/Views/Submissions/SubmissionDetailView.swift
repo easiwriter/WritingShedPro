@@ -20,6 +20,8 @@ struct SubmissionDetailView: View {
     @State private var printErrorMessage = ""
     @State private var showingRecordResponse = false
     @State private var responseDate: Date = Date()
+    @State private var hasResponseTime: Bool = false
+    @State private var responseTimeDays: Int = 90
     
     // Export state
     @State private var showExportMenu = false
@@ -56,6 +58,29 @@ struct SubmissionDetailView: View {
                 if let expectedDate = submission.returnExpectedBy {
                     LabeledContent(NSLocalizedString("submissions.expectedBy.label", comment: "Response Expected")) {
                         Text(expectedDate, style: .date)
+                    }
+                }
+                
+                // Editable expected response time
+                Toggle(isOn: $hasResponseTime) {
+                    Text(NSLocalizedString("publications.form.responseTime.label", comment: "Expected Response Time"))
+                }
+                .onChange(of: hasResponseTime) { _, newValue in
+                    submission.typicalResponseDays = newValue ? responseTimeDays : nil
+                    submission.modifiedDate = Date()
+                }
+                
+                if hasResponseTime {
+                    Stepper(
+                        value: $responseTimeDays,
+                        in: 1...365,
+                        step: responseTimeDays < 14 ? 1 : (responseTimeDays < 60 ? 7 : 30)
+                    ) {
+                        Text(String(format: NSLocalizedString("publications.responseTime.days", comment: "N days"), responseTimeDays))
+                    }
+                    .onChange(of: responseTimeDays) { _, newValue in
+                        submission.typicalResponseDays = newValue
+                        submission.modifiedDate = Date()
                     }
                 }
                 
@@ -197,6 +222,10 @@ struct SubmissionDetailView: View {
             Button("OK", role: .cancel) { }
         } message: {
             Text(printErrorMessage)
+        }
+        .onAppear {
+            hasResponseTime = submission.typicalResponseDays != nil
+            responseTimeDays = submission.typicalResponseDays ?? 90
         }
         .confirmationDialog(
             NSLocalizedString("submissions.delete.title", comment: "Delete submission"),

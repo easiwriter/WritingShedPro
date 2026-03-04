@@ -108,25 +108,6 @@ struct PublicationFormView: View {
                     Text(NSLocalizedString("publications.form.deadline.label", comment: "Deadline label"))
                 }
                 
-                // Expected response time section
-                Section {
-                    Toggle(isOn: $hasResponseTime) {
-                        Text(NSLocalizedString("publications.form.responseTime.label", comment: "Expected Response Time"))
-                    }
-                    
-                    if hasResponseTime {
-                        Stepper(
-                            value: $typicalResponseDays,
-                            in: 1...365,
-                            step: typicalResponseDays < 14 ? 1 : (typicalResponseDays < 60 ? 7 : 30)
-                        ) {
-                            Text(String(format: NSLocalizedString("publications.responseTime.days", comment: "N days"), typicalResponseDays))
-                        }
-                    }
-                } header: {
-                    Text(NSLocalizedString("publications.form.responseTime.label", comment: "Expected Response Time"))
-                }
-                
                 // URL section
                 Section {
                     TextField(
