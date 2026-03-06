@@ -16,9 +16,6 @@ struct FolderFilesView: View {
     @Bindable var folder: Folder
     @Environment(\.modelContext) var modelContext
     
-    // Query all files (lazily loaded by SwiftData)
-    @Query(sort: [SortDescriptor(\TextFile.name, order: .forward)]) var allTextFiles: [TextFile]
-    
     // State for edit mode (shared with FileListView)
     @State var editMode: EditMode = .inactive
     
@@ -226,7 +223,6 @@ struct FolderFilesView: View {
         let dialogs = applyDialogModifiers(alerts)
         return dialogs.onAppear {
             initializeHeaderFooterFields()
-            
         }
     }
     
@@ -1267,12 +1263,9 @@ struct FolderFilesView: View {
                     data = try await Task.detached {
                         try HTMLExportService.exportMultipleToHTMLData(attributedStrings, filename: filename)
                     }.value
-                // EPUB reserved for future release
-                // case .epub:
-                //     // Use the array version for EPUB to preserve page breaks and prevent CSS conflicts
-                //     data = try await Task.detached {
-                //         try EPUBExportService.exportMultipleToEPUB(attributedStrings, filename: filename)
-                //     }.value
+                // EPUB only supported for manuscript export
+                case .epub:
+                    return
                 case .word:
                     // Export to DOCX using DOCXExportService - use array version for page breaks
                     data = try await Task.detached { [weak modelContext] in
@@ -1410,9 +1403,11 @@ struct FolderFilesView: View {
                 exportData = try WordDocumentService.exportToRTF(content, filename: filename)
             case .html:
                 exportData = try HTMLExportService.exportToHTMLData(content, filename: filename)
-            // EPUB reserved for future release
+            // EPUB only supported for manuscript export
             // case .epub:
             //     exportData = try EPUBExportService.exportToEPUB(content, filename: filename)
+            case .epub:
+                return
             case .word:
                 // Export to DOCX using DOCXExportService
                 let exportService = DOCXExportService(modelContext: modelContext)
@@ -1475,10 +1470,9 @@ struct FolderFilesView: View {
             return .rtf
         case .html:
             return .html
-        // EPUB reserved for future release
-        // case .epub:
-        //     // EPUB uses a custom UTType
-        //     return UTType(filenameExtension: "epub") ?? .data
+        // EPUB only supported for manuscript export
+        case .epub:
+            return UTType(filenameExtension: "epub") ?? .data
         case .word:
             // DOCX uses the official UTType identifier
             return UTType("org.openxmlformats.wordprocessingml.document") ?? .data
@@ -1517,13 +1511,14 @@ struct FolderFilesView: View {
 // MARK: - Export Document Type
 
 struct ExportDocument: FileDocument {
-    static var readableContentTypes: [UTType] { 
-        [.pdf, .rtf, .html, .xml, UTType("org.openxmlformats.wordprocessingml.document") ?? .data, UTType(filenameExtension: "md") ?? .plainText, UTType(filenameExtension: "fountain") ?? .plainText, UTType(filenameExtension: "fdx") ?? .xml, .data] 
-    }
+    /// Cached content types to avoid repeated UTType lookups on every view evaluation
+    private static let _contentTypes: [UTType] = {
+        [.pdf, .rtf, .html, .xml, UTType("org.openxmlformats.wordprocessingml.document") ?? .data, UTType(filenameExtension: "md") ?? .plainText, UTType(filenameExtension: "fountain") ?? .plainText, UTType(filenameExtension: "fdx") ?? .xml, UTType(filenameExtension: "epub") ?? .data, .data]
+    }()
     
-    static var writableContentTypes: [UTType] { 
-        [.pdf, .rtf, .html, .xml, UTType("org.openxmlformats.wordprocessingml.document") ?? .data, UTType(filenameExtension: "md") ?? .plainText, UTType(filenameExtension: "fountain") ?? .plainText, UTType(filenameExtension: "fdx") ?? .xml, .data] 
-    }
+    static var readableContentTypes: [UTType] { _contentTypes }
+    
+    static var writableContentTypes: [UTType] { _contentTypes }
     
     var data: Data
     var filename: String

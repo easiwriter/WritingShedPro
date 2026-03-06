@@ -50,13 +50,6 @@ struct SettingsSheet: View {
                     } label: {
                         Label("Import", systemImage: "arrow.down.doc")
                     }
-                    
-                    Button {
-                        isPresented = false
-                        state.showManualImportConfirmation = true
-                    } label: {
-                        Label("Import User Guide", systemImage: "book.closed")
-                    }
                 }
                 
                 // MARK: - Appearance Section (iOS only)

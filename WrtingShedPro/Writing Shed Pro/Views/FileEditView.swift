@@ -24,6 +24,8 @@ struct FileEditView: View {
     @State private var previousContent: String = ""
     @State private var previousAttributedContent: NSAttributedString?  // Track for undo without expensive DB fetch
     @State private var saveDebounceTimer: Timer?  // Debounce saves to reduce I/O
+    @State private var endnoteCleanupTimer: Timer?  // Debounce endnote cleanup
+    @State private var validationBadgeTimer: Timer?  // Debounce poetry validation
     @State private var presentDeleteAlert = false
     @State private var isPerformingUndoRedo = false
     @State private var refreshTrigger = UUID()
@@ -2299,7 +2301,6 @@ struct FileEditView: View {
     // MARK: - Lifecycle Helpers
     
     private func setupOnAppear() {
-        
         // Register stylesheet with provider for image caption rendering
         if let styleSheet = file.project?.styleSheet {
             StyleSheetProvider.shared.register(styleSheet: styleSheet, for: file.id)
@@ -2912,22 +2913,24 @@ struct FileEditView: View {
             afterContent: newAttributedText,
             targetFile: file
         )
-        undoManager.execute(command)
-        
-        // Check for and remove orphaned endnote references
-        cleanupOrphanedEndnoteReferences()
+        // PERFORMANCE FIX: Don't call undoManager.execute() which triggers expensive
+        // AttributedStringSerializer.encode() on every keystroke via the attributedContent setter.
+        // Instead, just push the command for undo support and defer encoding to the save timer.
+        undoManager.push(command)
         
         // Update previous content for next comparison
         previousContent = newContent
         previousAttributedContent = newAttributedText  // Cache for next change
         
-        // Note: FormatApplyCommand.execute() already sets file.currentVersion?.attributedContent
-        // So we don't need to set it again here - avoiding duplicate expensive encoding
         file.modifiedDate = Date()
         
-        // PERFORMANCE FIX: Debounce saves to reduce I/O - save after 0.5 second pause in typing
+        // PERFORMANCE FIX: Debounce saves AND encoding to reduce I/O
+        // The expensive AttributedStringSerializer.encode() now only runs when we actually save,
+        // not on every keystroke.
         saveDebounceTimer?.invalidate()
         saveDebounceTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { [weak modelContext] _ in
+            // Encode attributed content only when saving (was previously per-keystroke)
+            self.file.currentVersion?.attributedContent = newAttributedText
             do {
                 try modelContext?.save()
             } catch {
@@ -2937,17 +2940,23 @@ struct FileEditView: View {
             }
         }
         
-        // Update poetry validation badge asynchronously (debounced with save)
-        updateValidationBadgeAsync()
-        
-        // Force text view display refresh to ensure visual update
-        // This is needed especially after undo/redo followed by replace operations
-        if let textView = textViewCoordinator.textView {
-            textView.setNeedsDisplay()
-            textView.layoutIfNeeded()
+        // PERFORMANCE FIX: Debounce endnote cleanup - no need to check on every keystroke
+        endnoteCleanupTimer?.invalidate()
+        endnoteCleanupTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { _ in
+            self.cleanupOrphanedEndnoteReferences()
         }
         
-        // Notify search manager that text changed (includes undo/redo)
+        // PERFORMANCE FIX: Debounce poetry validation badge update
+        validationBadgeTimer?.invalidate()
+        validationBadgeTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: false) { _ in
+            self.updateValidationBadgeAsync()
+        }
+        
+        // PERFORMANCE FIX: Removed forced textView.setNeedsDisplay() + layoutIfNeeded()
+        // UITextView already handles display updates after textViewDidChange.
+        // The forced layout was redundant for normal typing and caused extra layout passes.
+        
+        // Notify search manager that text changed (only re-searches if search is active)
         searchManager.notifyTextChanged()
     }
     

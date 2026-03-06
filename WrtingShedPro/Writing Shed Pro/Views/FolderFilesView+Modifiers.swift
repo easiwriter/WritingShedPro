@@ -48,6 +48,13 @@ extension FolderFilesView {
     
     // MARK: - File Import/Export Modifiers
     
+    /// Cached UTTypes for file importer to avoid repeated lookups on every body evaluation
+    private static let _importContentTypes: [UTType] = [
+        .rtf,
+        UTType("org.openxmlformats.wordprocessingml.document") ?? .data,
+        UTType(filenameExtension: "md") ?? .plainText
+    ]
+    
     func applyFileModifiers<V: View>(_ content: V) -> some View {
         let document = ExportDocument(
             data: exportData ?? Data(),
@@ -58,7 +65,7 @@ extension FolderFilesView {
         return content
             .fileImporter(
                 isPresented: $showImportPicker,
-                allowedContentTypes: [.rtf, UTType("org.openxmlformats.wordprocessingml.document") ?? .data, UTType(filenameExtension: "md") ?? .plainText],
+                allowedContentTypes: Self._importContentTypes,
                 allowsMultipleSelection: false,
                 onCompletion: handleImport
             )

@@ -543,7 +543,7 @@ final class ManuscriptAssemblyService {
     /// - Parameter project: The project to assemble
     /// - Returns: ManuscriptContent with assembled attributed string
     /// - Throws: AssemblyError if assembly fails
-    func assembleContent(for project: Project, progress: ((Int, Int) -> Void)? = nil) async throws -> ManuscriptContent {
+    func assembleContent(for project: Project, skipPrintOnlyContent: Bool = false, progress: ((Int, Int) -> Void)? = nil) async throws -> ManuscriptContent {
         let sections = getSections(for: project)
         
         // Check if there's any content
@@ -589,6 +589,13 @@ final class ManuscriptAssemblyService {
                 // Skip cover files — they contain only an image, not text content
                 if file.isCoverFile { continue }
                 
+                // Skip print-only content for EPUB export (TOC with dot leaders,
+                // Table of Figures with page numbers, etc.)
+                if skipPrintOnlyContent {
+                    if file.isTOCFile { continue }
+                    if file.isTableOfFiguresFile { continue }
+                }
+                
                 if section.sectionType == .frontMatter {
                     frontMatterFileCount += 1
                 }
@@ -628,7 +635,7 @@ final class ManuscriptAssemblyService {
                     )
                     print("[ManuscriptAssemblyService] Rendered attributed string: \(rendered.string)")
                     assembled.append(rendered)
-                } else if file.isTableOfFiguresFile {
+                } else if file.isTableOfFiguresFile && !skipPrintOnlyContent {
                     // Generate Table of Figures content for export (Feature 112)
                     // The TOF is generated dynamically in the editor, so we must generate it here for export
                     print("[ManuscriptAssemblyService] Generating Table of Figures for file: \(file.name)")

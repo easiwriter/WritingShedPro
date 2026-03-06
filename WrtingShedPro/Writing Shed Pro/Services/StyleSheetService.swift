@@ -39,8 +39,8 @@ struct StyleSheetService {
             let font = UIFont.preferredFont(forTextStyle: textStyle)
             
             // Set bold/italic explicitly based on style type
-            // Headline should be bold, everything else plain
-            let isBold = (textStyle == .headline)
+            // All heading-category styles should be bold (Large Title, Title 1–3, Headline)
+            let isBold = (category == .heading)
             let isItalic = false
             
             // Use custom font size if provided, otherwise use system default
@@ -431,6 +431,46 @@ struct StyleSheetService {
             try? context.save()
             #if DEBUG
             print("[StyleSheet Migration] TOC settings migration complete")
+            #endif
+        }
+    }
+    
+    /// Ensure all heading-category styles have isBold = true
+    /// Previously only Headline was set bold; Title 1–3 and Large Title were missed.
+    static func migrateHeadingStylesToBold(context: ModelContext) {
+        // Style names that should be bold (all heading-category system styles)
+        let headingStyleNames: Set<String> = [
+            "UICTFontTextStyleTitle0",       // Large Title (alias)
+            "UICTFontTextStyleLargeTitle",    // Large Title
+            "UICTFontTextStyleTitle1",        // Title 1
+            "UICTFontTextStyleTitle2",        // Title 2
+            "UICTFontTextStyleTitle3",        // Title 3
+            "UICTFontTextStyleHeadline"       // Headline (already bold, but included for safety)
+        ]
+        
+        let descriptor = FetchDescriptor<StyleSheet>()
+        guard let sheets = try? context.fetch(descriptor) else { return }
+        
+        var updated = false
+        
+        for sheet in sheets {
+            guard let styles = sheet.textStyles else { continue }
+            
+            for style in styles {
+                if headingStyleNames.contains(style.name) && !style.isBold {
+                    style.isBold = true
+                    updated = true
+                    #if DEBUG
+                    print("[StyleSheet Migration] Set bold for heading style: \(style.displayName)")
+                    #endif
+                }
+            }
+        }
+        
+        if updated {
+            try? context.save()
+            #if DEBUG
+            print("[StyleSheet Migration] Heading bold migration complete")
             #endif
         }
     }

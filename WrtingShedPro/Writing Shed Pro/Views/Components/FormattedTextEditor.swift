@@ -738,10 +738,13 @@ struct FormattedTextEditor: UIViewRepresentable {
                             }
                         }
                         
-                        // Force layout manager to redraw numbers
+                        // Force layout manager to redraw numbers from insertion point
                         textView.setNeedsDisplay()
                         if let layoutManager = textView.layoutManager as? NumberingLayoutManager {
-                            layoutManager.invalidateDisplay(forCharacterRange: NSRange(location: 0, length: textView.textStorage.length))
+                            // PERFORMANCE FIX: Only invalidate from the insertion point onwards
+                            let invalidateStart = max(0, range.location - 1)
+                            let invalidateRange = NSRange(location: invalidateStart, length: textView.textStorage.length - invalidateStart)
+                            layoutManager.invalidateDisplay(forCharacterRange: invalidateRange)
                         }
                         
                         // Notify delegate of text change manually since we handled it
@@ -785,7 +788,10 @@ struct FormattedTextEditor: UIViewRepresentable {
                         
                         textView.setNeedsDisplay()
                         if let layoutManager = textView.layoutManager as? NumberingLayoutManager {
-                            layoutManager.invalidateDisplay(forCharacterRange: NSRange(location: 0, length: textView.textStorage.length))
+                            // PERFORMANCE FIX: Only invalidate from the insertion point onwards
+                            let invalidateStart = max(0, range.location - 1)
+                            let invalidateRange = NSRange(location: invalidateStart, length: textView.textStorage.length - invalidateStart)
+                            layoutManager.invalidateDisplay(forCharacterRange: invalidateRange)
                         }
                         
                         self.textViewDidChange(textView)
@@ -816,10 +822,13 @@ struct FormattedTextEditor: UIViewRepresentable {
                         }
                     }
                     
-                    // Force layout manager to redraw numbers
+                    // Force layout manager to redraw numbers from insertion point
                     textView.setNeedsDisplay()
                     if let layoutManager = textView.layoutManager as? NumberingLayoutManager {
-                        layoutManager.invalidateDisplay(forCharacterRange: NSRange(location: 0, length: textView.textStorage.length))
+                        // PERFORMANCE FIX: Only invalidate from the insertion point onwards
+                        let invalidateStart = max(0, range.location - 1)
+                        let invalidateRange = NSRange(location: invalidateStart, length: textView.textStorage.length - invalidateStart)
+                        layoutManager.invalidateDisplay(forCharacterRange: invalidateRange)
                     }
                     
                     self.textViewDidChange(textView)
@@ -868,10 +877,13 @@ struct FormattedTextEditor: UIViewRepresentable {
                                     // Notify delegate of text change
                                     self.textViewDidChange(textView)
                                     
-                                    // Force layout redraw
+                                    // Force layout redraw from deletion point
                                     textView.setNeedsDisplay()
                                     if let layoutManager = textView.layoutManager as? NumberingLayoutManager {
-                                        layoutManager.invalidateDisplay(forCharacterRange: NSRange(location: 0, length: textView.textStorage.length))
+                                        // PERFORMANCE FIX: Only invalidate from deletion point onwards
+                                        let invalidateStart = max(0, range.location - 1)
+                                        let invalidateRange = NSRange(location: invalidateStart, length: textView.textStorage.length - invalidateStart)
+                                        layoutManager.invalidateDisplay(forCharacterRange: invalidateRange)
                                     }
                                     
                                     return false // We handled the deletion
@@ -1128,7 +1140,9 @@ struct FormattedTextEditor: UIViewRepresentable {
         func textViewDidChangeSelection(_ textView: UITextView) {
             guard !isUpdatingFromSwiftUI else { return }
             
-            textView.layoutManager.ensureLayout(for: textView.textContainer)
+            // PERFORMANCE FIX: Removed ensureLayout(for: textContainer) which was called on every
+            // selection change (including every keystroke). This forced layout of the entire document.
+            // UITextView already ensures layout is valid around the cursor position when needed.
             
             let newRange = textView.selectedRange
             let textLength = textView.attributedText?.length ?? 0
@@ -1733,8 +1747,11 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
     
     // MARK: - Key Commands (Tab/Shift+Tab for list indent/outdent)
     
-    override var keyCommands: [UIKeyCommand]? {
-        var commands = super.keyCommands ?? []
+    /// Cached key commands to avoid creating new UIKeyCommand objects on every access.
+    /// On Mac Catalyst, keyCommands is called frequently during responder chain traversal
+    /// for menu validation and keyboard shortcut processing.
+    private lazy var _cachedKeyCommands: [UIKeyCommand] = {
+        var commands: [UIKeyCommand] = []
         
         // Tab key - increase list indent (or insert tab in non-list content)
         let tabCommand = UIKeyCommand(
@@ -1755,6 +1772,15 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
         commands.append(shiftTabCommand)
         
         return commands
+    }()
+    
+    override var keyCommands: [UIKeyCommand]? {
+        // Return cached commands + any super commands.
+        // super.keyCommands is typically nil or cheap for UITextView.
+        if let superCommands = super.keyCommands, !superCommands.isEmpty {
+            return superCommands + _cachedKeyCommands
+        }
+        return _cachedKeyCommands
     }
     
     @objc private func handleTab() {
@@ -1959,34 +1985,46 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
     
     // Change cursor to pointer when hovering over comments (iPad with mouse/trackpad)
     #if targetEnvironment(macCatalyst)
+    /// Cached character index from last cursor update to avoid redundant attribute lookups
+    private var _lastCursorCharIndex: Int = -1
+    /// Timestamp of last cursor update to throttle expensive layout calculations
+    private var _lastCursorUpdateTime: CFTimeInterval = 0
+    /// Minimum interval between cursor updates (seconds) — ~20 updates/sec max
+    private static let cursorUpdateInterval: CFTimeInterval = 0.05
+    
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
-        var adjustedPoint = point
-        adjustedPoint.x -= textContainerInset.left
-        adjustedPoint.y -= textContainerInset.top
-        
-        let characterIndex = layoutManager.characterIndex(
-            for: adjustedPoint,
-            in: textContainer,
-            fractionOfDistanceBetweenInsertionPoints: nil
-        )
-        
-        if characterIndex < textStorage.length {
-            if let _ = textStorage.attribute(.attachment, at: characterIndex, effectiveRange: nil) as? FootnoteAttachment {
-                // Change cursor to pointer for footnotes
-                NSCursor.pointingHand.set()
-            } else if let _ = textStorage.attribute(.attachment, at: characterIndex, effectiveRange: nil) as? CommentAttachment {
-                // Change cursor to pointer for comments
-                NSCursor.pointingHand.set()
-            } else if let _ = textStorage.attribute(.attachment, at: characterIndex, effectiveRange: nil) as? ReferenceAttachment {
-                // Change cursor to pointer for references
-                NSCursor.pointingHand.set()
-            } else {
-                // Reset to default arrow cursor for regular text
-                NSCursor.arrow.set()
+        // Throttle cursor updates: layoutManager.characterIndex + attribute lookups
+        // are expensive and hitTest fires on every mouse move on Mac Catalyst.
+        let now = CACurrentMediaTime()
+        if now - _lastCursorUpdateTime >= Self.cursorUpdateInterval {
+            _lastCursorUpdateTime = now
+            
+            var adjustedPoint = point
+            adjustedPoint.x -= textContainerInset.left
+            adjustedPoint.y -= textContainerInset.top
+            
+            let characterIndex = layoutManager.characterIndex(
+                for: adjustedPoint,
+                in: textContainer,
+                fractionOfDistanceBetweenInsertionPoints: nil
+            )
+            
+            // Only update cursor if we moved to a different character
+            if characterIndex != _lastCursorCharIndex {
+                _lastCursorCharIndex = characterIndex
+                
+                if characterIndex < textStorage.length,
+                   let attachment = textStorage.attribute(.attachment, at: characterIndex, effectiveRange: nil) {
+                    // Single attribute lookup — check type
+                    if attachment is FootnoteAttachment || attachment is CommentAttachment || attachment is ReferenceAttachment {
+                        NSCursor.pointingHand.set()
+                    } else {
+                        NSCursor.arrow.set()
+                    }
+                } else {
+                    NSCursor.arrow.set()
+                }
             }
-        } else {
-            // Reset to default arrow cursor when outside text
-            NSCursor.arrow.set()
         }
         
         return super.hitTest(point, with: event)
@@ -2028,21 +2066,24 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
     // Current: Also shows Search, Share, Spelling/Grammar, Substitutions, etc.
     
     // Hide the system formatting menu and selection grabbers/handles
+    
+    /// Pre-built set of allowed actions for fast canPerformAction lookups.
+    /// On Mac Catalyst, canPerformAction is called for dozens of selectors during
+    /// every menu validation pass. Using a Set avoids O(n) linear scans.
+    private static let _allowedActions: Set<Selector> = [
+        #selector(UIResponderStandardEditActions.cut(_:)),
+        #selector(UIResponderStandardEditActions.copy(_:)),
+        #selector(UIResponderStandardEditActions.paste(_:)),
+        Selector(("_lookup:")),  // Look Up action - internal Apple selector
+        #selector(UIResponderStandardEditActions.delete(_:)),  // Allow delete for image removal
+        #selector(CustomTextView.increaseIndent(_:)),  // Tab - increase list indent
+        #selector(CustomTextView.decreaseIndent(_:))   // Shift+Tab - decrease list indent
+    ]
+    
     override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
-        #if DEBUG
-        // Log all actions being queried to help debug
-        let actionName = NSStringFromSelector(action)
-        if actionName.contains("indent") || actionName.contains("Indent") || actionName.contains("tab") || actionName.contains("Tab") {
-            print("⌨️ canPerformAction queried for: \(actionName)")
-        }
-        #endif
-        
         // Always allow indent actions for menu commands and keyCommands
         if action == #selector(increaseIndent(_:)) || action == #selector(decreaseIndent(_:)) ||
            action == #selector(handleTab) || action == #selector(handleShiftTab) {
-            #if DEBUG
-            print("⌨️ canPerformAction returning TRUE for indent/tab action: \(NSStringFromSelector(action))")
-            #endif
             return true
         }
         
@@ -2055,23 +2096,9 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
             return false
         }
         
-        // Only allow cut, copy, paste, and look up actions
-        // This provides a clean, minimal context menu
-        let allowedActions: [Selector] = [
-            #selector(UIResponderStandardEditActions.cut(_:)),
-            #selector(UIResponderStandardEditActions.copy(_:)),
-            #selector(UIResponderStandardEditActions.paste(_:)),
-            Selector(("_lookup:")),  // Look Up action - internal Apple selector
-            #selector(UIResponderStandardEditActions.delete(_:)),  // Allow delete for image removal
-            #selector(increaseIndent(_:)),  // Tab - increase list indent
-            #selector(decreaseIndent(_:))   // Shift+Tab - decrease list indent
-        ]
-        
-        // Check if action is in allowed list
-        for allowedAction in allowedActions {
-            if action == allowedAction {
-                return super.canPerformAction(action, withSender: sender)
-            }
+        // Fast Set lookup instead of linear scan
+        if Self._allowedActions.contains(action) {
+            return super.canPerformAction(action, withSender: sender)
         }
         
         // Explicitly deny all other actions

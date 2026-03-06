@@ -211,26 +211,110 @@ struct Write_App: App {
             return container
         } catch {
             let nsError = error as NSError
-            let errorMsg = "⚠️ [Write_App] ModelContainer initialization failed — attempting recovery"
+            let errorMsg = "⚠️ [Write_App] ModelContainer initialization failed (domain=\(nsError.domain) code=\(nsError.code))"
             #if DEBUG
             print(errorMsg)
-            print("   Error domain: \(nsError.domain)")
-            print("   Error code: \(nsError.code)")
             print("   Error description: \(nsError.localizedDescription)")
             print("   Full error: \(nsError)")
+            if let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? NSError {
+                print("   Underlying: domain=\(underlying.domain) code=\(underlying.code) \(underlying.localizedDescription)")
+            }
             #endif
             Write_App.logErrorToFile(errorMsg)
             Write_App.logErrorToFile("   Error: \(nsError.localizedDescription)")
             
-            // Migration failure recovery: delete the local SQLite store files
-            // and let CloudKit re-sync all data from the cloud.
-            // This handles schema migration conflicts (e.g. "table already exists")
-            // that lightweight migration cannot resolve automatically.
-            let filesToDelete = [
+            // ── STEP 1: Simple retry (transient failures, file locks, etc.) ──
+            #if DEBUG
+            print("🔄 [Write_App] Recovery Step 1: Simple retry...")
+            #endif
+            Write_App.logErrorToFile("🔄 Recovery Step 1: Simple retry")
+            do {
+                let retryConfig = ModelConfiguration(
+                    "WritingShedProConfiguration",
+                    schema: schema,
+                    url: storeURL,
+                    cloudKitDatabase: .automatic
+                )
+                let container = try ModelContainer(for: schema, configurations: [retryConfig])
+                #if DEBUG
+                print("✅ [Write_App] Recovery Step 1 succeeded — simple retry worked")
+                #endif
+                Write_App.logErrorToFile("✅ Recovery Step 1 succeeded — simple retry worked")
+                container.mainContext.autosaveEnabled = true
+                _ = CloudKitSyncThrottler.shared
+                return container
+            } catch {
+                #if DEBUG
+                print("⚠️ [Write_App] Recovery Step 1 failed: \(error.localizedDescription)")
+                #endif
+                Write_App.logErrorToFile("⚠️ Recovery Step 1 failed: \(error.localizedDescription)")
+            }
+            
+            // ── STEP 2: Try without CloudKit (preserves all local data) ──
+            // If the schema change broke CloudKit mirroring but the store itself
+            // is fine, this keeps the user's data accessible in offline mode.
+            #if DEBUG
+            print("🔄 [Write_App] Recovery Step 2: Opening store without CloudKit...")
+            #endif
+            Write_App.logErrorToFile("🔄 Recovery Step 2: Opening without CloudKit (preserves data)")
+            do {
+                let offlineConfig = ModelConfiguration(
+                    "WritingShedProConfiguration",
+                    schema: schema,
+                    url: storeURL,
+                    cloudKitDatabase: .none
+                )
+                let container = try ModelContainer(for: schema, configurations: [offlineConfig])
+                #if DEBUG
+                print("✅ [Write_App] Recovery Step 2 succeeded — running without CloudKit sync")
+                print("   ⚠️ Data is preserved locally but CloudKit sync is disabled this session")
+                #endif
+                Write_App.logErrorToFile("✅ Recovery Step 2 succeeded — offline mode, data preserved")
+                container.mainContext.autosaveEnabled = true
+                // Don't initialize CloudKitSyncThrottler since we're offline
+                return container
+            } catch {
+                #if DEBUG
+                print("⚠️ [Write_App] Recovery Step 2 failed: \(error.localizedDescription)")
+                #endif
+                Write_App.logErrorToFile("⚠️ Recovery Step 2 failed: \(error.localizedDescription)")
+            }
+            
+            // ── STEP 3: Back up database, then create fresh store ──
+            // Only reached if the SQLite file itself is corrupted beyond repair.
+            // Back up first so data can potentially be recovered manually.
+            #if DEBUG
+            print("🔄 [Write_App] Recovery Step 3: Backing up database and creating fresh store...")
+            #endif
+            Write_App.logErrorToFile("🔄 Recovery Step 3: Backup + fresh store (last resort)")
+            
+            let backupDir = storeURL.deletingLastPathComponent().appending(path: "backup_\(Int(Date().timeIntervalSince1970))")
+            let storeFiles = [
                 storeURL,
                 storeURL.deletingPathExtension().appendingPathExtension("sqlite-wal"),
-                storeURL.deletingPathExtension().appendingPathExtension("sqlite-shm"),
-                // Also remove the ckAssets metadata used by CloudKit mirroring
+                storeURL.deletingPathExtension().appendingPathExtension("sqlite-shm")
+            ]
+            
+            // Create backup directory
+            do {
+                try FileManager.default.createDirectory(at: backupDir, withIntermediateDirectories: true)
+                for fileURL in storeFiles where FileManager.default.fileExists(atPath: fileURL.path) {
+                    let dest = backupDir.appending(component: fileURL.lastPathComponent)
+                    try FileManager.default.copyItem(at: fileURL, to: dest)
+                    #if DEBUG
+                    print("💾 [Write_App] Backed up: \(fileURL.lastPathComponent) → backup/")
+                    #endif
+                    Write_App.logErrorToFile("💾 Backed up: \(fileURL.lastPathComponent)")
+                }
+            } catch {
+                #if DEBUG
+                print("⚠️ [Write_App] Backup failed (proceeding anyway): \(error.localizedDescription)")
+                #endif
+                Write_App.logErrorToFile("⚠️ Backup failed: \(error.localizedDescription)")
+            }
+            
+            // Delete store files
+            let filesToDelete = storeFiles + [
                 storeURL.deletingLastPathComponent().appending(path: "writingshed.sqlite-ckAssets"),
                 storeURL.deletingLastPathComponent().appending(path: ".writingshed.sqlite-ckAssets")
             ]
@@ -251,7 +335,7 @@ struct Write_App: App {
                 }
             }
             
-            // Retry creating the container with a fresh database
+            // Create fresh container
             do {
                 let freshConfig = ModelConfiguration(
                     "WritingShedProConfiguration",
@@ -261,14 +345,15 @@ struct Write_App: App {
                 )
                 let container = try ModelContainer(for: schema, configurations: [freshConfig])
                 #if DEBUG
-                print("✅ [Write_App] Recovery succeeded — fresh database created, CloudKit will re-sync")
+                print("✅ [Write_App] Recovery Step 3 succeeded — fresh database, CloudKit will re-sync")
+                print("   💾 Old database backed up to: \(backupDir.lastPathComponent)/")
                 #endif
-                Write_App.logErrorToFile("✅ Recovery succeeded — fresh database created")
+                Write_App.logErrorToFile("✅ Recovery Step 3 succeeded — fresh DB, backup at \(backupDir.lastPathComponent)/")
                 container.mainContext.autosaveEnabled = true
                 _ = CloudKitSyncThrottler.shared
                 return container
             } catch {
-                let fatalMsg = "❌ [Write_App] CRITICAL: Recovery also failed — \(error)"
+                let fatalMsg = "❌ [Write_App] CRITICAL: All recovery steps failed — \(error)"
                 #if DEBUG
                 print(fatalMsg)
                 #endif

@@ -432,6 +432,9 @@ struct FolderListView: View {
             Button(NSLocalizedString("export.format.docx", comment: "DOCX (Word format)")) {
                 exportManuscriptDOCX()
             }
+            Button(NSLocalizedString("export.format.epub", comment: "EPUB (eBook)")) {
+                exportManuscriptEPUB()
+            }
             Button(NSLocalizedString("export.format.markdown", comment: "Markdown")) {
                 pendingExportFormat = .markdown
                 // Delay so alert isn't swallowed by dismissing dialog on Catalyst
@@ -751,6 +754,62 @@ struct FolderListView: View {
         }
     }
     
+    /// Export the full manuscript as EPUB (eBook) with cover image and author metadata
+    private func exportManuscriptEPUB() {
+        isExporting = true
+        let projectName = project.name ?? "Manuscript"
+        let authorName = project.author
+        
+        // Extract cover image data on main thread (SwiftData model access)
+        var coverImageData: Data?
+        if let manuscriptFolder = project.folders?.first(where: { $0.name == "Manuscript" }),
+           let frontMatterFolder = manuscriptFolder.folders?.first(where: { $0.name == "Front Matter" }),
+           let frontCoverFile = frontMatterFolder.textFiles?.first(where: { $0.isCoverFile && $0.name == FrontMatterItem.frontCover.fileName }),
+           frontCoverFile.includedInManuscript,
+           let imageData = frontCoverFile.coverImageData,
+           UIImage(data: imageData) != nil {
+            coverImageData = imageData
+        }
+        
+        let isPoetry = project.type == .poetry
+        
+        Task {
+            let assemblyService = ManuscriptAssemblyService(context: modelContext)
+            do {
+                let content = try await assemblyService.assembleContent(for: project, skipPrintOnlyContent: true)
+                guard content.attributedString.length > 0 else {
+                    throw AssemblyError.noFilesFound
+                }
+                
+                #if DEBUG
+                print("📦 EPUB export: coverImageData=\(coverImageData == nil ? "nil" : "\(coverImageData!.count) bytes"), isPoetry=\(isPoetry)")
+                #endif
+                
+                let epubData = try EPUBExportService.exportToEPUB(
+                    content.attributedString,
+                    filename: projectName,
+                    author: authorName,
+                    coverImageData: coverImageData,
+                    isPoetry: isPoetry
+                )
+                
+                await MainActor.run {
+                    exportData = epubData
+                    exportContentType = UTType(filenameExtension: "epub") ?? .data
+                    exportFilename = "\(projectName).epub"
+                    showExportSaveDialog = true
+                    isExporting = false
+                }
+            } catch {
+                await MainActor.run {
+                    exportErrorMessage = NSLocalizedString("manuscript.error.exportFailedGeneric", comment: "Export failed")
+                    showExportError = true
+                    isExporting = false
+                }
+            }
+        }
+    }
+    
     /// Export the full manuscript as PDF
     private func exportManuscriptPDF() {
         isExporting = true
@@ -1034,11 +1093,6 @@ struct FolderListView: View {
 struct FolderRowView: View {
     let folder: Folder
     
-    @Query private var allPublications: [Publication]
-    @Query private var allSubmissions: [Submission]
-    @Query private var allFolders: [Folder]
-    @Query private var allTrashItems: [TrashItem]
-    
     @State private var fileCount: Int = 0
     @State private var subfolderCount: Int = 0
     
@@ -1166,16 +1220,12 @@ struct FolderRowView: View {
     // Get submission count for Submissions folder
     private var submissionCount: Int {
         guard isSubmissionsFolder, let project = folder.project else { return 0 }
-        let projectID: UUID = project.id
-        return allSubmissions.filter { (submission: Submission) -> Bool in
-            !submission.isCollection && submission.project?.id == projectID
-        }.count
+        return (project.submissions ?? []).filter { !$0.isCollection }.count
     }
     
     // Get publication count for this folder type
     private var publicationCount: Int {
         guard isPublicationFolder, let project = folder.project else { return 0 }
-        let projectID: UUID = project.id
         let folderName: String = folder.name ?? ""
         let publicationType: PublicationType?
         
@@ -1196,9 +1246,7 @@ struct FolderRowView: View {
             return 0
         }
         
-        return allPublications.filter { (pub: Publication) -> Bool in
-            pub.project?.id == projectID && pub.type == publicationType
-        }.count
+        return (project.publications ?? []).filter { $0.type == publicationType }.count
     }
     
     // Folder display name with count in brackets
@@ -1277,7 +1325,7 @@ struct FolderRowView: View {
     
     private func loadFolderCounts() async {
         if isAllFolder, let project = folder.project {
-            let projectFolders: [Folder] = allFolders.filter { (f: Folder) -> Bool in f.project?.id == project.id }
+            let projectFolders: [Folder] = project.folders ?? []
             let targetFolderNames: Set<String> = ["Draft", "Ready", "Set Aside", "Published"]
             
             var totalCount: Int = 0
@@ -1287,7 +1335,7 @@ struct FolderRowView: View {
             fileCount = totalCount
             subfolderCount = 0
         } else if isTrashFolder, let project = folder.project {
-            fileCount = allTrashItems.filter { (item: TrashItem) -> Bool in item.project?.id == project.id }.count
+            fileCount = (project.trashedItems ?? []).count
             subfolderCount = 0
         } else {
             fileCount = folder.textFiles?.count ?? 0

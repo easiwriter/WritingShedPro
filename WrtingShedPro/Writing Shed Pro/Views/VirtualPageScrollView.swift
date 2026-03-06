@@ -84,12 +84,9 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         
         var result = text
         
-        // {{Date}} - Current date
+        // {{Date}} - Current date (uses cached formatter)
         if result.contains("{{Date}}") {
-            let formatter = DateFormatter()
-            formatter.dateStyle = .medium
-            formatter.timeStyle = .none
-            result = result.replacingOccurrences(of: "{{Date}}", with: formatter.string(from: Date()))
+            result = result.replacingOccurrences(of: "{{Date}}", with: _dateFormatter.string(from: Date()))
         }
         
         // {{Page Number}} - Current page (or "#" placeholder if not showing actual numbers)
@@ -118,6 +115,12 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         if result.contains("{{Project Name}}") {
             let projectName = project?.name ?? ""
             result = result.replacingOccurrences(of: "{{Project Name}}", with: projectName)
+        }
+
+        // {{Author}} - Project author
+        if result.contains("{{Author}}") {
+            let authorName = project?.author ?? ""
+            result = result.replacingOccurrences(of: "{{Author}}", with: authorName)
         }
         
         return result
@@ -214,7 +217,11 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
     private var visiblePageRange: Range<Int> = 0..<0
     
     /// Buffer: number of pages to render above/below visible area
+    #if targetEnvironment(macCatalyst)
+    private let bufferPages: Int = 4
+    #else
     private let bufferPages: Int = 2
+    #endif
     
     /// Page change callback
     var pageChangeHandler: ((Int) -> Void)?
@@ -231,6 +238,18 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
     /// Page view cache for recycling
     private var pageViewCache: [UITextView] = []
     private let maxCacheSize: Int = 10
+
+    /// Throttle updateVisiblePages — last time it executed
+    private var _lastVisiblePagesUpdate: CFTimeInterval = 0
+    private let _visiblePagesUpdateInterval: CFTimeInterval = 0.016  // ~60fps
+
+    /// Cached DateFormatter for header/footer rendering
+    private lazy var _dateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateStyle = .medium
+        f.timeStyle = .none
+        return f
+    }()
 
     /// Current zoom scale for content inset adjustment
     private var currentZoomScale: CGFloat = 1.0
@@ -374,8 +393,12 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         // Center content after bounds are established
         centerContentIfNeeded()
         
-        // Update visible pages based on new bounds
-        updateVisiblePages()
+        // Update visible pages based on new bounds (respects throttle interval)
+        let now = CACurrentMediaTime()
+        if now - _lastVisiblePagesUpdate >= _visiblePagesUpdateInterval {
+            _lastVisiblePagesUpdate = now
+            updateVisiblePages()
+        }
     }
     
     // MARK: - Layout Updates
@@ -590,10 +613,14 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         // Create page background view to cover full page (white paper appearance)
         let pageBackgroundView = UIView(frame: pageFrame)
         pageBackgroundView.backgroundColor = .systemBackground
+        // Use explicit shadowPath for GPU-accelerated shadow (avoids expensive offscreen rendering)
         pageBackgroundView.layer.shadowColor = UIColor.black.cgColor
         pageBackgroundView.layer.shadowOffset = CGSize(width: 0, height: 2)
         pageBackgroundView.layer.shadowOpacity = 0.1
         pageBackgroundView.layer.shadowRadius = 4
+        pageBackgroundView.layer.shadowPath = UIBezierPath(rect: pageBackgroundView.bounds).cgPath
+        pageBackgroundView.layer.shouldRasterize = true
+        pageBackgroundView.layer.rasterizationScale = UIScreen.main.scale
         zoomContainerView.addSubview(pageBackgroundView)
         
         // Track header/footer views for cleanup
@@ -996,12 +1023,8 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         // Apply transform to scale the entire text view (including text rendering)
         textView.transform = CGAffineTransform(scaleX: currentZoomScale, y: currentZoomScale)
         
-        // Add subtle shadow for depth
-        textView.layer.shadowColor = UIColor.black.cgColor
-        textView.layer.shadowOpacity = 0.15
-        textView.layer.shadowOffset = CGSize(width: 0, height: 3)
-        textView.layer.shadowRadius = 6
-        textView.layer.masksToBounds = false
+        // No shadow on text view — the page background view provides the shadow
+        textView.layer.masksToBounds = true
         
         // No border - clean page appearance
         textView.layer.borderWidth = 0
@@ -1168,6 +1191,10 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
     // MARK: - UIScrollViewDelegate
     
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        // Throttle on Catalyst where trackpad generates high-frequency scroll events
+        let now = CACurrentMediaTime()
+        guard now - _lastVisiblePagesUpdate >= _visiblePagesUpdateInterval else { return }
+        _lastVisiblePagesUpdate = now
         updateVisiblePages()
     }
     

@@ -341,6 +341,12 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
             let projectName = project.name ?? ""
             result = result.replacingOccurrences(of: "{{Project Name}}", with: projectName)
         }
+
+        // {{Author}} - Project author
+        if result.contains("{{Author}}") {
+            let author = project.author ?? ""
+            result = result.replacingOccurrences(of: "{{Author}}", with: author)
+        }
         
         return result
     }

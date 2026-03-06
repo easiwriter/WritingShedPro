@@ -126,6 +126,7 @@ class JSONImportService {
             notes: data.project.notes
         )
         project.modifiedDate = data.project.modifiedDate ?? Date()
+        project.author = data.project.author
         project.statusRaw = data.project.status
         project.fictionClassRaw = data.project.fictionClass
         project.useMonomyth = data.project.useMonomyth

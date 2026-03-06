@@ -24,9 +24,11 @@ extension FolderFilesView {
         folder.isFrontMatterFolder || folder.isBackMatterFolder
     }
 
+    /// Files belonging to this folder, accessed via the direct SwiftData relationship.
+    /// Previously used @Query over ALL TextFiles (2167+) and filtered in Swift,
+    /// causing 750-970ms re-fetches every ~1s during CloudKit sync WAL checkpoints.
     var allFiles: [TextFile] {
-        let folderID: UUID = folder.id
-        return allTextFiles.filter { (file: TextFile) -> Bool in file.parentFolder?.id == folderID }
+        folder.textFiles ?? []
     }
 
     func fileCount(for status: WorkflowStatus?) -> Int {

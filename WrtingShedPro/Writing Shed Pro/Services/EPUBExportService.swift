@@ -8,9 +8,19 @@
 import Foundation
 import UIKit
 import UniformTypeIdentifiers
+import Compression
 
 /// Service for exporting content to EPUB format
 class EPUBExportService {
+    
+    // MARK: - Types
+    
+    /// A table-of-contents entry extracted from semantic headings
+    private struct TOCEntry {
+        let id: String      // anchor id e.g. "toc-1"
+        let title: String   // plain-text heading
+        let level: Int      // 1–6
+    }
     
     // MARK: - Export
     
@@ -26,29 +36,73 @@ class EPUBExportService {
         _ attributedString: NSAttributedString,
         filename: String,
         author: String? = nil,
-        language: String = "en"
+        language: String = "en",
+        coverImageData: Data? = nil,
+        isPoetry: Bool = false
     ) throws -> Data {
         
-        // Convert content to HTML
+        // The iOS NSAttributedString → HTML converter may strip or mangle the
+        // form feed character (\u{000C}).  To guarantee page breaks survive,
+        // replace every form feed with a unique text marker BEFORE conversion,
+        // then swap the marker for a proper <div> in the resulting HTML.
+        let pageBreakMarker = "EPUB_PAGE_BREAK_79f3a1"
+        
+        // Build a mutable copy and replace form feeds with our marker
+        let mutable = NSMutableAttributedString(attributedString: attributedString)
+        let plainString = mutable.string as NSString
+        // Replace in reverse so ranges stay valid
+        var searchRange = NSRange(location: 0, length: plainString.length)
+        var formFeedLocations: [Int] = []
+        while true {
+            let found = plainString.range(of: "\u{000C}", options: [], range: searchRange)
+            if found.location == NSNotFound { break }
+            formFeedLocations.append(found.location)
+            searchRange = NSRange(location: found.location + found.length,
+                                  length: plainString.length - found.location - found.length)
+        }
+        
+        #if DEBUG
+        print("📦 EPUB: Found \(formFeedLocations.count) form feed characters to convert")
+        #endif
+        
+        // Replace in reverse order
+        for loc in formFeedLocations.reversed() {
+            mutable.replaceCharacters(in: NSRange(location: loc, length: 1),
+                                       with: NSAttributedString(string: pageBreakMarker))
+        }
+        
+        // Convert to HTML (the marker is plain text so the iOS converter will keep it)
         let htmlContent = try HTMLExportService.exportToHTML(
-            attributedString,
+            mutable,
             filename: filename,
-            includeStyles: false // EPUB uses separate CSS
+            includeStyles: false
         )
+        
+        // Extract iOS-generated CSS from the HTML
+        var iOSCSS: String?
+        if let styleStart = htmlContent.range(of: "<style type=\"text/css\">"),
+           let styleEnd = htmlContent.range(of: "</style>") {
+            iOSCSS = String(htmlContent[styleStart.upperBound..<styleEnd.lowerBound])
+        }
+        
+        #if DEBUG
+        print("📦 EPUB: coverImageData \(coverImageData == nil ? "nil" : "\(coverImageData!.count) bytes"), isPoetry=\(isPoetry), iOSCSS=\(iOSCSS == nil ? "nil" : "\(iOSCSS!.count) chars")")
+        #endif
         
         // Create EPUB structure
         let epub = try createEPUBPackage(
             htmlContent: htmlContent,
             title: filename,
             author: author,
-            language: language
+            language: language,
+            customCSS: iOSCSS,
+            coverImageData: coverImageData,
+            isPoetry: isPoetry
         )
         
         #if DEBUG
         print("📤 EPUBExportService: Exported '\(filename).epub'")
-        #if DEBUG
         print("   EPUB size: \(epub.count) bytes")
-        #endif
         #endif
         
         return epub
@@ -77,7 +131,8 @@ class EPUBExportService {
         _ attributedStrings: [NSAttributedString],
         filename: String,
         author: String? = nil,
-        language: String = "en"
+        language: String = "en",
+        coverImageData: Data? = nil
     ) throws -> Data {
         
         // Extract all images from all attributed strings
@@ -345,7 +400,8 @@ class EPUBExportService {
             author: author,
             language: language,
             customCSS: allStyles,  // Pass iOS-generated styles
-            images: allImages.map { $0.imageData }  // Extract just the image data
+            images: allImages.map { $0.imageData },  // Extract just the image data
+            coverImageData: coverImageData
         )
         
         #if DEBUG
@@ -375,8 +431,8 @@ class EPUBExportService {
         cleaned = cleaned.replacingOccurrences(of: "<BR>", with: "<br/>")
         
         // Fix <img> tags to be self-closing if not already
-        // Match <img...> that doesn't end with /> and replace with self-closing version
-        if let regex = try? NSRegularExpression(pattern: "<img([^>]+)>", options: []) {
+        // Match <img...> that doesn't already end with /> and replace with self-closing version
+        if let regex = try? NSRegularExpression(pattern: "<img([^>]*[^/])>", options: []) {
             let nsRange = NSRange(cleaned.startIndex..., in: cleaned)
             cleaned = regex.stringByReplacingMatches(
                 in: cleaned,
@@ -389,15 +445,15 @@ class EPUBExportService {
         // Remove any empty <span></span> tags that might cause issues
         cleaned = cleaned.replacingOccurrences(of: "<span></span>", with: "")
         
-        // Ensure proper paragraph structure - no <br/> directly inside <p> at end
-        // Replace <p>...<br/></p> with just <p>...</p>
-        if let regex = try? NSRegularExpression(pattern: "<p([^>]*)>([^<]*)<br\\s*/?>\\s*</p>", options: []) {
+        // Remove trailing <br/> before </p> (handles paragraphs with nested span tags too)
+        // This prevents double-spacing on Kindle where <br/></p> adds an extra blank line
+        if let regex = try? NSRegularExpression(pattern: "<br\\s*/?>\\s*</p>", options: []) {
             let nsRange = NSRange(cleaned.startIndex..., in: cleaned)
             cleaned = regex.stringByReplacingMatches(
                 in: cleaned,
                 options: [],
                 range: nsRange,
-                withTemplate: "<p$1>$2</p>"
+                withTemplate: "</p>"
             )
         }
         
@@ -413,7 +469,9 @@ class EPUBExportService {
         author: String?,
         language: String,
         customCSS: String? = nil,
-        images: [Data] = []
+        images: [Data] = [],
+        coverImageData: Data? = nil,
+        isPoetry: Bool = false
     ) throws -> Data {
         
         // Create a temporary directory for EPUB structure
@@ -427,20 +485,28 @@ class EPUBExportService {
         }
         
         // Create EPUB structure
+        let hasCover = coverImageData != nil
         try createMimetypeFile(in: tempDir)
         try createContainerXML(in: tempDir)
-        try createContentOPF(in: tempDir, title: title, author: author, language: language, imageCount: images.count)
-        try createTableOfContentsNCX(in: tempDir, title: title)
-        try createContentHTML(in: tempDir, html: htmlContent, title: title)
-        try createStyleCSS(in: tempDir, customCSS: customCSS)
+        try createContentOPF(in: tempDir, title: title, author: author, language: language, imageCount: images.count, hasCover: hasCover)
+        let tocEntries = try createContentHTML(in: tempDir, html: htmlContent, title: title, css: customCSS)
+        try createTableOfContentsNCX(in: tempDir, title: title, entries: tocEntries)
+        try createNavigationDocument(in: tempDir, title: title, hasCover: hasCover, entries: tocEntries)
+        try createStyleCSS(in: tempDir, customCSS: customCSS, isPoetry: isPoetry)
+        
+        // Save cover image if provided
+        if let coverData = coverImageData {
+            try createCoverPage(in: tempDir, title: title)
+            try saveCoverImage(in: tempDir, imageData: coverData)
+        }
         
         // Save images if any
         if !images.isEmpty {
             try createImagesDirectory(in: tempDir, images: images)
         }
         
-        // Create ZIP archive
-        let epubData = try zipDirectory(tempDir)
+        // Create EPUB-compliant ZIP archive (mimetype first, uncompressed)
+        let epubData = try createEPUBZip(from: tempDir)
         
         return epubData
     }
@@ -471,7 +537,7 @@ class EPUBExportService {
     }
     
     /// Create OEBPS/content.opf (package document)
-    private static func createContentOPF(in directory: URL, title: String, author: String?, language: String, imageCount: Int = 0) throws {
+    private static func createContentOPF(in directory: URL, title: String, author: String?, language: String, imageCount: Int = 0, hasCover: Bool = false) throws {
         let oebpsDir = directory.appendingPathComponent("OEBPS")
         try FileManager.default.createDirectory(at: oebpsDir, withIntermediateDirectories: true)
         
@@ -485,6 +551,20 @@ class EPUBExportService {
             imageItems += "\n                <item id=\"image\(i)\" href=\"images/image\(i).png\" media-type=\"image/png\"/>"
         }
         
+        // Cover image metadata and manifest items
+        var coverMeta = ""
+        var coverManifestItems = ""
+        var coverSpineItem = ""
+        var guideElement = ""
+        if hasCover {
+            coverMeta = "\n                <meta name=\"cover\" content=\"cover-image\"/>"
+            coverManifestItems = "\n                <item id=\"cover-image\" href=\"images/cover.jpg\" media-type=\"image/jpeg\" properties=\"cover-image\"/>"
+            coverManifestItems += "\n                <item id=\"cover\" href=\"cover.html\" media-type=\"application/xhtml+xml\"/>"
+            coverSpineItem = "\n                <itemref idref=\"cover\"/>"
+            // Kindle requires <guide> element to recognize the cover page
+            guideElement = "\n    <guide>\n        <reference type=\"cover\" title=\"Cover\" href=\"cover.html\"/>\n    </guide>"
+        }
+        
         let contentOPF = """
         <?xml version="1.0" encoding="UTF-8"?>
         <package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="uid">
@@ -494,16 +574,17 @@ class EPUBExportService {
                 \(authorMetadata)
                 <dc:language>\(language)</dc:language>
                 <meta property="dcterms:modified">\(date)</meta>
-                <meta name="generator" content="Writing Shed Pro"/>
+                <meta name="generator" content="Writing Shed Pro"/>\(coverMeta)
             </metadata>
             <manifest>
                 <item id="toc" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
                 <item id="content" href="content.html" media-type="application/xhtml+xml"/>
-                <item id="style" href="style.css" media-type="text/css"/>\(imageItems)
+                <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
+                <item id="style" href="style.css" media-type="text/css"/>\(coverManifestItems)\(imageItems)
             </manifest>
-            <spine toc="toc">
+            <spine toc="toc">\(coverSpineItem)
                 <itemref idref="content"/>
-            </spine>
+            </spine>\(guideElement)
         </package>
         """
         
@@ -512,17 +593,41 @@ class EPUBExportService {
     }
     
     /// Create OEBPS/toc.ncx (table of contents for EPUB 2.0 compatibility)
-    private static func createTableOfContentsNCX(in directory: URL, title: String) throws {
+    private static func createTableOfContentsNCX(in directory: URL, title: String, entries: [TOCEntry] = []) throws {
         let oebpsDir = directory.appendingPathComponent("OEBPS")
         
         let uuid = UUID().uuidString
+        let maxDepth = entries.map(\.level).max() ?? 1
+        
+        var navPoints = ""
+        if entries.isEmpty {
+            navPoints = """
+                        <navPoint id="content" playOrder="1">
+                            <navLabel>
+                                <text>\(escapeXML(title))</text>
+                            </navLabel>
+                            <content src="content.html"/>
+                        </navPoint>
+            """
+        } else {
+            for (index, entry) in entries.enumerated() {
+                navPoints += """
+                            <navPoint id="navpoint-\(index + 1)" playOrder="\(index + 1)">
+                                <navLabel>
+                                    <text>\(escapeXML(entry.title))</text>
+                                </navLabel>
+                                <content src="content.html#\(entry.id)"/>
+                            </navPoint>\n
+                """
+            }
+        }
         
         let tocNCX = """
         <?xml version="1.0" encoding="UTF-8"?>
         <ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
             <head>
                 <meta name="dtb:uid" content="urn:uuid:\(uuid)"/>
-                <meta name="dtb:depth" content="1"/>
+                <meta name="dtb:depth" content="\(maxDepth)"/>
                 <meta name="dtb:totalPageCount" content="0"/>
                 <meta name="dtb:maxPageNumber" content="0"/>
             </head>
@@ -530,12 +635,7 @@ class EPUBExportService {
                 <text>\(escapeXML(title))</text>
             </docTitle>
             <navMap>
-                <navPoint id="content" playOrder="1">
-                    <navLabel>
-                        <text>\(escapeXML(title))</text>
-                    </navLabel>
-                    <content src="content.html"/>
-                </navPoint>
+        \(navPoints)
             </navMap>
         </ncx>
         """
@@ -545,7 +645,9 @@ class EPUBExportService {
     }
     
     /// Create OEBPS/content.html (main content)
-    private static func createContentHTML(in directory: URL, html: String, title: String) throws {
+    /// Returns extracted TOC entries from detected headings.
+    @discardableResult
+    private static func createContentHTML(in directory: URL, html: String, title: String, css: String? = nil) throws -> [TOCEntry] {
         let oebpsDir = directory.appendingPathComponent("OEBPS")
         
         // Extract body content from HTML if present
@@ -555,8 +657,34 @@ class EPUBExportService {
             bodyContent = String(html[bodyStart.upperBound..<bodyEnd.lowerBound])
         }
         
-        // Convert page breaks to EPUB page break divs
-        bodyContent = bodyContent.replacingOccurrences(of: "\u{000C}", with: "<div style=\"page-break-after: always;\"></div>")
+        // Convert page-break markers to EPUB page-break divs.
+        // exportToEPUB() replaces form feed chars with the text "EPUB_PAGE_BREAK_79f3a1"
+        // BEFORE the iOS HTML converter runs.  The converter wraps them in <p>/<span>,
+        // producing something like:
+        //   <p class="p3"><span class="s1">EPUB_PAGE_BREAK_79f3a1</span></p>
+        // We need to replace the whole enclosing <p>…</p> with a standalone <div>.
+        
+        let pageBreakMarker = "EPUB_PAGE_BREAK_79f3a1"
+        
+        // Match a <p> whose only content is the marker (optionally wrapped in <span> tags)
+        if let markerInPRegex = try? NSRegularExpression(
+            pattern: "<p[^>]*>(?:\\s*<span[^>]*>)*\\s*\(NSRegularExpression.escapedPattern(for: pageBreakMarker))\\s*(?:</span>\\s*)*</p>",
+            options: []
+        ) {
+            let range = NSRange(bodyContent.startIndex..., in: bodyContent)
+            bodyContent = markerInPRegex.stringByReplacingMatches(
+                in: bodyContent,
+                options: [],
+                range: range,
+                withTemplate: "<div class=\"page-break\"></div>"
+            )
+        }
+        
+        // Also replace any bare marker text that wasn't inside a <p> tag
+        bodyContent = bodyContent.replacingOccurrences(of: pageBreakMarker, with: "<div class=\"page-break\"></div>")
+        
+        // Clean up any remaining raw form feeds (belt-and-suspenders)
+        bodyContent = bodyContent.replacingOccurrences(of: "\u{000C}", with: "<div class=\"page-break\"></div>")
         
         // Clean up excessive newlines and whitespace
         // The iOS HTML converter adds <br> tags and newlines
@@ -578,10 +706,31 @@ class EPUBExportService {
         // Remove newlines after br tags (these create double spacing)
         bodyContent = bodyContent.replacingOccurrences(of: "<br>\n", with: "<br>")
         
+        // Convert <br> to XHTML self-closing form (EPUB requires valid XHTML)
+        bodyContent = bodyContent.replacingOccurrences(of: "<br>", with: "<br/>")
+        
+        // Strip inline line-height from style attributes — iOS converter adds these
+        // and they override our CSS, causing double-spacing on Kindle
+        if let lhInlineRegex = try? NSRegularExpression(pattern: "line-height\\s*:\\s*[^;\"]+;?", options: []) {
+            let range = NSRange(bodyContent.startIndex..., in: bodyContent)
+            bodyContent = lhInlineRegex.stringByReplacingMatches(in: bodyContent, options: [], range: range, withTemplate: "")
+        }
+        
         // Clean up any multiple spaces that may have been created
         while bodyContent.contains("  ") {
             bodyContent = bodyContent.replacingOccurrences(of: "  ", with: " ")
         }
+        
+        // Convert heading-style paragraphs to semantic <h1>–<h6> and extract TOC
+        let (processedBody, tocEntries) = convertHeadingsAndBuildTOC(bodyHTML: bodyContent, css: css)
+        bodyContent = processedBody
+        
+        #if DEBUG
+        print("📖 EPUB: Extracted \(tocEntries.count) TOC entries from headings")
+        for entry in tocEntries.prefix(10) {
+            print("   h\(entry.level): \(entry.title)")
+        }
+        #endif
         
         let contentHTML = """
         <?xml version="1.0" encoding="UTF-8"?>
@@ -589,7 +738,7 @@ class EPUBExportService {
         <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
         <head>
             <meta charset="UTF-8"/>
-            <title></title>
+            <title>\(escapeXML(title))</title>
             <link rel="stylesheet" type="text/css" href="style.css"/>
         </head>
         <body>
@@ -600,17 +749,40 @@ class EPUBExportService {
         
         let contentURL = oebpsDir.appendingPathComponent("content.html")
         try contentHTML.write(to: contentURL, atomically: true, encoding: .utf8)
+        return tocEntries
     }
     
     /// Create OEBPS/style.css
-    private static func createStyleCSS(in directory: URL, customCSS: String? = nil) throws {
+    private static func createStyleCSS(in directory: URL, customCSS: String? = nil, isPoetry: Bool = false) throws {
         let oebpsDir = directory.appendingPathComponent("OEBPS")
         
         var styleCSS = ""
         
         // Add custom CSS first (iOS-generated styles with namespacing)
-        if let customCSS = customCSS, !customCSS.isEmpty {
-            styleCSS += "/* iOS-generated styles (namespaced) */\n"
+        if var customCSS = customCSS, !customCSS.isEmpty {
+            // Strip line-height from iOS-generated styles — let our base CSS control spacing
+            // iOS converter emits values like "line-height: 1.80" which cause double-spacing on Kindle
+            if let lhRegex = try? NSRegularExpression(pattern: "line-height\\s*:\\s*[^;]+;", options: []) {
+                let range = NSRange(customCSS.startIndex..., in: customCSS)
+                customCSS = lhRegex.stringByReplacingMatches(in: customCSS, options: [], range: range, withTemplate: "")
+            }
+            // Broaden iOS selectors like "p.p2" to also match heading tags "h1.p2, h2.p2, ..."
+            // After heading conversion, <p class="p2"> becomes <h2 class="p2"> but the iOS CSS
+            // rule "p.p2 { font: bold 22px ... }" won't match. Add ".p2" (class-only) variants.
+            if let pClassRegex = try? NSRegularExpression(pattern: "p\\.(p\\d+)\\s*\\{", options: []) {
+                let range = NSRange(customCSS.startIndex..., in: customCSS)
+                let matches = pClassRegex.matches(in: customCSS, range: range)
+                // Process in reverse so ranges stay valid
+                for match in matches.reversed() {
+                    guard let fullRange = Range(match.range, in: customCSS),
+                          let classRange = Range(match.range(at: 1), in: customCSS) else { continue }
+                    let className = String(customCSS[classRange])
+                    // Replace "p.p2 {" with "p.p2, h1.p2, h2.p2, h3.p2, h4.p2 {"
+                    let broadened = "p.\(className), h1.\(className), h2.\(className), h3.\(className), h4.\(className) {"
+                    customCSS.replaceSubrange(fullRange, with: broadened)
+                }
+            }
+            styleCSS += "/* iOS-generated styles */\n"
             styleCSS += customCSS
             styleCSS += "\n\n"
         }
@@ -621,7 +793,7 @@ class EPUBExportService {
         body {
             font-family: Georgia, serif;
             font-size: 1em;
-            line-height: 1.6;
+            line-height: 1.5;
             margin: 1em;
             padding: 0;
             text-align: justify;
@@ -631,7 +803,8 @@ class EPUBExportService {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             margin-top: 1.5em;
             margin-bottom: 0.5em;
-            font-weight: 600;
+            /* !important overrides iOS CSS font shorthand which implicitly resets font-weight */
+            font-weight: bold !important;
             text-align: left;
         }
         
@@ -644,8 +817,26 @@ class EPUBExportService {
             font-size: 1.5em;
         }
         
+        /* Force page break before each heading (except the very first) for file separation */
+        h1, h2, h3, h4 {
+            page-break-before: always;
+            break-before: page;
+        }
+        /* Suppress break only on the genuinely first element in <body> */
+        body > :first-child {
+            page-break-before: auto;
+            break-before: auto;
+        }
+        
         p {
-            margin: 0 0 1em 0;
+            margin: 0;
+            padding: 0;
+            text-indent: 1.5em;
+        }
+        
+        /* First paragraph after a heading or page break: no indent */
+        h1 + p, h2 + p, h3 + p, h4 + p, h5 + p, h6 + p,
+        .page-break + p {
             text-indent: 0;
         }
         
@@ -725,12 +916,33 @@ class EPUBExportService {
             text-decoration: underline;
         }
         
-        /* Page break support */
-        div[style*="page-break-after"] {
+        /* Page break support — a zero-height div that triggers a page break after it */
+        .page-break {
             page-break-after: always;
             break-after: page;
+            height: 0;
+            margin: 0;
+            padding: 0;
         }
         """
+        
+        // Poetry projects: remove paragraph indent and spacing so each line
+        // sits directly under the previous one (lines end with paragraph breaks
+        // but should render as verse lines, not spaced-out paragraphs)
+        if isPoetry {
+            styleCSS += """
+            
+            /* Poetry overrides — verse lines are separate <p> elements */
+            p {
+                text-indent: 0;
+                margin: 0;
+                padding: 0;
+            }
+            body {
+                text-align: left;
+            }
+            """
+        }
         
         let styleURL = oebpsDir.appendingPathComponent("style.css")
         try styleCSS.write(to: styleURL, atomically: true, encoding: .utf8)
@@ -748,28 +960,372 @@ class EPUBExportService {
         }
     }
     
+    /// Create OEBPS/cover.html (cover page XHTML)
+    private static func createCoverPage(in directory: URL, title: String) throws {
+        let oebpsDir = directory.appendingPathComponent("OEBPS")
+        
+        let coverHTML = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE html>
+        <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
+        <head>
+            <meta charset="UTF-8"/>
+            <title>\(escapeXML(title))</title>
+            <style type="text/css">
+                body { margin: 0; padding: 0; text-align: center; }
+                div.cover { width: 100%; height: 100%; text-align: center; }
+                img { max-width: 100%; max-height: 100%; }
+            </style>
+        </head>
+        <body>
+            <div class="cover">
+                <img src="images/cover.jpg" alt="\(escapeXML(title))" />
+            </div>
+        </body>
+        </html>
+        """
+        
+        let coverURL = oebpsDir.appendingPathComponent("cover.html")
+        try coverHTML.write(to: coverURL, atomically: true, encoding: .utf8)
+    }
+    
+    /// Save cover image as JPEG in OEBPS/images/
+    private static func saveCoverImage(in directory: URL, imageData: Data) throws {
+        let oebpsDir = directory.appendingPathComponent("OEBPS")
+        let imagesDir = oebpsDir.appendingPathComponent("images")
+        try FileManager.default.createDirectory(at: imagesDir, withIntermediateDirectories: true)
+        
+        // Convert to JPEG for maximum e-reader compatibility
+        var jpegData: Data
+        if let uiImage = UIImage(data: imageData) {
+            jpegData = uiImage.jpegData(compressionQuality: 0.9) ?? imageData
+        } else {
+            jpegData = imageData
+        }
+        
+        let coverURL = imagesDir.appendingPathComponent("cover.jpg")
+        try jpegData.write(to: coverURL)
+    }
+    
+    /// Create OEBPS/nav.xhtml (EPUB 3 navigation document - REQUIRED)
+    private static func createNavigationDocument(in directory: URL, title: String, hasCover: Bool, entries: [TOCEntry] = []) throws {
+        let oebpsDir = directory.appendingPathComponent("OEBPS")
+        
+        var navItems = ""
+        if hasCover {
+            navItems += "\n                <li><a href=\"cover.html\">Cover</a></li>"
+        }
+        
+        if entries.isEmpty {
+            navItems += "\n                <li><a href=\"content.html\">\(escapeXML(title))</a></li>"
+        } else {
+            for entry in entries {
+                navItems += "\n                <li><a href=\"content.html#\(entry.id)\">\(escapeXML(entry.title))</a></li>"
+            }
+        }
+        
+        let navXHTML = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE html>
+        <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
+        <head>
+            <meta charset="UTF-8"/>
+            <title>Table of Contents</title>
+        </head>
+        <body>
+            <nav epub:type="toc" id="toc">
+                <h1>Table of Contents</h1>
+                <ol>\(navItems)
+                </ol>
+            </nav>
+        </body>
+        </html>
+        """
+        
+        let navURL = oebpsDir.appendingPathComponent("nav.xhtml")
+        try navXHTML.write(to: navURL, atomically: true, encoding: .utf8)
+    }
+    
+    // MARK: - Heading Detection & TOC Extraction
+    
+    /// Parse iOS-generated CSS to identify paragraph classes that represent headings.
+    /// Returns a mapping of className → heading level (1–6).
+    ///
+    /// The iOS `NSAttributedString` HTML converter outputs paragraph styles as
+    /// numbered CSS classes (`.p1`, `.p2`, …) with `font:` shorthand.  Heading
+    /// styles have a significantly larger font-size than body text.
+    private static func detectHeadingClasses(from css: String?) -> [String: Int] {
+        guard let css = css else { return [:] }
+        
+        // Match  p.pN { ... }  rules
+        let rulePattern = "p\\.(p\\d+)\\s*\\{([^}]+)\\}"
+        guard let ruleRegex = try? NSRegularExpression(pattern: rulePattern) else { return [:] }
+        
+        var classFontSizes: [(className: String, fontSize: Double, isBold: Bool)] = []
+        let cssRange = NSRange(css.startIndex..., in: css)
+        
+        for match in ruleRegex.matches(in: css, range: cssRange) {
+            guard let classRange = Range(match.range(at: 1), in: css),
+                  let bodyRange  = Range(match.range(at: 2), in: css) else { continue }
+            
+            let className = String(css[classRange])
+            let body      = String(css[bodyRange])
+            
+            // Extract font-size from  font: [bold] SIZEpx  or  font-size: SIZEpx
+            // The regex must skip optional keywords (bold, italic, normal) that appear
+            // before the numeric size in a CSS font shorthand.
+            let sizePattern = "font(?:-size)?:\\s*(?:[a-zA-Z-]+\\s+)*(\\d+\\.?\\d*)px"
+            guard let sizeRegex = try? NSRegularExpression(pattern: sizePattern),
+                  let sizeMatch = sizeRegex.firstMatch(in: body, range: NSRange(body.startIndex..., in: body)),
+                  let sizeRange = Range(sizeMatch.range(at: 1), in: body),
+                  let fontSize  = Double(body[sizeRange]) else { continue }
+            
+            let bodyLower = body.lowercased()
+            let isBold = bodyLower.contains("font-weight: bold") || bodyLower.contains("font-weight:bold")
+                      || bodyLower.contains("bold")  // catches font shorthand "font: bold 22px" and family names like ".AppleSystemUIFontBold"
+            
+            classFontSizes.append((className, fontSize, isBold))
+        }
+        
+        guard classFontSizes.count >= 2 else { return [:] }
+        
+        // Determine body text size as the most-common font-size
+        let sizeCounts = Dictionary(grouping: classFontSizes.map(\.fontSize), by: { $0 })
+            .mapValues(\.count)
+        let bodySize = sizeCounts.max(by: { $0.value < $1.value })?.key
+                     ?? classFontSizes.map(\.fontSize).min()
+                     ?? 12.0
+        
+        // Heading = font-size > body × 1.25  (catches Title2 at 22px vs body 12–14px)
+        let headingThreshold = bodySize * 1.25
+        let headingCandidates = classFontSizes
+            .filter { $0.fontSize >= headingThreshold }
+            .sorted { $0.fontSize > $1.fontSize }
+        
+        guard !headingCandidates.isEmpty else { return [:] }
+        
+        // Assign heading levels:  largest → h1, next distinct size → h2, …
+        var result: [String: Int] = [:]
+        var currentLevel = 1
+        var lastSize: Double?
+        
+        for candidate in headingCandidates {
+            if let last = lastSize, candidate.fontSize < last - 0.5 {
+                currentLevel += 1
+            }
+            result[candidate.className] = min(currentLevel, 6)
+            lastSize = candidate.fontSize
+            
+            #if DEBUG
+            print("📖 EPUB heading class: .\(candidate.className) → h\(min(currentLevel, 6))  (font-size: \(candidate.fontSize)px, bold: \(candidate.isBold))")
+            #endif
+        }
+        
+        return result
+    }
+    
+    /// Convert heading-style `<p class="pN">` elements to semantic `<hX>` tags
+    /// and extract a flat list of TOC entries with anchor IDs.
+    private static func convertHeadingsAndBuildTOC(
+        bodyHTML: String,
+        css: String?
+    ) -> (html: String, tocEntries: [TOCEntry]) {
+        
+        let headingClasses = detectHeadingClasses(from: css)
+        guard !headingClasses.isEmpty else { return (bodyHTML, []) }
+        
+        var result = bodyHTML
+        var tocEntries: [TOCEntry] = []
+        var headingIndex = 0
+        
+        // Process each heading class, sorted by level (h1 first) then className
+        let sortedClasses = headingClasses.sorted { a, b in
+            if a.value != b.value { return a.value < b.value }
+            return a.key < b.key
+        }
+        
+        for (className, level) in sortedClasses {
+            // Match <p class="className">…</p>  (content may contain nested <span> tags)
+            let escapedClass = NSRegularExpression.escapedPattern(for: className)
+            let pattern = "<p class=\"\(escapedClass)\">(.*?)</p>"
+            guard let regex = try? NSRegularExpression(pattern: pattern, options: .dotMatchesLineSeparators) else { continue }
+            
+            let nsRange = NSRange(result.startIndex..., in: result)
+            let matches = regex.matches(in: result, range: nsRange)
+            
+            // Replace in reverse order so ranges stay valid
+            for match in matches.reversed() {
+                guard let fullRange    = Range(match.range, in: result),
+                      let contentRange = Range(match.range(at: 1), in: result) else { continue }
+                
+                let innerHTML = String(result[contentRange])
+                
+                // Strip tags for plain-text TOC title
+                let plainText = innerHTML
+                    .replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                
+                guard !plainText.isEmpty else { continue }
+                
+                let tocId = "toc-\(headingIndex)"
+                headingIndex += 1
+                
+                let hTag = "h\(min(level, 6))"
+                // Preserve the original CSS class so iOS font-weight/size styles still apply
+                let replacement = "<\(hTag) id=\"\(tocId)\" class=\"\(className)\">\(innerHTML)</\(hTag)>"
+                result.replaceSubrange(fullRange, with: replacement)
+                
+                // Insert at beginning since we're iterating in reverse
+                tocEntries.insert(TOCEntry(id: tocId, title: plainText, level: level), at: 0)
+            }
+        }
+        
+        return (result, tocEntries)
+    }
+    
     // MARK: - ZIP Utilities
     
-    /// Create a ZIP archive from a directory
-    private static func zipDirectory(_ directory: URL) throws -> Data {
-        // Use FileManager to create zip (requires Foundation on iOS 16+)
-        let coordinator = NSFileCoordinator()
-        var error: NSError?
-        var zipData: Data?
+    /// Create an EPUB-compliant ZIP archive from a directory
+    /// EPUB requires: mimetype file FIRST, UNCOMPRESSED, with no extra field in its local header
+    private static func createEPUBZip(from directory: URL) throws -> Data {
+        let fm = FileManager.default
         
-        coordinator.coordinate(readingItemAt: directory, options: [.forUploading], error: &error) { url in
-            zipData = try? Data(contentsOf: url)
+        // Enumerate all files, putting mimetype first
+        var relativePaths: [String] = ["mimetype"]
+        
+        // Add META-INF files
+        let metaInfDir = directory.appendingPathComponent("META-INF")
+        if let enumerator = fm.enumerator(at: metaInfDir, includingPropertiesForKeys: [.isRegularFileKey], options: [.skipsHiddenFiles]) {
+            while let url = enumerator.nextObject() as? URL {
+                if (try? url.resourceValues(forKeys: [.isRegularFileKey]))?.isRegularFile == true {
+                    let rel = url.path.replacingOccurrences(of: directory.path + "/", with: "")
+                    relativePaths.append(rel)
+                }
+            }
         }
         
-        if let error = error {
-            throw EPUBExportError.zipFailed(error.localizedDescription)
+        // Add OEBPS files
+        let oebpsDir = directory.appendingPathComponent("OEBPS")
+        if let enumerator = fm.enumerator(at: oebpsDir, includingPropertiesForKeys: [.isRegularFileKey], options: [.skipsHiddenFiles]) {
+            while let url = enumerator.nextObject() as? URL {
+                if (try? url.resourceValues(forKeys: [.isRegularFileKey]))?.isRegularFile == true {
+                    let rel = url.path.replacingOccurrences(of: directory.path + "/", with: "")
+                    relativePaths.append(rel)
+                }
+            }
         }
         
-        guard let data = zipData else {
-            throw EPUBExportError.zipFailed("Failed to create ZIP archive")
+        var zipData = Data()
+        var centralDir = Data()
+        var entryCount: UInt16 = 0
+        
+        for path in relativePaths {
+            let fileURL = directory.appendingPathComponent(path)
+            let fileData = try Data(contentsOf: fileURL)
+            let isMimetype = (path == "mimetype")
+            
+            // CRC32
+            let crc = crc32Checksum(fileData)
+            
+            // Compress non-mimetype files using DEFLATE
+            var compressedData: Data
+            var method: UInt16 = 0 // stored
+            
+            if !isMimetype, let deflated = deflateData(fileData), deflated.count < fileData.count {
+                compressedData = deflated
+                method = 8 // deflated
+            } else {
+                compressedData = fileData
+            }
+            
+            let nameData = Data(path.utf8)
+            let offset = UInt32(zipData.count)
+            
+            // Local file header (30 bytes + filename)
+            zipData.append(contentsOf: [0x50, 0x4B, 0x03, 0x04]) // PK\x03\x04
+            zipData.appendLE(UInt16(20)) // version needed to extract
+            zipData.appendLE(UInt16(0))  // general purpose bit flag
+            zipData.appendLE(method)
+            zipData.appendLE(UInt16(0))  // last mod file time
+            zipData.appendLE(UInt16(0))  // last mod file date
+            zipData.appendLE(crc)
+            zipData.appendLE(UInt32(compressedData.count))
+            zipData.appendLE(UInt32(fileData.count))
+            zipData.appendLE(UInt16(nameData.count))
+            zipData.appendLE(UInt16(0))  // extra field length (MUST be 0 for mimetype)
+            zipData.append(nameData)
+            zipData.append(compressedData)
+            
+            // Central directory entry (46 bytes + filename)
+            centralDir.append(contentsOf: [0x50, 0x4B, 0x01, 0x02]) // PK\x01\x02
+            centralDir.appendLE(UInt16(20)) // version made by
+            centralDir.appendLE(UInt16(20)) // version needed
+            centralDir.appendLE(UInt16(0))  // general purpose bit flag
+            centralDir.appendLE(method)
+            centralDir.appendLE(UInt16(0))  // last mod file time
+            centralDir.appendLE(UInt16(0))  // last mod file date
+            centralDir.appendLE(crc)
+            centralDir.appendLE(UInt32(compressedData.count))
+            centralDir.appendLE(UInt32(fileData.count))
+            centralDir.appendLE(UInt16(nameData.count))
+            centralDir.appendLE(UInt16(0))  // extra field length
+            centralDir.appendLE(UInt16(0))  // file comment length
+            centralDir.appendLE(UInt16(0))  // disk number start
+            centralDir.appendLE(UInt16(0))  // internal file attributes
+            centralDir.appendLE(UInt32(0))  // external file attributes
+            centralDir.appendLE(offset)     // relative offset of local header
+            centralDir.append(nameData)
+            
+            entryCount += 1
         }
         
-        return data
+        let cdOffset = UInt32(zipData.count)
+        zipData.append(centralDir)
+        
+        // End of central directory record
+        zipData.append(contentsOf: [0x50, 0x4B, 0x05, 0x06]) // PK\x05\x06
+        zipData.appendLE(UInt16(0))  // number of this disk
+        zipData.appendLE(UInt16(0))  // disk where central directory starts
+        zipData.appendLE(entryCount) // entries on this disk
+        zipData.appendLE(entryCount) // total entries
+        zipData.appendLE(UInt32(centralDir.count)) // size of central directory
+        zipData.appendLE(cdOffset)   // offset of start of central directory
+        zipData.appendLE(UInt16(0))  // comment length
+        
+        return zipData
+    }
+    
+    /// Calculate CRC-32 checksum (standard polynomial 0xEDB88320)
+    private static func crc32Checksum(_ data: Data) -> UInt32 {
+        var crc: UInt32 = 0xFFFFFFFF
+        for byte in data {
+            crc ^= UInt32(byte)
+            for _ in 0..<8 {
+                crc = (crc >> 1) ^ (crc & 1 != 0 ? 0xEDB88320 : 0)
+            }
+        }
+        return crc ^ 0xFFFFFFFF
+    }
+    
+    /// Deflate data using raw DEFLATE compression (no zlib headers)
+    private static func deflateData(_ input: Data) -> Data? {
+        guard !input.isEmpty else { return Data() }
+        let bufferSize = max(input.count + 512, 128)
+        let destinationBuffer = UnsafeMutablePointer<UInt8>.allocate(capacity: bufferSize)
+        defer { destinationBuffer.deallocate() }
+        
+        let compressedSize = input.withUnsafeBytes { sourceBuffer -> Int in
+            guard let sourcePtr = sourceBuffer.baseAddress?.assumingMemoryBound(to: UInt8.self) else { return 0 }
+            return compression_encode_buffer(
+                destinationBuffer, bufferSize,
+                sourcePtr, input.count,
+                nil,
+                COMPRESSION_ZLIB
+            )
+        }
+        
+        guard compressedSize > 0 else { return nil }
+        return Data(bytes: destinationBuffer, count: compressedSize)
     }
     
     // MARK: - XML Utilities
@@ -790,6 +1346,22 @@ class EPUBExportService {
     /// - Returns: True if EPUB export is supported
     static func isEPUBExportAvailable() -> Bool {
         return true // EPUB export is always available
+    }
+}
+
+// MARK: - Data Extension for ZIP Binary Writing
+
+private extension Data {
+    /// Append a UInt16 in little-endian byte order
+    mutating func appendLE(_ value: UInt16) {
+        var v = value.littleEndian
+        Swift.withUnsafeBytes(of: &v) { append(contentsOf: $0) }
+    }
+    
+    /// Append a UInt32 in little-endian byte order
+    mutating func appendLE(_ value: UInt32) {
+        var v = value.littleEndian
+        Swift.withUnsafeBytes(of: &v) { append(contentsOf: $0) }
     }
 }
 

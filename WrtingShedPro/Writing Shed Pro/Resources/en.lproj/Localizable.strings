@@ -484,6 +484,7 @@
 /* ProjectDetailView */
 "projectDetail.projectInfo" = "Project Information:";
 "projectDetail.name" = "Name:";
+"projectDetail.author" = "Author:";
 "projectDetail.type" = "Type:";
 "projectDetail.fictionClass" = "Fiction Type:";
 "projectDetail.created" = "Created:";
@@ -1830,6 +1831,7 @@
 
 /* ProjectDetailView (additional keys) */
 "projectDetail.name.placeholder" = "Project Name";
+"projectDetail.author.placeholder" = "Author Name";
 "projectDetail.stylesheet.picker" = "Stylesheet";
 
 /* FontPickerView */

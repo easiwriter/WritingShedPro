@@ -1101,9 +1101,11 @@ struct ProseListView: View {
                 exportData = try WordDocumentService.exportToRTF(content, filename: filename)
             case .html:
                 exportData = try HTMLExportService.exportToHTMLData(content, filename: filename)
-            // EPUB reserved for future release
+            // EPUB only supported for manuscript export
             // case .epub:
             //     exportData = try EPUBExportService.exportToEPUB(content, filename: filename)
+            case .epub:
+                return
             case .word:
                 let exportService = DOCXExportService(modelContext: modelContext)
                 exportData = try exportService.exportToDOCX(content, filename: filename)
@@ -1159,9 +1161,9 @@ struct ProseListView: View {
             return .rtf
         case .html:
             return .html
-        // EPUB reserved for future release
-        // case .epub:
-        //     return UTType(filenameExtension: "epub") ?? .data
+        // EPUB only supported for manuscript export
+        case .epub:
+            return UTType(filenameExtension: "epub") ?? .data
         case .word:
             return UTType("org.openxmlformats.wordprocessingml.document") ?? .data
         case .markdown:

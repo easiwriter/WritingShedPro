@@ -74,15 +74,23 @@ final class CloudKitSyncThrottler {
         setupCloudKitEventTracking()
     }
     
+    /// Pending event count accumulated on background threads, flushed to main periodically
+    private var _pendingEventCount: Int = 0
+    private let _pendingLock = NSLock()
+    /// Whether a main-queue flush is already scheduled
+    private var _flushScheduled = false
+    
     /// Sets up observers for CloudKit-related notifications
     private func setupNotificationObservers() {
         // NSPersistentStoreRemoteChangeNotification - primary CloudKit sync notification
+        // Use .main queue to avoid flooding the main thread with individual dispatches.
+        // The coalescing below batches rapid-fire notifications.
         NotificationCenter.default.addObserver(
             forName: NSNotification.Name("NSPersistentStoreRemoteChangeNotification"),
             object: nil,
-            queue: nil  // Receive on posting queue for speed
+            queue: nil
         ) { [weak self] _ in
-            self?.handleSyncEvent()
+            self?.coalescedSyncEvent()
         }
         
         // NSPersistentStoreCoordinatorStoresDidChangeNotification - store changes
@@ -91,7 +99,7 @@ final class CloudKitSyncThrottler {
             object: nil,
             queue: nil
         ) { [weak self] _ in
-            self?.handleSyncEvent()
+            self?.coalescedSyncEvent()
         }
     }
     
@@ -109,27 +117,48 @@ final class CloudKitSyncThrottler {
             .store(in: &cancellables)
     }
     
-    /// Called when a sync notification is received
-    private func handleSyncEvent() {
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            
-            self.syncEventCount += 1
-            self.totalSyncEventCount += 1
-            self.lastSyncTime = Date()
-            
-            // Send to burst detector
-            self.syncEventSubject.send()
-            
-            // Reset quiet timer - we're still receiving events
-            self.resetQuietTimer()
-            
-            #if DEBUG
-            if self.syncEventCount % 10 == 0 || self.syncEventCount <= 3 {
-                print("🔄 [CloudKitSyncThrottler] Sync event #\(self.syncEventCount) (total: \(self.totalSyncEventCount)), isSyncing: \(self.isSyncing)")
+    /// Accumulate sync events and flush to main thread in batches.
+    /// CloudKit can fire hundreds of notifications per second during a bulk sync.
+    /// Each individual dispatch_async to main adds overhead; coalescing avoids this.
+    private func coalescedSyncEvent() {
+        _pendingLock.lock()
+        _pendingEventCount += 1
+        let needsSchedule = !_flushScheduled
+        if needsSchedule { _flushScheduled = true }
+        _pendingLock.unlock()
+        
+        if needsSchedule {
+            DispatchQueue.main.async { [weak self] in
+                self?.flushPendingEvents()
             }
-            #endif
         }
+    }
+    
+    /// Flush accumulated sync events on the main thread in a single pass
+    private func flushPendingEvents() {
+        _pendingLock.lock()
+        let count = _pendingEventCount
+        _pendingEventCount = 0
+        _flushScheduled = false
+        _pendingLock.unlock()
+        
+        guard count > 0 else { return }
+        
+        syncEventCount += count
+        totalSyncEventCount += count
+        lastSyncTime = Date()
+        
+        // Send a single burst event to the detector (represents the whole batch)
+        syncEventSubject.send()
+        
+        // Reset quiet timer - we're still receiving events
+        resetQuietTimer()
+        
+        #if DEBUG
+        if syncEventCount % 10 == 0 || syncEventCount <= 3 {
+            print("🔄 [CloudKitSyncThrottler] Sync events +\(count) (total: \(totalSyncEventCount)), isSyncing: \(isSyncing)")
+        }
+        #endif
     }
     
     /// Transitions to syncing state

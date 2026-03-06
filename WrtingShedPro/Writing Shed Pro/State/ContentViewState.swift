@@ -42,9 +42,7 @@ final class ContentViewState {
     // Help & Manual
     var showHTMLManual = false
     var htmlManualSection: String? = nil  // Anchor to scroll to in the HTML guide
-    var showManualImportConfirmation = false
-    var showManualImportError = false
-    var manualImportErrorMessage = ""
+
     
     // Debug
     var showSyncDiagnostics = false

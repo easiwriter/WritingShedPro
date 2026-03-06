@@ -798,6 +798,22 @@ class HTMLExportService {
         // Use a div with class for better styling (visible in browser, hidden in print)
         cleaned = cleaned.replacingOccurrences(of: "\u{000C}", with: "<div class=\"page-break\"></div>")
         
+        // Fix invalid nesting: iOS converter wraps form feeds in <p> tags, producing
+        // <p class="pN"><div class="page-break"></div></p> — a <div> inside <p> is invalid HTML.
+        // Replace the entire <p>…</p> wrapper with just the <div>.
+        if let pbInPRegex = try? NSRegularExpression(
+            pattern: "<p[^>]*>\\s*<div class=\"page-break\"></div>\\s*</p>",
+            options: []
+        ) {
+            let range = NSRange(cleaned.startIndex..., in: cleaned)
+            cleaned = pbInPRegex.stringByReplacingMatches(
+                in: cleaned,
+                options: [],
+                range: range,
+                withTemplate: "<div class=\"page-break\"></div>"
+            )
+        }
+        
         // Clean up extra whitespace and formatting
         cleaned = cleaned.replacingOccurrences(of: "\n\n\n", with: "\n\n")
         

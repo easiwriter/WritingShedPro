@@ -266,7 +266,7 @@ enum ExportFormat: String, CaseIterable, Identifiable {
     case plainText
     case word
     case html
-    // case epub  // Reserved for future release
+    case epub
     case markdown
     case fountain
     case finalDraft
@@ -280,7 +280,7 @@ enum ExportFormat: String, CaseIterable, Identifiable {
         case .plainText: return "txt"
         case .word: return "docx"
         case .html: return "html"
-        // case .epub: return "epub"
+        case .epub: return "epub"
         case .markdown: return "md"
         case .fountain: return "fountain"
         case .finalDraft: return "fdx"
@@ -299,8 +299,8 @@ enum ExportFormat: String, CaseIterable, Identifiable {
             return NSLocalizedString("export.format.word", comment: "Word Document")
         case .html:
             return NSLocalizedString("export.format.html", comment: "HTML (Web page)")
-        // case .epub:
-        //     return NSLocalizedString("export.format.epub", comment: "EPUB (eBook)")
+        case .epub:
+            return NSLocalizedString("export.format.epub", comment: "EPUB (eBook)")
         case .markdown:
             return NSLocalizedString("export.format.markdown", comment: "Markdown")
         case .fountain:
@@ -317,7 +317,7 @@ enum ExportFormat: String, CaseIterable, Identifiable {
         case .plainText: return "text/plain"
         case .word: return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         case .html: return "text/html"
-        // case .epub: return "application/epub+zip"
+        case .epub: return "application/epub+zip"
         case .markdown: return "text/markdown"
         case .fountain: return "text/plain"
         case .finalDraft: return "application/xml"
@@ -331,7 +331,7 @@ enum ExportFormat: String, CaseIterable, Identifiable {
         case .plainText: return "doc.text"
         case .word: return "doc"
         case .html: return "chevron.left.slash.chevron.right"
-        // case .epub: return "book"
+        case .epub: return "book"
         case .markdown: return "number.square"
         case .fountain: return "doc.text"
         case .finalDraft: return "doc.badge.gearshape"

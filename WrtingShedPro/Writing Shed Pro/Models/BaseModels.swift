@@ -109,6 +109,7 @@ final class Project {
     var modifiedDate: Date?
     var details: String?
     var notes: String?
+    var author: String?
     var userOrder: Int?
     @Relationship(deleteRule: .cascade, inverse: \Folder.project) var folders: [Folder]?
     var trashedItems: [TrashItem]? // Inverse for TrashItem.project

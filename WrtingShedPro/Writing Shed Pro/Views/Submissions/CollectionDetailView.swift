@@ -389,6 +389,7 @@ struct CollectionDetailView: View {
         case .word: return UTType("org.openxmlformats.wordprocessingml.document") ?? .data
         case .pdf: return .pdf
         case .plainText: return .plainText
+        case .epub: return UTType(filenameExtension: "epub") ?? .data
         case .markdown: return UTType(filenameExtension: "md") ?? .plainText
         case .fountain: return UTType(filenameExtension: "fountain") ?? .plainText
         case .finalDraft: return UTType(filenameExtension: "fdx") ?? .xml

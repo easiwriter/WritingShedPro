@@ -488,6 +488,19 @@ final class TOCGenerationService {
                 generatedContent = generator.generateIndexSection(pageMap: [:])
             case .contributors:
                 generatedContent = generator.generateContributorsSection()
+            case .tableOfFigures:
+                // Generate TOF content so its heading appears in the TOC
+                let tofService = TableOfFiguresGenerationService(context: context)
+                let entries = tofService.generateEntries(for: project, tofFile: file)
+                let tofSettings = file.tableOfFiguresSettings
+                let missingCaptionEntries = entries.filter { !$0.hasCaption }
+                generatedContent = tofService.renderTableOfFigures(
+                    entries: entries,
+                    settings: tofSettings,
+                    project: project,
+                    missingCaptionCount: missingCaptionEntries.count,
+                    missingCaptionPages: missingCaptionEntries.map { $0.pageNumber }
+                )
             default:
                 generatedContent = nil
             }
@@ -666,7 +679,7 @@ final class TOCGenerationService {
         #endif
         
         // Use the style's own paragraph style but ensure minimum spacing after the title
-        if let style = titleStyle {
+        if titleStyle != nil {
             let stylePara = titleAttrs[.paragraphStyle] as? NSParagraphStyle
             let titlePara = (stylePara?.mutableCopy() as? NSMutableParagraphStyle) ?? NSMutableParagraphStyle()
             // Ensure a minimum paragraph spacing after the heading for visual separation

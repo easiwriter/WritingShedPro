@@ -143,19 +143,6 @@ struct ContentViewBody: View {
                     .presentationDetents([.large])
                     .presentationSizing(.page)
             }
-            .alert(guideImportAlertTitle, isPresented: $state.showManualImportConfirmation) {
-                Button("Cancel", role: .cancel) { }
-                Button(guideImportButtonTitle) {
-                    importUserGuide()
-                }
-            } message: {
-                Text(guideImportMessage)
-            }
-            .alert("Import Error", isPresented: $state.showManualImportError) {
-                Button("OK", role: .cancel) { }
-            } message: {
-                Text(state.manualImportErrorMessage)
-            }
             .fileImporter(
                 isPresented: $state.showingJSONImportPicker,
                 allowedContentTypes: [
@@ -189,42 +176,6 @@ struct ContentViewBody: View {
             // for section navigation (works on both iOS and Catalyst).
             state.htmlManualSection = section
             state.showHTMLManual = true
-        }
-    }
-    
-    // MARK: - User Guide Import
-    
-    /// Check if the User Guide is already imported
-    private var isGuideAlreadyImported: Bool {
-        UserGuideImportService.isGuideImported(modelContext: modelContext)
-    }
-    
-    /// Alert title depends on whether guide exists
-    private var guideImportAlertTitle: String {
-        isGuideAlreadyImported ? "Replace User Guide?" : "Import User Guide"
-    }
-    
-    /// Button title depends on whether guide exists
-    private var guideImportButtonTitle: String {
-        isGuideAlreadyImported ? "Replace" : "Import"
-    }
-    
-    /// Message depends on whether guide exists
-    private var guideImportMessage: String {
-        if isGuideAlreadyImported {
-            return "This will delete your existing Writing Shed Pro Guide project and import a fresh copy. Any notes you added will be lost."
-        } else {
-            return "This will import the Writing Shed Pro Guide as an example project you can explore and annotate."
-        }
-    }
-    
-    /// Import the bundled User Guide project
-    private func importUserGuide() {
-        do {
-            try UserGuideImportService.importGuide(modelContext: modelContext, replaceExisting: isGuideAlreadyImported)
-        } catch {
-            state.manualImportErrorMessage = error.localizedDescription
-            state.showManualImportError = true
         }
     }
 }

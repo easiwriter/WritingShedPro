@@ -196,6 +196,7 @@ class JSONExportService {
             modifiedDate: project.modifiedDate,
             details: project.details,
             notes: project.notes,
+            author: project.author,
             fictionClass: project.fictionClassRaw,
             useMonomyth: project.useMonomyth,
             storyStructure: project.storyStructureRaw,
@@ -752,6 +753,7 @@ struct WSPProjectData: Codable {
     var modifiedDate: Date?
     var details: String?
     var notes: String?
+    var author: String?
     var fictionClass: String?
     var useMonomyth: Bool = false  // Legacy, kept for backward compatibility
     var storyStructure: String?    // New: StoryStructure raw value

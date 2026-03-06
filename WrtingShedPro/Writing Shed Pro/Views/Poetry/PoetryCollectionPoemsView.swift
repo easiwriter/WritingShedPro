@@ -469,6 +469,7 @@ struct PoetryCollectionPoemsView: View {
         switch format {
         case .rtf: return .rtf
         case .html: return .html
+        case .epub: return UTType(filenameExtension: "epub") ?? .data
         case .word: return UTType("org.openxmlformats.wordprocessingml.document") ?? .data
         case .pdf: return .pdf
         case .plainText: return .plainText

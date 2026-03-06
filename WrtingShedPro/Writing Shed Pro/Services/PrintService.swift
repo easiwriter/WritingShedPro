@@ -1478,6 +1478,9 @@ class PrintService {
             if result.contains("{{Project Name}}") {
                 result = result.replacingOccurrences(of: "{{Project Name}}", with: project.name ?? "")
             }
+            if result.contains("{{Author}}") {
+                result = result.replacingOccurrences(of: "{{Author}}", with: project.author ?? "")
+            }
             return result
         }
         

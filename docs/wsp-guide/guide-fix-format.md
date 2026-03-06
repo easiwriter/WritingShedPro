@@ -24,25 +24,24 @@ text to be added
 -->
 ```
 
+### Creating Text
+
+Instructions about what to create
+
 ```markdown
 <!-- Copilot create
 Instructions for copilot
 -->
 ```
 
-### User Fixes
+### Rewriting Text
 
-When the fix originates from the user rather than Copilot, replace `Copilot` with `User`:
-
-```markdown
-<!-- User remove
-text to be removed
--->
-```
+Instructions about how to rewrite followed by the text to be rewritten:
 
 ```markdown
-<!-- User add
-text to be added
+<!-- Copilot rewrite
+[Instructions for copilot]
+Code to be rewritten
 -->
 ```
 

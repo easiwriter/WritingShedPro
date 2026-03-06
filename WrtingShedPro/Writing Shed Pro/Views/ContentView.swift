@@ -430,6 +430,12 @@ struct ContentView: View {
             print("✅ [ContentView] TOC migration complete")
             #endif
             
+            // Migrate heading styles to bold (Title 1–3, Large Title were not bold previously)
+            StyleSheetService.migrateHeadingStylesToBold(context: modelContext)
+            #if DEBUG
+            print("✅ [ContentView] Heading bold migration complete")
+            #endif
+            
             // One-time fix: Convert user guide files to markdown mode
             migrateUserGuideToMarkdown()
         }

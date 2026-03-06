@@ -110,6 +110,30 @@ final class TextFileUndoManager {
         #endif
     }
     
+    /// Push a command onto the undo stack WITHOUT calling execute()
+    /// PERFORMANCE: Used for typing commands where the text change already happened in UITextView
+    /// and we only need the command for undo support. Avoids expensive side effects like
+    /// encoding the entire attributed string to JSON on every keystroke.
+    func push(_ command: UndoableCommand) {
+        // Flush any typing buffer
+        if typingBuffer != nil {
+            flushTypingBuffer()
+        }
+        
+        // Clear redo stack when new action performed
+        redoStack.removeAll()
+        
+        // Add to undo stack
+        undoStack.append(command)
+        
+        // Trim if exceeds max size
+        if undoStack.count > maxStackSize {
+            undoStack.removeFirst()
+        }
+        
+        updateState()
+    }
+    
     /// Undo the last command
     func undo() {
         // Flush typing buffer before undoing

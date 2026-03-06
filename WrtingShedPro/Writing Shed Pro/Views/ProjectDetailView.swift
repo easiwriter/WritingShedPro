@@ -81,6 +81,8 @@ struct ProjectInfoSheet: View {
     @Binding var showErrorAlert: Bool
     @State private var editedName = ""
     @State private var originalName = ""
+    @State private var authorText = ""
+    @State private var originalAuthor = ""
     @State private var notesText = ""
     @State private var originalNotes = ""
     @State private var selectedStyleSheet: StyleSheet?
@@ -108,6 +110,9 @@ struct ProjectInfoSheet: View {
                 // Discard all changes and close
                 if notesText != originalNotes {
                     project.notes = originalNotes.isEmpty ? nil : originalNotes
+                }
+                if authorText != originalAuthor {
+                    project.author = originalAuthor.isEmpty ? nil : originalAuthor
                 }
                 if editedName != originalName {
                     project.name = originalName
@@ -142,6 +147,8 @@ struct ProjectInfoSheet: View {
                         .font(.caption)
                         .foregroundStyle(.red)
                 }
+                
+                authorField
                 
                 HStack {
                     Text(NSLocalizedString("projectDetail.type", comment: "Field label for project type"))
@@ -186,6 +193,22 @@ struct ProjectInfoSheet: View {
                 }
                 .accessibilityLabel(NSLocalizedString("projectDetail.name", comment: "Field label for project name"))
                 .accessibilityHint("Double tap to edit the project name")
+        }
+    }
+    
+    private var authorField: some View {
+        HStack {
+            Text(NSLocalizedString("projectDetail.author", comment: "Field label for project author"))
+            Spacer()
+            TextField(NSLocalizedString("projectDetail.author.placeholder", comment: "Placeholder for author field"), text: $authorText)
+                .textFieldStyle(.roundedBorder)
+                .multilineTextAlignment(.trailing)
+                .padding(.vertical, 4)
+                .onChange(of: authorText) { oldValue, newValue in
+                    project.author = newValue.isEmpty ? nil : newValue
+                }
+                .accessibilityLabel(NSLocalizedString("projectDetail.author", comment: "Field label for project author"))
+                .accessibilityHint("Double tap to edit the author name")
         }
     }
     
@@ -339,6 +362,8 @@ struct ProjectInfoSheet: View {
     private func initializeFields() {
         notesText = project.notes ?? ""
         originalNotes = project.notes ?? ""
+        authorText = project.author ?? ""
+        originalAuthor = project.author ?? ""
         editedName = project.name ?? ""
         originalName = project.name ?? ""
         nameValidationError = ""
