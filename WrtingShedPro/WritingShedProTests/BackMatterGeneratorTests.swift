@@ -65,10 +65,8 @@ final class BackMatterGeneratorTests: XCTestCase {
         
         XCTAssertNotNil(result)
         let text = result!.string
-        XCTAssertTrue(text.contains("[1]"))
-        XCTAssertTrue(text.contains("[2]"))
-        XCTAssertTrue(text.contains("First endnote content"))
-        XCTAssertTrue(text.contains("Second endnote content"))
+        XCTAssertTrue(text.contains("1: First endnote content"))
+        XCTAssertTrue(text.contains("2: Second endnote content"))
     }
     
     func testGenerateNotesSectionWithGeneralNotes() {
@@ -83,9 +81,8 @@ final class BackMatterGeneratorTests: XCTestCase {
         
         XCTAssertNotNil(result)
         let text = result!.string
-        XCTAssertTrue(text.contains("[Note 1]"))
-        XCTAssertTrue(text.contains("Important Note"))
-        XCTAssertTrue(text.contains("General note content"))
+        XCTAssertTrue(text.contains("Note 1: "))
+        XCTAssertTrue(text.contains("Note 1: General note content"))
     }
     
     func testGenerateNotesSectionMixedTypes() {
@@ -103,8 +100,8 @@ final class BackMatterGeneratorTests: XCTestCase {
         
         XCTAssertNotNil(result)
         let text = result!.string
-        XCTAssertTrue(text.contains("[1]"))
-        XCTAssertTrue(text.contains("[Note 1]"))
+        XCTAssertTrue(text.contains("1: Endnote"))
+        XCTAssertTrue(text.contains("Note 1: General"))
     }
     
     // MARK: - Glossary Section Tests

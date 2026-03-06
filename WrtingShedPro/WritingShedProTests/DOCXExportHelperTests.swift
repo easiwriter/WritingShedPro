@@ -88,7 +88,7 @@ final class DOCXExportHelperTests: XCTestCase {
         
         // Convert to string to check for file paths in the ZIP
         // The ZIP central directory contains the file paths as ASCII
-        let dataString = String(data: data, encoding: .ascii) ?? ""
+        let dataString = String(data: data, encoding: .isoLatin1) ?? ""
         XCTAssertTrue(dataString.contains("word/media/image1.jpeg"), "ZIP should contain image file path")
         XCTAssertTrue(dataString.contains("word/_rels/document.xml.rels"), "ZIP should contain document rels")
     }
