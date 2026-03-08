@@ -70,6 +70,11 @@ struct FolderFilesView: View {
     @State var showExportImageWarning = false
     @State var pendingExportAction: (() -> Void)? = nil
 
+    // State for Copy to Project
+    @State var showCopyToProject = false
+    @State var showCopyResult = false
+    @State var copyResultMessage = ""
+    @State var copyResultIsError = false
     
     // State for search
     @State var showSearchView = false

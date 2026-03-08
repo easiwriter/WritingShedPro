@@ -1869,6 +1869,20 @@
 "export.folder.dialog.title" = "Export Complete Folder";
 "export.folder.dialog.message" = "Export all %d file(s) combined as one document";
 
+// MARK: - Copy to Project
+"export.copyToProject" = "Copy to Project…";
+"copyToProject.title" = "Copy to Project";
+"copyToProject.section.header" = "Copy %d file(s) to:";
+"copyToProject.noProjects.title" = "No Projects Available";
+"copyToProject.noProjects.message" = "There are no other %@ projects to copy to. Create another project of the same type first.";
+"copyToProject.success.title" = "Files Copied";
+"copyToProject.success.single" = "%d file copied";
+"copyToProject.success.multiple" = "%d files copied";
+"copyToProject.success.destination" = "to %@";
+"copyToProject.error.title" = "Copy Failed";
+"copyToProject.error.noFolder" = "Could not find a matching \"%@\" folder in %@.";
+"copyToProject.error.saveFailed" = "Failed to save copied files";
+
 /* Select/Deselect All */
 "fileList.selectAll" = "Select All";
 "fileList.deselectAll" = "Deselect All";

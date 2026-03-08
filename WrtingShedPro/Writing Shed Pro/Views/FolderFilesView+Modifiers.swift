@@ -43,6 +43,19 @@ extension FolderFilesView {
                     )
                 }
             }
+            .sheet(isPresented: $showCopyToProject) {
+                copyToProjectSheet
+            }
+            .alert(
+                copyResultIsError
+                    ? NSLocalizedString("copyToProject.error.title", comment: "Copy Failed")
+                    : NSLocalizedString("copyToProject.success.title", comment: "Files Copied"),
+                isPresented: $showCopyResult
+            ) {
+                Button(NSLocalizedString("button.ok", comment: "OK")) { }
+            } message: {
+                Text(copyResultMessage)
+            }
             .upgradePrompt(reason: $upgradePromptReason)
     }
     
