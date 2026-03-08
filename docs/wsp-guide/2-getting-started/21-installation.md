@@ -81,7 +81,8 @@ Writing Shed Pro works across all your Apple devices:
 
 If you edit the same file on two devices simultaneously:
 - The most recent changes are preserved
-- Earlier changes are saved as a version
+- If you have created multiple versions of a file, each version syncs independently
+
 - No data is ever lost
 
 ## Troubleshooting Installation

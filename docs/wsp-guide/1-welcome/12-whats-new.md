@@ -21,7 +21,7 @@ Welcome to the first release of Writing Shed Pro! Here's everything you can do:
 - Form reference panel while writing
 
 ### Fiction Tools
-- Novel and short fiction project types
+- Novel, short fiction, and verse novel project types
 - Scene and chapter management
 - Plot element tracking with story structure templates
 - Character and location management
@@ -34,7 +34,7 @@ Welcome to the first release of Writing Shed Pro! Here's everything you can do:
 - Scene headings and transitions
 
 ### Publishing
-- PDF and RTF export
+- PDF, RTF, ePub, and DocX export
 - Professional pagination
 - Footnotes with page positioning
 - Printing support on iOS and macOS
@@ -46,57 +46,24 @@ Welcome to the first release of Writing Shed Pro! Here's everything you can do:
 - Regular expression support
 - Replace across multiple files
 
-## Version 1.1
-
 ### Poetry Collections
-- **Poetry Collections are now first-class entities** — dedicated PoetryCollection model with their own names, synopses, and file links
-- **Collections folder** is now exclusive to Poetry projects (removed from Fiction and Short Fiction)
+- Dedicated poetry collections with their own names, synopses, and file links
 - Collections can be added to the manuscript body matter for assembly and export
-- Old submission-based collections are automatically migrated to the new model
 
-### Verse Novel
-- **New fiction class: Verse Novel** — a novel written in verse, organized by Books and Episodes
-- Each episode uses the poetry editor for verse writing
-- Full manuscript assembly with poetry formatting
-- Books and episodes support body matter ordering
-
-### Body Matter
-- **Unified "Body Matter" folder** — all project types now use a single "Body Matter" subfolder inside Manuscript (replaces the old type-specific names like "All Poems", "All Chapters", etc.)
-- **Body Matter view** — add, remove, and reorder items in your manuscript body with a dedicated management interface
-- Poetry collections and fiction books can be included in body matter for manuscript assembly
-- Legacy folder names are automatically renamed during migration
+### Manuscript Body Matter
+- Unified body matter folder for organising your manuscript
+- Add, remove, and reorder items with a dedicated management interface
+- Poetry collections, fiction books, and chapters can be included in body matter
 
 ### Scene Grouping
-- **Fiction scenes grouped by chapter** — when viewing all scenes, they appear in collapsible sections organized by chapter with expand/collapse controls
-- **Drama scenes grouped by act** — same collapsible grouping for drama projects, with scenes organized under their assigned acts
+- Fiction scenes grouped by chapter with collapsible sections and expand/collapse controls
+- Drama scenes grouped by act with the same collapsible grouping
 - Unassigned scenes appear in a separate section
-- Expand/collapse all button in the toolbar for quick navigation
 
-### Notification Reminders
-- **Submission reminders** — set a date-based reminder for any submission to receive a notification
-- **Deadline reminders** — set reminders for publication deadlines (magazines and competitions)
-- Reminders use the system notification center with alert and sound
+### Submission Reminders
+- Date-based reminders for submissions and publication deadlines
+- System notifications with alerts and sound
 - Manage reminders from submission and publication detail views
-
-### Monomyth (Pearson) Story Structure
-- **New Hero's Journey variant** — Carol S. Pearson's framework from *Awakening the Heroes Within*
-- Three phases: Preparation, Journey, and Return
-- Twelve character archetypes (Innocent, Orphan, Warrior, Caregiver, Seeker, Destroyer, Lover, Creator, Ruler, Magician, Sage, Jester) grouped by phase
-- When Pearson is selected, the character archetype picker shows Pearson's twelve archetypes instead of Vogler's eight
-
-### Other Improvements
-- Improved manuscript assembly for all project types
-- Migration service ensures smooth upgrades from version 1.0
-- CloudKit-safe migration (idempotent, no data loss)
-
-## Coming Soon
-
-We're continually improving Writing Shed Pro. Features in development include:
-
-- Markdown import and export
-- WSP Reader companion app
-- Enhanced collaboration tools
-- Additional export formats
 
 ## See Also
 - [Introduction](11-introduction.md)

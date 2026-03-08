@@ -14,9 +14,8 @@ When you launch Writing Shed Pro, you see the **Project List**. This is your hom
 
 ### Project Actions
 - **Tap** a project to open it
-- **Swipe left** to delete
-- **Long-press** for more options (rename, duplicate, details)
-
+- **Tap the ⋯ button** for project options (details, page setup, stylesheet, export)
+- **Tap Edit** then select projects to delete or reorder
 ## Inside a Project
 
 Tapping a project opens its folder structure. The layout adapts to your device:
@@ -24,35 +23,35 @@ Tapping a project opens its folder structure. The layout adapts to your device:
 ### iPhone Layout
 - **Single-column navigation**: Tap folders to drill down
 - **Back button**: Return to previous level
-- **Long-press back button**: Jump directly to the project root
-
-### iPad and Mac Layout
-- **Sidebar**: Shows folder hierarchy
-- **Content area**: Shows selected folder's contents or file editor
-- **Optional inspector**: Shows details about selected items
 
 ## The Toolbar
 
 The toolbar appears at the top of most screens and provides context-specific actions.
 
+### Project List Toolbar
+- **Settings (⚙)**: Open application settings
+- **Help (?)**: Open the user guide
+- **Add (+)**: Create a new project
+- **Sort**: Change project sort order
+- **Edit**: Enter edit mode for deleting or reordering projects
+
 ### Project View Toolbar
 - **Back arrow**: Return to project list
-- **Project name**: Tap to edit
-- **Gear icon**: Project settings
-- **Question mark**: Open user guide
+- **Project name**: Tap to rename
+- **⋯ (ellipsis)**: Project options (details, page setup, stylesheet, export)
 
-### Folder View Toolbar
-- **Back arrow**: Return to parent folder
-- **Folder name**: Current location
-- **Add (+)**: Create files
-- **Edit**: Enter edit mode for reordering and deletion
-- **Sort**: Change sort order
+### File List Toolbar
+- **Back arrow**: Return to project
+- **Add (+)**: Create new files
+- **Edit**: Enter edit mode for selecting, deleting, or changing file status
+- **Sort**: Change sort order (Name, Date Modified)
 
 ### File Editor Toolbar
-- **Back arrow**: Return to folder
-- **File name**: Tap to rename
-- **Formatting toolbar**: Text styling options
-- **More (...)**: Additional actions
+- **Back arrow**: Return to file list
+- **File name**: Displayed in the navigation bar
+- **Undo / Redo**: Step through changes
+- **⋯ (ellipsis)**: Additional actions (page preview, invisibles, insert options, print)
+
 
 ## The Formatting Toolbar
 
@@ -60,12 +59,18 @@ When editing text, a formatting toolbar appears above the keyboard:
 
 | Button | Function |
 |--------|----------|
+| **⇥** | Insert tab (iPhone only, hidden with external keyboard) |
 | **¶** | Paragraph style picker (Body, Heading 1-3, etc.) |
+| **🖼** | Image settings (enabled when an image is selected) |
+| **📋** | Notes (footnotes, comments, and other annotations) |
 | **B** | Bold |
 | *I* | Italic |
 | **U** | Underline |
 | **S̶** | Strikethrough |
-| **⊕** | Insert menu (images, footnotes, comments) |
+| **1.** | Numbered list |
+| **•** | Bulleted list |
+| **⌨↓** | Hide keyboard (iPhone only) |
+
 
 ### Paragraph Style Picker
 Tap **¶** to see available paragraph styles:
@@ -76,13 +81,22 @@ Tap **¶** to see available paragraph styles:
 - Footnote
 - And more...
 
+At the top of the paragraph style list, an **Edit** button opens the Stylesheet Editor where you can customise fonts, sizes, spacing, and other formatting for each style. See [Stylesheet Editor](../10-tools/102-stylesheet-editor.md) for details.
+
 Tap a style to apply it to the current paragraph.
 
 ### Insert Menu
-Tap **⊕** to insert:
+Tap the insert button in the navigation bar to add content to your document:
 - **Image**: Add a photo or illustration
-- **Footnote**: Create a numbered footnote
 - **Comment**: Add a revision note
+- **Footnote**: Create a numbered footnote
+- **Endnote**: Add an endnote (when enabled in manuscript settings)
+- **Glossary Term**: Add a glossary entry (when enabled in manuscript settings)
+- **Reference**: Add a reference (when enabled in manuscript settings)
+- **Index Entry**: Mark text for the index (when enabled in manuscript settings)
+- **List**: Insert a numbered or bulleted list
+- **Page Break**: Insert a manual page break
+
 
 ## The Text Selection Menu
 
@@ -112,9 +126,6 @@ When you select text by double-tapping or dragging, a menu appears:
 - **Preview Mode**: See formatted output (film or stage format)
 
 ## Navigation Shortcuts
-
-### Long-Press Back Button
-From any nested view, long-press the back button to see the navigation stack. Tap any level to jump directly there, or hold to return to the project root.
 
 ### Keyboard Shortcuts (Mac and iPad with keyboard)
 - **⌘N**: New file

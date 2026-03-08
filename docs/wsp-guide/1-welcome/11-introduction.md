@@ -14,7 +14,7 @@ Keep all your writing organized in projects. Each project contains folders and f
 ### Specialized Project Types
 - **Prose**: General-purpose writing for essays, articles, and more
 - **Poetry**: Smart poetry tools with syllable counting, rhyme detection, and form templates
-- **Fiction**: Scene and chapter management with plot outlining
+- **Fiction**: Novel, short fiction, and verse novel project types with scene and chapter management, plot outlining, and character tracking
 - **Drama**: Script formatting with automatic dialogue layout
 
 ### Professional Writing Tools

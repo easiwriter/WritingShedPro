@@ -27,7 +27,7 @@ You can't change a project's type after creation, so choose the one that best fi
 1. From the project list, tap the **+** button in the toolbar
 2. Enter a **project name** (you can change this later)
 3. Select a **project type** from the dropdown
-4. For Fiction projects, choose **Novel** or **Short Fiction**
+4. For Fiction projects, choose **Novel**, **Short Fiction**, or **Verse Novel**
 5. For Fiction and Drama, optionally select a **story structure**:
    - Freeform (no predefined structure)
    - Three-Act
@@ -42,10 +42,12 @@ Your new project opens automatically.
 
 Every project starts with standard folders:
 
-### Common Folders (All Project Types)
+### Workflow Status (All Project Types)
+Every file has a workflow status that determines where it appears:
 - **Draft**: Works in progress
-- **Ready**: Completed pieces ready for publication
-- **Set Aside**: Items you're not currently working on
+- **Ready**: Completed and polished
+- **Set Aside**: Parked for later
+- **Published**: Accepted or published work
 - **Trash**: Deleted items (restorable until emptied)
 
 ### Poetry & Short Fiction Additions
@@ -59,17 +61,44 @@ Every project starts with standard folders:
 - **Characters**: Define character profiles
 - **Locations**: Define story settings
 
+### Short Fiction Additions
+- **Collections**: Group related stories together
+- **Publications**: Track magazines and competitions
+- **Submissions**: Track what you've sent where
+
+### Novel Additions
+- **Chapters**: Organise scenes into chapters
+- **Plot Elements**: Track story beats and plot points
+- **Characters**: Define character profiles
+- **Locations**: Define story settings
+
+### Verse Novel Additions
+- **Books and Episodes**: Organise your verse novel by books and episodes
+- Each episode uses the poetry editor for verse writing
+- **Plot Elements**: Track story beats and plot points
+- **Characters**: Define character profiles
+- **Locations**: Define story settings
+
+### Drama Additions
+- **Acts**: Organise scenes into acts
+- **Plot Elements**: Track story beats and plot points
+- **Characters**: Define character profiles
+- **Locations**: Define story settings
+
 ## Project Settings
 
 After creating a project, you can customize its settings:
 
-1. From the project's main view, tap the **gear** icon or **Project Settings**
+1. From the project list, tap the **⋯** (ellipsis) button next to the project name, then tap **Show Project Details**
 2. Available settings include:
    - **Name**: Rename your project
-   - **Details**: Add a description or notes
+   - **Author**: Set the project author
+   - **Notes**: Add project notes
+   - **Stylesheet**: Choose or change the formatting stylesheet
    - **Story Structure** (Fiction/Drama): Change the structure template
-   - **Format** (Drama): Choose Film or Stage output
-
+   - **Page Setup**: Configure page size, margins, headers and footers
+   - **Export**: Export the project as a `.wsp` archive
+   
 ## Working with Multiple Projects
 
 You can have as many projects as you need. The project list shows all your projects with options to:
@@ -83,6 +112,7 @@ You can have as many projects as you need. The project list shows all your proje
 2. Choose:
    - **Name**: Alphabetical order
    - **Date Created**: Newest or oldest first
+   - **Date Modified**: Newest or oldest first
    - **User's Order**: Your custom arrangement
 
 ### Custom Order
@@ -106,11 +136,14 @@ Name projects clearly: "Spring 2026 Poems" is better than "Poems." You can alway
 
 To delete a project:
 
-1. From the project list, swipe left on the project
-2. Tap **Delete**
-3. Confirm the deletion
+1. From the project list, tap **Edit** in the toolbar
+2. Select the project(s) you want to delete
+3. Tap **Delete** to move the project to the trash
+4. To permanently remove a project, open the Trash and choose **Delete Forever**
 
-**Warning**: Deleting a project removes all its files. This action cannot be undone. Consider exporting important work before deleting.
+Alternatively, swipe left on a project in the list and tap **Delete**.
+
+**Warning**: Deleting a project forever permanently removes all its files. This action cannot be undone. Consider exporting important work before deleting.
 
 ## See Also
 - [Project Types Overview](../3-projects/31-project-types-overview.md)

@@ -11,29 +11,32 @@ When you first open Writing Shed Pro, you'll see an empty project list.
 3. Choose a project type:
    - **Prose** for general writing
    - **Poetry** for poems and verse
-   - **Fiction** for stories and novels
+   - **Fiction** for stories and novels — then choose **Novel**, **Short Fiction**, or **Verse Novel**
    - **Drama** for scripts and plays
-4. Tap **Create**
+4. Optionally select a **story structure** for Fiction and Drama projects (Freeform, Three-Act, Monomyth, or Hero's Inner Journey). See [Fiction Mode Overview](../7-fiction-features/71-fiction-mode-overview.md) for details.
+5. Choose a **stylesheet** to control formatting when you export or print. See [Stylesheet Editor](../10-tools/102-stylesheet-editor.md) for details.
+6. Tap **Create**
 
 Your new project appears in the list. Tap it to open.
 
-## Step 2: Understand the Folder Structure
+## Step 2: Understand Workflow Status
 
-Every project starts with a standard folder structure:
+Every file in your project has a workflow status that organises it automatically:
 
 - **Draft** – Works in progress
-- **Ready** – Completed pieces
-- **Set Aside** – Items you're not currently working on
+- **Ready** – Completed and polished
+- **Set Aside** – Parked for later
+- **Published** – Accepted or published work
 - **Trash** – Deleted items (can be restored)
 
 Poetry and short fiction projects also include:
-- **Collections** – Groups of files for organization
+- **Collections** – Group related files together
 - **Publications** – Magazines and competitions you submit to
 - **Submissions** – Track what you've sent where
 
 ## Step 3: Create Your First File
 
-1. Tap the **Draft** folder to open it
+1. Open your project
 2. Tap the **+** button
 3. Enter a title for your file
 4. Tap **Create**
@@ -52,16 +55,16 @@ Start typing. The editor works like any word processor:
 
 The formatting toolbar provides quick access to:
 
-- **⇥** – Insert/remove tab indent
-- **¶** – Change paragraph style (Body, Heading, etc.)
-- **🖼** – Image settings (resize, caption)
-- **📝** – Insert note (footnote or comment)
+- **⇥** – Insert tab (iPhone only, hidden with external keyboard)
+- **¶** – Paragraph style picker (Body, Heading, etc.)
+- **🖼** – Image settings (enabled when an image is selected)
+- **📋** – Notes (footnotes, comments, and other annotations)
 - **B** – Bold
 - *I* – Italic
 - **U** – Underline
 - **S̶** – Strikethrough
 - **1.** / **•** – Numbered and bulleted lists
-- **⌨↓** – Hide keyboard
+- **⌨↓** – Hide keyboard (iPhone only)
 
 ## Step 5: Save Your Work
 
@@ -71,7 +74,7 @@ Writing Shed Pro auto-saves continuously. Every change is preserved automaticall
 - Your work is always backed up
 - No "Save" button needed
 
-To see your save history, look at file versions in the file details view.
+To see your save history, look at file versions in the file details view. The version toolbar appears at the top of the editor, showing which version you're viewing. Use the arrow buttons to navigate between versions, or tap **+** to create a new version.
 
 ## Step 6: Organize Your Work
 
@@ -83,6 +86,7 @@ Every file has a status that tracks where it is in your writing process:
 - **Draft** – Work in progress
 - **Ready** – Completed and polished
 - **Set Aside** – Parked for later
+- **Published** – Accepted or published
 
 ### Changing Status
 1. Tap **Edit** in the file list toolbar
