@@ -2530,12 +2530,12 @@ struct FileEditView: View {
             return
         }
         
-        // Capture the text for background processing
-        let text = attributedContent.string
+        // Capture the attributed text for background processing (needs section markers to extract poem body)
+        let attrText = NSAttributedString(attributedString: attributedContent)
         
         // Run validation on a background queue
         DispatchQueue.global(qos: .userInitiated).async {
-            let validation = PoetryValidator.shared.validate(text: text, against: form)
+            let validation = PoetryValidator.shared.validate(attributedText: attrText, against: form)
             let issueCount = validation.hasIssues ? validation.issueCount : 0
             
             // Update UI on main queue
