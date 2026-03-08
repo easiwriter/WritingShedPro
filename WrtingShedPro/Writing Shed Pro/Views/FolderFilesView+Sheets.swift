@@ -244,6 +244,7 @@ extension FolderFilesView {
         // Collect all existing names in the destination (including names assigned to earlier copies in this batch)
         var usedNames = Set((destFolder.textFiles ?? []).map { $0.name })
         var copiedCount = 0
+        var copiedFiles: [TextFile] = []
         
         for file in files {
             guard let currentVersion = file.currentVersion else { continue }
@@ -284,7 +285,32 @@ extension FolderFilesView {
             newFile.userOrder = maxOrder + 1 + copiedCount
             
             modelContext.insert(newFile)
+            copiedFiles.append(newFile)
             copiedCount += 1
+        }
+        
+        // For poetry projects, create a new collection and assign copied files to it
+        if destination.type == .poetry && !copiedFiles.isEmpty {
+            let sourceProjectName = folder.project?.name ?? NSLocalizedString("common.untitled", comment: "Untitled")
+            let collectionName = generateUniqueCollectionName(baseName: sourceProjectName, in: destination)
+            
+            let existingCollections = destination.poetryCollections ?? []
+            let nextOrder = (existingCollections.compactMap { $0.userOrder }.max() ?? -1) + 1
+            let existingBodyOrders = existingCollections.filter { $0.isInBodyMatter }.compactMap { $0.bodyMatterOrder }
+            let nextBodyOrder = (existingBodyOrders.max() ?? -1) + 1
+            
+            let collection = PoetryCollection(
+                name: collectionName,
+                userOrder: nextOrder
+            )
+            collection.project = destination
+            collection.isInBodyMatter = true
+            collection.bodyMatterOrder = nextBodyOrder
+            modelContext.insert(collection)
+            
+            for copiedFile in copiedFiles {
+                copiedFile.addToPoetryCollection(collection)
+            }
         }
         
         do {
@@ -340,6 +366,24 @@ extension FolderFilesView {
         }
         // Safety fallback
         return "\(name) \(UUID().uuidString.prefix(6))"
+    }
+    
+    /// Generate a unique collection name for the destination project.
+    /// Uses the source project name, appending a suffix if a collection with that name already exists.
+    private func generateUniqueCollectionName(baseName: String, in project: Project) -> String {
+        let existingNames = Set((project.poetryCollections ?? []).compactMap { $0.name })
+        if !existingNames.contains(baseName) {
+            return baseName
+        }
+        var counter = 2
+        while counter <= 1000 {
+            let candidate = "\(baseName) \(counter)"
+            if !existingNames.contains(candidate) {
+                return candidate
+            }
+            counter += 1
+        }
+        return "\(baseName) \(UUID().uuidString.prefix(6))"
     }
     
     // MARK: - Header/Footer Dialog

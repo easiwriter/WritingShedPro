@@ -538,7 +538,7 @@ class MigrationService {
         }
         
         let collection = PoetryCollection(
-            name: NSLocalizedString("poetry.collection.default", comment: "Collection 1"),
+            name: String(format: NSLocalizedString("poetry.collection.defaultTitle", comment: "Collection 1"), 1),
             userOrder: 0
         )
         collection.project = project
