@@ -490,8 +490,10 @@ class MigrationService {
         )
         
         guard let oldCollections = try? context.fetch(descriptor), !oldCollections.isEmpty else {
-            // No old collections — create a default "Collection 1" with all poems
-            createDefaultPoetryCollection(project: project, context: context)
+            // No old collections to migrate — this is fine, poems without collections is valid
+            #if DEBUG
+            print("  ↳ No old collections to migrate for \(project.name ?? "Untitled"), skipping")
+            #endif
             return
         }
         
@@ -525,37 +527,6 @@ class MigrationService {
         }
     }
     
-    /// Create a default "Collection 1" containing all poems from the Poems folder
-    private static func createDefaultPoetryCollection(project: Project, context: ModelContext) {
-        let poemsFolder = project.folders?.first { $0.name == "Poems" }
-        let poems = poemsFolder?.textFiles ?? []
-        
-        guard !poems.isEmpty else {
-            #if DEBUG
-            print("  ↳ No poems found for default collection in \(project.name ?? "Untitled")")
-            #endif
-            return
-        }
-        
-        let collection = PoetryCollection(
-            name: String(format: NSLocalizedString("poetry.collection.defaultTitle", comment: "Collection 1"), 1),
-            userOrder: 0
-        )
-        collection.project = project
-        collection.isInBodyMatter = true
-        collection.bodyMatterOrder = 0
-        context.insert(collection)
-        
-        // Assign all poems to the default collection
-        let sortedPoems = poems.sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
-        for poem in sortedPoems {
-            poem.poetryCollection = collection
-        }
-        
-        #if DEBUG
-        print("  ↳ Created default 'Collection 1' with \(sortedPoems.count) poems in \(project.name ?? "Untitled")")
-        #endif
-    }
     
     // MARK: - Task 8.3: Reposition Collections Folder (Poetry)
     

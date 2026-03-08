@@ -43,6 +43,12 @@ struct CollectionDetailView: View {
     @State private var showExportImageWarning = false
     @State private var pendingExportAction: (() -> Void)?
     
+    // Copy to Project state
+    @State private var showCopyToProject = false
+    @State private var showCopyResult = false
+    @State private var copyResultMessage = ""
+    @State private var copyResultIsError = false
+    
     // Edit mode state
     @State private var editMode: EditMode = .inactive
     @State private var selectedFileIDs: Set<UUID> = []
@@ -296,6 +302,31 @@ struct CollectionDetailView: View {
                 }
             }
         )
+        .sheet(isPresented: $showCopyToProject) {
+            if let project = submission.project {
+                CopyToProjectPickerView(
+                    sourceProject: project,
+                    filesToCopy: filesToCopyToProject,
+                    onProjectSelected: { destinationProject in
+                        showCopyToProject = false
+                        copyFilesToProject(filesToCopyToProject, destination: destinationProject)
+                    },
+                    onCancel: {
+                        showCopyToProject = false
+                    }
+                )
+            }
+        }
+        .alert(
+            copyResultIsError
+                ? NSLocalizedString("copyToProject.error.title", comment: "Copy Failed")
+                : NSLocalizedString("copyToProject.success.title", comment: "Files Copied"),
+            isPresented: $showCopyResult
+        ) {
+            Button(NSLocalizedString("button.ok", comment: "OK")) { }
+        } message: {
+            Text(copyResultMessage)
+        }
     }
     
     // MARK: - Export
@@ -306,6 +337,16 @@ struct CollectionDetailView: View {
     
     @ViewBuilder
     private var exportDialogButtons: some View {
+        if submission.project != nil {
+            Button {
+                showExportMenu = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    showCopyToProject = true
+                }
+            } label: {
+                Label(NSLocalizedString("export.copyToProject", comment: "Copy to Project…"), systemImage: "doc.on.doc")
+            }
+        }
         Button(ExportFormat.pdf.localizedName) {
             exportCollectionFiles(format: .pdf)
         }
@@ -454,6 +495,123 @@ struct CollectionDetailView: View {
         case .fountain: return UTType(filenameExtension: "fountain") ?? .plainText
         case .finalDraft: return UTType(filenameExtension: "fdx") ?? .xml
         }
+    }
+    
+    // MARK: - Copy to Project
+    
+    /// TextFiles to copy — uses edit mode selection if active, otherwise all files.
+    private var filesToCopyToProject: [TextFile] {
+        let files: [SubmittedFile]
+        if editMode == .active && !selectedFileIDs.isEmpty {
+            files = submittedFiles.filter { selectedFileIDs.contains($0.id) }
+        } else {
+            files = submittedFiles
+        }
+        return files.compactMap { $0.textFile }
+    }
+    
+    /// Copy files to a destination project, placing them in the matching folder by name.
+    private func copyFilesToProject(_ files: [TextFile], destination: Project) {
+        guard !files.isEmpty else { return }
+        
+        let sourceFolderName = submission.project?.folders?.first(where: { FolderCapabilityService.canAddFile(to: $0) })?.name ?? "Files"
+        let destinationFolder = findMatchingFolder(in: destination, named: sourceFolderName)
+        
+        guard let destFolder = destinationFolder else {
+            copyResultMessage = String(format: NSLocalizedString("copyToProject.error.noFolder", comment: "No matching folder found"), sourceFolderName, destination.name ?? "")
+            copyResultIsError = true
+            showCopyResult = true
+            return
+        }
+        
+        var usedNames = Set((destFolder.textFiles ?? []).map { $0.name })
+        var copiedCount = 0
+        let maxSceneOrder = (destination.type == .fiction || destination.type == .drama)
+            ? (destination.scenes ?? []).filter({ !$0.isTrashed }).compactMap(\.userOrder).max() ?? -1
+            : 0
+        
+        for file in files {
+            guard let currentVersion = file.currentVersion else { continue }
+            
+            let uniqueName = generateUniqueName(for: file.name, usedNames: usedNames)
+            usedNames.insert(uniqueName)
+            
+            let newFile = TextFile(
+                name: uniqueName,
+                initialContent: currentVersion.content,
+                parentFolder: destFolder,
+                poetryFormId: file.poetryFormId,
+                poetryFormName: file.poetryFormName
+            )
+            
+            newFile.workflowStatusRaw = file.workflowStatusRaw
+            newFile.contentTypeRaw = file.contentTypeRaw
+            
+            if let formattedData = currentVersion.formattedContent,
+               let newVersion = newFile.currentVersion {
+                newVersion.formattedContent = formattedData
+            }
+            
+            if let refMetadata = currentVersion.referenceMetadataData,
+               let newVersion = newFile.currentVersion {
+                newVersion.referenceMetadataData = refMetadata
+            }
+            
+            let maxOrder = (destFolder.textFiles ?? []).compactMap { $0.userOrder }.max() ?? -1
+            newFile.userOrder = maxOrder + 1 + copiedCount
+            
+            modelContext.insert(newFile)
+            
+            // For Fiction/Drama projects, create a StoryScene linked to the TextFile
+            if destination.type == .fiction || destination.type == .drama {
+                let scene = StoryScene(name: uniqueName, userOrder: maxSceneOrder + 1 + copiedCount)
+                scene.project = destination
+                scene.textFile = newFile
+                modelContext.insert(scene)
+            }
+            
+            copiedCount += 1
+        }
+        
+        do {
+            try modelContext.save()
+            let format = copiedCount == 1
+                ? NSLocalizedString("copyToProject.success.single", comment: "1 file copied")
+                : NSLocalizedString("copyToProject.success.multiple", comment: "%d files copied")
+            copyResultMessage = String(format: format, copiedCount) + " " + String(format: NSLocalizedString("copyToProject.success.destination", comment: "to project"), destination.name ?? "")
+            copyResultIsError = false
+            showCopyResult = true
+        } catch {
+            copyResultMessage = NSLocalizedString("copyToProject.error.saveFailed", comment: "Save failed") + ": \(error.localizedDescription)"
+            copyResultIsError = true
+            showCopyResult = true
+        }
+    }
+    
+    private func findMatchingFolder(in project: Project, named sourceName: String) -> Folder? {
+        guard let folders = project.folders else { return nil }
+        
+        if let match = folders.first(where: { $0.name == sourceName }) {
+            return match
+        }
+        
+        let contentFolderNames: Set<String> = ["Poems", "Scenes", "Stories", "Episodes", "Scripts", "Sections", "Prose"]
+        if let contentFolder = folders.first(where: { contentFolderNames.contains($0.name ?? "") }) {
+            return contentFolder
+        }
+        
+        return folders.first(where: { FolderCapabilityService.canAddFile(to: $0) })
+    }
+    
+    private func generateUniqueName(for name: String, usedNames: Set<String>) -> String {
+        if !usedNames.contains(name) { return name }
+        var counter = 2
+        while counter <= 1000 {
+            let candidate = "\(name) \(counter)"
+            if !usedNames.contains(candidate) { return candidate }
+            counter += 1
+        }
+        return "\(name) \(UUID().uuidString.prefix(6))"
     }
     
     // MARK: - Printing

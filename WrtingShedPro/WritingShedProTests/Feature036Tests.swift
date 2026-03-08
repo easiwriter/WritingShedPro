@@ -668,11 +668,9 @@ final class Feature036Tests: XCTestCase {
         
         MigrationService.migrateFeature036(context: modelContext)
         
-        // Should create a default collection with both poems
+        // Should NOT create a default collection — poems without collections is valid
         let collections = project.poetryCollections ?? []
-        XCTAssertEqual(collections.count, 1)
-        XCTAssertTrue(collections.first?.isInBodyMatter ?? false)
-        XCTAssertEqual(collections.first?.textFiles?.count, 2)
+        XCTAssertEqual(collections.count, 0)
     }
     
     func testMigrationMigratesOldSubmissionCollections() throws {

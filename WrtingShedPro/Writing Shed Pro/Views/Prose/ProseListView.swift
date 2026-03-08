@@ -73,6 +73,12 @@ struct ProseListView: View {
     @State private var showExportImageWarning = false
     @State private var pendingExportAction: (() -> Void)?
     
+    /// Copy to Project state
+    @State private var showCopyToProject = false
+    @State private var showCopyResult = false
+    @State private var copyResultMessage = ""
+    @State private var copyResultIsError = false
+    
     /// Search state
     @State private var showSearchView = false
     
@@ -325,6 +331,31 @@ struct ProseListView: View {
                 defaultFilename: exportFilename,
                 onCompletion: handleExportResult
             )
+            .sheet(isPresented: $showCopyToProject) {
+                CopyToProjectPickerView(
+                    sourceProject: project,
+                    filesToCopy: filesToExport,
+                    onProjectSelected: { destinationProject in
+                        showCopyToProject = false
+                        copyFilesToProject(filesToExport, destination: destinationProject)
+                        filesToExport = []
+                    },
+                    onCancel: {
+                        showCopyToProject = false
+                        filesToExport = []
+                    }
+                )
+            }
+            .alert(
+                copyResultIsError
+                    ? NSLocalizedString("copyToProject.error.title", comment: "Copy Failed")
+                    : NSLocalizedString("copyToProject.success.title", comment: "Files Copied"),
+                isPresented: $showCopyResult
+            ) {
+                Button(NSLocalizedString("button.ok", comment: "OK")) { }
+            } message: {
+                Text(copyResultMessage)
+            }
             .confirmationDialog(
                 deleteConfirmationTitle,
                 isPresented: $showDeleteConfirmation,
@@ -588,15 +619,26 @@ struct ProseListView: View {
     
     @ViewBuilder
     private var exportDialogButtons: some View {
-        Button(NSLocalizedString("export.format.rtf", comment: "RTF")) {
+        Button {
+            showExportMenu = false
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                showCopyToProject = true
+            }
+        } label: {
+            Label(NSLocalizedString("export.copyToProject", comment: "Copy to Project…"), systemImage: "doc.on.doc")
+        }
+        Button(ExportFormat.pdf.localizedName) {
+            exportFiles(filesToExport, format: .pdf)
+        }
+        Button(ExportFormat.rtf.localizedName) {
             let files = filesToExport
             pendingExportAction = { [self] in exportFiles(files, format: .rtf) }
             showImageWarningAfterDelay()
         }
-        Button(NSLocalizedString("export.format.html", comment: "HTML")) {
+        Button(ExportFormat.html.localizedName) {
             exportFiles(filesToExport, format: .html)
         }
-        Button(NSLocalizedString("export.format.docx", comment: "Word")) {
+        Button(ExportFormat.word.localizedName) {
             exportFiles(filesToExport, format: .word)
         }
         Button(ExportFormat.markdown.localizedName) {
@@ -705,6 +747,16 @@ struct ProseListView: View {
                 showSubmissionNamePrompt = true
             } label: {
                 Label(NSLocalizedString("fileList.addToSubmission", comment: "Add to submission"), systemImage: "tray.and.arrow.down")
+            }
+        }
+        
+        // Export button
+        if !selectedFiles.isEmpty {
+            Button {
+                filesToExport = selectedFiles
+                showExportMenu = true
+            } label: {
+                Label(NSLocalizedString("fileList.export", comment: "Export files"), systemImage: "square.and.arrow.up")
             }
         }
         
@@ -1036,103 +1088,148 @@ struct ProseListView: View {
     }
     
     private func exportFiles(_ files: [TextFile], format: ExportFormat) {
-        guard let file = files.first else { return }
+        self.exportFormat = format
+        guard !files.isEmpty else { return }
         
-        #if DEBUG
-        print("[ProseListView] Export requested for '\(file.name)' as \(format.rawValue)")
-        #endif
+        var attributedStrings: [NSAttributedString] = []
         
-        exportFormat = format
+        for file in files {
+            guard let version = file.currentVersion else { continue }
+            var content: NSAttributedString
+            if let formatted = version.attributedContent {
+                content = formatted
+            } else if !version.content.isEmpty {
+                content = NSAttributedString(
+                    string: version.content,
+                    attributes: [.font: UIFont.preferredFont(forTextStyle: .body)]
+                )
+            } else {
+                continue
+            }
+            
+            if file.isMarkdown && format != .markdown && format != .plainText {
+                if let rendered = try? MarkdownImportService.importMarkdown(from: content.string, styleSheet: file.project?.styleSheet) {
+                    content = rendered
+                }
+            }
+            
+            attributedStrings.append(content)
+        }
         
-        // Get the current version to access content
-        guard let version = file.currentVersion else {
-            importErrorMessage = NSLocalizedString("export.error.noContent", comment: "File has no content to export")
-            showImportError = true
+        guard !attributedStrings.isEmpty else {
             filesToExport = []
             return
         }
         
-        // Get the content to export
-        var content: NSAttributedString
-        if let attributedContent = version.attributedContent {
-            content = attributedContent
-        } else if !version.content.isEmpty {
-            content = NSAttributedString(
-                string: version.content,
-                attributes: [.font: UIFont.preferredFont(forTextStyle: .body)]
-            )
-        } else {
-            importErrorMessage = NSLocalizedString("export.error.noContent", comment: "File has no content to export")
-            showImportError = true
+        // Single file: direct export
+        if attributedStrings.count == 1, let firstFile = files.first {
+            performSingleFileExport(format: format, content: attributedStrings[0], filename: firstFile.name)
             filesToExport = []
             return
         }
         
-        // For markdown files exporting to rich text formats, render markdown to rich text first
-        if file.isMarkdown && format != .markdown && format != .plainText {
+        // Multiple files: combined export
+        let filename = project.name ?? "Export"
+        
+        Task {
             do {
-                let styleSheet = file.project?.styleSheet
-                content = try MarkdownImportService.importMarkdown(from: content.string, styleSheet: styleSheet)
-                #if DEBUG
-                print("📝 [ProseListView] Rendered markdown to rich text for '\(file.name)'")
-                #endif
+                let data: Data
+                switch format {
+                case .pdf:
+                    let assembled = NSMutableAttributedString()
+                    var isFirst = true
+                    for attrStr in attributedStrings {
+                        if !isFirst {
+                            assembled.append(NSAttributedString(string: "\u{000C}"))
+                        }
+                        isFirst = false
+                        assembled.append(attrStr)
+                    }
+                    let manuscriptContent = ManuscriptContent(
+                        attributedString: assembled,
+                        sections: [],
+                        fileOffsets: [:],
+                        frontMatterFileCount: 0,
+                        frontMatterCharacterLength: 0,
+                        assembledFootnotes: []
+                    )
+                    guard let pdfData = PrintService.generatePDF(
+                        from: manuscriptContent,
+                        project: project,
+                        pageSetup: project.pageSetup,
+                        context: modelContext
+                    ) else { return }
+                    data = pdfData
+                case .rtf:
+                    data = try WordDocumentService.exportMultipleToRTF(attributedStrings, filename: filename)
+                case .html:
+                    data = try HTMLExportService.exportMultipleToHTMLData(attributedStrings, filename: filename)
+                case .word:
+                    let exportService = DOCXExportService(modelContext: modelContext)
+                    data = try exportService.exportMultipleToDOCX(attributedStrings, filename: filename)
+                case .markdown:
+                    data = try MarkdownExportService.exportMultipleToMarkdownData(attributedStrings, filename: filename)
+                default:
+                    return
+                }
+                
+                await MainActor.run {
+                    exportData = data
+                    exportFilename = "\(filename).\(format.fileExtension)"
+                    showExportSaveDialog = true
+                }
             } catch {
                 #if DEBUG
-                print("⚠️ [ProseListView] Failed to render markdown for '\(file.name)': \(error)")
+                await MainActor.run {
+                    print("❌ [ProseListView] Multi-file export failed: \(error)")
+                }
                 #endif
             }
         }
         
-        performSingleFileExport(format: format, content: content, filename: file.name)
         filesToExport = []
     }
     
     private func performSingleFileExport(format: ExportFormat, content: NSAttributedString, filename: String) {
-        #if DEBUG
-        print("📤 [ProseListView] performSingleFileExport called")
-        print("   format: \(format)")
-        print("   filename: \(filename)")
-        print("   content length: \(content.length)")
-        #endif
-        
         do {
             switch format {
+            case .pdf:
+                let assembled = NSMutableAttributedString()
+                assembled.append(content)
+                let manuscriptContent = ManuscriptContent(
+                    attributedString: assembled,
+                    sections: [],
+                    fileOffsets: [:],
+                    frontMatterFileCount: 0,
+                    frontMatterCharacterLength: 0,
+                    assembledFootnotes: []
+                )
+                guard let pdfData = PrintService.generatePDF(
+                    from: manuscriptContent,
+                    project: project,
+                    pageSetup: project.pageSetup,
+                    context: modelContext
+                ) else { return }
+                exportData = pdfData
             case .rtf:
                 exportData = try WordDocumentService.exportToRTF(content, filename: filename)
             case .html:
                 exportData = try HTMLExportService.exportToHTMLData(content, filename: filename)
-            // EPUB only supported for manuscript export
-            // case .epub:
-            //     exportData = try EPUBExportService.exportToEPUB(content, filename: filename)
-            case .epub:
-                return
             case .word:
                 let exportService = DOCXExportService(modelContext: modelContext)
                 exportData = try exportService.exportToDOCX(content, filename: filename)
             case .markdown:
                 exportData = try MarkdownExportService.exportToMarkdownData(content, filename: filename)
-            case .pdf, .plainText, .fountain, .finalDraft:
-                #if DEBUG
-                print("   ❌ Format not supported for single file export")
-                #endif
+            default:
                 return
             }
             
             exportFilename = "\(filename).\(format.fileExtension)"
-            
-            #if DEBUG
-            print("   ✅ Export data prepared: \(exportData?.count ?? 0) bytes")
-            print("   Setting showExportSaveDialog = true")
-            #endif
-            
             showExportSaveDialog = true
-            
         } catch {
             #if DEBUG
-            print("   ❌ Export error: \(error)")
+            print("❌ [ProseListView] Single export failed: \(error)")
             #endif
-            importErrorMessage = NSLocalizedString("export.error.failed", comment: "Export failed") + ": \(error.localizedDescription)"
-            showImportError = true
         }
     }
     
@@ -1177,6 +1274,108 @@ struct ProseListView: View {
         case .finalDraft:
             return UTType(filenameExtension: "fdx") ?? .xml
         }
+    }
+    
+    // MARK: - Copy to Project
+    
+    private func copyFilesToProject(_ files: [TextFile], destination: Project) {
+        guard !files.isEmpty else { return }
+        
+        let sourceFolderName = proseFolder?.name ?? "Prose"
+        let destinationFolder = findMatchingFolder(in: destination, named: sourceFolderName)
+        
+        guard let destFolder = destinationFolder else {
+            copyResultMessage = String(format: NSLocalizedString("copyToProject.error.noFolder", comment: "No matching folder found"), sourceFolderName, destination.name ?? "")
+            copyResultIsError = true
+            showCopyResult = true
+            return
+        }
+        
+        var usedNames = Set((destFolder.textFiles ?? []).map { $0.name })
+        var copiedCount = 0
+        let maxSceneOrder = (destination.type == .fiction || destination.type == .drama)
+            ? (destination.scenes ?? []).filter({ !$0.isTrashed }).compactMap(\.userOrder).max() ?? -1
+            : 0
+        
+        for file in files {
+            guard let currentVersion = file.currentVersion else { continue }
+            
+            let uniqueName = generateUniqueName(for: file.name, usedNames: usedNames)
+            usedNames.insert(uniqueName)
+            
+            let newFile = TextFile(
+                name: uniqueName,
+                initialContent: currentVersion.content,
+                parentFolder: destFolder,
+                poetryFormId: file.poetryFormId,
+                poetryFormName: file.poetryFormName
+            )
+            
+            newFile.workflowStatusRaw = file.workflowStatusRaw
+            newFile.contentTypeRaw = file.contentTypeRaw
+            
+            if let formattedData = currentVersion.formattedContent,
+               let newVersion = newFile.currentVersion {
+                newVersion.formattedContent = formattedData
+            }
+            
+            if let refMetadata = currentVersion.referenceMetadataData,
+               let newVersion = newFile.currentVersion {
+                newVersion.referenceMetadataData = refMetadata
+            }
+            
+            let maxOrder = (destFolder.textFiles ?? []).compactMap { $0.userOrder }.max() ?? -1
+            newFile.userOrder = maxOrder + 1 + copiedCount
+            
+            modelContext.insert(newFile)
+            
+            // For Fiction/Drama projects, create a StoryScene linked to the TextFile
+            if destination.type == .fiction || destination.type == .drama {
+                let scene = StoryScene(name: uniqueName, userOrder: maxSceneOrder + 1 + copiedCount)
+                scene.project = destination
+                scene.textFile = newFile
+                modelContext.insert(scene)
+            }
+            
+            copiedCount += 1
+        }
+        
+        do {
+            try modelContext.save()
+            let format = copiedCount == 1
+                ? NSLocalizedString("copyToProject.success.single", comment: "1 file copied")
+                : NSLocalizedString("copyToProject.success.multiple", comment: "%d files copied")
+            copyResultMessage = String(format: format, copiedCount) + " " + String(format: NSLocalizedString("copyToProject.success.destination", comment: "to project"), destination.name ?? "")
+            copyResultIsError = false
+            showCopyResult = true
+        } catch {
+            copyResultMessage = NSLocalizedString("copyToProject.error.saveFailed", comment: "Save failed") + ": \(error.localizedDescription)"
+            copyResultIsError = true
+            showCopyResult = true
+        }
+    }
+    
+    private func findMatchingFolder(in project: Project, named sourceName: String) -> Folder? {
+        guard let folders = project.folders else { return nil }
+        if let match = folders.first(where: { $0.name == sourceName }) {
+            return match
+        }
+        let contentFolderNames: Set<String> = ["Poems", "Scenes", "Stories", "Episodes", "Scripts", "Sections", "Prose"]
+        if let contentFolder = folders.first(where: { contentFolderNames.contains($0.name ?? "") }) {
+            return contentFolder
+        }
+        return folders.first(where: { FolderCapabilityService.canAddFile(to: $0) })
+    }
+    
+    private func generateUniqueName(for name: String, usedNames: Set<String>) -> String {
+        if !usedNames.contains(name) { return name }
+        var counter = 2
+        while counter <= 1000 {
+            let candidate = "\(name) \(counter)"
+            if !usedNames.contains(candidate) { return candidate }
+            counter += 1
+        }
+        return "\(name) \(UUID().uuidString.prefix(6))"
     }
     
     private func assignFilesToSection(_ files: [TextFile], section: ProseSection?) {
