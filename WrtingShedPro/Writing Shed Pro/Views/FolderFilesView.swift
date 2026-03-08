@@ -1319,62 +1319,137 @@ struct FolderFilesView: View {
         // Set the export format
         self.exportFormat = format
         
-        // Get the first file to export
-        guard let firstFile = filesToExport.first,
-              let version = firstFile.currentVersion else {
-            #if DEBUG
-            print("❌ Export failed: No file or version available")
-            #endif
+        guard !filesToExport.isEmpty else { return }
+        
+        // Single file → use existing single-file export path
+        if filesToExport.count == 1 {
+            guard let firstFile = filesToExport.first,
+                  let version = firstFile.currentVersion else {
+                filesToExport = []
+                return
+            }
+            
+            var attributedString: NSAttributedString
+            if let formattedContent = version.attributedContent {
+                attributedString = formattedContent
+            } else if !version.content.isEmpty {
+                attributedString = NSAttributedString(
+                    string: version.content,
+                    attributes: [.font: UIFont.preferredFont(forTextStyle: .body)]
+                )
+            } else {
+                filesToExport = []
+                return
+            }
+            
+            // For markdown files, render to rich text first
+            if firstFile.isMarkdown && format != .markdown && format != .plainText {
+                let markdownText = attributedString.string
+                if let rendered = try? MarkdownImportService.importMarkdown(from: markdownText, styleSheet: firstFile.project?.styleSheet) {
+                    attributedString = rendered
+                }
+            }
+            
+            performSingleFileExport(format: format, content: attributedString, filename: firstFile.name)
+            return
+        }
+        
+        // Multiple files → combine into a single document
+        performMultiFileExport(format: format, files: filesToExport)
+    }
+    
+    /// Export multiple files combined into a single document
+    private func performMultiFileExport(format: ExportFormat, files: [TextFile]) {
+        var attributedStrings: [NSAttributedString] = []
+        
+        for file in files {
+            guard let version = file.currentVersion else { continue }
+            var content: NSAttributedString
+            if let formatted = version.attributedContent {
+                content = formatted
+            } else if !version.content.isEmpty {
+                content = NSAttributedString(
+                    string: version.content,
+                    attributes: [.font: UIFont.preferredFont(forTextStyle: .body)]
+                )
+            } else {
+                continue
+            }
+            
+            // For markdown files, render to rich text first
+            if file.isMarkdown && format != .markdown && format != .plainText {
+                let markdownText = content.string
+                if let rendered = try? MarkdownImportService.importMarkdown(from: markdownText, styleSheet: file.project?.styleSheet) {
+                    content = rendered
+                }
+            }
+            
+            attributedStrings.append(content)
+        }
+        
+        guard !attributedStrings.isEmpty else {
             filesToExport = []
             return
         }
         
-        // Get content - try formatted content first, fall back to plain text
-        var attributedString: NSAttributedString
-        if let formattedContent = version.attributedContent {
-            attributedString = formattedContent
-        } else if !version.content.isEmpty {
-            // Create attributed string from plain text
-            attributedString = NSAttributedString(
-                string: version.content,
-                attributes: [.font: UIFont.preferredFont(forTextStyle: .body)]
-            )
-            #if DEBUG
-            print("📝 Export: Using plain text content for '\(firstFile.name)'")
-            #endif
-        } else {
-            #if DEBUG
-            print("❌ Export failed: No content available for '\(firstFile.name)'")
-            #endif
-            importErrorMessage = NSLocalizedString("export.error.noContent", comment: "No content to export")
-            showImportError = true
-            filesToExport = []
-            return
-        }
+        let filename = folder.project?.name ?? folder.name ?? "Export"
         
-        // For markdown files exporting to rich text formats, render markdown to rich text first
-        #if DEBUG
-        print("📝 Export: file.isMarkdown=\(firstFile.isMarkdown), contentTypeRaw='\(firstFile.contentTypeRaw)', format=\(format)")
-        print("📝 Export: attributedString preview: '\(attributedString.string.prefix(100))'")
-        #endif
-        if firstFile.isMarkdown && format != .markdown && format != .plainText {
-            let markdownText = attributedString.string
+        Task {
             do {
-                let styleSheet = firstFile.project?.styleSheet
-                attributedString = try MarkdownImportService.importMarkdown(from: markdownText, styleSheet: styleSheet)
-                #if DEBUG
-                print("📝 Export: ✅ Rendered markdown to rich text for '\(firstFile.name)' — \(markdownText.count) chars → \(attributedString.length) styled")
-                #endif
+                let data: Data
+                switch format {
+                case .pdf:
+                    guard let project = folder.project else { return }
+                    let assembled = NSMutableAttributedString()
+                    var isFirst = true
+                    for attrStr in attributedStrings {
+                        if !isFirst {
+                            assembled.append(NSAttributedString(string: "\u{000C}"))
+                        }
+                        isFirst = false
+                        assembled.append(attrStr)
+                    }
+                    let manuscriptContent = ManuscriptContent(
+                        attributedString: assembled,
+                        sections: [],
+                        fileOffsets: [:],
+                        frontMatterFileCount: 0,
+                        frontMatterCharacterLength: 0,
+                        assembledFootnotes: []
+                    )
+                    guard let pdfData = PrintService.generatePDF(
+                        from: manuscriptContent,
+                        project: project,
+                        pageSetup: project.pageSetup,
+                        context: modelContext
+                    ) else { return }
+                    data = pdfData
+                case .rtf:
+                    data = try WordDocumentService.exportMultipleToRTF(attributedStrings, filename: filename)
+                case .html:
+                    data = try HTMLExportService.exportMultipleToHTMLData(attributedStrings, filename: filename)
+                case .word:
+                    let exportService = DOCXExportService(modelContext: modelContext)
+                    data = try exportService.exportMultipleToDOCX(attributedStrings, filename: filename)
+                case .markdown:
+                    data = try MarkdownExportService.exportMultipleToMarkdownData(attributedStrings, filename: filename)
+                default:
+                    return
+                }
+                
+                await MainActor.run {
+                    exportData = data
+                    exportFilename = "\(filename).\(format.fileExtension)"
+                    showExportSaveDialog = true
+                }
             } catch {
-                #if DEBUG
-                print("⚠️ Export: ❌ Failed to render markdown for '\(firstFile.name)': \(error)")
-                #endif
-                // Fall through with raw markdown text if rendering fails
+                await MainActor.run {
+                    importErrorMessage = NSLocalizedString("export.error.failed", comment: "Export failed") + ": \(error.localizedDescription)"
+                    showImportError = true
+                    filesToExport = []
+                }
             }
         }
-        
-        // Perform the actual export
-        performSingleFileExport(format: format, content: attributedString, filename: firstFile.name)
     }
     
     func performSingleFileExport(format: ExportFormat, content: NSAttributedString, filename: String) {
@@ -1465,14 +1540,8 @@ struct FolderFilesView: View {
             #if DEBUG
             print("✅ Exported to: \(url.path)")
             #endif
-            // Remove the first file and continue with remaining files if any
-            if !filesToExport.isEmpty {
-                filesToExport.removeFirst()
-                if !filesToExport.isEmpty {
-                    // Export next file
-                    exportFiles(format: exportFormat)
-                }
-            }
+            // Clear all files — multi-file exports are combined into one document
+            filesToExport = []
         case .failure(let error):
             #if DEBUG
             print("❌ Export failed: \(error.localizedDescription)")
