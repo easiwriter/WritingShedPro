@@ -530,8 +530,25 @@ struct AttributedStringSerializer {
                     #endif
                     
                     var font: UIFont
-                    let isBold = jsonAttributes.bold ?? false
+                    var isBold = jsonAttributes.bold ?? false
                     let isItalic = jsonAttributes.italic ?? false
+                    
+                    // Heading-category text styles must always be bold.
+                    // Some formattedContent was saved before the heading-bold migration,
+                    // so the stored bold flag may be false even though the style is a heading.
+                    let headingTextStyles: Set<String> = [
+                        "UICTFontTextStyleTitle0",     // Large Title
+                        "UICTFontTextStyleTitle1",     // Title 1
+                        "UICTFontTextStyleTitle2",     // Title 2
+                        "UICTFontTextStyleTitle3",     // Title 3
+                        "UICTFontTextStyleHeadline"    // Headline
+                    ]
+                    if let ts = jsonAttributes.textStyle, headingTextStyles.contains(ts), !isBold {
+                        #if DEBUG
+                        print("🔧 DECODE: Forcing bold for heading textStyle '\(ts)' at location \(jsonAttributes.location ?? -1)")
+                        #endif
+                        isBold = true
+                    }
                     
                     // CRITICAL: If we have a valid UIKit textStyle, use it to get the correct preferredFont
                     // This preserves heading detection for markdown export

@@ -159,6 +159,9 @@ class JSONExportService {
         exportData.indexEntries = buildIndexEntryData(from: project)
         exportData.contributorEntries = buildContributorEntryData(from: project)
         
+        // Stylesheet
+        exportData.stylesheet = buildStyleSheetData(from: project)
+        
         #if DEBUG
         print("[JSONExport] Built export data:")
         print("[JSONExport]   Folders: \(exportData.folders.count)")
@@ -179,6 +182,7 @@ class JSONExportService {
         print("[JSONExport]   Citation Entries: \(exportData.citationEntries?.count ?? 0)")
         print("[JSONExport]   Index Entries: \(exportData.indexEntries?.count ?? 0)")
         print("[JSONExport]   Contributor Entries: \(exportData.contributorEntries?.count ?? 0)")
+        print("[JSONExport]   Stylesheet: \(exportData.stylesheet?.name ?? "none") (\(exportData.stylesheet?.textStyles.count ?? 0) text styles)")
         #endif
         
         return exportData
@@ -712,6 +716,71 @@ class JSONExportService {
             )
         }
     }
+    
+    // MARK: - Stylesheet Data
+    
+    private func buildStyleSheetData(from project: Project) -> WSPStyleSheetData? {
+        guard let sheet = project.styleSheet else { return nil }
+        
+        let textStyles = (sheet.textStyles ?? []).map { style in
+            WSPTextStyleData(
+                id: style.id.uuidString,
+                name: style.name,
+                displayName: style.displayName,
+                displayOrder: style.displayOrder,
+                fontFamily: style.fontFamily,
+                fontName: style.fontName,
+                fontSize: style.fontSize,
+                isBold: style.isBold,
+                isItalic: style.isItalic,
+                isUnderlined: style.isUnderlined,
+                isStrikethrough: style.isStrikethrough,
+                textColorHex: style.textColorHex,
+                alignmentRaw: style.alignmentRaw,
+                lineSpacing: style.lineSpacing,
+                paragraphSpacingBefore: style.paragraphSpacingBefore,
+                paragraphSpacingAfter: style.paragraphSpacingAfter,
+                firstLineIndent: style.firstLineIndent,
+                headIndent: style.headIndent,
+                tailIndent: style.tailIndent,
+                lineHeightMultiple: style.lineHeightMultiple,
+                minimumLineHeight: style.minimumLineHeight,
+                maximumLineHeight: style.maximumLineHeight,
+                numberFormatRaw: style.numberFormatRaw,
+                numberAdornmentRaw: style.numberAdornmentRaw,
+                followOnStyleName: style.followOnStyleName,
+                parentStyleName: style.parentStyleName,
+                styleCategoryRaw: style.styleCategoryRaw,
+                isSystemStyle: style.isSystemStyle,
+                includeInTOC: style.includeInTOC,
+                tocLevel: style.tocLevel
+            )
+        }
+        
+        let imageStyles = (sheet.imageStyles ?? []).map { style in
+            WSPImageStyleData(
+                id: style.id.uuidString,
+                name: style.name,
+                displayName: style.displayName,
+                displayOrder: style.displayOrder,
+                defaultScale: style.defaultScale,
+                defaultAlignmentRaw: style.defaultAlignmentRaw,
+                hasCaptionByDefault: style.hasCaptionByDefault,
+                defaultCaptionStyle: style.defaultCaptionStyle,
+                isSystemStyle: style.isSystemStyle
+            )
+        }
+        
+        return WSPStyleSheetData(
+            id: sheet.id.uuidString,
+            name: sheet.name,
+            isSystemStyleSheet: sheet.isSystemStyleSheet,
+            createdDate: sheet.createdDate,
+            modifiedDate: sheet.modifiedDate,
+            textStyles: textStyles,
+            imageStyles: imageStyles.isEmpty ? nil : imageStyles
+        )
+    }
 }
 
 // MARK: - Export Data Structures
@@ -742,6 +811,8 @@ struct WSPExportData: Codable {
     var citationEntries: [WSPCitationEntryData]?
     var indexEntries: [WSPIndexEntryData]?
     var contributorEntries: [WSPContributorEntryData]?
+    // Stylesheet
+    var stylesheet: WSPStyleSheetData?
 }
 
 struct WSPProjectData: Codable {
@@ -1068,4 +1139,73 @@ struct WSPContributorEntryData: Codable {
     var userOrder: Int = 0
     var createdAt: Date = Date()
     var modifiedAt: Date = Date()
+}
+
+// MARK: - Stylesheet Data Structures
+
+struct WSPStyleSheetData: Codable {
+    var id: String = ""
+    var name: String = ""
+    var isSystemStyleSheet: Bool = false
+    var createdDate: Date = Date()
+    var modifiedDate: Date = Date()
+    var textStyles: [WSPTextStyleData] = []
+    var imageStyles: [WSPImageStyleData]?
+}
+
+struct WSPTextStyleData: Codable {
+    var id: String = ""
+    var name: String = ""
+    var displayName: String = ""
+    var displayOrder: Int = 0
+    
+    // Font attributes
+    var fontFamily: String?
+    var fontName: String?
+    var fontSize: CGFloat = 17
+    var isBold: Bool = false
+    var isItalic: Bool = false
+    var isUnderlined: Bool = false
+    var isStrikethrough: Bool = false
+    var textColorHex: String?
+    
+    // Paragraph attributes
+    var alignmentRaw: Int = 0
+    var lineSpacing: CGFloat = 0
+    var paragraphSpacingBefore: CGFloat = 0
+    var paragraphSpacingAfter: CGFloat = 0
+    var firstLineIndent: CGFloat = 0
+    var headIndent: CGFloat = 0
+    var tailIndent: CGFloat = 0
+    var lineHeightMultiple: CGFloat = 0
+    var minimumLineHeight: CGFloat = 0
+    var maximumLineHeight: CGFloat = 0
+    
+    // Numbering
+    var numberFormatRaw: String = "none"
+    var numberAdornmentRaw: String = "period"
+    
+    // Follow-on and hierarchy
+    var followOnStyleName: String?
+    var parentStyleName: String?
+    
+    // Classification
+    var styleCategoryRaw: String = "text"
+    var isSystemStyle: Bool = false
+    
+    // TOC
+    var includeInTOC: Bool = false
+    var tocLevel: Int = 0
+}
+
+struct WSPImageStyleData: Codable {
+    var id: String = ""
+    var name: String = ""
+    var displayName: String = ""
+    var displayOrder: Int = 0
+    var defaultScale: CGFloat = 1.0
+    var defaultAlignmentRaw: String = "center"
+    var hasCaptionByDefault: Bool = false
+    var defaultCaptionStyle: String = "UICTFontTextStyleCaption1"
+    var isSystemStyle: Bool = false
 }

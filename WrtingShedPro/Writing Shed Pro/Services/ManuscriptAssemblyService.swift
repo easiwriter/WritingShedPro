@@ -56,6 +56,11 @@ final class ManuscriptAssemblyService {
     func getSections(for project: Project) -> [ManuscriptSection] {
         var sections: [ManuscriptSection] = []
         
+        #if DEBUG
+        print("[ManuscriptAssembly] getSections for project '\(project.name ?? "?")' type=\(project.type)")
+        print("[ManuscriptAssembly]   project.folders count=\(project.folders?.count ?? 0): \(project.folders?.map { $0.name ?? "?" } ?? [])")
+        #endif
+        
         // 1. Front Matter
         if let frontMatterFolder = getManuscriptSubfolder(project, named: "Front Matter") {
             let files = collectFilesFromFolder(frontMatterFolder)
@@ -73,6 +78,13 @@ final class ManuscriptAssemblyService {
         // 2. Body (from source folder based on project type)
         let bodySections = getBodySections(for: project)
         sections.append(contentsOf: bodySections)
+        
+        #if DEBUG
+        print("[ManuscriptAssembly] Body sections: \(bodySections.count) sections, \(bodySections.flatMap { $0.files }.count) total files")
+        for s in bodySections {
+            print("[ManuscriptAssembly]   Section '\(s.title)': \(s.files.count) files")
+        }
+        #endif
         
         // 3. Back Matter
         if let backMatterFolder = getManuscriptSubfolder(project, named: "Back Matter") {
@@ -119,11 +131,27 @@ final class ManuscriptAssemblyService {
             .filter { $0.isInBodyMatter }
             .sorted { ($0.bodyMatterOrder ?? 0) < ($1.bodyMatterOrder ?? 0) }
         
+        #if DEBUG
+        print("[ManuscriptAssembly] Poetry body sections: \(bodyCollections.count) body-matter collections, \(project.poetryCollections?.count ?? 0) total collections")
+        for c in bodyCollections {
+            let linkCount = c.textFileLinks?.count ?? 0
+            let fileCount = c.textFiles?.count ?? 0
+            print("[ManuscriptAssembly]   Collection '\(c.name ?? "?")' isInBodyMatter=\(c.isInBodyMatter) textFileLinks=\(linkCount) textFiles=\(fileCount)")
+        }
+        #endif
+        
         if !bodyCollections.isEmpty {
-            return collectionsToSections(bodyCollections)
+            let sections = collectionsToSections(bodyCollections)
+            if !sections.isEmpty {
+                return sections
+            }
+            #if DEBUG
+            print("[ManuscriptAssembly] ⚠️ Body-matter collections exist but produced no sections (empty textFiles), falling through")
+            #endif
         }
         
-        // Fallback: all collections by userOrder (when none are explicitly marked for body matter)
+        // Fallback: all collections by userOrder (when none are explicitly marked for body matter,
+        // or when body-matter collections had no files)
         let allCollections = (project.poetryCollections ?? [])
             .sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }
         if !allCollections.isEmpty {
@@ -131,14 +159,27 @@ final class ManuscriptAssemblyService {
             if !sections.isEmpty {
                 return sections
             }
+            #if DEBUG
+            print("[ManuscriptAssembly] ⚠️ All collections produced no sections, falling through to Poems folder")
+            #endif
         }
         
         // Legacy fallback: all poems from Poems folder (pre-collection projects)
-        guard let poemsFolder = project.folders?.first(where: { $0.name == "Poems" }) else {
+        // The Poems folder may be a top-level project folder OR a subfolder of Manuscript
+        let poemsFolder: Folder? = project.folders?.first(where: { $0.name == "Poems" })
+            ?? getManuscriptSubfolder(project, named: "Poems")
+        
+        guard let poemsFolder else {
+            #if DEBUG
+            print("[ManuscriptAssembly] ❌ No Poems folder found for poetry body sections")
+            #endif
             return []
         }
         
         let files = collectFilesFromFolder(poemsFolder)
+        #if DEBUG
+        print("[ManuscriptAssembly] Poems folder fallback: \(files.count) files")
+        #endif
         guard !files.isEmpty else { return [] }
         
         return [ManuscriptSection(
@@ -575,6 +616,11 @@ final class ManuscriptAssemblyService {
         var frontMatterCharacterLength = 0
         var frontMatterDone = false
         
+        // Track which chunk (form-feed separated) indices should be vertically centered.
+        // Epigraph and Dedication front matter pages are traditionally centered on the page.
+        var verticallyCenteredChunkIndices = Set<Int>()
+        var currentChunkIndex = 0
+        
         // Collect footnotes from all files with positions remapped to the assembled string
         var assembledFootnotes: [ManuscriptFootnote] = []
         
@@ -617,8 +663,18 @@ final class ManuscriptAssemblyService {
                     } else {
                         assembled.append(breakAttr)
                     }
+                    currentChunkIndex += 1
                 }
                 isFirstFile = false
+                
+                // Mark epigraph and dedication front matter pages for vertical centering
+                if section.sectionType == .frontMatter {
+                    let fileName = file.name.trimmingCharacters(in: .whitespaces)
+                    if fileName == FrontMatterItem.epigraph.fileName ||
+                       fileName == FrontMatterItem.dedication.fileName {
+                        verticallyCenteredChunkIndices.insert(currentChunkIndex)
+                    }
+                }
                 // Record offset before adding
                 fileOffsets[file.id] = assembled.length
                 // Add file content
@@ -760,7 +816,8 @@ final class ManuscriptAssemblyService {
             fileOffsets: fileOffsets,
             frontMatterFileCount: frontMatterFileCount,
             frontMatterCharacterLength: frontMatterCharacterLength,
-            assembledFootnotes: assembledFootnotes
+            assembledFootnotes: assembledFootnotes,
+            verticallyCenteredChunkIndices: verticallyCenteredChunkIndices
         )
     }
     

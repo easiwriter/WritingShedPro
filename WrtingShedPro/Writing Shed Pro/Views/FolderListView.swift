@@ -493,7 +493,7 @@ struct FolderListView: View {
             }
             exportData = nil
         }
-        .sheet(isPresented: $showPreview) {
+        .fullScreenCover(isPresented: $showPreview) {
             ManuscriptPreviewView(
                 pdfData: previewPDFData,
                 title: project.name ?? NSLocalizedString("manuscript.preview.title", comment: "Manuscript Preview"),
@@ -790,7 +790,8 @@ struct FolderListView: View {
                     filename: projectName,
                     author: authorName,
                     coverImageData: coverImageData,
-                    isPoetry: isPoetry
+                    isPoetry: isPoetry,
+                    verticallyCenteredChunkIndices: content.verticallyCenteredChunkIndices
                 )
                 
                 await MainActor.run {
@@ -1042,6 +1043,14 @@ struct FolderListView: View {
             hasBackCover = true
         }
         
+        // Adjust vertically centered chunk indices when a front cover shifts all chunks
+        let adjustedCenteredIndices: Set<Int>
+        if hasFrontCover {
+            adjustedCenteredIndices = Set(content.verticallyCenteredChunkIndices.map { $0 + 1 })
+        } else {
+            adjustedCenteredIndices = content.verticallyCenteredChunkIndices
+        }
+        
         return ManuscriptContent(
             attributedString: assembled,
             sections: content.sections,
@@ -1053,6 +1062,7 @@ struct FolderListView: View {
             frontMatterFileCount: content.frontMatterFileCount,
             frontMatterCharacterLength: adjustedFMCharLength,
             assembledFootnotes: adjustedFootnotes,
+            verticallyCenteredChunkIndices: adjustedCenteredIndices,
             frontCoverImageData: frontCoverData,
             backCoverImageData: backCoverData
         )

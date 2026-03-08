@@ -38,7 +38,8 @@ class EPUBExportService {
         author: String? = nil,
         language: String = "en",
         coverImageData: Data? = nil,
-        isPoetry: Bool = false
+        isPoetry: Bool = false,
+        verticallyCenteredChunkIndices: Set<Int> = []
     ) throws -> Data {
         
         // The iOS NSAttributedString → HTML converter may strip or mangle the
@@ -65,10 +66,15 @@ class EPUBExportService {
         print("📦 EPUB: Found \(formFeedLocations.count) form feed characters to convert")
         #endif
         
-        // Replace in reverse order
+        // Replace in reverse order.
+        // Surround the marker with newlines so the iOS HTML converter puts it
+        // in its own <p> element.  Without these newlines the converter can
+        // merge the marker with adjacent text inside a single <span>, and the
+        // subsequent regex replacement (<span>…<div>…</span>) creates invalid
+        // XHTML that Apple Books rejects.
         for loc in formFeedLocations.reversed() {
             mutable.replaceCharacters(in: NSRange(location: loc, length: 1),
-                                       with: NSAttributedString(string: pageBreakMarker))
+                                       with: NSAttributedString(string: "\n\(pageBreakMarker)\n"))
         }
         
         // Convert to HTML (the marker is plain text so the iOS converter will keep it)
@@ -97,7 +103,8 @@ class EPUBExportService {
             language: language,
             customCSS: iOSCSS,
             coverImageData: coverImageData,
-            isPoetry: isPoetry
+            isPoetry: isPoetry,
+            verticallyCenteredChunkIndices: verticallyCenteredChunkIndices
         )
         
         #if DEBUG
@@ -471,7 +478,8 @@ class EPUBExportService {
         customCSS: String? = nil,
         images: [Data] = [],
         coverImageData: Data? = nil,
-        isPoetry: Bool = false
+        isPoetry: Bool = false,
+        verticallyCenteredChunkIndices: Set<Int> = []
     ) throws -> Data {
         
         // Create a temporary directory for EPUB structure
@@ -489,7 +497,7 @@ class EPUBExportService {
         try createMimetypeFile(in: tempDir)
         try createContainerXML(in: tempDir)
         try createContentOPF(in: tempDir, title: title, author: author, language: language, imageCount: images.count, hasCover: hasCover)
-        let tocEntries = try createContentHTML(in: tempDir, html: htmlContent, title: title, css: customCSS)
+        let tocEntries = try createContentHTML(in: tempDir, html: htmlContent, title: title, css: customCSS, verticallyCenteredChunkIndices: verticallyCenteredChunkIndices)
         try createTableOfContentsNCX(in: tempDir, title: title, entries: tocEntries)
         try createNavigationDocument(in: tempDir, title: title, hasCover: hasCover, entries: tocEntries)
         try createStyleCSS(in: tempDir, customCSS: customCSS, isPoetry: isPoetry)
@@ -647,7 +655,7 @@ class EPUBExportService {
     /// Create OEBPS/content.html (main content)
     /// Returns extracted TOC entries from detected headings.
     @discardableResult
-    private static func createContentHTML(in directory: URL, html: String, title: String, css: String? = nil) throws -> [TOCEntry] {
+    private static func createContentHTML(in directory: URL, html: String, title: String, css: String? = nil, verticallyCenteredChunkIndices: Set<Int> = []) throws -> [TOCEntry] {
         let oebpsDir = directory.appendingPathComponent("OEBPS")
         
         // Extract body content from HTML if present
@@ -680,7 +688,25 @@ class EPUBExportService {
             )
         }
         
-        // Also replace any bare marker text that wasn't inside a <p> tag
+        // Also replace any marker still inside a <span> (but not necessarily the sole
+        // content of a <p>).  Close the surrounding inline/block elements so we don't
+        // create a <div> nested inside a <span> — which is invalid XHTML.
+        if let markerInSpanRegex = try? NSRegularExpression(
+            pattern: "<span[^>]*>\\s*\(NSRegularExpression.escapedPattern(for: pageBreakMarker))\\s*</span>",
+            options: []
+        ) {
+            let range = NSRange(bodyContent.startIndex..., in: bodyContent)
+            bodyContent = markerInSpanRegex.stringByReplacingMatches(
+                in: bodyContent,
+                options: [],
+                range: range,
+                withTemplate: "<div class=\"page-break\"></div>"
+            )
+        }
+        
+        // Last resort: replace any bare marker text that wasn't caught above.
+        // At this point if the marker is still inside inline elements, the surrounding
+        // \n padding (added during form-feed replacement) should have prevented that.
         bodyContent = bodyContent.replacingOccurrences(of: pageBreakMarker, with: "<div class=\"page-break\"></div>")
         
         // Clean up any remaining raw form feeds (belt-and-suspenders)
@@ -731,6 +757,26 @@ class EPUBExportService {
             print("   h\(entry.level): \(entry.title)")
         }
         #endif
+        
+        // Wrap vertically-centered chunks (epigraph, dedication) in a centering div
+        if !verticallyCenteredChunkIndices.isEmpty {
+            let pageBreakDiv = "<div class=\"page-break\"></div>"
+            let sections = bodyContent.components(separatedBy: pageBreakDiv)
+            var wrappedSections = sections
+            for idx in verticallyCenteredChunkIndices {
+                if idx < wrappedSections.count {
+                    // Balance any unclosed tags inside the chunk to prevent
+                    // invalid nesting (e.g. <span> crossing the <div> boundary).
+                    let balanced = Self.balanceHTMLTags(wrappedSections[idx])
+                    wrappedSections[idx] = "<div class=\"centered-page\">\(balanced)</div>"
+                }
+            }
+            bodyContent = wrappedSections.joined(separator: pageBreakDiv)
+            
+            #if DEBUG
+            print("📖 EPUB: Wrapped \(verticallyCenteredChunkIndices.count) sections for vertical centering")
+            #endif
+        }
         
         let contentHTML = """
         <?xml version="1.0" encoding="UTF-8"?>
@@ -923,6 +969,14 @@ class EPUBExportService {
             height: 0;
             margin: 0;
             padding: 0;
+        }
+        
+        /* Vertically centered content (epigraph, dedication) */
+        /* Use margin-top with em units for Kindle compatibility (vh not supported) */
+        /* Also set page-break-before to ensure it starts on a fresh page */
+        .centered-page {
+            margin-top: 40%;
+            text-align: center;
         }
         """
         
@@ -1338,6 +1392,52 @@ class EPUBExportService {
             .replacingOccurrences(of: ">", with: "&gt;")
             .replacingOccurrences(of: "\"", with: "&quot;")
             .replacingOccurrences(of: "'", with: "&apos;")
+    }
+    
+    /// Balance unclosed HTML tags in a fragment so it can be safely wrapped in a <div>.
+    /// Appends closing tags for any open inline/block elements, and prepends closing tags
+    /// for any stray end-tags that have no matching opener.
+    /// This is a lightweight heuristic — not a full HTML parser — sufficient for the
+    /// limited tag vocabulary produced by the iOS HTML converter (p, span, b, i, em, strong, etc.).
+    private static func balanceHTMLTags(_ html: String) -> String {
+        // Self-closing / void elements that never need a close tag
+        let voidElements: Set<String> = ["br", "hr", "img", "meta", "link", "input"]
+        
+        let tagPattern = try! NSRegularExpression(pattern: "<(/?)([a-zA-Z][a-zA-Z0-9]*)(?:\\s[^>]*)?>", options: [])
+        let matches = tagPattern.matches(in: html, options: [], range: NSRange(html.startIndex..., in: html))
+        
+        var openStack: [String] = []
+        
+        for match in matches {
+            let isClose = (html as NSString).substring(with: match.range(at: 1)) == "/"
+            let tagName = (html as NSString).substring(with: match.range(at: 2)).lowercased()
+            
+            if voidElements.contains(tagName) { continue }
+            
+            // Check for self-closing (e.g. <div/>)
+            let fullTag = (html as NSString).substring(with: match.range)
+            if fullTag.hasSuffix("/>") { continue }
+            
+            if isClose {
+                // Try to match with the most recent open tag of the same name
+                if let idx = openStack.lastIndex(of: tagName) {
+                    openStack.remove(at: idx)
+                }
+                // If no matching open tag, this is a stray close tag — we leave it
+                // (removing it could break valid nesting we can't see)
+            } else {
+                openStack.append(tagName)
+            }
+        }
+        
+        // Close any remaining open tags in reverse order
+        guard !openStack.isEmpty else { return html }
+        
+        var result = html
+        for tag in openStack.reversed() {
+            result += "</\(tag)>"
+        }
+        return result
     }
     
     // MARK: - Validation

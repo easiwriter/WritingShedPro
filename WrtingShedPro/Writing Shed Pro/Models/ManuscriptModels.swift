@@ -98,6 +98,10 @@ struct ManuscriptContent {
     /// to the assembled string. Used by PDF renderers when no single Version is available.
     var assembledFootnotes: [ManuscriptFootnote]
     
+    /// Chunk indices (form-feed separated) whose content should be vertically centered.
+    /// Used for front matter pages like Epigraph and Dedication.
+    var verticallyCenteredChunkIndices: Set<Int>
+    
     /// Pre-extracted cover image data (JPEG/PNG) for thread-safe PDF rendering.
     /// Loaded on the main thread to avoid SwiftData cross-thread access during background PDF generation.
     var frontCoverImageData: Data?
@@ -126,6 +130,7 @@ struct ManuscriptContent {
         frontMatterFileCount: Int = 0,
         frontMatterCharacterLength: Int = 0,
         assembledFootnotes: [ManuscriptFootnote] = [],
+        verticallyCenteredChunkIndices: Set<Int> = [],
         frontCoverImageData: Data? = nil,
         backCoverImageData: Data? = nil
     ) {
@@ -139,6 +144,7 @@ struct ManuscriptContent {
         self.frontMatterFileCount = frontMatterFileCount
         self.frontMatterCharacterLength = frontMatterCharacterLength
         self.assembledFootnotes = assembledFootnotes
+        self.verticallyCenteredChunkIndices = verticallyCenteredChunkIndices
         self.frontCoverImageData = frontCoverImageData
         self.backCoverImageData = backCoverImageData
     }

@@ -782,6 +782,7 @@ class PrintService {
         let bgAssembledFootnotes = content.assembledFootnotes
         let bgFrontCoverImageData = content.frontCoverImageData
         let bgBackCoverImageData = content.backCoverImageData
+        let bgCenteredChunks = content.verticallyCenteredChunkIndices
         
         return await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
@@ -800,7 +801,8 @@ class PrintService {
                     frontMatterCharacterLength: bgFrontMatterCharacterLength,
                     assembledFootnotes: bgAssembledFootnotes,
                     frontCoverImageData: bgFrontCoverImageData,
-                    backCoverImageData: bgBackCoverImageData
+                    backCoverImageData: bgBackCoverImageData,
+                    verticallyCenteredChunkIndices: bgCenteredChunks
                 )
                 continuation.resume(returning: result)
             }
@@ -989,7 +991,8 @@ class PrintService {
         frontMatterCharacterLength: Int = 0,
         assembledFootnotes: [ManuscriptFootnote] = [],
         frontCoverImageData: Data? = nil,
-        backCoverImageData: Data? = nil
+        backCoverImageData: Data? = nil,
+        verticallyCenteredChunkIndices: Set<Int> = []
     ) -> Data? {
         #if DEBUG
         print("🖨️ PDF Generation (with progress) Setup:")
@@ -1015,6 +1018,7 @@ class PrintService {
                 frontMatterFileCount: frontMatterFileCount,
                 frontCoverImageData: frontCoverImageData,
                 backCoverImageData: backCoverImageData,
+                verticallyCenteredChunkIndices: verticallyCenteredChunkIndices,
                 progress: { current, total in
                     // Report as layout progress for the first 90%, render for the last 10%
                     // In practice each page is laid out + rendered in one step
@@ -1117,6 +1121,7 @@ class PrintService {
         frontMatterFileCount: Int = 0,
         frontCoverImageData: Data? = nil,
         backCoverImageData: Data? = nil,
+        verticallyCenteredChunkIndices: Set<Int> = [],
         progress: @escaping (Int, Int) -> Void
     ) -> Data? {
         let fullString = content.string as NSString
@@ -1342,13 +1347,42 @@ class PrintService {
                     cgContext.restoreGState()
                 }
             } else if slice.characterRange.length > 0 {
-                let drawRect = CGRect(
-                    x: pageSetup.marginLeft,
-                    y: pageSetup.marginTop,
-                    width: contentRect.width,
-                    height: contentRect.height
-                )
                 let pageText = slice.attributedString.attributedSubstring(from: slice.characterRange)
+                
+                // Vertically center epigraph/dedication pages
+                let shouldCenter = verticallyCenteredChunkIndices.contains(slice.chunkIndex)
+                
+                let drawRect: CGRect
+                if shouldCenter {
+                    // Calculate actual text height to vertically center content
+                    let measureRect = CGRect(
+                        x: pageSetup.marginLeft,
+                        y: 0,
+                        width: contentRect.width,
+                        height: CGFloat.greatestFiniteMagnitude
+                    )
+                    let boundingRect = pageText.boundingRect(
+                        with: measureRect.size,
+                        options: [.usesLineFragmentOrigin, .usesFontLeading],
+                        context: nil
+                    )
+                    let textHeight = ceil(boundingRect.height)
+                    let yOffset = pageSetup.marginTop + (contentRect.height - textHeight) / 2
+                    drawRect = CGRect(
+                        x: pageSetup.marginLeft,
+                        y: max(pageSetup.marginTop, yOffset),
+                        width: contentRect.width,
+                        height: contentRect.height
+                    )
+                } else {
+                    drawRect = CGRect(
+                        x: pageSetup.marginLeft,
+                        y: pageSetup.marginTop,
+                        width: contentRect.width,
+                        height: contentRect.height
+                    )
+                }
+                
                 cgContext.saveGState()
                 cgContext.clip(to: drawRect)
                 pageText.draw(in: drawRect)
