@@ -539,7 +539,7 @@ struct CollectionFileRowView: View {
                 Text(submittedFile.textFile?.name ?? NSLocalizedString("collectionsView.untitledFile", comment: "Untitled File"))
                     .font(.body)
                 
-                if let version = submittedFile.version {
+                if let version = submittedFile.textFile?.currentVersion {
                     Text(String(format: NSLocalizedString("collectionsView.version", comment: "Version number"), version.versionNumber))
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -549,7 +549,7 @@ struct CollectionFileRowView: View {
             Spacer()
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(String(format: NSLocalizedString("collectionsView.fileVersion.accessibility", comment: "File and version"), submittedFile.textFile?.name ?? NSLocalizedString("collectionsView.untitledFile", comment: "Untitled"), submittedFile.version?.versionNumber ?? 0))
+        .accessibilityLabel(String(format: NSLocalizedString("collectionsView.fileVersion.accessibility", comment: "File and version"), submittedFile.textFile?.name ?? NSLocalizedString("collectionsView.untitledFile", comment: "Untitled"), submittedFile.textFile?.currentVersion?.versionNumber ?? 0))
     }
 }
 

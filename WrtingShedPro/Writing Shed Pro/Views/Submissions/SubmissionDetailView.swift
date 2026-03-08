@@ -465,7 +465,7 @@ struct SubmittedFileRow: View {
             }
             
             HStack {
-                if let version = submittedFile.version {
+                if let version = submittedFile.textFile?.currentVersion {
                     Text(String(format: NSLocalizedString("submissions.version.label", comment: "Version"), version.versionNumber))
                         .font(.caption)
                         .foregroundStyle(.secondary)
