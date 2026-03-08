@@ -43,6 +43,10 @@ struct CollectionDetailView: View {
     @State private var showExportImageWarning = false
     @State private var pendingExportAction: (() -> Void)?
     
+    // Edit mode state
+    @State private var editMode: EditMode = .inactive
+    @State private var selectedFileIDs: Set<UUID> = []
+    
     private var submittedFiles: [SubmittedFile] {
         let files = submission.submittedFiles ?? []
         return files.sorted { file1, file2 in
@@ -55,7 +59,7 @@ struct CollectionDetailView: View {
     var body: some View {
         Group {
             if !submittedFiles.isEmpty {
-                List {
+                List(selection: $selectedFileIDs) {
                     ForEach(submittedFiles) { submittedFile in
                         if let file = submittedFile.textFile {
                             HStack {
@@ -63,21 +67,45 @@ struct CollectionDetailView: View {
                                     CollectionFileRowView(submittedFile: submittedFile)
                                 }
                                 
-                                Button {
-                                    editingVersionItem = EditVersionItem(submittedFile: submittedFile, textFile: file)
-                                } label: {
-                                    Image(systemName: "pencil.circle.circle")
-                                        .foregroundStyle(.blue)
-                                        .font(.body)
+                                if editMode == .inactive {
+                                    Button {
+                                        editingVersionItem = EditVersionItem(submittedFile: submittedFile, textFile: file)
+                                    } label: {
+                                        Image(systemName: "pencil.circle.circle")
+                                            .foregroundStyle(.blue)
+                                            .font(.body)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .accessibilityLabel("collectionsView.detail.editVersion.accessibility")
                                 }
-                                .buttonStyle(.plain)
-                                .accessibilityLabel("collectionsView.detail.editVersion.accessibility")
                             }
+                            .tag(submittedFile.id)
                         }
                     }
                     .onDelete(perform: deleteFiles)
                 }
                 .listStyle(.plain)
+                .environment(\.editMode, $editMode)
+                // Bottom toolbar when in edit mode with selections
+                .safeAreaInset(edge: .bottom) {
+                    if editMode == .active && !selectedFileIDs.isEmpty {
+                        HStack {
+                            Button {
+                                showExportMenu = true
+                            } label: {
+                                Label(
+                                    NSLocalizedString("button.export", comment: "Export"),
+                                    systemImage: "square.and.arrow.up"
+                                )
+                            }
+                            .accessibilityLabel("Export selected files")
+                            
+                            Spacer()
+                        }
+                        .padding()
+                        .background(.bar)
+                    }
+                }
             } else {
                 ContentUnavailableView {
                     Label("collectionsView.detail.empty.title", systemImage: "doc.text")
@@ -101,6 +129,24 @@ struct CollectionDetailView: View {
             
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack(spacing: 16) {
+                    // Edit button for multi-select
+                    if !submittedFiles.isEmpty {
+                        Button {
+                            withAnimation {
+                                if editMode == .active {
+                                    editMode = .inactive
+                                    selectedFileIDs.removeAll()
+                                } else {
+                                    editMode = .active
+                                }
+                            }
+                        } label: {
+                            Text(editMode == .active
+                                 ? NSLocalizedString("button.done", comment: "Done")
+                                 : NSLocalizedString("button.edit", comment: "Edit"))
+                        }
+                    }
+                    
                     // Search button
                     if !submittedFiles.isEmpty {
                         Button {
@@ -237,6 +283,12 @@ struct CollectionDetailView: View {
                     #if DEBUG
                     print("✅ Export saved successfully")
                     #endif
+                    if editMode == .active {
+                        withAnimation {
+                            editMode = .inactive
+                            selectedFileIDs.removeAll()
+                        }
+                    }
                 case .failure(let error):
                     #if DEBUG
                     print("❌ Export save failed: \(error)")
@@ -283,8 +335,16 @@ struct CollectionDetailView: View {
     private func exportCollectionFiles(format: ExportFormat) {
         self.exportFormat = format
         
+        // If in edit mode with selections, export only selected files
+        let filesToExport: [SubmittedFile]
+        if editMode == .active && !selectedFileIDs.isEmpty {
+            filesToExport = submittedFiles.filter { selectedFileIDs.contains($0.id) }
+        } else {
+            filesToExport = submittedFiles
+        }
+        
         // Use the submitted version, falling back to current version
-        let versions = submittedFiles
+        let versions = filesToExport
             .compactMap { $0.version ?? $0.textFile?.currentVersion }
         
         guard !versions.isEmpty else { return }
@@ -315,7 +375,7 @@ struct CollectionDetailView: View {
                 let data: Data
                 switch format {
                 case .pdf:
-                    let textFiles = submittedFiles
+                    let textFiles = filesToExport
                         .compactMap { $0.textFile }
                     guard !textFiles.isEmpty, let project = submission.project else { return }
                     

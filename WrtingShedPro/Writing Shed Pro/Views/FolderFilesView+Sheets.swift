@@ -121,6 +121,9 @@ extension FolderFilesView {
     
     @ViewBuilder
     var exportMenuButtons: some View {
+        Button(ExportFormat.pdf.localizedName) {
+            exportFiles(format: .pdf)
+        }
         Button(ExportFormat.rtf.localizedName) {
             pendingExportAction = { exportFiles(format: .rtf) }
             showImageWarningAfterDelay()
@@ -128,10 +131,6 @@ extension FolderFilesView {
         Button(ExportFormat.html.localizedName) {
             exportFiles(format: .html)
         }
-        // EPUB reserved for future release
-        // Button(ExportFormat.epub.localizedName) {
-        //     exportFiles(format: .epub)
-        // }
         Button(ExportFormat.word.localizedName) {
             exportFiles(format: .word)
         }

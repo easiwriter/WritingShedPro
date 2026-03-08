@@ -146,7 +146,7 @@ struct FolderFilesView: View {
             onFileSelected: handleFileSelected,
             onMove: (isProseProject && !isReadOnly) ? handleMove : nil,
             onDelete: isReadOnly ? { _ in } : deleteFiles,
-            onExport: (isReadOnly || (isPoetryProject && isContentFolder)) ? nil : handleExport,
+            onExport: isReadOnly ? nil : handleExport,
             onSubmit: fileListOnSubmit,
             onReorder: (!isReadOnly && isContentFolder) ? moveContentFiles : nil,
             onRename: (isReadOnly || (isPoetryProject && isContentFolder)) ? nil : handleRename,
@@ -1414,7 +1414,24 @@ struct FolderFilesView: View {
                 exportData = try exportService.exportToDOCX(content, filename: filename)
             case .markdown:
                 exportData = try MarkdownExportService.exportToMarkdownData(content, filename: filename)
-            case .pdf, .plainText, .fountain, .finalDraft:
+            case .pdf:
+                guard let project = folder.project else { return }
+                let manuscriptContent = ManuscriptContent(
+                    attributedString: content,
+                    sections: [],
+                    fileOffsets: [:],
+                    frontMatterFileCount: 0,
+                    frontMatterCharacterLength: 0,
+                    assembledFootnotes: []
+                )
+                guard let pdfData = PrintService.generatePDF(
+                    from: manuscriptContent,
+                    project: project,
+                    pageSetup: project.pageSetup,
+                    context: modelContext
+                ) else { return }
+                exportData = pdfData
+            case .plainText, .fountain, .finalDraft:
                 // Not supported for single file export from this view
                 #if DEBUG
                 print("   ❌ Format not supported for single file export")
