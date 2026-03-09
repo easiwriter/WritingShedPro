@@ -222,8 +222,8 @@ struct Write_App: App {
                             }
                         } else if failCount <= maxNudgeAttempts {
                             // Non-rate-limit failure: nudge with a mutation after delay.
-                            // Use exponential backoff: 90s, 180s, 360s
-                            let delay = 90.0 * pow(2.0, Double(failCount - 1))
+                            // Linear backoff: 30s, 45s, 60s
+                            let delay = 15.0 + (15.0 * Double(failCount))
                             #if DEBUG
                             print("🔄 [CloudKit Sync] Will nudge delegate in \(Int(delay))s (attempt \(failCount)/\(maxNudgeAttempts))...")
                             #endif
