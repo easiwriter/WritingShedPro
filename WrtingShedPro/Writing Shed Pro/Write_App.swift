@@ -191,11 +191,35 @@ struct Write_App: App {
                                 ?? (nsError?.userInfo["retryAfter"] as? Double)
                                 ?? 30.0
                             #if DEBUG
-                            print("⏳ [CloudKit Sync] Rate limited (attempt \(failCount)). Container will auto-retry. Server suggests \(retryAfter)s backoff.")
+                            print("⏳ [CloudKit Sync] Rate limited (attempt \(failCount)). Server says retry after \(retryAfter)s.")
                             #endif
-                            Write_App.logToFile("⏳ Rate limited (attempt \(failCount)), backoff \(retryAfter)s – letting container retry")
-                            // Do NOT nudge — the container handles rate-limit retries internally.
-                            // Nudging adds mutations to the export queue, making rate limiting worse.
+                            Write_App.logToFile("⏳ Rate limited (attempt \(failCount)), backoff \(retryAfter)s")
+                            
+                            // The container's internal retry SHOULD handle this, but it often
+                            // stalls in debug sessions and sometimes in release too.
+                            // Schedule a safety-net nudge after server backoff + generous buffer.
+                            // Only nudge up to 3 times for rate limits to avoid a feedback loop.
+                            if failCount <= maxNudgeAttempts {
+                                let safetyDelay = max(retryAfter, 5.0) + 25.0  // server backoff + 25s buffer
+                                #if DEBUG
+                                print("🔄 [CloudKit Sync] Safety-net nudge in \(Int(safetyDelay))s if container doesn't retry...")
+                                #endif
+                                DispatchQueue.main.asyncAfter(deadline: .now() + safetyDelay) {
+                                    var descriptor = FetchDescriptor<Project>()
+                                    descriptor.fetchLimit = 1
+                                    if let project = try? syncRetryContext.fetch(descriptor).first {
+                                        project.modifiedDate = Date()
+                                        try? syncRetryContext.save()
+                                        #if DEBUG
+                                        print("🔄 [CloudKit Sync] Safety-net nudge fired: touched '\(project.name ?? "")' (rate-limit attempt \(failCount))")
+                                        #endif
+                                    }
+                                }
+                            } else {
+                                #if DEBUG
+                                print("⚠️ [CloudKit Sync] Rate limited \(failCount) times – no more nudges, waiting for container.")
+                                #endif
+                            }
                         } else if failCount <= maxNudgeAttempts {
                             // Non-rate-limit failure: nudge with a mutation after delay.
                             // Use exponential backoff: 90s, 180s, 360s
