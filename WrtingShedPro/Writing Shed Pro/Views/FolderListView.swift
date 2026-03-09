@@ -1051,6 +1051,17 @@ struct FolderListView: View {
             adjustedCenteredIndices = content.verticallyCenteredChunkIndices
         }
         
+        // Adjust fileCollectionMap offsets when a front cover shifts all character positions
+        let adjustedCollectionMap: [(offset: Int, collectionName: String)]
+        if hasFrontCover {
+            let coverPrefixLength = assembled.length - content.attributedString.length
+            adjustedCollectionMap = content.fileCollectionMap.map { entry in
+                (offset: entry.offset + coverPrefixLength, collectionName: entry.collectionName)
+            }
+        } else {
+            adjustedCollectionMap = content.fileCollectionMap
+        }
+        
         return ManuscriptContent(
             attributedString: assembled,
             sections: content.sections,
@@ -1064,7 +1075,8 @@ struct FolderListView: View {
             assembledFootnotes: adjustedFootnotes,
             verticallyCenteredChunkIndices: adjustedCenteredIndices,
             frontCoverImageData: frontCoverData,
-            backCoverImageData: backCoverData
+            backCoverImageData: backCoverData,
+            fileCollectionMap: adjustedCollectionMap
         )
     }
 

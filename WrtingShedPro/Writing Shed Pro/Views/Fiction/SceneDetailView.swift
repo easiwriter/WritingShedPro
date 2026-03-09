@@ -20,6 +20,7 @@ struct SceneDetailView: View {
     
     @Bindable var scene: StoryScene
     let project: Project
+    var onExport: ((TextFile) -> Void)? = nil
     
     // MARK: - State
     
@@ -57,6 +58,34 @@ struct SceneDetailView: View {
         (project.plotElements ?? []).sorted {
             ($0.userOrder ?? 0) < ($1.userOrder ?? 0)
         }
+    }
+    
+    // MARK: - File Statistics
+    
+    private var sceneTextFile: TextFile? {
+        scene.textFile
+    }
+    
+    private var wordCount: Int {
+        guard let content = sceneTextFile?.currentVersion?.content else { return 0 }
+        return content.components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }.count
+    }
+    
+    private var characterCount: Int {
+        sceneTextFile?.currentVersion?.content.count ?? 0
+    }
+    
+    private var lineCount: Int {
+        guard let content = sceneTextFile?.currentVersion?.content else { return 0 }
+        return content.components(separatedBy: .newlines).count
+    }
+    
+    private var dateFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter
     }
     
     // MARK: - Body
@@ -231,6 +260,106 @@ struct SceneDetailView: View {
                 }
             } header: {
                 Text(NSLocalizedString(isVerseNovel ? "fiction.episode.file" : "fiction.scene.file", comment: "Scene/Episode File"))
+            }
+        }
+        
+        // Dates
+        if let textFile = sceneTextFile {
+            Section {
+                HStack {
+                    Text(NSLocalizedString("fileDetails.created", comment: "Created"))
+                    Spacer()
+                    Text(dateFormatter.string(from: textFile.createdDate))
+                        .foregroundStyle(.secondary)
+                }
+                HStack {
+                    Text(NSLocalizedString("fileDetails.modified", comment: "Modified"))
+                    Spacer()
+                    Text(dateFormatter.string(from: textFile.modifiedDate))
+                        .foregroundStyle(.secondary)
+                }
+            } header: {
+                Text(NSLocalizedString("fileDetails.dates", comment: "Dates"))
+            }
+            
+            // Statistics
+            Section {
+                HStack {
+                    Text(NSLocalizedString("fileDetails.words", comment: "Words"))
+                    Spacer()
+                    Text("\(wordCount)")
+                        .foregroundStyle(.secondary)
+                }
+                HStack {
+                    Text(NSLocalizedString("fileDetails.characters", comment: "Characters"))
+                    Spacer()
+                    Text("\(characterCount)")
+                        .foregroundStyle(.secondary)
+                }
+                HStack {
+                    Text(NSLocalizedString("fileDetails.lines", comment: "Lines"))
+                    Spacer()
+                    Text("\(lineCount)")
+                        .foregroundStyle(.secondary)
+                }
+            } header: {
+                Text(NSLocalizedString("fileDetails.statistics", comment: "Statistics"))
+            }
+            
+            // Workflow Status
+            if let status = textFile.workflowStatus {
+                Section {
+                    HStack {
+                        Text(NSLocalizedString("fileDetails.workflowStatus", comment: "Workflow Status"))
+                        Spacer()
+                        HStack(spacing: 4) {
+                            Image(systemName: status.systemImage)
+                                .foregroundColor(Color(status.color))
+                            Text(status.localizedName)
+                                .foregroundColor(Color(status.color))
+                        }
+                    }
+                } header: {
+                    Text(NSLocalizedString("fileDetails.status", comment: "Status"))
+                }
+            }
+        }
+        
+        // Container (Chapter / Act / Book)
+        Section {
+            if let chapters = scene.chapters, !chapters.isEmpty {
+                ForEach(chapters.sorted { ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending }) { chapter in
+                    LabeledContent(NSLocalizedString("fileDetails.container.chapter", comment: "Chapter")) {
+                        Text(chapter.name ?? "-")
+                    }
+                }
+            }
+            if let acts = scene.acts, !acts.isEmpty {
+                ForEach(acts.sorted { ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending }) { act in
+                    LabeledContent(NSLocalizedString("fileDetails.container.act", comment: "Act")) {
+                        Text(act.name ?? "-")
+                    }
+                }
+            }
+            if let books = scene.books, !books.isEmpty {
+                ForEach(books.sorted { ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending }) { book in
+                    LabeledContent(NSLocalizedString("fileDetails.container.book", comment: "Book")) {
+                        Text(book.name ?? "-")
+                    }
+                }
+            }
+        } header: {
+            Text(NSLocalizedString("fileDetails.container", comment: "Container"))
+        }
+        
+        // Export
+        if let textFile = sceneTextFile, let onExport = onExport {
+            Section {
+                Button {
+                    onExport(textFile)
+                } label: {
+                    Label(NSLocalizedString("fileList.export", comment: "Export"), systemImage: "square.and.arrow.up")
+                }
             }
         }
         

@@ -37,6 +37,10 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
     /// Pages whose character range falls within this length show roman numeral page numbers.
     private let frontMatterCharacterLength: Int
     
+    /// Mapping of character offsets to collection/section names for {{Collection}} placeholder in manuscript mode.
+    /// Sorted by offset ascending. Built from ManuscriptContent on the main thread.
+    private let fileCollectionMap: [(offset: Int, collectionName: String)]
+    
     // Cache for page text views to reuse rendering logic
     private var pageTextViews: [Int: UITextView] = [:]
     private var footnoteControllers: [Int: UIViewController] = [:]
@@ -64,7 +68,8 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
          frontMatterCharacterLength: Int = 0,
          assembledFootnotes: [ManuscriptFootnote] = [],
          frontCoverImageData: Data? = nil,
-         backCoverImageData: Data? = nil) {
+         backCoverImageData: Data? = nil,
+         fileCollectionMap: [(offset: Int, collectionName: String)] = []) {
         self.layoutManager = layoutManager
         self.layoutResult = layoutResult
         self.pageSetup = pageSetup
@@ -77,6 +82,7 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
         self.frontMatterCharacterLength = frontMatterCharacterLength
         self.frontCoverImageData = frontCoverImageData
         self.backCoverImageData = backCoverImageData
+        self.fileCollectionMap = fileCollectionMap
         
         super.init()
         
@@ -234,6 +240,7 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
                     rect: headerRect,
                     pageNumberString: pageNumberString,
                     totalPages: displayTotalPages,
+                    pageCharOffset: pageInfo.characterRange.location,
                     context: context
                 )
             }
@@ -247,6 +254,7 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
                     rect: footerRect,
                     pageNumberString: pageNumberString,
                     totalPages: displayTotalPages,
+                    pageCharOffset: pageInfo.characterRange.location,
                     context: context
                 )
             }
@@ -302,7 +310,7 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
     // MARK: - Drawing Helpers
     
     /// Resolve placeholder tokens in header/footer text
-    private func resolvePlaceholders(_ text: String?, pageNumberString: String, totalPages: Int) -> String {
+    private func resolvePlaceholders(_ text: String?, pageNumberString: String, totalPages: Int, pageCharOffset: Int = 0) -> String {
         guard let text = text, !text.isEmpty else { return "" }
         
         var result = text
@@ -334,6 +342,32 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
                 folderName = NSLocalizedString("folder.sections", comment: "Sections")
             }
             result = result.replacingOccurrences(of: "{{Folder}}", with: folderName)
+        }
+        
+        // {{Collection}} - Collection/Section name (poetry collection or prose section)
+        if result.contains("{{Collection}}") {
+            let collectionName: String
+            if let textFile = version?.textFile {
+                // Single-file mode: get collection from the file's relationships
+                collectionName = textFile.poetryCollections?.first?.name
+                    ?? textFile.sections?.first?.name
+                    ?? ""
+            } else if !fileCollectionMap.isEmpty {
+                // Manuscript mode: look up collection by page character offset
+                // Find the last entry whose offset <= pageCharOffset (files are sorted by offset)
+                var found = ""
+                for entry in fileCollectionMap {
+                    if entry.offset <= pageCharOffset {
+                        found = entry.collectionName
+                    } else {
+                        break
+                    }
+                }
+                collectionName = found
+            } else {
+                collectionName = ""
+            }
+            result = result.replacingOccurrences(of: "{{Collection}}", with: collectionName)
         }
         
         // {{Project Name}} - Project title
@@ -376,12 +410,13 @@ class CustomPDFPageRenderer: UIPrintPageRenderer {
         rect: CGRect,
         pageNumberString: String,
         totalPages: Int,
+        pageCharOffset: Int,
         context: CGContext
     ) {
         // Resolve placeholders
-        let leftText = resolvePlaceholders(left, pageNumberString: pageNumberString, totalPages: totalPages)
-        let centerText = resolvePlaceholders(center, pageNumberString: pageNumberString, totalPages: totalPages)
-        let rightText = resolvePlaceholders(right, pageNumberString: pageNumberString, totalPages: totalPages)
+        let leftText = resolvePlaceholders(left, pageNumberString: pageNumberString, totalPages: totalPages, pageCharOffset: pageCharOffset)
+        let centerText = resolvePlaceholders(center, pageNumberString: pageNumberString, totalPages: totalPages, pageCharOffset: pageCharOffset)
+        let rightText = resolvePlaceholders(right, pageNumberString: pageNumberString, totalPages: totalPages, pageCharOffset: pageCharOffset)
         
         // Text attributes for header/footer
         let font = UIFont.systemFont(ofSize: 12)

@@ -734,7 +734,8 @@ class PrintService {
             frontMatterCharacterLength: content.frontMatterCharacterLength,
             assembledFootnotes: content.assembledFootnotes,
             frontCoverImageData: content.frontCoverImageData,
-            backCoverImageData: content.backCoverImageData
+            backCoverImageData: content.backCoverImageData,
+            fileCollectionMap: content.fileCollectionMap
         )
     }
     
@@ -783,6 +784,7 @@ class PrintService {
         let bgFrontCoverImageData = content.frontCoverImageData
         let bgBackCoverImageData = content.backCoverImageData
         let bgCenteredChunks = content.verticallyCenteredChunkIndices
+        let bgFileCollectionMap = content.fileCollectionMap
         
         return await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
@@ -802,7 +804,8 @@ class PrintService {
                     assembledFootnotes: bgAssembledFootnotes,
                     frontCoverImageData: bgFrontCoverImageData,
                     backCoverImageData: bgBackCoverImageData,
-                    verticallyCenteredChunkIndices: bgCenteredChunks
+                    verticallyCenteredChunkIndices: bgCenteredChunks,
+                    fileCollectionMap: bgFileCollectionMap
                 )
                 continuation.resume(returning: result)
             }
@@ -887,7 +890,8 @@ class PrintService {
         frontMatterCharacterLength: Int = 0,
         assembledFootnotes: [ManuscriptFootnote] = [],
         frontCoverImageData: Data? = nil,
-        backCoverImageData: Data? = nil
+        backCoverImageData: Data? = nil,
+        fileCollectionMap: [(offset: Int, collectionName: String)] = []
     ) -> Data? {
         #if DEBUG
         print("🖨️ PDF Generation Setup:")
@@ -946,7 +950,8 @@ class PrintService {
             frontMatterCharacterLength: frontMatterCharacterLength,
             assembledFootnotes: assembledFootnotes,
             frontCoverImageData: frontCoverImageData,
-            backCoverImageData: backCoverImageData
+            backCoverImageData: backCoverImageData,
+            fileCollectionMap: fileCollectionMap
         )
         
         // Create PDF data
@@ -992,7 +997,8 @@ class PrintService {
         assembledFootnotes: [ManuscriptFootnote] = [],
         frontCoverImageData: Data? = nil,
         backCoverImageData: Data? = nil,
-        verticallyCenteredChunkIndices: Set<Int> = []
+        verticallyCenteredChunkIndices: Set<Int> = [],
+        fileCollectionMap: [(offset: Int, collectionName: String)] = []
     ) -> Data? {
         #if DEBUG
         print("🖨️ PDF Generation (with progress) Setup:")
@@ -1019,6 +1025,7 @@ class PrintService {
                 frontCoverImageData: frontCoverImageData,
                 backCoverImageData: backCoverImageData,
                 verticallyCenteredChunkIndices: verticallyCenteredChunkIndices,
+                fileCollectionMap: fileCollectionMap,
                 progress: { current, total in
                     // Report as layout progress for the first 90%, render for the last 10%
                     // In practice each page is laid out + rendered in one step
@@ -1073,7 +1080,8 @@ class PrintService {
             frontMatterCharacterLength: frontMatterCharacterLength,
             assembledFootnotes: assembledFootnotes,
             frontCoverImageData: frontCoverImageData,
-            backCoverImageData: backCoverImageData
+            backCoverImageData: backCoverImageData,
+            fileCollectionMap: fileCollectionMap
         )
         
         let pdfData = NSMutableData()
@@ -1122,6 +1130,7 @@ class PrintService {
         frontCoverImageData: Data? = nil,
         backCoverImageData: Data? = nil,
         verticallyCenteredChunkIndices: Set<Int> = [],
+        fileCollectionMap: [(offset: Int, collectionName: String)] = [],
         progress: @escaping (Int, Int) -> Void
     ) -> Data? {
         let fullString = content.string as NSString
@@ -1309,6 +1318,8 @@ class PrintService {
                         pageNumberString: pageNumberString,
                         totalPages: displayTotalPages,
                         project: project,
+                        fileCollectionMap: fileCollectionMap,
+                        pageCharOffset: chunkRanges[slice.chunkIndex].location,
                         context: cgContext
                     )
                 }
@@ -1323,6 +1334,8 @@ class PrintService {
                         pageNumberString: pageNumberString,
                         totalPages: displayTotalPages,
                         project: project,
+                        fileCollectionMap: fileCollectionMap,
+                        pageCharOffset: chunkRanges[slice.chunkIndex].location,
                         context: cgContext
                     )
                 }
@@ -1472,6 +1485,9 @@ class PrintService {
         pageNumberString: String,
         totalPages: Int,
         project: Project,
+        version: Version? = nil,
+        fileCollectionMap: [(offset: Int, collectionName: String)] = [],
+        pageCharOffset: Int = 0,
         context: CGContext
     ) {
         let font = UIFont.systemFont(ofSize: 12)
@@ -1508,6 +1524,28 @@ class PrintService {
                     folderName = NSLocalizedString("folder.sections", comment: "Sections")
                 }
                 result = result.replacingOccurrences(of: "{{Folder}}", with: folderName)
+            }
+            if result.contains("{{Collection}}") {
+                let collectionName: String
+                if let textFile = version?.textFile {
+                    collectionName = textFile.poetryCollections?.first?.name
+                        ?? textFile.sections?.first?.name
+                        ?? ""
+                } else if !fileCollectionMap.isEmpty {
+                    // Manuscript mode: look up collection by page character offset
+                    var found = ""
+                    for entry in fileCollectionMap {
+                        if entry.offset <= pageCharOffset {
+                            found = entry.collectionName
+                        } else {
+                            break
+                        }
+                    }
+                    collectionName = found
+                } else {
+                    collectionName = ""
+                }
+                result = result.replacingOccurrences(of: "{{Collection}}", with: collectionName)
             }
             if result.contains("{{Project Name}}") {
                 result = result.replacingOccurrences(of: "{{Project Name}}", with: project.name ?? "")

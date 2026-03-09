@@ -238,7 +238,10 @@ struct FileListView: View {
         }
         .sheet(isPresented: $showFileDetails) {
             if let file = fileForDetails {
-                FileDetailsSheet(file: file)
+                FileDetailsSheet(file: file, onExport: onExport != nil ? { f in
+                    showFileDetails = false
+                    onExport?([f])
+                } : nil)
             }
         }
     }
@@ -447,39 +450,12 @@ struct FileListView: View {
         }
     }
     
-    /// Options menu for a file (ellipsis button)
+    /// Details button for a file (ellipsis button opens details sheet directly)
     @ViewBuilder
     private func fileOptionsMenu(for file: TextFile) -> some View {
-        Menu {
-            // File Details
-            Button {
-                fileForDetails = file
-                showFileDetails = true
-            } label: {
-                Label(NSLocalizedString("fileList.details", comment: "Details"), systemImage: "info.circle")
-            }
-            
-            Divider()
-            
-            // Rename (if callback provided)
-            if onRename != nil {
-                Button {
-                    selectedFileIDs = [file.id]
-                    renameText = file.name
-                    showRenameModal = true
-                } label: {
-                    Label(NSLocalizedString("fileList.rename", comment: "Rename"), systemImage: "pencil")
-                }
-            }
-            
-            // Export (if callback provided)
-            if let onExport = onExport {
-                Button {
-                    onExport([file])
-                } label: {
-                    Label(NSLocalizedString("fileList.export", comment: "Export"), systemImage: "square.and.arrow.up")
-                }
-            }
+        Button {
+            fileForDetails = file
+            showFileDetails = true
         } label: {
             Image(systemName: "ellipsis.circle")
                 .imageScale(.large)

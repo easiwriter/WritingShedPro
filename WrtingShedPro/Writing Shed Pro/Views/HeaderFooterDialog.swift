@@ -13,6 +13,7 @@ enum HeaderFooterElement: String, CaseIterable, Identifiable {
     case date = "Date"
     case pageNumber = "Page Number"
     case folder = "Folder"
+    case collection = "Collection"
     case projectName = "Project Name"
     case author = "Author"
     

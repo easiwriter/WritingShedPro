@@ -111,6 +111,19 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
             result = result.replacingOccurrences(of: "{{Folder}}", with: folderName)
         }
         
+        // {{Collection}} - Collection/Section name (poetry collection or prose section)
+        if result.contains("{{Collection}}") {
+            let collectionName: String
+            if let textFile = version?.textFile {
+                collectionName = textFile.poetryCollections?.first?.name
+                    ?? textFile.sections?.first?.name
+                    ?? ""
+            } else {
+                collectionName = ""
+            }
+            result = result.replacingOccurrences(of: "{{Collection}}", with: collectionName)
+        }
+        
         // {{Project Name}} - Project title
         if result.contains("{{Project Name}}") {
             let projectName = project?.name ?? ""

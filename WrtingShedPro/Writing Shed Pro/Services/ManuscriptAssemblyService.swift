@@ -810,7 +810,7 @@ final class ManuscriptAssemblyService {
         // PDF rendering includes the correct figure numbers in captions.
         ImageAttachment.updateCaptionNumbersInAttributedString(assembled, styleSheet: project.styleSheet)
 
-        return ManuscriptContent(
+        var result = ManuscriptContent(
             attributedString: assembled,
             sections: sections,
             fileOffsets: fileOffsets,
@@ -819,6 +819,8 @@ final class ManuscriptAssemblyService {
             assembledFootnotes: assembledFootnotes,
             verticallyCenteredChunkIndices: verticallyCenteredChunkIndices
         )
+        result.buildFileCollectionMap()
+        return result
     }
     
     /// Assemble complete manuscript content with back matter (Feature 029)
@@ -867,7 +869,8 @@ final class ManuscriptAssemblyService {
                 sections: content.sections,
                 pageMap: content.pageMap,
                 fileOffsets: content.fileOffsets,
-                pageCount: content.pageCount
+                pageCount: content.pageCount,
+                fileCollectionMap: content.fileCollectionMap
             )
         }
         

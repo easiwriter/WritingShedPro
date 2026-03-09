@@ -778,6 +778,7 @@
 "fileDetail.deleteWarning" = "This file will be permanently deleted. This action cannot be undone.";
 
 /* File Details Sheet */
+"fileDetails.name" = "Name";
 "fileDetails.dates" = "Dates";
 "fileDetails.created" = "Created";
 "fileDetails.modified" = "Modified";
@@ -787,6 +788,15 @@
 "fileDetails.lines" = "Lines";
 "fileDetails.status" = "Status";
 "fileDetails.workflowStatus" = "Workflow Status";
+
+// MARK: - File Details: Container Info
+"fileDetails.container" = "Container";
+"fileDetails.container.folder" = "Folder";
+"fileDetails.container.collection" = "Collection";
+"fileDetails.container.section" = "Section";
+"fileDetails.container.chapter" = "Chapter";
+"fileDetails.container.act" = "Act";
+"fileDetails.container.book" = "Book";
 
 /* File list deletion */
 "fileList.deleteConfirmOne" = "Are you sure you want to delete \"%@\"? This will permanently delete the file. This action cannot be undone.";

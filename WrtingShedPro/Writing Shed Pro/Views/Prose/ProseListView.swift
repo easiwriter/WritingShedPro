@@ -573,7 +573,11 @@ struct ProseListView: View {
     @ViewBuilder
     private var detailsSheet: some View {
         if let file = fileForDetails {
-            FileDetailsSheet(file: file)
+            FileDetailsSheet(file: file, onExport: { f in
+                showFileDetails = false
+                filesToExport = [f]
+                showExportMenu = true
+            })
         }
     }
     
@@ -924,32 +928,9 @@ struct ProseListView: View {
     
     @ViewBuilder
     private func fileOptionsMenu(for file: TextFile) -> some View {
-        Menu {
-            // File Details
-            Button {
-                fileForDetails = file
-                showFileDetails = true
-            } label: {
-                Label(NSLocalizedString("fileList.details", comment: "Details"), systemImage: "info.circle")
-            }
-            
-            Divider()
-            
-            // Rename
-            Button {
-                fileToRename = file
-                showRenameSheet = true
-            } label: {
-                Label(NSLocalizedString("fileList.rename", comment: "Rename"), systemImage: "pencil")
-            }
-            
-            // Export
-            Button {
-                filesToExport = [file]
-                showExportMenu = true
-            } label: {
-                Label(NSLocalizedString("fileList.export", comment: "Export"), systemImage: "square.and.arrow.up")
-            }
+        Button {
+            fileForDetails = file
+            showFileDetails = true
         } label: {
             Image(systemName: "ellipsis.circle")
                 .imageScale(.large)
@@ -958,6 +939,7 @@ struct ProseListView: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(NSLocalizedString("fileList.options", comment: "File options"))
     }
     
     // MARK: - Empty State

@@ -36,7 +36,6 @@ struct SceneListView: View {
     // MARK: - State
     
     @State private var showAddScene = false
-    @State private var selectedScene: StoryScene?
     
     /// Scene to navigate to for editing
     @State private var navigateToScene: StoryScene?
@@ -86,6 +85,10 @@ struct SceneListView: View {
     @State private var headerInsertTarget: HeaderFooterField = .left
     @State private var footerInsertTarget: HeaderFooterField = .left
     @State private var showHeaderFooterWarning = false
+    
+    /// Scene details state
+    @State private var showSceneDetails = false
+    @State private var sceneForDetails: StoryScene?
     
     /// Export state
     @State private var showExportMenu = false
@@ -388,8 +391,14 @@ struct SceneListView: View {
         .sheet(isPresented: $showAddScene) {
             AddSceneSheet(project: project, chapter: chapter, act: act, book: book)
         }
-        .sheet(item: $selectedScene) { scene in
-            SceneDetailView(scene: scene, project: project)
+        .sheet(isPresented: $showSceneDetails) {
+            if let scene = sceneForDetails {
+                SceneDetailView(scene: scene, project: project, onExport: { textFile in
+                    showSceneDetails = false
+                    filesToExport = [textFile]
+                    showExportMenu = true
+                })
+            }
         }
         .sheet(isPresented: $showSearchView) {
             // Multi-file search across all scene files
@@ -1086,15 +1095,9 @@ struct SceneListView: View {
             
             Spacer(minLength: 8)
             
-            // Info button to show scene details
+            // Options menu (only in normal mode)
             if !isEditMode {
-                Button {
-                    selectedScene = scene
-                } label: {
-                    Image(systemName: "info.circle")
-                        .foregroundColor(.secondary)
-                }
-                .buttonStyle(.plain)
+                sceneOptionsMenu(for: scene)
             }
         }
         .contentShape(Rectangle())
@@ -1106,6 +1109,25 @@ struct SceneListView: View {
                 navigateToScene = scene
             }
         }
+    }
+    
+    // MARK: - Scene Options Button
+    
+    /// Ellipsis button that opens scene details directly
+    @ViewBuilder
+    private func sceneOptionsMenu(for scene: StoryScene) -> some View {
+        Button {
+            sceneForDetails = scene
+            showSceneDetails = true
+        } label: {
+            Image(systemName: "ellipsis.circle")
+                .imageScale(.large)
+                .foregroundStyle(.secondary)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(NSLocalizedString("fileList.options", comment: "File options"))
     }
     
     // MARK: - Empty State

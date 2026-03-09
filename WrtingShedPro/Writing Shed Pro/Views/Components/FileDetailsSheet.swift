@@ -7,11 +7,20 @@
 
 import SwiftUI
 
-/// A sheet that displays file details: creation date, last modified date, and word count
+/// A sheet that displays file details with edit mode for renaming and export support
 struct FileDetailsSheet: View {
-    let file: TextFile
+    @Bindable var file: TextFile
+    var onExport: ((TextFile) -> Void)? = nil
     
+    @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    
+    // MARK: - Edit State
+    
+    @State private var isEditing = false
+    @State private var editName: String = ""
+    
+    // MARK: - Computed
     
     private var wordCount: Int {
         guard let content = file.currentVersion?.content else { return 0 }
@@ -36,58 +45,129 @@ struct FileDetailsSheet: View {
         return formatter
     }
     
+    private var hasContainerInfo: Bool {
+        file.parentFolder != nil ||
+        !(file.poetryCollections ?? []).isEmpty ||
+        !(file.sections ?? []).isEmpty
+    }
+    
+    // MARK: - Body
+    
     var body: some View {
-        NavigationView {
-            List {
-                Section(header: Text(NSLocalizedString("fileDetails.dates", comment: "Dates section header"))) {
-                    HStack {
-                        Text(NSLocalizedString("fileDetails.created", comment: "Created date label"))
-                        Spacer()
-                        Text(dateFormatter.string(from: file.createdDate))
-                            .foregroundStyle(.secondary)
-                    }
-                    
-                    HStack {
-                        Text(NSLocalizedString("fileDetails.modified", comment: "Modified date label"))
-                        Spacer()
-                        Text(dateFormatter.string(from: file.modifiedDate))
-                            .foregroundStyle(.secondary)
+        NavigationStack {
+            Form {
+                // Name (editable in edit mode)
+                Section {
+                    if isEditing {
+                        TextField(NSLocalizedString("fileDetails.name", comment: "Name"), text: $editName)
+                    } else {
+                        LabeledContent(NSLocalizedString("fileDetails.name", comment: "Name")) {
+                            Text(file.name)
+                        }
                     }
                 }
                 
-                Section(header: Text(NSLocalizedString("fileDetails.statistics", comment: "Statistics section header"))) {
-                    HStack {
-                        Text(NSLocalizedString("fileDetails.words", comment: "Word count label"))
-                        Spacer()
-                        Text("\(wordCount)")
-                            .foregroundStyle(.secondary)
-                    }
-                    
-                    HStack {
-                        Text(NSLocalizedString("fileDetails.characters", comment: "Character count label"))
-                        Spacer()
-                        Text("\(characterCount)")
-                            .foregroundStyle(.secondary)
-                    }
-                    
-                    HStack {
-                        Text(NSLocalizedString("fileDetails.lines", comment: "Line count label"))
-                        Spacer()
-                        Text("\(lineCount)")
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                
-                if let status = file.workflowStatus {
-                    Section(header: Text(NSLocalizedString("fileDetails.status", comment: "Status section header"))) {
+                if !isEditing {
+                    // Dates
+                    Section(header: Text(NSLocalizedString("fileDetails.dates", comment: "Dates section header"))) {
                         HStack {
-                            Text(NSLocalizedString("fileDetails.workflowStatus", comment: "Workflow status label"))
+                            Text(NSLocalizedString("fileDetails.created", comment: "Created date label"))
                             Spacer()
-                            HStack(spacing: 4) {
-                                Image(systemName: status.systemImage)
-                                    .foregroundColor(Color(status.color))
-                                Text(status.localizedName)
-                                    .foregroundColor(Color(status.color))
+                            Text(dateFormatter.string(from: file.createdDate))
+                                .foregroundStyle(.secondary)
+                        }
+                        
+                        HStack {
+                            Text(NSLocalizedString("fileDetails.modified", comment: "Modified date label"))
+                            Spacer()
+                            Text(dateFormatter.string(from: file.modifiedDate))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    
+                    // Statistics
+                    Section(header: Text(NSLocalizedString("fileDetails.statistics", comment: "Statistics section header"))) {
+                        HStack {
+                            Text(NSLocalizedString("fileDetails.words", comment: "Word count label"))
+                            Spacer()
+                            Text("\(wordCount)")
+                                .foregroundStyle(.secondary)
+                        }
+                        
+                        HStack {
+                            Text(NSLocalizedString("fileDetails.characters", comment: "Character count label"))
+                            Spacer()
+                            Text("\(characterCount)")
+                                .foregroundStyle(.secondary)
+                        }
+                        
+                        HStack {
+                            Text(NSLocalizedString("fileDetails.lines", comment: "Line count label"))
+                            Spacer()
+                            Text("\(lineCount)")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    
+                    // Workflow Status
+                    if let status = file.workflowStatus {
+                        Section(header: Text(NSLocalizedString("fileDetails.status", comment: "Status section header"))) {
+                            HStack {
+                                Text(NSLocalizedString("fileDetails.workflowStatus", comment: "Workflow status label"))
+                                Spacer()
+                                HStack(spacing: 4) {
+                                    Image(systemName: status.systemImage)
+                                        .foregroundColor(Color(status.color))
+                                    Text(status.localizedName)
+                                        .foregroundColor(Color(status.color))
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Container info (Folder, Poetry Collections, Prose Sections)
+                    if hasContainerInfo {
+                        Section(header: Text(NSLocalizedString("fileDetails.container", comment: "Container section header"))) {
+                            if let folder = file.parentFolder {
+                                HStack {
+                                    Text(NSLocalizedString("fileDetails.container.folder", comment: "Folder"))
+                                    Spacer()
+                                    Text(folder.name ?? "-")
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            
+                            if let collections = file.poetryCollections, !collections.isEmpty {
+                                ForEach(collections.sorted { ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending }) { collection in
+                                    HStack {
+                                        Text(NSLocalizedString("fileDetails.container.collection", comment: "Collection"))
+                                        Spacer()
+                                        Text(collection.name ?? "-")
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                            }
+                            
+                            if let sections = file.sections, !sections.isEmpty {
+                                ForEach(sections.sorted { ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending }) { section in
+                                    HStack {
+                                        Text(NSLocalizedString("fileDetails.container.section", comment: "Section"))
+                                        Spacer()
+                                        Text(section.name ?? "-")
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Export
+                    if let onExport = onExport {
+                        Section {
+                            Button {
+                                onExport(file)
+                            } label: {
+                                Label(NSLocalizedString("fileList.export", comment: "Export"), systemImage: "square.and.arrow.up")
                             }
                         }
                     }
@@ -96,14 +176,45 @@ struct FileDetailsSheet: View {
             .navigationTitle(file.name)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    if isEditing {
+                        Button(NSLocalizedString("button.cancel", comment: "Cancel")) {
+                            isEditing = false
+                        }
+                    } else {
+                        Button(NSLocalizedString("button.done", comment: "Done")) {
+                            dismiss()
+                        }
+                    }
+                }
+                
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(NSLocalizedString("button.done", comment: "Done")) {
-                        dismiss()
+                    if isEditing {
+                        Button(NSLocalizedString("button.save", comment: "Save")) {
+                            saveChanges()
+                        }
+                        .disabled(editName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    } else {
+                        Button(NSLocalizedString("button.edit", comment: "Edit")) {
+                            editName = file.name
+                            isEditing = true
+                        }
                     }
                 }
             }
         }
-        .navigationViewStyle(.stack)
-        .presentationDetents([.medium])
+        .presentationDetents([.medium, .large])
+    }
+    
+    // MARK: - Actions
+    
+    private func saveChanges() {
+        let trimmed = editName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty {
+            file.name = trimmed
+            file.modifiedDate = Date()
+            try? modelContext.save()
+        }
+        isEditing = false
     }
 }

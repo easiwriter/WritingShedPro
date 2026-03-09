@@ -107,6 +107,11 @@ struct ManuscriptContent {
     var frontCoverImageData: Data?
     var backCoverImageData: Data?
     
+    /// Mapping of character offsets to collection/section names for header/footer {{Collection}} placeholder.
+    /// Built on main thread from sections + fileOffsets so it's safe to pass to background rendering.
+    /// Sorted by offset ascending.
+    var fileCollectionMap: [(offset: Int, collectionName: String)] = []
+    
     var wordCount: Int {
         let text = attributedString.string
         let words = text.components(separatedBy: .whitespacesAndNewlines)
@@ -132,7 +137,8 @@ struct ManuscriptContent {
         assembledFootnotes: [ManuscriptFootnote] = [],
         verticallyCenteredChunkIndices: Set<Int> = [],
         frontCoverImageData: Data? = nil,
-        backCoverImageData: Data? = nil
+        backCoverImageData: Data? = nil,
+        fileCollectionMap: [(offset: Int, collectionName: String)] = []
     ) {
         self.attributedString = attributedString
         self.sections = sections
@@ -147,6 +153,29 @@ struct ManuscriptContent {
         self.verticallyCenteredChunkIndices = verticallyCenteredChunkIndices
         self.frontCoverImageData = frontCoverImageData
         self.backCoverImageData = backCoverImageData
+        self.fileCollectionMap = fileCollectionMap
+    }
+    
+    /// Build the fileCollectionMap from sections and fileOffsets.
+    /// Must be called on the main thread while SwiftData models are accessible.
+    /// For each body file, resolves the collection name from poetryCollections or prose sections,
+    /// falling back to the ManuscriptSection title (e.g. chapter/act name for fiction).
+    /// Front matter and back matter sections are excluded (no meaningful collection name).
+    mutating func buildFileCollectionMap() {
+        var map: [(offset: Int, collectionName: String)] = []
+        for section in sections {
+            // Skip front/back matter — those pages shouldn't show a collection name
+            guard section.sectionType == .body else { continue }
+            for file in section.files {
+                guard let offset = fileOffsets[file.id] else { continue }
+                let name = file.poetryCollections?.first?.name
+                    ?? file.sections?.first?.name
+                    ?? section.title
+                map.append((offset: offset, collectionName: name))
+            }
+        }
+        map.sort { $0.offset < $1.offset }
+        fileCollectionMap = map
     }
 }
 
