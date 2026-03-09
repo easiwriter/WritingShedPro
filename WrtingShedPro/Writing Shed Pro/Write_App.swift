@@ -133,6 +133,12 @@ struct Write_App: App {
             
             // Monitor CloudKit sync events for diagnostics and auto-retry
             let syncRetryContext = mainContext
+            // Track consecutive export failures to limit nudge attempts.
+            // Box so the closure can mutate it.
+            let exportFailureCount = UnsafeMutablePointer<Int>.allocate(capacity: 1)
+            exportFailureCount.initialize(to: 0)
+            let maxNudgeAttempts = 3
+            
             NotificationCenter.default.addObserver(
                 forName: NSPersistentCloudKitContainer.eventChangedNotification,
                 object: nil,
@@ -170,29 +176,59 @@ struct Write_App: App {
                     }
                     #endif
                     
-                    // Auto-retry for export failures: the delegate's internal recovery
-                    // often stalls in debug sessions. Nudge it with a real data mutation
-                    // after a generous delay (90s) to ensure we're past the server's backoff.
+                    // Auto-retry for export failures.
+                    // CKError code 6 = requestRateLimited — the container's internal
+                    // retry handles this automatically with proper backoff.
+                    // We only nudge for NON-rate-limit failures where the container may stall.
                     if event.type == .export {
-                        #if DEBUG
-                        print("🔄 [CloudKit Sync] Will nudge delegate in 90s if it hasn't retried...")
-                        #endif
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 90) {
-                            var descriptor = FetchDescriptor<Project>()
-                            descriptor.fetchLimit = 1
-                            if let project = try? syncRetryContext.fetch(descriptor).first {
-                                project.modifiedDate = Date()
-                                try? syncRetryContext.save()
-                                #if DEBUG
-                                print("🔄 [CloudKit Sync] Nudged: touched '\(project.name ?? "")' modifiedDate")
-                                #endif
+                        let isRateLimited = (errorDomain == "CKErrorDomain" && errorCode == 6)
+                        let failCount = exportFailureCount.pointee + 1
+                        exportFailureCount.pointee = failCount
+                        
+                        if isRateLimited {
+                            // Extract server-provided retry-after, if any
+                            let retryAfter = nsError?.userInfo[CKError.errorUserInfoPartialErrorsKey] != nil
+                                ? 30.0 // default backoff
+                                : (nsError?.userInfo["CKRetryAfter"] as? Double ?? 30.0)
+                            #if DEBUG
+                            print("⏳ [CloudKit Sync] Rate limited (attempt \(failCount)). Container will auto-retry. Server suggests \(retryAfter)s backoff.")
+                            #endif
+                            Write_App.logToFile("⏳ Rate limited (attempt \(failCount)), backoff \(retryAfter)s – letting container retry")
+                            // Do NOT nudge — the container handles rate-limit retries internally.
+                            // Nudging adds mutations to the export queue, making rate limiting worse.
+                        } else if failCount <= maxNudgeAttempts {
+                            // Non-rate-limit failure: nudge with a mutation after delay.
+                            // Use exponential backoff: 90s, 180s, 360s
+                            let delay = 90.0 * pow(2.0, Double(failCount - 1))
+                            #if DEBUG
+                            print("🔄 [CloudKit Sync] Will nudge delegate in \(Int(delay))s (attempt \(failCount)/\(maxNudgeAttempts))...")
+                            #endif
+                            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                                var descriptor = FetchDescriptor<Project>()
+                                descriptor.fetchLimit = 1
+                                if let project = try? syncRetryContext.fetch(descriptor).first {
+                                    project.modifiedDate = Date()
+                                    try? syncRetryContext.save()
+                                    #if DEBUG
+                                    print("🔄 [CloudKit Sync] Nudged: touched '\(project.name ?? "")' modifiedDate (attempt \(failCount))")
+                                    #endif
+                                }
                             }
+                        } else {
+                            #if DEBUG
+                            print("⚠️ [CloudKit Sync] Export failed \(failCount) times – no more nudge attempts. Will rely on container's internal retry.")
+                            #endif
+                            Write_App.logToFile("⚠️ Export failed \(failCount) times – nudge limit reached")
                         }
                     }
                 } else {
                     #if DEBUG
                     print("☁️ [CloudKit Sync] OK: type=\(typeStr) endDate=\(endDateStr)")
                     #endif
+                    // Reset failure counter on any successful event
+                    if event.type == .export {
+                        exportFailureCount.pointee = 0
+                    }
                 }
             }
             
