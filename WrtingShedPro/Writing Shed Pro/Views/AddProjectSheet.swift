@@ -166,26 +166,11 @@ struct AddProjectSheet: View {
             #endif
             try modelContext.save()
             #if DEBUG
-            print("✅ [AddProjectSheet] Project saved to local database")
+            print("✅ [AddProjectSheet] Project saved to local database — CloudKit export will trigger automatically")
             #endif
             
             // Record significant event for review prompts
             ReviewManager.shared.recordSignificantEvent()
-
-            DispatchQueue.global(qos: .background).asyncAfter(deadline: .now() + 0.5) {
-                do {
-                    // Force the sync by doing a no-op fetch
-                    let descriptor = FetchDescriptor<Project>()
-                    let allProjects = try modelContext.fetch(descriptor)
-                    #if DEBUG
-                    print("✅ [AddProjectSheet] Forced CloudKit sync with fetch: \(allProjects.count) projects now visible")
-                    #endif
-                } catch {
-                    #if DEBUG
-                    print("⚠️ [AddProjectSheet] Fetch for sync failed (non-critical): \(error)")
-                    #endif
-                }
-            }
         } catch {
             #if DEBUG
             print("❌ [AddProjectSheet] Failed to save project: \(error.localizedDescription)")

@@ -366,7 +366,10 @@ struct ProseListView: View {
                 Text(NSLocalizedString("fileList.deleteConfirmation.messageEnhanced", comment: "Delete moves to trash, Delete Forever is permanent"))
             }
             .onChange(of: editMode) { _, newValue in
-                if newValue == .inactive {
+                if newValue == .active {
+                    // Clear status filter so all items are available for container assignment
+                    statusFilter = nil
+                } else if newValue == .inactive {
                     selectedFileIDs.removeAll()
                 }
             }

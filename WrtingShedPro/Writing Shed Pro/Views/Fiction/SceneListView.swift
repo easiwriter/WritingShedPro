@@ -461,7 +461,10 @@ struct SceneListView: View {
             Text(deleteConfirmationMessage)
         }
         .onChange(of: editMode) { _, newValue in
-            if newValue == .inactive {
+            if newValue == .active {
+                // Clear status filter so all items are available for container assignment
+                statusFilter = nil
+            } else if newValue == .inactive {
                 selectedSceneIDs.removeAll()
             }
         }

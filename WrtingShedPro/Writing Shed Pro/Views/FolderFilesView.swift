@@ -394,7 +394,10 @@ struct FolderFilesView: View {
             }
         }
         .onChange(of: editMode) { _, newValue in
-            if newValue == .inactive {
+            if newValue == .active {
+                // Clear status filter so all items are available for selection
+                statusFilter = nil
+            } else if newValue == .inactive {
                 // Clear selection when exiting edit mode
                 selectedFileIDs.removeAll()
                 selectedFolderIDs.removeAll()

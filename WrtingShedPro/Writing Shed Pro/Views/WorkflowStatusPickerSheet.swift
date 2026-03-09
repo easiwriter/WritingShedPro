@@ -18,7 +18,8 @@ struct WorkflowStatusPickerSheet: View {
         NavigationView {
             List {
                 Section {
-                    ForEach(WorkflowStatus.allCases, id: \.self) { status in
+                    // Published status is excluded — it is set automatically when a submission is accepted
+                    ForEach(WorkflowStatus.allCases.filter { $0 != .published }, id: \.self) { status in
                         Button {
                             onStatusSelected(status)
                         } label: {

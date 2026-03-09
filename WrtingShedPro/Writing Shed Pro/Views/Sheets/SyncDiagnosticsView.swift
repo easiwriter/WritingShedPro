@@ -268,7 +268,7 @@ struct SyncDiagnosticsView: View {
     }
     
     private func checkContainerStatus() {
-        let container = CKContainer(identifier: "iCloud.com.appworks.writingshedpro.v2")
+        let container = CKContainer(identifier: "iCloud.com.appworks.writingshedpro")
         
         container.privateCloudDatabase.fetch(withRecordID: CKRecord.ID(recordName: "test")) { record, error in
             DispatchQueue.main.async {
