@@ -126,8 +126,16 @@ struct FolderFilesView: View {
     @State var filesToAssignToCollection: [TextFile] = []
     
     // State for container assignment dialog (Poetry projects only)
-    @State var showContainerAssignment = false
-    @State var filesToAssign: [TextFile] = []
+    // Uses sheet(item:) pattern to avoid timing issues where filesToAssign
+    // could be empty when the sheet content evaluates.
+    @State var containerAssignmentFiles: ContainerAssignmentItem?
+    
+    /// Identifiable wrapper so we can use sheet(item:) which atomically
+    /// provides the data AND triggers presentation in a single state write.
+    struct ContainerAssignmentItem: Identifiable {
+        let id = UUID()
+        let files: [TextFile]
+    }
     
     // State for collection grouping expand/collapse (shared with FileListView)
     @State var collectionExpandedSections: Set<String> = []
@@ -158,7 +166,7 @@ struct FolderFilesView: View {
             onDeletePermanently: isReadOnly ? { _ in } : deleteFilesPermanently,
             onChangeStatus: (isContentFolder && !isReadOnly) ? handleChangeStatus : nil,
             onAddToCollection: (isPoetryProject && isContentFolder && !isReadOnly) ? handleAddToCollection : nil,
-            onManageContainers: (isPoetryProject && isContentFolder && !isReadOnly) ? { filesToAssign = selectedFiles; showContainerAssignment = true } : nil,
+            onManageContainers: (isPoetryProject && isContentFolder && !isReadOnly) ? { containerAssignmentFiles = ContainerAssignmentItem(files: selectedFiles) } : nil,
             onPrint: handlePrint,
             collectionGroups: poetryCollectionGroups,
             expandedCollections: $collectionExpandedSections
@@ -197,8 +205,7 @@ struct FolderFilesView: View {
     }
     
     private func handleAddToCollection(_ files: [TextFile]) {
-        filesToAssign = files
-        showContainerAssignment = true
+        containerAssignmentFiles = ContainerAssignmentItem(files: files)
     }
     
     @ViewBuilder

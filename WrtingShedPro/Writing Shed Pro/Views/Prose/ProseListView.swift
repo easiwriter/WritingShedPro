@@ -46,8 +46,15 @@ struct ProseListView: View {
     @State private var showSectionPicker = false
     
     /// Show container assignment dialog
-    @State private var showContainerAssignment = false
-    @State private var filesToAssign: [TextFile] = []
+    /// Uses sheet(item:) pattern to atomically provide data + trigger presentation.
+    @State private var containerAssignmentFiles: ContainerAssignmentItem?
+    
+    /// Identifiable wrapper for sheet(item:) — avoids timing issues with separate
+    /// isPresented bool + data array that can cause intermittent empty sheets.
+    struct ContainerAssignmentItem: Identifiable {
+        let id = UUID()
+        let files: [TextFile]
+    }
     
     /// Show workflow status picker
     @State private var showStatusPicker = false
@@ -279,10 +286,10 @@ struct ProseListView: View {
             } message: {
                 Text(String(format: NSLocalizedString("submissions.duplicate.message", comment: "Duplicate message"), createdSubmissionName))
             }
-            .sheet(isPresented: $showContainerAssignment) {
+            .sheet(item: $containerAssignmentFiles) { item in
                 ContainerAssignmentView.forProseSections(
                     project: project,
-                    selectedFiles: filesToAssign,
+                    selectedFiles: item.files,
                     modelContext: modelContext
                 )
             }
@@ -738,8 +745,7 @@ struct ProseListView: View {
         // Add to Section button (main file list only)
         if section == nil {
             Button {
-                filesToAssign = selectedFiles
-                showContainerAssignment = true
+                containerAssignmentFiles = ContainerAssignmentItem(files: selectedFiles)
             } label: {
                 Label(
                     NSLocalizedString("prose.files.addToSection", comment: "Add to Section"),

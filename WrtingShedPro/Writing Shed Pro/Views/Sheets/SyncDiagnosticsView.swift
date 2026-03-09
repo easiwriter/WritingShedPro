@@ -24,6 +24,9 @@ struct SyncDiagnosticsView: View {
     @State private var repairMessage: String = ""
     @State private var showRepairResult = false
     
+    @State private var syncForceStatus: String = ""
+    @State private var showSyncForceResult = false
+    
     var body: some View {
         NavigationStack {
             List {
@@ -117,6 +120,23 @@ struct SyncDiagnosticsView: View {
                     }
                 }
                 
+                Section("Sync Actions") {
+                    Button {
+                        forceSyncFromCloud()
+                    } label: {
+                        HStack {
+                            Image(systemName: "arrow.clockwise.icloud")
+                            Text("Force Sync from Cloud")
+                        }
+                    }
+                    
+                    if !syncForceStatus.isEmpty {
+                        Text(syncForceStatus)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                
                 #if DEBUG
                 Section("Actions") {
                     Button("Force Save Context") {
@@ -157,6 +177,59 @@ struct SyncDiagnosticsView: View {
     /// Check for duplicate projects (same name + creation date)
     private func checkForDuplicateProjects() {
         duplicateProjectCount = DeduplicationService.countDuplicateProjects(context: modelContext)
+    }
+    
+    /// Force a CloudKit zone fetch to pick up any missed remote changes.
+    /// NSPersistentCloudKitContainer relies on silent push notifications which can
+    /// be unreliable on Mac Catalyst and iPad. This performs a manual zone fetch
+    /// which wakes up the mirroring engine.
+    private func forceSyncFromCloud() {
+        syncForceStatus = "Fetching zones…"
+        
+        let ckContainer = CKContainer(identifier: "iCloud.com.appworks.writingshedpro")
+        let database = ckContainer.privateCloudDatabase
+        
+        database.fetchAllRecordZones { zones, error in
+            guard let zones = zones, !zones.isEmpty else {
+                DispatchQueue.main.async {
+                    syncForceStatus = "❌ No zones found: \(error?.localizedDescription ?? "unknown error")"
+                }
+                return
+            }
+            
+            DispatchQueue.main.async {
+                syncForceStatus = "Fetching changes from \(zones.count) zone(s)…"
+            }
+            
+            var configs = [CKRecordZone.ID: CKFetchRecordZoneChangesOperation.ZoneConfiguration]()
+            for zone in zones {
+                let config = CKFetchRecordZoneChangesOperation.ZoneConfiguration()
+                config.previousServerChangeToken = nil  // full fetch
+                configs[zone.zoneID] = config
+            }
+            
+            let operation = CKFetchRecordZoneChangesOperation(
+                recordZoneIDs: zones.map(\.zoneID),
+                configurationsByRecordZoneID: configs
+            )
+            
+            operation.fetchRecordZoneChangesResultBlock = { result in
+                DispatchQueue.main.async {
+                    switch result {
+                    case .success:
+                        syncForceStatus = "✅ Zone fetch completed — sync engine should process changes"
+                    case .failure(let err):
+                        syncForceStatus = "⚠️ Zone fetch error: \(err.localizedDescription)"
+                    }
+                }
+            }
+            
+            operation.qualityOfService = .userInitiated
+            database.add(operation)
+        }
+        
+        // Also perform a local save + nudge to trigger export cycle
+        try? modelContext.save()
     }
     
     /// Remove duplicate projects, keeping the one with the most content

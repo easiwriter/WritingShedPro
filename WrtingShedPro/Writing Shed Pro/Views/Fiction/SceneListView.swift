@@ -66,8 +66,15 @@ struct SceneListView: View {
     @State private var showChapterPicker = false
     
     /// Show container assignment dialog
-    @State private var showContainerAssignment = false
-    @State private var scenesToAssign: [StoryScene] = []
+    /// Uses sheet(item:) pattern to atomically provide data + trigger presentation.
+    @State private var containerAssignmentItem: ContainerAssignmentItem?
+    
+    /// Identifiable wrapper for sheet(item:) — avoids timing issues with separate
+    /// isPresented bool + data array that can cause intermittent empty sheets.
+    struct ContainerAssignmentItem: Identifiable {
+        let id = UUID()
+        let scenes: [StoryScene]
+    }
 
     /// Show workflow status picker
     @State private var showStatusPicker = false
@@ -609,8 +616,8 @@ struct SceneListView: View {
         } message: {
             Text(copyResultMessage)
         }
-        .sheet(isPresented: $showContainerAssignment) {
-            containerAssignmentContent
+        .sheet(item: $containerAssignmentItem) { item in
+            containerAssignmentContent(for: item.scenes)
         }
         .onAppear {
             initializeHeaderFooterFields()
@@ -831,11 +838,11 @@ struct SceneListView: View {
     // MARK: - Container Assignment
     
     @ViewBuilder
-    private var containerAssignmentContent: some View {
+    private func containerAssignmentContent(for scenes: [StoryScene]) -> some View {
         if project.type == .drama {
             ContainerAssignmentView.forActs(
                 project: project,
-                selectedScenes: scenesToAssign,
+                selectedScenes: scenes,
                 modelContext: modelContext
             )
         } else if project.type == .fiction {
@@ -843,13 +850,13 @@ struct SceneListView: View {
             if fClass == .verseNovel {
                 ContainerAssignmentView.forBooks(
                     project: project,
-                    selectedScenes: scenesToAssign,
+                    selectedScenes: scenes,
                     modelContext: modelContext
                 )
             } else {
                 ContainerAssignmentView.forChapters(
                     project: project,
-                    selectedScenes: scenesToAssign,
+                    selectedScenes: scenes,
                     modelContext: modelContext
                 )
             }
@@ -875,8 +882,7 @@ struct SceneListView: View {
         // Assigning to an act automatically sets the scene's status to ready
         if project.type == .drama && act == nil && chapter == nil {
             Button {
-                scenesToAssign = selectedScenes
-                showContainerAssignment = true
+                containerAssignmentItem = ContainerAssignmentItem(scenes: selectedScenes)
             } label: {
                 Label(
                     NSLocalizedString("drama.scenes.addToAct", comment: "Add to Act"),
@@ -890,8 +896,7 @@ struct SceneListView: View {
         if project.type == .fiction && act == nil && chapter == nil {
             let isShortFiction = fictionClass == .shortFiction
             Button {
-                scenesToAssign = selectedScenes
-                showContainerAssignment = true
+                containerAssignmentItem = ContainerAssignmentItem(scenes: selectedScenes)
             } label: {
                 Label(
                     isVerseNovel

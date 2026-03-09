@@ -8,6 +8,13 @@ struct ContentView: View {
     @State private var state = ContentViewState()
     @State private var refreshTrigger = false
     @Environment(\.modelContext) var modelContext
+    @Environment(\.scenePhase) private var scenePhase
+    
+    /// Timestamp of the last foreground sync nudge, used to debounce rapid transitions
+    @State private var lastForegroundSyncDate: Date = .distantPast
+    
+    /// Task handle for the periodic sync timer (cancelled when app goes to background)
+    @State private var periodicSyncTask: Task<Void, Never>?
     
     var body: some View {
         ContentViewBody(
@@ -25,6 +32,62 @@ struct ContentView: View {
         .task {
             await monitorSyncAndRefreshIfNeeded()
         }
+        .onChange(of: scenePhase) { oldPhase, newPhase in
+            if newPhase == .active && oldPhase != .active {
+                syncOnForegroundResume()
+                startPeriodicSyncTimer()
+            } else if newPhase != .active && oldPhase == .active {
+                stopPeriodicSyncTimer()
+            }
+        }
+    }
+    
+    // MARK: - Foreground Resume Sync
+    
+    /// When the app returns to the foreground, force a CloudKit zone fetch.
+    /// NSPersistentCloudKitContainer relies on silent push notifications to trigger imports,
+    /// but these pushes are unreliable on Mac Catalyst and can be delayed/dropped on iPad
+    /// when the app was suspended. This ensures we always pick up remote changes.
+    private func syncOnForegroundResume() {
+        // Debounce: don't re-sync if we already did within the last 30 seconds
+        let now = Date()
+        guard now.timeIntervalSince(lastForegroundSyncDate) > 30 else {
+            #if DEBUG
+            print("🔄 [ContentView] Foreground sync skipped — last sync was \(Int(now.timeIntervalSince(lastForegroundSyncDate)))s ago")
+            #endif
+            return
+        }
+        lastForegroundSyncDate = now
+        
+        #if DEBUG
+        print("🔄 [ContentView] App became active — forcing CloudKit zone fetch for missed changes")
+        #endif
+        forceCloudKitImport()
+    }
+    
+    /// Start a periodic timer that forces a CloudKit zone fetch every 5 minutes
+    /// while the app is in the foreground. This catches missed silent push
+    /// notifications during an active session (e.g., editing on two devices
+    /// simultaneously where one device's pushes get dropped).
+    private func startPeriodicSyncTimer() {
+        stopPeriodicSyncTimer()  // cancel any existing timer
+        periodicSyncTask = Task { @MainActor in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 5 * 60 * 1_000_000_000)  // 5 minutes
+                guard !Task.isCancelled else { break }
+                #if DEBUG
+                print("🔄 [ContentView] Periodic sync timer — forcing CloudKit zone fetch")
+                #endif
+                forceCloudKitImport()
+                lastForegroundSyncDate = Date()
+            }
+        }
+    }
+    
+    /// Stop the periodic sync timer (called when the app goes to background).
+    private func stopPeriodicSyncTimer() {
+        periodicSyncTask?.cancel()
+        periodicSyncTask = nil
     }
     
     /// On fresh install, @Query may not update after CloudKit bulk import.

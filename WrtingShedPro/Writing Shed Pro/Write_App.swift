@@ -258,6 +258,62 @@ struct Write_App: App {
             
             Write_App.logToFile("✅ CloudKit event monitoring active")
             
+            // Handle CloudKit token reset (happens after schema deployment or token expiry).
+            // The mirroring delegate resets internal state but may not automatically restart
+            // the sync, especially on Mac Catalyst. We force a zone fetch after a delay to
+            // ensure recovery.
+            NotificationCenter.default.addObserver(
+                forName: NSNotification.Name("NSCloudKitMirroringDelegateDidResetSyncNotificationName"),
+                object: nil,
+                queue: nil
+            ) { notification in
+                let reason = notification.userInfo?["NSCloudKitMirroringDelegateResetReasonKey"] as? String ?? "unknown"
+                let msg = "🔄 [CloudKit Sync] Mirroring delegate RESET — reason: \(reason). Will kick zone fetch in 5s."
+                Write_App.logToFile(msg)
+                #if DEBUG
+                print(msg)
+                #endif
+                
+                // Give the mirroring delegate a moment to clear internal state,
+                // then trigger a zone fetch to kick-start import from scratch.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
+                    let ck = CKContainer(identifier: "iCloud.com.appworks.writingshedpro")
+                    let db = ck.privateCloudDatabase
+                    db.fetchAllRecordZones { zones, error in
+                        guard let zones = zones, !zones.isEmpty else {
+                            #if DEBUG
+                            print("⚠️ [CloudKit Sync] Post-reset zone fetch failed: \(error?.localizedDescription ?? "no zones")")
+                            #endif
+                            return
+                        }
+                        var configs = [CKRecordZone.ID: CKFetchRecordZoneChangesOperation.ZoneConfiguration]()
+                        for zone in zones {
+                            let config = CKFetchRecordZoneChangesOperation.ZoneConfiguration()
+                            config.previousServerChangeToken = nil
+                            configs[zone.zoneID] = config
+                        }
+                        let op = CKFetchRecordZoneChangesOperation(
+                            recordZoneIDs: zones.map(\.zoneID),
+                            configurationsByRecordZoneID: configs
+                        )
+                        op.fetchRecordZoneChangesResultBlock = { result in
+                            #if DEBUG
+                            switch result {
+                            case .success:
+                                print("✅ [CloudKit Sync] Post-reset zone fetch completed — import should follow")
+                            case .failure(let err):
+                                print("⚠️ [CloudKit Sync] Post-reset zone fetch error: \(err.localizedDescription)")
+                            }
+                            #endif
+                        }
+                        op.qualityOfService = .userInitiated
+                        db.add(op)
+                    }
+                }
+            }
+            
+            Write_App.logToFile("✅ CloudKit reset notification handler active")
+            
             // Check the actual store URL and configuration
             #if DEBUG
             print("✅ [Write_App] Database configuration:")
