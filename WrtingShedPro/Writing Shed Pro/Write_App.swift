@@ -186,8 +186,10 @@ struct Write_App: App {
                         exportFailureCount.pointee = failCount
                         
                         if isRateLimited {
-                            // Extract server-provided retry-after hint
-                            let retryAfter = nsError?.userInfo[CKError.retryAfterKey] as? Double ?? 30.0
+                            // Extract server-provided retry-after hint from CKError userInfo
+                            let retryAfter = (nsError?.userInfo["CKRetryAfter"] as? Double)
+                                ?? (nsError?.userInfo["retryAfter"] as? Double)
+                                ?? 30.0
                             #if DEBUG
                             print("⏳ [CloudKit Sync] Rate limited (attempt \(failCount)). Container will auto-retry. Server suggests \(retryAfter)s backoff.")
                             #endif
