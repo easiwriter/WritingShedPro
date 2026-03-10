@@ -24,7 +24,8 @@ You can rename the project later if needed.
 Choose from:
 - **Prose**: General writing
 - **Poetry**: Poems and verse
-- **Fiction**: Novels and short stories
+- **Fiction**: Novels, verse novels, and short stories
+
 - **Drama**: Scripts and plays
 
 See [Project Types Overview](31-project-types-overview.md) for details on each type.
@@ -33,6 +34,7 @@ See [Project Types Overview](31-project-types-overview.md) for details on each t
 When creating a Fiction project, also select:
 - **Novel**: For long-form fiction with chapters
 - **Short Fiction**: For stories without chapter structure
+- **Verse Novel**: For novel-length verse with a book and episode structure
 
 #### Story Structure (Fiction and Drama)
 Optionally select a story structure:
@@ -41,6 +43,8 @@ Optionally select a story structure:
 - **Monomyth (Vogler)**: 12-stage Hero's Journey
 - **Monomyth (Campbell)**: 17-stage mythic structure
 - **Hero's Inner Journey (Pearson)**: 3 phases and 12 archetypes
+
+> **Further Reading**: *The Writer's Journey* by Christopher Vogler, *The Hero with a Thousand Faces* by Joseph Campbell, *Awakening the Heroes Within* by Carol S. Pearson.
 
 You can change the structure later in Project Settings.
 
@@ -85,15 +89,7 @@ Writing Shed Pro has no hard limit on the number of projects you can create. How
 - **Fiction**: One project per novel or story collection
 - **Drama**: One project per screenplay or play
 
-## Duplicating a Project
 
-To create a copy of an existing project:
-1. From the project list, long-press the project
-2. Select **Duplicate**
-3. Enter a name for the copy
-4. Tap **Create**
-
-The duplicate is independent of the original—changes to one don't affect the other.
 
 ## Importing Projects
 
@@ -124,16 +120,11 @@ A `.wsp` file contains your complete project:
 
 ### Importing Duplicates
 
-Importing a project with the same name as an existing project creates a separate copy. Projects are never overwritten or merged during import.
+Importing a project with the same name as an existing project creates a separate copy with a number appended to the name (e.g. "My Project 2"). Projects are never overwritten or merged during import.
 
 ## Exporting Projects
 
-To export a project as a `.wsp` file:
-
-1. From the project list, long-press (or right-click) the project
-2. Select **Export**
-3. Choose a save location
-4. The file is saved as `ProjectName.wsp`
+To export a project as a `.wsp` file, see [Project Settings](33-project-settings.md).
 
 See [Export Options](../9-publishing/91-export-options.md) for details on all export formats including WSP.
 

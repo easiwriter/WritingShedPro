@@ -1,27 +1,20 @@
 # Project Settings
 
 Every project has settings that control its behavior and appearance. This guide explains what you can configure and how.
-
 ## Accessing Project Settings
 
-1. Open a project
-2. Tap the **gear icon** in the toolbar, or
-3. Tap the project name and select **Settings**
+Open project settings via the **⋯ (ellipsis) button** in the toolbar when a project is open.
 
-## General Settings
+## Settings
 
 ### Project Name
-- Change the project's display name
-- Tap the current name to edit
-- Changes sync immediately across devices
+Change the project's display name. Changes sync immediately across devices.
 
 ### Project Details
-- Add a description or notes about the project
-- Use for:
-  - Synopsis or pitch
-  - Notes to yourself
-  - Project goals or deadlines
-  - Any reference information
+Add a description or notes about the project, such as:
+- Synopsis or pitch
+- Notes to yourself
+- Project goals or deadlines
 
 ### Date Information (Read-Only)
 - **Created**: When the project was first created
@@ -31,7 +24,7 @@ Every project has settings that control its behavior and appearance. This guide 
 
 The project type is shown but cannot be changed after creation. This includes:
 - Project type (Prose, Poetry, Fiction, Drama)
-- Fiction class (Novel or Short Fiction) for fiction projects
+- Fiction class (Novel, Verse Novel, or Short Fiction) for fiction projects
 
 If you need a different project type, create a new project and move your content.
 
@@ -39,14 +32,14 @@ If you need a different project type, create a new project and move your content
 
 For Fiction and Drama projects, you can change the story structure at any time:
 
-1. Open Project Settings
+1. Tap **⋯**
 2. Tap **Story Structure**
 3. Choose from:
    - **Freeform**: No predefined stages
    - **Three-Act**: 3 stages (Setup, Confrontation, Resolution)
-   - **Monomyth (Vogler)**: 12 stages from The Writer's Journey
-   - **Monomyth (Campbell)**: 17 stages from The Hero with a Thousand Faces
-   - **Monomyth (Pearson)**: 3 phases and 12 archetypes from Awakening the Heroes Within
+   - **Monomyth (Vogler)**: 12 stages from *The Writer's Journey*
+   - **Monomyth (Campbell)**: 17 stages from *The Hero with a Thousand Faces*
+   - **Hero's Inner Journey (Pearson)**: 3 phases and 12 archetypes from *Awakening the Heroes Within*
 
 ### Changing Structure
 When you change the structure:
@@ -58,7 +51,7 @@ When you change the structure:
 
 For Drama projects, choose how scripts are formatted:
 
-1. Open Project Settings
+1. Tap **⋯**
 2. Tap **Script Format**
 3. Choose:
    - **Film/Screenplay**: Industry-standard screenplay format
@@ -68,27 +61,31 @@ This affects how Drama Markup Language (DML) is rendered, not how you write it.
 
 ## Stylesheet
 
-Each project has a stylesheet that defines text formatting:
+Each project has a stylesheet that defines text formatting.
 
-1. Open Project Settings
+1. Tap **⋯**
 2. Tap **Stylesheet**
-3. View and edit paragraph styles
 
 See [Stylesheet Editor](../10-advanced-features/102-stylesheet-editor.md) for details.
 
 ## Page Setup
 
-Configure how pages are formatted for export and printing:
+Configure how pages are formatted for export and printing.
 
-1. Open Project Settings
+1. Tap **⋯**
 2. Tap **Page Setup**
-3. Configure:
-   - Paper size (Letter, A4, etc.)
-   - Orientation (Portrait, Landscape)
-   - Margins
-   - Headers and footers
 
 See [Page Setup](../10-advanced-features/103-page-setup.md) for details.
+
+## Exporting a Project
+
+To export a project as a `.wsp` file:
+
+1. Tap **⋯**
+2. Tap **Export**
+3. Choose a save location
+
+The file is saved as `ProjectName.wsp`.
 
 ## Danger Zone
 
@@ -100,7 +97,7 @@ Some settings can cause data loss if used incorrectly.
 - Consider exporting first
 
 ### Clear Trash
-- Permanently removes all items in the project's Trash folder
+- Permanently and forever deletes all items in the project's Trash folder
 - Cannot be undone
 
 ## Settings That Sync

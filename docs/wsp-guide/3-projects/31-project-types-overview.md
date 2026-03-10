@@ -9,7 +9,7 @@ Writing Shed Pro offers four project types, each designed for a specific kind of
 |--------------|----------|--------------|
 | **Prose** | Essays, articles, general writing | Simple organization, flexible structure |
 | **Poetry** | Poems and verse | Syllable counting, rhyme tools, form templates |
-| **Fiction** | Novels and short stories | Scenes, chapters, plot elements, characters |
+| **Fiction** | Novels, verse novels, and short stories | Scenes, chapters, plot elements, characters |
 | **Drama** | Scripts and plays | Script formatting, DML markup, film/stage output |
 
 ## Prose Projects
@@ -23,7 +23,7 @@ Prose projects are the most flexible type, suitable for any writing that doesn't
 - Technical documentation
 - Any general-purpose writing
 
-### Folder Structure
+### Workflow Status
 - Draft
 - Ready
 - Set Aside
@@ -33,7 +33,7 @@ Prose projects are the most flexible type, suitable for any writing that doesn't
 - Standard text formatting
 - Footnotes and comments
 - Images with captions
-- Flexible folder organization
+
 
 ## Poetry Projects
 
@@ -69,7 +69,7 @@ See [Poetry Mode Overview](../6-poetry-features/61-poetry-mode-overview.md) for 
 
 ## Fiction Projects
 
-Fiction projects help you organize and write novels and short stories with support for scenes, chapters, and plot elements.
+Fiction projects help you organize and write novels, verse novels, and short stories.
 
 ### Fiction Classes
 When creating a fiction project, you choose a class:
@@ -80,10 +80,35 @@ When creating a fiction project, you choose a class:
 | **Verse Novel** | Books contain Episodes (verse) | Novel-length poetry |
 | **Short Fiction** | Scenes only (no chapters) | Short stories, novellas |
 
-### Folder Structure
+### Novel Structure
 - Manuscript (Front Matter, Body Matter, Back Matter)
-- Scenes (your writing, filtered by workflow status)
-- Chapters (Novel), Books (Verse Novel), or flat (Short Fiction)
+- Scenes (workflow status view)
+- Chapters
+- Plot Elements
+- Characters
+- Locations
+- Submissions
+- Research
+- Publishers / Agents
+- Other
+- Trash
+
+### Verse Novel Structure
+- Manuscript (Front Matter, Body Matter, Back Matter)
+- Episodes (workflow status view)
+- Books
+- Plot Elements
+- Characters
+- Locations
+- Submissions
+- Research
+- Publishers / Agents
+- Other
+- Trash
+
+### Short Fiction Structure
+- Manuscript (Front Matter, Body Matter, Back Matter)
+- Scenes (workflow status view)
 - Plot Elements
 - Characters
 - Locations
@@ -100,6 +125,7 @@ Choose a story structure to help organize your plot:
 - **Monomyth (Vogler)**: 12-stage Hero's Journey
 - **Monomyth (Campbell)**: 17-stage mythic structure
 - **Hero's Inner Journey (Pearson)**: 3 phases and 12 archetypes
+> **Further Reading**: *The Writer's Journey* by Christopher Vogler, *The Hero with a Thousand Faces* by Joseph Campbell, *Awakening the Heroes Within* by Carol S. Pearson.
 
 ### Features
 - **Scene Management**: Create and organize scenes with status tracking
@@ -107,7 +133,7 @@ Choose a story structure to help organize your plot:
 - **Character Profiles**: Track character details and arcs
 - **Location Database**: Define settings and places
 - **Scene-Plot Linking**: Connect scenes to plot elements
-- **Manuscript Assembly**: Combine chapters into a complete manuscript
+- **Manuscript Assembly**: Combine chapters (Novel), books (Verse Novel), or scenes (Short Fiction) into a complete manuscript
 
 See [Fiction Mode Overview](../7-fiction-features/71-fiction-mode-overview.md) for details.
 

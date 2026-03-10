@@ -78,15 +78,14 @@ The middle folder contains your actual writing, organized according to project t
 | **Short Fiction** | Body Matter | Flat (scenes only) | Scene order |
 | **Drama** | Body Matter | Acts → Scenes (or flat) | Act order, then scene order; standalone scenes appended |
 
-### Excluding Files from the Manuscript
+### Including Files in the Manuscript
 
-Any file can be excluded from manuscript assembly without deleting it:
-1. Open the file's details or context menu
-2. Toggle **Include in Manuscript** off
-3. The file remains in your project but is skipped during assembly
+Files are included in manuscript assembly by adding their parent container to **Body Matter**. For example:
+- In a Novel, add a chapter to Body Matter to include all its scenes
+- In Poetry, add a collection or individual poem to Body Matter
+- In Prose, add a section to Body Matter to include all its files
 
-This is useful for notes, alternate versions, or work-in-progress files you don't want in the current export.
-
+To exclude a file from the manuscript, remove it from its container or move it to a container that is not included in Body Matter.
 ### Type-Specific Assembly Details
 
 Each project type has unique assembly features documented in its own guide:
