@@ -437,7 +437,9 @@ struct FolderFilesView: View {
             HStack {
                 Image(systemName: "doc.text")
                     .foregroundColor(.secondary)
-                Text(file.name)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(file.name)
+                }
                 Spacer()
                 Image(systemName: "chevron.right")
                     .font(.caption)

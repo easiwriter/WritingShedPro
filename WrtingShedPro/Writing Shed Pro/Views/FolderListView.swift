@@ -1117,6 +1117,7 @@ struct FolderRowView: View {
     
     @State private var fileCount: Int = 0
     @State private var subfolderCount: Int = 0
+    @State private var bodyMatterWordCount: Int = 0
     
     // Check if this is a publication folder
     private var isPublicationFolder: Bool {
@@ -1271,18 +1272,26 @@ struct FolderRowView: View {
         return (project.publications ?? []).filter { $0.type == publicationType }.count
     }
     
+    private var isManuscriptBodyFolder: Bool {
+        let name = folder.name ?? ""
+        return folder.parentFolder?.name == "Manuscript" &&
+            ["Body", "Body Matter", "All Acts", "All Poems", "All Sections", "All Chapters", "All Stories", "All Books"].contains(name)
+    }
+
     // Folder display name with count in brackets
     private var folderDisplayName: String {
         let baseName = folder.name ?? NSLocalizedString("folderList.untitledFolder", comment: "Untitled folder")
-        
-        // Check if this is a Manuscript body folder (should not show count)
-        let isManuscriptBodyFolder = folder.parentFolder?.name == "Manuscript" &&
-            ["Body", "Body Matter", "All Acts", "All Poems", "All Sections", "All Chapters", "All Stories", "All Books"].contains(baseName)
-        
-        // Remove count for Manuscript subfolders (Body types, Front Matter, Back Matter) and Manuscript itself
-        if baseName == "Manuscript" || baseName == "Front Matter" || baseName == "Back Matter" || isManuscriptBodyFolder {
+
+        // Remove count for Manuscript and front/back matter subfolders.
+        if baseName == "Manuscript" || baseName == "Front Matter" || baseName == "Back Matter" {
             return baseName
         }
+
+        if isManuscriptBodyFolder {
+            let wordCountLabel = localizedWordCount(bodyMatterWordCount)
+            return "\(baseName) (\(wordCountLabel))"
+        }
+
         let count: Int
         if isPublicationFolder {
             count = publicationCount
@@ -1359,9 +1368,72 @@ struct FolderRowView: View {
         } else if isTrashFolder, let project = folder.project {
             fileCount = (project.trashedItems ?? []).count
             subfolderCount = 0
+            bodyMatterWordCount = 0
+        } else if isManuscriptBodyFolder {
+            fileCount = folder.textFiles?.count ?? 0
+            subfolderCount = folder.folders?.count ?? 0
+            bodyMatterWordCount = totalBodyMatterWordCount(project: folder.resolvedProject)
         } else {
             fileCount = folder.textFiles?.count ?? 0
             subfolderCount = folder.folders?.count ?? 0
+            bodyMatterWordCount = 0
+        }
+    }
+
+    private func wordCount(for file: TextFile) -> Int {
+        let content = file.currentVersion?.content ?? ""
+        return content
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+            .count
+    }
+
+    private func localizedWordCount(_ count: Int) -> String {
+        let key = count == 1 ? "common.wordCountSingularFormat" : "common.wordCountPluralFormat"
+        return String(format: NSLocalizedString(key, comment: "Word count format"), count)
+    }
+
+    private func totalBodyMatterWordCount(project: Project?) -> Int {
+        guard let project else { return 0 }
+
+        let files: [TextFile]
+        switch project.type {
+        case .poetry:
+            files = (project.poetryCollections ?? [])
+                .filter { $0.isInBodyMatter }
+                .flatMap { $0.textFiles ?? [] }
+        case .prose:
+            files = (project.sections ?? [])
+                .filter { $0.isInBodyMatter }
+                .flatMap { $0.textFiles ?? [] }
+        case .fiction:
+            switch project.fictionClass {
+            case .novel:
+                files = (project.chapters ?? [])
+                    .filter { $0.isInBodyMatter }
+                    .flatMap { $0.scenes ?? [] }
+                    .compactMap { $0.textFile }
+            case .shortFiction:
+                files = (project.scenes ?? [])
+                    .filter { $0.isInBodyMatter }
+                    .compactMap { $0.textFile }
+            case .verseNovel:
+                files = (project.books ?? [])
+                    .filter { $0.isInBodyMatter }
+                    .flatMap { $0.scenes ?? [] }
+                    .compactMap { $0.textFile }
+            case .none:
+                files = []
+            }
+        case .drama:
+            files = (project.acts ?? [])
+                .filter { $0.isInBodyMatter }
+                .flatMap { $0.scenes ?? [] }
+                .compactMap { $0.textFile }
+        }
+
+        return files.reduce(0) { total, file in
+            total + wordCount(for: file)
         }
     }
     

@@ -108,7 +108,7 @@ struct BodyMatterView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(item.name ?? NSLocalizedString("bodyMatter.untitled", comment: "Untitled"))
                                 .font(.body)
-                            
+
                             Text(subtitleForItem(item))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
@@ -562,35 +562,42 @@ struct BodyMatterView: View {
     }
     
     private func subtitleForItem(_ item: any BodyMatterItem) -> String {
+        let wordsLabel = localizedWordCount(wordCountForItem(item))
+
         switch project.type {
         case .poetry:
             if let collection = item as? PoetryCollection {
                 let count = collection.textFiles?.count ?? 0
-                return String(format: NSLocalizedString("bodyMatter.subtitle.poems", comment: "%d poems"), count)
+                let structure = String(format: NSLocalizedString("bodyMatter.subtitle.poems", comment: "%d poems"), count)
+                return "\(wordsLabel) • \(structure)"
             }
         case .prose:
             if let section = item as? ProseSection {
                 let count = section.textFiles?.count ?? 0
-                return String(format: NSLocalizedString("bodyMatter.subtitle.files", comment: "%d files"), count)
+                let structure = String(format: NSLocalizedString("bodyMatter.subtitle.files", comment: "%d files"), count)
+                return "\(wordsLabel) • \(structure)"
             }
         case .fiction:
             switch project.fictionClass {
             case .novel:
                 if let chapter = item as? Chapter {
                     let count = chapter.scenes?.count ?? 0
-                    return String(format: NSLocalizedString("bodyMatter.subtitle.scenes", comment: "%d scenes"), count)
+                    let structure = String(format: NSLocalizedString("bodyMatter.subtitle.scenes", comment: "%d scenes"), count)
+                    return "\(wordsLabel) • \(structure)"
                 }
             case .shortFiction:
                 if let scene = item as? StoryScene {
                     let hasContent = scene.textFile != nil
-                    return hasContent
+                    let structure = hasContent
                         ? NSLocalizedString("bodyMatter.subtitle.hasContent", comment: "Has content")
                         : NSLocalizedString("bodyMatter.subtitle.empty", comment: "Empty")
+                    return "\(wordsLabel) • \(structure)"
                 }
             case .verseNovel:
                 if let book = item as? Book {
                     let count = book.scenes?.count ?? 0
-                    return String(format: NSLocalizedString("bodyMatter.subtitle.episodes", comment: "%d episodes"), count)
+                    let structure = String(format: NSLocalizedString("bodyMatter.subtitle.episodes", comment: "%d episodes"), count)
+                    return "\(wordsLabel) • \(structure)"
                 }
             case .none:
                 break
@@ -598,9 +605,64 @@ struct BodyMatterView: View {
         case .drama:
             if let act = item as? Act {
                 let count = act.scenes?.count ?? 0
-                return String(format: NSLocalizedString("bodyMatter.subtitle.scenes", comment: "%d scenes"), count)
+                let structure = String(format: NSLocalizedString("bodyMatter.subtitle.scenes", comment: "%d scenes"), count)
+                return "\(wordsLabel) • \(structure)"
             }
         }
-        return ""
+        return wordsLabel
+    }
+
+    private func localizedWordCount(_ count: Int) -> String {
+        let key = count == 1 ? "common.wordCountSingularFormat" : "common.wordCountPluralFormat"
+        return String(format: NSLocalizedString(key, comment: "Word count format"), count)
+    }
+
+    private func wordCountForItem(_ item: any BodyMatterItem) -> Int {
+        switch project.type {
+        case .poetry:
+            if let collection = item as? PoetryCollection {
+                return (collection.textFiles ?? []).reduce(0) { $0 + wordCount(for: $1) }
+            }
+        case .prose:
+            if let section = item as? ProseSection {
+                return (section.textFiles ?? []).reduce(0) { $0 + wordCount(for: $1) }
+            }
+        case .fiction:
+            switch project.fictionClass {
+            case .novel:
+                if let chapter = item as? Chapter {
+                    return (chapter.scenes ?? [])
+                        .compactMap { $0.textFile }
+                        .reduce(0) { $0 + wordCount(for: $1) }
+                }
+            case .shortFiction:
+                if let scene = item as? StoryScene {
+                    return scene.textFile.map(wordCount(for:)) ?? 0
+                }
+            case .verseNovel:
+                if let book = item as? Book {
+                    return (book.scenes ?? [])
+                        .compactMap { $0.textFile }
+                        .reduce(0) { $0 + wordCount(for: $1) }
+                }
+            case .none:
+                return 0
+            }
+        case .drama:
+            if let act = item as? Act {
+                return (act.scenes ?? [])
+                    .compactMap { $0.textFile }
+                    .reduce(0) { $0 + wordCount(for: $1) }
+            }
+        }
+        return 0
+    }
+
+    private func wordCount(for file: TextFile) -> Int {
+        let content = file.currentVersion?.content ?? ""
+        return content
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+            .count
     }
 }
