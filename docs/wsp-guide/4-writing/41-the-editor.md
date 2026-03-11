@@ -13,6 +13,8 @@ The main area shows your text with full formatting:
 - Character formatting shows (bold, italic, underline)
 - Images appear inline
 - Footnote markers are visible and tappable
+- Endnote markers can be inserted for notes collected in manuscript back matter
+- Glossary terms, references, and index entries can be inserted inline
 
 ### Cursor and Selection
 - Tap to place the cursor
@@ -28,10 +30,12 @@ A toolbar appears above the keyboard with quick access to formatting:
 |--------|----------|
 | **¶** | Paragraph style picker |
 | **B** | Bold |
-| *I* | Italic |
+| **I** | Italic |
 | **U** | Underline |
 | **S̶** | Strikethrough |
 | **⊕** | Insert menu |
+
+On iPhone in compact layouts, some actions may be grouped under a menu to keep the toolbar focused on the most common formatting controls.
 
 ### Paragraph Style Picker
 Tap **¶** to see available paragraph styles. Tap a style to apply it to the current paragraph. Available styles include:
@@ -45,12 +49,12 @@ Tap **¶** to see available paragraph styles. Tap a style to apply it to the cur
 ### Character Formatting
 Select text, then tap a formatting button:
 - **B** toggles bold
-- *I* toggles italic
+- **I** toggles italic
 - **U** toggles underline
 - **S̶** toggles strikethrough
 
 ### Insert Menu
-Tap **⊕** to insert:
+Tap **⊕** to open insert actions. Depending on platform and manuscript settings, available actions include:
 - **Image**: Add a photo or illustration
 - **Footnote**: Create a numbered footnote
 - **Comment**: Add a revision note
@@ -59,6 +63,8 @@ Tap **⊕** to insert:
 - **Reference**: Add a bibliographic reference
 - **Index Entry**: Add an index entry at the cursor position
 - **Figure Reference**: Insert a figure reference marker
+
+On Mac Catalyst, these actions are also available through the app's menu commands.
 
 > **Note**: Reference options appear only when the corresponding back matter section is enabled in your project's manuscript settings. See [Manuscript Structure](../3-projects/36-manuscript-structure.md) for details.
 
@@ -72,7 +78,7 @@ When you select text, a menu appears with options:
 - **Paste**: Insert from clipboard
 - **Select All**: Select entire document
 
-### Extended Actions
+### Extended Actions (Catalyst)
 - **Look Up**: Dictionary definition and web search
 - **Translate**: Use Apple's translation
 - **Search Web**: Search the selected text online
@@ -80,6 +86,8 @@ When you select text, a menu appears with options:
 
 ### Writing Shed Pro Actions
 - **Edit Style**: Open the stylesheet editor for the current style
+
+See [Text Formatting](42-text-formatting.md) and [Headings and Styles](43-headings-and-styles.md) for detailed formatting workflows.
 
 ## Undo and Redo
 
@@ -147,12 +155,8 @@ For distraction-free writing:
 - Dims everything except the current paragraph
 - Helps maintain focus on your current thought
 
-## Word Count
 
-The editor shows a live word count:
-- Displayed in the status area
-- Updates as you type
-- Shows words, characters, and paragraphs
+## Word Count
 
 See [Word Count and Statistics](47-word-count-and-statistics.md) for detailed statistics.
 

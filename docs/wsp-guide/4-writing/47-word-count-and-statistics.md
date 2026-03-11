@@ -2,16 +2,9 @@
 
 Tracking your writing progress is motivating and practical. Writing Shed Pro provides detailed statistics at multiple levels.
 
-## Quick Word Count
-
-The word count displays in the editor status area:
-- Updates in real-time as you type
-- Shows words in current file
-- Always visible while editing
-
 ## Detailed Statistics
 
-For more information about your file:
+For detailed counts at the file level:
 
 1. Open the file
 2. Access file details (tap info icon or long-press file)
@@ -28,9 +21,19 @@ For more information about your file:
 | **Lines** | Number of lines |
 | **Pages** | Estimated page count |
 
-## Project-Level Statistics
+## Body Matter Word Counts
 
-View statistics for your entire project:
+Body Matter totals now appear directly in manuscript navigation:
+
+- The Body Matter folder row shows a total word count for Body Matter content
+- Body Matter container rows (for example chapters, acts, scenes, sections, collections, and books) show per-item word counts
+- Singular/plural formatting is automatic (for example, "1 word" vs "250 words")
+
+This gives you quick progress visibility without opening each item.
+
+## Project-Level Counts
+
+For a broader project view:
 
 1. Open project settings
 2. Select **Statistics**
@@ -49,45 +52,6 @@ Get counts for selected text only:
 1. Select the text you're interested in
 2. The selection word count appears
 3. Useful for checking section length
-
-## Poetry-Specific Statistics
-
-In Poetry projects, additional metrics appear:
-
-### Per-Line Metrics
-- **Syllables**: Estimated syllable count per line
-- **Stress Pattern**: For metered verse
-- **Line Length**: Character count per line
-
-See [Syllable Counting](../6-poetry-features/62-syllable-counting.md) for details.
-
-## Fiction-Specific Statistics
-
-In Fiction projects:
-
-### Scene Statistics
-- Words per scene
-- Scene count per chapter
-- Total manuscript length
-
-### Progress Tracking
-- Compare against goals
-- Track daily/weekly progress
-- Monitor chapter lengths
-
-## Setting Word Count Goals
-
-For projects with length requirements:
-
-### File Goals
-- Set a target word count for a file
-- See progress toward the goal
-- Helpful for consistent chapter lengths
-
-### Project Goals
-- Novel targets (e.g., 80,000 words)
-- Contest requirements
-- Daily writing goals
 
 ## Using Statistics Effectively
 
@@ -122,7 +86,7 @@ Different tools may count slightly differently:
 - Numbers
 - Contractions
 
-For submissions, note "approximately X words" or use the target publication's preferred method.
+For submissions, note "approximately X words" or use the publication's preferred counting method.
 
 ### Page Counts
 Page estimates depend on:

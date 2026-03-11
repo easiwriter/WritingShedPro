@@ -29,7 +29,7 @@ The marker appears in your text as a superscript number.
 4. Tap **Save**
 
 ### From Footnotes List
-1. Access **Footnotes...** from the menu
+1. Open the Insert menu and choose **Show Footnotes**
 2. Find the footnote you want to edit
 3. Tap to edit
 4. Save your changes
@@ -38,8 +38,8 @@ The marker appears in your text as a superscript number.
 
 To see all footnotes in your document:
 
-1. Open the file menu
-2. Select **Footnotes...**
+1. Open the Insert menu
+2. Select **Show Footnotes**
 
 The list shows:
 - Footnote number
@@ -86,13 +86,14 @@ Writing Shed Pro supports two display modes:
 
 ### Endnotes Mode
 - All notes appear at the end of the document
+- Endnotes are collected in the manuscript back matter
 - Cleaner page layout
 - Common in some publication styles
 
 ### Switching Modes
-1. Open document settings
-2. Find **Footnote Display**
-3. Choose **Footnotes** or **Endnotes**
+1. Open the Insert menu and choose **Footnote** or **Endnote** when adding a note
+2. Use your manuscript settings to control whether notes are displayed as footnotes or gathered as endnotes in back matter
+
 
 The content doesn't change—only where it appears.
 

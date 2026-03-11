@@ -29,8 +29,8 @@ Tap any comment indicator to see:
 
 ### Comments Panel
 For documents with many comments:
-1. Open the view menu
-2. Select **Comments**
+1. Open the Insert menu
+2. Select **View Comments**
 3. See all comments in a list
 
 ## Editing Comments
@@ -48,7 +48,7 @@ For documents with many comments:
 3. Confirm if prompted
 
 ### From Comments Panel
-1. Open the Comments panel
+1. Open **View Comments** from the Insert menu
 2. Swipe left on the comment
 3. Tap **Delete**
 

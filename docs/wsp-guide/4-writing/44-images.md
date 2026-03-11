@@ -21,6 +21,7 @@ Writing Shed Pro supports inline images in your documents. Add photos, illustrat
 ## Image Properties
 
 Tap an image to select it and access its properties:
+You can also use the image controls button in the editor toolbar when an image is selected.
 
 ### Scale
 Adjust the image size:
@@ -155,8 +156,7 @@ When you export your document:
 - Captions included
 
 ### RTF
-- Images embed (compatibility varies)
-- Some applications may not display correctly
+RTF export does not include inline images. Writing Shed Pro warns you before export so you can choose a format like PDF when images must be preserved.
 
 ### Print
 - Images print at available resolution
