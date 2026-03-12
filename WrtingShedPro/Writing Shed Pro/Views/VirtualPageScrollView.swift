@@ -229,11 +229,12 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
     /// Current visible page range
     private var visiblePageRange: Range<Int> = 0..<0
     
-    /// Buffer: number of pages to render above/below visible area
+    /// Base buffer: number of pages to render above/below visible area.
+    /// Additional dynamic buffer is applied at high drag velocity.
     #if targetEnvironment(macCatalyst)
-    private let bufferPages: Int = 4
+    private let bufferPages: Int = 6
     #else
-    private let bufferPages: Int = 2
+    private let bufferPages: Int = 3
     #endif
     
     /// Page change callback
@@ -558,10 +559,25 @@ class VirtualPageScrollViewImpl: UIScrollView, UIScrollViewDelegate {
         // Calculate which pages are visible
         let firstVisiblePage = pageIndex(at: visibleRect.minY)
         let lastVisiblePage = pageIndex(at: visibleRect.maxY)
-        
+
+        // Dynamically increase pre-render buffer while dragging quickly.
+        // This reduces visible "gap then fill" hiccups when exposing new content.
+        let verticalVelocity = abs(panGestureRecognizer.velocity(in: self).y)
+        let extraBuffer: Int
+        if verticalVelocity > 1400 {
+            extraBuffer = 3
+        } else if verticalVelocity > 700 {
+            extraBuffer = 2
+        } else if verticalVelocity > 250 {
+            extraBuffer = 1
+        } else {
+            extraBuffer = 0
+        }
+        let effectiveBuffer = bufferPages + extraBuffer
+
         // Add buffer
-        let bufferFirst = max(0, firstVisiblePage - bufferPages)
-        let bufferLast = min(result.totalPages - 1, lastVisiblePage + bufferPages)
+        let bufferFirst = max(0, firstVisiblePage - effectiveBuffer)
+        let bufferLast = min(result.totalPages - 1, lastVisiblePage + effectiveBuffer)
         let newRange = bufferFirst..<(bufferLast + 1)
         
         // Update current page

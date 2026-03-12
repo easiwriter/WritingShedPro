@@ -38,6 +38,9 @@ struct DramaSceneEditorView: View {
     
     /// The rendered attributed string (for formatted mode)
     @State private var renderedContent: NSAttributedString = NSAttributedString()
+
+    /// Paginated rendered content for print preview
+    @State private var printPreviewPages: [NSAttributedString] = []
     
     /// Parsed document (for analysis)
     @State private var parsedDocument: DMLDocument?
@@ -519,16 +522,25 @@ struct DramaSceneEditorView: View {
     
     /// Print preview: paginated layout
     private var printPreview: some View {
-        ScrollView {
+        ScrollView([.horizontal, .vertical]) {
             VStack(spacing: 20) {
-                // Simulated page
-                VStack(alignment: .leading) {
-                    AttributedTextView(attributedText: renderedContent)
-                        .padding(72)  // Standard 1" margins
+                ForEach(Array(printPreviewPages.enumerated()), id: \.offset) { index, pageContent in
+                    VStack(alignment: .leading) {
+                        AttributedTextView(attributedText: pageContent)
+                            .padding(72)  // Standard 1" margins
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    }
+                    .frame(width: 612, height: 792)  // US Letter size in points
+                    .background(Color.white)
+                    .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
+                    .overlay(alignment: .bottomTrailing) {
+                        Text("\(index + 1)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .padding(.trailing, 20)
+                            .padding(.bottom, 14)
+                    }
                 }
-                .frame(width: 612, height: 792)  // US Letter size in points
-                .background(Color.white)
-                .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
             }
             .padding()
         }
@@ -689,6 +701,8 @@ struct DramaSceneEditorView: View {
             viewMode: viewMode,
             showNotes: viewMode == .source
         )
+
+        paginateForPrintPreview()
         
         #if DEBUG
         print("🎭 renderContent: rendered length = \(renderedContent.length)")
@@ -696,6 +710,56 @@ struct DramaSceneEditorView: View {
             print("🎭 First 100 chars: \(renderedContent.string.prefix(100))")
         }
         #endif
+    }
+
+    private func paginateForPrintPreview() {
+        guard renderedContent.length > 0 else {
+            printPreviewPages = []
+            return
+        }
+
+        let pageWidth: CGFloat = 612
+        let pageHeight: CGFloat = 792
+        let margin: CGFloat = 72
+        let contentSize = CGSize(
+            width: pageWidth - (margin * 2),
+            height: pageHeight - (margin * 2)
+        )
+
+        let textStorage = NSTextStorage(attributedString: renderedContent)
+        let layoutManager = NSLayoutManager()
+        textStorage.addLayoutManager(layoutManager)
+
+        var pages: [NSAttributedString] = []
+        var previousEndLocation = 0
+
+        while previousEndLocation < renderedContent.length {
+            let textContainer = NSTextContainer(size: contentSize)
+            textContainer.lineFragmentPadding = 0
+            textContainer.maximumNumberOfLines = 0
+            layoutManager.addTextContainer(textContainer)
+
+            // Ensure NSLayoutManager has performed layout for this container before
+            // querying glyph ranges — without this, containers after the first return
+            // empty ranges causing early loop exit and single-page display.
+            layoutManager.ensureLayout(for: textContainer)
+
+            let glyphRange = layoutManager.glyphRange(for: textContainer)
+            let characterRange = layoutManager.characterRange(forGlyphRange: glyphRange, actualGlyphRange: nil)
+
+            if characterRange.length == 0 || NSMaxRange(characterRange) <= previousEndLocation {
+                break
+            }
+
+            pages.append(renderedContent.attributedSubstring(from: characterRange))
+            previousEndLocation = NSMaxRange(characterRange)
+        }
+
+        if pages.isEmpty {
+            pages = [renderedContent]
+        }
+
+        printPreviewPages = pages
     }
     
     private func validateAndShowErrors() {
