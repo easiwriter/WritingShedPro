@@ -328,4 +328,170 @@ final class ManuscriptAssemblyServiceTests: XCTestCase {
         
         // Should return content without back matter
         XCTAssertGreaterThan(content.attributedString.length, 0)
-    }}
+    }
+}
+
+// MARK: - ManuscriptContent.buildFileCollectionMap Tests
+
+final class ManuscriptContentFileCollectionMapTests: XCTestCase {
+
+    // MARK: - Helpers
+
+    private func makeFile() -> TextFile {
+        TextFile(name: "File")
+    }
+
+    private func makeBodySection(title: String, files: [TextFile]) -> ManuscriptSection {
+        ManuscriptSection(title: title, sectionType: .body, files: files)
+    }
+
+    private func makeFrontMatterSection(title: String, files: [TextFile]) -> ManuscriptSection {
+        ManuscriptSection(title: title, sectionType: .frontMatter, files: files)
+    }
+
+    private func makeBackMatterSection(title: String, files: [TextFile]) -> ManuscriptSection {
+        ManuscriptSection(title: title, sectionType: .backMatter, files: files)
+    }
+
+    // MARK: - Empty / No-Op Cases
+
+    func testEmptySectionsProducesEmptyMap() {
+        var content = ManuscriptContent()
+        content.buildFileCollectionMap()
+        XCTAssertTrue(content.fileCollectionMap.isEmpty)
+    }
+
+    func testOnlyFrontMatterSectionProducesEmptyMap() {
+        let file = makeFile()
+        let section = makeFrontMatterSection(title: "Preface", files: [file])
+        var content = ManuscriptContent(
+            sections: [section],
+            fileOffsets: [file.id: 0]
+        )
+        content.buildFileCollectionMap()
+        XCTAssertTrue(content.fileCollectionMap.isEmpty)
+    }
+
+    func testOnlyBackMatterSectionProducesEmptyMap() {
+        let file = makeFile()
+        let section = makeBackMatterSection(title: "Index", files: [file])
+        var content = ManuscriptContent(
+            sections: [section],
+            fileOffsets: [file.id: 0]
+        )
+        content.buildFileCollectionMap()
+        XCTAssertTrue(content.fileCollectionMap.isEmpty)
+    }
+
+    func testBodyFileWithNoOffsetIsSkipped() {
+        let file = makeFile()
+        let section = makeBodySection(title: "Poems", files: [file])
+        // file.id intentionally missing from fileOffsets
+        var content = ManuscriptContent(
+            sections: [section],
+            fileOffsets: [:]
+        )
+        content.buildFileCollectionMap()
+        XCTAssertTrue(content.fileCollectionMap.isEmpty)
+    }
+
+    // MARK: - Section Title Fallback
+
+    func testBodyFileFallsBackToSectionTitle() {
+        let file = makeFile()
+        let section = makeBodySection(title: "Chapter One", files: [file])
+        var content = ManuscriptContent(
+            sections: [section],
+            fileOffsets: [file.id: 100]
+        )
+        content.buildFileCollectionMap()
+        XCTAssertEqual(content.fileCollectionMap.count, 1)
+        XCTAssertEqual(content.fileCollectionMap[0].offset, 100)
+        XCTAssertEqual(content.fileCollectionMap[0].collectionName, "Chapter One")
+    }
+
+    func testMultipleFilesInOneBodySection() {
+        let file1 = makeFile()
+        let file2 = makeFile()
+        let section = makeBodySection(title: "Act I", files: [file1, file2])
+        var content = ManuscriptContent(
+            sections: [section],
+            fileOffsets: [file1.id: 200, file2.id: 50]
+        )
+        content.buildFileCollectionMap()
+        XCTAssertEqual(content.fileCollectionMap.count, 2)
+        XCTAssertTrue(content.fileCollectionMap.allSatisfy { $0.collectionName == "Act I" })
+    }
+
+    // MARK: - Sorting
+
+    func testMapIsSortedByOffsetAscending() {
+        let file1 = makeFile()
+        let file2 = makeFile()
+        let file3 = makeFile()
+        let section = makeBodySection(title: "Poems", files: [file1, file2, file3])
+        var content = ManuscriptContent(
+            sections: [section],
+            fileOffsets: [file1.id: 300, file2.id: 100, file3.id: 200]
+        )
+        content.buildFileCollectionMap()
+        XCTAssertEqual(content.fileCollectionMap.count, 3)
+        XCTAssertEqual(content.fileCollectionMap[0].offset, 100)
+        XCTAssertEqual(content.fileCollectionMap[1].offset, 200)
+        XCTAssertEqual(content.fileCollectionMap[2].offset, 300)
+    }
+
+    func testOffsetsAcrossMultipleBodySections() {
+        let file1 = makeFile()
+        let file2 = makeFile()
+        let section1 = makeBodySection(title: "Part One", files: [file1])
+        let section2 = makeBodySection(title: "Part Two", files: [file2])
+        var content = ManuscriptContent(
+            sections: [section1, section2],
+            fileOffsets: [file1.id: 500, file2.id: 50]
+        )
+        content.buildFileCollectionMap()
+        XCTAssertEqual(content.fileCollectionMap.count, 2)
+        // Sorted: file2 (50) first, file1 (500) second
+        XCTAssertEqual(content.fileCollectionMap[0].offset, 50)
+        XCTAssertEqual(content.fileCollectionMap[0].collectionName, "Part Two")
+        XCTAssertEqual(content.fileCollectionMap[1].offset, 500)
+        XCTAssertEqual(content.fileCollectionMap[1].collectionName, "Part One")
+    }
+
+    // MARK: - Mixed Section Types
+
+    func testFrontAndBackMatterExcludedBodyIncluded() {
+        let frontFile = makeFile()
+        let bodyFile  = makeFile()
+        let backFile  = makeFile()
+        let front = makeFrontMatterSection(title: "Preface", files: [frontFile])
+        let body  = makeBodySection(title: "Main", files: [bodyFile])
+        let back  = makeBackMatterSection(title: "Notes", files: [backFile])
+        var content = ManuscriptContent(
+            sections: [front, body, back],
+            fileOffsets: [frontFile.id: 0, bodyFile.id: 100, backFile.id: 200]
+        )
+        content.buildFileCollectionMap()
+        XCTAssertEqual(content.fileCollectionMap.count, 1)
+        XCTAssertEqual(content.fileCollectionMap[0].offset, 100)
+        XCTAssertEqual(content.fileCollectionMap[0].collectionName, "Main")
+    }
+
+    // MARK: - Idempotency
+
+    func testBuildingTwiceProducesSameResult() {
+        let file = makeFile()
+        let section = makeBodySection(title: "Sonnets", files: [file])
+        var content = ManuscriptContent(
+            sections: [section],
+            fileOffsets: [file.id: 42]
+        )
+        content.buildFileCollectionMap()
+        let firstOffsets = content.fileCollectionMap.map(\.offset)
+        let firstNames   = content.fileCollectionMap.map(\.collectionName)
+        content.buildFileCollectionMap()
+        XCTAssertEqual(content.fileCollectionMap.map(\.offset), firstOffsets)
+        XCTAssertEqual(content.fileCollectionMap.map(\.collectionName), firstNames)
+    }
+}
