@@ -360,26 +360,62 @@ struct SceneListView: View {
     }
     
     // MARK: - Body
-    
-    private var bodyCore: some View {
+
+    @ViewBuilder
+    private var primaryContent: some View {
+        if sortedScenes.isEmpty && statusFilter == nil {
+            emptyState
+        } else if sortedScenes.isEmpty {
+            ContentUnavailableView {
+                Label(NSLocalizedString("workflow.filter.noResults", comment: "No files"), systemImage: "doc.text")
+            } description: {
+                Text(NSLocalizedString("workflow.filter.noResultsHint", comment: "No files with this status"))
+            }
+        } else {
+            sceneList
+        }
+    }
+
+    private var bodyScaffold: some View {
         VStack(spacing: 0) {
             workflowStatusFilter
-            
-            Group {
-                if sortedScenes.isEmpty && statusFilter == nil {
-                    emptyState
-                } else if sortedScenes.isEmpty {
-                    // Filtered but no results
-                    ContentUnavailableView {
-                        Label(NSLocalizedString("workflow.filter.noResults", comment: "No files"), systemImage: "doc.text")
-                    } description: {
-                        Text(NSLocalizedString("workflow.filter.noResultsHint", comment: "No files with this status"))
-                    }
-                } else {
-                    sceneList
-                }
-            }
+            primaryContent
         }
+    }
+
+    private var headerFooterEditor: some View {
+        HeaderFooterDialog(
+            headerEnabled: project.pageSetup?.hasHeaders ?? false,
+            footerEnabled: project.pageSetup?.hasFooters ?? false,
+            headerLeft: $headerLeft,
+            headerCenter: $headerCenter,
+            headerRight: $headerRight,
+            footerLeft: $footerLeft,
+            footerCenter: $footerCenter,
+            footerRight: $footerRight,
+            headerInsertTarget: $headerInsertTarget,
+            footerInsertTarget: $footerInsertTarget,
+            showHeaderElementPicker: .constant(false),
+            showFooterElementPicker: .constant(false),
+            headerFooterElements: [],
+            onCancel: { showHeaderFooterEditor = false },
+            onSave: {
+                if let pageSetup = project.pageSetup {
+                    pageSetup.headerLeft = headerLeft
+                    pageSetup.headerCenter = headerCenter
+                    pageSetup.headerRight = headerRight
+                    pageSetup.footerLeft = footerLeft
+                    pageSetup.footerCenter = footerCenter
+                    pageSetup.footerRight = footerRight
+                    try? modelContext.save()
+                }
+                showHeaderFooterEditor = false
+            }
+        )
+    }
+    
+    private var bodyCore: some View {
+        bodyScaffold
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
         .environment(\.editMode, $editMode)
@@ -395,6 +431,10 @@ struct SceneListView: View {
                 }
             }
         }
+    }
+
+    private var bodyCoreWithSheets: some View {
+        bodyCore
         .sheet(isPresented: $showAddScene) {
             AddSceneSheet(project: project, chapter: chapter, act: act, book: book)
         }
@@ -414,34 +454,7 @@ struct SceneListView: View {
             }
         }
         .sheet(isPresented: $showHeaderFooterEditor) {
-            HeaderFooterDialog(
-                headerEnabled: project.pageSetup?.hasHeaders ?? false,
-                footerEnabled: project.pageSetup?.hasFooters ?? false,
-                headerLeft: $headerLeft,
-                headerCenter: $headerCenter,
-                headerRight: $headerRight,
-                footerLeft: $footerLeft,
-                footerCenter: $footerCenter,
-                footerRight: $footerRight,
-                headerInsertTarget: $headerInsertTarget,
-                footerInsertTarget: $footerInsertTarget,
-                showHeaderElementPicker: .constant(false),
-                showFooterElementPicker: .constant(false),
-                headerFooterElements: [],
-                onCancel: { showHeaderFooterEditor = false },
-                onSave: {
-                    if let pageSetup = project.pageSetup {
-                        pageSetup.headerLeft = headerLeft
-                        pageSetup.headerCenter = headerCenter
-                        pageSetup.headerRight = headerRight
-                        pageSetup.footerLeft = footerLeft
-                        pageSetup.footerCenter = footerCenter
-                        pageSetup.footerRight = footerRight
-                        try? modelContext.save()
-                    }
-                    showHeaderFooterEditor = false
-                }
-            )
+            headerFooterEditor
         }
         .alert(NSLocalizedString("headerFooter.notEnabled.title", comment: "Headers & Footers Not Enabled"), isPresented: $showHeaderFooterWarning) {
             Button(NSLocalizedString("button.ok", comment: "OK"), role: .cancel) {}
@@ -463,7 +476,7 @@ struct SceneListView: View {
     }
     
     var body: some View {
-        bodyCore
+        bodyCoreWithSheets
         .navigationDestination(item: $navigateToScene) { (scene: StoryScene) in
             sceneNavigationDestination(scene)
         }

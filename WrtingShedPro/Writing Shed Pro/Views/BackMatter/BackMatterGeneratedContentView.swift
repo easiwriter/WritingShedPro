@@ -106,12 +106,7 @@ struct BackMatterGeneratedContentView: View {
     // MARK: - Body
     
     var body: some View {
-        bodyWithSheetsAndAlerts
-            .id(refreshTrigger) // Refresh content only, not sheets
-            .navigationTitle(file.name)
-            .navigationBarTitleDisplayMode(.inline)
-            .environment(\.editMode, $editMode)
-            .toolbar { toolbarContent }
+        contentWithNavigationChrome
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
                 // Refresh when app returns to foreground (handles changes from other views)
                 refreshTrigger = UUID()
@@ -152,40 +147,55 @@ struct BackMatterGeneratedContentView: View {
                 }
             }
     }
+
+    private var contentWithNavigationChrome: some View {
+        bodyWithSheetsAndAlerts
+            .id(refreshTrigger) // Refresh content only, not sheets
+            .navigationTitle(file.name)
+            .navigationBarTitleDisplayMode(.inline)
+            .environment(\.editMode, $editMode)
+            .toolbar { toolbarContent }
+    }
     
     // MARK: - Extracted Body Content
     
     @ViewBuilder
     private var bodyContent: some View {
-        Group {
-            // Contributors uses List for swipe actions and edit mode
-            if backMatterType == .contributors {
-                contributorsListContent
-            } else {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        switch backMatterType {
-                        case .endnotes:
-                            endnotesContent
-                        case .glossary:
-                            glossaryContent
-                        case .references:
-                            referencesContent
-                        case .tableOfFigures:
-                            tableOfFiguresContent
-                        case .index:
-                            indexContent
-                        case .contributors:
-                            EmptyView() // Handled above
-                        case .backCover:
-                            EmptyView() // Handled by CoverImageEditorView
-                        case nil:
-                            emptyContent
-                        }
-                    }
-                    .padding()
-                }
+        if backMatterType == .contributors {
+            contributorsListContent
+        } else {
+            nonContributorBodyContent
+        }
+    }
+
+    private var nonContributorBodyContent: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                nonContributorContentSwitch
             }
+            .padding()
+        }
+    }
+
+    @ViewBuilder
+    private var nonContributorContentSwitch: some View {
+        switch backMatterType {
+        case .endnotes:
+            endnotesContent
+        case .glossary:
+            glossaryContent
+        case .references:
+            referencesContent
+        case .tableOfFigures:
+            tableOfFiguresContent
+        case .index:
+            indexContent
+        case .contributors:
+            EmptyView()
+        case .backCover:
+            EmptyView()
+        case nil:
+            emptyContent
         }
     }
     

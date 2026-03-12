@@ -30,6 +30,10 @@ struct ContentView: View {
         )
         .id(refreshTrigger)
         .task {
+            if scenePhase == .active {
+                syncOnForegroundResume()
+                startPeriodicSyncTimer()
+            }
             await monitorSyncAndRefreshIfNeeded()
         }
         .onChange(of: scenePhase) { oldPhase, newPhase in
@@ -49,9 +53,9 @@ struct ContentView: View {
     /// but these pushes are unreliable on Mac Catalyst and can be delayed/dropped on iPad
     /// when the app was suspended. This ensures we always pick up remote changes.
     private func syncOnForegroundResume() {
-        // Debounce: don't re-sync if we already did within the last 30 seconds
+        // Debounce: don't re-sync if we already did within the last 60 seconds
         let now = Date()
-        guard now.timeIntervalSince(lastForegroundSyncDate) > 30 else {
+        guard now.timeIntervalSince(lastForegroundSyncDate) > 60 else {
             #if DEBUG
             print("🔄 [ContentView] Foreground sync skipped — last sync was \(Int(now.timeIntervalSince(lastForegroundSyncDate)))s ago")
             #endif
@@ -65,21 +69,18 @@ struct ContentView: View {
         forceCloudKitImport()
     }
     
-    /// Start a periodic timer that forces a CloudKit zone fetch every 5 minutes
-    /// while the app is in the foreground. This catches missed silent push
-    /// notifications during an active session (e.g., editing on two devices
-    /// simultaneously where one device's pushes get dropped).
+    /// Start an adaptive periodic sync watchdog while app is foregrounded.
+    ///
+    /// We intentionally run this frequently (every 60s), but only trigger expensive
+    /// operations when CloudKit has been idle for a while. This gives us fast recovery
+    /// when silent pushes are missed (common on Catalyst), without hammering CloudKit.
     private func startPeriodicSyncTimer() {
         stopPeriodicSyncTimer()  // cancel any existing timer
         periodicSyncTask = Task { @MainActor in
             while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 5 * 60 * 1_000_000_000)  // 5 minutes
+                try? await Task.sleep(nanoseconds: 60 * 1_000_000_000)  // 60 seconds
                 guard !Task.isCancelled else { break }
-                #if DEBUG
-                print("🔄 [ContentView] Periodic sync timer — forcing CloudKit zone fetch")
-                #endif
-                forceCloudKitImport()
-                lastForegroundSyncDate = Date()
+                performPeriodicSyncWatchdogTick()
             }
         }
     }
@@ -88,6 +89,54 @@ struct ContentView: View {
     private func stopPeriodicSyncTimer() {
         periodicSyncTask?.cancel()
         periodicSyncTask = nil
+    }
+
+    /// Conservative periodic CloudKit maintenance.
+    /// Forces a zone fetch only after extended idle time and never mutates local data.
+    private func performPeriodicSyncWatchdogTick() {
+        reconcileProjectListIfNeeded()
+
+        let throttler = CloudKitSyncThrottler.shared
+        if throttler.hasActiveCloudKitEvent {
+            #if DEBUG
+            print("⏳ [ContentView] Sync watchdog: CloudKit event in progress, skipping proactive sync actions")
+            #endif
+            return
+        }
+        let now = Date()
+        let lastEvent = throttler.lastSyncTime ?? .distantPast
+        let secondsSinceEvent = now.timeIntervalSince(lastEvent)
+
+        guard secondsSinceEvent >= 180 else {
+            #if DEBUG
+            print("✅ [ContentView] Sync watchdog: recent CloudKit activity (\(Int(secondsSinceEvent))s ago), no action")
+            #endif
+            return
+        }
+
+        #if DEBUG
+        print("🔄 [ContentView] Sync watchdog: idle \(Int(secondsSinceEvent))s — forcing import")
+        #endif
+        forceCloudKitImport()
+        lastForegroundSyncDate = now
+    }
+
+    /// `@Query` can occasionally miss newly imported CloudKit rows until another
+    /// state change occurs. Reconcile against a direct fetch and force-refresh
+    /// when active-project count in DB exceeds what's currently displayed.
+    private func reconcileProjectListIfNeeded() {
+        let descriptor = FetchDescriptor<Project>()
+        guard let allProjects = try? modelContext.fetch(descriptor) else { return }
+
+        let dbActiveCount = allProjects.filter { !$0.isTrashed }.count
+        let uiActiveCount = projects.filter { !$0.isTrashed }.count
+
+        guard dbActiveCount > uiActiveCount else { return }
+
+        #if DEBUG
+        print("🔄 [ContentView] Reconcile: DB has \(dbActiveCount) active projects, UI shows \(uiActiveCount). Forcing refresh.")
+        #endif
+        refreshTrigger.toggle()
     }
     
     /// On fresh install, @Query may not update after CloudKit bulk import.
@@ -116,7 +165,7 @@ struct ContentView: View {
         forceCloudKitImport()
         
         let totalChecks = 30               // 30 × 10s = 5 minutes
-        let reKickInterval = 6             // re-kick every 60s (every 6th check)
+        let reKickInterval = 6             // legacy debug cadence for status logging
         
         for check in 1...totalChecks {
             try? await Task.sleep(nanoseconds: 10_000_000_000) // 10s
@@ -141,15 +190,10 @@ struct ContentView: View {
             #endif
             
             // --- Re-kick CloudKit periodically to keep daemon active ---
-            if check % reKickInterval == 0 {
+            if check % reKickInterval == 0 && check == reKickInterval {
                 #if DEBUG
-                print("🔄 [ContentView] Re-kick at check \(check) — zone fetch")
+                print("⏸️ [ContentView] Aggressive auto re-kicks disabled — relying on natural container retries")
                 #endif
-                forceCloudKitImport()
-                // Alternate with nudge on every other re-kick
-                if (check / reKickInterval) % 2 == 0 {
-                    nudgeCloudKitSync()
-                }
             }
         }
         
@@ -158,45 +202,36 @@ struct ContentView: View {
         #endif
     }
     
-    /// Nudge the CloudKit mirroring engine by performing a local write+delete cycle.
-    /// This triggers an export event which, as a side-effect, causes
-    /// NSPersistentCloudKitContainer to also check for pending imports.
-    private func nudgeCloudKitSync() {
-        // Insert a temporary project and save to trigger an export cycle
-        let tempProject = Project(name: "__sync_nudge_temp__")
-        modelContext.insert(tempProject)
-        try? modelContext.save()
-        
-        // Small delay to let the persistent store coordinator pick up the change
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [modelContext] in
-            // Delete so the nudge project doesn't persist
-            modelContext.delete(tempProject)
-            try? modelContext.save()
-            
-            // Also clean up any stale nudge projects that might have survived earlier crashes
-            var descriptor = FetchDescriptor<Project>(
-                predicate: #Predicate { $0.name == "__sync_nudge_temp__" }
-            )
-            descriptor.fetchLimit = 100
-            if let stales = try? modelContext.fetch(descriptor), !stales.isEmpty {
-                for stale in stales { modelContext.delete(stale) }
-                try? modelContext.save()
-                #if DEBUG
-                print("🗑️ [ContentView] Cleaned up \(stales.count) stale nudge project(s)")
-                #endif
-            }
-        }
-        
-        #if DEBUG
-        print("🔄 [ContentView] CloudKit nudge: temp project inserted, will delete in 0.5s")
-        #endif
-    }
-    
     /// Forcibly wake up the CloudKit daemon by fetching record zone changes.
     /// On Mac Catalyst the silent-push path is unreliable even after registering
     /// for remote notifications, so this acts as a belt-and-suspenders fallback
     /// that causes NSPersistentCloudKitContainer to notice outstanding changes.
+    ///
+    /// **Rate-limit aware**: Skips the operation if CloudKit recently returned
+    /// a rate-limit or service-unavailable error, to avoid piling on requests
+    /// and making the throttling worse.
     private func forceCloudKitImport() {
+        guard !CloudKitSyncThrottler.shared.hasActiveCloudKitEvent else {
+            #if DEBUG
+            print("⏳ [ContentView] forceCloudKitImport skipped — CloudKit event in progress")
+            #endif
+            return
+        }
+        guard !CloudKitSyncThrottler.shared.isManualKickPaused else {
+            #if DEBUG
+            print("⏳ [ContentView] forceCloudKitImport skipped — manual kick backoff active")
+            #endif
+            return
+        }
+        // Don't fire if we're currently rate-limited — let the container's
+        // internal retry handle it with proper server-provided backoff.
+        guard !CloudKitSyncThrottler.shared.isRateLimited else {
+            #if DEBUG
+            print("⏳ [ContentView] forceCloudKitImport skipped — rate-limited until \(CloudKitSyncThrottler.shared.rateLimitedUntil?.description ?? "?")")
+            #endif
+            return
+        }
+        
         let ckContainer = CKContainer(identifier: "iCloud.com.appworks.writingshedpro")
         let database = ckContainer.privateCloudDatabase
         
@@ -283,15 +318,11 @@ struct ContentView: View {
             
             // Now safe to run migrations
             MigrationService.runMigrations(context: modelContext)
-            
-            // After migration, check for and remove duplicate projects
-            // (caused by previous sync race conditions)
-            let result = DeduplicationService.deduplicateProjects(context: modelContext)
-            if result.duplicatesRemoved > 0 {
-                #if DEBUG
-                print("🧹 [ContentView] Deduplication removed \(result.duplicatesRemoved) duplicate(s): \(result.projectsAffected.joined(separator: ", "))")
-                #endif
-            }
+
+            // IMPORTANT: Do not auto-delete "duplicate" projects on launch.
+            // CloudKit may temporarily surface same-name records during staggered
+            // relationship sync and automatic name-based deletion can remove valid
+            // newly imported projects. Deduplication remains available from diagnostics.
         }
     }
     

@@ -27,122 +27,141 @@ struct ProjectEditableList: View {
     private var sortedProjects: [Project] {
         ProjectSortService.sortProjects(projects, by: selectedSortOrder)
     }
+
+    private var exportPresentationBinding: Binding<Bool> {
+        Binding(
+            get: { exportData != nil },
+            set: { if !$0 { exportData = nil; projectToExport = nil } }
+        )
+    }
     
     var body: some View {
+        projectListView
+            .navigationDestination(for: Project.self) { project in
+                ProjectDetailView(project: project)
+            }
+            .onChange(of: projects.isEmpty) { _, isEmpty in
+                if isEmpty && isEditMode {
+                    withAnimation {
+                        isEditMode = false
+                    }
+                }
+            }
+            .sheet(item: $selectedProjectForInfo) { project in
+                projectInfoSheet(project)
+            }
+            .sheet(item: $selectedProjectForPageSetup) { project in
+                PageSetupForm(project: project)
+            }
+            .sheet(isPresented: $showingManageForms) {
+                PoetryFormManagementView()
+            }
+            .sheet(isPresented: $showingPoetrySettings) {
+                PoetrySettingsSheet()
+            }
+            .fileExporter(
+                isPresented: exportPresentationBinding,
+                document: exportData.map { ProjectExportDocument(data: $0) },
+                contentType: UTType("com.writing-shed.wsp") ?? .json,
+                defaultFilename: exportFilename,
+                onCompletion: handleExportResult
+            )
+            .alert("Export Error", isPresented: $showExportError) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(exportErrorMessage)
+            }
+            .confirmationDialog(
+                Text(NSLocalizedString("projectEditableList.deleteTitle", comment: "Delete project(s) confirmation dialog title")),
+                isPresented: $showDeleteConfirmation,
+                presenting: deleteInfo,
+                actions: { _ in
+                    Button(NSLocalizedString("projectEditableList.delete", comment: "Delete button"), role: .destructive) {
+                        moveProjectsToTrash()
+                    }
+                    Button(NSLocalizedString("projectEditableList.deleteForever", comment: "Delete Forever button"), role: .destructive) {
+                        deleteProjectsPermanently()
+                    }
+                    Button(NSLocalizedString("button.cancel", comment: "Cancel button"), role: .cancel) {
+                        projectsToDelete = nil
+                        deleteInfo = nil
+                    }
+                },
+                message: { _ in
+                    Text(NSLocalizedString("projectEditableList.deleteMessage", comment: "Delete projects message"))
+                }
+            )
+    }
+
+    private var projectListView: some View {
         List {
             ForEach(sortedProjects) { project in
-                NavigationLink(value: project) {
-                    ProjectItemView(
-                        project: project,
-                        onInfoTapped: {
-                            selectedProjectForInfo = project
-                        },
-                        onPageSetupTapped: {
-                            selectedProjectForPageSetup = project
-                        },
-                        onManageFormsTapped: project.type == .poetry ? {
-                            showingManageForms = true
-                        } : nil,
-                        onPoetrySettingsTapped: project.type == .poetry ? {
-                            showingPoetrySettings = true
-                        } : nil,
-                        onExportTapped: {
-                            exportProject(project)
-                        }
-                    )
-                }
-                .buttonStyle(.plain)
-                .accessibilityHint("Double tap to open project folders")
-                .listRowSeparator(.hidden)
-                .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
+                projectRow(project)
             }
             .onDelete(perform: deleteProjects)
             .onMove(perform: moveProjects)
         }
         .listStyle(.plain)
         .environment(\.editMode, .constant(isEditMode ? .active : .inactive))
-        .navigationDestination(for: Project.self) { project in
-            ProjectDetailView(project: project)
-        }
-        .onChange(of: projects.isEmpty) { _, isEmpty in
-            if isEmpty && isEditMode {
-                withAnimation {
-                    isEditMode = false
-                }
-            }
-        }
-        .sheet(item: $selectedProjectForInfo) { project in
-            ProjectInfoSheet(
+    }
+
+    private func projectRow(_ project: Project) -> some View {
+        NavigationLink(value: project) {
+            ProjectItemView(
                 project: project,
-                isPresented: Binding(
-                    get: { selectedProjectForInfo != nil },
-                    set: { if !$0 { selectedProjectForInfo = nil } }
-                ),
-                showDeleteConfirmation: .constant(false),
-                errorMessage: .constant(""),
-                showErrorAlert: .constant(false)
+                onInfoTapped: {
+                    selectedProjectForInfo = project
+                },
+                onPageSetupTapped: {
+                    selectedProjectForPageSetup = project
+                },
+                onManageFormsTapped: project.type == .poetry ? {
+                    showingManageForms = true
+                } : nil,
+                onPoetrySettingsTapped: project.type == .poetry ? {
+                    showingPoetrySettings = true
+                } : nil,
+                onExportTapped: {
+                    exportProject(project)
+                }
             )
-            .presentationDetents([.medium, .large])
-            .presentationDragIndicator(.visible)
         }
-        .sheet(item: $selectedProjectForPageSetup) { project in
-            PageSetupForm(project: project)
-        }
-        .sheet(isPresented: $showingManageForms) {
-            PoetryFormManagementView()
-        }
-        .sheet(isPresented: $showingPoetrySettings) {
-            PoetrySettingsSheet()
-        }
-        .fileExporter(
+        .buttonStyle(.plain)
+        .accessibilityHint("Double tap to open project folders")
+        .listRowSeparator(.hidden)
+        .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
+    }
+
+    private func projectInfoSheet(_ project: Project) -> some View {
+        ProjectInfoSheet(
+            project: project,
             isPresented: Binding(
-                get: { exportData != nil },
-                set: { if !$0 { exportData = nil; projectToExport = nil } }
+                get: { selectedProjectForInfo != nil },
+                set: { if !$0 { selectedProjectForInfo = nil } }
             ),
-            document: exportData.map { ProjectExportDocument(data: $0) },
-            contentType: UTType("com.writing-shed.wsp") ?? .json,
-            defaultFilename: exportFilename
-        ) { result in
-            switch result {
-            case .success(let url):
-                #if DEBUG
-                print("[ProjectExport] ✅ Exported to: \(url.path)")
-                #endif
-            case .failure(let error):
-                #if DEBUG
-                print("[ProjectExport] ❌ Export failed: \(error)")
-                #endif
-                exportErrorMessage = error.localizedDescription
-                showExportError = true
-            }
-            exportData = nil
-            projectToExport = nil
-        }
-        .alert("Export Error", isPresented: $showExportError) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text(exportErrorMessage)
-        }
-        .confirmationDialog(
-            Text(NSLocalizedString("projectEditableList.deleteTitle", comment: "Delete project(s) confirmation dialog title")),
-            isPresented: $showDeleteConfirmation,
-            presenting: deleteInfo,
-            actions: { _ in
-                Button(NSLocalizedString("projectEditableList.delete", comment: "Delete button"), role: .destructive) {
-                    moveProjectsToTrash()
-                }
-                Button(NSLocalizedString("projectEditableList.deleteForever", comment: "Delete Forever button"), role: .destructive) {
-                    deleteProjectsPermanently()
-                }
-                Button(NSLocalizedString("button.cancel", comment: "Cancel button"), role: .cancel) {
-                    projectsToDelete = nil
-                    deleteInfo = nil
-                }
-            },
-            message: { info in
-                Text(NSLocalizedString("projectEditableList.deleteMessage", comment: "Delete projects message"))
-            }
+            showDeleteConfirmation: .constant(false),
+            errorMessage: .constant(""),
+            showErrorAlert: .constant(false)
         )
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+    }
+
+    private func handleExportResult(_ result: Result<URL, Error>) {
+        switch result {
+        case .success(let url):
+            #if DEBUG
+            print("[ProjectExport] ✅ Exported to: \(url.path)")
+            #endif
+        case .failure(let error):
+            #if DEBUG
+            print("[ProjectExport] ❌ Export failed: \(error)")
+            #endif
+            exportErrorMessage = error.localizedDescription
+            showExportError = true
+        }
+        exportData = nil
+        projectToExport = nil
     }
     
     // MARK: - Export

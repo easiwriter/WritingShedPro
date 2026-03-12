@@ -26,10 +26,18 @@ struct SubmissionPickerView: View {
     @State private var setReminder: Bool = false
     @State private var reminderDate: Date = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Calendar.current.date(byAdding: .month, value: 3, to: Date()) ?? Date()) ?? Date()
     
+    private var projectID: UUID {
+        project.id
+    }
+
     // Filter publications for this project
     private var projectPublications: [Publication] {
-        allPublications.filter { $0.project?.id == project.id }
-            .sorted { $0.name < $1.name }
+        let filtered = allPublications.filter { publication in
+            publication.project?.id == projectID
+        }
+        return filtered.sorted { lhs, rhs in
+            lhs.name < rhs.name
+        }
     }
     
     // Generate a default name based on files
@@ -55,112 +63,172 @@ struct SubmissionPickerView: View {
             return "Submit Files"
         }
     }
-    
-    var body: some View {
-        List {
-            // Submission name section
-            Section {
-                TextField(NSLocalizedString("submissions.name.placeholder", comment: "Submission name placeholder"), text: $submissionName)
-                    .textInputAutocapitalization(.words)
-                    .accessibilityLabel(Text("submissions.name.label"))
-            } header: {
-                Text(NSLocalizedString("submissions.name.header", comment: "Submission Name"))
-            }
-            
-            // Expected response date section
-            Section {
-                Toggle(NSLocalizedString("submissions.setExpectedDate", comment: "Set expected response date"), isOn: $setExpectedResponseDate)
-                
-                if setExpectedResponseDate {
+
+    private var trimmedSubmissionName: String {
+        submissionName.trimmingCharacters(in: .whitespaces)
+    }
+
+    private var resolvedSubmissionName: String {
+        trimmedSubmissionName.isEmpty ? defaultSubmissionName : trimmedSubmissionName
+    }
+
+    private var selectedReminderDate: Date? {
+        (setExpectedResponseDate && setReminder) ? reminderDate : nil
+    }
+
+    private var resolvedExpectedDate: Date? {
+        setExpectedResponseDate ? expectedResponseDate : nil
+    }
+
+    @ViewBuilder
+    private var submissionNameSection: some View {
+        Section {
+            TextField(NSLocalizedString("submissions.name.placeholder", comment: "Submission name placeholder"), text: $submissionName)
+                .textInputAutocapitalization(.words)
+                .accessibilityLabel(Text("submissions.name.label"))
+        } header: {
+            Text(NSLocalizedString("submissions.name.header", comment: "Submission Name"))
+        }
+    }
+
+    @ViewBuilder
+    private var expectedResponseSection: some View {
+        Section {
+            Toggle(NSLocalizedString("submissions.setExpectedDate", comment: "Set expected response date"), isOn: $setExpectedResponseDate)
+
+            if setExpectedResponseDate {
+                DatePicker(
+                    NSLocalizedString("submissions.expectedBy.label", comment: "Expected by"),
+                    selection: $expectedResponseDate,
+                    in: Date()...,
+                    displayedComponents: .date
+                )
+                .onChange(of: expectedResponseDate) { _, newDate in
+                    reminderDate = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: newDate) ?? newDate
+                }
+
+                Toggle(isOn: $setReminder) {
+                    Label(NSLocalizedString("reminder.set", comment: "Set Reminder"), systemImage: "bell")
+                }
+
+                if setReminder {
                     DatePicker(
-                        NSLocalizedString("submissions.expectedBy.label", comment: "Expected by"),
-                        selection: $expectedResponseDate,
+                        NSLocalizedString("reminder.date.label", comment: "Reminder Date"),
+                        selection: $reminderDate,
                         in: Date()...,
-                        displayedComponents: .date
+                        displayedComponents: [.date, .hourAndMinute]
                     )
-                    .onChange(of: expectedResponseDate) { _, newDate in
-                        reminderDate = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: newDate) ?? newDate
+                }
+            }
+        } header: {
+            Text(NSLocalizedString("submissions.response.section", comment: "Response"))
+        }
+    }
+
+    private var addPublicationSection: some View {
+        Section {
+            Button(action: { showingNewPublicationSheet = true }) {
+                Label("publications.button.add", systemImage: "plus.circle.fill")
+                    .foregroundStyle(.blue)
+            }
+            .accessibilityLabel(Text("accessibility.add.publication"))
+        }
+    }
+
+    private func expectedDate(for publication: Publication) -> Date? {
+        if let chosen = resolvedExpectedDate {
+            return chosen
+        }
+        if let days = publication.typicalResponseDays {
+            return Calendar.current.date(byAdding: .day, value: days, to: Date())
+        }
+        return nil
+    }
+
+    private func selectPublication(_ publication: Publication) {
+        onPublicationSelected(publication, resolvedSubmissionName, expectedDate(for: publication), selectedReminderDate)
+    }
+
+    @ViewBuilder
+    private func publicationRow(_ publication: Publication) -> some View {
+        Button(action: {
+            selectPublication(publication)
+        }) {
+            HStack {
+                Text(publication.type?.icon ?? "")
+                    .font(.title3)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(publication.name)
+                        .font(.body)
+                        .foregroundStyle(.primary)
+
+                    if let type = publication.type {
+                        Text(type.displayName)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
-                    
-                    Toggle(isOn: $setReminder) {
-                        Label(NSLocalizedString("reminder.set", comment: "Set Reminder"), systemImage: "bell")
-                    }
-                    
-                    if setReminder {
-                        DatePicker(
-                            NSLocalizedString("reminder.date.label", comment: "Reminder Date"),
-                            selection: $reminderDate,
-                            in: Date()...,
-                            displayedComponents: [.date, .hourAndMinute]
-                        )
-                    }
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .accessibilityLabel(Text(String(format: NSLocalizedString("accessibility.submit.to", comment: "Submit to"), publication.name)))
+    }
+
+    @ViewBuilder
+    private var existingPublicationsSection: some View {
+        if !projectPublications.isEmpty {
+            Section {
+                ForEach(projectPublications) { publication in
+                    publicationRow(publication)
                 }
             } header: {
-                Text(NSLocalizedString("submissions.response.section", comment: "Response"))
+                Text("publications.existing.title")
             }
-            
-            // New Publication button section
+        } else {
             Section {
-                Button(action: { showingNewPublicationSheet = true }) {
-                    Label("publications.button.add", systemImage: "plus.circle.fill")
-                        .foregroundStyle(.blue)
-                }
-                .accessibilityLabel(Text("accessibility.add.publication"))
-            }
-            
-            // Existing publications
-            if !projectPublications.isEmpty {
-                Section {
-                    ForEach(projectPublications) { publication in
-                        Button(action: {
-                            let name = submissionName.trimmingCharacters(in: .whitespaces).isEmpty ? defaultSubmissionName : submissionName.trimmingCharacters(in: .whitespaces)
-                            // Auto-populate expected response date from publication if not already set by user
-                            var expectedDate = setExpectedResponseDate ? expectedResponseDate : nil
-                            if expectedDate == nil, let days = publication.typicalResponseDays {
-                                expectedDate = Calendar.current.date(byAdding: .day, value: days, to: Date())
-                            }
-                            let reminder = (setExpectedResponseDate && setReminder) ? reminderDate : nil
-                            onPublicationSelected(publication, name, expectedDate, reminder)
-                        }) {
-                            HStack {
-                                Text(publication.type?.icon ?? "")
-                                    .font(.title3)
-                                
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(publication.name)
-                                        .font(.body)
-                                        .foregroundStyle(.primary)
-                                    
-                                    if let type = publication.type {
-                                        Text(type.displayName)
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
-                                
-                                Spacer()
-                                
-                                Image(systemName: "chevron.right")
-                                    .font(.caption)
-                                    .foregroundStyle(.tertiary)
-                            }
-                        }
-                        .accessibilityLabel(Text(String(format: NSLocalizedString("accessibility.submit.to", comment: "Submit to"), publication.name)))
-                    }
-                } header: {
-                    Text("publications.existing.title")
-                }
-            } else {
-                // Empty state
-                Section {
-                    ContentUnavailableView {
-                        Label("publications.empty.title", systemImage: "doc.text.magnifyingglass")
-                    } description: {
-                        Text("publications.empty.message")
-                    }
+                ContentUnavailableView {
+                    Label("publications.empty.title", systemImage: "doc.text.magnifyingglass")
+                } description: {
+                    Text("publications.empty.message")
                 }
             }
         }
+    }
+
+    private var pickerList: some View {
+        List {
+            submissionNameSection
+            expectedResponseSection
+            addPublicationSection
+            existingPublicationsSection
+        }
+    }
+
+    private var newPublicationSheet: some View {
+        NavigationStack {
+            NewPublicationForSubmissionView(
+                project: project,
+                filesToSubmit: filesToSubmit,
+                collectionToSubmit: collectionToSubmit,
+                onPublicationCreated: { publication in
+                    showingNewPublicationSheet = false
+                    onPublicationSelected(publication, resolvedSubmissionName, resolvedExpectedDate, selectedReminderDate)
+                },
+                onCancel: {
+                    showingNewPublicationSheet = false
+                }
+            )
+        }
+    }
+    
+    var body: some View {
+        pickerList
         .navigationTitle("submissions.submit.title")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -177,23 +245,7 @@ struct SubmissionPickerView: View {
             }
         }
         .sheet(isPresented: $showingNewPublicationSheet) {
-            NavigationStack {
-                NewPublicationForSubmissionView(
-                    project: project,
-                    filesToSubmit: filesToSubmit,
-                    collectionToSubmit: collectionToSubmit,
-                    onPublicationCreated: { publication in
-                        showingNewPublicationSheet = false
-                        let name = submissionName.trimmingCharacters(in: .whitespaces).isEmpty ? defaultSubmissionName : submissionName.trimmingCharacters(in: .whitespaces)
-                        let expectedDate = setExpectedResponseDate ? expectedResponseDate : nil
-                        let reminder = (setExpectedResponseDate && setReminder) ? reminderDate : nil
-                        onPublicationSelected(publication, name, expectedDate, reminder)
-                    },
-                    onCancel: {
-                        showingNewPublicationSheet = false
-                    }
-                )
-            }
+            newPublicationSheet
         }
     }
 }
@@ -221,54 +273,82 @@ struct NewPublicationForSubmissionView: View {
     private var availableTypes: [PublicationType] {
         PublicationType.availableTypes(for: project.type)
     }
+
+    private var trimmedName: String {
+        name.trimmingCharacters(in: .whitespaces)
+    }
+
+    private var projectPublications: [Publication] {
+        let projectID = project.id
+        return allPublications.filter { publication in
+            publication.project?.id == projectID
+        }
+    }
+
+    private var selectedFileNames: [String] {
+        if let filesToSubmit {
+            return filesToSubmit.map { $0.name }
+        }
+        if let collection = collectionToSubmit, let files = collection.submittedFiles {
+            return files.compactMap { $0.textFile?.name }
+        }
+        return []
+    }
+
+    private var selectedFilesHeaderText: String {
+        if let filesToSubmit {
+            return String(format: NSLocalizedString("submissions.files.selected", comment: "Files selected"), filesToSubmit.count)
+        }
+        if let collection = collectionToSubmit {
+            let count = collection.submittedFiles?.count ?? 0
+            return String(format: NSLocalizedString("submissions.files.selected", comment: "Files selected"), count)
+        }
+        return NSLocalizedString("submissions.no.files.selected", comment: "No files selected")
+    }
+
+    private var nameSection: some View {
+        Section {
+            TextField("publications.form.name.placeholder", text: $name)
+                .accessibilityLabel(Text("publications.form.name.label"))
+        } header: {
+            Text("publications.form.name.label")
+        }
+    }
+
+    private var typeSection: some View {
+        Section {
+            Picker("publications.form.type.label", selection: $selectedType) {
+                ForEach(availableTypes, id: \.self) { type in
+                    Text(type.displayName).tag(type)
+                }
+            }
+            .pickerStyle(.menu)
+        } header: {
+            Text("publications.form.type.label")
+        }
+    }
+
+    private var selectedFilesSection: some View {
+        Section {
+            ForEach(selectedFileNames, id: \.self) { fileName in
+                Text(fileName)
+                    .font(.body)
+            }
+        } header: {
+            Text(selectedFilesHeaderText)
+        }
+    }
+
+    private var publicationForm: some View {
+        Form {
+            nameSection
+            typeSection
+            selectedFilesSection
+        }
+    }
     
     var body: some View {
-        Form {
-            Section {
-                TextField("publications.form.name.placeholder", text: $name)
-                    .accessibilityLabel(Text("publications.form.name.label"))
-            } header: {
-                Text("publications.form.name.label")
-            }
-            
-            Section {
-                Picker("publications.form.type.label", selection: $selectedType) {
-                    ForEach(availableTypes, id: \.self) { type in
-                        Text(type.displayName).tag(type)
-                    }
-                }
-                .pickerStyle(.menu)
-            } header: {
-                Text("publications.form.type.label")
-            }
-            
-            Section {
-                if let filesToSubmit = filesToSubmit {
-                    ForEach(filesToSubmit, id: \.id) { file in
-                        Text(file.name)
-                            .font(.body)
-                    }
-                } else if let collection = collectionToSubmit {
-                    if let files = collection.submittedFiles {
-                        ForEach(files, id: \.id) { submittedFile in
-                            if let file = submittedFile.textFile {
-                                Text(file.name)
-                                    .font(.body)
-                            }
-                        }
-                    }
-                }
-            } header: {
-                if let filesToSubmit = filesToSubmit {
-                    Text(String(format: NSLocalizedString("submissions.files.selected", comment: "Files selected"), filesToSubmit.count))
-                } else if let collection = collectionToSubmit {
-                    let count = collection.submittedFiles?.count ?? 0
-                    Text(String(format: NSLocalizedString("submissions.files.selected", comment: "Files selected"), count))
-                } else {
-                    Text("submissions.no.files.selected")
-                }
-            }
-        }
+        publicationForm
         .navigationTitle("publications.new.quick.title")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -282,7 +362,7 @@ struct NewPublicationForSubmissionView: View {
                 Button("publications.button.create") {
                     createPublicationAndSubmit()
                 }
-                .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+                .disabled(trimmedName.isEmpty)
             }
         }
         .alert("publications.error.title", isPresented: $showingError) {
@@ -316,8 +396,6 @@ struct NewPublicationForSubmissionView: View {
     }
     
     private func createPublicationAndSubmit() {
-        let trimmedName = name.trimmingCharacters(in: .whitespaces)
-        
         guard !trimmedName.isEmpty else {
             errorMessage = NSLocalizedString("publications.error.name.empty", comment: "Name required")
             showingError = true
@@ -354,23 +432,19 @@ struct NewPublicationForSubmissionView: View {
     }
     
     private func hasDuplicateName(_ name: String) -> Bool {
-        let projectID: UUID = project.id
-        let projectPublications: [Publication] = allPublications.filter { (pub: Publication) -> Bool in
-            pub.project?.id == projectID
+        let lowercasedName = name.lowercased()
+        return projectPublications.contains { publication in
+            publication.name.lowercased() == lowercasedName
         }
-        return projectPublications.contains { (pub: Publication) -> Bool in pub.name.lowercased() == name.lowercased() }
     }
     
     private func makeUniqueName(_ baseName: String) -> String {
-        let projectID: UUID = project.id
-        let projectPublications: [Publication] = allPublications.filter { (pub: Publication) -> Bool in
-            pub.project?.id == projectID
-        }
+        let existingNames = Set(projectPublications.map { $0.name.lowercased() })
         
         var counter = 1
         var uniqueName = "\(baseName)-1"
         
-        while projectPublications.contains(where: { (pub: Publication) -> Bool in pub.name.lowercased() == uniqueName.lowercased() }) {
+        while existingNames.contains(uniqueName.lowercased()) {
             counter += 1
             uniqueName = "\(baseName)-\(counter)"
         }

@@ -111,63 +111,90 @@ struct PoetryMetricsDashboard: View {
     private var issuesTab: some View {
         ScrollView {
             VStack(spacing: 16) {
-                if let validation = validationResult {
-                    if validation.hasIssues {
-                        // Summary card
-                        HStack {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundColor(.orange)
-                            Text(String(format: NSLocalizedString("poetryValidator.issuesFound", comment: "Issues found"), validation.issueCount))
-                                .font(.headline)
-                            Spacer()
-                        }
-                        .padding()
-                        .background(Color.orange.opacity(0.1))
-                        .cornerRadius(10)
-                        
-                        // Issues grouped by type
-                        ForEach(LineValidationIssue.IssueType.allCases, id: \.self) { issueType in
-                            let issuesOfType: [LineValidationIssue] = validation.issues.filter { (issue: LineValidationIssue) -> Bool in issue.issueType == issueType }
-                            if !issuesOfType.isEmpty {
-                                issueTypeSection(type: issueType, issues: issuesOfType)
-                            }
-                        }
-                    } else {
-                        // No issues - show success
-                        VStack(spacing: 12) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 48))
-                                .foregroundColor(.green)
-                            
-                            Text(NSLocalizedString("poetryValidator.noIssues", comment: "No issues"))
-                                .font(.headline)
-                                .foregroundColor(.green)
-                            
-                            if let form = form {
-                                Text(form.name)
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 40)
-                    }
-                } else {
-                    // Free Verse or no form
-                    VStack(spacing: 12) {
-                        Image(systemName: "checkmark.circle")
-                            .font(.system(size: 48))
-                            .foregroundColor(.secondary)
-                        
-                        Text("Free Verse - No form requirements")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 40)
-                }
+                issuesTabContent
             }
             .padding()
+        }
+    }
+
+    @ViewBuilder
+    private var issuesTabContent: some View {
+        if let validation = validationResult {
+            validationIssuesContent(validation)
+        } else {
+            freeVersePlaceholder
+        }
+    }
+
+    @ViewBuilder
+    private func validationIssuesContent(_ validation: ValidationResult) -> some View {
+        if validation.hasIssues {
+            issuesSummaryCard(validation)
+            issueTypeGroups(validation)
+        } else {
+            noIssuesView
+        }
+    }
+
+    private func issuesSummaryCard(_ validation: ValidationResult) -> some View {
+        HStack {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundColor(.orange)
+            Text(String(format: NSLocalizedString("poetryValidator.issuesFound", comment: "Issues found"), validation.issueCount))
+                .font(.headline)
+            Spacer()
+        }
+        .padding()
+        .background(Color.orange.opacity(0.1))
+        .cornerRadius(10)
+    }
+
+    private func issueTypeGroups(_ validation: ValidationResult) -> some View {
+        ForEach(LineValidationIssue.IssueType.allCases, id: \.self) { issueType in
+            let issuesOfType = issues(of: issueType, in: validation)
+            if !issuesOfType.isEmpty {
+                issueTypeSection(type: issueType, issues: issuesOfType)
+            }
+        }
+    }
+
+    private var noIssuesView: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 48))
+                .foregroundColor(.green)
+
+            Text(NSLocalizedString("poetryValidator.noIssues", comment: "No issues"))
+                .font(.headline)
+                .foregroundColor(.green)
+
+            if let form = form {
+                Text(form.name)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 40)
+    }
+
+    private var freeVersePlaceholder: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "checkmark.circle")
+                .font(.system(size: 48))
+                .foregroundColor(.secondary)
+
+            Text("Free Verse - No form requirements")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 40)
+    }
+
+    private func issues(of type: LineValidationIssue.IssueType, in validation: ValidationResult) -> [LineValidationIssue] {
+        validation.issues.filter { issue in
+            issue.issueType == type
         }
     }
     

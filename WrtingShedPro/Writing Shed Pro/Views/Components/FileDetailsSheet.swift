@@ -56,154 +56,182 @@ struct FileDetailsSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                // Name (editable in edit mode)
-                Section {
-                    if isEditing {
-                        TextField(NSLocalizedString("fileDetails.name", comment: "Name"), text: $editName)
-                    } else {
-                        LabeledContent(NSLocalizedString("fileDetails.name", comment: "Name")) {
-                            Text(file.name)
-                        }
-                    }
-                }
-                
-                if !isEditing {
-                    // Dates
-                    Section(header: Text(NSLocalizedString("fileDetails.dates", comment: "Dates section header"))) {
-                        HStack {
-                            Text(NSLocalizedString("fileDetails.created", comment: "Created date label"))
-                            Spacer()
-                            Text(dateFormatter.string(from: file.createdDate))
-                                .foregroundStyle(.secondary)
-                        }
-                        
-                        HStack {
-                            Text(NSLocalizedString("fileDetails.modified", comment: "Modified date label"))
-                            Spacer()
-                            Text(dateFormatter.string(from: file.modifiedDate))
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    
-                    // Statistics
-                    Section(header: Text(NSLocalizedString("fileDetails.statistics", comment: "Statistics section header"))) {
-                        HStack {
-                            Text(NSLocalizedString("fileDetails.words", comment: "Word count label"))
-                            Spacer()
-                            Text("\(wordCount)")
-                                .foregroundStyle(.secondary)
-                        }
-                        
-                        HStack {
-                            Text(NSLocalizedString("fileDetails.characters", comment: "Character count label"))
-                            Spacer()
-                            Text("\(characterCount)")
-                                .foregroundStyle(.secondary)
-                        }
-                        
-                        HStack {
-                            Text(NSLocalizedString("fileDetails.lines", comment: "Line count label"))
-                            Spacer()
-                            Text("\(lineCount)")
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    
-                    // Workflow Status
-                    if let status = file.workflowStatus {
-                        Section(header: Text(NSLocalizedString("fileDetails.status", comment: "Status section header"))) {
-                            HStack {
-                                Text(NSLocalizedString("fileDetails.workflowStatus", comment: "Workflow status label"))
-                                Spacer()
-                                HStack(spacing: 4) {
-                                    Image(systemName: status.systemImage)
-                                        .foregroundColor(Color(status.color))
-                                    Text(status.localizedName)
-                                        .foregroundColor(Color(status.color))
-                                }
-                            }
-                        }
-                    }
-                    
-                    // Container info (Folder, Poetry Collections, Prose Sections)
-                    if hasContainerInfo {
-                        Section(header: Text(NSLocalizedString("fileDetails.container", comment: "Container section header"))) {
-                            if let folder = file.parentFolder {
-                                HStack {
-                                    Text(NSLocalizedString("fileDetails.container.folder", comment: "Folder"))
-                                    Spacer()
-                                    Text(folder.name ?? "-")
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                            
-                            if let collections = file.poetryCollections, !collections.isEmpty {
-                                ForEach(collections.sorted { ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending }) { collection in
-                                    HStack {
-                                        Text(NSLocalizedString("fileDetails.container.collection", comment: "Collection"))
-                                        Spacer()
-                                        Text(collection.name ?? "-")
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
-                            }
-                            
-                            if let sections = file.sections, !sections.isEmpty {
-                                ForEach(sections.sorted { ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending }) { section in
-                                    HStack {
-                                        Text(NSLocalizedString("fileDetails.container.section", comment: "Section"))
-                                        Spacer()
-                                        Text(section.name ?? "-")
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    
-                    // Export
-                    if let onExport = onExport {
-                        Section {
-                            Button {
-                                onExport(file)
-                            } label: {
-                                Label(NSLocalizedString("fileList.export", comment: "Export"), systemImage: "square.and.arrow.up")
-                            }
-                        }
-                    }
-                }
+                nameSection
+                readOnlySections
             }
             .navigationTitle(file.name)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    if isEditing {
-                        Button(NSLocalizedString("button.cancel", comment: "Cancel")) {
-                            isEditing = false
-                        }
-                    } else {
-                        Button(NSLocalizedString("button.done", comment: "Done")) {
-                            dismiss()
+                cancellationToolbarItem
+                confirmationToolbarItem
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+
+    private var nameSection: some View {
+        Section {
+            if isEditing {
+                TextField(NSLocalizedString("fileDetails.name", comment: "Name"), text: $editName)
+            } else {
+                LabeledContent(NSLocalizedString("fileDetails.name", comment: "Name")) {
+                    Text(file.name)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var readOnlySections: some View {
+        if !isEditing {
+            datesSection
+            statisticsSection
+            workflowSection
+            containerInfoSection
+            exportSection
+        }
+    }
+
+    private var datesSection: some View {
+        Section(header: Text(NSLocalizedString("fileDetails.dates", comment: "Dates section header"))) {
+            HStack {
+                Text(NSLocalizedString("fileDetails.created", comment: "Created date label"))
+                Spacer()
+                Text(dateFormatter.string(from: file.createdDate))
+                    .foregroundStyle(.secondary)
+            }
+
+            HStack {
+                Text(NSLocalizedString("fileDetails.modified", comment: "Modified date label"))
+                Spacer()
+                Text(dateFormatter.string(from: file.modifiedDate))
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var statisticsSection: some View {
+        Section(header: Text(NSLocalizedString("fileDetails.statistics", comment: "Statistics section header"))) {
+            HStack {
+                Text(NSLocalizedString("fileDetails.words", comment: "Word count label"))
+                Spacer()
+                Text("\(wordCount)")
+                    .foregroundStyle(.secondary)
+            }
+
+            HStack {
+                Text(NSLocalizedString("fileDetails.characters", comment: "Character count label"))
+                Spacer()
+                Text("\(characterCount)")
+                    .foregroundStyle(.secondary)
+            }
+
+            HStack {
+                Text(NSLocalizedString("fileDetails.lines", comment: "Line count label"))
+                Spacer()
+                Text("\(lineCount)")
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var workflowSection: some View {
+        if let status = file.workflowStatus {
+            Section(header: Text(NSLocalizedString("fileDetails.status", comment: "Status section header"))) {
+                HStack {
+                    Text(NSLocalizedString("fileDetails.workflowStatus", comment: "Workflow status label"))
+                    Spacer()
+                    HStack(spacing: 4) {
+                        Image(systemName: status.systemImage)
+                            .foregroundColor(Color(status.color))
+                        Text(status.localizedName)
+                            .foregroundColor(Color(status.color))
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var containerInfoSection: some View {
+        if hasContainerInfo {
+            Section(header: Text(NSLocalizedString("fileDetails.container", comment: "Container section header"))) {
+                if let folder = file.parentFolder {
+                    HStack {
+                        Text(NSLocalizedString("fileDetails.container.folder", comment: "Folder"))
+                        Spacer()
+                        Text(folder.name ?? "-")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                if let collections = file.poetryCollections, !collections.isEmpty {
+                    ForEach(collections.sorted { ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending }) { collection in
+                        HStack {
+                            Text(NSLocalizedString("fileDetails.container.collection", comment: "Collection"))
+                            Spacer()
+                            Text(collection.name ?? "-")
+                                .foregroundStyle(.secondary)
                         }
                     }
                 }
-                
-                ToolbarItem(placement: .confirmationAction) {
-                    if isEditing {
-                        Button(NSLocalizedString("button.save", comment: "Save")) {
-                            saveChanges()
-                        }
-                        .disabled(editName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    } else {
-                        Button(NSLocalizedString("button.edit", comment: "Edit")) {
-                            editName = file.name
-                            isEditing = true
+
+                if let sections = file.sections, !sections.isEmpty {
+                    ForEach(sections.sorted { ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending }) { section in
+                        HStack {
+                            Text(NSLocalizedString("fileDetails.container.section", comment: "Section"))
+                            Spacer()
+                            Text(section.name ?? "-")
+                                .foregroundStyle(.secondary)
                         }
                     }
                 }
             }
         }
-        .presentationDetents([.medium, .large])
+    }
+
+    @ViewBuilder
+    private var exportSection: some View {
+        if let onExport = onExport {
+            Section {
+                Button {
+                    onExport(file)
+                } label: {
+                    Label(NSLocalizedString("fileList.export", comment: "Export"), systemImage: "square.and.arrow.up")
+                }
+            }
+        }
+    }
+
+    private var cancellationToolbarItem: some ToolbarContent {
+        ToolbarItem(placement: .cancellationAction) {
+            if isEditing {
+                Button(NSLocalizedString("button.cancel", comment: "Cancel")) {
+                    isEditing = false
+                }
+            } else {
+                Button(NSLocalizedString("button.done", comment: "Done")) {
+                    dismiss()
+                }
+            }
+        }
+    }
+
+    private var confirmationToolbarItem: some ToolbarContent {
+        ToolbarItem(placement: .confirmationAction) {
+            if isEditing {
+                Button(NSLocalizedString("button.save", comment: "Save")) {
+                    saveChanges()
+                }
+                .disabled(editName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            } else {
+                Button(NSLocalizedString("button.edit", comment: "Edit")) {
+                    editName = file.name
+                    isEditing = true
+                }
+            }
+        }
     }
     
     // MARK: - Actions

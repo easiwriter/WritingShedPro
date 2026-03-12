@@ -145,12 +145,25 @@ struct SceneDetailView: View {
     
     @ViewBuilder
     private var viewingContent: some View {
-        // Basic Info
+        basicInfoSection
+        summarySection
+        locationSection
+        charactersSection
+        plotElementsSection
+        monomythSection
+        associatedFileSection
+        fileMetadataSections
+        containerSection
+        exportSection
+        deleteSection
+    }
+
+    private var basicInfoSection: some View {
         Section {
             LabeledContent(NSLocalizedString(isVerseNovel ? "fiction.episode.title" : "fiction.scene.title", comment: "Title")) {
                 Text(scene.name ?? "-")
             }
-            
+
             if let userOrder = scene.userOrder {
                 LabeledContent(NSLocalizedString(isVerseNovel ? "fiction.episode.number" : "fiction.scene.number", comment: "Scene/Episode #")) {
                     Text("\(userOrder + 1)")
@@ -159,8 +172,10 @@ struct SceneDetailView: View {
         } header: {
             Text(NSLocalizedString(isVerseNovel ? "fiction.episode.section.basic" : "fiction.scene.section.basic", comment: "Basic Info"))
         }
-        
-        // Summary
+    }
+
+    @ViewBuilder
+    private var summarySection: some View {
         if let synopsis = scene.synopsis, !synopsis.isEmpty {
             Section {
                 Text(synopsis)
@@ -168,8 +183,10 @@ struct SceneDetailView: View {
                 Text(NSLocalizedString(isVerseNovel ? "fiction.episode.summary" : "fiction.scene.summary", comment: "Summary"))
             }
         }
-        
-        // Location
+    }
+
+    @ViewBuilder
+    private var locationSection: some View {
         if let location = scene.location {
             Section {
                 LabeledContent(NSLocalizedString("fiction.scene.location", comment: "Location")) {
@@ -179,8 +196,10 @@ struct SceneDetailView: View {
                 Text(NSLocalizedString(isVerseNovel ? "fiction.episode.section.location" : "fiction.scene.section.location", comment: "Location"))
             }
         }
-        
-        // Characters
+    }
+
+    @ViewBuilder
+    private var charactersSection: some View {
         if let characters = scene.characters, !characters.isEmpty {
             Section {
                 ForEach(characters.sorted { ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending }) { character in
@@ -197,43 +216,51 @@ struct SceneDetailView: View {
                 Text(NSLocalizedString(isVerseNovel ? "fiction.episode.section.characters" : "fiction.scene.section.characters", comment: "Characters"))
             }
         }
-        
-        // Plot Elements
+    }
+
+    @ViewBuilder
+    private var plotElementsSection: some View {
         if let plotElements = scene.plotElements, !plotElements.isEmpty {
             Section {
                 ForEach(plotElements.sorted { ($0.userOrder ?? 0) < ($1.userOrder ?? 0) }) { element in
                     NavigationLink {
                         PlotElementDetailView(plotElement: element, project: project)
                     } label: {
-                        VStack(alignment: .leading, spacing: 2) {
-                            HStack {
-                                if let stage = element.monomythStage {
-                                    Text("\(stage.order).")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                }
-                                Text(element.name ?? NSLocalizedString("fiction.untitled", comment: "Untitled"))
-                            }
-                            if let stage = element.monomythStage {
-                                Text(NSLocalizedString("monomyth.\(stage.rawValue)", comment: "Stage name"))
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                        }
+                        plotElementRow(element)
                     }
                 }
             } header: {
                 Text(NSLocalizedString(isVerseNovel ? "fiction.episode.section.plotElements" : "fiction.scene.section.plotElements", comment: "Plot Elements"))
             }
         }
-        
-        // Monomyth Stage
+    }
+
+    private func plotElementRow(_ element: PlotElement) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack {
+                if let stage = element.monomythStage {
+                    Text("\(stage.order).")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                Text(element.name ?? NSLocalizedString("fiction.untitled", comment: "Untitled"))
+            }
+            if let stage = element.monomythStage {
+                Text(NSLocalizedString("monomyth.\(stage.rawValue)", comment: "Stage name"))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var monomythSection: some View {
         if let stage = scene.monomythStage {
             Section {
                 LabeledContent(NSLocalizedString("fiction.scene.monomythStage", comment: "Stage")) {
                     Text(NSLocalizedString("monomyth.\(stage.rawValue)", comment: "Stage name"))
                 }
-                
+
                 Text(NSLocalizedString("monomyth.\(stage.rawValue).description", comment: "Description"))
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -241,12 +268,13 @@ struct SceneDetailView: View {
                 Text(NSLocalizedString(isVerseNovel ? "fiction.episode.section.monomyth" : "fiction.scene.section.monomyth", comment: "Hero's Journey"))
             }
         }
-        
-        // Associated file
+    }
+
+    @ViewBuilder
+    private var associatedFileSection: some View {
         if let textFile = scene.textFile {
             Section {
                 NavigationLink {
-                    // Navigate to file - use drama editor for drama projects
                     if project.type == .drama {
                         DramaSceneEditorView(file: textFile, project: project)
                     } else {
@@ -262,8 +290,10 @@ struct SceneDetailView: View {
                 Text(NSLocalizedString(isVerseNovel ? "fiction.episode.file" : "fiction.scene.file", comment: "Scene/Episode File"))
             }
         }
-        
-        // Dates
+    }
+
+    @ViewBuilder
+    private var fileMetadataSections: some View {
         if let textFile = sceneTextFile {
             Section {
                 HStack {
@@ -281,8 +311,7 @@ struct SceneDetailView: View {
             } header: {
                 Text(NSLocalizedString("fileDetails.dates", comment: "Dates"))
             }
-            
-            // Statistics
+
             Section {
                 HStack {
                     Text(NSLocalizedString("fileDetails.words", comment: "Words"))
@@ -305,27 +334,32 @@ struct SceneDetailView: View {
             } header: {
                 Text(NSLocalizedString("fileDetails.statistics", comment: "Statistics"))
             }
-            
-            // Workflow Status
-            if let status = textFile.workflowStatus {
-                Section {
-                    HStack {
-                        Text(NSLocalizedString("fileDetails.workflowStatus", comment: "Workflow Status"))
-                        Spacer()
-                        HStack(spacing: 4) {
-                            Image(systemName: status.systemImage)
-                                .foregroundColor(Color(status.color))
-                            Text(status.localizedName)
-                                .foregroundColor(Color(status.color))
-                        }
+
+            workflowStatusSection(for: textFile)
+        }
+    }
+
+    @ViewBuilder
+    private func workflowStatusSection(for textFile: TextFile) -> some View {
+        if let status = textFile.workflowStatus {
+            Section {
+                HStack {
+                    Text(NSLocalizedString("fileDetails.workflowStatus", comment: "Workflow Status"))
+                    Spacer()
+                    HStack(spacing: 4) {
+                        Image(systemName: status.systemImage)
+                            .foregroundColor(Color(status.color))
+                        Text(status.localizedName)
+                            .foregroundColor(Color(status.color))
                     }
-                } header: {
-                    Text(NSLocalizedString("fileDetails.status", comment: "Status"))
                 }
+            } header: {
+                Text(NSLocalizedString("fileDetails.status", comment: "Status"))
             }
         }
-        
-        // Container (Chapter / Act / Book)
+    }
+
+    private var containerSection: some View {
         Section {
             if let chapters = scene.chapters, !chapters.isEmpty {
                 ForEach(chapters.sorted { ($0.name ?? "").localizedCaseInsensitiveCompare($1.name ?? "") == .orderedAscending }) { chapter in
@@ -351,8 +385,10 @@ struct SceneDetailView: View {
         } header: {
             Text(NSLocalizedString("fileDetails.container", comment: "Container"))
         }
-        
-        // Export
+    }
+
+    @ViewBuilder
+    private var exportSection: some View {
         if let textFile = sceneTextFile, let onExport = onExport {
             Section {
                 Button {
@@ -362,8 +398,9 @@ struct SceneDetailView: View {
                 }
             }
         }
-        
-        // Delete button
+    }
+
+    private var deleteSection: some View {
         Section {
             Button(role: .destructive) {
                 showDeleteConfirmation = true

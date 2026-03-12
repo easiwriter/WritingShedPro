@@ -13,6 +13,15 @@ import Combine
 import CoreData
 import Observation
 
+struct CloudKitEventLogEntry: Identifiable {
+    let id = UUID()
+    let timestamp: Date
+    let type: String
+    let phase: String
+    let status: String
+    let message: String
+}
+
 /// Manages CloudKit sync notifications to prevent UI disruption during burst sync activity.
 /// 
 /// When CloudKit syncs many records rapidly, each change can trigger SwiftUI view updates.
@@ -44,9 +53,117 @@ final class CloudKitSyncThrottler {
     
     /// Tracks whether the most recent import succeeded.
     private(set) var importSucceeded = false
+
+    /// True while a CloudKit import event is currently in progress.
+    private(set) var importInProgress = false
+
+    /// True while a CloudKit export event is currently in progress.
+    private(set) var exportInProgress = false
     
     /// Time of the last sync notification
     private(set) var lastSyncTime: Date?
+
+    /// Most recent CloudKit import/export/setup events for diagnostics UI.
+    /// Bounded list to avoid unbounded memory growth.
+    private(set) var recentCloudKitEvents: [CloudKitEventLogEntry] = []
+
+    /// Maximum number of event rows retained in memory.
+    private let maxRecentEventCount = 60
+    
+    /// When non-nil, CloudKit is rate-limited and we should NOT fire additional
+    /// zone fetch or nudge operations until this date has passed.
+    /// Set from the CKError retry-after hint when we detect rate limiting.
+    private(set) var rateLimitedUntil: Date?
+
+    /// Consecutive CloudKit import transport failures (for example CKErrorDomain=4,
+    /// NSURLErrorDomain=-1017). While this is non-zero we apply exponential backoff
+    /// to all voluntary manual sync kicks.
+    private(set) var consecutiveImportNetworkFailures = 0
+
+    /// When non-nil, manual sync kicks (zone fetch/nudge) should be paused until this date
+    /// to avoid request storms while CloudKit is retrying failed imports.
+    private(set) var manualKickPausedUntil: Date?
+    
+    /// True when we are currently within a rate-limit backoff window.
+    /// All voluntary sync operations (forceCloudKitImport, nudge, safety-net)
+    /// should check this before firing.
+    var isRateLimited: Bool {
+        guard let until = rateLimitedUntil else { return false }
+        return Date() < until
+    }
+
+    /// True when voluntary/manual sync kicks should be paused due to repeated
+    /// transport-level import failures.
+    var isManualKickPaused: Bool {
+        guard let until = manualKickPausedUntil else { return false }
+        return Date() < until
+    }
+
+    /// True while the CloudKit mirroring delegate is actively importing/exporting.
+    /// Proactive app-driven operations should avoid running during this window.
+    var hasActiveCloudKitEvent: Bool {
+        importInProgress || exportInProgress
+    }
+    
+    /// Record that CloudKit returned a rate-limit or service-unavailable error.
+    /// `retryAfterSeconds` comes from the CKError userInfo.
+    func recordRateLimit(retryAfter retryAfterSeconds: Double) {
+        let until = Date().addingTimeInterval(retryAfterSeconds + 5.0) // +5s buffer
+        DispatchQueue.main.async { [weak self] in
+            self?.rateLimitedUntil = until
+            #if DEBUG
+            print("⏳ [CloudKitSyncThrottler] Rate-limited until \(until) (backoff \(Int(retryAfterSeconds))s + 5s buffer)")
+            #endif
+        }
+    }
+    
+    /// Clear the rate-limit flag (called after a successful sync event)
+    func clearRateLimit() {
+        if rateLimitedUntil != nil {
+            DispatchQueue.main.async { [weak self] in
+                self?.rateLimitedUntil = nil
+                #if DEBUG
+                print("✅ [CloudKitSyncThrottler] Rate-limit cleared")
+                #endif
+            }
+        }
+    }
+
+    /// Record a CloudKit import transport failure and pause manual kicks
+    /// with exponential backoff: 30s, 60s, 120s ... capped at 15 minutes.
+    func recordImportTransportFailure() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.consecutiveImportNetworkFailures += 1
+            let exponent = max(0, self.consecutiveImportNetworkFailures - 1)
+            let pause = min(30.0 * pow(2.0, Double(exponent)), 900.0)
+            let until = Date().addingTimeInterval(pause)
+
+            if let existing = self.manualKickPausedUntil, existing > until {
+                return
+            }
+
+            self.manualKickPausedUntil = until
+            #if DEBUG
+            print("⏳ [CloudKitSyncThrottler] Manual CloudKit kicks paused for \(Int(pause))s after import transport failures (count=\(self.consecutiveImportNetworkFailures))")
+            #endif
+        }
+    }
+
+    /// Clear import transport failure backoff after a successful import.
+    func clearImportTransportFailureBackoff() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            let hadBackoff = self.consecutiveImportNetworkFailures > 0 || self.manualKickPausedUntil != nil
+            self.consecutiveImportNetworkFailures = 0
+            self.manualKickPausedUntil = nil
+            #if DEBUG
+            if hadBackoff {
+                print("✅ [CloudKitSyncThrottler] Import transport backoff cleared")
+            }
+            #endif
+        }
+    }
     
     /// Duration to wait after last sync event before clearing isSyncing
     /// This gives time for all related changes to propagate
@@ -199,6 +316,11 @@ final class CloudKitSyncThrottler {
         isSyncing = false
         syncEventCount = 0
         lastSyncTime = nil
+        recentCloudKitEvents = []
+    }
+
+    func clearRecentCloudKitEvents() {
+        recentCloudKitEvents = []
     }
     
     /// Track CloudKit import/export events via NSPersistentCloudKitContainer notifications
@@ -212,16 +334,84 @@ final class CloudKitSyncThrottler {
                   let event = notification.userInfo?[NSPersistentCloudKitContainer.eventNotificationUserInfoKey]
                     as? NSPersistentCloudKitContainer.Event else { return }
             
-            // Only interested in import completion
-            guard event.type == .import, event.endDate != nil else { return }
-            
             DispatchQueue.main.async {
-                self.importCompleted = true
-                self.importSucceeded = event.succeeded
-                #if DEBUG
-                print("🔄 [CloudKitSyncThrottler] Import completed: succeeded=\(event.succeeded)")
-                #endif
+                let typeLabel: String
+                switch event.type {
+                case .setup:
+                    typeLabel = "setup"
+                    let phase = event.endDate == nil ? "started" : "ended"
+                    let status = event.endDate == nil ? "in-progress" : (event.succeeded ? "success" : "failed")
+                    let message = event.error?.localizedDescription ?? ""
+                    self.appendCloudKitEvent(
+                        type: typeLabel,
+                        phase: phase,
+                        status: status,
+                        message: message
+                    )
+                case .import:
+                    typeLabel = "import"
+                    if event.endDate == nil {
+                        self.importInProgress = true
+                        self.appendCloudKitEvent(
+                            type: typeLabel,
+                            phase: "started",
+                            status: "in-progress",
+                            message: ""
+                        )
+                    } else {
+                        self.importInProgress = false
+                        self.importCompleted = true
+                        self.importSucceeded = event.succeeded
+                        self.appendCloudKitEvent(
+                            type: typeLabel,
+                            phase: "ended",
+                            status: event.succeeded ? "success" : "failed",
+                            message: event.error?.localizedDescription ?? ""
+                        )
+                        #if DEBUG
+                        print("🔄 [CloudKitSyncThrottler] Import completed: succeeded=\(event.succeeded)")
+                        #endif
+                    }
+                case .export:
+                    typeLabel = "export"
+                    if event.endDate == nil {
+                        self.exportInProgress = true
+                        self.appendCloudKitEvent(
+                            type: typeLabel,
+                            phase: "started",
+                            status: "in-progress",
+                            message: ""
+                        )
+                    } else {
+                        self.exportInProgress = false
+                        self.appendCloudKitEvent(
+                            type: typeLabel,
+                            phase: "ended",
+                            status: event.succeeded ? "success" : "failed",
+                            message: event.error?.localizedDescription ?? ""
+                        )
+                    }
+                default:
+                    break
+                }
             }
+        }
+    }
+
+    private func appendCloudKitEvent(type: String, phase: String, status: String, message: String) {
+        recentCloudKitEvents.insert(
+            CloudKitEventLogEntry(
+                timestamp: Date(),
+                type: type,
+                phase: phase,
+                status: status,
+                message: message
+            ),
+            at: 0
+        )
+
+        if recentCloudKitEvents.count > maxRecentEventCount {
+            recentCloudKitEvents.removeLast(recentCloudKitEvents.count - maxRecentEventCount)
         }
     }
     

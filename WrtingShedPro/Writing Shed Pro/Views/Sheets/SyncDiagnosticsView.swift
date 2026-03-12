@@ -8,6 +8,9 @@
 import SwiftUI
 import SwiftData
 import CloudKit
+#if canImport(UIKit)
+import UIKit
+#endif
 
 struct SyncDiagnosticsView: View {
     @Environment(\.modelContext) private var modelContext
@@ -16,6 +19,7 @@ struct SyncDiagnosticsView: View {
     @Query private var projects: [Project]
     @Query private var allFolders: [Folder]
     @Query private var allTextFiles: [TextFile]
+    @State private var syncThrottler = CloudKitSyncThrottler.shared
     
     @State private var iCloudStatus: String = "Checking..."
     @State private var containerStatus: String = "Checking..."
@@ -29,129 +33,7 @@ struct SyncDiagnosticsView: View {
     
     var body: some View {
         NavigationStack {
-            List {
-                Section("iCloud Account") {
-                    Text(iCloudStatus)
-                        .font(.caption)
-                }
-                
-                Section("CloudKit Container") {
-                    Text(containerStatus)
-                        .font(.caption)
-                }
-                
-                Section("Local Data") {
-                    LabeledContent("StyleSheets", value: "\(stylesheets.count)")
-                    LabeledContent("Projects", value: "\(projects.count)")
-                    LabeledContent("Folders", value: "\(allFolders.count)")
-                    LabeledContent("Text Files", value: "\(allTextFiles.count)")
-                    
-                    if duplicateCount > 0 {
-                        HStack {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundColor(.orange)
-                            Text("\(duplicateCount) duplicate file references detected")
-                                .foregroundColor(.orange)
-                        }
-                    }
-                }
-                
-                Section("Database Health") {
-                    HStack {
-                        Text("Duplicate Projects")
-                        Spacer()
-                        Text("\(duplicateProjectCount) found")
-                            .foregroundColor(duplicateProjectCount > 0 ? .red : .secondary)
-                    }
-                    
-                    if duplicateProjectCount > 0 {
-                        HStack {
-                            Image(systemName: "doc.on.doc")
-                            Text("Remove Duplicate Projects")
-                            Spacer()
-                        }
-                        .foregroundColor(.red)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            deduplicateProjects()
-                        }
-                    }
-                    
-                    HStack {
-                        Text("Check for Duplicates")
-                        Spacer()
-                        Text("\(duplicateCount) found")
-                            .foregroundColor(.secondary)
-                    }
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        checkForDuplicates()
-                    }
-                    
-                    if duplicateCount > 0 {
-                        HStack {
-                            Image(systemName: "wrench.and.screwdriver")
-                            Text("Repair Duplicate References")
-                            Spacer()
-                        }
-                        .foregroundColor(.orange)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            repairDuplicates()
-                        }
-                    }
-                }
-                
-                Section("StyleSheets") {
-                    ForEach(stylesheets, id: \.id) { stylesheet in
-                        VStack(alignment: .leading) {
-                            Text(stylesheet.name)
-                                .font(.headline)
-                            Text("Created: \(stylesheet.createdDate.formatted())")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            Text("Modified: \(stylesheet.modifiedDate.formatted())")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            Text("System: \(stylesheet.isSystemStyleSheet ? "Yes" : "No")")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
-                
-                Section("Sync Actions") {
-                    Button {
-                        forceSyncFromCloud()
-                    } label: {
-                        HStack {
-                            Image(systemName: "arrow.clockwise.icloud")
-                            Text("Force Sync from Cloud")
-                        }
-                    }
-                    
-                    if !syncForceStatus.isEmpty {
-                        Text(syncForceStatus)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                
-                #if DEBUG
-                Section("Actions") {
-                    Button("Force Save Context") {
-                        do {
-                            try modelContext.save()
-                            repairMessage = "Context saved successfully."
-                            showRepairResult = true
-                        } catch {
-                            repairMessage = "Error saving context: \(error.localizedDescription)"
-                            showRepairResult = true
-                        }
-                    }
-                }
-                #endif
-            }
+            diagnosticsList
             .navigationTitle("Sync Diagnostics")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -173,6 +55,298 @@ struct SyncDiagnosticsView: View {
             }
         }
     }
+
+    private var diagnosticsList: some View {
+        List {
+            iCloudSection
+            cloudKitContainerSection
+            liveCloudKitSection
+            localDataSection
+            databaseHealthSection
+            stylesheetsSection
+            syncActionsSection
+            debugActionsSection
+        }
+    }
+
+    private var liveCloudKitSection: some View {
+        Section("Live CloudKit") {
+            LabeledContent("isSyncing", value: syncThrottler.isSyncing ? "Yes" : "No")
+            LabeledContent("Remote Events (Total)", value: "\(syncThrottler.totalSyncEventCount)")
+            LabeledContent("Current Burst Count", value: "\(syncThrottler.syncEventCount)")
+            LabeledContent("Import In Progress", value: syncThrottler.importInProgress ? "Yes" : "No")
+            LabeledContent("Export In Progress", value: syncThrottler.exportInProgress ? "Yes" : "No")
+            LabeledContent("Import Completed", value: syncThrottler.importCompleted ? "Yes" : "No")
+            LabeledContent("Import Succeeded", value: syncThrottler.importSucceeded ? "Yes" : "No")
+            LabeledContent("Rate Limited", value: syncThrottler.isRateLimited ? "Yes" : "No")
+            LabeledContent("Manual Kick Paused", value: syncThrottler.isManualKickPaused ? "Yes" : "No")
+            LabeledContent("Import Network Failures", value: "\(syncThrottler.consecutiveImportNetworkFailures)")
+
+            if let lastSync = syncThrottler.lastSyncTime {
+                LabeledContent("Last Remote Event") {
+                    Text(lastSync.formatted(date: .omitted, time: .standard))
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            if let rateLimitedUntil = syncThrottler.rateLimitedUntil {
+                LabeledContent("Rate Limited Until") {
+                    Text(rateLimitedUntil.formatted(date: .omitted, time: .standard))
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            if let pausedUntil = syncThrottler.manualKickPausedUntil {
+                LabeledContent("Manual Pause Until") {
+                    Text(pausedUntil.formatted(date: .omitted, time: .standard))
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            if syncThrottler.recentCloudKitEvents.isEmpty {
+                Text("No CloudKit events captured yet")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(syncThrottler.recentCloudKitEvents.prefix(20)) { event in
+                    cloudKitEventRow(event)
+                }
+            }
+
+            Button("Copy Diagnostics Snapshot") {
+                copyDiagnosticsSnapshot()
+            }
+
+            Button("Clear Event Timeline") {
+                syncThrottler.clearRecentCloudKitEvents()
+            }
+        }
+    }
+
+    private func cloudKitEventRow(_ event: CloudKitEventLogEntry) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack {
+                Text("\(event.type) · \(event.phase) · \(event.status)")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                Spacer()
+                Text(event.timestamp.formatted(date: .omitted, time: .standard))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
+            if !event.message.isEmpty {
+                Text(event.message)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+        }
+        .padding(.vertical, 2)
+    }
+
+    private func diagnosticsSnapshotText() -> String {
+        let now = Date()
+        var lines: [String] = []
+        lines.append("CloudKit Diagnostics Snapshot")
+        lines.append("Generated: \(now.formatted(date: .complete, time: .standard))")
+        lines.append("isSyncing: \(syncThrottler.isSyncing)")
+        lines.append("remoteEventsTotal: \(syncThrottler.totalSyncEventCount)")
+        lines.append("currentBurstCount: \(syncThrottler.syncEventCount)")
+        lines.append("importInProgress: \(syncThrottler.importInProgress)")
+        lines.append("exportInProgress: \(syncThrottler.exportInProgress)")
+        lines.append("importCompleted: \(syncThrottler.importCompleted)")
+        lines.append("importSucceeded: \(syncThrottler.importSucceeded)")
+        lines.append("isRateLimited: \(syncThrottler.isRateLimited)")
+        lines.append("isManualKickPaused: \(syncThrottler.isManualKickPaused)")
+        lines.append("consecutiveImportNetworkFailures: \(syncThrottler.consecutiveImportNetworkFailures)")
+        lines.append("lastRemoteEvent: \(syncThrottler.lastSyncTime?.formatted(date: .omitted, time: .standard) ?? "nil")")
+        lines.append("rateLimitedUntil: \(syncThrottler.rateLimitedUntil?.formatted(date: .omitted, time: .standard) ?? "nil")")
+        lines.append("manualKickPausedUntil: \(syncThrottler.manualKickPausedUntil?.formatted(date: .omitted, time: .standard) ?? "nil")")
+        lines.append("recentCloudKitEvents:")
+
+        for event in syncThrottler.recentCloudKitEvents.prefix(25) {
+            let msg = event.message.isEmpty ? "" : " — \(event.message)"
+            lines.append("- \(event.timestamp.formatted(date: .omitted, time: .standard)) | \(event.type) | \(event.phase) | \(event.status)\(msg)")
+        }
+
+        return lines.joined(separator: "\n")
+    }
+
+    private func copyDiagnosticsSnapshot() {
+        let snapshot = diagnosticsSnapshotText()
+
+        #if canImport(UIKit)
+        UIPasteboard.general.string = snapshot
+        #endif
+
+        syncForceStatus = "✅ Diagnostics snapshot copied to clipboard"
+    }
+
+    private var iCloudSection: some View {
+        Section("iCloud Account") {
+            Text(iCloudStatus)
+                .font(.caption)
+        }
+    }
+
+    private var cloudKitContainerSection: some View {
+        Section("CloudKit Container") {
+            Text(containerStatus)
+                .font(.caption)
+        }
+    }
+
+    private var localDataSection: some View {
+        Section("Local Data") {
+            LabeledContent("StyleSheets", value: "\(stylesheets.count)")
+            LabeledContent("Projects", value: "\(projects.count)")
+            LabeledContent("Folders", value: "\(allFolders.count)")
+            LabeledContent("Text Files", value: "\(allTextFiles.count)")
+
+            if duplicateCount > 0 {
+                duplicateWarningRow
+            }
+        }
+    }
+
+    private var duplicateWarningRow: some View {
+        HStack {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundColor(.orange)
+            Text("\(duplicateCount) duplicate file references detected")
+                .foregroundColor(.orange)
+        }
+    }
+
+    private var databaseHealthSection: some View {
+        Section("Database Health") {
+            duplicateProjectsStatusRow
+
+            if duplicateProjectCount > 0 {
+                duplicateProjectsRepairRow
+            }
+
+            duplicateCheckRow
+
+            if duplicateCount > 0 {
+                duplicateReferencesRepairRow
+            }
+        }
+    }
+
+    private var duplicateProjectsStatusRow: some View {
+        HStack {
+            Text("Duplicate Projects")
+            Spacer()
+            Text("\(duplicateProjectCount) found")
+                .foregroundColor(duplicateProjectCount > 0 ? .red : .secondary)
+        }
+    }
+
+    private var duplicateProjectsRepairRow: some View {
+        HStack {
+            Image(systemName: "doc.on.doc")
+            Text("Remove Duplicate Projects")
+            Spacer()
+        }
+        .foregroundColor(.red)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            deduplicateProjects()
+        }
+    }
+
+    private var duplicateCheckRow: some View {
+        HStack {
+            Text("Check for Duplicates")
+            Spacer()
+            Text("\(duplicateCount) found")
+                .foregroundColor(.secondary)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            checkForDuplicates()
+        }
+    }
+
+    private var duplicateReferencesRepairRow: some View {
+        HStack {
+            Image(systemName: "wrench.and.screwdriver")
+            Text("Repair Duplicate References")
+            Spacer()
+        }
+        .foregroundColor(.orange)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            repairDuplicates()
+        }
+    }
+
+    private var stylesheetsSection: some View {
+        Section("StyleSheets") {
+            ForEach(stylesheets, id: \.id) { stylesheet in
+                stylesheetDetailsRow(stylesheet)
+            }
+        }
+    }
+
+    private func stylesheetDetailsRow(_ stylesheet: StyleSheet) -> some View {
+        VStack(alignment: .leading) {
+            Text(stylesheet.name)
+                .font(.headline)
+            Text("Created: \(stylesheet.createdDate.formatted())")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text("Modified: \(stylesheet.modifiedDate.formatted())")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text("System: \(stylesheet.isSystemStyleSheet ? "Yes" : "No")")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var syncActionsSection: some View {
+        Section("Sync Actions") {
+            Button {
+                forceSyncFromCloud()
+            } label: {
+                HStack {
+                    Image(systemName: "arrow.clockwise.icloud")
+                    Text("Force Sync from Cloud")
+                }
+            }
+
+            if !syncForceStatus.isEmpty {
+                Text(syncForceStatus)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var debugActionsSection: some View {
+        #if DEBUG
+        Section("Actions") {
+            Button("Force Save Context") {
+                saveContextAndShowStatus()
+            }
+        }
+        #endif
+    }
+
+    private func saveContextAndShowStatus() {
+        do {
+            try modelContext.save()
+            repairMessage = "Context saved successfully."
+            showRepairResult = true
+        } catch {
+            repairMessage = "Error saving context: \(error.localizedDescription)"
+            showRepairResult = true
+        }
+    }
     
     /// Check for duplicate projects (same name + creation date)
     private func checkForDuplicateProjects() {
@@ -184,7 +358,12 @@ struct SyncDiagnosticsView: View {
     /// be unreliable on Mac Catalyst and iPad. This performs a manual zone fetch
     /// which wakes up the mirroring engine.
     private func forceSyncFromCloud() {
-        syncForceStatus = "Fetching zones…"
+        // Warn (but don't block) if we're rate-limited — user explicitly tapped the button
+        if CloudKitSyncThrottler.shared.isRateLimited {
+            syncForceStatus = "⚠️ CloudKit rate-limited — request may fail. Retrying anyway…"
+        } else {
+            syncForceStatus = "Fetching zones…"
+        }
         
         let ckContainer = CKContainer(identifier: "iCloud.com.appworks.writingshedpro")
         let database = ckContainer.privateCloudDatabase

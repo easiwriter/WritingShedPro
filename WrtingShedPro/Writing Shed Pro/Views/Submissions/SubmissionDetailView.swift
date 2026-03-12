@@ -37,153 +37,17 @@ struct SubmissionDetailView: View {
     @State private var showCopyResult = false
     @State private var copyResultMessage = ""
     @State private var copyResultIsError = false
+
+    private var submissionFiles: [SubmittedFile] {
+        submission.submittedFiles ?? []
+    }
+
+    private var hasSubmissionFiles: Bool {
+        !submissionFiles.isEmpty
+    }
     
     var body: some View {
-        List {
-            // Publication info
-            Section {
-                if let publication = submission.publication {
-                    NavigationLink(destination: PublicationDetailView(publication: publication)) {
-                        HStack {
-                            Text(publication.type?.icon ?? "")
-                            Text(publication.name)
-                        }
-                    }
-                    .accessibilityLabel(Text(String(format: NSLocalizedString("accessibility.view.publication", comment: "View publication"), publication.name)))
-                }
-            } header: {
-                Text(NSLocalizedString("publications.form.name.label", comment: "Publication"))
-            }
-            
-            // Submission info
-            Section {
-                LabeledContent(NSLocalizedString("submissions.submitted.label", comment: "Submitted")) {
-                    Text(submission.submittedDate, style: .date)
-                }
-                
-                if let expectedDate = submission.returnExpectedBy {
-                    LabeledContent(NSLocalizedString("submissions.expectedBy.label", comment: "Response Expected")) {
-                        Text(expectedDate, style: .date)
-                    }
-                }
-                
-                // Editable expected response time
-                Toggle(isOn: $hasResponseTime) {
-                    Text(NSLocalizedString("publications.form.responseTime.label", comment: "Expected Response Time"))
-                }
-                .onChange(of: hasResponseTime) { _, newValue in
-                    submission.typicalResponseDays = newValue ? responseTimeDays : nil
-                    submission.modifiedDate = Date()
-                }
-                
-                if hasResponseTime {
-                    Stepper(
-                        value: $responseTimeDays,
-                        in: 1...365,
-                        step: responseTimeDays < 14 ? 1 : (responseTimeDays < 60 ? 7 : 30)
-                    ) {
-                        Text(String(format: NSLocalizedString("publications.responseTime.days", comment: "N days"), responseTimeDays))
-                    }
-                    .onChange(of: responseTimeDays) { _, newValue in
-                        submission.typicalResponseDays = newValue
-                        submission.modifiedDate = Date()
-                    }
-                }
-                
-                if let returnedDate = submission.returnedOn {
-                    LabeledContent(NSLocalizedString("submissions.returnedOn.label", comment: "Response Received")) {
-                        Text(returnedDate, style: .date)
-                    }
-                }
-                
-                if let notes = submission.notes {
-                    LabeledContent(NSLocalizedString("submissions.notes.label", comment: "Notes")) {
-                        Text(notes)
-                    }
-                }
-            } header: {
-                Text(NSLocalizedString("submissions.details.label", comment: "Details"))
-            }
-            
-            // Submitted files
-            Section {
-                if let files = submission.submittedFiles, !files.isEmpty {
-                    ForEach(files) { submittedFile in
-                        SubmittedFileRow(
-                            submittedFile: submittedFile,
-                            onStatusChange: { status in
-                                updateStatus(submittedFile, to: status)
-                            }
-                        )
-                    }
-                } else {
-                    Text(NSLocalizedString("submissions.no.files", comment: "No files"))
-                        .foregroundStyle(.secondary)
-                }
-            } header: {
-                Text(String(format: NSLocalizedString("submissions.files.label", comment: "Files"), submission.fileCount))
-            }
-            
-            // Record response (only show if not already received)
-            if submission.returnedOn == nil {
-                Section {
-                    if showingRecordResponse {
-                        DatePicker(
-                            NSLocalizedString("submissions.returnedOn.label", comment: "Response Received"),
-                            selection: $responseDate,
-                            displayedComponents: .date
-                        )
-                        
-                        Button(NSLocalizedString("submissions.saveResponse", comment: "Save Response Date")) {
-                            submission.returnedOn = responseDate
-                            submission.modifiedDate = Date()
-                            showingRecordResponse = false
-                        }
-                    } else {
-                        Button {
-                            showingRecordResponse = true
-                        } label: {
-                            Label(NSLocalizedString("submissions.recordResponse", comment: "Record Response"), systemImage: "calendar.badge.checkmark")
-                        }
-                    }
-                } header: {
-                    Text(NSLocalizedString("submissions.response.section", comment: "Response"))
-                }
-            }
-            
-            // Delete
-            Section {
-                Button(role: .destructive) {
-                    showingDeleteConfirmation = true
-                } label: {
-                    Label(NSLocalizedString("submissions.delete.button", comment: "Delete submission"), systemImage: "trash")
-                }
-                .accessibilityLabel(Text(NSLocalizedString("accessibility.delete.submission", comment: "Delete submission")))
-                .accessibilityHint(Text(NSLocalizedString("accessibility.delete.submission.hint", comment: "Delete submission hint")))
-            }
-        }
-        .navigationTitle(Text(NSLocalizedString("submissions.detail.title", comment: "Submission details")))
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                HStack(spacing: 16) {
-                    Menu {
-                        Button(action: { prepareExport() }) {
-                            Label(NSLocalizedString("button.export", comment: "Export"), systemImage: "square.and.arrow.up")
-                        }
-                        .disabled(submission.submittedFiles?.isEmpty ?? true)
-                        
-                        Button(action: { printSubmission() }) {
-                            Label(NSLocalizedString("button.print", comment: "Print"), systemImage: "printer")
-                        }
-                        .disabled(submission.submittedFiles?.isEmpty ?? true)
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
-                    }
-                    .accessibilityLabel("Actions")
-                }
-            }
-        }
+        baseSubmissionView
         .confirmationDialog(
             NSLocalizedString("export.dialog.title", comment: "Export Format"),
             isPresented: $showExportMenu,
@@ -192,15 +56,9 @@ struct SubmissionDetailView: View {
             exportDialogButtons
         }
         .alert(NSLocalizedString("export.imageWarning.title", comment: "Images Not Included"), isPresented: $showExportImageWarning) {
-            Button(NSLocalizedString("export.imageWarning.continue", comment: "Continue")) {
-                pendingExportAction?()
-                pendingExportAction = nil
-            }
-            Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
-                pendingExportAction = nil
-            }
+            exportImageWarningButtons
         } message: {
-            Text(NSLocalizedString("export.imageWarning.message", comment: "Images will not be included"))
+            exportImageWarningMessage
         }
         .fileExporter(
             isPresented: $showExportSaveDialog,
@@ -230,19 +88,7 @@ struct SubmissionDetailView: View {
             Text(printErrorMessage)
         }
         .sheet(isPresented: $showCopyToProject) {
-            if let project = submission.project {
-                CopyToProjectPickerView(
-                    sourceProject: project,
-                    filesToCopy: filesToCopyToProject,
-                    onProjectSelected: { destinationProject in
-                        showCopyToProject = false
-                        copyFilesToProject(filesToCopyToProject, destination: destinationProject)
-                    },
-                    onCancel: {
-                        showCopyToProject = false
-                    }
-                )
-            }
+            copyToProjectSheet
         }
         .alert(
             copyResultIsError
@@ -269,6 +115,202 @@ struct SubmissionDetailView: View {
         } message: {
             Text(NSLocalizedString("submissions.delete.message", comment: "Delete message"))
         }
+    }
+
+    private var baseSubmissionView: some View {
+        List {
+            publicationSection
+            detailsSection
+            submittedFilesSection
+            responseSection
+            deleteSection
+        }
+        .navigationTitle(Text(NSLocalizedString("submissions.detail.title", comment: "Submission details")))
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                HStack(spacing: 16) {
+                    actionsMenu
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var publicationSection: some View {
+        Section {
+            if let publication = submission.publication {
+                NavigationLink(destination: PublicationDetailView(publication: publication)) {
+                    HStack {
+                        Text(publication.type?.icon ?? "")
+                        Text(publication.name)
+                    }
+                }
+                .accessibilityLabel(Text(String(format: NSLocalizedString("accessibility.view.publication", comment: "View publication"), publication.name)))
+            }
+        } header: {
+            Text(NSLocalizedString("publications.form.name.label", comment: "Publication"))
+        }
+    }
+
+    private var detailsSection: some View {
+        Section {
+            LabeledContent(NSLocalizedString("submissions.submitted.label", comment: "Submitted")) {
+                Text(submission.submittedDate, style: .date)
+            }
+
+            if let expectedDate = submission.returnExpectedBy {
+                LabeledContent(NSLocalizedString("submissions.expectedBy.label", comment: "Response Expected")) {
+                    Text(expectedDate, style: .date)
+                }
+            }
+
+            Toggle(isOn: $hasResponseTime) {
+                Text(NSLocalizedString("publications.form.responseTime.label", comment: "Expected Response Time"))
+            }
+            .onChange(of: hasResponseTime) { _, newValue in
+                submission.typicalResponseDays = newValue ? responseTimeDays : nil
+                submission.modifiedDate = Date()
+            }
+
+            if hasResponseTime {
+                Stepper(
+                    value: $responseTimeDays,
+                    in: 1...365,
+                    step: responseTimeDays < 14 ? 1 : (responseTimeDays < 60 ? 7 : 30)
+                ) {
+                    Text(String(format: NSLocalizedString("publications.responseTime.days", comment: "N days"), responseTimeDays))
+                }
+                .onChange(of: responseTimeDays) { _, newValue in
+                    submission.typicalResponseDays = newValue
+                    submission.modifiedDate = Date()
+                }
+            }
+
+            if let returnedDate = submission.returnedOn {
+                LabeledContent(NSLocalizedString("submissions.returnedOn.label", comment: "Response Received")) {
+                    Text(returnedDate, style: .date)
+                }
+            }
+
+            if let notes = submission.notes {
+                LabeledContent(NSLocalizedString("submissions.notes.label", comment: "Notes")) {
+                    Text(notes)
+                }
+            }
+        } header: {
+            Text(NSLocalizedString("submissions.details.label", comment: "Details"))
+        }
+    }
+
+    private var submittedFilesSection: some View {
+        Section {
+            if hasSubmissionFiles {
+                ForEach(submissionFiles) { submittedFile in
+                    SubmittedFileRow(
+                        submittedFile: submittedFile,
+                        onStatusChange: { status in
+                            updateStatus(submittedFile, to: status)
+                        }
+                    )
+                }
+            } else {
+                Text(NSLocalizedString("submissions.no.files", comment: "No files"))
+                    .foregroundStyle(.secondary)
+            }
+        } header: {
+            Text(String(format: NSLocalizedString("submissions.files.label", comment: "Files"), submission.fileCount))
+        }
+    }
+
+    @ViewBuilder
+    private var responseSection: some View {
+        if submission.returnedOn == nil {
+            Section {
+                if showingRecordResponse {
+                    DatePicker(
+                        NSLocalizedString("submissions.returnedOn.label", comment: "Response Received"),
+                        selection: $responseDate,
+                        displayedComponents: .date
+                    )
+
+                    Button(NSLocalizedString("submissions.saveResponse", comment: "Save Response Date")) {
+                        submission.returnedOn = responseDate
+                        submission.modifiedDate = Date()
+                        showingRecordResponse = false
+                    }
+                } else {
+                    Button {
+                        showingRecordResponse = true
+                    } label: {
+                        Label(NSLocalizedString("submissions.recordResponse", comment: "Record Response"), systemImage: "calendar.badge.checkmark")
+                    }
+                }
+            } header: {
+                Text(NSLocalizedString("submissions.response.section", comment: "Response"))
+            }
+        }
+    }
+
+    private var deleteSection: some View {
+        Section {
+            Button(role: .destructive) {
+                showingDeleteConfirmation = true
+            } label: {
+                Label(NSLocalizedString("submissions.delete.button", comment: "Delete submission"), systemImage: "trash")
+            }
+            .accessibilityLabel(Text(NSLocalizedString("accessibility.delete.submission", comment: "Delete submission")))
+            .accessibilityHint(Text(NSLocalizedString("accessibility.delete.submission.hint", comment: "Delete submission hint")))
+        }
+    }
+
+    private var actionsMenu: some View {
+        Menu {
+            Button(action: { prepareExport() }) {
+                Label(NSLocalizedString("button.export", comment: "Export"), systemImage: "square.and.arrow.up")
+            }
+            .disabled(!hasSubmissionFiles)
+
+            Button(action: { printSubmission() }) {
+                Label(NSLocalizedString("button.print", comment: "Print"), systemImage: "printer")
+            }
+            .disabled(!hasSubmissionFiles)
+        } label: {
+            Image(systemName: "ellipsis.circle")
+        }
+        .accessibilityLabel("Actions")
+    }
+
+    @ViewBuilder
+    private var copyToProjectSheet: some View {
+        if let project = submission.project {
+            CopyToProjectPickerView(
+                sourceProject: project,
+                filesToCopy: filesToCopyToProject,
+                onProjectSelected: { destinationProject in
+                    showCopyToProject = false
+                    copyFilesToProject(filesToCopyToProject, destination: destinationProject)
+                },
+                onCancel: {
+                    showCopyToProject = false
+                }
+            )
+        }
+    }
+
+    @ViewBuilder
+    private var exportImageWarningButtons: some View {
+        Button(NSLocalizedString("export.imageWarning.continue", comment: "Continue")) {
+            pendingExportAction?()
+            pendingExportAction = nil
+        }
+        Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
+            pendingExportAction = nil
+        }
+    }
+
+    private var exportImageWarningMessage: some View {
+        Text(NSLocalizedString("export.imageWarning.message", comment: "Images will not be included"))
     }
     
     private func deleteSubmission() {

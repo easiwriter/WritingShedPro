@@ -172,75 +172,81 @@ struct FolderListView: View {
     }
     
     // MARK: - Folder Navigation Routing
+
+    private func publicationDestination(for folderName: String) -> AnyView? {
+        guard let publicationType = publicationTypeForFolder(folderName) else { return nil }
+        return AnyView(PublicationsListView(project: project, publicationType: publicationType))
+    }
+
+    private func standardFolderDestination(for folderName: String, folder: Folder) -> AnyView? {
+        switch folderName {
+        case "Submissions":
+            return AnyView(SubmissionsView(project: project))
+        case "Manuscript":
+            return AnyView(FolderListView(project: project, selectedFolder: folder))
+        default:
+            return nil
+        }
+    }
+
+    private func fictionOrDramaDestination(for folderName: String) -> AnyView? {
+        switch folderName {
+        case "Characters" where project.type == .fiction || project.type == .drama:
+            return AnyView(CharacterListView(project: project))
+        case "Locations" where project.type == .fiction || project.type == .drama:
+            return AnyView(LocationListView(project: project))
+        case "Plot" where project.type == .fiction || project.type == .drama:
+            return AnyView(PlotOutlineView(project: project))
+        case "Scenes" where project.type == .fiction || project.type == .drama:
+            return AnyView(SceneListView(project: project))
+        case "Acts" where project.type == .drama:
+            return AnyView(ActListView(project: project))
+        case "Chapters" where project.type == .fiction:
+            return AnyView(ChapterListView(project: project))
+        case "Stories" where project.type == .fiction && project.fictionClass == .shortFiction:
+            return AnyView(ChapterListView(project: project))
+        case "Books" where project.type == .fiction && project.fictionClass == .verseNovel:
+            return AnyView(ChapterListView(project: project))
+        case "Episodes" where project.type == .fiction && project.fictionClass == .verseNovel:
+            return AnyView(SceneListView(project: project))
+        default:
+            return nil
+        }
+    }
+
+    private func proseOrPoetryDestination(for folderName: String) -> AnyView? {
+        switch folderName {
+        case "Sections" where project.type == .prose:
+            return AnyView(SectionListView(project: project))
+        case "Prose" where project.type == .prose:
+            return AnyView(ProseListView(project: project))
+        case "Collections" where project.type == .poetry:
+            return AnyView(PoetryCollectionsView(project: project))
+        default:
+            return nil
+        }
+    }
+
+    private func resolvedFolderDestination(for folder: Folder) -> AnyView? {
+        let folderName = folder.name ?? ""
+
+        if folderName == "Trash" {
+            let trashedItemsForProject = allTrashItems.filter { $0.project?.id == project.id }
+            guard !trashedItemsForProject.isEmpty else { return nil }
+            return AnyView(TrashView(project: project))
+        }
+
+        if let destination = publicationDestination(for: folderName) { return destination }
+        if let destination = standardFolderDestination(for: folderName, folder: folder) { return destination }
+        if let destination = fictionOrDramaDestination(for: folderName) { return destination }
+        if let destination = proseOrPoetryDestination(for: folderName) { return destination }
+        return nil
+    }
     
     @ViewBuilder
     private func folderNavigationLink(for folder: Folder) -> some View {
-        let folderName: String = folder.name ?? ""
-        if folderName == "Trash" {
-            let trashedItemsForProject = allTrashItems.filter { $0.project?.id == project.id }
-            if !trashedItemsForProject.isEmpty {
-                NavigationLink(destination: TrashView(project: project)) {
-                    FolderRowView(folder: folder)
-                }
-            }
-        } else if let publicationType = publicationTypeForFolder(folderName) {
-            NavigationLink(destination: PublicationsListView(project: project, publicationType: publicationType)) {
-                FolderRowView(folder: folder)
-            }
-        } else if folderName == "Submissions" {
-            NavigationLink(destination: SubmissionsView(project: project)) {
-                FolderRowView(folder: folder)
-            }
-        } else if folderName == "Characters" && (project.type == .fiction || project.type == .drama) {
-            NavigationLink(destination: CharacterListView(project: project)) {
-                FolderRowView(folder: folder)
-            }
-        } else if folderName == "Locations" && (project.type == .fiction || project.type == .drama) {
-            NavigationLink(destination: LocationListView(project: project)) {
-                FolderRowView(folder: folder)
-            }
-        } else if folderName == "Plot" && (project.type == .fiction || project.type == .drama) {
-            NavigationLink(destination: PlotOutlineView(project: project)) {
-                FolderRowView(folder: folder)
-            }
-        } else if folderName == "Acts" && project.type == .drama {
-            NavigationLink(destination: ActListView(project: project)) {
-                FolderRowView(folder: folder)
-            }
-        } else if folderName == "Chapters" && project.type == .fiction {
-            NavigationLink(destination: ChapterListView(project: project)) {
-                FolderRowView(folder: folder)
-            }
-        } else if folderName == "Stories" && project.type == .fiction && project.fictionClass == .shortFiction {
-            NavigationLink(destination: ChapterListView(project: project)) {
-                FolderRowView(folder: folder)
-            }
-        } else if folderName == "Books" && project.type == .fiction && project.fictionClass == .verseNovel {
-            NavigationLink(destination: ChapterListView(project: project)) {
-                FolderRowView(folder: folder)
-            }
-        } else if folderName == "Episodes" && project.type == .fiction && project.fictionClass == .verseNovel {
-            NavigationLink(destination: SceneListView(project: project)) {
-                FolderRowView(folder: folder)
-            }
-        } else if folderName == "Sections" && project.type == .prose {
-            NavigationLink(destination: SectionListView(project: project)) {
-                FolderRowView(folder: folder)
-            }
-        } else if folderName == "Prose" && project.type == .prose {
-            NavigationLink(destination: ProseListView(project: project)) {
-                FolderRowView(folder: folder)
-            }
-        } else if folderName == "Collections" && project.type == .poetry {
-            NavigationLink(destination: PoetryCollectionsView(project: project)) {
-                FolderRowView(folder: folder)
-            }
-        } else if folderName == "Scenes" && (project.type == .fiction || project.type == .drama) {
-            NavigationLink(destination: SceneListView(project: project)) {
-                FolderRowView(folder: folder)
-            }
-        } else if folderName == "Manuscript" {
-            NavigationLink(destination: FolderListView(project: project, selectedFolder: folder)) {
+        if let destination = resolvedFolderDestination(for: folder) {
+            NavigationLink(destination: destination) {
                 FolderRowView(folder: folder)
             }
         } else {

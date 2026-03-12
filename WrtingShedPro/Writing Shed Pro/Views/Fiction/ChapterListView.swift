@@ -481,14 +481,8 @@ struct ChapterListView: View {
     private func createSubmissionFromChapters(name: String) {
         let trimmedName = name.trimmingCharacters(in: .whitespaces)
         guard !trimmedName.isEmpty else { return }
-        
-        // Check for duplicate
-        let projectID = project.id
-        var descriptor = FetchDescriptor<Submission>(predicate: #Predicate<Submission> { sub in
-            sub.name == trimmedName && sub.project?.id == projectID && sub.isCollection == false
-        })
-        descriptor.fetchLimit = 1
-        if let count = try? modelContext.fetchCount(descriptor), count > 0 {
+
+        if hasDuplicateSubmissionNamed(trimmedName) {
             createdSubmissionName = trimmedName
             showDuplicateSubmission = true
             return
@@ -523,6 +517,13 @@ struct ChapterListView: View {
         showSubmissionCreated = true
         selectedChapterIDs.removeAll()
         exitEditMode()
+    }
+
+    private func hasDuplicateSubmissionNamed(_ name: String) -> Bool {
+        let submissions = project.submissions ?? []
+        return submissions.contains { submission in
+            submission.isCollection == false && submission.name == name
+        }
     }
     
     private func exitEditMode() {

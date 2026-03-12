@@ -61,200 +61,179 @@ struct CollectionDetailView: View {
             return name1.localizedCaseInsensitiveCompare(name2) == .orderedAscending
         }
     }
+
+    @ViewBuilder
+    private func submittedFileRow(_ submittedFile: SubmittedFile) -> some View {
+        if let file = submittedFile.textFile {
+            HStack {
+                NavigationLink(destination: FileEditView(file: file)) {
+                    CollectionFileRowView(submittedFile: submittedFile)
+                }
+
+                if editMode == .inactive {
+                    Button {
+                        editingVersionItem = EditVersionItem(submittedFile: submittedFile, textFile: file)
+                    } label: {
+                        Image(systemName: "pencil.circle.circle")
+                            .foregroundStyle(.blue)
+                            .font(.body)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("collectionsView.detail.editVersion.accessibility")
+                }
+            }
+            .tag(submittedFile.id)
+        }
+    }
+
+    private var submittedFilesList: some View {
+        List(selection: $selectedFileIDs) {
+            ForEach(submittedFiles) { submittedFile in
+                submittedFileRow(submittedFile)
+            }
+            .onDelete(perform: deleteFiles)
+        }
+        .listStyle(.plain)
+        .environment(\.editMode, $editMode)
+        .safeAreaInset(edge: .bottom) {
+            if editMode == .active && !selectedFileIDs.isEmpty {
+                HStack {
+                    Button {
+                        showExportMenu = true
+                    } label: {
+                        Label(
+                            NSLocalizedString("button.export", comment: "Export"),
+                            systemImage: "square.and.arrow.up"
+                        )
+                    }
+                    .accessibilityLabel("Export selected files")
+
+                    Spacer()
+                }
+                .padding()
+                .background(.bar)
+            }
+        }
+    }
+
+    private var emptyCollectionView: some View {
+        ContentUnavailableView {
+            Label("collectionsView.detail.empty.title", systemImage: "doc.text")
+        } description: {
+            Text("collectionsView.detail.empty.description")
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("collectionsView.detail.empty.accessibility")
+    }
+
+    @ViewBuilder
+    private var detailContent: some View {
+        if !submittedFiles.isEmpty {
+            submittedFilesList
+        } else {
+            emptyCollectionView
+        }
+    }
+
+    private var titleToolbarItem: some ToolbarContent {
+        ToolbarItem(placement: .principal) {
+            VStack(spacing: 2) {
+                Text(submission.name ?? NSLocalizedString("collectionsView.untitled", comment: "Untitled Collection"))
+                    .font(.headline)
+                    .lineLimit(1)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var trailingToolbarButtons: some View {
+        if !submittedFiles.isEmpty {
+            Button {
+                withAnimation {
+                    if editMode == .active {
+                        editMode = .inactive
+                        selectedFileIDs.removeAll()
+                    } else {
+                        editMode = .active
+                    }
+                }
+            } label: {
+                Text(editMode == .active
+                     ? NSLocalizedString("button.done", comment: "Done")
+                     : NSLocalizedString("button.edit", comment: "Edit"))
+            }
+        }
+
+        if !submittedFiles.isEmpty {
+            Button {
+                showSearchView = true
+            } label: {
+                Image(systemName: "magnifyingglass")
+            }
+            .accessibilityLabel("Search files in collection")
+            .help("Search and replace across all files in this collection")
+        }
+
+        Menu {
+            Button(action: { showAddFilesSheet = true }) {
+                Label("Add Files", systemImage: "plus")
+            }
+
+            if !submittedFiles.isEmpty {
+                Divider()
+
+                Button(action: { prepareExport() }) {
+                    Label(NSLocalizedString("button.export", comment: "Export"), systemImage: "square.and.arrow.up")
+                }
+
+                Button(action: { showSubmissionPicker = true }) {
+                    Label("Submit to Publication", systemImage: "paperplane")
+                }
+
+                Button(action: { printCollection() }) {
+                    Label("Print Collection", systemImage: "printer")
+                }
+            }
+        } label: {
+            Image(systemName: "ellipsis.circle")
+        }
+        .accessibilityLabel("collectionsView.actions.accessibility")
+    }
+
+    private var actionsToolbarItem: some ToolbarContent {
+        ToolbarItem(placement: .navigationBarTrailing) {
+            HStack(spacing: 16) {
+                trailingToolbarButtons
+            }
+        }
+    }
     
     var body: some View {
-        Group {
-            if !submittedFiles.isEmpty {
-                List(selection: $selectedFileIDs) {
-                    ForEach(submittedFiles) { submittedFile in
-                        if let file = submittedFile.textFile {
-                            HStack {
-                                NavigationLink(destination: FileEditView(file: file)) {
-                                    CollectionFileRowView(submittedFile: submittedFile)
-                                }
-                                
-                                if editMode == .inactive {
-                                    Button {
-                                        editingVersionItem = EditVersionItem(submittedFile: submittedFile, textFile: file)
-                                    } label: {
-                                        Image(systemName: "pencil.circle.circle")
-                                            .foregroundStyle(.blue)
-                                            .font(.body)
-                                    }
-                                    .buttonStyle(.plain)
-                                    .accessibilityLabel("collectionsView.detail.editVersion.accessibility")
-                                }
-                            }
-                            .tag(submittedFile.id)
-                        }
-                    }
-                    .onDelete(perform: deleteFiles)
-                }
-                .listStyle(.plain)
-                .environment(\.editMode, $editMode)
-                // Bottom toolbar when in edit mode with selections
-                .safeAreaInset(edge: .bottom) {
-                    if editMode == .active && !selectedFileIDs.isEmpty {
-                        HStack {
-                            Button {
-                                showExportMenu = true
-                            } label: {
-                                Label(
-                                    NSLocalizedString("button.export", comment: "Export"),
-                                    systemImage: "square.and.arrow.up"
-                                )
-                            }
-                            .accessibilityLabel("Export selected files")
-                            
-                            Spacer()
-                        }
-                        .padding()
-                        .background(.bar)
-                    }
-                }
-            } else {
-                ContentUnavailableView {
-                    Label("collectionsView.detail.empty.title", systemImage: "doc.text")
-                } description: {
-                    Text("collectionsView.detail.empty.description")
-                }
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel("collectionsView.detail.empty.accessibility")
-            }
-        }
-        .navigationTitle("collectionsView.detail.title")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                VStack(spacing: 2) {
-                    Text(submission.name ?? NSLocalizedString("collectionsView.untitled", comment: "Untitled Collection"))
-                        .font(.headline)
-                        .lineLimit(1)
-                }
-            }
-            
-            ToolbarItem(placement: .navigationBarTrailing) {
-                HStack(spacing: 16) {
-                    // Edit button for multi-select
-                    if !submittedFiles.isEmpty {
-                        Button {
-                            withAnimation {
-                                if editMode == .active {
-                                    editMode = .inactive
-                                    selectedFileIDs.removeAll()
-                                } else {
-                                    editMode = .active
-                                }
-                            }
-                        } label: {
-                            Text(editMode == .active
-                                 ? NSLocalizedString("button.done", comment: "Done")
-                                 : NSLocalizedString("button.edit", comment: "Edit"))
-                        }
-                    }
-                    
-                    // Search button
-                    if !submittedFiles.isEmpty {
-                        Button {
-                            showSearchView = true
-                        } label: {
-                            Image(systemName: "magnifyingglass")
-                        }
-                        .accessibilityLabel("Search files in collection")
-                        .help("Search and replace across all files in this collection")
-                    }
-                    
-                    // More menu
-                    Menu {
-                        Button(action: { showAddFilesSheet = true }) {
-                            Label("Add Files", systemImage: "plus")
-                        }
-                        
-                        if !submittedFiles.isEmpty {
-                            Divider()
-                            
-                            Button(action: { prepareExport() }) {
-                                Label(NSLocalizedString("button.export", comment: "Export"), systemImage: "square.and.arrow.up")
-                            }
-                            
-                            Button(action: { showSubmissionPicker = true }) {
-                                Label("Submit to Publication", systemImage: "paperplane")
-                            }
-                            
-                            Button(action: { printCollection() }) {
-                                Label("Print Collection", systemImage: "printer")
-                            }
-                        }
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
-                    }
-                    .accessibilityLabel("collectionsView.actions.accessibility")
-                }
-            }
-        }
+        baseDetailView
         .sheet(isPresented: $showSearchView) {
-            MultiFileSearchView(collection: submission)
+            searchSheetContent
         }
         .sheet(isPresented: $showAddFilesSheet) {
-            AddFilesToCollectionSheet(
-                submission: submission,
-                onCancel: {
-                    showAddFilesSheet = false
-                },
-                onFilesAdded: {
-                    showAddFilesSheet = false
-                }
-            )
+            addFilesSheetContent
         }
         .sheet(item: $editingVersionItem) { item in
-            NavigationStack {
-                EditVersionSheet(
-                    submittedFile: item.submittedFile,
-                    textFile: item.textFile,
-                    onCancel: {
-                        editingVersionItem = nil
-                    },
-                    onSave: {
-                        editingVersionItem = nil
-                        try? modelContext.save()
-                    }
-                )
-                .id(item.submittedFile.id)
-            }
-            .presentationDetents([.medium, .large])
+            editVersionSheetContent(for: item)
         }
         .sheet(isPresented: $showSubmissionPicker) {
-            if let project = submission.project {
-                NavigationStack {
-                    SubmissionPickerView(
-                        project: project,
-                        filesToSubmit: nil,
-                        collectionToSubmit: submission,
-                        onPublicationSelected: { publication, name, expectedDate, reminderDate in
-                            createSubmissionFromCollection(to: publication, name: name, expectedResponseDate: expectedDate, reminderDate: reminderDate)
-                            showSubmissionPicker = false
-                        },
-                        onCancel: {
-                            showSubmissionPicker = false
-                        }
-                    )
-                }
-            }
+            submissionPickerSheetContent
         }
         .onAppear {
-            // Prefetch submittedFiles relationship to ensure it's loaded before first access
-            let count = submission.submittedFiles?.count ?? 0
-            _ = count
+            prefetchSubmittedFiles()
         }
         .alert("Print Error", isPresented: $showPrintError) {
             Button("OK", role: .cancel) { }
         } message: {
-            Text(printErrorMessage)
+            printErrorAlertMessage
         }
         .alert(NSLocalizedString("submissions.duplicate.title", comment: "Duplicate Submission"), isPresented: $showDuplicateSubmission) {
             Button(NSLocalizedString("button.ok", comment: "OK")) { }
         } message: {
-            Text(String(format: NSLocalizedString("submissions.duplicate.message", comment: "Duplicate message"), duplicateSubmissionName))
+            duplicateSubmissionAlertMessage
         }
         .confirmationDialog(
             NSLocalizedString("export.dialog.title", comment: "Export Format"),
@@ -264,15 +243,101 @@ struct CollectionDetailView: View {
             exportDialogButtons
         }
         .alert(NSLocalizedString("export.imageWarning.title", comment: "Images Not Included"), isPresented: $showExportImageWarning) {
-            Button(NSLocalizedString("export.imageWarning.continue", comment: "Continue")) {
-                pendingExportAction?()
-                pendingExportAction = nil
-            }
-            Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
-                pendingExportAction = nil
-            }
+            exportImageWarningButtons
         } message: {
-            Text(NSLocalizedString("export.imageWarning.message", comment: "Images will not be included"))
+            exportImageWarningMessage
+        }
+    }
+
+    private var baseDetailView: some View {
+        detailContent
+        .navigationTitle("collectionsView.detail.title")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            titleToolbarItem
+            actionsToolbarItem
+        }
+    }
+
+    private var searchSheetContent: some View {
+        MultiFileSearchView(collection: submission)
+    }
+
+    private var addFilesSheetContent: some View {
+        AddFilesToCollectionSheet(
+            submission: submission,
+            onCancel: {
+                showAddFilesSheet = false
+            },
+            onFilesAdded: {
+                showAddFilesSheet = false
+            }
+        )
+    }
+
+    private func editVersionSheetContent(for item: EditVersionItem) -> some View {
+        NavigationStack {
+            EditVersionSheet(
+                submittedFile: item.submittedFile,
+                textFile: item.textFile,
+                onCancel: {
+                    editingVersionItem = nil
+                },
+                onSave: {
+                    editingVersionItem = nil
+                    try? modelContext.save()
+                }
+            )
+            .id(item.submittedFile.id)
+        }
+        .presentationDetents([.medium, .large])
+    }
+
+    @ViewBuilder
+    private var submissionPickerSheetContent: some View {
+        if let project = submission.project {
+            NavigationStack {
+                SubmissionPickerView(
+                    project: project,
+                    filesToSubmit: nil,
+                    collectionToSubmit: submission,
+                    onPublicationSelected: { publication, name, expectedDate, reminderDate in
+                        createSubmissionFromCollection(to: publication, name: name, expectedResponseDate: expectedDate, reminderDate: reminderDate)
+                        showSubmissionPicker = false
+                    },
+                    onCancel: {
+                        showSubmissionPicker = false
+                    }
+                )
+            }
+        }
+    }
+
+    private func prefetchSubmittedFiles() {
+        let count = submission.submittedFiles?.count ?? 0
+        _ = count
+    }
+
+    private var printErrorAlertMessage: some View {
+        Text(printErrorMessage)
+    }
+
+    private var duplicateSubmissionAlertMessage: some View {
+        Text(String(format: NSLocalizedString("submissions.duplicate.message", comment: "Duplicate message"), duplicateSubmissionName))
+    }
+
+    private var exportImageWarningMessage: some View {
+        Text(NSLocalizedString("export.imageWarning.message", comment: "Images will not be included"))
+    }
+
+    @ViewBuilder
+    private var exportImageWarningButtons: some View {
+        Button(NSLocalizedString("export.imageWarning.continue", comment: "Continue")) {
+            pendingExportAction?()
+            pendingExportAction = nil
+        }
+        Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
+            pendingExportAction = nil
         }
         .fileExporter(
             isPresented: $showExportSaveDialog,
@@ -513,66 +578,47 @@ struct CollectionDetailView: View {
     /// Copy files to a destination project, placing them in the matching folder by name.
     private func copyFilesToProject(_ files: [TextFile], destination: Project) {
         guard !files.isEmpty else { return }
-        
-        let sourceFolderName = submission.project?.folders?.first(where: { FolderCapabilityService.canAddFile(to: $0) })?.name ?? "Files"
-        let destinationFolder = findMatchingFolder(in: destination, named: sourceFolderName)
-        
-        guard let destFolder = destinationFolder else {
+
+        let sourceFolderName = sourceFolderNameForCopy()
+
+        guard let destFolder = findMatchingFolder(in: destination, named: sourceFolderName) else {
             copyResultMessage = String(format: NSLocalizedString("copyToProject.error.noFolder", comment: "No matching folder found"), sourceFolderName, destination.name ?? "")
             copyResultIsError = true
             showCopyResult = true
             return
         }
-        
-        var usedNames = Set((destFolder.textFiles ?? []).map { $0.name })
+
+        var usedNames = existingFileNames(in: destFolder)
         var copiedCount = 0
-        let maxSceneOrder = (destination.type == .fiction || destination.type == .drama)
-            ? (destination.scenes ?? []).filter({ !$0.isTrashed }).compactMap(\.userOrder).max() ?? -1
-            : 0
-        
+        let maxSceneOrder = maxSceneOrderForCopy(in: destination)
+
         for file in files {
             guard let currentVersion = file.currentVersion else { continue }
-            
+
             let uniqueName = generateUniqueName(for: file.name, usedNames: usedNames)
             usedNames.insert(uniqueName)
-            
-            let newFile = TextFile(
-                name: uniqueName,
-                initialContent: currentVersion.content,
-                parentFolder: destFolder,
-                poetryFormId: file.poetryFormId,
-                poetryFormName: file.poetryFormName
+
+            let newFile = makeCopiedFile(
+                from: file,
+                version: currentVersion,
+                named: uniqueName,
+                in: destFolder,
+                orderOffset: copiedCount
             )
-            
-            newFile.workflowStatusRaw = file.workflowStatusRaw
-            newFile.contentTypeRaw = file.contentTypeRaw
-            
-            if let formattedData = currentVersion.formattedContent,
-               let newVersion = newFile.currentVersion {
-                newVersion.formattedContent = formattedData
-            }
-            
-            if let refMetadata = currentVersion.referenceMetadataData,
-               let newVersion = newFile.currentVersion {
-                newVersion.referenceMetadataData = refMetadata
-            }
-            
-            let maxOrder = (destFolder.textFiles ?? []).compactMap { $0.userOrder }.max() ?? -1
-            newFile.userOrder = maxOrder + 1 + copiedCount
-            
+
             modelContext.insert(newFile)
-            
-            // For Fiction/Drama projects, create a StoryScene linked to the TextFile
-            if destination.type == .fiction || destination.type == .drama {
-                let scene = StoryScene(name: uniqueName, userOrder: maxSceneOrder + 1 + copiedCount)
-                scene.project = destination
-                scene.textFile = newFile
-                modelContext.insert(scene)
-            }
-            
+
+            insertSceneIfNeeded(
+                for: destination,
+                file: newFile,
+                name: uniqueName,
+                sceneOrderBase: maxSceneOrder,
+                orderOffset: copiedCount
+            )
+
             copiedCount += 1
         }
-        
+
         do {
             try modelContext.save()
             let format = copiedCount == 1
@@ -586,6 +632,68 @@ struct CollectionDetailView: View {
             copyResultIsError = true
             showCopyResult = true
         }
+    }
+
+    private func sourceFolderNameForCopy() -> String {
+        submission.project?.folders?
+            .first(where: { FolderCapabilityService.canAddFile(to: $0) })?
+            .name ?? "Files"
+    }
+
+    private func existingFileNames(in folder: Folder) -> Set<String> {
+        Set((folder.textFiles ?? []).map(\.name))
+    }
+
+    private func maxSceneOrderForCopy(in destination: Project) -> Int {
+        guard destination.type == .fiction || destination.type == .drama else { return 0 }
+        let scenes = destination.scenes ?? []
+        return scenes
+            .filter { !$0.isTrashed }
+            .compactMap(\.userOrder)
+            .max() ?? -1
+    }
+
+    private func makeCopiedFile(
+        from source: TextFile,
+        version: Version,
+        named uniqueName: String,
+        in destinationFolder: Folder,
+        orderOffset: Int
+    ) -> TextFile {
+        let newFile = TextFile(
+            name: uniqueName,
+            initialContent: version.content,
+            parentFolder: destinationFolder,
+            poetryFormId: source.poetryFormId,
+            poetryFormName: source.poetryFormName
+        )
+
+        newFile.workflowStatusRaw = source.workflowStatusRaw
+        newFile.contentTypeRaw = source.contentTypeRaw
+
+        if let newVersion = newFile.currentVersion {
+            newVersion.formattedContent = version.formattedContent
+            newVersion.referenceMetadataData = version.referenceMetadataData
+        }
+
+        let maxOrder = (destinationFolder.textFiles ?? []).compactMap { $0.userOrder }.max() ?? -1
+        newFile.userOrder = maxOrder + 1 + orderOffset
+
+        return newFile
+    }
+
+    private func insertSceneIfNeeded(
+        for destination: Project,
+        file: TextFile,
+        name: String,
+        sceneOrderBase: Int,
+        orderOffset: Int
+    ) {
+        guard destination.type == .fiction || destination.type == .drama else { return }
+        let scene = StoryScene(name: name, userOrder: sceneOrderBase + 1 + orderOffset)
+        scene.project = destination
+        scene.textFile = file
+        modelContext.insert(scene)
     }
     
     private func findMatchingFolder(in project: Project, named sourceName: String) -> Folder? {
@@ -670,69 +778,99 @@ struct CollectionDetailView: View {
             // Handle error silently for now
         }
     }
-    
-    private func createSubmissionFromCollection(to publication: Publication, name: String, expectedResponseDate: Date? = nil, reminderDate: Date? = nil) {
-        guard let project = submission.project else { return }
-        
-        // Check for duplicate submission name in this project
-        let trimmedName = name.isEmpty ? (submission.name ?? "") : name
-        let projectID = project.id
-        var duplicateCheck = FetchDescriptor<Submission>(predicate: #Predicate<Submission> { submission in
-            submission.name == trimmedName && submission.project?.id == projectID && submission.isCollection == false
-        })
-        duplicateCheck.fetchLimit = 1
-        if let count = try? modelContext.fetchCount(duplicateCheck), count > 0 {
-            duplicateSubmissionName = trimmedName
-            showDuplicateSubmission = true
-            return
+
+    private func resolvedSubmissionName(from inputName: String) -> String {
+        inputName.isEmpty ? (submission.name ?? "") : inputName
+    }
+
+    private func hasDuplicateSubmissionName(_ candidateName: String, in project: Project) -> Bool {
+        let existingSubmissions = project.submissions ?? []
+        return existingSubmissions.contains { existing in
+            existing.isCollection == false && existing.name == candidateName
         }
-        
-        // Create new Submission as Publication Submission
+    }
+
+    private func buildPublicationSubmission(
+        project: Project,
+        publication: Publication,
+        name: String,
+        expectedResponseDate: Date?
+    ) -> Submission {
         let pubSubmission = Submission(
             publication: publication,
             project: project
         )
-        // Use provided name, or fall back to collection name
-        pubSubmission.name = name.isEmpty ? submission.name : name
+        pubSubmission.name = name
         pubSubmission.collectionDescription = submission.collectionDescription
-        pubSubmission.isCollection = false  // This is a submission to publication, not a collection
+        pubSubmission.isCollection = false
         pubSubmission.returnExpectedBy = expectedResponseDate
-        
-        // Schedule reminder notification if requested
-        if let reminderDate = reminderDate {
-            pubSubmission.reminderDate = reminderDate
-            let pubName = publication.name
-            let subName = name.isEmpty ? (submission.name ?? "Submission") : name
-            Task {
-                let notifId = await NotificationReminderService.shared.scheduleSubmissionReminder(
-                    submissionId: UUID().uuidString,
-                    publicationName: pubName,
-                    submissionName: subName,
-                    reminderDate: reminderDate
-                )
-                if let notifId = notifId {
-                    await MainActor.run {
-                        pubSubmission.reminderNotificationId = notifId
-                    }
+        return pubSubmission
+    }
+
+    private func scheduleReminderIfNeeded(
+        for pubSubmission: Submission,
+        publicationName: String,
+        submissionName: String,
+        reminderDate: Date?
+    ) {
+        guard let reminderDate else { return }
+        pubSubmission.reminderDate = reminderDate
+
+        Task {
+            let notifId = await NotificationReminderService.shared.scheduleSubmissionReminder(
+                submissionId: UUID().uuidString,
+                publicationName: publicationName,
+                submissionName: submissionName,
+                reminderDate: reminderDate
+            )
+            if let notifId {
+                await MainActor.run {
+                    pubSubmission.reminderNotificationId = notifId
                 }
             }
         }
-        
-        // Copy SubmittedFiles from Collection with preserved versions
-        let copiedFiles = (submission.submittedFiles ?? []).map { original in
+    }
+
+    private func copiedSubmittedFiles(from source: [SubmittedFile], to destination: Submission) -> [SubmittedFile] {
+        source.map { original in
             SubmittedFile(
-                submission: pubSubmission,
+                submission: destination,
                 textFile: original.textFile,
-                version: original.version,  // Preserve version!
+                version: original.version,
                 status: .pending
             )
         }
-        
-        pubSubmission.submittedFiles = copiedFiles
-        
-        // Save to database
+    }
+    
+    private func createSubmissionFromCollection(to publication: Publication, name: String, expectedResponseDate: Date? = nil, reminderDate: Date? = nil) {
+        guard let project = submission.project else { return }
+
+        let trimmedName = resolvedSubmissionName(from: name)
+        if hasDuplicateSubmissionName(trimmedName, in: project) {
+            duplicateSubmissionName = trimmedName
+            showDuplicateSubmission = true
+            return
+        }
+
+        let pubSubmission = buildPublicationSubmission(
+            project: project,
+            publication: publication,
+            name: trimmedName,
+            expectedResponseDate: expectedResponseDate
+        )
+
+        let sourceFiles = submission.submittedFiles ?? []
+        pubSubmission.submittedFiles = copiedSubmittedFiles(from: sourceFiles, to: pubSubmission)
+
+        scheduleReminderIfNeeded(
+            for: pubSubmission,
+            publicationName: publication.name,
+            submissionName: trimmedName.isEmpty ? "Submission" : trimmedName,
+            reminderDate: reminderDate
+        )
+
         modelContext.insert(pubSubmission)
-        
+
         do {
             try modelContext.save()
         } catch {
@@ -878,40 +1016,17 @@ struct AddFilesToCollectionSheet: View {
     }
     
     private func versionPickerView(for file: TextFile) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        let versions: [Version] = file.sortedVersions
+
+        return VStack(alignment: .leading, spacing: 8) {
             Text("collectionsView.selectVersion")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .padding(.leading, 32)
-            
-            let versions: [Version] = file.sortedVersions
+
             if !versions.isEmpty {
                 ForEach(versions, id: \.id) { version in
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(String(format: NSLocalizedString("collectionsView.version", comment: "Version number"), version.versionNumber))
-                                .font(.body)
-                            
-                            if let comment = version.comment, !comment.isEmpty {
-                                Text(comment)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                            }
-                        }
-                        
-                        Spacer()
-                        
-                        if selectedVersions[file.id]?.id == version.id {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundStyle(.blue)
-                        }
-                    }
-                    .padding(.leading, 32)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        selectedVersions[file.id] = version
-                    }
+                    versionRow(version, for: file.id)
                 }
             }
         }
@@ -919,6 +1034,38 @@ struct AddFilesToCollectionSheet: View {
         .background(Color(.systemGray6))
         .cornerRadius(8)
         .padding(.horizontal, 16)
+    }
+
+    @ViewBuilder
+    private func versionComment(_ comment: String?) -> some View {
+        if let comment, !comment.isEmpty {
+            Text(comment)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
+    }
+
+    private func versionRow(_ version: Version, for fileID: UUID) -> some View {
+        return HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(String(format: NSLocalizedString("collectionsView.version", comment: "Version number"), version.versionNumber))
+                    .font(.body)
+                versionComment(version.comment)
+            }
+
+            Spacer()
+
+            if selectedVersions[fileID]?.id == version.id {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.blue)
+            }
+        }
+        .padding(.leading, 32)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            selectedVersions[fileID] = version
+        }
     }
     
     private var emptyState: some View {
@@ -1002,65 +1149,91 @@ struct EditVersionSheet: View {
     
     let onCancel: () -> Void
     let onSave: () -> Void
-    
-    var body: some View {
-        let versions: [Version] = textFile.sortedVersions
-        
-        return Group {
-            if !versions.isEmpty {
-                List {
-                    Section {
-                        Text(textFile.name)
-                            .font(.headline)
-                            .foregroundStyle(.primary)
-                    } header: {
-                        Text("collectionsView.editVersion.fileHeader")
-                    }
-                    
-                    Section {
-                        ForEach(versions, id: \.id) { version in
-                            HStack {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(String(format: NSLocalizedString("collectionsView.version", comment: "Version number"), version.versionNumber))
-                                        .font(.body)
-                                    
-                                    if let comment = version.comment, !comment.isEmpty {
-                                        Text(comment)
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                            .lineLimit(1)
-                                    }
-                                    
-                                    Text(String(format: NSLocalizedString("collectionsView.characterCount", comment: "Character count"), version.content.count))
-                                        .font(.caption2)
-                                        .foregroundStyle(.secondary)
-                                }
-                                
-                                Spacer()
-                                
-                                if submittedFile.version?.id == version.id {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .foregroundStyle(.blue)
-                                        .font(.body)
-                                }
-                            }
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                submittedFile.version = version
-                            }
-                        }
-                    } header: {
-                        Text("collectionsView.editVersion.versionsHeader")
-                    }
+
+    private var versions: [Version] {
+        textFile.sortedVersions
+    }
+
+    private var hasVersions: Bool {
+        !versions.isEmpty
+    }
+
+    @ViewBuilder
+    private var editVersionContent: some View {
+        if hasVersions {
+            versionsList
+        } else {
+            noVersionsView
+        }
+    }
+
+    private var versionsList: some View {
+        List {
+            Section {
+                Text(textFile.name)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+            } header: {
+                Text("collectionsView.editVersion.fileHeader")
+            }
+
+            Section {
+                ForEach(versions, id: \.id) { version in
+                    versionSelectionRow(version)
                 }
-            } else {
-                ContentUnavailableView {
-                    Label("collectionsView.editVersion.noVersions.title", systemImage: "doc.text")
-                } description: {
-                    Text("collectionsView.editVersion.noVersions.description")
-                }
+            } header: {
+                Text("collectionsView.editVersion.versionsHeader")
             }
         }
+    }
+
+    private var noVersionsView: some View {
+        ContentUnavailableView {
+            Label("collectionsView.editVersion.noVersions.title", systemImage: "doc.text")
+        } description: {
+            Text("collectionsView.editVersion.noVersions.description")
+        }
+    }
+
+    @ViewBuilder
+    private func versionCommentLine(_ comment: String?) -> some View {
+        if let comment, !comment.isEmpty {
+            Text(comment)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
+    }
+
+    private func versionSelectionRow(_ version: Version) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(String(format: NSLocalizedString("collectionsView.version", comment: "Version number"), version.versionNumber))
+                    .font(.body)
+
+                versionCommentLine(version.comment)
+
+                Text(String(format: NSLocalizedString("collectionsView.characterCount", comment: "Character count"), version.content.count))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            if submittedFile.version?.id == version.id {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.blue)
+                    .font(.body)
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            submittedFile.version = version
+        }
+    }
+    
+    var body: some View {
+        editVersionContent
         .navigationTitle("collectionsView.editVersion.title")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

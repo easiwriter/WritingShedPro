@@ -32,6 +32,16 @@ class PaginatedTextLayoutManager {
         let contentSize: CGSize         // Total scroll content size
         let calculationTime: TimeInterval
     }
+
+    private struct FootnoteInfo {
+        let footnote: FootnoteModel
+        let actualPosition: Int
+    }
+
+    private struct AssembledFootnoteInfo {
+        let footnote: ManuscriptFootnote
+        let actualPosition: Int
+    }
     
     // MARK: - Properties
     
@@ -182,46 +192,14 @@ class PaginatedTextLayoutManager {
         startTime: Date,
         layoutProgress: ((Int, Int) -> Void)? = nil
     ) -> LayoutResult {
-        let estimatedPages = self.estimatedPageCount
+        let estimatedPages = estimatedPageCount
         let pageHeight = pageLayout.pageRect.height
-        let estimatedHeight = CGFloat(estimatedPages) * (pageHeight + pageSpacing) - pageSpacing
-        let estimatedContentSize = CGSize(width: pageLayout.pageRect.width, height: max(estimatedHeight, pageHeight))
-        
-        DispatchQueue.main.async {
-            self.isCalculating = true
-            self.isLayoutComplete = false
-            self.layoutResult = LayoutResult(
-                totalPages: estimatedPages,
-                pageInfos: [],
-                contentSize: estimatedContentSize,
-                calculationTime: 0
-            )
-            self.isLayoutValid = true
-        }
+        updateInitialEstimatedLayout(estimatedPages: estimatedPages, pageLayout: pageLayout, pageHeight: pageHeight)
         
         let maxFootnoteSpace = containerSize.height * 0.5
         let totalCharacters = textStorage.length
         let maxIterations = 5
-        
-        // Build actual positions from text storage
-        var actualPositions: [UUID: Int] = [:]
-        textStorage.enumerateAttribute(.attachment, in: NSRange(location: 0, length: textStorage.length), options: []) { value, range, _ in
-            if let footnoteAttachment = value as? FootnoteAttachment {
-                actualPositions[footnoteAttachment.footnoteID] = range.location
-            }
-        }
-        
-        struct AssembledFootnoteInfo {
-            let footnote: ManuscriptFootnote
-            let actualPosition: Int
-        }
-        
-        let footnotesWithPositions: [AssembledFootnoteInfo] = assembledFootnotes.compactMap { fn in
-            if let actualPos = actualPositions[fn.attachmentID] {
-                return AssembledFootnoteInfo(footnote: fn, actualPosition: actualPos)
-            }
-            return AssembledFootnoteInfo(footnote: fn, actualPosition: fn.characterPosition)
-        }.sorted { $0.actualPosition < $1.actualPosition }
+        let footnotesWithPositions = buildAssembledFootnoteInfos(from: assembledFootnotes)
         
         #if DEBUG
         print("📐 Starting manuscript footnote-aware pagination for \(totalCharacters) chars, \(footnotesWithPositions.count) footnotes")
@@ -235,91 +213,26 @@ class PaginatedTextLayoutManager {
         var pageIndex = 0
         
         while pageIndex < 1000 {
-            var reservedFootnoteSpace: CGFloat = 0
-            var converged = false
-            var previousFootnoteCount = -1
-            
-            for _ in 0..<maxIterations {
-                let textHeight = containerSize.height - reservedFootnoteSpace
-                if textHeight < 50 { break }
-                
-                while layoutManager.textContainers.count > pageIndex {
-                    layoutManager.removeTextContainer(at: pageIndex)
-                }
-                
-                let pageContainerSize = CGSize(width: containerSize.width, height: textHeight)
-                let container = NSTextContainer(size: pageContainerSize)
-                container.lineFragmentPadding = 0
-                layoutManager.addTextContainer(container)
-                layoutManager.ensureLayout(for: container)
-                
-                let glyphRange = layoutManager.glyphRange(for: container)
-                if glyphRange.length == 0 {
-                    layoutManager.removeTextContainer(at: pageIndex)
-                    converged = true
-                    break
-                }
-                
-                let charRange = layoutManager.characterRange(forGlyphRange: glyphRange, actualGlyphRange: nil)
-                
-                let footnotesOnPage = footnotesWithPositions.filter { fnInfo in
-                    NSLocationInRange(fnInfo.actualPosition, charRange)
-                }
-                
-                var neededSpace: CGFloat = 0
-                if !footnotesOnPage.isEmpty {
-                    let models = footnotesOnPage.map { $0.footnote }
-                    neededSpace = calculateFootnoteHeight(for: models, pageWidth: containerSize.width)
-                    neededSpace = min(neededSpace, maxFootnoteSpace)
-                }
-                
-                // Simple convergence: if same footnote count and close enough space, done
-                if footnotesOnPage.count == previousFootnoteCount && abs(neededSpace - reservedFootnoteSpace) < 1 {
-                    let usedRect = layoutManager.usedRect(for: container)
-                    pageInfos.append(PageInfo(
-                        pageIndex: pageIndex,
-                        glyphRange: glyphRange,
-                        characterRange: charRange,
-                        usedRect: usedRect
-                    ))
-                    converged = true
-                    break
-                }
-                
-                // On oscillation (count went down then up), use the smaller set
-                if previousFootnoteCount >= 0 && footnotesOnPage.count != previousFootnoteCount {
-                    // Accept current state with current reserved space
-                    reservedFootnoteSpace = neededSpace
-                    previousFootnoteCount = footnotesOnPage.count
-                    continue
-                }
-                
-                previousFootnoteCount = footnotesOnPage.count
-                reservedFootnoteSpace = neededSpace
+            guard let pageInfo = assembledPageInfo(
+                pageIndex: pageIndex,
+                containerSize: containerSize,
+                footnotesWithPositions: footnotesWithPositions,
+                maxFootnoteSpace: maxFootnoteSpace,
+                maxIterations: maxIterations
+            ) else {
+                break
             }
-            
-            if !converged {
-                if layoutManager.textContainers.count > pageIndex {
-                    let container = layoutManager.textContainers[pageIndex]
-                    let glyphRange = layoutManager.glyphRange(for: container)
-                    let charRange = layoutManager.characterRange(forGlyphRange: glyphRange, actualGlyphRange: nil)
-                    let usedRect = layoutManager.usedRect(for: container)
-                    if glyphRange.length > 0 {
-                        pageInfos.append(PageInfo(
-                            pageIndex: pageIndex,
-                            glyphRange: glyphRange,
-                            characterRange: charRange,
-                            usedRect: usedRect
-                        ))
-                    }
-                }
-            }
+
+            pageInfos.append(pageInfo)
             
             if let progress = layoutProgress, pageInfos.count % 5 == 0 {
                 let charsProcessed = pageInfos.last.map { NSMaxRange($0.characterRange) } ?? 0
-                let runningEstimate = charsProcessed > 0 && charsProcessed < totalCharacters
-                    ? max(estimatedPages, Int(ceil(Double(pageInfos.count) * Double(totalCharacters) / Double(charsProcessed))))
-                    : max(estimatedPages, pageInfos.count)
+                let runningEstimate = runningPageEstimate(
+                    pageCount: pageInfos.count,
+                    charsProcessed: charsProcessed,
+                    totalCharacters: totalCharacters,
+                    estimatedPages: estimatedPages
+                )
                 progress(pageInfos.count, runningEstimate)
             }
             
@@ -351,18 +264,12 @@ class PaginatedTextLayoutManager {
         var finalPageInfos: [PageInfo] = []
         
         for pageInfo in currentPageInfos {
-            let footnotesOnPage = footnotesWithPositions.filter { fnInfo in
-                NSLocationInRange(fnInfo.actualPosition, pageInfo.characterRange)
-            }
-            
-            let footnoteHeight: CGFloat
-            if !footnotesOnPage.isEmpty {
-                let models = footnotesOnPage.map { $0.footnote }
-                let rawHeight = calculateFootnoteHeight(for: models, pageWidth: containerSize.width)
-                footnoteHeight = min(rawHeight, maxFootnoteSpace)
-            } else {
-                footnoteHeight = 0
-            }
+            let footnoteHeight = assembledFootnoteHeight(
+                for: pageInfo.characterRange,
+                footnotesWithPositions: footnotesWithPositions,
+                pageWidth: containerSize.width,
+                maxFootnoteSpace: maxFootnoteSpace
+            )
             
             let pageContainerSize = footnoteHeight > 0
                 ? CGSize(width: containerSize.width, height: containerSize.height - footnoteHeight)
@@ -387,11 +294,7 @@ class PaginatedTextLayoutManager {
             layoutManager.addTextContainer(container)
         }
         
-        let totalHeight = CGFloat(finalPageInfos.count) * (pageHeight + pageSpacing) - pageSpacing
-        let contentSize = CGSize(
-            width: pageLayout.pageRect.width,
-            height: max(totalHeight, pageHeight)
-        )
+        let contentSize = finalContentSize(pageCount: finalPageInfos.count, pageLayout: pageLayout, pageHeight: pageHeight)
         
         let calculationTime = Date().timeIntervalSince(startTime)
         let result = LayoutResult(
@@ -409,6 +312,107 @@ class PaginatedTextLayoutManager {
         }
         
         return result
+    }
+
+    private func buildAssembledFootnoteInfos(from assembledFootnotes: [ManuscriptFootnote]) -> [AssembledFootnoteInfo] {
+        let actualPositions = actualFootnoteAttachmentPositions()
+        return assembledFootnotes.compactMap { footnote in
+            if let actualPos = actualPositions[footnote.attachmentID] {
+                return AssembledFootnoteInfo(footnote: footnote, actualPosition: actualPos)
+            }
+            return AssembledFootnoteInfo(footnote: footnote, actualPosition: footnote.characterPosition)
+        }
+        .sorted { $0.actualPosition < $1.actualPosition }
+    }
+
+    private func assembledPageInfo(
+        pageIndex: Int,
+        containerSize: CGSize,
+        footnotesWithPositions: [AssembledFootnoteInfo],
+        maxFootnoteSpace: CGFloat,
+        maxIterations: Int
+    ) -> PageInfo? {
+        var reservedFootnoteSpace: CGFloat = 0
+        var previousFootnoteCount = -1
+
+        for _ in 0..<maxIterations {
+            let textHeight = containerSize.height - reservedFootnoteSpace
+            if textHeight < 50 { break }
+
+            while layoutManager.textContainers.count > pageIndex {
+                layoutManager.removeTextContainer(at: pageIndex)
+            }
+
+            let pageContainerSize = CGSize(width: containerSize.width, height: textHeight)
+            let container = NSTextContainer(size: pageContainerSize)
+            container.lineFragmentPadding = 0
+            layoutManager.addTextContainer(container)
+            layoutManager.ensureLayout(for: container)
+
+            let glyphRange = layoutManager.glyphRange(for: container)
+            if glyphRange.length == 0 {
+                layoutManager.removeTextContainer(at: pageIndex)
+                return nil
+            }
+
+            let charRange = layoutManager.characterRange(forGlyphRange: glyphRange, actualGlyphRange: nil)
+            let footnoteHeight = assembledFootnoteHeight(
+                for: charRange,
+                footnotesWithPositions: footnotesWithPositions,
+                pageWidth: containerSize.width,
+                maxFootnoteSpace: maxFootnoteSpace
+            )
+
+            let footnoteCount = footnotesWithPositions.filter { fnInfo in
+                NSLocationInRange(fnInfo.actualPosition, charRange)
+            }.count
+
+            if footnoteCount == previousFootnoteCount && abs(footnoteHeight - reservedFootnoteSpace) < 1 {
+                let usedRect = layoutManager.usedRect(for: container)
+                return PageInfo(
+                    pageIndex: pageIndex,
+                    glyphRange: glyphRange,
+                    characterRange: charRange,
+                    usedRect: usedRect
+                )
+            }
+
+            previousFootnoteCount = footnoteCount
+            reservedFootnoteSpace = footnoteHeight
+        }
+
+        if layoutManager.textContainers.count > pageIndex {
+            let container = layoutManager.textContainers[pageIndex]
+            let glyphRange = layoutManager.glyphRange(for: container)
+            let charRange = layoutManager.characterRange(forGlyphRange: glyphRange, actualGlyphRange: nil)
+            let usedRect = layoutManager.usedRect(for: container)
+            if glyphRange.length > 0 {
+                return PageInfo(
+                    pageIndex: pageIndex,
+                    glyphRange: glyphRange,
+                    characterRange: charRange,
+                    usedRect: usedRect
+                )
+            }
+        }
+
+        return nil
+    }
+
+    private func assembledFootnoteHeight(
+        for charRange: NSRange,
+        footnotesWithPositions: [AssembledFootnoteInfo],
+        pageWidth: CGFloat,
+        maxFootnoteSpace: CGFloat
+    ) -> CGFloat {
+        let footnotesOnPage = footnotesWithPositions.filter { fnInfo in
+            NSLocationInRange(fnInfo.actualPosition, charRange)
+        }
+
+        guard !footnotesOnPage.isEmpty else { return 0 }
+        let models = footnotesOnPage.map { $0.footnote }
+        let rawHeight = calculateFootnoteHeight(for: models, pageWidth: pageWidth)
+        return min(rawHeight, maxFootnoteSpace)
     }
     
     /// Simple layout calculation without footnote adjustment
@@ -620,24 +624,9 @@ class PaginatedTextLayoutManager {
         startTime: Date,
         layoutProgress: ((Int, Int) -> Void)? = nil
     ) -> LayoutResult {
-        // Mark as calculating and create initial estimated layout
-        let estimatedPages = self.estimatedPageCount
+        let estimatedPages = estimatedPageCount
         let pageHeight = pageLayout.pageRect.height
-        let estimatedHeight = CGFloat(estimatedPages) * (pageHeight + pageSpacing) - pageSpacing
-        let estimatedContentSize = CGSize(width: pageLayout.pageRect.width, height: max(estimatedHeight, pageHeight))
-        
-        DispatchQueue.main.async {
-            self.isCalculating = true
-            self.isLayoutComplete = false
-            // Create initial layout so view can display immediately
-            self.layoutResult = LayoutResult(
-                totalPages: estimatedPages,
-                pageInfos: [],
-                contentSize: estimatedContentSize,
-                calculationTime: 0
-            )
-            self.isLayoutValid = true
-        }
+        updateInitialEstimatedLayout(estimatedPages: estimatedPages, pageLayout: pageLayout, pageHeight: pageHeight)
         
         // Get all footnotes for this version
         let allFootnotes = FootnoteManager.shared.getActiveFootnotes(forVersion: version, context: context)
@@ -645,33 +634,7 @@ class PaginatedTextLayoutManager {
         let totalCharacters = textStorage.length
         let maxPagesPerFootnoteIteration = 5  // Max iterations per page for footnote space
         
-        // CRITICAL: Build a map of actual attachment positions from the text storage
-        // The stored characterPosition in FootnoteModel may be stale/incorrect
-        // We need to find where the FootnoteAttachment objects actually are in the text
-        var actualPositions: [UUID: Int] = [:]
-        textStorage.enumerateAttribute(.attachment, in: NSRange(location: 0, length: textStorage.length), options: []) { value, range, _ in
-            if let footnoteAttachment = value as? FootnoteAttachment {
-                actualPositions[footnoteAttachment.footnoteID] = range.location
-            }
-        }
-        
-        // Create footnote info with actual positions from text storage
-        struct FootnoteInfo {
-            let footnote: FootnoteModel
-            let actualPosition: Int
-        }
-        
-        let footnotesWithActualPositions: [FootnoteInfo] = allFootnotes.compactMap { footnote in
-            if let actualPos = actualPositions[footnote.attachmentID] {
-                return FootnoteInfo(footnote: footnote, actualPosition: actualPos)
-            } else {
-                // Footnote not found in text - use stored position as fallback
-                #if DEBUG
-                print("   ⚠️ Footnote #\(footnote.number) not found in text, using stored position \(footnote.characterPosition)")
-                #endif
-                return FootnoteInfo(footnote: footnote, actualPosition: footnote.characterPosition)
-            }
-        }.sorted { $0.actualPosition < $1.actualPosition }
+        let footnotesWithActualPositions = buildFootnotesWithActualPositions(from: allFootnotes)
         
         // TeX-like algorithm: Build pages SEQUENTIALLY in a single layout pass
         // Each page's container stays in the layout manager as we build the next
@@ -940,12 +903,12 @@ class PaginatedTextLayoutManager {
             // Report layout progress every 5 pages (throttle to avoid flooding main actor)
             if let progress = layoutProgress, pageInfos.count % 5 == 0 {
                 let charsProcessed = pageInfos.last.map { NSMaxRange($0.characterRange) } ?? 0
-                let runningEstimate: Int
-                if charsProcessed > 0 && charsProcessed < totalCharacters {
-                    runningEstimate = max(estimatedPages, Int(ceil(Double(pageInfos.count) * Double(totalCharacters) / Double(charsProcessed))))
-                } else {
-                    runningEstimate = max(estimatedPages, pageInfos.count)
-                }
+                let runningEstimate = runningPageEstimate(
+                    pageCount: pageInfos.count,
+                    charsProcessed: charsProcessed,
+                    totalCharacters: totalCharacters,
+                    estimatedPages: estimatedPages
+                )
                 progress(pageInfos.count, runningEstimate)
             }
             
@@ -1043,12 +1006,7 @@ class PaginatedTextLayoutManager {
             layoutManager.addTextContainer(container)
         }
         
-        // Calculate total content size
-        let totalHeight = CGFloat(finalPageInfos.count) * (pageHeight + pageSpacing) - pageSpacing
-        let contentSize = CGSize(
-            width: pageLayout.pageRect.width,
-            height: max(totalHeight, pageHeight)
-        )
+        let contentSize = finalContentSize(pageCount: finalPageInfos.count, pageLayout: pageLayout, pageHeight: pageHeight)
         
         let calculationTime = Date().timeIntervalSince(startTime)
         
@@ -1068,6 +1026,64 @@ class PaginatedTextLayoutManager {
         }
         
         return result
+    }
+
+    private func updateInitialEstimatedLayout(estimatedPages: Int, pageLayout: PageLayoutCalculator.PageLayout, pageHeight: CGFloat) {
+        let estimatedHeight = CGFloat(estimatedPages) * (pageHeight + pageSpacing) - pageSpacing
+        let estimatedContentSize = CGSize(width: pageLayout.pageRect.width, height: max(estimatedHeight, pageHeight))
+
+        DispatchQueue.main.async {
+            self.isCalculating = true
+            self.isLayoutComplete = false
+            self.layoutResult = LayoutResult(
+                totalPages: estimatedPages,
+                pageInfos: [],
+                contentSize: estimatedContentSize,
+                calculationTime: 0
+            )
+            self.isLayoutValid = true
+        }
+    }
+
+    private func actualFootnoteAttachmentPositions() -> [UUID: Int] {
+        var actualPositions: [UUID: Int] = [:]
+        textStorage.enumerateAttribute(.attachment, in: NSRange(location: 0, length: textStorage.length), options: []) { value, range, _ in
+            if let footnoteAttachment = value as? FootnoteAttachment {
+                actualPositions[footnoteAttachment.footnoteID] = range.location
+            }
+        }
+        return actualPositions
+    }
+
+    private func buildFootnotesWithActualPositions(from allFootnotes: [FootnoteModel]) -> [FootnoteInfo] {
+        let actualPositions = actualFootnoteAttachmentPositions()
+        return allFootnotes.compactMap { footnote in
+            if let actualPos = actualPositions[footnote.attachmentID] {
+                return FootnoteInfo(footnote: footnote, actualPosition: actualPos)
+            }
+
+            #if DEBUG
+            print("   ⚠️ Footnote #\(footnote.number) not found in text, using stored position \(footnote.characterPosition)")
+            #endif
+            return FootnoteInfo(footnote: footnote, actualPosition: footnote.characterPosition)
+        }
+        .sorted { $0.actualPosition < $1.actualPosition }
+    }
+
+    private func runningPageEstimate(pageCount: Int, charsProcessed: Int, totalCharacters: Int, estimatedPages: Int) -> Int {
+        if charsProcessed > 0 && charsProcessed < totalCharacters {
+            let projectedPages = Int(ceil(Double(pageCount) * Double(totalCharacters) / Double(charsProcessed)))
+            return max(estimatedPages, projectedPages)
+        }
+        return max(estimatedPages, pageCount)
+    }
+
+    private func finalContentSize(pageCount: Int, pageLayout: PageLayoutCalculator.PageLayout, pageHeight: CGFloat) -> CGSize {
+        let totalHeight = CGFloat(pageCount) * (pageHeight + pageSpacing) - pageSpacing
+        return CGSize(
+            width: pageLayout.pageRect.width,
+            height: max(totalHeight, pageHeight)
+        )
     }
     
     /// Invalidate the current layout (call when text or page setup changes)

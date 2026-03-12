@@ -118,6 +118,17 @@ struct Write_App: App {
             
             #if DEBUG
             print("✅ [Write_App] Main context ready")
+            
+            // ── Force CloudKit schema registration for join models ──
+            // The mirroring engine never created record types for the fiction join
+            // tables because they had no data.  The standalone Core Data
+            // initializeCloudKitSchema() times out on Catalyst (no APNs for a
+            // second container).
+            //
+            // Direct approach: create CKRecords of each missing type directly
+            // via the CloudKit API.  In the DEVELOPMENT environment, CloudKit
+            // auto-creates record types when records are saved to a zone.
+            Write_App.createMissingCloudKitRecordTypes()
             #endif
             
             // Monitor CloudKit sync errors at the transaction level
@@ -132,12 +143,8 @@ struct Write_App: App {
             #endif
             
             // Monitor CloudKit sync events for diagnostics and auto-retry
-            let syncRetryContext = mainContext
-            // Track consecutive export failures to limit nudge attempts.
-            // Box so the closure can mutate it.
-            let exportFailureCount = UnsafeMutablePointer<Int>.allocate(capacity: 1)
-            exportFailureCount.initialize(to: 0)
-            let maxNudgeAttempts = 3
+            // Keep event monitoring read-only for stability: we log and update throttler
+            // state, but do not perform automatic local mutations to force retries.
             
             NotificationCenter.default.addObserver(
                 forName: NSPersistentCloudKitContainer.eventChangedNotification,
@@ -175,83 +182,53 @@ struct Write_App: App {
                         print("   Underlying: domain=\(underlying.domain) code=\(underlying.code) \(underlying.localizedDescription)")
                     }
                     #endif
+
+                    if event.type == .import {
+                        let underlying = nsError?.userInfo[NSUnderlyingErrorKey] as? NSError
+                        let isTransportFailure = (errorDomain == "CKErrorDomain" && errorCode == 4)
+                            || (underlying?.domain == NSURLErrorDomain && underlying?.code == -1017)
+                        if isTransportFailure {
+                            CloudKitSyncThrottler.shared.recordImportTransportFailure()
+                            #if DEBUG
+                            print("⏳ [CloudKit Sync] Import transport failure detected — pausing manual CloudKit kicks")
+                            #endif
+                        }
+                    }
                     
-                    // Auto-retry for export failures.
-                    // CKError code 6 = requestRateLimited — the container's internal
-                    // retry handles this automatically with proper backoff.
-                    // We only nudge for NON-rate-limit failures where the container may stall.
+                    // CKError code 6 = serviceUnavailable, code 7 = requestRateLimited.
+                    // The container's internal retry handles these with proper backoff.
+                    // Record rate-limit state so voluntary operations back off.
                     if event.type == .export {
-                        let isRateLimited = (errorDomain == "CKErrorDomain" && errorCode == 6)
-                        let failCount = exportFailureCount.pointee + 1
-                        exportFailureCount.pointee = failCount
-                        
+                        let isRateLimited = (errorDomain == "CKErrorDomain" && (errorCode == 6 || errorCode == 7))
+
                         if isRateLimited {
                             // Extract server-provided retry-after hint from CKError userInfo
                             let retryAfter = (nsError?.userInfo["CKRetryAfter"] as? Double)
                                 ?? (nsError?.userInfo["retryAfter"] as? Double)
                                 ?? 30.0
                             #if DEBUG
-                            print("⏳ [CloudKit Sync] Rate limited (attempt \(failCount)). Server says retry after \(retryAfter)s.")
+                            print("⏳ [CloudKit Sync] Rate limited. Server says retry after \(retryAfter)s.")
                             #endif
-                            Write_App.logToFile("⏳ Rate limited (attempt \(failCount)), backoff \(retryAfter)s")
+                            Write_App.logToFile("⏳ Rate limited, backoff \(retryAfter)s")
                             
-                            // The container's internal retry SHOULD handle this, but it often
-                            // stalls in debug sessions and sometimes in release too.
-                            // Schedule a safety-net nudge after server backoff + generous buffer.
-                            // Only nudge up to 3 times for rate limits to avoid a feedback loop.
-                            if failCount <= maxNudgeAttempts {
-                                let safetyDelay = max(retryAfter, 5.0) + 25.0  // server backoff + 25s buffer
-                                #if DEBUG
-                                print("🔄 [CloudKit Sync] Safety-net nudge in \(Int(safetyDelay))s if container doesn't retry...")
-                                #endif
-                                DispatchQueue.main.asyncAfter(deadline: .now() + safetyDelay) {
-                                    var descriptor = FetchDescriptor<Project>()
-                                    descriptor.fetchLimit = 1
-                                    if let project = try? syncRetryContext.fetch(descriptor).first {
-                                        project.modifiedDate = Date()
-                                        try? syncRetryContext.save()
-                                        #if DEBUG
-                                        print("🔄 [CloudKit Sync] Safety-net nudge fired: touched '\(project.name ?? "")' (rate-limit attempt \(failCount))")
-                                        #endif
-                                    }
-                                }
-                            } else {
-                                #if DEBUG
-                                print("⚠️ [CloudKit Sync] Rate limited \(failCount) times – no more nudges, waiting for container.")
-                                #endif
-                            }
-                        } else if failCount <= maxNudgeAttempts {
-                            // Non-rate-limit failure: nudge with a mutation after delay.
-                            // Linear backoff: 30s, 45s, 60s
-                            let delay = 15.0 + (15.0 * Double(failCount))
-                            #if DEBUG
-                            print("🔄 [CloudKit Sync] Will nudge delegate in \(Int(delay))s (attempt \(failCount)/\(maxNudgeAttempts))...")
-                            #endif
-                            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                                var descriptor = FetchDescriptor<Project>()
-                                descriptor.fetchLimit = 1
-                                if let project = try? syncRetryContext.fetch(descriptor).first {
-                                    project.modifiedDate = Date()
-                                    try? syncRetryContext.save()
-                                    #if DEBUG
-                                    print("🔄 [CloudKit Sync] Nudged: touched '\(project.name ?? "")' modifiedDate (attempt \(failCount))")
-                                    #endif
-                                }
-                            }
+                            // Tell the throttler so ALL our voluntary sync operations back off
+                            CloudKitSyncThrottler.shared.recordRateLimit(retryAfter: retryAfter)
                         } else {
                             #if DEBUG
-                            print("⚠️ [CloudKit Sync] Export failed \(failCount) times – no more nudge attempts. Will rely on container's internal retry.")
+                            print("⚠️ [CloudKit Sync] Export failed (non-rate-limit). Relying on container's internal retry.")
                             #endif
-                            Write_App.logToFile("⚠️ Export failed \(failCount) times – nudge limit reached")
+                            Write_App.logToFile("⚠️ Export failed (non-rate-limit) — relying on internal retry")
                         }
                     }
                 } else {
                     #if DEBUG
                     print("☁️ [CloudKit Sync] OK: type=\(typeStr) endDate=\(endDateStr)")
                     #endif
-                    // Reset failure counter on any successful event
                     if event.type == .export {
-                        exportFailureCount.pointee = 0
+                        CloudKitSyncThrottler.shared.clearRateLimit()
+                    }
+                    if event.type == .import {
+                        CloudKitSyncThrottler.shared.clearImportTransportFailureBackoff()
                     }
                 }
             }
@@ -276,7 +253,20 @@ struct Write_App: App {
                 
                 // Give the mirroring delegate a moment to clear internal state,
                 // then trigger a zone fetch to kick-start import from scratch.
+                // Skip if we're currently rate-limited — the container will retry on its own.
                 DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
+                    guard !CloudKitSyncThrottler.shared.isRateLimited else {
+                        #if DEBUG
+                        print("⏳ [CloudKit Sync] Post-reset zone fetch skipped — rate-limited")
+                        #endif
+                        return
+                    }
+                    guard !CloudKitSyncThrottler.shared.isManualKickPaused else {
+                        #if DEBUG
+                        print("⏳ [CloudKit Sync] Post-reset zone fetch skipped — manual kick backoff active")
+                        #endif
+                        return
+                    }
                     let ck = CKContainer(identifier: "iCloud.com.appworks.writingshedpro")
                     let db = ck.privateCloudDatabase
                     db.fetchAllRecordZones { zones, error in
@@ -665,4 +655,101 @@ struct Write_App: App {
             try? logEntry.write(to: logFileURL, atomically: true, encoding: .utf8)
         }
     }
+    
+    // MARK: - CloudKit Schema Seeding (DEBUG only)
+    
+    #if DEBUG
+    /// Inserts one temporary record of each fiction join-table type so that
+    /// NSPersistentCloudKitContainer registers the corresponding CloudKit
+    /// record types (CD_SceneChapterLink, CD_SceneActLink, etc.).
+    ///
+    /// Without at least one record per entity, the mirroring engine never
+    /// creates the record type in CloudKit.  After running this once in the
+    /// **development** environment you can deploy the schema to production
+    /// via CloudKit Console → "Deploy Schema Changes…".
+    ///
+    /// The seed records are deleted on the NEXT launch so they don't linger.
+    /// 
+    /// Creates CKRecord objects directly in the CloudKit private database zone
+    /// for each missing record type.  In the DEVELOPMENT environment, CloudKit
+    /// auto-creates record types when records are saved.  This bypasses the
+    /// mirroring engine entirely — no APNs, no persistent history needed.
+    private static func createMissingCloudKitRecordTypes() {
+        print("🔧 [SchemaInit] Creating missing record types directly via CloudKit API...")
+        
+        let ckContainer = CKContainer(identifier: "iCloud.com.appworks.writingshedpro")
+        let database = ckContainer.privateCloudDatabase
+        let zoneID = CKRecordZone.ID(zoneName: "com.apple.coredata.cloudkit.zone", ownerName: CKCurrentUserDefaultName)
+        
+        // These are the CD_ record type names that Core Data's mirroring engine
+        // would create if it exported records of these entities.
+        let missingTypes = [
+            "CD_SceneChapterLink",
+            "CD_SceneActLink",
+            "CD_SceneBookLink",
+            "CD_SceneCharacterLink",
+            "CD_CharacterPlotElementLink",
+            "CD_LocationPlotElementLink"
+        ]
+        
+        var recordsToSave: [CKRecord] = []
+        
+        for typeName in missingTypes {
+            let recordID = CKRecord.ID(
+                recordName: "schema_seed_\(typeName)_\(UUID().uuidString)",
+                zoneID: zoneID
+            )
+            let record = CKRecord(recordType: typeName, recordID: recordID)
+            // Add the id field that Core Data expects on all mirrored entities
+            record["CD_id"] = UUID().uuidString as CKRecordValue
+            recordsToSave.append(record)
+            print("📋 [SchemaInit] Prepared: \(typeName)")
+        }
+        
+        // Use a CKModifyRecordsOperation for batch save
+        let operation = CKModifyRecordsOperation(recordsToSave: recordsToSave, recordIDsToDelete: nil)
+        operation.savePolicy = .allKeys
+        operation.qualityOfService = .userInitiated
+        
+        operation.modifyRecordsResultBlock = { result in
+            switch result {
+            case .success:
+                print("✅✅✅ [SchemaInit] All 6 record types created in CloudKit DEVELOPMENT!")
+                print("✅ [SchemaInit] Go to CloudKit Console → Development → Record Types")
+                print("✅ [SchemaInit] You should see: \(missingTypes.joined(separator: ", "))")
+                print("✅ [SchemaInit] Then click 'Deploy Schema Changes to Production'")
+                
+                // Now clean up: delete the seed records (we only needed them
+                // to force CloudKit to create the record types)
+                let deleteIDs = recordsToSave.map { $0.recordID }
+                let deleteOp = CKModifyRecordsOperation(recordsToSave: nil, recordIDsToDelete: deleteIDs)
+                deleteOp.qualityOfService = .utility
+                deleteOp.modifyRecordsResultBlock = { deleteResult in
+                    switch deleteResult {
+                    case .success:
+                        print("🗑️ [SchemaInit] Seed records cleaned up from CloudKit")
+                    case .failure(let error):
+                        print("⚠️ [SchemaInit] Seed cleanup failed (non-critical): \(error.localizedDescription)")
+                    }
+                }
+                database.add(deleteOp)
+                
+            case .failure(let error):
+                print("❌ [SchemaInit] Failed to create record types: \(error)")
+                let nsErr = error as NSError
+                print("   Domain: \(nsErr.domain), Code: \(nsErr.code)")
+                
+                // Check for partial failures — some types may have succeeded
+                if let partialErrors = nsErr.userInfo[CKPartialErrorsByItemIDKey] as? [CKRecord.ID: NSError] {
+                    for (id, err) in partialErrors {
+                        print("   Record \(id.recordName): \(err.localizedDescription)")
+                    }
+                }
+            }
+        }
+        
+        print("🚀 [SchemaInit] Sending \(recordsToSave.count) records to CloudKit...")
+        database.add(operation)
+    }
+    #endif
 }

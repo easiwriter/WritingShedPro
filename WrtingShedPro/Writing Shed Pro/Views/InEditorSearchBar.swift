@@ -65,22 +65,26 @@ struct InEditorSearchBar: View {
                     .foregroundColor(Color(uiColor: .separator)),
                 alignment: .bottom
             )
-            .background(KeyboardShortcutHandler(
-                onEscape: { dismissSearchBar() },
-                onReturn: {
-                    if focusedField == .replace {
-                        let _ = manager.replaceCurrentMatch()
-                        manager.nextMatch()
-                    } else {
-                        manager.nextMatch()
-                    }
-                },
-                onShiftReturn: {
-                    manager.previousMatch()
-                },
-                onCommandG: { manager.nextMatch() },
-                onCommandShiftG: { manager.previousMatch() }
-            ))
+            .background {
+                if UIDevice.current.userInterfaceIdiom != .phone {
+                    KeyboardShortcutHandler(
+                        onEscape: { dismissSearchBar() },
+                        onReturn: {
+                            if focusedField == .replace {
+                                let _ = manager.replaceCurrentMatch()
+                                manager.nextMatch()
+                            } else {
+                                manager.nextMatch()
+                            }
+                        },
+                        onShiftReturn: {
+                            manager.previousMatch()
+                        },
+                        onCommandG: { manager.nextMatch() },
+                        onCommandShiftG: { manager.previousMatch() }
+                    )
+                }
+            }
         }
     }
     
