@@ -138,7 +138,7 @@ struct AddProjectSheet: View {
             name: projectName,
             type: selectedType,
             details: details.isEmpty ? nil : details,
-            userOrder: allProjects.count // Place new project at the end
+            userOrder: ProjectSortService.nextUserOrder(for: allProjects)
         )
         
         // Set fiction-specific properties if applicable

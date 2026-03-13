@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 
 enum SortOrder: String, CaseIterable {
     case byName
@@ -17,8 +18,37 @@ struct ProjectSortService {
         case .byModifiedDate:
             return projects.sorted { ($0.modifiedDate ?? Date.distantPast) > ($1.modifiedDate ?? Date.distantPast) }
         case .byUserOrder:
-            return projects.sorted { ($0.userOrder ?? Int.max) < ($1.userOrder ?? Int.max) }
+            return projects.sorted { lhs, rhs in
+                let lhsOrder = lhs.userOrder ?? Int.max
+                let rhsOrder = rhs.userOrder ?? Int.max
+                if lhsOrder != rhsOrder {
+                    return lhsOrder < rhsOrder
+                }
+
+                let lhsCreation = lhs.creationDate ?? Date.distantPast
+                let rhsCreation = rhs.creationDate ?? Date.distantPast
+                if lhsCreation != rhsCreation {
+                    return lhsCreation < rhsCreation
+                }
+
+                let nameComparison = (lhs.name ?? "").localizedCaseInsensitiveCompare(rhs.name ?? "")
+                if nameComparison != .orderedSame {
+                    return nameComparison == .orderedAscending
+                }
+
+                return lhs.id.uuidString < rhs.id.uuidString
+            }
         }
+    }
+
+    static func nextUserOrder(for projects: [Project]) -> Int {
+        (projects.compactMap(\ .userOrder).max() ?? -1) + 1
+    }
+
+    static func nextUserOrder(in context: ModelContext) -> Int {
+        let descriptor = FetchDescriptor<Project>()
+        let projects = (try? context.fetch(descriptor)) ?? []
+        return nextUserOrder(for: projects)
     }
     
     /// Updates userOrder for projects based on their new positions after drag-and-drop

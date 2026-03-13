@@ -712,16 +712,45 @@ struct ContentView: View {
     private func initializeUserOrderIfNeeded() {
         // DISABLED: All migrations disabled - breaking CloudKit sync
         // ProjectFolderMigrationService.migrateIfNeeded(modelContext: modelContext)
-        
-        // Ensure all existing projects have a userOrder
-        let projectsNeedingOrder = projects.filter { $0.userOrder == nil }
-        if !projectsNeedingOrder.isEmpty {
-            for (index, project) in projects.enumerated() {
-                if project.userOrder == nil {
-                    project.userOrder = index
-                }
-            }
-            try? modelContext.save()
+
+        let descriptor = FetchDescriptor<Project>(sortBy: [SortDescriptor(\Project.creationDate)])
+        guard let allProjects = try? modelContext.fetch(descriptor), !allProjects.isEmpty else {
+            return
+        }
+
+        let projectsNeedingOrder = allProjects.filter { $0.userOrder == nil }
+        guard !projectsNeedingOrder.isEmpty else {
+            return
+        }
+
+        let throttler = CloudKitSyncThrottler.shared
+        guard !throttler.hasActiveCloudKitEvent && !throttler.isSyncing else {
+            #if DEBUG
+            print("⏳ [ContentView] Skipping userOrder initialization while CloudKit sync is active")
+            #endif
+            return
+        }
+
+        guard projectsNeedingOrder.count == allProjects.count else {
+            #if DEBUG
+            print("⚠️ [ContentView] Skipping userOrder initialization because only \(projectsNeedingOrder.count) of \(allProjects.count) projects are missing order")
+            #endif
+            return
+        }
+
+        for (index, project) in allProjects.enumerated() {
+            project.userOrder = index
+        }
+
+        do {
+            try modelContext.save()
+            #if DEBUG
+            print("✅ [ContentView] Initialized userOrder for \(allProjects.count) projects")
+            #endif
+        } catch {
+            #if DEBUG
+            print("❌ [ContentView] Failed to initialize userOrder: \(error.localizedDescription)")
+            #endif
         }
     }
     

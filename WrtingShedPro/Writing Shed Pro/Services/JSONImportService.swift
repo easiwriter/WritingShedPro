@@ -123,7 +123,8 @@ class JSONImportService {
             type: projectType,
             creationDate: data.project.creationDate ?? Date(),
             details: data.project.details,
-            notes: data.project.notes
+            notes: data.project.notes,
+            userOrder: ProjectSortService.nextUserOrder(in: modelContext)
         )
         project.modifiedDate = data.project.modifiedDate ?? Date()
         project.author = data.project.author
@@ -1100,7 +1101,12 @@ class JSONImportService {
         }
         
         // Create project
-        let project = Project(name: projectName, type: projectType, creationDate: Date())
+        let project = Project(
+            name: projectName,
+            type: projectType,
+            creationDate: Date(),
+            userOrder: ProjectSortService.nextUserOrder(in: modelContext)
+        )
         project.modifiedDate = Date()
         
         // Set fictionClass for Novel projects
