@@ -15,6 +15,11 @@ struct ContentView: View {
     
     /// Task handle for the periodic sync timer (cancelled when app goes to background)
     @State private var periodicSyncTask: Task<Void, Never>?
+
+    /// Startup migrations must run at most once per app launch.
+    /// ContentView can be rebuilt during sync reconciliation, and rerunning migrations
+    /// during CloudKit activity can cause unnecessary write churn.
+    @State private var hasRunStartupMigrations = false
     
     var body: some View {
         ContentViewBody(
@@ -285,6 +290,14 @@ struct ContentView: View {
     /// Running migrations during that import can cause duplicate records because the
     /// migration modifies imported records, causing CloudKit to treat them as new local records.
     private func runMigrations() {
+        guard !hasRunStartupMigrations else {
+            #if DEBUG
+            print("⏭️ [ContentView] Startup migrations already ran in this launch — skipping")
+            #endif
+            return
+        }
+        hasRunStartupMigrations = true
+
         let throttler = CloudKitSyncThrottler.shared
         
         Task { @MainActor in

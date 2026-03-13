@@ -29,7 +29,9 @@ struct SyncDiagnosticsView: View {
     @State private var showRepairResult = false
     
     @State private var syncForceStatus: String = ""
-    @State private var showSyncForceResult = false
+    @State private var isForceSyncInProgress = false
+    @State private var lastForceSyncRequestDate: Date?
+    @State private var forceSyncRequestToken = UUID()
     
     var body: some View {
         NavigationStack {
@@ -170,6 +172,9 @@ struct SyncDiagnosticsView: View {
             lines.append("- \(event.timestamp.formatted(date: .omitted, time: .standard)) | \(event.type) | \(event.phase) | \(event.status)\(msg)")
         }
 
+        lines.append("")
+        lines.append(contentsOf: projectInventoryLines())
+
         return lines.joined(separator: "\n")
     }
 
@@ -181,6 +186,41 @@ struct SyncDiagnosticsView: View {
         #endif
 
         syncForceStatus = "✅ Diagnostics snapshot copied to clipboard"
+    }
+
+    private func projectInventoryLines() -> [String] {
+        let formatter = ISO8601DateFormatter()
+        var lines: [String] = []
+        lines.append("Project Inventory")
+
+        let sortedProjects = projects.sorted { lhs, rhs in
+            let lhsCreated = lhs.creationDate ?? .distantPast
+            let rhsCreated = rhs.creationDate ?? .distantPast
+            if lhsCreated != rhsCreated {
+                return lhsCreated < rhsCreated
+            }
+            return (lhs.name ?? "") < (rhs.name ?? "")
+        }
+
+        for project in sortedProjects {
+            let created = project.creationDate.map { formatter.string(from: $0) } ?? "nil"
+            let modified = project.modifiedDate.map { formatter.string(from: $0) } ?? "nil"
+            let deleted = project.deletedDate.map { formatter.string(from: $0) } ?? "nil"
+            let folderCount = project.folders?.count ?? 0
+            lines.append("- name=\(project.name ?? "Untitled") | id=\(project.id.uuidString) | type=\(project.type.rawValue) | trashed=\(project.isTrashed) | userOrder=\(project.userOrder.map(String.init) ?? "nil") | created=\(created) | modified=\(modified) | deleted=\(deleted) | folders=\(folderCount)")
+        }
+
+        return lines
+    }
+
+    private func copyProjectInventory() {
+        let snapshot = projectInventoryLines().joined(separator: "\n")
+
+        #if canImport(UIKit)
+        UIPasteboard.general.string = snapshot
+        #endif
+
+        syncForceStatus = "✅ Project inventory copied to clipboard"
     }
 
     private var iCloudSection: some View {
@@ -203,6 +243,10 @@ struct SyncDiagnosticsView: View {
             LabeledContent("Projects", value: "\(projects.count)")
             LabeledContent("Folders", value: "\(allFolders.count)")
             LabeledContent("Text Files", value: "\(allTextFiles.count)")
+
+            Button("Copy Project Inventory") {
+                copyProjectInventory()
+            }
 
             if duplicateCount > 0 {
                 duplicateWarningRow
@@ -313,9 +357,16 @@ struct SyncDiagnosticsView: View {
                 forceSyncFromCloud()
             } label: {
                 HStack {
-                    Image(systemName: "arrow.clockwise.icloud")
-                    Text("Force Sync from Cloud")
+                    Image(systemName: isForceSyncInProgress ? "icloud.and.arrow.down.fill" : "arrow.clockwise.icloud")
+                    Text(isForceSyncInProgress ? "Force Sync Running…" : "Force Sync from Cloud")
                 }
+            }
+            .disabled(isForceSyncInProgress)
+
+            if let lastForceSyncRequestDate {
+                Text("Last request: \(lastForceSyncRequestDate.formatted(date: .omitted, time: .standard))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             if !syncForceStatus.isEmpty {
@@ -358,11 +409,27 @@ struct SyncDiagnosticsView: View {
     /// be unreliable on Mac Catalyst and iPad. This performs a manual zone fetch
     /// which wakes up the mirroring engine.
     private func forceSyncFromCloud() {
+        lastForceSyncRequestDate = Date()
+        isForceSyncInProgress = true
+        let requestToken = UUID()
+        forceSyncRequestToken = requestToken
+
         // Warn (but don't block) if we're rate-limited — user explicitly tapped the button
         if CloudKitSyncThrottler.shared.isRateLimited {
             syncForceStatus = "⚠️ CloudKit rate-limited — request may fail. Retrying anyway…"
         } else {
-            syncForceStatus = "Fetching zones…"
+            syncForceStatus = "Force sync requested — fetching zones…"
+        }
+
+        if CloudKitSyncThrottler.shared.isManualKickPaused {
+            syncForceStatus += " Manual recovery kicks are currently paused, but this explicit request will still try CloudKit directly."
+        }
+
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 20_000_000_000)
+            guard forceSyncRequestToken == requestToken, isForceSyncInProgress else { return }
+            isForceSyncInProgress = false
+            syncForceStatus = "⚠️ Force sync request timed out waiting for a CloudKit response. The request may still complete later, but this usually means CloudKit is stalled or very slow on this device."
         }
         
         let ckContainer = CKContainer(identifier: "iCloud.com.appworks.writingshedpro")
@@ -371,6 +438,8 @@ struct SyncDiagnosticsView: View {
         database.fetchAllRecordZones { zones, error in
             guard let zones = zones, !zones.isEmpty else {
                 DispatchQueue.main.async {
+                    guard forceSyncRequestToken == requestToken else { return }
+                    isForceSyncInProgress = false
                     syncForceStatus = "❌ No zones found: \(error?.localizedDescription ?? "unknown error")"
                 }
                 return
@@ -394,6 +463,8 @@ struct SyncDiagnosticsView: View {
             
             operation.fetchRecordZoneChangesResultBlock = { result in
                 DispatchQueue.main.async {
+                    guard forceSyncRequestToken == requestToken else { return }
+                    isForceSyncInProgress = false
                     switch result {
                     case .success:
                         syncForceStatus = "✅ Zone fetch completed — sync engine should process changes"
@@ -408,7 +479,11 @@ struct SyncDiagnosticsView: View {
         }
         
         // Also perform a local save + nudge to trigger export cycle
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            syncForceStatus += " Local save failed: \(error.localizedDescription)"
+        }
     }
     
     /// Remove duplicate projects, keeping the one with the most content
