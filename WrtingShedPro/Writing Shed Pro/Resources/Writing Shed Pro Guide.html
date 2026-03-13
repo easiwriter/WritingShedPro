@@ -195,7 +195,7 @@ hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
 <ul>
 <li><strong>Prose</strong>: General-purpose writing for essays, articles, and more</li>
 <li><strong>Poetry</strong>: Smart poetry tools with syllable counting, rhyme detection, and form templates</li>
-<li><strong>Fiction</strong>: Scene and chapter management with plot outlining</li>
+<li><strong>Fiction</strong>: Novel, short fiction, and verse novel project types with scene and chapter management, plot outlining, and character tracking</li>
 <li><strong>Drama</strong>: Script formatting with automatic dialogue layout</li>
 </ul>
 <h3 id="professional-writing-tools">Professional Writing Tools</h3>
@@ -264,7 +264,7 @@ hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
 </ul>
 <h3 id="fiction-tools">Fiction Tools</h3>
 <ul>
-<li>Novel and short fiction project types</li>
+<li>Novel, short fiction, and verse novel project types</li>
 <li>Scene and chapter management</li>
 <li>Plot element tracking with story structure templates</li>
 <li>Character and location management</li>
@@ -279,7 +279,7 @@ hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
 </ul>
 <h3 id="publishing">Publishing</h3>
 <ul>
-<li>PDF and RTF export</li>
+<li>PDF, RTF, ePub, and DocX export</li>
 <li>Professional pagination</li>
 <li>Footnotes with page positioning</li>
 <li>Printing support on iOS and macOS</li>
@@ -292,55 +292,28 @@ hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
 <li>Regular expression support</li>
 <li>Replace across multiple files</li>
 </ul>
-<h2 id="version-11">Version 1.1</h2>
 <h3 id="poetry-collections">Poetry Collections</h3>
 <ul>
-<li><strong>Poetry Collections are now first-class entities</strong> — dedicated PoetryCollection model with their own names, synopses, and file links</li>
-<li><strong>Collections folder</strong> is now exclusive to Poetry projects (removed from Fiction and Short Fiction)</li>
+<li>Dedicated poetry collections with their own names, synopses, and file links</li>
 <li>Collections can be added to the manuscript body matter for assembly and export</li>
-<li>Old submission-based collections are automatically migrated to the new model</li>
 </ul>
-<h3 id="verse-novel">Verse Novel</h3>
+<h3 id="manuscript-body-matter">Manuscript Body Matter</h3>
 <ul>
-<li><strong>New fiction class: Verse Novel</strong> — a novel written in verse, organized by Books and Episodes</li>
-<li>Each episode uses the poetry editor for verse writing</li>
-<li>Full manuscript assembly with poetry formatting</li>
-<li>Books and episodes support body matter ordering</li>
-</ul>
-<h3 id="body-matter">Body Matter</h3>
-<ul>
-<li><strong>Unified "Body Matter" folder</strong> — all project types now use a single "Body Matter" subfolder inside Manuscript (replaces the old type-specific names like "All Poems", "All Chapters", etc.)</li>
-<li><strong>Body Matter view</strong> — add, remove, and reorder items in your manuscript body with a dedicated management interface</li>
-<li>Poetry collections and fiction books can be included in body matter for manuscript assembly</li>
-<li>Legacy folder names are automatically renamed during migration</li>
+<li>Unified body matter folder for organising your manuscript</li>
+<li>Add, remove, and reorder items with a dedicated management interface</li>
+<li>Poetry collections, fiction books, and chapters can be included in body matter</li>
 </ul>
 <h3 id="scene-grouping">Scene Grouping</h3>
 <ul>
-<li><strong>Fiction scenes grouped by chapter</strong> — when viewing all scenes, they appear in collapsible sections organized by chapter with expand/collapse controls</li>
-<li><strong>Drama scenes grouped by act</strong> — same collapsible grouping for drama projects, with scenes organized under their assigned acts</li>
+<li>Fiction scenes grouped by chapter with collapsible sections and expand/collapse controls</li>
+<li>Drama scenes grouped by act with the same collapsible grouping</li>
 <li>Unassigned scenes appear in a separate section</li>
-<li>Expand/collapse all button in the toolbar for quick navigation</li>
 </ul>
-<h3 id="notification-reminders">Notification Reminders</h3>
+<h3 id="submission-reminders">Submission Reminders</h3>
 <ul>
-<li><strong>Submission reminders</strong> — set a date-based reminder for any submission to receive a notification</li>
-<li><strong>Deadline reminders</strong> — set reminders for publication deadlines (magazines and competitions)</li>
-<li>Reminders use the system notification center with alert and sound</li>
+<li>Date-based reminders for submissions and publication deadlines</li>
+<li>System notifications with alerts and sound</li>
 <li>Manage reminders from submission and publication detail views</li>
-</ul>
-<h3 id="other-improvements">Other Improvements</h3>
-<ul>
-<li>Improved manuscript assembly for all project types</li>
-<li>Migration service ensures smooth upgrades from version 1.0</li>
-<li>CloudKit-safe migration (idempotent, no data loss)</li>
-</ul>
-<h2 id="coming-soon">Coming Soon</h2>
-<p>We're continually improving Writing Shed Pro. Features in development include:</p>
-<ul>
-<li>Markdown import and export</li>
-<li>WSP Reader companion app</li>
-<li>Enhanced collaboration tools</li>
-<li>Additional export formats</li>
 </ul>
 <h2 id="see-also">See Also</h2>
 <ul>
@@ -363,26 +336,29 @@ hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
 <li>Choose a project type:</li>
 <li><strong>Prose</strong> for general writing</li>
 <li><strong>Poetry</strong> for poems and verse</li>
-<li><strong>Fiction</strong> for stories and novels</li>
+<li><strong>Fiction</strong> for stories and novels — then choose <strong>Novel</strong>, <strong>Short Fiction</strong>, or <strong>Verse Novel</strong></li>
 <li><strong>Drama</strong> for scripts and plays</li>
+<li>Optionally select a <strong>story structure</strong> for Fiction and Drama projects (Freeform, Three-Act, Monomyth, or Hero's Inner Journey). See <a href="#71-fiction-mode-overview">Fiction Mode Overview</a> for details.</li>
+<li>Choose a <strong>stylesheet</strong> to control formatting when you export or print. See <a href="#102-stylesheet-editor">Stylesheet Editor</a> for details.</li>
 <li>Tap <strong>Create</strong></li>
 </ol>
 <p>Your new project appears in the list. Tap it to open.</p>
-<h2 id="step-2-understand-the-folder-structure">Step 2: Understand the Folder Structure</h2>
-<p>Every project starts with a standard folder structure:</p>
+<h2 id="step-2-understand-workflow-status">Step 2: Understand Workflow Status</h2>
+<p>Every file in your project has a workflow status that organises it automatically:</p>
 <ul>
 <li><strong>Draft</strong> – Works in progress</li>
-<li><strong>Ready</strong> – Completed pieces</li>
-<li><strong>Set Aside</strong> – Items you're not currently working on</li>
+<li><strong>Ready</strong> – Completed and polished</li>
+<li><strong>Set Aside</strong> – Parked for later</li>
+<li><strong>Published</strong> – Accepted or published work</li>
 <li><strong>Trash</strong> – Deleted items (can be restored)</li>
 </ul>
 <p>Poetry and short fiction projects also include:
-- <strong>Collections</strong> – Groups of files for organization
+- <strong>Collections</strong> – Group related files together
 - <strong>Publications</strong> – Magazines and competitions you submit to
 - <strong>Submissions</strong> – Track what you've sent where</p>
 <h2 id="step-3-create-your-first-file">Step 3: Create Your First File</h2>
 <ol>
-<li>Tap the <strong>Draft</strong> folder to open it</li>
+<li>Open your project</li>
 <li>Tap the <strong>+</strong> button</li>
 <li>Enter a title for your file</li>
 <li>Tap <strong>Create</strong></li>
@@ -398,16 +374,16 @@ hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
 <h3 id="basic-formatting">Basic Formatting</h3>
 <p>The formatting toolbar provides quick access to:</p>
 <ul>
-<li><strong>⇥</strong> – Insert/remove tab indent</li>
-<li><strong>¶</strong> – Change paragraph style (Body, Heading, etc.)</li>
-<li><strong>🖼</strong> – Image settings (resize, caption)</li>
-<li><strong>📝</strong> – Insert note (footnote or comment)</li>
+<li><strong>⇥</strong> – Insert tab (iPhone only, hidden with external keyboard)</li>
+<li><strong>¶</strong> – Paragraph style picker (Body, Heading, etc.)</li>
+<li><strong>🖼</strong> – Image settings (enabled when an image is selected)</li>
+<li><strong>📋</strong> – Notes (footnotes, comments, and other annotations)</li>
 <li><strong>B</strong> – Bold</li>
 <li><em>I</em> – Italic</li>
 <li><strong>U</strong> – Underline</li>
 <li><strong>S̶</strong> – Strikethrough</li>
 <li><strong>1.</strong> / <strong>•</strong> – Numbered and bulleted lists</li>
-<li><strong>⌨↓</strong> – Hide keyboard</li>
+<li><strong>⌨↓</strong> – Hide keyboard (iPhone only)</li>
 </ul>
 <h2 id="step-5-save-your-work">Step 5: Save Your Work</h2>
 <p>Writing Shed Pro auto-saves continuously. Every change is preserved automatically:</p>
@@ -416,7 +392,7 @@ hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
 <li>Your work is always backed up</li>
 <li>No "Save" button needed</li>
 </ul>
-<p>To see your save history, look at file versions in the file details view.</p>
+<p>To see your save history, look at file versions in the file details view. The version toolbar appears at the top of the editor, showing which version you're viewing. Use the arrow buttons to navigate between versions, or tap <strong>+</strong> to create a new version.</p>
 <h2 id="step-6-organize-your-work">Step 6: Organize Your Work</h2>
 <p>As you write more, keep things organized using workflow status:</p>
 <h3 id="workflow-status">Workflow Status</h3>
@@ -425,6 +401,7 @@ hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
 <li><strong>Draft</strong> – Work in progress</li>
 <li><strong>Ready</strong> – Completed and polished</li>
 <li><strong>Set Aside</strong> – Parked for later</li>
+<li><strong>Published</strong> – Accepted or published</li>
 </ul>
 <h3 id="changing-status">Changing Status</h3>
 <ol>
@@ -532,8 +509,10 @@ hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
 <h3 id="sync-conflict-resolution">Sync Conflict Resolution</h3>
 <p>If you edit the same file on two devices simultaneously:
 - The most recent changes are preserved
-- Earlier changes are saved as a version
-- No data is ever lost</p>
+- If you have created multiple versions of a file, each version syncs independently</p>
+<ul>
+<li>No data is ever lost</li>
+</ul>
 <h2 id="troubleshooting-installation">Troubleshooting Installation</h2>
 <h3 id="app-wont-download">App Won't Download</h3>
 <ul>
@@ -607,24 +586,25 @@ hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
 <li>From the project list, tap the <strong>+</strong> button in the toolbar</li>
 <li>Enter a <strong>project name</strong> (you can change this later)</li>
 <li>Select a <strong>project type</strong> from the dropdown</li>
-<li>For Fiction projects, choose <strong>Novel</strong> or <strong>Short Fiction</strong></li>
+<li>For Fiction projects, choose <strong>Novel</strong>, <strong>Short Fiction</strong>, or <strong>Verse Novel</strong></li>
 <li>For Fiction and Drama, optionally select a <strong>story structure</strong>:</li>
 <li>Freeform (no predefined structure)</li>
 <li>Three-Act</li>
 <li>Monomyth (Vogler's 12 stages)</li>
 <li>Monomyth (Campbell's 17 stages)</li>
+<li>Hero's Inner Journey (Pearson's 3 phases and 12 archetypes)</li>
 <li>Tap <strong>Create</strong></li>
 </ol>
 <p>Your new project opens automatically.</p>
 <h2 id="understanding-the-folder-structure">Understanding the Folder Structure</h2>
 <p>Every project starts with standard folders:</p>
-<h3 id="common-folders-all-project-types">Common Folders (All Project Types)</h3>
-<ul>
-<li><strong>Draft</strong>: Works in progress</li>
-<li><strong>Ready</strong>: Completed pieces ready for publication</li>
-<li><strong>Set Aside</strong>: Items you're not currently working on</li>
-<li><strong>Trash</strong>: Deleted items (restorable until emptied)</li>
-</ul>
+<h3 id="workflow-status-all-project-types">Workflow Status (All Project Types)</h3>
+<p>Every file has a workflow status that determines where it appears:
+- <strong>Draft</strong>: Works in progress
+- <strong>Ready</strong>: Completed and polished
+- <strong>Set Aside</strong>: Parked for later
+- <strong>Published</strong>: Accepted or published work
+- <strong>Trash</strong>: Deleted items (restorable until emptied)</p>
 <h3 id="poetry-short-fiction-additions">Poetry &amp; Short Fiction Additions</h3>
 <ul>
 <li><strong>Collections</strong>: Group related files together</li>
@@ -638,15 +618,46 @@ hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
 <li><strong>Characters</strong>: Define character profiles</li>
 <li><strong>Locations</strong>: Define story settings</li>
 </ul>
+<h3 id="short-fiction-additions">Short Fiction Additions</h3>
+<ul>
+<li><strong>Collections</strong>: Group related stories together</li>
+<li><strong>Publications</strong>: Track magazines and competitions</li>
+<li><strong>Submissions</strong>: Track what you've sent where</li>
+</ul>
+<h3 id="novel-additions_1">Novel Additions</h3>
+<ul>
+<li><strong>Chapters</strong>: Organise scenes into chapters</li>
+<li><strong>Plot Elements</strong>: Track story beats and plot points</li>
+<li><strong>Characters</strong>: Define character profiles</li>
+<li><strong>Locations</strong>: Define story settings</li>
+</ul>
+<h3 id="verse-novel-additions">Verse Novel Additions</h3>
+<ul>
+<li><strong>Books and Episodes</strong>: Organise your verse novel by books and episodes</li>
+<li>Each episode uses the poetry editor for verse writing</li>
+<li><strong>Plot Elements</strong>: Track story beats and plot points</li>
+<li><strong>Characters</strong>: Define character profiles</li>
+<li><strong>Locations</strong>: Define story settings</li>
+</ul>
+<h3 id="drama-additions">Drama Additions</h3>
+<ul>
+<li><strong>Acts</strong>: Organise scenes into acts</li>
+<li><strong>Plot Elements</strong>: Track story beats and plot points</li>
+<li><strong>Characters</strong>: Define character profiles</li>
+<li><strong>Locations</strong>: Define story settings</li>
+</ul>
 <h2 id="project-settings">Project Settings</h2>
 <p>After creating a project, you can customize its settings:</p>
 <ol>
-<li>From the project's main view, tap the <strong>gear</strong> icon or <strong>Project Settings</strong></li>
+<li>From the project list, tap the <strong>⋯</strong> (ellipsis) button next to the project name, then tap <strong>Show Project Details</strong></li>
 <li>Available settings include:</li>
 <li><strong>Name</strong>: Rename your project</li>
-<li><strong>Details</strong>: Add a description or notes</li>
+<li><strong>Author</strong>: Set the project author</li>
+<li><strong>Notes</strong>: Add project notes</li>
+<li><strong>Stylesheet</strong>: Choose or change the formatting stylesheet</li>
 <li><strong>Story Structure</strong> (Fiction/Drama): Change the structure template</li>
-<li><strong>Format</strong> (Drama): Choose Film or Stage output</li>
+<li><strong>Page Setup</strong>: Configure page size, margins, headers and footers</li>
+<li><strong>Export</strong>: Export the project as a <code>.wsp</code> archive</li>
 </ol>
 <h2 id="working-with-multiple-projects">Working with Multiple Projects</h2>
 <p>You can have as many projects as you need. The project list shows all your projects with options to:</p>
@@ -661,6 +672,7 @@ hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
 <li>Choose:</li>
 <li><strong>Name</strong>: Alphabetical order</li>
 <li><strong>Date Created</strong>: Newest or oldest first</li>
+<li><strong>Date Modified</strong>: Newest or oldest first</li>
 <li><strong>User's Order</strong>: Your custom arrangement</li>
 </ol>
 <h3 id="custom-order">Custom Order</h3>
@@ -680,11 +692,13 @@ hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
 <h2 id="deleting-a-project">Deleting a Project</h2>
 <p>To delete a project:</p>
 <ol>
-<li>From the project list, swipe left on the project</li>
-<li>Tap <strong>Delete</strong></li>
-<li>Confirm the deletion</li>
+<li>From the project list, tap <strong>Edit</strong> in the toolbar</li>
+<li>Select the project(s) you want to delete</li>
+<li>Tap <strong>Delete</strong> to move the project to the trash</li>
+<li>To permanently remove a project, open the Trash and choose <strong>Delete Forever</strong></li>
 </ol>
-<p><strong>Warning</strong>: Deleting a project removes all its files. This action cannot be undone. Consider exporting important work before deleting.</p>
+<p>Alternatively, swipe left on a project in the list and tap <strong>Delete</strong>.</p>
+<p><strong>Warning</strong>: Deleting a project forever permanently removes all its files. This action cannot be undone. Consider exporting important work before deleting.</p>
 <h2 id="see-also">See Also</h2>
 <ul>
 <li><a href="#31-project-types-overview">Project Types Overview</a></li>
@@ -711,8 +725,8 @@ hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
 <h3 id="project-actions">Project Actions</h3>
 <ul>
 <li><strong>Tap</strong> a project to open it</li>
-<li><strong>Swipe left</strong> to delete</li>
-<li><strong>Long-press</strong> for more options (rename, duplicate, details)</li>
+<li><strong>Tap the ⋯ button</strong> for project options (details, page setup, stylesheet, export)</li>
+<li><strong>Tap Edit</strong> then select projects to delete or reorder</li>
 </ul>
 <h2 id="inside-a-project">Inside a Project</h2>
 <p>Tapping a project opens its folder structure. The layout adapts to your device:</p>
@@ -720,37 +734,36 @@ hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
 <ul>
 <li><strong>Single-column navigation</strong>: Tap folders to drill down</li>
 <li><strong>Back button</strong>: Return to previous level</li>
-<li><strong>Long-press back button</strong>: Jump directly to the project root</li>
-</ul>
-<h3 id="ipad-and-mac-layout">iPad and Mac Layout</h3>
-<ul>
-<li><strong>Sidebar</strong>: Shows folder hierarchy</li>
-<li><strong>Content area</strong>: Shows selected folder's contents or file editor</li>
-<li><strong>Optional inspector</strong>: Shows details about selected items</li>
 </ul>
 <h2 id="the-toolbar">The Toolbar</h2>
 <p>The toolbar appears at the top of most screens and provides context-specific actions.</p>
+<h3 id="project-list-toolbar">Project List Toolbar</h3>
+<ul>
+<li><strong>Settings (⚙)</strong>: Open application settings</li>
+<li><strong>Help (?)</strong>: Open the user guide</li>
+<li><strong>Add (+)</strong>: Create a new project</li>
+<li><strong>Sort</strong>: Change project sort order</li>
+<li><strong>Edit</strong>: Enter edit mode for deleting or reordering projects</li>
+</ul>
 <h3 id="project-view-toolbar">Project View Toolbar</h3>
 <ul>
 <li><strong>Back arrow</strong>: Return to project list</li>
-<li><strong>Project name</strong>: Tap to edit</li>
-<li><strong>Gear icon</strong>: Project settings</li>
-<li><strong>Question mark</strong>: Open user guide</li>
+<li><strong>Project name</strong>: Tap to rename</li>
+<li><strong>⋯ (ellipsis)</strong>: Project options (details, page setup, stylesheet, export)</li>
 </ul>
-<h3 id="folder-view-toolbar">Folder View Toolbar</h3>
+<h3 id="file-list-toolbar">File List Toolbar</h3>
 <ul>
-<li><strong>Back arrow</strong>: Return to parent folder</li>
-<li><strong>Folder name</strong>: Current location</li>
-<li><strong>Add (+)</strong>: Create files</li>
-<li><strong>Edit</strong>: Enter edit mode for reordering and deletion</li>
-<li><strong>Sort</strong>: Change sort order</li>
+<li><strong>Back arrow</strong>: Return to project</li>
+<li><strong>Add (+)</strong>: Create new files</li>
+<li><strong>Edit</strong>: Enter edit mode for selecting, deleting, or changing file status</li>
+<li><strong>Sort</strong>: Change sort order (Name, Date Modified)</li>
 </ul>
 <h3 id="file-editor-toolbar">File Editor Toolbar</h3>
 <ul>
-<li><strong>Back arrow</strong>: Return to folder</li>
-<li><strong>File name</strong>: Tap to rename</li>
-<li><strong>Formatting toolbar</strong>: Text styling options</li>
-<li><strong>More (...)</strong>: Additional actions</li>
+<li><strong>Back arrow</strong>: Return to file list</li>
+<li><strong>File name</strong>: Displayed in the navigation bar</li>
+<li><strong>Undo / Redo</strong>: Step through changes</li>
+<li><strong>⋯ (ellipsis)</strong>: Additional actions (page preview, invisibles, insert options, print)</li>
 </ul>
 <h2 id="the-formatting-toolbar">The Formatting Toolbar</h2>
 <p>When editing text, a formatting toolbar appears above the keyboard:</p>
@@ -763,28 +776,40 @@ hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
 </thead>
 <tbody>
 <tr>
+<td><strong>→|</strong></td>
+<td>Insert tab (iPhone only, hidden with external keyboard)</td>
+</tr>
+<tr>
+<td><strong>🖼</strong></td>
+<td>Image settings (enabled when an image is selected)</td>
+</tr>
+<tr>
+<td><strong>📋</strong></td>
+<td>Notes (footnotes, comments, and other annotations)</td>
+</tr>
+<tr>
 <td><strong>¶</strong></td>
-<td>Paragraph style picker (Body, Heading 1-3, etc.)</td>
+<td>Paragraph style picker</td>
 </tr>
 <tr>
-<td><strong>B</strong></td>
-<td>Bold</td>
+<td><strong>BIU</strong></td>
+<td>Text formatting menu — tap to choose Bold, Italic, Underline, or Strikethrough (iPhone only; individual buttons on iPad)</td>
 </tr>
 <tr>
-<td><em>I</em></td>
-<td>Italic</td>
+<td><strong>◂≡</strong></td>
+<td>Decrease indent</td>
 </tr>
 <tr>
-<td><strong>U</strong></td>
-<td>Underline</td>
+<td><strong>≡▶</strong></td>
+<td>Increase indent</td>
 </tr>
 <tr>
-<td><strong>S̶</strong></td>
-<td>Strikethrough</td>
+<td><strong>≡</strong></td>
+<td>Add to index (only shown when index is enabled in manuscript settings)</td>
 </tr>
 <tr>
-<td><strong>⊕</strong></td>
-<td>Insert menu (images, footnotes, comments)</td>
+<td><strong>⌨↓</strong></td>
+<td>Hide keyboard (iPhone/iPad only, hidden with external keyboard)</td>
 </tr>
 </tbody>
 </table>
@@ -796,12 +821,19 @@ hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
 - Caption
 - Footnote
 - And more...</p>
+<p>At the top of the paragraph style list, an <strong>Edit</strong> button opens the Stylesheet Editor where you can customise fonts, sizes, spacing, and other formatting for each style. See <a href="#102-stylesheet-editor">Stylesheet Editor</a> for details.</p>
 <p>Tap a style to apply it to the current paragraph.</p>
 <h3 id="insert-menu">Insert Menu</h3>
-<p>Tap <strong>⊕</strong> to insert:
+<p>Tap the insert button in the navigation bar to add content to your document:
 - <strong>Image</strong>: Add a photo or illustration
+- <strong>Comment</strong>: Add a revision note
 - <strong>Footnote</strong>: Create a numbered footnote
-- <strong>Comment</strong>: Add a revision note</p>
+- <strong>Endnote</strong>: Add an endnote (when enabled in manuscript settings)
+- <strong>Glossary Term</strong>: Add a glossary entry (when enabled in manuscript settings)
+- <strong>Reference</strong>: Add a reference (when enabled in manuscript settings)
+- <strong>Index Entry</strong>: Mark text for the index (when enabled in manuscript settings)
+- <strong>List</strong>: Insert a numbered or bulleted list
+- <strong>Page Break</strong>: Insert a manual page break</p>
 <h2 id="the-text-selection-menu">The Text Selection Menu</h2>
 <p>When you select text by double-tapping or dragging, a menu appears:</p>
 <ul>
@@ -831,8 +863,6 @@ hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
 <li><strong>Preview Mode</strong>: See formatted output (film or stage format)</li>
 </ul>
 <h2 id="navigation-shortcuts">Navigation Shortcuts</h2>
-<h3 id="long-press-back-button">Long-Press Back Button</h3>
-<p>From any nested view, long-press the back button to see the navigation stack. Tap any level to jump directly there, or hold to return to the project root.</p>
 <h3 id="keyboard-shortcuts-mac-and-ipad-with-keyboard">Keyboard Shortcuts (Mac and iPad with keyboard)</h3>
 <ul>
 <li><strong>⌘N</strong>: New file</li>
@@ -1025,8 +1055,6 @@ hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
 <h2 id="import">Import</h2>
 <h3 id="import_1">Import</h3>
 <p>Import a <code>.wsp</code> file — a Writing Shed Pro project archive. Choose the file from your device or iCloud Drive, and it will be added to your project list. The <code>.wsp</code> format includes all project data: files, versions, folders, submissions, and metadata. See <a href="#32-creating-projects">Creating Projects</a> for details on what's included and the full import/export workflow.</p>
-<h3 id="import-user-guide">Import User Guide</h3>
-<p>Import the Writing Shed Pro User Guide as a project in your project list. This creates a fully browsable copy of the guide that you can read alongside your own work.</p>
 <h2 id="appearance-iphone-and-ipad-only">Appearance (iPhone and iPad only)</h2>
 <p>Choose how Writing Shed Pro's interface appears:</p>
 <table>
@@ -1057,11 +1085,6 @@ hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
 <h2 id="support">Support</h2>
 <h3 id="sync-diagnostics">Sync Diagnostics</h3>
 <p>View the status of iCloud sync and troubleshoot any issues. This shows details about your sync container, pending operations, and recent sync activity. See <a href="#24-icloud-sync">iCloud Sync</a> for more about sync.</p>
-<!-- Copilot remove
-### Reset All Tips
-Resets all popover tips and inline tips so they appear again as you use the app. Use this if you dismissed a tip early and want to see it again.
--->
-
 <h3 id="contact-support">Contact Support</h3>
 <p>Send a message to the Writing Shed Pro support team. This opens a pre-filled email with your app version and device information included, helping us assist you more quickly.</p>
 <h3 id="rate-this-app">Rate This App</h3>
@@ -1103,7 +1126,7 @@ Resets all popover tips and inline tips so they appear again as you use the app.
 </tr>
 <tr>
 <td><strong>Fiction</strong></td>
-<td>Novels and short stories</td>
+<td>Novels, verse novels, and short stories</td>
 <td>Scenes, chapters, plot elements, characters</td>
 </tr>
 <tr>
@@ -1123,19 +1146,19 @@ Resets all popover tips and inline tips so they appear again as you use the app.
 <li>Technical documentation</li>
 <li>Any general-purpose writing</li>
 </ul>
-<h3 id="folder-structure">Folder Structure</h3>
+<h3 id="workflow-status">Workflow Status</h3>
 <ul>
 <li>Draft</li>
 <li>Ready</li>
 <li>Set Aside</li>
-<li>Trash</li>
+<li>Published</li>
 </ul>
+<p>Deleted files go to the <strong>Trash</strong> folder.</p>
 <h3 id="features">Features</h3>
 <ul>
 <li>Standard text formatting</li>
 <li>Footnotes and comments</li>
 <li>Images with captions</li>
-<li>Flexible folder organization</li>
 </ul>
 <h2 id="poetry-projects">Poetry Projects</h2>
 <p>Poetry projects include specialized tools for writing verse in both free and formal styles.</p>
@@ -1146,7 +1169,7 @@ Resets all popover tips and inline tips so they appear again as you use the app.
 <li>Song lyrics</li>
 <li>Any metered or structured verse</li>
 </ul>
-<h3 id="folder-structure_1">Folder Structure</h3>
+<h3 id="folder-structure">Folder Structure</h3>
 <ul>
 <li>Poems (your writing area)</li>
 <li>Manuscript (Front Matter, Body Matter, Back Matter)</li>
@@ -1170,7 +1193,7 @@ Resets all popover tips and inline tips so they appear again as you use the app.
 </ul>
 <p>See <a href="#61-poetry-mode-overview">Poetry Mode Overview</a> for details.</p>
 <h2 id="fiction-projects">Fiction Projects</h2>
-<p>Fiction projects help you organize and write novels and short stories with support for scenes, chapters, and plot elements.</p>
+<p>Fiction projects help you organize and write novels, verse novels, and short stories.</p>
 <h3 id="fiction-classes">Fiction Classes</h3>
 <p>When creating a fiction project, you choose a class:</p>
 <table>
@@ -1199,11 +1222,38 @@ Resets all popover tips and inline tips so they appear again as you use the app.
 </tr>
 </tbody>
 </table>
-<h3 id="folder-structure_2">Folder Structure</h3>
+<h3 id="novel-structure">Novel Structure</h3>
 <ul>
 <li>Manuscript (Front Matter, Body Matter, Back Matter)</li>
-<li>Scenes (your writing, filtered by workflow status)</li>
-<li>Chapters (Novel), Books (Verse Novel), or flat (Short Fiction)</li>
+<li>Scenes (workflow status view)</li>
+<li>Chapters</li>
+<li>Plot Elements</li>
+<li>Characters</li>
+<li>Locations</li>
+<li>Submissions</li>
+<li>Research</li>
+<li>Publishers / Agents</li>
+<li>Other</li>
+<li>Trash</li>
+</ul>
+<h3 id="verse-novel-structure">Verse Novel Structure</h3>
+<ul>
+<li>Manuscript (Front Matter, Body Matter, Back Matter)</li>
+<li>Episodes (workflow status view)</li>
+<li>Books</li>
+<li>Plot Elements</li>
+<li>Characters</li>
+<li>Locations</li>
+<li>Submissions</li>
+<li>Research</li>
+<li>Publishers / Agents</li>
+<li>Other</li>
+<li>Trash</li>
+</ul>
+<h3 id="short-fiction-structure">Short Fiction Structure</h3>
+<ul>
+<li>Manuscript (Front Matter, Body Matter, Back Matter)</li>
+<li>Scenes (workflow status view)</li>
 <li>Plot Elements</li>
 <li>Characters</li>
 <li>Locations</li>
@@ -1220,6 +1270,9 @@ Resets all popover tips and inline tips so they appear again as you use the app.
 - <strong>Monomyth (Vogler)</strong>: 12-stage Hero's Journey
 - <strong>Monomyth (Campbell)</strong>: 17-stage mythic structure
 - <strong>Hero's Inner Journey (Pearson)</strong>: 3 phases and 12 archetypes</p>
+<blockquote>
+<p><strong>Further Reading</strong>: <em>The Writer's Journey</em> by Christopher Vogler, <em>The Hero with a Thousand Faces</em> by Joseph Campbell, <em>Awakening the Heroes Within</em> by Carol S. Pearson.</p>
+</blockquote>
 <h3 id="features_2">Features</h3>
 <ul>
 <li><strong>Scene Management</strong>: Create and organize scenes with status tracking</li>
@@ -1227,7 +1280,7 @@ Resets all popover tips and inline tips so they appear again as you use the app.
 <li><strong>Character Profiles</strong>: Track character details and arcs</li>
 <li><strong>Location Database</strong>: Define settings and places</li>
 <li><strong>Scene-Plot Linking</strong>: Connect scenes to plot elements</li>
-<li><strong>Manuscript Assembly</strong>: Combine chapters into a complete manuscript</li>
+<li><strong>Manuscript Assembly</strong>: Combine chapters (Novel), books (Verse Novel), or scenes (Short Fiction) into a complete manuscript</li>
 </ul>
 <p>See <a href="#71-fiction-mode-overview">Fiction Mode Overview</a> for details.</p>
 <h2 id="drama-projects">Drama Projects</h2>
@@ -1239,7 +1292,7 @@ Resets all popover tips and inline tips so they appear again as you use the app.
 <li>Teleplays</li>
 <li>Radio plays</li>
 </ul>
-<h3 id="folder-structure_3">Folder Structure</h3>
+<h3 id="folder-structure_1">Folder Structure</h3>
 <ul>
 <li>Manuscript (Front Matter, Body Matter, Back Matter)</li>
 <li>Scenes (your writing, filtered by workflow status)</li>
@@ -1318,13 +1371,16 @@ Resets all popover tips and inline tips so they appear again as you use the app.
 <p>Choose from:
 - <strong>Prose</strong>: General writing
 - <strong>Poetry</strong>: Poems and verse
-- <strong>Fiction</strong>: Novels and short stories
-- <strong>Drama</strong>: Scripts and plays</p>
+- <strong>Fiction</strong>: Novels, verse novels, and short stories</p>
+<ul>
+<li><strong>Drama</strong>: Scripts and plays</li>
+</ul>
 <p>See <a href="#31-project-types-overview">Project Types Overview</a> for details on each type.</p>
 <h4 id="fiction-class-fiction-only">Fiction Class (Fiction Only)</h4>
 <p>When creating a Fiction project, also select:
 - <strong>Novel</strong>: For long-form fiction with chapters
-- <strong>Short Fiction</strong>: For stories without chapter structure</p>
+- <strong>Short Fiction</strong>: For stories without chapter structure
+- <strong>Verse Novel</strong>: For novel-length verse with a book and episode structure</p>
 <h4 id="story-structure-fiction-and-drama">Story Structure (Fiction and Drama)</h4>
 <p>Optionally select a story structure:
 - <strong>Freeform</strong>: No predefined structure (default)
@@ -1332,6 +1388,9 @@ Resets all popover tips and inline tips so they appear again as you use the app.
 - <strong>Monomyth (Vogler)</strong>: 12-stage Hero's Journey
 - <strong>Monomyth (Campbell)</strong>: 17-stage mythic structure
 - <strong>Hero's Inner Journey (Pearson)</strong>: 3 phases and 12 archetypes</p>
+<blockquote>
+<p><strong>Further Reading</strong>: <em>The Writer's Journey</em> by Christopher Vogler, <em>The Hero with a Thousand Faces</em> by Joseph Campbell, <em>Awakening the Heroes Within</em> by Carol S. Pearson.</p>
+</blockquote>
 <p>You can change the structure later in Project Settings.</p>
 <h2 id="after-creating-a-project">After Creating a Project</h2>
 <p>Your new project opens automatically, showing its folder structure. Depending on the project type, you'll see different folders ready for your content.</p>
@@ -1368,13 +1427,6 @@ Resets all popover tips and inline tips so they appear again as you use the app.
 <li><strong>Fiction</strong>: One project per novel or story collection</li>
 <li><strong>Drama</strong>: One project per screenplay or play</li>
 </ul>
-<h2 id="duplicating-a-project">Duplicating a Project</h2>
-<p>To create a copy of an existing project:
-1. From the project list, long-press the project
-2. Select <strong>Duplicate</strong>
-3. Enter a name for the copy
-4. Tap <strong>Create</strong></p>
-<p>The duplicate is independent of the original—changes to one don't affect the other.</p>
 <h2 id="importing-projects">Importing Projects</h2>
 <p>You can import projects into Writing Shed Pro from <code>.wsp</code> files — the native project archive format.</p>
 <h3 id="how-to-import">How to Import</h3>
@@ -1399,15 +1451,9 @@ Resets all popover tips and inline tips so they appear again as you use the app.
 <li><strong>Trash contents</strong>: Excluded from export</li>
 </ul>
 <h3 id="importing-duplicates">Importing Duplicates</h3>
-<p>Importing a project with the same name as an existing project creates a separate copy. Projects are never overwritten or merged during import.</p>
+<p>Importing a project with the same name as an existing project creates a separate copy with a number appended to the name (e.g. "My Project 2"). Projects are never overwritten or merged during import.</p>
 <h2 id="exporting-projects">Exporting Projects</h2>
-<p>To export a project as a <code>.wsp</code> file:</p>
-<ol>
-<li>From the project list, long-press (or right-click) the project</li>
-<li>Select <strong>Export</strong></li>
-<li>Choose a save location</li>
-<li>The file is saved as <code>ProjectName.wsp</code></li>
-</ol>
+<p>To export a project as a <code>.wsp</code> file, see <a href="#33-project-settings">Project Settings</a>.</p>
 <p>See <a href="#91-export-options">Export Options</a> for details on all export formats including WSP.</p>
 <h2 id="see-also">See Also</h2>
 <ul>
@@ -1425,27 +1471,17 @@ Resets all popover tips and inline tips so they appear again as you use the app.
 <h1 id="project-settings">Project Settings</h1>
 <p>Every project has settings that control its behavior and appearance. This guide explains what you can configure and how.</p>
 <h2 id="accessing-project-settings">Accessing Project Settings</h2>
-<ol>
-<li>Open a project</li>
-<li>Tap the <strong>gear icon</strong> in the toolbar, or</li>
-<li>Tap the project name and select <strong>Settings</strong></li>
-</ol>
-<h2 id="general-settings">General Settings</h2>
+<p>Open project settings via the <strong>⋯ (ellipsis) button</strong> in the toolbar when a project is open.</p>
+<h2 id="settings">Settings</h2>
 <h3 id="project-name">Project Name</h3>
-<ul>
-<li>Change the project's display name</li>
-<li>Tap the current name to edit</li>
-<li>Changes sync immediately across devices</li>
-</ul>
+<p>Change the project's display name. Changes sync immediately across devices.</p>
+<h3 id="author-name">Author Name</h3>
+<p>Set the author name for the project. This is used in page headers and footers via the <code>{{Author}}</code> placeholder in your page setup template.</p>
 <h3 id="project-details">Project Details</h3>
-<ul>
-<li>Add a description or notes about the project</li>
-<li>Use for:</li>
-<li>Synopsis or pitch</li>
-<li>Notes to yourself</li>
-<li>Project goals or deadlines</li>
-<li>Any reference information</li>
-</ul>
+<p>Add a description or notes about the project, such as:
+- Synopsis or pitch
+- Notes to yourself
+- Project goals or deadlines</p>
 <h3 id="date-information-read-only">Date Information (Read-Only)</h3>
 <ul>
 <li><strong>Created</strong>: When the project was first created</li>
@@ -1454,19 +1490,19 @@ Resets all popover tips and inline tips so they appear again as you use the app.
 <h2 id="project-type-read-only">Project Type (Read-Only)</h2>
 <p>The project type is shown but cannot be changed after creation. This includes:
 - Project type (Prose, Poetry, Fiction, Drama)
-- Fiction class (Novel or Short Fiction) for fiction projects</p>
+- Fiction class (Novel, Verse Novel, or Short Fiction) for fiction projects</p>
 <p>If you need a different project type, create a new project and move your content.</p>
 <h2 id="story-structure-fiction-and-drama">Story Structure (Fiction and Drama)</h2>
 <p>For Fiction and Drama projects, you can change the story structure at any time:</p>
 <ol>
-<li>Open Project Settings</li>
+<li>Tap <strong>⋯</strong></li>
 <li>Tap <strong>Story Structure</strong></li>
 <li>Choose from:</li>
 <li><strong>Freeform</strong>: No predefined stages</li>
 <li><strong>Three-Act</strong>: 3 stages (Setup, Confrontation, Resolution)</li>
-<li><strong>Monomyth (Vogler)</strong>: 12 stages from The Writer's Journey</li>
-<li><strong>Monomyth (Campbell)</strong>: 17 stages from The Hero with a Thousand Faces</li>
-<li><strong>Hero's Inner Journey (Pearson)</strong>: 3 phases and 12 archetypes from Awakening the Heroes Within</li>
+<li><strong>Monomyth (Vogler)</strong>: 12 stages from <em>The Writer's Journey</em></li>
+<li><strong>Monomyth (Campbell)</strong>: 17 stages from <em>The Hero with a Thousand Faces</em></li>
+<li><strong>Hero's Inner Journey (Pearson)</strong>: 3 phases and 12 archetypes from <em>Awakening the Heroes Within</em></li>
 </ol>
 <h3 id="changing-structure">Changing Structure</h3>
 <p>When you change the structure:
@@ -1476,7 +1512,7 @@ Resets all popover tips and inline tips so they appear again as you use the app.
 <h2 id="script-format-drama-only">Script Format (Drama Only)</h2>
 <p>For Drama projects, choose how scripts are formatted:</p>
 <ol>
-<li>Open Project Settings</li>
+<li>Tap <strong>⋯</strong></li>
 <li>Tap <strong>Script Format</strong></li>
 <li>Choose:</li>
 <li><strong>Film/Screenplay</strong>: Industry-standard screenplay format</li>
@@ -1484,25 +1520,27 @@ Resets all popover tips and inline tips so they appear again as you use the app.
 </ol>
 <p>This affects how Drama Markup Language (DML) is rendered, not how you write it.</p>
 <h2 id="stylesheet">Stylesheet</h2>
-<p>Each project has a stylesheet that defines text formatting:</p>
+<p>Each project has a stylesheet that defines text formatting.</p>
 <ol>
-<li>Open Project Settings</li>
+<li>Tap <strong>⋯</strong></li>
 <li>Tap <strong>Stylesheet</strong></li>
-<li>View and edit paragraph styles</li>
 </ol>
 <p>See <a href="#102-stylesheet-editor">Stylesheet Editor</a> for details.</p>
 <h2 id="page-setup">Page Setup</h2>
-<p>Configure how pages are formatted for export and printing:</p>
+<p>Configure how pages are formatted for export and printing.</p>
 <ol>
-<li>Open Project Settings</li>
+<li>Tap <strong>⋯</strong></li>
 <li>Tap <strong>Page Setup</strong></li>
-<li>Configure:</li>
-<li>Paper size (Letter, A4, etc.)</li>
-<li>Orientation (Portrait, Landscape)</li>
-<li>Margins</li>
-<li>Headers and footers</li>
 </ol>
 <p>See <a href="#103-page-setup">Page Setup</a> for details.</p>
+<h2 id="exporting-a-project">Exporting a Project</h2>
+<p>To export a project as a <code>.wsp</code> file:</p>
+<ol>
+<li>Tap <strong>⋯</strong></li>
+<li>Tap <strong>Export</strong></li>
+<li>Choose a save location</li>
+</ol>
+<p>The file is saved as <code>ProjectName.wsp</code>.</p>
 <h2 id="danger-zone">Danger Zone</h2>
 <p>Some settings can cause data loss if used incorrectly.</p>
 <h3 id="delete-project">Delete Project</h3>
@@ -1513,7 +1551,7 @@ Resets all popover tips and inline tips so they appear again as you use the app.
 </ul>
 <h3 id="clear-trash">Clear Trash</h3>
 <ul>
-<li>Permanently removes all items in the project's Trash folder</li>
+<li>Permanently and forever deletes all items in the project's Trash folder</li>
 <li>Cannot be undone</li>
 </ul>
 <h2 id="settings-that-sync">Settings That Sync</h2>
@@ -1547,24 +1585,33 @@ Resets all popover tips and inline tips so they appear again as you use the app.
 <li><strong>Folders</strong> contain your files</li>
 <li><strong>Files</strong> contain your actual writing</li>
 </ul>
-<h2 id="system-folders">System Folders</h2>
-<p>Each project type comes with predefined system folders that cannot be deleted:</p>
-<h3 id="all-project-types">All Project Types</h3>
-<ul>
-<li><strong>Draft</strong>: Work in progress</li>
-<li><strong>Ready</strong>: Completed pieces</li>
-<li><strong>Set Aside</strong>: Items you're not actively working on</li>
-<li><strong>Trash</strong>: Deleted items (restorable)</li>
-</ul>
+<h2 id="workflow-status-not-folders">Workflow Status (Not Folders)</h2>
+<p><code>Draft</code>, <code>Ready</code>, <code>Set Aside</code>, and <code>Published</code> are <strong>file workflow statuses</strong>, not folders.</p>
+<p>In content views, status tabs appear at the top with counts:
+- <strong>All</strong>
+- <strong>Draft</strong>
+- <strong>Ready</strong>
+- <strong>Set Aside</strong>
+- <strong>Published</strong></p>
+<p>Tap a status tab to filter the file list.</p>
+<h3 id="changing-a-files-workflow-status">Changing a File's Workflow Status</h3>
+<ol>
+<li>Open the file list in a content area</li>
+<li>Tap <strong>Edit</strong></li>
+<li>Select one or more files</li>
+<li>Tap <strong>Change Status</strong> (🔁)</li>
+<li>Choose the new status</li>
+</ol>
+<p><code>Published</code> is set automatically when a submission is accepted.</p>
 <h3 id="poetry">Poetry</h3>
-<p>Additional system folders:
+<p>Additional project folders:
 - <strong>Poems</strong>: Your main writing area for poems
 - <strong>Collections</strong>: Poetry Collections — group related poems together
 - <strong>Submissions</strong>: Track what you've sent
 - <strong>Magazines</strong>: Publication targets
 - <strong>Competitions</strong>: Contest targets</p>
 <h3 id="fiction-novel-verse-novel-short-fiction">Fiction (Novel, Verse Novel, Short Fiction)</h3>
-<p>Additional system folders:
+<p>Additional project folders:
 - <strong>Scenes</strong> (or <strong>Episodes</strong> for Verse Novel): Your story scenes
 - <strong>Chapters</strong> (Novel), <strong>Books</strong> (Verse Novel): Organizational containers
 - <strong>Plot Elements</strong>: Story beats
@@ -1579,7 +1626,7 @@ Resets all popover tips and inline tips so they appear again as you use the app.
 <li>Tap the <strong>+</strong> button</li>
 <li>Select <strong>New File</strong> (or specific type for Poetry/Fiction)</li>
 <li>Enter a title</li>
-<li>For Poetry: Optionally select a form template</li>
+<li>For Poetry: Optionally select a form template, or tap <strong>Create Custom Form</strong> to define your own</li>
 <li>Tap <strong>Create</strong></li>
 </ol>
 <p>The file opens automatically in the editor.</p>
@@ -1590,28 +1637,15 @@ Resets all popover tips and inline tips so they appear again as you use the app.
 <li><strong>Fiction</strong>: Scene files</li>
 <li><strong>Drama</strong>: Scene files (with DML support)</li>
 </ul>
-<h2 id="moving-files">Moving Files</h2>
-<h3 id="move-a-single-file">Move a Single File</h3>
+<h2 id="renaming">Renaming</h2>
+<p>Rename files from the <strong>⋯ (ellipsis) button</strong> in the file row.</p>
+<h3 id="rename-a-file">Rename a File</h3>
 <ol>
-<li>Long-press the file</li>
-<li>Select <strong>Move to...</strong></li>
-<li>Choose the destination folder</li>
-<li>Tap <strong>Move</strong></li>
+<li>Tap the <strong>⋯</strong> button for the file</li>
+<li>In file details, tap <strong>Edit</strong></li>
+<li>Enter the new name</li>
+<li>Tap <strong>Save</strong></li>
 </ol>
-<h3 id="move-multiple-files">Move Multiple Files</h3>
-<ol>
-<li>Tap <strong>Edit</strong> in the folder view</li>
-<li>Select multiple files</li>
-<li>Tap <strong>Move</strong></li>
-<li>Choose the destination</li>
-<li>Tap <strong>Move</strong></li>
-</ol>
-<h3 id="drag-and-drop-ipadmac">Drag and Drop (iPad/Mac)</h3>
-<ul>
-<li>Drag files directly between folders in the sidebar</li>
-<li>Hold over a folder to open it</li>
-<li>Drop to complete the move</li>
-</ul>
 <h2 id="reordering-files">Reordering Files</h2>
 <p>Files can be reordered within a folder:</p>
 <ol>
@@ -1627,56 +1661,28 @@ Resets all popover tips and inline tips so they appear again as you use the app.
 <li><strong>Date Modified</strong>: By last edit</li>
 <li><strong>User's Order</strong>: Your custom arrangement</li>
 </ul>
-<h2 id="renaming">Renaming</h2>
-<h3 id="rename-a-file">Rename a File</h3>
-<ol>
-<li>Long-press the file</li>
-<li>Select <strong>Rename</strong></li>
-<li>Enter the new name</li>
-<li>Tap <strong>Done</strong></li>
-</ol>
-<p>Or from the editor:
-1. Tap the file name in the toolbar
-2. Edit the name
-3. Tap <strong>Done</strong></p>
-<h3 id="rename-a-folder">Rename a Folder</h3>
-<ol>
-<li>Long-press the folder</li>
-<li>Select <strong>Rename</strong></li>
-<li>Enter the new name</li>
-<li>Tap <strong>Done</strong></li>
-</ol>
 <h2 id="deleting">Deleting</h2>
-<h3 id="delete-a-file">Delete a File</h3>
+<h3 id="delete-a-single-file">Delete a Single File</h3>
 <ol>
-<li>Swipe left on the file</li>
+<li>Swipe left on the file row</li>
 <li>Tap <strong>Delete</strong></li>
 </ol>
-<p>Or:
-1. Long-press the file
-2. Select <strong>Delete</strong></p>
-<p>Deleted files go to Trash and can be restored.</p>
+<p>Deleted files go to <strong>Trash</strong> and can be restored.</p>
 <h3 id="delete-multiple-files">Delete Multiple Files</h3>
 <ol>
-<li>Tap <strong>Edit</strong></li>
-<li>Select files</li>
+<li>Tap <strong>Edit</strong> in the file list</li>
+<li>Select one or more files</li>
 <li>Tap <strong>Delete</strong></li>
-</ol>
-<h3 id="delete-a-folder">Delete a Folder</h3>
-<ol>
-<li>Long-press the folder</li>
-<li>Select <strong>Delete</strong></li>
 <li>Confirm</li>
 </ol>
-<p><strong>Warning</strong>: Deleting a folder deletes all its contents.</p>
 <h2 id="the-trash">The Trash</h2>
 <p>Deleted files aren't immediately destroyed—they go to Trash.</p>
 <h3 id="restoring-from-trash">Restoring from Trash</h3>
 <ol>
 <li>Open the <strong>Trash</strong> folder</li>
 <li>Find the item you want to restore</li>
-<li>Swipe right and tap <strong>Restore</strong>, or</li>
-<li>Long-press and select <strong>Put Back</strong></li>
+<li>Swipe left on the item</li>
+<li>Tap <strong>Put Back</strong></li>
 </ol>
 <p>Items are restored to their original location.</p>
 <h3 id="emptying-trash">Emptying Trash</h3>
@@ -1689,9 +1695,8 @@ Resets all popover tips and inline tips so they appear again as you use the app.
 <h2 id="file-details">File Details</h2>
 <p>View information about a file:</p>
 <ol>
-<li>Long-press the file</li>
-<li>Select <strong>Details</strong>, or</li>
-<li>From the editor, tap the <strong>info</strong> icon</li>
+<li>Tap the <strong>⋯ (ellipsis)</strong> button for the file</li>
+<li>The details sheet opens</li>
 </ol>
 <h3 id="information-shown">Information Shown</h3>
 <ul>
@@ -1719,14 +1724,14 @@ Resets all popover tips and inline tips so they appear again as you use the app.
 <h2 id="best-practices">Best Practices</h2>
 <h3 id="regular-cleanup">Regular Cleanup</h3>
 <ul>
-<li>Move completed work to Ready</li>
-<li>Move stale work to Set Aside</li>
+<li>Change completed work to <strong>Ready</strong></li>
+<li>Change paused work to <strong>Set Aside</strong></li>
 <li>Empty Trash periodically</li>
 </ul>
 <h3 id="workflow-tips">Workflow Tips</h3>
 <ul>
-<li>Start in Draft</li>
-<li>Move to Ready when polished</li>
+<li>Start in <strong>Draft</strong></li>
+<li>Change to <strong>Ready</strong> when polished</li>
 <li>Use Poetry Collections to group poems for submission (Poetry projects)</li>
 <li>Track submissions through the Submissions folder</li>
 </ul>
@@ -1744,29 +1749,30 @@ Resets all popover tips and inline tips so they appear again as you use the app.
 
 <h1 id="organizing-your-work">Organizing Your Work</h1>
 <p>A well-organized project makes writing easier and more productive. This guide covers strategies and features for keeping your work organized.</p>
-<h2 id="the-folder-workflow">The Folder Workflow</h2>
-<p>Writing Shed Pro's folder structure supports a natural writing workflow:</p>
-<pre><code>Draft → Ready → Submit → Publish
+<h2 id="workflow-status-lifecycle">Workflow Status Lifecycle</h2>
+<p>Writing Shed Pro uses file workflow statuses to support a natural writing lifecycle:</p>
+<pre><code>Draft → Ready → Published
   ↓
 Set Aside
-  ↓
-Trash
 </code></pre>
-<h3 id="draft">Draft</h3>
+<p>Deleted items go to the <strong>Trash</strong> folder.</p>
+<h3 id="draft-status">Draft Status</h3>
 <p>Where new work begins. Use Draft for:
 - First drafts
 - Work in progress
 - Pieces that need revision</p>
-<h3 id="ready">Ready</h3>
-<p>Move work here when it's polished and complete. Ready signals:
+<h3 id="ready-status">Ready Status</h3>
+<p>Use Ready when a file is polished and complete. Ready signals:
 - No more major edits needed
 - Ready for submission or publication
 - Your best, finished work</p>
-<h3 id="set-aside">Set Aside</h3>
+<h3 id="set-aside-status">Set Aside Status</h3>
 <p>For work you're not actively pursuing:
 - Ideas that aren't working yet
 - Seasonal pieces (waiting for the right time)
 - Experiments you might return to</p>
+<h3 id="published-status">Published Status</h3>
+<p>Published is usually set automatically when a submission is accepted.</p>
 <h3 id="trash">Trash</h3>
 <p>Deleted items land here. You can:
 - Restore accidentally deleted work
@@ -1795,37 +1801,26 @@ Trash
 <li>Tap <strong>Done</strong></li>
 </ol>
 <p>Custom order is saved and syncs across devices.</p>
-<h2 id="poetry-collections">Poetry Collections</h2>
-<p>Poetry projects have a dedicated <strong>Collections</strong> folder for grouping related poems. Collections are first-class entities with their own names and synopses.</p>
-<h3 id="creating-a-collection">Creating a Collection</h3>
-<ol>
-<li>Open the <strong>Collections</strong> folder in a Poetry project</li>
-<li>Tap <strong>+</strong></li>
-<li>Enter a collection name</li>
-<li>Tap <strong>Create</strong></li>
-</ol>
-<h3 id="adding-poems-to-a-collection">Adding Poems to a Collection</h3>
-<ol>
-<li>Navigate to poems in the Poems folder</li>
-<li>Select one or more poems</li>
-<li>Choose <strong>Add to Collection...</strong></li>
-<li>Select the collection</li>
-</ol>
-<h3 id="collection-uses">Collection Uses</h3>
+<h2 id="project-containers-and-body-matter">Project Containers and Body Matter</h2>
+<p>Writing Shed Pro uses project-specific <strong>containers</strong> to group content. Poetry collections are one type of container, not the only one.</p>
+<h3 id="container-types-by-project">Container Types by Project</h3>
 <ul>
-<li>Group poems for a chapbook</li>
-<li>Create a reading order for an event</li>
-<li>Organize by publication targets</li>
-<li>Include in manuscript body matter for export</li>
+<li><strong>Prose</strong>: Sections</li>
+<li><strong>Poetry</strong>: Collections</li>
+<li><strong>Fiction (Novel)</strong>: Chapters</li>
+<li><strong>Fiction (Short Fiction)</strong>: Stories</li>
+<li><strong>Fiction (Verse Novel)</strong>: Books</li>
+<li><strong>Drama</strong>: Acts</li>
 </ul>
-<h3 id="body-matter-integration">Body Matter Integration</h3>
-<p>Collections can be added to your manuscript's body matter:
-1. Open the <strong>Manuscript</strong> folder
-2. Navigate to <strong>Body Matter</strong>
-3. Add collections and reorder as needed
-4. Collections in body matter are assembled in order during export</p>
-<p><strong>Note</strong>: Collections are only available in Poetry projects. Fiction and Drama projects use chapters, books, or acts for organization.</p>
-<p>See <a href="#104-collections">Poetry Collections</a> for more details.</p>
+<p>These containers can be added to <strong>Manuscript → Body Matter</strong> and reordered. During export, body matter is assembled in that order.</p>
+<h3 id="common-uses">Common Uses</h3>
+<ul>
+<li>Group related pieces into coherent units</li>
+<li>Build a deliberate reading order</li>
+<li>Organize long projects into manageable structure</li>
+<li>Control manuscript assembly order for export and print</li>
+</ul>
+<p>See <a href="#104-collections">Poetry Collections</a> for Poetry-specific details.</p>
 <h2 id="searching">Searching</h2>
 <p>Find files quickly with search:</p>
 <h3 id="project-search">Project Search</h3>
@@ -1855,34 +1850,34 @@ Trash
 <h3 id="poetry-workflow">Poetry Workflow</h3>
 <ol>
 <li>New poem → Draft</li>
-<li>Revise and polish → Still in Draft</li>
-<li>Complete → Move to Ready</li>
+<li>Revise and polish → keep status as Draft while revising</li>
+<li>Complete → change status to Ready</li>
 <li>Create Collection for submission</li>
 <li>Submit → Track in Submissions</li>
-<li>Accepted → Celebrate!</li>
+<li>Accepted → status becomes Published</li>
 </ol>
 <h3 id="novel-workflow">Novel Workflow</h3>
 <ol>
-<li>Create scenes in Draft</li>
+<li>Create scenes with Draft status</li>
 <li>Link to plot elements</li>
 <li>Organize into chapters</li>
-<li>Move completed chapters to Ready</li>
+<li>Change completed scenes/chapters to Ready</li>
 <li>Assemble full manuscript for export</li>
 </ol>
 <h3 id="general-writing-workflow">General Writing Workflow</h3>
 <ol>
 <li>Start in Draft</li>
-<li>Move to Ready when done</li>
+<li>Change to Ready when done</li>
 <li>Export or print as needed</li>
 </ol>
 <h2 id="cleanup-and-maintenance">Cleanup and Maintenance</h2>
 <p>Keep your project healthy:</p>
 <h3 id="regular-tasks">Regular Tasks</h3>
 <ul>
-<li>Move finished work to Ready</li>
-<li>Archive old work to Set Aside</li>
+<li>Change finished work to Ready</li>
+<li>Change paused work to Set Aside</li>
 <li>Empty Trash monthly</li>
-<li>Review Collections for relevance</li>
+<li>Review project containers for relevance</li>
 </ul>
 <h3 id="spring-cleaning">Spring Cleaning</h3>
 <ul>
@@ -1893,7 +1888,7 @@ Trash
 </ul>
 <h3 id="before-submitting">Before Submitting</h3>
 <ul>
-<li>Ensure work is in Ready</li>
+<li>Ensure work is set to Ready</li>
 <li>Double-check formatting</li>
 <li>Review in pagination view</li>
 <li>Export and proof</li>
@@ -1902,6 +1897,7 @@ Trash
 <ul>
 <li><a href="#34-folders-and-files">Folders and Files</a></li>
 <li><a href="#104-collections">Collections</a></li>
+<li><a href="#31-project-types-overview">Project Types Overview</a></li>
 <li><a href="#101-search-and-replace">Search and Replace</a></li>
 </ul>
 
@@ -2057,12 +2053,12 @@ Trash
 </tr>
 </tbody>
 </table>
-<h3 id="excluding-files-from-the-manuscript">Excluding Files from the Manuscript</h3>
-<p>Any file can be excluded from manuscript assembly without deleting it:
-1. Open the file's details or context menu
-2. Toggle <strong>Include in Manuscript</strong> off
-3. The file remains in your project but is skipped during assembly</p>
-<p>This is useful for notes, alternate versions, or work-in-progress files you don't want in the current export.</p>
+<h3 id="including-files-in-the-manuscript">Including Files in the Manuscript</h3>
+<p>Files are included in manuscript assembly by adding their parent container to <strong>Body Matter</strong>. For example:
+- In a Novel, add a chapter to Body Matter to include all its scenes
+- In Poetry, add a collection or individual poem to Body Matter
+- In Prose, add a section to Body Matter to include all its files</p>
+<p>To exclude a file from the manuscript, remove it from its container or move it to a container that is not included in Body Matter.</p>
 <h3 id="type-specific-assembly-details">Type-Specific Assembly Details</h3>
 <p>Each project type has unique assembly features documented in its own guide:</p>
 <ul>
@@ -2226,7 +2222,9 @@ Trash
 - Paragraph styles are visible (headings appear larger, etc.)
 - Character formatting shows (bold, italic, underline)
 - Images appear inline
-- Footnote markers are visible and tappable</p>
+- Footnote markers are visible and tappable
+- Endnote markers can be inserted for notes collected in manuscript back matter
+- Glossary terms, references, and index entries can be inserted inline</p>
 <h3 id="cursor-and-selection">Cursor and Selection</h3>
 <ul>
 <li>Tap to place the cursor</li>
@@ -2253,7 +2251,7 @@ Trash
 <td>Bold</td>
 </tr>
 <tr>
-<td><em>I</em></td>
+<td><strong>I</strong></td>
 <td>Italic</td>
 </tr>
 <tr>
@@ -2270,6 +2268,7 @@ Trash
 </tr>
 </tbody>
 </table>
+<p>On iPhone in compact layouts, some actions may be grouped under a menu to keep the toolbar focused on the most common formatting controls.</p>
 <h3 id="paragraph-style-picker">Paragraph Style Picker</h3>
 <p>Tap <strong>¶</strong> to see available paragraph styles. Tap a style to apply it to the current paragraph. Available styles include:
 - Body (default)
@@ -2281,11 +2280,11 @@ Trash
 <h3 id="character-formatting">Character Formatting</h3>
 <p>Select text, then tap a formatting button:
 - <strong>B</strong> toggles bold
-- <em>I</em> toggles italic
+- <strong>I</strong> toggles italic
 - <strong>U</strong> toggles underline
 - <strong>S̶</strong> toggles strikethrough</p>
 <h3 id="insert-menu">Insert Menu</h3>
-<p>Tap <strong>⊕</strong> to insert:
+<p>Tap <strong>⊕</strong> to open insert actions. Depending on platform and manuscript settings, available actions include:
 - <strong>Image</strong>: Add a photo or illustration
 - <strong>Footnote</strong>: Create a numbered footnote
 - <strong>Comment</strong>: Add a revision note
@@ -2294,6 +2293,7 @@ Trash
 - <strong>Reference</strong>: Add a bibliographic reference
 - <strong>Index Entry</strong>: Add an index entry at the cursor position
 - <strong>Figure Reference</strong>: Insert a figure reference marker</p>
+<p>On Mac Catalyst, these actions are also available through the app's menu commands.</p>
 <blockquote>
 <p><strong>Note</strong>: Reference options appear only when the corresponding back matter section is enabled in your project's manuscript settings. See <a href="#36-manuscript-structure">Manuscript Structure</a> for details.</p>
 </blockquote>
@@ -2306,7 +2306,7 @@ Trash
 <li><strong>Paste</strong>: Insert from clipboard</li>
 <li><strong>Select All</strong>: Select entire document</li>
 </ul>
-<h3 id="extended-actions">Extended Actions</h3>
+<h3 id="extended-actions-catalyst">Extended Actions (Catalyst)</h3>
 <ul>
 <li><strong>Look Up</strong>: Dictionary definition and web search</li>
 <li><strong>Translate</strong>: Use Apple's translation</li>
@@ -2317,6 +2317,7 @@ Trash
 <ul>
 <li><strong>Edit Style</strong>: Open the stylesheet editor for the current style</li>
 </ul>
+<p>See <a href="#42-text-formatting">Text Formatting</a> and <a href="#43-headings-and-styles">Headings and Styles</a> for detailed formatting workflows.</p>
 <h2 id="undo-and-redo">Undo and Redo</h2>
 <p>Writing Shed Pro maintains a full undo history:</p>
 <h3 id="gestures">Gestures</h3>
@@ -2382,10 +2383,6 @@ Trash
 <li>Helps maintain focus on your current thought</li>
 </ul>
 <h2 id="word-count">Word Count</h2>
-<p>The editor shows a live word count:
-- Displayed in the status area
-- Updates as you type
-- Shows words, characters, and paragraphs</p>
 <p>See <a href="#47-word-count-and-statistics">Word Count and Statistics</a> for detailed statistics.</p>
 <h2 id="file-versions">File Versions</h2>
 <p>Every file in Writing Shed Pro supports multiple versions — snapshots of your content that you can create, navigate, and manage.</p>
@@ -3090,7 +3087,8 @@ Trash
 <li>Drop it into your document at the desired location</li>
 </ul>
 <h2 id="image-properties">Image Properties</h2>
-<p>Tap an image to select it and access its properties:</p>
+<p>Tap an image to select it and access its properties:
+You can also use the image controls button in the editor toolbar when an image is selected.</p>
 <h3 id="scale">Scale</h3>
 <p>Adjust the image size:
 - 10% to 200% of original
@@ -3218,10 +3216,7 @@ Trash
 <li>Captions included</li>
 </ul>
 <h3 id="rtf">RTF</h3>
-<ul>
-<li>Images embed (compatibility varies)</li>
-<li>Some applications may not display correctly</li>
-</ul>
+<p>RTF export does not include inline images. Writing Shed Pro warns you before export so you can choose a format like PDF when images must be preserved.</p>
 <h3 id="print">Print</h3>
 <ul>
 <li>Images print at available resolution</li>
@@ -3283,7 +3278,7 @@ Trash
 </ol>
 <h3 id="from-footnotes-list">From Footnotes List</h3>
 <ol>
-<li>Access <strong>Footnotes...</strong> from the menu</li>
+<li>Open the Insert menu and choose <strong>Show Footnotes</strong></li>
 <li>Find the footnote you want to edit</li>
 <li>Tap to edit</li>
 <li>Save your changes</li>
@@ -3291,8 +3286,8 @@ Trash
 <h2 id="viewing-all-footnotes">Viewing All Footnotes</h2>
 <p>To see all footnotes in your document:</p>
 <ol>
-<li>Open the file menu</li>
-<li>Select <strong>Footnotes...</strong></li>
+<li>Open the Insert menu</li>
+<li>Select <strong>Show Footnotes</strong></li>
 </ol>
 <p>The list shows:
 - Footnote number
@@ -3334,14 +3329,14 @@ Trash
 <h3 id="endnotes-mode">Endnotes Mode</h3>
 <ul>
 <li>All notes appear at the end of the document</li>
+<li>Endnotes are collected in the manuscript back matter</li>
 <li>Cleaner page layout</li>
 <li>Common in some publication styles</li>
 </ul>
 <h3 id="switching-modes">Switching Modes</h3>
 <ol>
-<li>Open document settings</li>
-<li>Find <strong>Footnote Display</strong></li>
-<li>Choose <strong>Footnotes</strong> or <strong>Endnotes</strong></li>
+<li>Open the Insert menu and choose <strong>Footnote</strong> or <strong>Endnote</strong> when adding a note</li>
+<li>Use your manuscript settings to control whether notes are displayed as footnotes or gathered as endnotes in back matter</li>
 </ol>
 <p>The content doesn't change—only where it appears.</p>
 <h2 id="footnotes-in-pagination-view">Footnotes in Pagination View</h2>
@@ -3438,8 +3433,8 @@ Trash
 - Options to edit or delete</p>
 <h3 id="comments-panel">Comments Panel</h3>
 <p>For documents with many comments:
-1. Open the view menu
-2. Select <strong>Comments</strong>
+1. Open the Insert menu
+2. Select <strong>View Comments</strong>
 3. See all comments in a list</p>
 <h2 id="editing-comments">Editing Comments</h2>
 <ol>
@@ -3457,7 +3452,7 @@ Trash
 </ol>
 <h3 id="from-comments-panel">From Comments Panel</h3>
 <ol>
-<li>Open the Comments panel</li>
+<li>Open <strong>View Comments</strong> from the Insert menu</li>
 <li>Swipe left on the comment</li>
 <li>Tap <strong>Delete</strong></li>
 </ol>
@@ -3605,16 +3600,11 @@ Trash
 
 <h1 id="word-count-and-statistics">Word Count and Statistics</h1>
 <p>Tracking your writing progress is motivating and practical. Writing Shed Pro provides detailed statistics at multiple levels.</p>
-<h2 id="quick-word-count">Quick Word Count</h2>
-<p>The word count displays in the editor status area:
-- Updates in real-time as you type
-- Shows words in current file
-- Always visible while editing</p>
 <h2 id="detailed-statistics">Detailed Statistics</h2>
-<p>For more information about your file:</p>
+<p>For detailed counts at the file level:</p>
 <ol>
 <li>Open the file</li>
-<li>Access file details (tap info icon or long-press file)</li>
+<li>Open the file list and tap the file's <strong>⋯</strong> button</li>
 <li>View the Statistics section</li>
 </ol>
 <h3 id="available-statistics">Available Statistics</h3>
@@ -3635,25 +3625,21 @@ Trash
 <td>Total characters (with spaces)</td>
 </tr>
 <tr>
-<td><strong>Characters (no spaces)</strong></td>
-<td>Characters without spaces</td>
-</tr>
-<tr>
-<td><strong>Paragraphs</strong></td>
-<td>Number of paragraphs</td>
-</tr>
-<tr>
 <td><strong>Lines</strong></td>
 <td>Number of lines</td>
 </tr>
-<tr>
-<td><strong>Pages</strong></td>
-<td>Estimated page count</td>
-</tr>
 </tbody>
 </table>
-<h2 id="project-level-statistics">Project-Level Statistics</h2>
-<p>View statistics for your entire project:</p>
+<h2 id="body-matter-word-counts">Body Matter Word Counts</h2>
+<p>Body Matter totals now appear directly in manuscript navigation:</p>
+<ul>
+<li>The Body Matter folder row shows a total word count for Body Matter content</li>
+<li>Body Matter container rows (for example chapters, acts, scenes, sections, collections, and books) show per-item word counts</li>
+<li>Singular/plural formatting is automatic (for example, "1 word" vs "250 words")</li>
+</ul>
+<p>This gives you quick progress visibility without opening each item.</p>
+<h2 id="project-level-counts">Project-Level Counts</h2>
+<p>For a broader project view:</p>
 <ol>
 <li>Open project settings</li>
 <li>Select <strong>Statistics</strong></li>
@@ -3673,43 +3659,6 @@ Trash
 <li>The selection word count appears</li>
 <li>Useful for checking section length</li>
 </ol>
-<h2 id="poetry-specific-statistics">Poetry-Specific Statistics</h2>
-<p>In Poetry projects, additional metrics appear:</p>
-<h3 id="per-line-metrics">Per-Line Metrics</h3>
-<ul>
-<li><strong>Syllables</strong>: Estimated syllable count per line</li>
-<li><strong>Stress Pattern</strong>: For metered verse</li>
-<li><strong>Line Length</strong>: Character count per line</li>
-</ul>
-<p>See <a href="#62-syllable-counting">Syllable Counting</a> for details.</p>
-<h2 id="fiction-specific-statistics">Fiction-Specific Statistics</h2>
-<p>In Fiction projects:</p>
-<h3 id="scene-statistics">Scene Statistics</h3>
-<ul>
-<li>Words per scene</li>
-<li>Scene count per chapter</li>
-<li>Total manuscript length</li>
-</ul>
-<h3 id="progress-tracking">Progress Tracking</h3>
-<ul>
-<li>Compare against goals</li>
-<li>Track daily/weekly progress</li>
-<li>Monitor chapter lengths</li>
-</ul>
-<h2 id="setting-word-count-goals">Setting Word Count Goals</h2>
-<p>For projects with length requirements:</p>
-<h3 id="file-goals">File Goals</h3>
-<ul>
-<li>Set a target word count for a file</li>
-<li>See progress toward the goal</li>
-<li>Helpful for consistent chapter lengths</li>
-</ul>
-<h3 id="project-goals">Project Goals</h3>
-<ul>
-<li>Novel targets (e.g., 80,000 words)</li>
-<li>Contest requirements</li>
-<li>Daily writing goals</li>
-</ul>
 <h2 id="using-statistics-effectively">Using Statistics Effectively</h2>
 <h3 id="for-motivation">For Motivation</h3>
 <ul>
@@ -3741,7 +3690,7 @@ Trash
 - Hyphenated words
 - Numbers
 - Contractions</p>
-<p>For submissions, note "approximately X words" or use the target publication's preferred method.</p>
+<p>For submissions, note "approximately X words" or use the publication's preferred counting method.</p>
 <h3 id="page-counts">Page Counts</h3>
 <p>Page estimates depend on:
 - Page size settings
@@ -3801,7 +3750,7 @@ Trash
 </tbody>
 </table>
 <h3 id="the-prose-folder">The Prose Folder</h3>
-<p>Unlike Fiction projects (which have separate Draft/Ready folders), Prose projects use a single <strong>Prose</strong> folder with workflow status to track each file's progress.</p>
+<p>Like other project types, Prose uses <strong>workflow status</strong> (Draft, Ready, Set Aside, Published) on files rather than separate status folders. In Prose, files live in a single <strong>Prose</strong> folder.</p>
 <h2 id="workflow-status">Workflow Status</h2>
 <p>Every file has a workflow status:</p>
 <table>
@@ -3840,7 +3789,7 @@ Trash
 <ol>
 <li>Tap <strong>Edit</strong> in the file list</li>
 <li>Select one or more files</li>
-<li>Tap <strong>Change Status</strong> in the toolbar</li>
+<li>Tap <strong>Change Status</strong> (🔁) in the toolbar</li>
 <li>Choose the new status</li>
 </ol>
 <h2 id="sections">Sections</h2>
@@ -4019,14 +3968,14 @@ Trash
 <p>The order affects how sections appear in the main file list.</p>
 <h3 id="renaming-a-section">Renaming a Section</h3>
 <ol>
-<li>Tap the section row's menu (⋯)</li>
+<li>Tap the section row's <strong>⋯</strong> button</li>
 <li>Select <strong>Rename</strong></li>
 <li>Enter the new name</li>
 <li>Tap <strong>Save</strong></li>
 </ol>
 <h3 id="deleting-a-section">Deleting a Section</h3>
 <ol>
-<li>Tap the section row's menu (⋯)</li>
+<li>Tap the section row's <strong>⋯</strong> button</li>
 <li>Select <strong>Delete</strong></li>
 <li>Confirm deletion</li>
 </ol>
@@ -4194,9 +4143,9 @@ ref-faq
 <h2 id="ordering-files">Ordering Files</h2>
 <h3 id="manual-ordering-within-sections">Manual Ordering (Within Sections)</h3>
 <p>When viewing a section's files:
-1. Long-press a file to initiate drag
-2. Drop in the desired position
-3. Order is saved automatically</p>
+1. Tap <strong>Edit</strong>
+2. Drag files using the reorder handles
+3. Tap <strong>Done</strong></p>
 <p>This order is used when exporting the section.</p>
 <h3 id="alphabetical-ordering-main-list">Alphabetical Ordering (Main List)</h3>
 <p>In the main Prose file list, files are sorted alphabetically by default. Use numbered prefixes in file names to control order.</p>
@@ -4206,7 +4155,8 @@ ref-faq
 <ol>
 <li>Open the <strong>Trash</strong> folder</li>
 <li>Find the file</li>
-<li>Tap menu (⋯) → <strong>Restore</strong></li>
+<li>Swipe left on the file</li>
+<li>Tap <strong>Put Back</strong></li>
 <li>File returns to the Prose folder</li>
 </ol>
 <h3 id="permanent-deletion">Permanent Deletion</h3>
@@ -4222,7 +4172,7 @@ ref-faq
 2. Tap <strong>Empty Trash</strong>
 3. Confirm</p>
 <h2 id="file-details">File Details</h2>
-<p>View file information by tapping the menu (⋯) → <strong>Details</strong>:</p>
+<p>View file information by tapping the file's <strong>⋯</strong> button:</p>
 <h3 id="information-shown">Information Shown</h3>
 <ul>
 <li><strong>Created</strong>: When the file was created</li>
@@ -4240,7 +4190,7 @@ ref-faq
 <h3 id="post-import-steps">Post-Import Steps</h3>
 <ol>
 <li>Review imported content</li>
-<li>Rename if needed (menu → <strong>Rename</strong>)</li>
+<li>Rename if needed (tap <strong>⋯</strong> → <strong>Edit</strong> in file details)</li>
 <li>Change status when ready</li>
 <li>Assign to sections as appropriate</li>
 </ol>
@@ -4259,7 +4209,7 @@ ref-faq
 <p>Sections should represent major divisions (parts, chapters, categories).</p>
 <h3 id="regular-cleanup">Regular Cleanup</h3>
 <p>Periodically review:
-- Move completed work to Published
+- Change completed work to Published
 - Set aside inactive files
 - Delete outdated content</p>
 <h3 id="consistent-naming">Consistent Naming</h3>
@@ -4478,7 +4428,7 @@ ref-faq
 <h2 id="creating-a-poem">Creating a Poem</h2>
 <h3 id="with-a-form-template">With a Form Template</h3>
 <ol>
-<li>Open the Draft folder</li>
+<li>Open the <strong>Poems</strong> folder</li>
 <li>Tap <strong>+</strong></li>
 <li>Enter a title</li>
 <li>Select a poetry form from the dropdown</li>
@@ -4487,7 +4437,7 @@ ref-faq
 <p>The poem opens with the form's structure as a guide.</p>
 <h3 id="free-verse">Free Verse</h3>
 <ol>
-<li>Open the Draft folder</li>
+<li>Open the <strong>Poems</strong> folder</li>
 <li>Tap <strong>+</strong></li>
 <li>Enter a title</li>
 <li>Select <strong>Free Verse</strong> or leave form blank</li>
@@ -4522,6 +4472,7 @@ ref-faq
 <li><strong>Ode</strong> (varied structure)</li>
 <li><strong>Free Verse</strong> (no constraints)</li>
 </ul>
+<p>You can also <strong>create your own custom forms</strong> — see <a href="#65-forms-and-templates">Forms and Templates</a> for details.</p>
 <p>See <a href="#65-forms-and-templates">Forms and Templates</a> for the complete list.</p>
 <h2 id="poetry-tools-in-the-editor">Poetry Tools in the Editor</h2>
 <p>When editing a poem, additional tools are available:</p>
@@ -4568,7 +4519,7 @@ ref-faq
 </ol>
 <h3 id="polishing">Polishing</h3>
 <ol>
-<li>Move to Ready when satisfied</li>
+<li>Change status to <strong>Ready</strong> when satisfied</li>
 <li>Create Poetry Collections for related poems</li>
 <li>Add collections to manuscript body matter for export</li>
 <li>Submit to publications</li>
@@ -4655,7 +4606,7 @@ ref-faq
 <h3 id="selecting-your-dialect">Selecting Your Dialect</h3>
 <p>Writing Shed Pro supports both American and British English pronunciation:</p>
 <ol>
-<li>Go to the main menu (gear icon)</li>
+<li>Tap <strong>Settings</strong> (⚙️) in the main menu</li>
 <li>Open <strong>Poetry Settings</strong></li>
 <li>Select <strong>Pronunciation</strong> → Choose <strong>US</strong> or <strong>UK</strong></li>
 </ol>
@@ -5101,7 +5052,7 @@ Line 14 (G)    That then I scorn to change my state with kings
 <h2 id="using-form-templates">Using Form Templates</h2>
 <h3 id="creating-a-poem-with-a-template">Creating a Poem with a Template</h3>
 <ol>
-<li>In a Poetry project, open Draft folder</li>
+<li>In a Poetry project, open the <strong>Poems</strong> folder</li>
 <li>Tap <strong>+</strong> to create a new poem</li>
 <li>Enter a title</li>
 <li>Select a form from the dropdown</li>
@@ -5319,6 +5270,78 @@ Line 14 (G)    That then I scorn to change my state with kings
 <p>Learn the form first, then decide when to deviate. Informed rule-breaking is creative; ignorant rule-breaking is sloppy.</p>
 <h3 id="use-templates-repeatedly">Use Templates Repeatedly</h3>
 <p>Write many poems in a form to truly learn it. One sonnet is practice; twenty is mastery.</p>
+<h2 id="custom-poetry-forms">Custom Poetry Forms</h2>
+<p>You can create your own poetry forms to define personal structures, workshop exercises, or any form not included in the predefined list.</p>
+<h3 id="creating-a-custom-form">Creating a Custom Form</h3>
+<p>There are two ways to create a custom form:</p>
+<p><strong>From the form picker (when creating or editing a poem):</strong>
+1. When adding a new poem, expand the <strong>Poetry Form</strong> section
+2. Scroll to the <strong>Custom</strong> category
+3. Tap <strong>Create Custom Form</strong>
+4. Fill in the form details and tap <strong>Save</strong>
+5. Your new form is automatically selected for the poem</p>
+<p><strong>From Manage Forms:</strong>
+1. In a Poetry project, tap the project's <strong>⋯</strong> menu and choose <strong>Manage Forms</strong>, or tap the <strong>Manage Forms</strong> button in any form picker
+2. Tap <strong>+</strong> to create a new form
+3. Fill in the form details and tap <strong>Save</strong></p>
+<h3 id="what-you-can-define">What You Can Define</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Name</strong></td>
+<td>The form's display name</td>
+</tr>
+<tr>
+<td><strong>Category</strong></td>
+<td>Which group the form appears in</td>
+</tr>
+<tr>
+<td><strong>Description</strong></td>
+<td>A brief explanation of the form (required)</td>
+</tr>
+<tr>
+<td><strong>Line Count</strong></td>
+<td>Expected number of lines (optional)</td>
+</tr>
+<tr>
+<td><strong>Stanza Count</strong></td>
+<td>Expected number of stanzas (optional)</td>
+</tr>
+<tr>
+<td><strong>Syllable Pattern</strong></td>
+<td>Syllable counts per line, e.g. 5,7,5 (optional)</td>
+</tr>
+<tr>
+<td><strong>Rhyme Scheme</strong></td>
+<td>Expected rhyme pattern, e.g. ABAB (optional)</td>
+</tr>
+<tr>
+<td><strong>Meter</strong></td>
+<td>Meter pattern, e.g. iambic pentameter (optional)</td>
+</tr>
+<tr>
+<td><strong>Template Content</strong></td>
+<td>Starting text for new poems using this form (optional)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="editing-and-deleting-custom-forms">Editing and Deleting Custom Forms</h3>
+<p>Open <strong>Manage Forms</strong> to edit or delete your custom forms:
+- Tap a custom form to edit its details
+- Swipe left on a custom form to delete it
+- If poems use a deleted form, they are reassigned to Free Verse</p>
+<h3 id="duplicating-predefined-forms">Duplicating Predefined Forms</h3>
+<p>You can duplicate any predefined form as a starting point for a custom form:
+1. Open <strong>Manage Forms</strong>
+2. Tap a predefined form to view its details
+3. Tap <strong>Duplicate as Custom</strong>
+4. Modify the duplicate to suit your needs</p>
 <h2 id="see-also">See Also</h2>
 <ul>
 <li><a href="#61-poetry-mode-overview">Poetry Mode Overview</a></li>
@@ -5526,7 +5549,7 @@ Line 14 (G)    That then I scorn to change my state with kings
 <li><strong>Ready</strong> – Completed and polished</li>
 <li><strong>Set Aside</strong> – Parked for later</li>
 </ul>
-<p>Scenes are grouped by status in the file list. To change a scene's status, tap <strong>Edit</strong> in the toolbar, select one or more scenes, then tap <strong>Change Status</strong> and choose the new status. Scenes move between groups automatically.</p>
+<p>Use the status filter tabs at the top of the scene list to focus on Draft, Ready, or Set Aside scenes. To change a scene's status, tap <strong>Edit</strong> in the toolbar, select one or more scenes, then tap <strong>Change Status</strong> (🔁) and choose the new status.</p>
 <h2 id="story-structures">Story Structures</h2>
 <p>Choose a structure to help organize your plot:</p>
 <h3 id="freeform">Freeform</h3>
@@ -5537,7 +5560,7 @@ Line 14 (G)    That then I scorn to change my state with kings
 2. <strong>Act 2 - Confrontation</strong>: Rising action, complications
 3. <strong>Act 3 - Resolution</strong>: Climax and conclusion</p>
 <h3 id="the-monomyth-heros-journey">The Monomyth (Hero's Journey)</h3>
-<p>The monomyth, or Hero's Journey, is a narrative pattern identified by mythologist Joseph Campbell in <em>The Hero with a Thousand Faces</em> (1949). Campbell observed that myths and stories across cultures share a common structure in which a hero ventures from the ordinary world into a realm of adventure, faces trials, and returns transformed. Christopher Vogler later adapted Campbell's work for screenwriters and novelists in <em>The Writer's Journey: Mythic Structure for Writers</em> (1992), condensing it into a practical 12-stage framework. Writing Shed Pro offers all three versions as story structures.</p>
+<p>The monomyth, or Hero's Journey, is a narrative pattern identified by mythologist Joseph Campbell in <em>The Hero with a Thousand Faces</em> (1949). Campbell observed that myths and stories across cultures share a common structure in which a hero ventures from the ordinary world into a realm of adventure, faces trials, and returns transformed. Christopher Vogler later adapted Campbell's work for screenwriters and novelists in <em>The Writer's Journey: Mythic Structure for Writers</em> (1992), condensing it into a practical 12-stage framework. Carol S. Pearson took a different approach in <em>Awakening the Heroes Within</em> (1991), organizing the journey into three broad phases—Preparation, Journey, and Return—and mapping twelve character archetypes across them. Writing Shed Pro offers all three versions as story structures.</p>
 <h3 id="monomyth-vogler">Monomyth (Vogler)</h3>
 <p>Christopher Vogler's 12-stage Hero's Journey:
 1. Ordinary World
@@ -5571,23 +5594,15 @@ Line 14 (G)    That then I scorn to change my state with kings
 15. Rescue from Without
 16. Crossing the Return Threshold
 17. Master of Two Worlds</p>
-<h3 id="heros-inner-journey-pearson">Hero's Inner Journey (Pearson)</h3>
-<p>Carol S. Pearson's archetypal framework from <em>Awakening the Heroes Within</em> (1991) maps the hero's inner transformation through three phases, each governed by four archetypes:</p>
-<p><strong>1. Preparation (Ego)</strong> — Establishing identity
-- Innocent: Trusts life, has faith, is optimistic — seeks safety and happiness
-- Orphan: Feels abandoned or betrayed — develops resilience and realism
-- Warrior: Fights for what matters — shows courage, discipline, and strength
-- Caregiver: Cares for others with compassion and generosity</p>
-<p><strong>2. Journey (Soul)</strong> — Transformation
-- Seeker: Searches for a better life — values autonomy and ambition
-- Destroyer: Lets go of what no longer serves — embraces metamorphosis
-- Lover: Follows the heart — driven by passion, commitment, and connection
-- Creator: Brings vision to life — fuelled by imagination and innovation</p>
-<p><strong>3. Return (Self)</strong> — Wholeness
-- Ruler: Takes responsibility and creates order from chaos
-- Magician: Transforms reality — a catalyst for change and healing
-- Sage: Seeks truth and wisdom — values understanding above all
-- Jester: Lives in the moment with joy and freedom — sees the absurd</p>
+<h3 id="monomyth-pearson">Monomyth (Pearson)</h3>
+<p>Carol S. Pearson's framework from <em>Awakening the Heroes Within</em> organizes the hero's journey into three broad phases, each associated with four character archetypes:</p>
+<p><strong>Preparation</strong> — The soul prepares to embark on the journey:
+- Innocent, Orphan, Warrior, Caregiver</p>
+<p><strong>Journey</strong> — The soul searches for identity and wholeness:
+- Seeker, Destroyer, Lover, Creator</p>
+<p><strong>Return</strong> — The soul returns to transform the world:
+- Ruler, Magician, Sage, Jester</p>
+<p>When you select Monomyth (Pearson) as your story structure, plot elements are assigned to one of the three phases instead of individual stages. In addition, the character archetype picker switches from Vogler's eight archetypes to Pearson's twelve, grouped by phase.</p>
 <p>You can change the structure later in Project Settings.</p>
 <h2 id="core-concepts">Core Concepts</h2>
 <h3 id="scenes">Scenes</h3>
@@ -5610,6 +5625,7 @@ Line 14 (G)    That then I scorn to change my state with kings
 <h3 id="characters">Characters</h3>
 <p>Your story's people:
 - Names and descriptions
+- Character archetype (Vogler's 8 or Pearson's 12, depending on story structure)
 - Relationships
 - Arcs and development</p>
 <h3 id="locations">Locations</h3>
@@ -5751,10 +5767,11 @@ Line 14 (G)    That then I scorn to change my state with kings
 <h3 id="renaming-chapters">Renaming Chapters</h3>
 <ol>
 <li>Open Chapters</li>
-<li>Long-press the chapter</li>
-<li>Select <strong>Rename</strong></li>
+<li>Tap <strong>Edit</strong></li>
+<li>Select the chapter</li>
+<li>Tap <strong>Rename</strong></li>
 <li>Enter the new title</li>
-<li>Tap <strong>Done</strong></li>
+<li>Tap <strong>Rename</strong></li>
 </ol>
 <h3 id="deleting-chapters">Deleting Chapters</h3>
 <ol>
@@ -5886,10 +5903,11 @@ Line 14 (G)    That then I scorn to change my state with kings
 <h3 id="renaming-containers">Renaming Containers</h3>
 <ol>
 <li>Open the container list (Chapters, Books, or Stories)</li>
-<li>Long-press the item</li>
-<li>Select <strong>Rename</strong></li>
+<li>Tap <strong>Edit</strong></li>
+<li>Select the item</li>
+<li>Tap <strong>Rename</strong></li>
 <li>Enter the new title</li>
-<li>Tap <strong>Done</strong></li>
+<li>Tap <strong>Rename</strong></li>
 </ol>
 <h3 id="deleting-containers">Deleting Containers</h3>
 <ol>
@@ -5982,15 +6000,15 @@ Line 14 (G)    That then I scorn to change my state with kings
 </tr>
 </tbody>
 </table>
-<p>Scenes are grouped by status in the file list.</p>
+<p>Use the status filter tabs at the top of the scene list to focus on specific statuses.</p>
 <h3 id="changing-status">Changing Status</h3>
 <ol>
 <li>Tap <strong>Edit</strong> in the toolbar</li>
 <li>Select one or more scenes</li>
-<li>Tap <strong>Change Status</strong></li>
+<li>Tap <strong>Change Status</strong> (🔁)</li>
 <li>Choose the new status</li>
 </ol>
-<p>Scenes move between status groups automatically.</p>
+<p>The updated status is applied immediately.</p>
 <h2 id="linking-scenes-to-plot-elements">Linking Scenes to Plot Elements</h2>
 <p>Connect scenes to your story structure:</p>
 <h3 id="from-the-scene">From the Scene</h3>
@@ -6115,7 +6133,7 @@ Line 14 (G)    That then I scorn to change my state with kings
 </ul>
 <h3 id="scene-has-wrong-status">Scene Has Wrong Status</h3>
 <ul>
-<li>Tap Edit, select the scene, then Change Status</li>
+<li>Tap Edit, select the scene, then <strong>Change Status</strong> (🔁)</li>
 </ul>
 <h3 id="lost-scene-content">Lost Scene Content</h3>
 <ul>
@@ -7682,7 +7700,7 @@ Hi.
 </table>
 <h3 id="exporting-a-project">Exporting a Project</h3>
 <ol>
-<li>From the project list, long-press (or right-click) the project</li>
+<li>From the project list, tap the project's <strong>⋯</strong> menu</li>
 <li>Select <strong>Export</strong></li>
 <li>A save dialog appears with the filename <code>ProjectName.wsp</code></li>
 <li>Choose a destination (Files, iCloud Drive, etc.)</li>
@@ -7690,7 +7708,7 @@ Hi.
 </ol>
 <h3 id="importing-a-wsp-file">Importing a WSP File</h3>
 <ol>
-<li>Open <strong>Settings</strong> (gear icon on the project list)</li>
+<li>Tap <strong>Settings</strong> (⚙️) on the project list</li>
 <li>Tap <strong>Import</strong></li>
 <li>Select the <code>.wsp</code> file from your device or iCloud Drive</li>
 <li>The project is added to your project list</li>
@@ -8399,7 +8417,7 @@ Hi.
 <h2 id="workflow-tips">Workflow Tips</h2>
 <h3 id="before-submitting">Before Submitting</h3>
 <ol>
-<li>Move files to Ready folder</li>
+<li>Change files to <strong>Ready</strong> status</li>
 <li>Create a Collection for the submission package</li>
 <li>Proofread thoroughly</li>
 <li>Check submission guidelines</li>
@@ -8822,7 +8840,7 @@ Hi.
 <h3 id="opening-search">Opening Search</h3>
 <ul>
 <li><strong>Keyboard</strong>: ⌘F (Mac/iPad with keyboard)</li>
-<li><strong>Toolbar</strong>: Tap the search icon</li>
+<li><strong>Toolbar</strong>: Tap <strong>Search</strong> (🔍)</li>
 <li><strong>Menu</strong>: Edit → Find</li>
 </ul>
 <h3 id="finding-text">Finding Text</h3>
@@ -9533,10 +9551,11 @@ Pagination engine handles this automatically.</p>
 <h2 id="renaming-collections">Renaming Collections</h2>
 <ol>
 <li>Open the Collections folder</li>
-<li>Long-press the collection</li>
-<li>Select <strong>Rename</strong></li>
+<li>Tap <strong>Edit</strong></li>
+<li>Select the collection</li>
+<li>Tap <strong>Rename</strong></li>
 <li>Enter the new name</li>
-<li>Tap <strong>Done</strong></li>
+<li>Tap <strong>Rename</strong></li>
 </ol>
 <h2 id="deleting-collections">Deleting Collections</h2>
 <ol>
@@ -9959,8 +9978,8 @@ Pagination engine handles this automatically.</p>
 <h2 id="organization-tips">Organization Tips</h2>
 <h3 id="use-collections-not-copies">Use Collections, Not Copies</h3>
 <p>Instead of duplicating files for different purposes, add them to multiple collections. One source of truth.</p>
-<h3 id="move-to-ready-when-done">Move to Ready When Done</h3>
-<p>Moving files to Ready isn't just organization—it's a psychological commitment that the piece is finished.</p>
+<h3 id="change-status-to-ready-when-done">Change Status to Ready When Done</h3>
+<p>Changing a file's status to Ready isn't just organization—it's a psychological commitment that the piece is finished.</p>
 <h3 id="empty-trash-regularly">Empty Trash Regularly</h3>
 <p>Old deleted files take up space and clutter your backups. Clean up monthly.</p>
 <h2 id="editing-tips">Editing Tips</h2>
@@ -10346,7 +10365,7 @@ the National Book Award for Fiction.
 <li>Recalculates automatically when you make changes to your manuscript</li>
 </ul>
 <h2 id="configuring-settings">Configuring Settings</h2>
-<p>Tap the <strong>gear icon</strong> (⚙️) in the navigation bar to open the settings sheet.</p>
+<p>Tap <strong>Settings</strong> (⚙️) in the navigation bar to open the settings sheet.</p>
 <h3 id="title-section">Title Section</h3>
 <ul>
 <li><strong>Title</strong>: The heading displayed at the top (default: "List of Figures")</li>
@@ -12065,7 +12084,7 @@ While mist dissolves like half-remembered rain
 <ol>
 <li>Tap <strong>Edit</strong> in the file list toolbar</li>
 <li>Select your poem</li>
-<li>Tap <strong>Change Status</strong></li>
+<li>Tap <strong>Change Status</strong> (🔁)</li>
 <li>Choose <strong>Ready</strong></li>
 </ol>
 <p>Your poem moves from Draft to Ready status, signaling that it's complete.</p>
@@ -13233,7 +13252,7 @@ I didn't ask.
 <p>The same DML produces different output depending on format:</p>
 <h3 id="switch-format">Switch Format</h3>
 <ol>
-<li>Open <strong>Project Settings</strong> (gear icon)</li>
+<li>Open <strong>Project Settings</strong> (⚙️)</li>
 <li>Find <strong>Script Format</strong></li>
 <li>Switch from <strong>Film</strong> to <strong>Stage</strong> (or vice versa)</li>
 <li>Return to your scene and preview again</li>
@@ -13677,7 +13696,7 @@ I *really* don't think that's a good idea.
 <p>Start with the physical page dimensions and margins.</p>
 <h3 id="open-page-setup">Open Page Setup</h3>
 <ol>
-<li>Open <strong>Project Settings</strong> (gear icon)</li>
+<li>Open <strong>Project Settings</strong> (⚙️)</li>
 <li>Select <strong>Page Setup</strong></li>
 </ol>
 <h3 id="choose-paper-size">Choose Paper Size</h3>
@@ -14047,8 +14066,9 @@ I *really* don't think that's a good idea.
 </ol>
 <h3 id="assign-files-to-sections">Assign Files to Sections</h3>
 <ol>
-<li>Open a file's context menu (long-press or tap ⋯)</li>
-<li>Select <strong>Assign to Section</strong></li>
+<li>Tap <strong>Edit</strong> in the Prose file list</li>
+<li>Select one or more files</li>
+<li>Tap <strong>Assign to Section</strong></li>
 <li>Choose the appropriate section</li>
 </ol>
 <p>For example:

@@ -29,7 +29,7 @@ hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
 .back-to-top {
     text-align: right;
     font-size: 0.9em;
-    margin: 3em 0 0.5em 0;
+    margin: 1.5em 0 0.5em 0;
 }
 .back-to-top a {
     color: #666;
@@ -77,8 +77,8 @@ body > *:first-child { margin-top: 0 !important; }
 <h3 id="project-actions">Project Actions</h3>
 <ul>
 <li><strong>Tap</strong> a project to open it</li>
-<li><strong>Swipe left</strong> to delete</li>
-<li><strong>Long-press</strong> for more options (rename, duplicate, details)</li>
+<li><strong>Tap the ⋯ button</strong> for project options (details, page setup, stylesheet, export)</li>
+<li><strong>Tap Edit</strong> then select projects to delete or reorder</li>
 </ul>
 <h2 id="inside-a-project">Inside a Project</h2>
 <p>Tapping a project opens its folder structure. The layout adapts to your device:</p>
@@ -86,37 +86,36 @@ body > *:first-child { margin-top: 0 !important; }
 <ul>
 <li><strong>Single-column navigation</strong>: Tap folders to drill down</li>
 <li><strong>Back button</strong>: Return to previous level</li>
-<li><strong>Long-press back button</strong>: Jump directly to the project root</li>
-</ul>
-<h3 id="ipad-and-mac-layout">iPad and Mac Layout</h3>
-<ul>
-<li><strong>Sidebar</strong>: Shows folder hierarchy</li>
-<li><strong>Content area</strong>: Shows selected folder's contents or file editor</li>
-<li><strong>Optional inspector</strong>: Shows details about selected items</li>
 </ul>
 <h2 id="the-toolbar">The Toolbar</h2>
 <p>The toolbar appears at the top of most screens and provides context-specific actions.</p>
+<h3 id="project-list-toolbar">Project List Toolbar</h3>
+<ul>
+<li><strong>Settings (⚙)</strong>: Open application settings</li>
+<li><strong>Help (?)</strong>: Open the user guide</li>
+<li><strong>Add (+)</strong>: Create a new project</li>
+<li><strong>Sort</strong>: Change project sort order</li>
+<li><strong>Edit</strong>: Enter edit mode for deleting or reordering projects</li>
+</ul>
 <h3 id="project-view-toolbar">Project View Toolbar</h3>
 <ul>
 <li><strong>Back arrow</strong>: Return to project list</li>
-<li><strong>Project name</strong>: Tap to edit</li>
-<li><strong>Gear icon</strong>: Project settings</li>
-<li><strong>Question mark</strong>: Open user guide</li>
+<li><strong>Project name</strong>: Tap to rename</li>
+<li><strong>⋯ (ellipsis)</strong>: Project options (details, page setup, stylesheet, export)</li>
 </ul>
-<h3 id="folder-view-toolbar">Folder View Toolbar</h3>
+<h3 id="file-list-toolbar">File List Toolbar</h3>
 <ul>
-<li><strong>Back arrow</strong>: Return to parent folder</li>
-<li><strong>Folder name</strong>: Current location</li>
-<li><strong>Add (+)</strong>: Create files</li>
-<li><strong>Edit</strong>: Enter edit mode for reordering and deletion</li>
-<li><strong>Sort</strong>: Change sort order</li>
+<li><strong>Back arrow</strong>: Return to project</li>
+<li><strong>Add (+)</strong>: Create new files</li>
+<li><strong>Edit</strong>: Enter edit mode for selecting, deleting, or changing file status</li>
+<li><strong>Sort</strong>: Change sort order (Name, Date Modified)</li>
 </ul>
 <h3 id="file-editor-toolbar">File Editor Toolbar</h3>
 <ul>
-<li><strong>Back arrow</strong>: Return to folder</li>
-<li><strong>File name</strong>: Tap to rename</li>
-<li><strong>Formatting toolbar</strong>: Text styling options</li>
-<li><strong>More (...)</strong>: Additional actions</li>
+<li><strong>Back arrow</strong>: Return to file list</li>
+<li><strong>File name</strong>: Displayed in the navigation bar</li>
+<li><strong>Undo / Redo</strong>: Step through changes</li>
+<li><strong>⋯ (ellipsis)</strong>: Additional actions (page preview, invisibles, insert options, print)</li>
 </ul>
 <h2 id="the-formatting-toolbar">The Formatting Toolbar</h2>
 <p>When editing text, a formatting toolbar appears above the keyboard:</p>
@@ -129,28 +128,40 @@ body > *:first-child { margin-top: 0 !important; }
 </thead>
 <tbody>
 <tr>
+<td><strong>→|</strong></td>
+<td>Insert tab (iPhone only, hidden with external keyboard)</td>
+</tr>
+<tr>
+<td><strong>🖼</strong></td>
+<td>Image settings (enabled when an image is selected)</td>
+</tr>
+<tr>
+<td><strong>📋</strong></td>
+<td>Notes (footnotes, comments, and other annotations)</td>
+</tr>
+<tr>
 <td><strong>¶</strong></td>
-<td>Paragraph style picker (Body, Heading 1-3, etc.)</td>
+<td>Paragraph style picker</td>
 </tr>
 <tr>
-<td><strong>B</strong></td>
-<td>Bold</td>
+<td><strong>BIU</strong></td>
+<td>Text formatting menu — tap to choose Bold, Italic, Underline, or Strikethrough (iPhone only; individual buttons on iPad)</td>
 </tr>
 <tr>
-<td><em>I</em></td>
-<td>Italic</td>
+<td><strong>◂≡</strong></td>
+<td>Decrease indent</td>
 </tr>
 <tr>
-<td><strong>U</strong></td>
-<td>Underline</td>
+<td><strong>≡▶</strong></td>
+<td>Increase indent</td>
 </tr>
 <tr>
-<td><strong>S̶</strong></td>
-<td>Strikethrough</td>
+<td><strong>≡</strong></td>
+<td>Add to index (only shown when index is enabled in manuscript settings)</td>
 </tr>
 <tr>
-<td><strong>⊕</strong></td>
-<td>Insert menu (images, footnotes, comments)</td>
+<td><strong>⌨↓</strong></td>
+<td>Hide keyboard (iPhone/iPad only, hidden with external keyboard)</td>
 </tr>
 </tbody>
 </table>
@@ -162,12 +173,19 @@ body > *:first-child { margin-top: 0 !important; }
 - Caption
 - Footnote
 - And more...</p>
+<p>At the top of the paragraph style list, an <strong>Edit</strong> button opens the Stylesheet Editor where you can customise fonts, sizes, spacing, and other formatting for each style. See <a href="guide:102-stylesheet-editor">Stylesheet Editor</a> for details.</p>
 <p>Tap a style to apply it to the current paragraph.</p>
 <h3 id="insert-menu">Insert Menu</h3>
-<p>Tap <strong>⊕</strong> to insert:
+<p>Tap the insert button in the navigation bar to add content to your document:
 - <strong>Image</strong>: Add a photo or illustration
+- <strong>Comment</strong>: Add a revision note
 - <strong>Footnote</strong>: Create a numbered footnote
-- <strong>Comment</strong>: Add a revision note</p>
+- <strong>Endnote</strong>: Add an endnote (when enabled in manuscript settings)
+- <strong>Glossary Term</strong>: Add a glossary entry (when enabled in manuscript settings)
+- <strong>Reference</strong>: Add a reference (when enabled in manuscript settings)
+- <strong>Index Entry</strong>: Mark text for the index (when enabled in manuscript settings)
+- <strong>List</strong>: Insert a numbered or bulleted list
+- <strong>Page Break</strong>: Insert a manual page break</p>
 <h2 id="the-text-selection-menu">The Text Selection Menu</h2>
 <p>When you select text by double-tapping or dragging, a menu appears:</p>
 <ul>
@@ -197,8 +215,6 @@ body > *:first-child { margin-top: 0 !important; }
 <li><strong>Preview Mode</strong>: See formatted output (film or stage format)</li>
 </ul>
 <h2 id="navigation-shortcuts">Navigation Shortcuts</h2>
-<h3 id="long-press-back-button">Long-Press Back Button</h3>
-<p>From any nested view, long-press the back button to see the navigation stack. Tap any level to jump directly there, or hold to return to the project root.</p>
 <h3 id="keyboard-shortcuts-mac-and-ipad-with-keyboard">Keyboard Shortcuts (Mac and iPad with keyboard)</h3>
 <ul>
 <li><strong>⌘N</strong>: New file</li>

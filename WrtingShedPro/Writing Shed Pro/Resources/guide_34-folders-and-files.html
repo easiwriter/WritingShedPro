@@ -29,7 +29,7 @@ hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
 .back-to-top {
     text-align: right;
     font-size: 0.9em;
-    margin: 3em 0 0.5em 0;
+    margin: 1.5em 0 0.5em 0;
 }
 .back-to-top a {
     color: #666;
@@ -75,24 +75,33 @@ body > *:first-child { margin-top: 0 !important; }
 <li><strong>Folders</strong> contain your files</li>
 <li><strong>Files</strong> contain your actual writing</li>
 </ul>
-<h2 id="system-folders">System Folders</h2>
-<p>Each project type comes with predefined system folders that cannot be deleted:</p>
-<h3 id="all-project-types">All Project Types</h3>
-<ul>
-<li><strong>Draft</strong>: Work in progress</li>
-<li><strong>Ready</strong>: Completed pieces</li>
-<li><strong>Set Aside</strong>: Items you're not actively working on</li>
-<li><strong>Trash</strong>: Deleted items (restorable)</li>
-</ul>
+<h2 id="workflow-status-not-folders">Workflow Status (Not Folders)</h2>
+<p><code>Draft</code>, <code>Ready</code>, <code>Set Aside</code>, and <code>Published</code> are <strong>file workflow statuses</strong>, not folders.</p>
+<p>In content views, status tabs appear at the top with counts:
+- <strong>All</strong>
+- <strong>Draft</strong>
+- <strong>Ready</strong>
+- <strong>Set Aside</strong>
+- <strong>Published</strong></p>
+<p>Tap a status tab to filter the file list.</p>
+<h3 id="changing-a-files-workflow-status">Changing a File's Workflow Status</h3>
+<ol>
+<li>Open the file list in a content area</li>
+<li>Tap <strong>Edit</strong></li>
+<li>Select one or more files</li>
+<li>Tap <strong>Change Status</strong> (🔁)</li>
+<li>Choose the new status</li>
+</ol>
+<p><code>Published</code> is set automatically when a submission is accepted.</p>
 <h3 id="poetry">Poetry</h3>
-<p>Additional system folders:
+<p>Additional project folders:
 - <strong>Poems</strong>: Your main writing area for poems
 - <strong>Collections</strong>: Poetry Collections — group related poems together
 - <strong>Submissions</strong>: Track what you've sent
 - <strong>Magazines</strong>: Publication targets
 - <strong>Competitions</strong>: Contest targets</p>
 <h3 id="fiction-novel-verse-novel-short-fiction">Fiction (Novel, Verse Novel, Short Fiction)</h3>
-<p>Additional system folders:
+<p>Additional project folders:
 - <strong>Scenes</strong> (or <strong>Episodes</strong> for Verse Novel): Your story scenes
 - <strong>Chapters</strong> (Novel), <strong>Books</strong> (Verse Novel): Organizational containers
 - <strong>Plot Elements</strong>: Story beats
@@ -118,28 +127,15 @@ body > *:first-child { margin-top: 0 !important; }
 <li><strong>Fiction</strong>: Scene files</li>
 <li><strong>Drama</strong>: Scene files (with DML support)</li>
 </ul>
-<h2 id="moving-files">Moving Files</h2>
-<h3 id="move-a-single-file">Move a Single File</h3>
+<h2 id="renaming">Renaming</h2>
+<p>Rename files from the <strong>⋯ (ellipsis) button</strong> in the file row.</p>
+<h3 id="rename-a-file">Rename a File</h3>
 <ol>
-<li>Long-press the file</li>
-<li>Select <strong>Move to...</strong></li>
-<li>Choose the destination folder</li>
-<li>Tap <strong>Move</strong></li>
+<li>Tap the <strong>⋯</strong> button for the file</li>
+<li>In file details, tap <strong>Edit</strong></li>
+<li>Enter the new name</li>
+<li>Tap <strong>Save</strong></li>
 </ol>
-<h3 id="move-multiple-files">Move Multiple Files</h3>
-<ol>
-<li>Tap <strong>Edit</strong> in the folder view</li>
-<li>Select multiple files</li>
-<li>Tap <strong>Move</strong></li>
-<li>Choose the destination</li>
-<li>Tap <strong>Move</strong></li>
-</ol>
-<h3 id="drag-and-drop-ipadmac">Drag and Drop (iPad/Mac)</h3>
-<ul>
-<li>Drag files directly between folders in the sidebar</li>
-<li>Hold over a folder to open it</li>
-<li>Drop to complete the move</li>
-</ul>
 <h2 id="reordering-files">Reordering Files</h2>
 <p>Files can be reordered within a folder:</p>
 <ol>
@@ -155,56 +151,28 @@ body > *:first-child { margin-top: 0 !important; }
 <li><strong>Date Modified</strong>: By last edit</li>
 <li><strong>User's Order</strong>: Your custom arrangement</li>
 </ul>
-<h2 id="renaming">Renaming</h2>
-<h3 id="rename-a-file">Rename a File</h3>
-<ol>
-<li>Long-press the file</li>
-<li>Select <strong>Rename</strong></li>
-<li>Enter the new name</li>
-<li>Tap <strong>Done</strong></li>
-</ol>
-<p>Or from the editor:
-1. Tap the file name in the toolbar
-2. Edit the name
-3. Tap <strong>Done</strong></p>
-<h3 id="rename-a-folder">Rename a Folder</h3>
-<ol>
-<li>Long-press the folder</li>
-<li>Select <strong>Rename</strong></li>
-<li>Enter the new name</li>
-<li>Tap <strong>Done</strong></li>
-</ol>
 <h2 id="deleting">Deleting</h2>
-<h3 id="delete-a-file">Delete a File</h3>
+<h3 id="delete-a-single-file">Delete a Single File</h3>
 <ol>
-<li>Swipe left on the file</li>
+<li>Swipe left on the file row</li>
 <li>Tap <strong>Delete</strong></li>
 </ol>
-<p>Or:
-1. Long-press the file
-2. Select <strong>Delete</strong></p>
-<p>Deleted files go to Trash and can be restored.</p>
+<p>Deleted files go to <strong>Trash</strong> and can be restored.</p>
 <h3 id="delete-multiple-files">Delete Multiple Files</h3>
 <ol>
-<li>Tap <strong>Edit</strong></li>
-<li>Select files</li>
+<li>Tap <strong>Edit</strong> in the file list</li>
+<li>Select one or more files</li>
 <li>Tap <strong>Delete</strong></li>
-</ol>
-<h3 id="delete-a-folder">Delete a Folder</h3>
-<ol>
-<li>Long-press the folder</li>
-<li>Select <strong>Delete</strong></li>
 <li>Confirm</li>
 </ol>
-<p><strong>Warning</strong>: Deleting a folder deletes all its contents.</p>
 <h2 id="the-trash">The Trash</h2>
 <p>Deleted files aren't immediately destroyed—they go to Trash.</p>
 <h3 id="restoring-from-trash">Restoring from Trash</h3>
 <ol>
 <li>Open the <strong>Trash</strong> folder</li>
 <li>Find the item you want to restore</li>
-<li>Swipe right and tap <strong>Restore</strong>, or</li>
-<li>Long-press and select <strong>Put Back</strong></li>
+<li>Swipe left on the item</li>
+<li>Tap <strong>Put Back</strong></li>
 </ol>
 <p>Items are restored to their original location.</p>
 <h3 id="emptying-trash">Emptying Trash</h3>
@@ -217,9 +185,8 @@ body > *:first-child { margin-top: 0 !important; }
 <h2 id="file-details">File Details</h2>
 <p>View information about a file:</p>
 <ol>
-<li>Long-press the file</li>
-<li>Select <strong>Details</strong>, or</li>
-<li>From the editor, tap the <strong>info</strong> icon</li>
+<li>Tap the <strong>⋯ (ellipsis)</strong> button for the file</li>
+<li>The details sheet opens</li>
 </ol>
 <h3 id="information-shown">Information Shown</h3>
 <ul>
@@ -247,14 +214,14 @@ body > *:first-child { margin-top: 0 !important; }
 <h2 id="best-practices">Best Practices</h2>
 <h3 id="regular-cleanup">Regular Cleanup</h3>
 <ul>
-<li>Move completed work to Ready</li>
-<li>Move stale work to Set Aside</li>
+<li>Change completed work to <strong>Ready</strong></li>
+<li>Change paused work to <strong>Set Aside</strong></li>
 <li>Empty Trash periodically</li>
 </ul>
 <h3 id="workflow-tips">Workflow Tips</h3>
 <ul>
-<li>Start in Draft</li>
-<li>Move to Ready when polished</li>
+<li>Start in <strong>Draft</strong></li>
+<li>Change to <strong>Ready</strong> when polished</li>
 <li>Use Poetry Collections to group poems for submission (Poetry projects)</li>
 <li>Track submissions through the Submissions folder</li>
 </ul>

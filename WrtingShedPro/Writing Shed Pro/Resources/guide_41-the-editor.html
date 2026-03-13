@@ -29,7 +29,7 @@ hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
 .back-to-top {
     text-align: right;
     font-size: 0.9em;
-    margin: 3em 0 0.5em 0;
+    margin: 1.5em 0 0.5em 0;
 }
 .back-to-top a {
     color: #666;
@@ -72,7 +72,9 @@ body > *:first-child { margin-top: 0 !important; }
 - Paragraph styles are visible (headings appear larger, etc.)
 - Character formatting shows (bold, italic, underline)
 - Images appear inline
-- Footnote markers are visible and tappable</p>
+- Footnote markers are visible and tappable
+- Endnote markers can be inserted for notes collected in manuscript back matter
+- Glossary terms, references, and index entries can be inserted inline</p>
 <h3 id="cursor-and-selection">Cursor and Selection</h3>
 <ul>
 <li>Tap to place the cursor</li>
@@ -99,7 +101,7 @@ body > *:first-child { margin-top: 0 !important; }
 <td>Bold</td>
 </tr>
 <tr>
-<td><em>I</em></td>
+<td><strong>I</strong></td>
 <td>Italic</td>
 </tr>
 <tr>
@@ -116,6 +118,7 @@ body > *:first-child { margin-top: 0 !important; }
 </tr>
 </tbody>
 </table>
+<p>On iPhone in compact layouts, some actions may be grouped under a menu to keep the toolbar focused on the most common formatting controls.</p>
 <h3 id="paragraph-style-picker">Paragraph Style Picker</h3>
 <p>Tap <strong>¶</strong> to see available paragraph styles. Tap a style to apply it to the current paragraph. Available styles include:
 - Body (default)
@@ -127,11 +130,11 @@ body > *:first-child { margin-top: 0 !important; }
 <h3 id="character-formatting">Character Formatting</h3>
 <p>Select text, then tap a formatting button:
 - <strong>B</strong> toggles bold
-- <em>I</em> toggles italic
+- <strong>I</strong> toggles italic
 - <strong>U</strong> toggles underline
 - <strong>S̶</strong> toggles strikethrough</p>
 <h3 id="insert-menu">Insert Menu</h3>
-<p>Tap <strong>⊕</strong> to insert:
+<p>Tap <strong>⊕</strong> to open insert actions. Depending on platform and manuscript settings, available actions include:
 - <strong>Image</strong>: Add a photo or illustration
 - <strong>Footnote</strong>: Create a numbered footnote
 - <strong>Comment</strong>: Add a revision note
@@ -140,6 +143,7 @@ body > *:first-child { margin-top: 0 !important; }
 - <strong>Reference</strong>: Add a bibliographic reference
 - <strong>Index Entry</strong>: Add an index entry at the cursor position
 - <strong>Figure Reference</strong>: Insert a figure reference marker</p>
+<p>On Mac Catalyst, these actions are also available through the app's menu commands.</p>
 <blockquote>
 <p><strong>Note</strong>: Reference options appear only when the corresponding back matter section is enabled in your project's manuscript settings. See <a href="guide:36-manuscript-structure">Manuscript Structure</a> for details.</p>
 </blockquote>
@@ -152,7 +156,7 @@ body > *:first-child { margin-top: 0 !important; }
 <li><strong>Paste</strong>: Insert from clipboard</li>
 <li><strong>Select All</strong>: Select entire document</li>
 </ul>
-<h3 id="extended-actions">Extended Actions</h3>
+<h3 id="extended-actions-catalyst">Extended Actions (Catalyst)</h3>
 <ul>
 <li><strong>Look Up</strong>: Dictionary definition and web search</li>
 <li><strong>Translate</strong>: Use Apple's translation</li>
@@ -163,6 +167,7 @@ body > *:first-child { margin-top: 0 !important; }
 <ul>
 <li><strong>Edit Style</strong>: Open the stylesheet editor for the current style</li>
 </ul>
+<p>See <a href="guide:42-text-formatting">Text Formatting</a> and <a href="guide:43-headings-and-styles">Headings and Styles</a> for detailed formatting workflows.</p>
 <h2 id="undo-and-redo">Undo and Redo</h2>
 <p>Writing Shed Pro maintains a full undo history:</p>
 <h3 id="gestures">Gestures</h3>
@@ -228,10 +233,6 @@ body > *:first-child { margin-top: 0 !important; }
 <li>Helps maintain focus on your current thought</li>
 </ul>
 <h2 id="word-count">Word Count</h2>
-<p>The editor shows a live word count:
-- Displayed in the status area
-- Updates as you type
-- Shows words, characters, and paragraphs</p>
 <p>See <a href="guide:47-word-count-and-statistics">Word Count and Statistics</a> for detailed statistics.</p>
 <h2 id="file-versions">File Versions</h2>
 <p>Every file in Writing Shed Pro supports multiple versions — snapshots of your content that you can create, navigate, and manage.</p>
