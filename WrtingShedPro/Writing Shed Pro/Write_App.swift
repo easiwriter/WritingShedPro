@@ -244,7 +244,7 @@ struct Write_App: App {
                 object: nil,
                 queue: nil
             ) { notification in
-                let reason = notification.userInfo?["NSCloudKitMirroringDelegateResetReasonKey"] as? String ?? "unknown"
+                let reason = String(describing: notification.userInfo?["NSCloudKitMirroringDelegateResetReasonKey"] ?? "unknown")
                 let msg = "🔄 [CloudKit Sync] Mirroring delegate RESET — reason: \(reason). Will kick zone fetch in 5s."
                 Write_App.logToFile(msg)
                 #if DEBUG

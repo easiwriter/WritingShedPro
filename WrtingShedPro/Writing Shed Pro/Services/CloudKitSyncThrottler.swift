@@ -56,9 +56,11 @@ final class CloudKitSyncThrottler {
 
     /// True while a CloudKit import event is currently in progress.
     private(set) var importInProgress = false
+    private(set) var importStartTime: Date?
 
     /// True while a CloudKit export event is currently in progress.
     private(set) var exportInProgress = false
+    private(set) var exportStartTime: Date?
     
     /// Time of the last sync notification
     private(set) var lastSyncTime: Date?
@@ -189,6 +191,7 @@ final class CloudKitSyncThrottler {
         setupNotificationObservers()
         setupBurstDetection()
         setupCloudKitEventTracking()
+        setupMirroringResetTracking()
     }
     
     /// Pending event count accumulated on background threads, flushed to main periodically
@@ -352,6 +355,7 @@ final class CloudKitSyncThrottler {
                     typeLabel = "import"
                     if event.endDate == nil {
                         self.importInProgress = true
+                        self.importStartTime = Date()
                         self.appendCloudKitEvent(
                             type: typeLabel,
                             phase: "started",
@@ -360,6 +364,7 @@ final class CloudKitSyncThrottler {
                         )
                     } else {
                         self.importInProgress = false
+                        self.importStartTime = nil
                         self.importCompleted = true
                         self.importSucceeded = event.succeeded
                         self.appendCloudKitEvent(
@@ -376,6 +381,7 @@ final class CloudKitSyncThrottler {
                     typeLabel = "export"
                     if event.endDate == nil {
                         self.exportInProgress = true
+                        self.exportStartTime = Date()
                         self.appendCloudKitEvent(
                             type: typeLabel,
                             phase: "started",
@@ -384,6 +390,7 @@ final class CloudKitSyncThrottler {
                         )
                     } else {
                         self.exportInProgress = false
+                        self.exportStartTime = nil
                         self.appendCloudKitEvent(
                             type: typeLabel,
                             phase: "ended",
@@ -395,6 +402,55 @@ final class CloudKitSyncThrottler {
                     break
                 }
             }
+        }
+    }
+
+    /// Track mirroring reset notifications and clear stale in-progress flags.
+    /// In some failure paths (for example change token expiration), CoreData may reset
+    /// mirroring state without delivering a normal import/export end event.
+    private func setupMirroringResetTracking() {
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("NSCloudKitMirroringDelegateWillResetSyncNotificationName"),
+            object: nil,
+            queue: nil
+        ) { [weak self] notification in
+            self?.handleMirroringReset(notification: notification, phase: "will-reset")
+        }
+
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("NSCloudKitMirroringDelegateDidResetSyncNotificationName"),
+            object: nil,
+            queue: nil
+        ) { [weak self] notification in
+            self?.handleMirroringReset(notification: notification, phase: "did-reset")
+        }
+    }
+
+    private func handleMirroringReset(notification: Notification, phase: String) {
+        DispatchQueue.main.async {
+            let reasonValue = notification.userInfo?["NSCloudKitMirroringDelegateResetReasonKey"]
+            let reasonText = String(describing: reasonValue ?? "unknown")
+
+            let hadActiveEvent = self.importInProgress || self.exportInProgress
+            self.importInProgress = false
+            self.exportInProgress = false
+            self.importStartTime = nil
+            self.exportStartTime = nil
+
+            self.appendCloudKitEvent(
+                type: "mirroring",
+                phase: phase,
+                status: "reset",
+                message: reasonText
+            )
+
+            #if DEBUG
+            if hadActiveEvent {
+                print("🔄 [CloudKitSyncThrottler] Mirroring reset (\(phase)) cleared stale in-progress flags. reason=\(reasonText)")
+            } else {
+                print("🔄 [CloudKitSyncThrottler] Mirroring reset (\(phase)). reason=\(reasonText)")
+            }
+            #endif
         }
     }
 
