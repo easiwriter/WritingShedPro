@@ -92,6 +92,7 @@ struct RenameFileModal: View {
     private func confirmRename() {
         let trimmedName = newName.trimmingCharacters(in: .whitespaces)
         file.name = trimmedName
+        file.modifiedDate = Date()
         showRenameAlert = false
         dismiss()
         onRename(trimmedName)

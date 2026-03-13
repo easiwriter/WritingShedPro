@@ -800,6 +800,7 @@ struct FileListView: View {
         
         if !trimmedName.isEmpty && trimmedName != fileToRename.name {
             fileToRename.name = trimmedName
+            fileToRename.modifiedDate = Date()
             onRename?([fileToRename])
         }
         

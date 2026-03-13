@@ -115,6 +115,7 @@ struct FileDetailView: View {
         
         // Update name
         file.name = trimmedName
+        file.modifiedDate = Date()
     }
     
     private func deleteFile() {

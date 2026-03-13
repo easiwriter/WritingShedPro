@@ -152,6 +152,7 @@ struct FolderDetailView: View {
         
         // Update name
         folder.name = trimmedName
+        folder.modifiedDate = Date()
     }
     
     private func deleteFolder() {

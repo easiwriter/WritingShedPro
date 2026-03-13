@@ -58,6 +58,7 @@ struct ProjectDetailView: View {
         
         // Update name if valid
         project.name = newName
+        project.modifiedDate = Date()
     }
     
     private func deleteProject() {
@@ -356,6 +357,7 @@ struct ProjectInfoSheet: View {
         }
         
         project.name = trimmedName
+        project.modifiedDate = Date()
 
         do {
             try modelContext.save()
