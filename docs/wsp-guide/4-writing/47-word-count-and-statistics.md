@@ -7,7 +7,7 @@ Tracking your writing progress is motivating and practical. Writing Shed Pro pro
 For detailed counts at the file level:
 
 1. Open the file
-2. Access file details (tap info icon or long-press file)
+2. Open the file list and tap the file's **⋯** button
 3. View the Statistics section
 
 ### Available Statistics
@@ -16,10 +16,7 @@ For detailed counts at the file level:
 |-----------|-------------|
 | **Words** | Total word count |
 | **Characters** | Total characters (with spaces) |
-| **Characters (no spaces)** | Characters without spaces |
-| **Paragraphs** | Number of paragraphs |
 | **Lines** | Number of lines |
-| **Pages** | Estimated page count |
 
 ## Body Matter Word Counts
 

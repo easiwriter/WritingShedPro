@@ -21,8 +21,8 @@ Even with syllable counting and stress analysis, nothing replaces reading your w
 ### Use Collections, Not Copies
 Instead of duplicating files for different purposes, add them to multiple collections. One source of truth.
 
-### Move to Ready When Done
-Moving files to Ready isn't just organization—it's a psychological commitment that the piece is finished.
+### Change Status to Ready When Done
+Changing a file's status to Ready isn't just organization—it's a psychological commitment that the piece is finished.
 
 ### Empty Trash Regularly
 Old deleted files take up space and clutter your backups. Clean up monthly.

@@ -27,7 +27,9 @@ Prose projects are the most flexible type, suitable for any writing that doesn't
 - Draft
 - Ready
 - Set Aside
-- Trash
+- Published
+
+Deleted files go to the **Trash** folder.
 
 ### Features
 - Standard text formatting

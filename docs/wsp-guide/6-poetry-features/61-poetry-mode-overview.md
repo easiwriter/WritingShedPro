@@ -36,7 +36,7 @@ Poetry projects include specialized folders:
 ## Creating a Poem
 
 ### With a Form Template
-1. Open the Draft folder
+1. Open the **Poems** folder
 2. Tap **+**
 3. Enter a title
 4. Select a poetry form from the dropdown
@@ -45,7 +45,7 @@ Poetry projects include specialized folders:
 The poem opens with the form's structure as a guide.
 
 ### Free Verse
-1. Open the Draft folder
+1. Open the **Poems** folder
 2. Tap **+**
 3. Enter a title
 4. Select **Free Verse** or leave form blank
@@ -135,7 +135,7 @@ See [Rhyme Tools](63-rhyme-tools.md) for details.
 4. Read aloud (essential!)
 
 ### Polishing
-1. Move to Ready when satisfied
+1. Change status to **Ready** when satisfied
 2. Create Poetry Collections for related poems
 3. Add collections to manuscript body matter for export
 4. Submit to publications

@@ -23,7 +23,7 @@ When you create a Prose project, you get these folders:
 | **Trash** | Deleted files (recoverable until emptied) |
 
 ### The Prose Folder
-Unlike Fiction projects (which have separate Draft/Ready folders), Prose projects use a single **Prose** folder with workflow status to track each file's progress.
+Like other project types, Prose uses **workflow status** (Draft, Ready, Set Aside, Published) on files rather than separate status folders. In Prose, files live in a single **Prose** folder.
 
 ## Workflow Status
 
@@ -46,7 +46,7 @@ At the top of the file list, tap status tabs to filter:
 ### Changing Status
 1. Tap **Edit** in the file list
 2. Select one or more files
-3. Tap **Change Status** in the toolbar
+3. Tap **Change Status** (🔁) in the toolbar
 4. Choose the new status
 
 ## Sections

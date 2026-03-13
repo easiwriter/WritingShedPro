@@ -2,35 +2,38 @@
 
 A well-organized project makes writing easier and more productive. This guide covers strategies and features for keeping your work organized.
 
-## The Folder Workflow
+## Workflow Status Lifecycle
 
-Writing Shed Pro's folder structure supports a natural writing workflow:
+Writing Shed Pro uses file workflow statuses to support a natural writing lifecycle:
 
 ```
-Draft → Ready → Submit → Publish
+Draft → Ready → Published
   ↓
 Set Aside
-  ↓
-Trash
 ```
 
-### Draft
+Deleted items go to the **Trash** folder.
+
+### Draft Status
 Where new work begins. Use Draft for:
 - First drafts
 - Work in progress
 - Pieces that need revision
 
-### Ready
-Move work here when it's polished and complete. Ready signals:
+### Ready Status
+Use Ready when a file is polished and complete. Ready signals:
 - No more major edits needed
 - Ready for submission or publication
 - Your best, finished work
 
-### Set Aside
+### Set Aside Status
 For work you're not actively pursuing:
 - Ideas that aren't working yet
 - Seasonal pieces (waiting for the right time)
 - Experiments you might return to
+
+### Published Status
+Published is usually set automatically when a submission is accepted.
 
 ### Trash
 Deleted items land here. You can:
@@ -61,38 +64,27 @@ Control how files appear in lists:
 
 Custom order is saved and syncs across devices.
 
-## Poetry Collections
+## Project Containers and Body Matter
 
-Poetry projects have a dedicated **Collections** folder for grouping related poems. Collections are first-class entities with their own names and synopses.
+Writing Shed Pro uses project-specific **containers** to group content. Poetry collections are one type of container, not the only one.
 
-### Creating a Collection
-1. Open the **Collections** folder in a Poetry project
-2. Tap **+**
-3. Enter a collection name
-4. Tap **Create**
+### Container Types by Project
+- **Prose**: Sections
+- **Poetry**: Collections
+- **Fiction (Novel)**: Chapters
+- **Fiction (Short Fiction)**: Stories
+- **Fiction (Verse Novel)**: Books
+- **Drama**: Acts
 
-### Adding Poems to a Collection
-1. Navigate to poems in the Poems folder
-2. Select one or more poems
-3. Choose **Add to Collection...**
-4. Select the collection
+These containers can be added to **Manuscript → Body Matter** and reordered. During export, body matter is assembled in that order.
 
-### Collection Uses
-- Group poems for a chapbook
-- Create a reading order for an event
-- Organize by publication targets
-- Include in manuscript body matter for export
+### Common Uses
+- Group related pieces into coherent units
+- Build a deliberate reading order
+- Organize long projects into manageable structure
+- Control manuscript assembly order for export and print
 
-### Body Matter Integration
-Collections can be added to your manuscript's body matter:
-1. Open the **Manuscript** folder
-2. Navigate to **Body Matter**
-3. Add collections and reorder as needed
-4. Collections in body matter are assembled in order during export
-
-**Note**: Collections are only available in Poetry projects. Fiction and Drama projects use chapters, books, or acts for organization.
-
-See [Poetry Collections](../10-advanced-features/104-collections.md) for more details.
+See [Poetry Collections](../10-advanced-features/104-collections.md) for Poetry-specific details.
 
 ## Searching
 
@@ -128,22 +120,22 @@ Use the file details field for notes, tags, or metadata.
 
 ### Poetry Workflow
 1. New poem → Draft
-2. Revise and polish → Still in Draft
-3. Complete → Move to Ready
+2. Revise and polish → keep status as Draft while revising
+3. Complete → change status to Ready
 4. Create Collection for submission
 5. Submit → Track in Submissions
-6. Accepted → Celebrate!
+6. Accepted → status becomes Published
 
 ### Novel Workflow
-1. Create scenes in Draft
+1. Create scenes with Draft status
 2. Link to plot elements
 3. Organize into chapters
-4. Move completed chapters to Ready
+4. Change completed scenes/chapters to Ready
 5. Assemble full manuscript for export
 
 ### General Writing Workflow
 1. Start in Draft
-2. Move to Ready when done
+2. Change to Ready when done
 3. Export or print as needed
 
 ## Cleanup and Maintenance
@@ -151,10 +143,10 @@ Use the file details field for notes, tags, or metadata.
 Keep your project healthy:
 
 ### Regular Tasks
-- Move finished work to Ready
-- Archive old work to Set Aside
+- Change finished work to Ready
+- Change paused work to Set Aside
 - Empty Trash monthly
-- Review Collections for relevance
+- Review project containers for relevance
 
 ### Spring Cleaning
 - Delete truly obsolete files
@@ -163,7 +155,7 @@ Keep your project healthy:
 - Archive completed projects
 
 ### Before Submitting
-- Ensure work is in Ready
+- Ensure work is set to Ready
 - Double-check formatting
 - Review in pagination view
 - Export and proof
@@ -171,6 +163,7 @@ Keep your project healthy:
 ## See Also
 - [Folders and Files](34-folders-and-files.md)
 - [Collections](../10-advanced-features/104-collections.md)
+- [Project Types Overview](31-project-types-overview.md)
 - [Search and Replace](../10-advanced-features/101-search-and-replace.md)
 
 ---

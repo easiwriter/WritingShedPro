@@ -17,7 +17,7 @@ Search all files in your project.
 
 ### Opening Search
 - **Keyboard**: ⌘F (Mac/iPad with keyboard)
-- **Toolbar**: Tap the search icon
+- **Toolbar**: Tap **Search** (🔍)
 - **Menu**: Edit → Find
 
 ### Finding Text

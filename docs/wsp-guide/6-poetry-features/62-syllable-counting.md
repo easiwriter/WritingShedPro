@@ -36,7 +36,7 @@ Writing Shed Pro uses a sophisticated syllable counting algorithm:
 ### Selecting Your Dialect
 Writing Shed Pro supports both American and British English pronunciation:
 
-1. Go to the main menu (gear icon)
+1. Tap **Settings** (⚙️) in the main menu
 2. Open **Poetry Settings**
 3. Select **Pronunciation** → Choose **US** or **UK**
 

@@ -59,17 +59,15 @@ When editing text, a formatting toolbar appears above the keyboard:
 
 | Button | Function |
 |--------|----------|
-| **⇥** | Insert tab (iPhone only, hidden with external keyboard) |
-| **¶** | Paragraph style picker (Body, Heading 1-3, etc.) |
+| **→\|** | Insert tab (iPhone only, hidden with external keyboard) |
 | **🖼** | Image settings (enabled when an image is selected) |
 | **📋** | Notes (footnotes, comments, and other annotations) |
-| **B** | Bold |
-| *I* | Italic |
-| **U** | Underline |
-| **S̶** | Strikethrough |
-| **1.** | Numbered list |
-| **•** | Bulleted list |
-| **⌨↓** | Hide keyboard (iPhone only) |
+| **¶** | Paragraph style picker |
+| **BIU** | Text formatting menu — tap to choose Bold, Italic, Underline, or Strikethrough (iPhone only; individual buttons on iPad) |
+| **◂≡** | Decrease indent |
+| **≡▶** | Increase indent |
+| **≡** | Add to index (only shown when index is enabled in manuscript settings) |
+| **⌨↓** | Hide keyboard (iPhone/iPad only, hidden with external keyboard) |
 
 
 ### Paragraph Style Picker

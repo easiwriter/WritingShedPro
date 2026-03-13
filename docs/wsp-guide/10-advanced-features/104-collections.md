@@ -73,10 +73,11 @@ The poem isn't deleted—it just leaves this collection.
 ## Renaming Collections
 
 1. Open the Collections folder
-2. Long-press the collection
-3. Select **Rename**
-4. Enter the new name
-5. Tap **Done**
+2. Tap **Edit**
+3. Select the collection
+4. Tap **Rename**
+5. Enter the new name
+6. Tap **Rename**
 
 ## Deleting Collections
 

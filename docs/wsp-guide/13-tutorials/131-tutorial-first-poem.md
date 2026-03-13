@@ -131,7 +131,7 @@ When you're satisfied with your sonnet:
 
 1. Tap **Edit** in the file list toolbar
 2. Select your poem
-3. Tap **Change Status**
+3. Tap **Change Status** (🔁)
 4. Choose **Ready**
 
 Your poem moves from Draft to Ready status, signaling that it's complete.

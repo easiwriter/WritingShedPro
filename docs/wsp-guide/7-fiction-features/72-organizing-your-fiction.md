@@ -68,10 +68,11 @@ The order determines how scenes appear in the assembled manuscript.
 
 ### Renaming Chapters
 1. Open Chapters
-2. Long-press the chapter
-3. Select **Rename**
-4. Enter the new title
-5. Tap **Done**
+2. Tap **Edit**
+3. Select the chapter
+4. Tap **Rename**
+5. Enter the new title
+6. Tap **Rename**
 
 ### Deleting Chapters
 1. Swipe left on the chapter
@@ -214,10 +215,11 @@ These operations work the same across all fiction classes.
 
 ### Renaming Containers
 1. Open the container list (Chapters, Books, or Stories)
-2. Long-press the item
-3. Select **Rename**
-4. Enter the new title
-5. Tap **Done**
+2. Tap **Edit**
+3. Select the item
+4. Tap **Rename**
+5. Enter the new title
+6. Tap **Rename**
 
 ### Deleting Containers
 1. Swipe left on the item

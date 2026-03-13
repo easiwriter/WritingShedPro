@@ -46,13 +46,13 @@ Open the **Sections** folder to see all sections with:
 The order affects how sections appear in the main file list.
 
 ### Renaming a Section
-1. Tap the section row's menu (⋯)
+1. Tap the section row's **⋯** button
 2. Select **Rename**
 3. Enter the new name
 4. Tap **Save**
 
 ### Deleting a Section
-1. Tap the section row's menu (⋯)
+1. Tap the section row's **⋯** button
 2. Select **Delete**
 3. Confirm deletion
 

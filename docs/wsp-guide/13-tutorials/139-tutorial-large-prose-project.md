@@ -68,9 +68,10 @@ This order determines how sections appear in the file list and (later) in the ma
    - (and more as needed)
 
 ### Assign Files to Sections
-1. Open a file's context menu (long-press or tap ⋯)
-2. Select **Assign to Section**
-3. Choose the appropriate section
+1. Tap **Edit** in the Prose file list
+2. Select one or more files
+3. Tap **Assign to Section**
+4. Choose the appropriate section
 
 For example:
 - "How to Use This Guide" → **Introduction**

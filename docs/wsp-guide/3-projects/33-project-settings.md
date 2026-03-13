@@ -10,6 +10,9 @@ Open project settings via the **⋯ (ellipsis) button** in the toolbar when a pr
 ### Project Name
 Change the project's display name. Changes sync immediately across devices.
 
+### Author Name
+Set the author name for the project. This is used in page headers and footers via the `{{Author}}` placeholder in your page setup template.
+
 ### Project Details
 Add a description or notes about the project, such as:
 - Synopsis or pitch

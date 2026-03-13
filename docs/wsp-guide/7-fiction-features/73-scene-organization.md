@@ -37,15 +37,15 @@ Every scene has a workflow status that tracks its progress:
 | **Ready** | Complete – polished and final |
 | **Set Aside** | On hold – not currently working on |
 
-Scenes are grouped by status in the file list.
+Use the status filter tabs at the top of the scene list to focus on specific statuses.
 
 ### Changing Status
 1. Tap **Edit** in the toolbar
 2. Select one or more scenes
-3. Tap **Change Status**
+3. Tap **Change Status** (🔁)
 4. Choose the new status
 
-Scenes move between status groups automatically.
+The updated status is applied immediately.
 
 ## Linking Scenes to Plot Elements
 
@@ -166,7 +166,7 @@ Change scenes to Ready status as you complete them. It's motivating to see your 
 - Check chapter contents
 
 ### Scene Has Wrong Status
-- Tap Edit, select the scene, then Change Status
+- Tap Edit, select the scene, then **Change Status** (🔁)
 
 ### Lost Scene Content
 - Check version history

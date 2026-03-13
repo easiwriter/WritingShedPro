@@ -39,7 +39,7 @@ Page numbers are calculated using the same pagination engine as your manuscript 
 
 ## Configuring Settings
 
-Tap the **gear icon** (⚙️) in the navigation bar to open the settings sheet.
+Tap **Settings** (⚙️) in the navigation bar to open the settings sheet.
 
 ### Title Section
 

@@ -159,7 +159,7 @@ The `.wsp` format is Writing Shed Pro's native project archive — a single JSON
 
 ### Exporting a Project
 
-1. From the project list, long-press (or right-click) the project
+1. From the project list, tap the project's **⋯** menu
 2. Select **Export**
 3. A save dialog appears with the filename `ProjectName.wsp`
 4. Choose a destination (Files, iCloud Drive, etc.)
@@ -167,7 +167,7 @@ The `.wsp` format is Writing Shed Pro's native project archive — a single JSON
 
 ### Importing a WSP File
 
-1. Open **Settings** (gear icon on the project list)
+1. Tap **Settings** (⚙️) on the project list
 2. Tap **Import**
 3. Select the `.wsp` file from your device or iCloud Drive
 4. The project is added to your project list

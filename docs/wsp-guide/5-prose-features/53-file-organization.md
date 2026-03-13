@@ -109,9 +109,9 @@ Switch to **All** for complete project overview.
 
 ### Manual Ordering (Within Sections)
 When viewing a section's files:
-1. Long-press a file to initiate drag
-2. Drop in the desired position
-3. Order is saved automatically
+1. Tap **Edit**
+2. Drag files using the reorder handles
+3. Tap **Done**
 
 This order is used when exporting the section.
 
@@ -125,8 +125,9 @@ Deleted files go to Trash rather than being permanently removed.
 ### Recovering Files
 1. Open the **Trash** folder
 2. Find the file
-3. Tap menu (⋯) → **Restore**
-4. File returns to the Prose folder
+3. Swipe left on the file
+4. Tap **Put Back**
+5. File returns to the Prose folder
 
 ### Permanent Deletion
 1. In Trash, tap **Edit**
@@ -143,7 +144,7 @@ To delete all trashed files:
 
 ## File Details
 
-View file information by tapping the menu (⋯) → **Details**:
+View file information by tapping the file's **⋯** button:
 
 ### Information Shown
 - **Created**: When the file was created
@@ -162,7 +163,7 @@ When importing files:
 
 ### Post-Import Steps
 1. Review imported content
-2. Rename if needed (menu → **Rename**)
+2. Rename if needed (tap **⋯** → **Edit** in file details)
 3. Change status when ready
 4. Assign to sections as appropriate
 
@@ -189,7 +190,7 @@ Sections should represent major divisions (parts, chapters, categories).
 
 ### Regular Cleanup
 Periodically review:
-- Move completed work to Published
+- Change completed work to Published
 - Set aside inactive files
 - Delete outdated content
 

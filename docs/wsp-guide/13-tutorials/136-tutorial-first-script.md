@@ -113,7 +113,7 @@ Toggle back to source view to continue editing.
 The same DML produces different output depending on format:
 
 ### Switch Format
-1. Open **Project Settings** (gear icon)
+1. Open **Project Settings** (⚙️)
 2. Find **Script Format**
 3. Switch from **Film** to **Stage** (or vice versa)
 4. Return to your scene and preview again

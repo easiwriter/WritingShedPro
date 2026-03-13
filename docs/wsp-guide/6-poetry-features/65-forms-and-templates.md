@@ -5,7 +5,7 @@ Writing Shed Pro includes templates for over 30 traditional poetry forms. This g
 ## Using Form Templates
 
 ### Creating a Poem with a Template
-1. In a Poetry project, open Draft folder
+1. In a Poetry project, open the **Poems** folder
 2. Tap **+** to create a new poem
 3. Enter a title
 4. Select a form from the dropdown
@@ -226,7 +226,7 @@ There are two ways to create a custom form:
 5. Your new form is automatically selected for the poem
 
 **From Manage Forms:**
-1. In a Poetry project, long-press the project and tap **Manage Forms**, or tap the **Manage Forms** button in any form picker
+1. In a Poetry project, tap the project's **⋯** menu and choose **Manage Forms**, or tap the **Manage Forms** button in any form picker
 2. Tap **+** to create a new form
 3. Fill in the form details and tap **Save**
 

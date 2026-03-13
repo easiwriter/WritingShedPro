@@ -65,7 +65,7 @@ Every scene has a workflow status that tracks where it is in your writing proces
 - **Ready** – Completed and polished
 - **Set Aside** – Parked for later
 
-Scenes are grouped by status in the file list. To change a scene's status, tap **Edit** in the toolbar, select one or more scenes, then tap **Change Status** and choose the new status. Scenes move between groups automatically.
+Use the status filter tabs at the top of the scene list to focus on Draft, Ready, or Set Aside scenes. To change a scene's status, tap **Edit** in the toolbar, select one or more scenes, then tap **Change Status** (🔁) and choose the new status.
 
 ## Story Structures
 

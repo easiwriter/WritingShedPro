@@ -14,18 +14,30 @@ Project
 - **Folders** contain your files
 - **Files** contain your actual writing
 
-## System Folders
+## Workflow Status (Not Folders)
 
-Each project type comes with predefined system folders that cannot be deleted:
+`Draft`, `Ready`, `Set Aside`, and `Published` are **file workflow statuses**, not folders.
 
-### All Project Types
-- **Draft**: Work in progress
-- **Ready**: Completed pieces
-- **Set Aside**: Items you're not actively working on
-- **Trash**: Deleted items (restorable)
+In content views, status tabs appear at the top with counts:
+- **All**
+- **Draft**
+- **Ready**
+- **Set Aside**
+- **Published**
+
+Tap a status tab to filter the file list.
+
+### Changing a File's Workflow Status
+1. Open the file list in a content area
+2. Tap **Edit**
+3. Select one or more files
+4. Tap **Change Status** (🔁)
+5. Choose the new status
+
+`Published` is set automatically when a submission is accepted.
 
 ### Poetry
-Additional system folders:
+Additional project folders:
 - **Poems**: Your main writing area for poems
 - **Collections**: Poetry Collections — group related poems together
 - **Submissions**: Track what you've sent
@@ -33,7 +45,7 @@ Additional system folders:
 - **Competitions**: Contest targets
 
 ### Fiction (Novel, Verse Novel, Short Fiction)
-Additional system folders:
+Additional project folders:
 - **Scenes** (or **Episodes** for Verse Novel): Your story scenes
 - **Chapters** (Novel), **Books** (Verse Novel): Organizational containers
 - **Plot Elements**: Story beats
@@ -61,25 +73,15 @@ The file opens automatically in the editor.
 - **Fiction**: Scene files
 - **Drama**: Scene files (with DML support)
 
-## Moving Files
+## Renaming
 
-### Move a Single File
-1. Long-press the file
-2. Select **Move to...**
-3. Choose the destination folder
-4. Tap **Move**
+Rename files from the **⋯ (ellipsis) button** in the file row.
 
-### Move Multiple Files
-1. Tap **Edit** in the folder view
-2. Select multiple files
-3. Tap **Move**
-4. Choose the destination
-5. Tap **Move**
-
-### Drag and Drop (iPad/Mac)
-- Drag files directly between folders in the sidebar
-- Hold over a folder to open it
-- Drop to complete the move
+### Rename a File
+1. Tap the **⋯** button for the file
+2. In file details, tap **Edit**
+3. Enter the new name
+4. Tap **Save**
 
 ## Reordering Files
 
@@ -96,48 +98,21 @@ Files can be reordered within a folder:
 - **Date Modified**: By last edit
 - **User's Order**: Your custom arrangement
 
-## Renaming
-
-### Rename a File
-1. Long-press the file
-2. Select **Rename**
-3. Enter the new name
-4. Tap **Done**
-
-Or from the editor:
-1. Tap the file name in the toolbar
-2. Edit the name
-3. Tap **Done**
-
-### Rename a Folder
-1. Long-press the folder
-2. Select **Rename**
-3. Enter the new name
-4. Tap **Done**
-
 ## Deleting
 
-### Delete a File
-1. Swipe left on the file
+### Delete a Single File
+1. Swipe left on the file row
 2. Tap **Delete**
 
-Or:
-1. Long-press the file
-2. Select **Delete**
-
-Deleted files go to Trash and can be restored.
+Deleted files go to **Trash** and can be restored.
 
 ### Delete Multiple Files
-1. Tap **Edit**
-2. Select files
+1. Tap **Edit** in the file list
+2. Select one or more files
 3. Tap **Delete**
+4. Confirm
 
-### Delete a Folder
-1. Long-press the folder
-2. Select **Delete**
-3. Confirm
 
-**Warning**: Deleting a folder deletes all its contents.
 
 ## The Trash
 
@@ -146,8 +121,8 @@ Deleted files aren't immediately destroyed—they go to Trash.
 ### Restoring from Trash
 1. Open the **Trash** folder
 2. Find the item you want to restore
-3. Swipe right and tap **Restore**, or
-4. Long-press and select **Put Back**
+3. Swipe left on the item
+4. Tap **Put Back**
 
 Items are restored to their original location.
 
@@ -162,9 +137,8 @@ Items are restored to their original location.
 
 View information about a file:
 
-1. Long-press the file
-2. Select **Details**, or
-3. From the editor, tap the **info** icon
+1. Tap the **⋯ (ellipsis)** button for the file
+2. The details sheet opens
 
 ### Information Shown
 - File name
@@ -192,13 +166,13 @@ The current content becomes a new version, so nothing is lost.
 ## Best Practices
 
 ### Regular Cleanup
-- Move completed work to Ready
-- Move stale work to Set Aside
+- Change completed work to **Ready**
+- Change paused work to **Set Aside**
 - Empty Trash periodically
 
 ### Workflow Tips
-- Start in Draft
-- Move to Ready when polished
+- Start in **Draft**
+- Change to **Ready** when polished
 - Use Poetry Collections to group poems for submission (Poetry projects)
 - Track submissions through the Submissions folder
 

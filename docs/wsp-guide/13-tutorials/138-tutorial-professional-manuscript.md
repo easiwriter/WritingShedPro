@@ -21,7 +21,7 @@ This tutorial walks you through preparing a complete, professionally formatted m
 Start with the physical page dimensions and margins.
 
 ### Open Page Setup
-1. Open **Project Settings** (gear icon)
+1. Open **Project Settings** (⚙️)
 2. Select **Page Setup**
 
 ### Choose Paper Size

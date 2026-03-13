@@ -120,7 +120,7 @@ Submissions record the exact version you sent:
 ## Workflow Tips
 
 ### Before Submitting
-1. Move files to Ready folder
+1. Change files to **Ready** status
 2. Create a Collection for the submission package
 3. Proofread thoroughly
 4. Check submission guidelines
