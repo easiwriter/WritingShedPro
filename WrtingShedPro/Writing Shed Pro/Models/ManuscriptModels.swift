@@ -187,6 +187,9 @@ struct ManuscriptSettings: Codable, Equatable {
     var includeSectionHeadings: Bool = true
     var includeFileTitles: Bool = true
     var footnoteNumbering: FootnoteNumberingStyle = .perFile
+    /// Once the user explicitly curates Body Matter, assembly should honor that
+    /// selection exactly and stop falling back to "all containers" heuristics.
+    var useExplicitBodyMatter: Bool = false
     
     enum SectionBreakStyle: String, Codable, CaseIterable {
         case pageBreak

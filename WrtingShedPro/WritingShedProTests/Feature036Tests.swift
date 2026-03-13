@@ -426,6 +426,91 @@ final class Feature036Tests: XCTestCase {
         // Should still produce sections via fallback
         XCTAssertGreaterThanOrEqual(sections.count, 1)
     }
+
+    func testExplicitEmptyBodyMatterDoesNotFallBackToAllContainers() throws {
+        let project = createProject(name: "Poetry", type: .poetry)
+
+        let collection1 = PoetryCollection(name: "Collection 1", synopsis: nil, userOrder: 0)
+        collection1.project = project
+        collection1.isInBodyMatter = true
+        collection1.bodyMatterOrder = 0
+        modelContext.insert(collection1)
+
+        let collection2 = PoetryCollection(name: "Collection 2", synopsis: nil, userOrder: 1)
+        collection2.project = project
+        collection2.isInBodyMatter = true
+        collection2.bodyMatterOrder = 1
+        modelContext.insert(collection2)
+
+        var settings = project.manuscriptSettings
+        settings.useExplicitBodyMatter = true
+        project.manuscriptSettings = settings
+
+        // Simulate removing one container from Body Matter and the other already having no files.
+        collection1.isInBodyMatter = false
+        collection1.bodyMatterOrder = nil
+        collection2.bodyMatterOrder = 0
+
+        try modelContext.save()
+
+        let service = ManuscriptAssemblyService(context: modelContext)
+        let sections = service.getBodySections(for: project)
+
+        XCTAssertTrue(sections.isEmpty)
+    }
+
+    func testExplicitBodyMatterUsesRemainingContainerAfterRemoval() throws {
+        let project = createProject(name: "Novel", type: .fiction, fictionClass: .novel)
+        let chaptersFolder = createFolder(name: "Chapters", project: project)
+        project.folders = [chaptersFolder]
+
+        let chapter1 = Chapter(name: "Chapter 1", userOrder: 0)
+        chapter1.project = project
+        chapter1.isInBodyMatter = true
+        chapter1.bodyMatterOrder = 0
+        modelContext.insert(chapter1)
+        let scene1 = StoryScene(name: "Scene 1")
+        scene1.project = project
+        scene1.chapter = chapter1
+        modelContext.insert(scene1)
+        let file1 = TextFile(name: "File 1", parentFolder: chaptersFolder)
+        file1.includedInManuscript = true
+        file1.scene = scene1
+        scene1.textFile = file1
+        modelContext.insert(file1)
+
+        let chapter2 = Chapter(name: "Chapter 2", userOrder: 1)
+        chapter2.project = project
+        chapter2.isInBodyMatter = true
+        chapter2.bodyMatterOrder = 1
+        modelContext.insert(chapter2)
+        let scene2 = StoryScene(name: "Scene 2")
+        scene2.project = project
+        scene2.chapter = chapter2
+        modelContext.insert(scene2)
+        let file2 = TextFile(name: "File 2", parentFolder: chaptersFolder)
+        file2.includedInManuscript = true
+        file2.scene = scene2
+        scene2.textFile = file2
+        modelContext.insert(file2)
+
+        var settings = project.manuscriptSettings
+        settings.useExplicitBodyMatter = true
+        project.manuscriptSettings = settings
+
+        // Simulate removing chapter 1 from Body Matter.
+        chapter1.isInBodyMatter = false
+        chapter1.bodyMatterOrder = nil
+        chapter2.bodyMatterOrder = 0
+
+        try modelContext.save()
+
+        let service = ManuscriptAssemblyService(context: modelContext)
+        let sections = service.getBodySections(for: project)
+
+        XCTAssertEqual(sections.count, 1)
+        XCTAssertEqual(sections.first?.title, "Chapter 2")
+    }
     
     func testBodyMatterOrderingIsRespected() throws {
         let project = createProject(name: "Novel", type: .fiction, fictionClass: .novel)

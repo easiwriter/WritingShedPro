@@ -310,9 +310,16 @@ struct BodyMatterView: View {
     }
     
     // MARK: - Actions
+
+    private func markBodyMatterAsExplicitlyManaged() {
+        var settings = project.manuscriptSettings
+        settings.useExplicitBodyMatter = true
+        project.manuscriptSettings = settings
+    }
     
     private func addItemToBodyMatter(_ item: any BodyMatterItem) {
         let nextOrder = (bodyMatterItems.map { $0.bodyMatterOrder ?? 0 }.max() ?? -1) + 1
+        markBodyMatterAsExplicitlyManaged()
         
         // Use type-specific mutation since protocols can't mutate through existentials
         switch project.type {
@@ -357,6 +364,7 @@ struct BodyMatterView: View {
     }
     
     private func removeItems(at offsets: IndexSet) {
+        markBodyMatterAsExplicitlyManaged()
         let items = bodyMatterItems
         for index in offsets {
             let item = items[index]
@@ -406,6 +414,7 @@ struct BodyMatterView: View {
     }
     
     private func moveItems(from source: IndexSet, to destination: Int) {
+        markBodyMatterAsExplicitlyManaged()
         // Moving is type-specific since we need to mutate the actual model objects
         switch project.type {
         case .poetry:

@@ -122,10 +122,15 @@ final class ManuscriptAssemblyService {
             return getProseBodySections(for: project)
         }
     }
+
+    private func shouldUseExplicitBodyMatter(for project: Project) -> Bool {
+        project.manuscriptSettings.useExplicitBodyMatter
+    }
     
     /// Get body sections for Poetry projects
     /// Uses Body Matter collections if any exist, otherwise falls back to Poems folder
     private func getPoetryBodySections(for project: Project) -> [ManuscriptSection] {
+        let useExplicitBodyMatter = shouldUseExplicitBodyMatter(for: project)
         // Body Matter path: use PoetryCollection items marked for body matter
         let bodyCollections = (project.poetryCollections ?? [])
             .filter { $0.isInBodyMatter }
@@ -145,9 +150,16 @@ final class ManuscriptAssemblyService {
             if !sections.isEmpty {
                 return sections
             }
+            if useExplicitBodyMatter {
+                return []
+            }
             #if DEBUG
             print("[ManuscriptAssembly] ⚠️ Body-matter collections exist but produced no sections (empty textFiles), falling through")
             #endif
+        }
+
+        if useExplicitBodyMatter {
+            return []
         }
         
         // Fallback: all collections by userOrder (when none are explicitly marked for body matter,
@@ -230,6 +242,7 @@ final class ManuscriptAssemblyService {
     
     /// Novel: Chapters with scenes
     private func getNovelBodySections(for project: Project) -> [ManuscriptSection] {
+        let useExplicitBodyMatter = shouldUseExplicitBodyMatter(for: project)
         // Body Matter path: chapters marked for body matter
         let bodyChapters = (project.chapters ?? [])
             .filter { $0.isInBodyMatter }
@@ -237,6 +250,10 @@ final class ManuscriptAssemblyService {
         
         if !bodyChapters.isEmpty {
             return chaptersToSections(bodyChapters)
+        }
+
+        if useExplicitBodyMatter {
+            return []
         }
         
         // Fallback: all chapters by userOrder
@@ -250,6 +267,7 @@ final class ManuscriptAssemblyService {
     
     /// Verse Novel: Books with scenes (episodes)
     private func getVerseNovelBodySections(for project: Project) -> [ManuscriptSection] {
+        let useExplicitBodyMatter = shouldUseExplicitBodyMatter(for: project)
         // Body Matter path: books marked for body matter
         let bodyBooks = (project.books ?? [])
             .filter { $0.isInBodyMatter }
@@ -257,6 +275,10 @@ final class ManuscriptAssemblyService {
         
         if !bodyBooks.isEmpty {
             return booksToSections(bodyBooks)
+        }
+
+        if useExplicitBodyMatter {
+            return []
         }
         
         // Fallback: all books/chapters by userOrder
@@ -276,6 +298,7 @@ final class ManuscriptAssemblyService {
     
     /// Short Fiction: Scenes (optionally grouped by stories)
     private func getShortFictionBodySections(for project: Project) -> [ManuscriptSection] {
+        let useExplicitBodyMatter = shouldUseExplicitBodyMatter(for: project)
         // Body Matter path: scenes marked for body matter
         let bodyScenes = (project.scenes ?? [])
             .filter { $0.isInBodyMatter }
@@ -283,6 +306,10 @@ final class ManuscriptAssemblyService {
         
         if !bodyScenes.isEmpty {
             return scenesToSection(bodyScenes, title: NSLocalizedString("folder.stories", comment: "Stories"))
+        }
+
+        if useExplicitBodyMatter {
+            return []
         }
         
         // Fallback: all scenes
@@ -370,6 +397,7 @@ final class ManuscriptAssemblyService {
     /// Get body sections for Drama projects
     /// Uses Body Matter acts if any exist, otherwise falls back to all acts/scenes
     private func getDramaBodySections(for project: Project) -> [ManuscriptSection] {
+        let useExplicitBodyMatter = shouldUseExplicitBodyMatter(for: project)
         // Body Matter path: acts marked for body matter
         let bodyActs = (project.acts ?? [])
             .filter { $0.isInBodyMatter }
@@ -399,6 +427,10 @@ final class ManuscriptAssemblyService {
                 }
             }
             return sections
+        }
+
+        if useExplicitBodyMatter {
+            return []
         }
         
         // Fallback: all acts by userOrder
@@ -461,6 +493,7 @@ final class ManuscriptAssemblyService {
     /// Get body sections for Prose projects
     /// Uses Body Matter sections if any exist, otherwise falls back to folder-based logic
     private func getProseBodySections(for project: Project) -> [ManuscriptSection] {
+        let useExplicitBodyMatter = shouldUseExplicitBodyMatter(for: project)
         #if DEBUG
         print("[ManuscriptAssembly] getProseBodySections")
         #endif
@@ -493,6 +526,10 @@ final class ManuscriptAssemblyService {
                 }
             }
             return sections
+        }
+
+        if useExplicitBodyMatter {
+            return []
         }
         
         // Fallback: folder-based assembly (pre-migration projects)
