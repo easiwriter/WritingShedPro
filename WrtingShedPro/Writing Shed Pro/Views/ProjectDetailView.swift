@@ -356,7 +356,14 @@ struct ProjectInfoSheet: View {
         }
         
         project.name = trimmedName
-        isPresented = false
+
+        do {
+            try modelContext.save()
+            isPresented = false
+        } catch {
+            errorMessage = error.localizedDescription
+            showErrorAlert = true
+        }
     }
     
     private func initializeFields() {
