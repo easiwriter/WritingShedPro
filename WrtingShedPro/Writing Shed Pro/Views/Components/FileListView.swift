@@ -107,11 +107,9 @@ struct FileListView: View {
     @Binding var expandedCollections: Set<String>
     
     /// Feature 021: Poetry form picker for changing form
-    @State private var showPoetryFormPicker = false
     @State private var fileForFormChange: TextFile?
     
     /// File details sheet
-    @State private var showFileDetails = false
     @State private var fileForDetails: TextFile?
     
     /// AppStorage key prefix for persisting last opened section per folder
@@ -231,18 +229,14 @@ struct FileListView: View {
         } message: {
             Text("fileList.rename.duplicateMessage")
         }
-        .sheet(isPresented: $showPoetryFormPicker) {
-            if let file = fileForFormChange {
-                PoetryFormPickerSheet(file: file)
-            }
+        .sheet(item: $fileForFormChange) { file in
+            PoetryFormPickerSheet(file: file)
         }
-        .sheet(isPresented: $showFileDetails) {
-            if let file = fileForDetails {
-                FileDetailsSheet(file: file, onExport: onExport != nil ? { f in
-                    showFileDetails = false
-                    onExport?([f])
-                } : nil)
-            }
+        .sheet(item: $fileForDetails) { file in
+            FileDetailsSheet(file: file, onExport: onExport != nil ? { f in
+                fileForDetails = nil
+                onExport?([f])
+            } : nil)
         }
     }
     
@@ -455,7 +449,6 @@ struct FileListView: View {
     private func fileOptionsMenu(for file: TextFile) -> some View {
         Button {
             fileForDetails = file
-            showFileDetails = true
         } label: {
             Image(systemName: "ellipsis.circle")
                 .imageScale(.large)
@@ -687,7 +680,6 @@ struct FileListView: View {
             
             Button {
                 fileForFormChange = file
-                showPoetryFormPicker = true
             } label: {
                 Label("fileList.contextMenu.changeForm", systemImage: "text.book.closed")
             }

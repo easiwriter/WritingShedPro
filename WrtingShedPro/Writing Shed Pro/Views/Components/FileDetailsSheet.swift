@@ -20,22 +20,22 @@ struct FileDetailsSheet: View {
     @State private var isEditing = false
     @State private var editName: String = ""
     
-    // MARK: - Computed
+    // MARK: - Async stats (computed off main thread to avoid blocking on SwiftData faults)
     
-    private var wordCount: Int {
-        guard let content = file.currentVersion?.content else { return 0 }
-        let words = content.components(separatedBy: .whitespacesAndNewlines)
-            .filter { !$0.isEmpty }
-        return words.count
-    }
+    @State private var wordCount: Int = 0
+    @State private var characterCount: Int = 0
+    @State private var lineCount: Int = 0
+    @State private var statsLoaded = false
     
-    private var characterCount: Int {
-        file.currentVersion?.content.count ?? 0
-    }
-    
-    private var lineCount: Int {
-        guard let content = file.currentVersion?.content else { return 0 }
-        return content.components(separatedBy: .newlines).count
+    private func computeStats() async {
+        let content = file.currentVersion?.content ?? ""
+        let words = content.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }.count
+        let chars = content.count
+        let lines = content.components(separatedBy: .newlines).count
+        wordCount = words
+        characterCount = chars
+        lineCount = lines
+        statsLoaded = true
     }
     
     private var dateFormatter: DateFormatter {
@@ -67,6 +67,9 @@ struct FileDetailsSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
+        .task {
+            await computeStats()
+        }
     }
 
     private var nameSection: some View {
@@ -112,25 +115,33 @@ struct FileDetailsSheet: View {
 
     private var statisticsSection: some View {
         Section(header: Text(NSLocalizedString("fileDetails.statistics", comment: "Statistics section header"))) {
-            HStack {
-                Text(NSLocalizedString("fileDetails.words", comment: "Word count label"))
-                Spacer()
-                Text("\(wordCount)")
-                    .foregroundStyle(.secondary)
-            }
+            if !statsLoaded {
+                HStack {
+                    Spacer()
+                    ProgressView()
+                    Spacer()
+                }
+            } else {
+                HStack {
+                    Text(NSLocalizedString("fileDetails.words", comment: "Word count label"))
+                    Spacer()
+                    Text("\(wordCount)")
+                        .foregroundStyle(.secondary)
+                }
 
-            HStack {
-                Text(NSLocalizedString("fileDetails.characters", comment: "Character count label"))
-                Spacer()
-                Text("\(characterCount)")
-                    .foregroundStyle(.secondary)
-            }
+                HStack {
+                    Text(NSLocalizedString("fileDetails.characters", comment: "Character count label"))
+                    Spacer()
+                    Text("\(characterCount)")
+                        .foregroundStyle(.secondary)
+                }
 
-            HStack {
-                Text(NSLocalizedString("fileDetails.lines", comment: "Line count label"))
-                Spacer()
-                Text("\(lineCount)")
-                    .foregroundStyle(.secondary)
+                HStack {
+                    Text(NSLocalizedString("fileDetails.lines", comment: "Line count label"))
+                    Spacer()
+                    Text("\(lineCount)")
+                        .foregroundStyle(.secondary)
+                }
             }
         }
     }
