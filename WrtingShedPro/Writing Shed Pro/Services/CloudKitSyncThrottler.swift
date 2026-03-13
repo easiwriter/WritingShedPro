@@ -324,6 +324,15 @@ final class CloudKitSyncThrottler {
         quietTimer = nil
         isSyncing = false
         syncEventCount = 0
+        importInProgress = false
+        exportInProgress = false
+        importStartTime = nil
+        exportStartTime = nil
+        importCompleted = false
+        importSucceeded = false
+        rateLimitedUntil = nil
+        consecutiveImportNetworkFailures = 0
+        manualKickPausedUntil = nil
         lastSyncTime = nil
         recentCloudKitEvents = []
     }
@@ -529,6 +538,22 @@ final class CloudKitSyncThrottler {
         cancellables.removeAll()
     }
 }
+
+#if DEBUG
+extension CloudKitSyncThrottler {
+    /// Test hook: inject import in-progress state with a controlled start time.
+    func _testSetImportInProgress(startedAt date: Date) {
+        importInProgress = true
+        importStartTime = date
+    }
+
+    /// Test hook: inject export in-progress state with a controlled start time.
+    func _testSetExportInProgress(startedAt date: Date) {
+        exportInProgress = true
+        exportStartTime = date
+    }
+}
+#endif
 
 // MARK: - SwiftUI View Modifier
 
