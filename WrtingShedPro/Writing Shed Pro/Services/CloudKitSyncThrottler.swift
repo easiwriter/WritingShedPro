@@ -104,8 +104,14 @@ final class CloudKitSyncThrottler {
     /// True while the CloudKit mirroring delegate is actively importing/exporting.
     /// Proactive app-driven operations should avoid running during this window.
     var hasActiveCloudKitEvent: Bool {
-        importInProgress || exportInProgress
+        clearStaleInProgressEventsIfNeeded()
+        return importInProgress || exportInProgress
     }
+
+    /// Maximum time we trust a single CloudKit event to remain "in-progress"
+    /// without receiving an ending event. If this is exceeded, we treat it as
+    /// stale and unblock watchdog recovery nudges.
+    private let maxInProgressEventAge: TimeInterval = 120
     
     /// Record that CloudKit returned a rate-limit or service-unavailable error.
     /// `retryAfterSeconds` comes from the CKError userInfo.
@@ -450,6 +456,53 @@ final class CloudKitSyncThrottler {
             } else {
                 print("🔄 [CloudKitSyncThrottler] Mirroring reset (\(phase)). reason=\(reasonText)")
             }
+            #endif
+        }
+    }
+
+    /// Clear stale import/export "in-progress" flags that never received a matching end event.
+    /// This can happen when CloudKit mirroring gets wedged after transport/token failures.
+    private func clearStaleInProgressEventsIfNeeded() {
+        guard Thread.isMainThread else { return }
+
+        let now = Date()
+        var cleared: [String] = []
+
+        if importInProgress,
+           let started = importStartTime,
+           now.timeIntervalSince(started) > maxInProgressEventAge {
+            importInProgress = false
+            importStartTime = nil
+            importCompleted = true
+            importSucceeded = false
+            appendCloudKitEvent(
+                type: "import",
+                phase: "timeout",
+                status: "stale-cleared",
+                message: "No end event after \(Int(maxInProgressEventAge))s"
+            )
+            cleared.append("import")
+        }
+
+        if exportInProgress,
+           let started = exportStartTime,
+           now.timeIntervalSince(started) > maxInProgressEventAge {
+            exportInProgress = false
+            exportStartTime = nil
+            appendCloudKitEvent(
+                type: "export",
+                phase: "timeout",
+                status: "stale-cleared",
+                message: "No end event after \(Int(maxInProgressEventAge))s"
+            )
+            cleared.append("export")
+        }
+
+        if !cleared.isEmpty {
+            // Encourage watchdog to run a recovery kick immediately.
+            lastSyncTime = nil
+            #if DEBUG
+            print("⚠️ [CloudKitSyncThrottler] Cleared stale in-progress event(s): \(cleared.joined(separator: ", "))")
             #endif
         }
     }
