@@ -2,6 +2,7 @@ import SwiftUI
 import SwiftData
 import UniformTypeIdentifiers
 import CloudKit
+import Combine
 
 struct ContentView: View {
     @Query(sort: \Project.creationDate) var projects: [Project]
@@ -57,10 +58,18 @@ struct ContentView: View {
                 stopPeriodicSyncTimer()
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("NSPersistentStoreRemoteChangeNotification"))) { _ in
+        .onReceive(
+            NotificationCenter.default
+                .publisher(for: NSNotification.Name("NSPersistentStoreRemoteChangeNotification"))
+                .receive(on: RunLoop.main)
+        ) { _ in
             scheduleRemoteReconcile(reason: "remote-change")
         }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("NSPersistentStoreCoordinatorStoresDidChangeNotification"))) { _ in
+        .onReceive(
+            NotificationCenter.default
+                .publisher(for: NSNotification.Name("NSPersistentStoreCoordinatorStoresDidChangeNotification"))
+                .receive(on: RunLoop.main)
+        ) { _ in
             scheduleRemoteReconcile(reason: "stores-did-change")
         }
     }
@@ -584,7 +593,7 @@ struct ContentView: View {
         #if DEBUG
         print("[ContentView] Starting async prefetch of project relationships...")
         
-        Task(priority: .utility) {
+        Task { @MainActor in
             // Access relationships to force SwiftData to materialize them
             // Runs async on main thread (SwiftData objects must stay on their thread)
             for project in projects {
@@ -647,7 +656,7 @@ struct ContentView: View {
     
     /// Initialize default stylesheets async on main thread (moved from Write_App to avoid blocking launch)
     private func initializeStyleSheets() {
-        Task(priority: .utility) {
+        Task { @MainActor in
             // Run async on main thread (ModelContext must stay on its creation thread)
             StyleSheetService.initializeStyleSheetsIfNeeded(context: modelContext)
             #if DEBUG
