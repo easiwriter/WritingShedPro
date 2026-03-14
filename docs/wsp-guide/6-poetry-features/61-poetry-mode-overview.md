@@ -99,6 +99,27 @@ For metered verse, view the stress pattern:
 - Stressed syllables: ´
 - Helps identify rhythm issues
 
+### Mark Section (Insert Menu)
+In poetry files, the **Insert** menu includes **Mark Section** for lines that are not part of the poem body.
+
+Use this for content such as:
+- Titles
+- Epigraphs
+- Dedications
+- Signatures
+- Stanza numbers
+
+Purpose:
+- Excludes marked lines from poetry analysis (syllables, stress, and related metrics)
+- Visually distinguishes marked text in gray while drafting
+- Keeps poem-body metrics focused on actual verse lines
+
+How to use it:
+1. Select text (or place the cursor on a line)
+2. Open **Insert** → **Mark Section**
+3. Choose **Add Marked Section**
+4. Use **Unmark Selection** or **Clear All Marks** if needed
+
 ### Form Reference Panel
 Access the rules for your selected form:
 - Tap the **Form Info** button

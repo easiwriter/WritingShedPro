@@ -12,7 +12,7 @@ Draft → Ready → Published
 Set Aside
 ```
 
-Deleted items go to the **Trash** folder.
+Deleted items go to the sa**Trash** folder.
 
 ### Draft Status
 Where new work begins. Use Draft for:

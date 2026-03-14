@@ -20,6 +20,13 @@ struct ContentView: View {
     /// ContentView can be rebuilt during sync reconciliation, and rerunning migrations
     /// during CloudKit activity can cause unnecessary write churn.
     @State private var hasRunStartupMigrations = false
+
+    /// Last time we auto-normalized project userOrder values.
+    /// Used to avoid repeated writes during prolonged CloudKit churn.
+    @State private var lastAutoOrderNormalizationDate: Date = .distantPast
+
+    /// Debounced task handle for remote-change reconciliation.
+    @State private var remoteReconcileTask: Task<Void, Never>?
     
     var body: some View {
         ContentViewBody(
@@ -27,6 +34,7 @@ struct ContentView: View {
             state: state,
             onInitialize: initializeUserOrderIfNeeded,
             onInitializeStyleSheets: initializeStyleSheets,
+            onSyncNow: syncNowFromSettings,
             onHandleImportMenu: handleImportMenu,
             onHandleJSONImport: handleJSONImport,
             onDeleteAllProjects: deleteAllProjects,
@@ -48,6 +56,12 @@ struct ContentView: View {
             } else if newPhase != .active && oldPhase == .active {
                 stopPeriodicSyncTimer()
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("NSPersistentStoreRemoteChangeNotification"))) { _ in
+            scheduleRemoteReconcile(reason: "remote-change")
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("NSPersistentStoreCoordinatorStoresDidChangeNotification"))) { _ in
+            scheduleRemoteReconcile(reason: "stores-did-change")
         }
     }
     
@@ -116,8 +130,15 @@ struct ContentView: View {
             #if DEBUG
             print("✅ [ContentView] Sync watchdog: recent CloudKit activity (\(Int(secondsSinceEvent))s ago), no action")
             #endif
+            // If CloudKit isn't actively processing right now, still allow a conservative
+            // order self-heal to run. This fixes userOrder collisions after conflict-heavy sync.
+            if !throttler.hasActiveCloudKitEvent && !throttler.isSyncing {
+                autoNormalizeProjectOrderIfNeeded()
+            }
             return
         }
+
+        autoNormalizeProjectOrderIfNeeded()
 
         #if DEBUG
         print("🔄 [ContentView] Sync watchdog: idle \(Int(secondsSinceEvent))s — forcing import")
@@ -126,22 +147,124 @@ struct ContentView: View {
         lastForegroundSyncDate = now
     }
 
-    /// `@Query` can occasionally miss newly imported CloudKit rows until another
-    /// state change occurs. Reconcile against a direct fetch and force-refresh
-    /// when active-project count in DB exceeds what's currently displayed.
+    /// Automatically normalize active project userOrder values when collisions are detected.
+    /// This runs only when CloudKit is idle and is rate-limited to avoid write churn.
+    private func autoNormalizeProjectOrderIfNeeded() {
+        let throttler = CloudKitSyncThrottler.shared
+        guard !throttler.hasActiveCloudKitEvent && !throttler.isSyncing else { return }
+
+        let now = Date()
+        guard now.timeIntervalSince(lastAutoOrderNormalizationDate) > 300 else { return }
+
+        let activeProjects = ProjectSortService.sortProjects(
+            projects.filter { !$0.isTrashed },
+            by: .byUserOrder
+        )
+        guard !activeProjects.isEmpty else { return }
+
+        var seenOrders = Set<Int>()
+        var hasCollisionOrMissingOrder = false
+        for project in activeProjects {
+            guard let order = project.userOrder else {
+                hasCollisionOrMissingOrder = true
+                break
+            }
+            if !seenOrders.insert(order).inserted {
+                hasCollisionOrMissingOrder = true
+                break
+            }
+        }
+
+        guard hasCollisionOrMissingOrder else { return }
+
+        for (index, project) in activeProjects.enumerated() {
+            project.userOrder = index
+        }
+
+        do {
+            try modelContext.save()
+            lastAutoOrderNormalizationDate = now
+            #if DEBUG
+            print("✅ [ContentView] Auto-normalized userOrder for \(activeProjects.count) active projects")
+            #endif
+        } catch {
+            #if DEBUG
+            print("❌ [ContentView] Auto-normalize project order failed: \(error.localizedDescription)")
+            #endif
+        }
+    }
+
+    /// Debounced reconciliation triggered by CoreData/CloudKit notifications.
+    /// This makes newly imported projects appear quickly during long import storms,
+    /// instead of waiting for the periodic watchdog cadence.
+    private func scheduleRemoteReconcile(reason: String) {
+        guard scenePhase == .active else { return }
+
+        remoteReconcileTask?.cancel()
+        remoteReconcileTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 800_000_000) // debounce notification bursts
+            guard !Task.isCancelled else { return }
+            reconcileProjectListIfNeeded()
+
+            #if DEBUG
+            print("🔄 [ContentView] Reconcile triggered by \(reason)")
+            #endif
+        }
+    }
+
+    /// Manual sync trigger exposed from Settings.
+    /// Uses the same CloudKit zone-fetch nudge as foreground resume.
+    private func syncNowFromSettings() {
+        #if DEBUG
+        print("🔄 [ContentView] Sync Now requested from Settings")
+        #endif
+        forceCloudKitImport()
+        scheduleRemoteReconcile(reason: "sync-now")
+    }
+
+    /// `@Query` can occasionally miss newly imported CloudKit rows, or return
+    /// in-memory Project objects whose properties (e.g. name) are stale relative
+    /// to the underlying SQLite store after a CloudKit field update.
+    ///
+    /// modelContext.fetch() shares the same in-memory object graph as @Query, so it
+    /// can't detect staleness either. Instead we create a fresh, throwaway ModelContext
+    /// from the same container — this always reads directly from the persistent store.
+    ///
+    /// Reconcile against a direct fetch and force-refresh when:
+    ///   a) the active project count differs, OR
+    ///   b) any project's name in @Query doesn't match what's in the store.
     private func reconcileProjectListIfNeeded() {
+        let freshContext = ModelContext(modelContext.container)
         let descriptor = FetchDescriptor<Project>()
-        guard let allProjects = try? modelContext.fetch(descriptor) else { return }
+        guard let allProjects = try? freshContext.fetch(descriptor) else { return }
 
         let dbActiveCount = allProjects.filter { !$0.isTrashed }.count
         let uiActiveCount = projects.filter { !$0.isTrashed }.count
 
-        guard dbActiveCount > uiActiveCount else { return }
+        if dbActiveCount != uiActiveCount {
+            #if DEBUG
+            print("🔄 [ContentView] Reconcile: DB has \(dbActiveCount) active projects, UI shows \(uiActiveCount). Forcing refresh.")
+            #endif
+            refreshTrigger.toggle()
+            return
+        }
 
-        #if DEBUG
-        print("🔄 [ContentView] Reconcile: DB has \(dbActiveCount) active projects, UI shows \(uiActiveCount). Forcing refresh.")
-        #endif
-        refreshTrigger.toggle()
+        // Build a quick id→name lookup from the store and compare against @Query objects.
+        // If any name is stale in the UI layer, refresh the whole view.
+        let dbNameByID = Dictionary(uniqueKeysWithValues: allProjects.compactMap { p -> (UUID, String)? in
+            guard let name = p.name else { return nil }
+            return (p.id, name)
+        })
+        let hasStaleName = projects.contains { p in
+            guard let dbName = dbNameByID[p.id] else { return false }
+            return p.name != dbName
+        }
+        if hasStaleName {
+            #if DEBUG
+            print("🔄 [ContentView] Reconcile: stale project name(s) detected in @Query — forcing refresh.")
+            #endif
+            refreshTrigger.toggle()
+        }
     }
     
     /// On fresh install, @Query may not update after CloudKit bulk import.

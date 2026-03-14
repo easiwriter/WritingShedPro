@@ -417,8 +417,10 @@ extension ContainerAssignmentView where Item == StoryScene {
         let fictionClass = project.fictionClass ?? .novel
         let containerName: String
         switch fictionClass {
-        case .novel, .verseNovel:
+        case .novel:
             containerName = NSLocalizedString("fiction.chapter", comment: "Chapter")
+        case .verseNovel:
+            containerName = NSLocalizedString("fiction.book", comment: "Book")
         case .shortFiction:
             containerName = NSLocalizedString("fiction.story", comment: "Story")
         }

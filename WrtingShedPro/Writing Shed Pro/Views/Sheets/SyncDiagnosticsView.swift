@@ -25,6 +25,7 @@ struct SyncDiagnosticsView: View {
     @State private var containerStatus: String = "Checking..."
     @State private var duplicateCount: Int = 0
     @State private var duplicateProjectCount: Int = 0
+    @State private var projectOrderCollisionCount: Int = 0
     @State private var repairMessage: String = ""
     @State private var showRepairResult = false
     
@@ -49,6 +50,7 @@ struct SyncDiagnosticsView: View {
                 checkiCloudStatus()
                 checkForDuplicates()
                 checkForDuplicateProjects()
+                checkProjectOrderHealth()
             }
             .alert("Repair Complete", isPresented: $showRepairResult) {
                 Button("OK") { }
@@ -66,7 +68,6 @@ struct SyncDiagnosticsView: View {
             localDataSection
             databaseHealthSection
             stylesheetsSection
-            syncActionsSection
             debugActionsSection
         }
     }
@@ -193,7 +194,39 @@ struct SyncDiagnosticsView: View {
         var lines: [String] = []
         lines.append("Project Inventory")
 
-        let sortedProjects = projects.sorted { lhs, rhs in
+        let queryProjects = sortedProjectsForInventory(projects)
+        lines.append("Source: @Query (main context cache)")
+        for project in queryProjects {
+            lines.append(projectInventoryLine(project, formatter: formatter))
+        }
+
+        lines.append("")
+        lines.append("Source: Fresh ModelContext (store snapshot)")
+        let freshContext = ModelContext(modelContext.container)
+        let descriptor = FetchDescriptor<Project>()
+        let storeProjects = sortedProjectsForInventory((try? freshContext.fetch(descriptor)) ?? [])
+        for project in storeProjects {
+            lines.append(projectInventoryLine(project, formatter: formatter))
+        }
+
+        let queryNameByID = Dictionary(uniqueKeysWithValues: queryProjects.map { ($0.id, $0.name ?? "") })
+        let storeNameByID = Dictionary(uniqueKeysWithValues: storeProjects.map { ($0.id, $0.name ?? "") })
+        let allIDs = Set(queryNameByID.keys).union(storeNameByID.keys)
+        let nameMismatches = allIDs.filter { queryNameByID[$0] != storeNameByID[$0] }.sorted { $0.uuidString < $1.uuidString }
+
+        lines.append("")
+        lines.append("Inventory Comparison")
+        lines.append("- @Query count=\(queryProjects.count) | Store count=\(storeProjects.count)")
+        lines.append("- Name mismatches by id=\(nameMismatches.count)")
+        for id in nameMismatches {
+            lines.append("  - id=\(id.uuidString) | @Query='\(queryNameByID[id] ?? "")' | Store='\(storeNameByID[id] ?? "")'")
+        }
+
+        return lines
+    }
+
+    private func sortedProjectsForInventory(_ inputProjects: [Project]) -> [Project] {
+        inputProjects.sorted { lhs, rhs in
             let lhsCreated = lhs.creationDate ?? .distantPast
             let rhsCreated = rhs.creationDate ?? .distantPast
             if lhsCreated != rhsCreated {
@@ -201,16 +234,14 @@ struct SyncDiagnosticsView: View {
             }
             return (lhs.name ?? "") < (rhs.name ?? "")
         }
+    }
 
-        for project in sortedProjects {
-            let created = project.creationDate.map { formatter.string(from: $0) } ?? "nil"
-            let modified = project.modifiedDate.map { formatter.string(from: $0) } ?? "nil"
-            let deleted = project.deletedDate.map { formatter.string(from: $0) } ?? "nil"
-            let folderCount = project.folders?.count ?? 0
-            lines.append("- name=\(project.name ?? "Untitled") | id=\(project.id.uuidString) | type=\(project.type.rawValue) | trashed=\(project.isTrashed) | userOrder=\(project.userOrder.map(String.init) ?? "nil") | created=\(created) | modified=\(modified) | deleted=\(deleted) | folders=\(folderCount)")
-        }
-
-        return lines
+    private func projectInventoryLine(_ project: Project, formatter: ISO8601DateFormatter) -> String {
+        let created = project.creationDate.map { formatter.string(from: $0) } ?? "nil"
+        let modified = project.modifiedDate.map { formatter.string(from: $0) } ?? "nil"
+        let deleted = project.deletedDate.map { formatter.string(from: $0) } ?? "nil"
+        let folderCount = project.folders?.count ?? 0
+        return "- name=\(project.name ?? "Untitled") | id=\(project.id.uuidString) | type=\(project.type.rawValue) | trashed=\(project.isTrashed) | userOrder=\(project.userOrder.map(String.init) ?? "nil") | created=\(created) | modified=\(modified) | deleted=\(deleted) | folders=\(folderCount)"
     }
 
     private func copyProjectInventory() {
@@ -267,6 +298,12 @@ struct SyncDiagnosticsView: View {
         Section("Database Health") {
             duplicateProjectsStatusRow
 
+            projectOrderStatusRow
+
+            if projectOrderCollisionCount > 0 {
+                normalizeProjectOrderRow
+            }
+
             if duplicateProjectCount > 0 {
                 duplicateProjectsRepairRow
             }
@@ -298,6 +335,32 @@ struct SyncDiagnosticsView: View {
         .contentShape(Rectangle())
         .onTapGesture {
             deduplicateProjects()
+        }
+    }
+
+    private var projectOrderStatusRow: some View {
+        HStack {
+            Text("Project Order Collisions")
+            Spacer()
+            Text("\(projectOrderCollisionCount) found")
+                .foregroundColor(projectOrderCollisionCount > 0 ? .red : .secondary)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            checkProjectOrderHealth()
+        }
+    }
+
+    private var normalizeProjectOrderRow: some View {
+        HStack {
+            Image(systemName: "arrow.up.arrow.down")
+            Text("Normalize Project Order")
+            Spacer()
+        }
+        .foregroundColor(.orange)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            normalizeProjectOrder()
         }
     }
 
@@ -348,32 +411,6 @@ struct SyncDiagnosticsView: View {
             Text("System: \(stylesheet.isSystemStyleSheet ? "Yes" : "No")")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-        }
-    }
-
-    private var syncActionsSection: some View {
-        Section("Sync Actions") {
-            Button {
-                forceSyncFromCloud()
-            } label: {
-                HStack {
-                    Image(systemName: isForceSyncInProgress ? "icloud.and.arrow.down.fill" : "arrow.clockwise.icloud")
-                    Text(isForceSyncInProgress ? "Force Sync Running…" : "Force Sync from Cloud")
-                }
-            }
-            .disabled(isForceSyncInProgress)
-
-            if let lastForceSyncRequestDate {
-                Text("Last request: \(lastForceSyncRequestDate.formatted(date: .omitted, time: .standard))")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            if !syncForceStatus.isEmpty {
-                Text(syncForceStatus)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
         }
     }
 
@@ -490,6 +527,7 @@ struct SyncDiagnosticsView: View {
     private func deduplicateProjects() {
         let result = DeduplicationService.deduplicateProjects(context: modelContext)
         duplicateProjectCount = 0
+        checkProjectOrderHealth()
         
         if !result.errors.isEmpty {
             repairMessage = result.errors.joined(separator: "\n")
@@ -498,6 +536,43 @@ struct SyncDiagnosticsView: View {
         } else {
             repairMessage = "No duplicate projects found."
         }
+        showRepairResult = true
+    }
+
+    private func checkProjectOrderHealth() {
+        let activeProjects = projects.filter { !$0.isTrashed }
+        var orderFrequency: [Int: Int] = [:]
+        for project in activeProjects {
+            guard let order = project.userOrder else { continue }
+            orderFrequency[order, default: 0] += 1
+        }
+        projectOrderCollisionCount = orderFrequency.values.filter { $0 > 1 }.count
+    }
+
+    private func normalizeProjectOrder() {
+        if CloudKitSyncThrottler.shared.hasActiveCloudKitEvent {
+            repairMessage = "CloudKit sync is active. Wait until sync settles, then run Normalize Project Order."
+            showRepairResult = true
+            return
+        }
+
+        let activeProjects = ProjectSortService.sortProjects(
+            projects.filter { !$0.isTrashed },
+            by: .byUserOrder
+        )
+
+        for (index, project) in activeProjects.enumerated() {
+            project.userOrder = index
+        }
+
+        do {
+            try modelContext.save()
+            checkProjectOrderHealth()
+            repairMessage = "Normalized userOrder for \(activeProjects.count) active project(s)."
+        } catch {
+            repairMessage = "Error normalizing project order: \(error.localizedDescription)"
+        }
+
         showRepairResult = true
     }
     

@@ -22,10 +22,15 @@ struct ProjectEditableList: View {
     @State private var exportFilename: String = ""
     @State private var showExportError = false
     @State private var exportErrorMessage = ""
+    @State private var lastSeenNameByProjectID: [UUID: String] = [:]
     
     // Sort and display state
     private var sortedProjects: [Project] {
         ProjectSortService.sortProjects(projects, by: selectedSortOrder)
+    }
+
+    private var projectInventorySignature: String {
+        sortedProjects.map { "\($0.id.uuidString):\($0.name ?? "")" }.joined(separator: "|")
     }
 
     private var exportPresentationBinding: Binding<Bool> {
@@ -46,6 +51,14 @@ struct ProjectEditableList: View {
                         isEditMode = false
                     }
                 }
+            }
+            .onAppear {
+                trackProjectNameTransitions(reason: "onAppear")
+                logProjectInventory(reason: "onAppear")
+            }
+            .onChange(of: projectInventorySignature) { _, _ in
+                trackProjectNameTransitions(reason: "inventoryChanged")
+                logProjectInventory(reason: "inventoryChanged")
             }
             .sheet(item: $selectedProjectForInfo) { project in
                 projectInfoSheet(project)
@@ -232,15 +245,65 @@ struct ProjectEditableList: View {
     }
     
     private func moveProjects(from source: IndexSet, to destination: Int) {
+        // Capture the current display order BEFORE switching sort modes.
+        // sortedProjects reads selectedSortOrder through the binding, so changing
+        // it first would sort by userOrder instead of what the List was showing,
+        // making the .onMove indices refer to the wrong items.
+        let currentOrder = sortedProjects
+
         // If not in User's Order mode, automatically switch to it when user drags
         if selectedSortOrder != .byUserOrder {
             selectedSortOrder = .byUserOrder
         }
-        
+
         // Use the service method which properly reindexes all userOrder values
-        _ = ProjectSortService.updateUserOrder(for: sortedProjects, movedFromOffsets: source, toOffset: destination)
-        
+        _ = ProjectSortService.updateUserOrder(for: currentOrder, movedFromOffsets: source, toOffset: destination)
+
         // Save the changes
         try? modelContext.save()
+    }
+
+    private func logProjectInventory(reason: String) {
+        #if DEBUG
+        print("[ProjectListDiagnostic] reason=\(reason) count=\(sortedProjects.count) sort=\(selectedSortOrder.rawValue)")
+        for project in sortedProjects {
+            print("[ProjectListDiagnostic] id=\(project.id.uuidString) | name=\(project.name ?? "") | userOrder=\(project.userOrder.map(String.init) ?? "nil") | trashed=\(project.isTrashed)")
+        }
+        #endif
+    }
+
+    private func trackProjectNameTransitions(reason: String) {
+        #if DEBUG
+        let now = ISO8601DateFormatter().string(from: Date())
+        let currentNamesByID = Dictionary(uniqueKeysWithValues: sortedProjects.map { ($0.id, $0.name ?? "") })
+
+        if lastSeenNameByProjectID.isEmpty {
+            lastSeenNameByProjectID = currentNamesByID
+            print("[ProjectNameTransition] baselineCaptured at=\(now) reason=\(reason) count=\(currentNamesByID.count)")
+            return
+        }
+
+        let throttler = CloudKitSyncThrottler.shared
+
+        for project in sortedProjects {
+            let id = project.id
+            let newName = project.name ?? ""
+
+            if let oldName = lastSeenNameByProjectID[id], oldName != newName {
+                let lastSync = throttler.lastSyncTime?.description ?? "nil"
+                print("[ProjectNameTransition] at=\(now) reason=\(reason) id=\(id.uuidString) old='\(oldName)' new='\(newName)' isSyncing=\(throttler.isSyncing) importInProgress=\(throttler.importInProgress) exportInProgress=\(throttler.exportInProgress) lastSync=\(lastSync)")
+            } else if lastSeenNameByProjectID[id] == nil {
+                print("[ProjectNameTransition] at=\(now) reason=\(reason) id=\(id.uuidString) added name='\(newName)'")
+            }
+        }
+
+        let removedIDs = Set(lastSeenNameByProjectID.keys).subtracting(currentNamesByID.keys)
+        for removedID in removedIDs.sorted(by: { $0.uuidString < $1.uuidString }) {
+            let oldName = lastSeenNameByProjectID[removedID] ?? ""
+            print("[ProjectNameTransition] at=\(now) reason=\(reason) id=\(removedID.uuidString) removed old='\(oldName)'")
+        }
+
+        lastSeenNameByProjectID = currentNamesByID
+        #endif
     }
 }

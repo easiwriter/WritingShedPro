@@ -27,6 +27,7 @@ struct ContentViewBody: View {
     
     let onInitialize: () -> Void
     let onInitializeStyleSheets: () -> Void
+    let onSyncNow: () -> Void
     let onHandleImportMenu: () -> Void
     let onHandleJSONImport: (Result<[URL], Error>) -> Void
     let onDeleteAllProjects: () -> Void
@@ -115,7 +116,8 @@ struct ContentViewBody: View {
                 SettingsSheet(
                     isPresented: $state.showSettings,
                     state: state,
-                    onImport: onHandleImportMenu
+                    onImport: onHandleImportMenu,
+                    onSyncNow: onSyncNow
                 )
             }
             .sheet(isPresented: $state.showManageStyles) {

@@ -363,6 +363,7 @@
 "fiction.episodes.removeFromBookNamed" = "Remove from \"%@\"";
 "fiction.episodes.assignedToBook" = "Currently assigned to \"%@\".";
 "fiction.episodes.bookAssignment" = "Book Assignment";
+"fiction.episodes.unassigned" = "Unassigned";
 "fiction.episode.title" = "Title";
 "fiction.episode.title.accessibility" = "Episode title";
 "fiction.episode.summary" = "Summary";

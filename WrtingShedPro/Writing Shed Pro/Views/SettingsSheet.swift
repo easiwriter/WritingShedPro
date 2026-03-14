@@ -12,6 +12,7 @@ struct SettingsSheet: View {
     @Binding var isPresented: Bool
     var state: ContentViewState
     let onImport: () -> Void
+    let onSyncNow: () -> Void
     
     @Environment(\.requestReview) var requestReview
     
@@ -75,6 +76,13 @@ struct SettingsSheet: View {
                 
                 // MARK: - Support Section
                 Section {
+                    Button {
+                        isPresented = false
+                        onSyncNow()
+                    } label: {
+                        Label("Sync Now", systemImage: "arrow.clockwise.icloud")
+                    }
+
                     Button {
                         isPresented = false
                         state.showSyncDiagnostics = true

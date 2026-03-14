@@ -269,7 +269,7 @@ struct SceneListView: View {
     private var chapterGroups: [SceneChapterGroup]? {
         // Only group when viewing all scenes (no chapter/act/book filter)
         guard chapter == nil && act == nil && book == nil else { return nil }
-        
+
         let chapters = project.chapters ?? []
         guard !chapters.isEmpty else { return nil }
         
@@ -301,9 +301,10 @@ struct SceneListView: View {
         let assignedSceneIDs: Set<UUID> = Set(groups.flatMap { (g: SceneChapterGroup) in g.scenes.map { $0.id } })
         let unassignedScenes: [StoryScene] = sortedScenes.filter { (scene: StoryScene) -> Bool in !assignedSceneIDs.contains(scene.id) }
         if !unassignedScenes.isEmpty {
+            let unassignedKey: String = isVerseNovel ? "fiction.episodes.unassigned" : "fiction.scenes.unassigned"
             groups.append(SceneChapterGroup(
                 id: "__unassigned__",
-                name: NSLocalizedString("fiction.scenes.unassigned", comment: "Unassigned"),
+                name: NSLocalizedString(unassignedKey, comment: "Unassigned"),
                 scenes: unassignedScenes
             ))
         }
@@ -859,20 +860,11 @@ struct SceneListView: View {
                 modelContext: modelContext
             )
         } else if project.type == .fiction {
-            let fClass = project.fictionClass ?? .novel
-            if fClass == .verseNovel {
-                ContainerAssignmentView.forBooks(
-                    project: project,
-                    selectedScenes: scenes,
-                    modelContext: modelContext
-                )
-            } else {
-                ContainerAssignmentView.forChapters(
-                    project: project,
-                    selectedScenes: scenes,
-                    modelContext: modelContext
-                )
-            }
+            ContainerAssignmentView.forChapters(
+                project: project,
+                selectedScenes: scenes,
+                modelContext: modelContext
+            )
         }
     }
     
