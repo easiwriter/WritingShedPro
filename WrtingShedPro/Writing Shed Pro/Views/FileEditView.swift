@@ -2875,10 +2875,17 @@ struct FileEditView: View {
         #endif
         #endif
         
-        // Only register change if content actually changed
-        guard newContent != previousContent else {
+        // Register both text changes and attribute-only formatting changes.
+        // BIU actions and some system edit actions can change attributes while keeping the same string.
+        let hasTextChanged = newContent != previousContent
+        let hasAttributeChanged: Bool = {
+            guard let previousAttributedContent else { return false }
+            return !newAttributedText.isEqual(to: previousAttributedContent)
+        }()
+
+        guard hasTextChanged || hasAttributeChanged else {
             #if DEBUG
-            print("🔄 Content unchanged - skipping")
+            print("🔄 Content and attributes unchanged - skipping")
             #endif
             return
         }
@@ -5937,6 +5944,25 @@ struct FileEditView: View {
         
         // Execute command through undo manager
         undoManager.execute(command)
+
+        // Keep change-tracking state aligned with formatted content
+        previousContent = newAttributedContent.string
+        previousAttributedContent = newAttributedContent
+
+        file.modifiedDate = Date()
+
+        // Persist formatting changes immediately.
+        // On Catalyst, project/file close can happen before a debounce timer fires,
+        // which drops BIU changes on reopen.
+        saveDebounceTimer?.invalidate()
+        file.currentVersion?.attributedContent = newAttributedContent
+        do {
+            try modelContext.save()
+        } catch {
+            #if DEBUG
+            print("Error saving formatting change: \(error)")
+            #endif
+        }
         
         #if DEBUG
         print("🎨 Formatting command added to undo stack")
@@ -6631,6 +6657,40 @@ struct FileEditView: View {
                 #endif
                 return
             }
+
+            // Merge style attributes with existing run-level traits so direct BIU formatting
+            // (bold/italic/underline/strikethrough) is preserved across style reapplication.
+            func mergedAttributesPreservingRunTraits(from currentAttrs: [NSAttributedString.Key: Any]) -> [NSAttributedString.Key: Any] {
+                var merged = newAttributes
+
+                let existingFont = currentAttrs[.font] as? UIFont ?? newFont
+                let existingTraits = existingFont.fontDescriptor.symbolicTraits
+                if !existingTraits.isEmpty,
+                   let descriptor = newFont.fontDescriptor.withSymbolicTraits(existingTraits) {
+                    merged[.font] = UIFont(descriptor: descriptor, size: newFont.pointSize)
+                } else {
+                    merged[.font] = newFont
+                }
+
+                if let attachment = currentAttrs[.attachment] {
+                    merged[.attachment] = attachment
+                }
+
+                if let poemSectionType = currentAttrs[.poemSectionType] {
+                    merged[.poemSectionType] = poemSectionType
+                    merged[.foregroundColor] = UIColor.systemGray
+                }
+
+                // Preserve direct character-level decorations unless the style explicitly defines them.
+                if merged[.underlineStyle] == nil, let underlineStyle = currentAttrs[.underlineStyle] {
+                    merged[.underlineStyle] = underlineStyle
+                }
+                if merged[.strikethroughStyle] == nil, let strikethroughStyle = currentAttrs[.strikethroughStyle] {
+                    merged[.strikethroughStyle] = strikethroughStyle
+                }
+
+                return merged
+            }
             
             #if DEBUG
             print("📝 New font: \(newFont.fontName) \(newFont.pointSize)pt, bold=\(updatedStyle.isBold), italic=\(updatedStyle.isItalic)")
@@ -6685,11 +6745,14 @@ struct FileEditView: View {
                 #if DEBUG
                 print("   🖼️ Range contains attachment at position \(attachmentPos) - using selective application")
                 #endif
-                
-                // Apply text attributes (without paragraph style) to the entire range
-                var attributesToAdd = newAttributes
-                attributesToAdd.removeValue(forKey: .paragraphStyle)
-                mutableText.addAttributes(attributesToAdd, range: range)
+
+                // Apply updated style attributes while preserving run-level font traits
+                // and leaving paragraph style handling to the dedicated logic below.
+                mutableText.enumerateAttributes(in: range, options: []) { currentAttrs, subrange, _ in
+                    var merged = mergedAttributesPreservingRunTraits(from: currentAttrs)
+                    merged.removeValue(forKey: .paragraphStyle)
+                    mutableText.setAttributes(merged, range: subrange)
+                }
                 
                 // Apply default left-aligned paragraph style to text portions
                 let defaultParagraphStyle = NSMutableParagraphStyle()
@@ -6725,26 +6788,10 @@ struct FileEditView: View {
                     #endif
                 }
             } else {
-                // No attachment - apply all attributes including paragraph style normally
-                // BUT preserve ALL poemSectionType attributes within this range (for marked sections)
-                // A single style range can contain multiple marked sections, so we enumerate all of them
-                var markedSections: [(range: NSRange, type: Any)] = []
-                mutableText.enumerateAttribute(.poemSectionType, in: range, options: []) { value, attrRange, _ in
-                    if let sectionType = value {
-                        markedSections.append((range: attrRange, type: sectionType))
-                    }
-                }
-                
-                mutableText.setAttributes(newAttributes, range: range)
-                
-                // Restore all poemSectionType attributes that were present
-                for section in markedSections {
-                    mutableText.addAttribute(.poemSectionType, value: section.type, range: section.range)
-                    // Also restore grey color for marked sections
-                    mutableText.addAttribute(.foregroundColor, value: UIColor.systemGray, range: section.range)
-                    #if DEBUG
-                    print("   📌 Preserved poemSectionType '\(section.type)' at range {\(section.range.location), \(section.range.length)}")
-                    #endif
+                // No attachment - apply updated style while preserving run-level traits.
+                mutableText.enumerateAttributes(in: range, options: []) { currentAttrs, subrange, _ in
+                    let merged = mergedAttributesPreservingRunTraits(from: currentAttrs)
+                    mutableText.setAttributes(merged, range: subrange)
                 }
             }
             
