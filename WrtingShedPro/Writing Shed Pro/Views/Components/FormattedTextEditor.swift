@@ -2075,6 +2075,8 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
         #selector(UIResponderStandardEditActions.copy(_:)),
         #selector(UIResponderStandardEditActions.paste(_:)),
         Selector(("_lookup:")),  // Look Up action - internal Apple selector
+        Selector(("_promptForReplace:")),  // Spelling replacement action
+        Selector(("replace:")),  // Replace selected text action
         #selector(UIResponderStandardEditActions.delete(_:)),  // Allow delete for image removal
         #selector(CustomTextView.increaseIndent(_:)),  // Tab - increase list indent
         #selector(CustomTextView.decreaseIndent(_:))   // Shift+Tab - decrease list indent
@@ -2098,6 +2100,13 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
         
         // Fast Set lookup instead of linear scan
         if Self._allowedActions.contains(action) {
+            return super.canPerformAction(action, withSender: sender)
+        }
+
+        // Allow spelling/replace selectors to keep native misspelling replacement working.
+        // iOS may use private selector names that include these terms.
+        let actionName = NSStringFromSelector(action).lowercased()
+        if actionName.contains("replace") || actionName.contains("spell") {
             return super.canPerformAction(action, withSender: sender)
         }
         
@@ -2158,44 +2167,9 @@ private class CustomTextView: UITextView, UIGestureRecognizerDelegate {
     // iOS 16+ Edit Menu Customization
     @available(iOS 16.0, *)
     override func editMenu(for textRange: UITextRange, suggestedActions: [UIMenuElement]) -> UIMenu? {
-        // Helper function to recursively extract all UIActions from menus
-        func extractActions(from elements: [UIMenuElement]) -> [UIAction] {
-            var actions: [UIAction] = []
-            for element in elements {
-                if let action = element as? UIAction {
-                    actions.append(action)
-                } else if let menu = element as? UIMenu {
-                    // Recursively get actions from submenu
-                    actions.append(contentsOf: extractActions(from: menu.children))
-                }
-            }
-            return actions
-        }
-        
-        // Extract all actions from the menu hierarchy
-        let allActions = extractActions(from: suggestedActions)
-        
-        // Filter to only include Look Up, Cut, Copy, Paste
-        let allowedTitles = ["Look Up", "Cut", "Copy", "Paste"]
-        let filteredActions = allActions.filter { action in
-            allowedTitles.contains(action.title)
-        }
-        
-        // If no actions match, return nil to use default menu
-        guard !filteredActions.isEmpty else {
-            return nil
-        }
-        
-        // Reorder to put Look Up first, then Cut, Copy, Paste
-        let orderedActions = filteredActions.sorted { action1, action2 in
-            let order = ["Look Up", "Cut", "Copy", "Paste"]
-            let index1 = order.firstIndex(of: action1.title) ?? 999
-            let index2 = order.firstIndex(of: action2.title) ?? 999
-            return index1 < index2
-        }
-        
         // Feature 029: Add "Add to Glossary" action if text is selected
-        var menuChildren: [UIMenuElement] = orderedActions
+        // Keep native suggested actions intact so spelling replacement can work.
+        var menuChildren: [UIMenuElement] = suggestedActions
         
         // Get selected text
         if let selectedTextRange = self.selectedTextRange {
