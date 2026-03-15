@@ -90,6 +90,17 @@ To export a project as a `.wsp` file:
 
 The file is saved as `ProjectName.wsp`.
 
+## Duplicating a Project
+
+To make a full copy of a project:
+
+1. Tap **⋯** next to the project in the project list
+2. Tap **Duplicate Project**
+
+Writing Shed Pro creates a complete duplicate with a new internal ID, so the copy is independent of the original.
+
+If a project with the same name already exists, the duplicate is automatically renamed with a number suffix.
+
 ## Danger Zone
 
 Some settings can cause data loss if used incorrectly.

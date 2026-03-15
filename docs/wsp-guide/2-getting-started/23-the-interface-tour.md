@@ -14,7 +14,7 @@ When you launch Writing Shed Pro, you see the **Project List**. This is your hom
 
 ### Project Actions
 - **Tap** a project to open it
-- **Tap the ⋯ button** for project options (details, page setup, stylesheet, export)
+- **Tap the ⋯ button** for project options (details, page setup, stylesheet, duplicate, export)
 - **Tap Edit** then select projects to delete or reorder
 ## Inside a Project
 
@@ -38,7 +38,7 @@ The toolbar appears at the top of most screens and provides context-specific act
 ### Project View Toolbar
 - **Back arrow**: Return to project list
 - **Project name**: Tap to rename
-- **⋯ (ellipsis)**: Project options (details, page setup, stylesheet, export)
+- **⋯ (ellipsis)**: Project options (details, page setup, stylesheet, duplicate, export)
 
 ### File List Toolbar
 - **Back arrow**: Return to project
