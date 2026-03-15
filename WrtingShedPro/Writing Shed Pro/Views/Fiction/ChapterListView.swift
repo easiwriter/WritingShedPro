@@ -25,9 +25,7 @@ struct ChapterListView: View {
     @State private var editMode: EditMode = .inactive
     @State private var selectedChapterIDs: Set<UUID> = []
     @State private var showDeleteConfirmation = false
-    @State private var showRenameSheet = false
-    @State private var chapterToRename: Chapter?
-    @State private var newChapterName: String = ""
+    @State private var chapterToEdit: Chapter?
     @State private var showSubmissionNamePrompt = false
     @State private var newSubmissionName: String = ""
     @State private var showSubmissionCreated = false
@@ -120,6 +118,22 @@ struct ChapterListView: View {
             return NSLocalizedString("fiction.story.rename.title", comment: "Rename Story")
         case .verseNovel:
             return NSLocalizedString("fiction.book.rename.title", comment: "Rename Book")
+        }
+    }
+
+    private var summaryLabel: String {
+        switch fictionClass {
+        case .novel: return NSLocalizedString("fiction.chapter.summary", comment: "Summary")
+        case .shortFiction: return NSLocalizedString("fiction.story.summary", comment: "Summary")
+        case .verseNovel: return NSLocalizedString("fiction.book.summary", comment: "Summary")
+        }
+    }
+
+    private var summaryFooter: String {
+        switch fictionClass {
+        case .novel: return NSLocalizedString("fiction.chapter.summary.footer", comment: "Brief overview of the chapter")
+        case .shortFiction: return NSLocalizedString("fiction.story.summary.footer", comment: "Brief overview of the story")
+        case .verseNovel: return NSLocalizedString("fiction.book.summary.footer", comment: "Brief overview of this book")
         }
     }
     
@@ -281,23 +295,17 @@ struct ChapterListView: View {
                 Text(deleteMultipleMessage)
             }
         }
-        .alert(renameTitle,
-            isPresented: $showRenameSheet
-        ) {
-            TextField(itemTitle,
-                text: $newChapterName)
-            Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
-                chapterToRename = nil
-                newChapterName = ""
+        .sheet(item: $chapterToEdit) { chapter in
+            EditContainerSheet(
+                navigationTitle: renameTitle,
+                nameLabel: itemTitle,
+                synopsisLabel: summaryLabel,
+                synopsisFooter: summaryFooter,
+                initialName: chapter.name ?? "",
+                initialSynopsis: chapter.synopsis ?? ""
+            ) { updatedName, updatedSynopsis in
+                updateChapter(chapter, name: updatedName, synopsis: updatedSynopsis)
             }
-            Button(NSLocalizedString("button.rename", comment: "Rename")) {
-                if let chapter = chapterToRename {
-                    renameChapter(chapter, to: newChapterName)
-                }
-                chapterToRename = nil
-                newChapterName = ""
-            }
-            .disabled(newChapterName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
         .alert(NSLocalizedString("submissions.name.title", comment: "Name Submission"), isPresented: $showSubmissionNamePrompt) {
             TextField(NSLocalizedString("submissions.name.placeholder", comment: "Name"), text: $newSubmissionName)
@@ -333,16 +341,14 @@ struct ChapterListView: View {
     
     @ViewBuilder
     private var bottomToolbarContent: some View {
-        // Rename button (only for single selection)
+        // Edit button (only for single selection)
         if selectedChapters.count == 1 {
             Button {
                 if let chapter = selectedChapters.first {
-                    chapterToRename = chapter
-                    newChapterName = chapter.name ?? ""
-                    showRenameSheet = true
+                    chapterToEdit = chapter
                 }
             } label: {
-                Label(NSLocalizedString("button.rename", comment: "Rename"), systemImage: "pencil")
+                Label(NSLocalizedString("button.edit", comment: "Edit"), systemImage: "pencil")
             }
         }
         
@@ -450,11 +456,11 @@ struct ChapterListView: View {
         exitEditMode()
     }
     
-    private func renameChapter(_ chapter: Chapter, to newName: String) {
-        let trimmedName = newName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedName.isEmpty else { return }
-        
-        chapter.name = trimmedName
+    private func updateChapter(_ chapter: Chapter, name: String, synopsis: String) {
+        guard !name.isEmpty else { return }
+
+        chapter.name = name
+        chapter.synopsis = synopsis.isEmpty ? nil : synopsis
         chapter.modifiedDate = Date()
         try? modelContext.save()
     }

@@ -25,9 +25,7 @@ struct ActListView: View {
     @State private var editMode: EditMode = .inactive
     @State private var selectedActIDs: Set<UUID> = []
     @State private var showDeleteConfirmation = false
-    @State private var showRenameSheet = false
-    @State private var actToRename: Act?
-    @State private var newActName: String = ""
+    @State private var actToEdit: Act?
     @State private var showSubmissionNamePrompt = false
     @State private var newSubmissionName: String = ""
     @State private var showSubmissionCreated = false
@@ -120,20 +118,17 @@ struct ActListView: View {
                 Text(NSLocalizedString("drama.acts.deleteMultiple.message", comment: "All scenes in these acts will also be deleted."))
             }
         }
-        .alert(NSLocalizedString("drama.act.rename.title", comment: "Rename Act"), isPresented: $showRenameSheet) {
-            TextField(NSLocalizedString("drama.act.title", comment: "Title"), text: $newActName)
-            Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
-                actToRename = nil
-                newActName = ""
+        .sheet(item: $actToEdit) { act in
+            EditContainerSheet(
+                navigationTitle: NSLocalizedString("drama.act.rename.title", comment: "Rename Act"),
+                nameLabel: NSLocalizedString("drama.act.title", comment: "Title"),
+                synopsisLabel: NSLocalizedString("drama.act.synopsis", comment: "Synopsis"),
+                synopsisFooter: NSLocalizedString("drama.act.synopsis.footer", comment: "Brief overview of the act"),
+                initialName: act.name ?? "",
+                initialSynopsis: act.synopsis ?? ""
+            ) { updatedName, updatedSynopsis in
+                updateAct(act, name: updatedName, synopsis: updatedSynopsis)
             }
-            Button(NSLocalizedString("button.rename", comment: "Rename")) {
-                if let act = actToRename {
-                    renameAct(act, to: newActName)
-                }
-                actToRename = nil
-                newActName = ""
-            }
-            .disabled(newActName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
         .alert(NSLocalizedString("submissions.name.title", comment: "Name Submission"), isPresented: $showSubmissionNamePrompt) {
             TextField(NSLocalizedString("submissions.name.placeholder", comment: "Name"), text: $newSubmissionName)
@@ -169,16 +164,14 @@ struct ActListView: View {
     
     @ViewBuilder
     private var bottomToolbarContent: some View {
-        // Rename button (only for single selection)
+        // Edit button (only for single selection)
         if selectedActs.count == 1 {
             Button {
                 if let act = selectedActs.first {
-                    actToRename = act
-                    newActName = act.name ?? ""
-                    showRenameSheet = true
+                    actToEdit = act
                 }
             } label: {
-                Label(NSLocalizedString("button.rename", comment: "Rename"), systemImage: "pencil")
+                Label(NSLocalizedString("button.edit", comment: "Edit"), systemImage: "pencil")
             }
         }
         
@@ -276,11 +269,11 @@ struct ActListView: View {
         exitEditMode()
     }
     
-    private func renameAct(_ act: Act, to newName: String) {
-        let trimmedName = newName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedName.isEmpty else { return }
-        
-        act.name = trimmedName
+    private func updateAct(_ act: Act, name: String, synopsis: String) {
+        guard !name.isEmpty else { return }
+
+        act.name = name
+        act.synopsis = synopsis.isEmpty ? nil : synopsis
         act.modifiedDate = Date()
         try? modelContext.save()
     }

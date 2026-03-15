@@ -25,9 +25,7 @@ struct SectionListView: View {
     @State private var editMode: EditMode = .inactive
     @State private var selectedSectionIDs: Set<UUID> = []
     @State private var showDeleteConfirmation = false
-    @State private var showRenameSheet = false
-    @State private var sectionToRename: ProseSection?
-    @State private var newSectionName: String = ""
+    @State private var sectionToEdit: ProseSection?
     
     /// Submission state
     @State private var showSubmissionNamePrompt = false
@@ -122,20 +120,17 @@ struct SectionListView: View {
                 Text(NSLocalizedString("prose.sections.deleteMultiple.message", comment: "Files in these sections will be unassigned but not deleted."))
             }
         }
-        .alert(NSLocalizedString("prose.section.rename.title", comment: "Rename Section"), isPresented: $showRenameSheet) {
-            TextField(NSLocalizedString("prose.section.title", comment: "Title"), text: $newSectionName)
-            Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
-                sectionToRename = nil
-                newSectionName = ""
+        .sheet(item: $sectionToEdit) { section in
+            EditContainerSheet(
+                navigationTitle: NSLocalizedString("prose.section.rename.title", comment: "Rename Section"),
+                nameLabel: NSLocalizedString("prose.section.title", comment: "Title"),
+                synopsisLabel: NSLocalizedString("prose.section.synopsis", comment: "Synopsis"),
+                synopsisFooter: NSLocalizedString("prose.section.synopsis.footer", comment: "Brief overview of the section"),
+                initialName: section.name ?? "",
+                initialSynopsis: section.synopsis ?? ""
+            ) { updatedName, updatedSynopsis in
+                updateSection(section, name: updatedName, synopsis: updatedSynopsis)
             }
-            Button(NSLocalizedString("button.rename", comment: "Rename")) {
-                if let section = sectionToRename {
-                    renameSection(section, to: newSectionName)
-                }
-                sectionToRename = nil
-                newSectionName = ""
-            }
-            .disabled(newSectionName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
         .alert(NSLocalizedString("submissions.name.title", comment: "Name Submission"), isPresented: $showSubmissionNamePrompt) {
             TextField(NSLocalizedString("submissions.name.placeholder", comment: "Name"), text: $newSubmissionName)
@@ -171,16 +166,14 @@ struct SectionListView: View {
     
     @ViewBuilder
     private var bottomToolbarContent: some View {
-        // Rename button (only for single selection)
+        // Edit button (only for single selection)
         if selectedSections.count == 1 {
             Button {
                 if let section = selectedSections.first {
-                    sectionToRename = section
-                    newSectionName = section.name ?? ""
-                    showRenameSheet = true
+                    sectionToEdit = section
                 }
             } label: {
-                Label(NSLocalizedString("button.rename", comment: "Rename"), systemImage: "pencil")
+                Label(NSLocalizedString("button.edit", comment: "Edit"), systemImage: "pencil")
             }
         }
         
@@ -278,11 +271,11 @@ struct SectionListView: View {
         exitEditMode()
     }
     
-    private func renameSection(_ section: ProseSection, to newName: String) {
-        let trimmedName = newName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedName.isEmpty else { return }
-        
-        section.name = trimmedName
+    private func updateSection(_ section: ProseSection, name: String, synopsis: String) {
+        guard !name.isEmpty else { return }
+
+        section.name = name
+        section.synopsis = synopsis.isEmpty ? nil : synopsis
         section.modifiedDate = Date()
         try? modelContext.save()
     }

@@ -26,9 +26,7 @@ struct PoetryCollectionsView: View {
     @State private var editMode: EditMode = .inactive
     @State private var selectedCollectionIDs: Set<UUID> = []
     @State private var showDeleteConfirmation = false
-    @State private var showRenameSheet = false
-    @State private var collectionToRename: PoetryCollection?
-    @State private var newCollectionName: String = ""
+    @State private var collectionToEdit: PoetryCollection?
     
     /// Submission state
     @State private var showSubmissionNamePrompt = false
@@ -121,20 +119,17 @@ struct PoetryCollectionsView: View {
                 Text(NSLocalizedString("poetry.collections.deleteMultiple.message", comment: "Poems in these collections will be unassigned but not deleted."))
             }
         }
-        .alert(NSLocalizedString("poetry.collection.rename.title", comment: "Rename Collection"), isPresented: $showRenameSheet) {
-            TextField(NSLocalizedString("poetry.collection.name", comment: "Name"), text: $newCollectionName)
-            Button(NSLocalizedString("button.cancel", comment: "Cancel"), role: .cancel) {
-                collectionToRename = nil
-                newCollectionName = ""
+        .sheet(item: $collectionToEdit) { collection in
+            EditContainerSheet(
+                navigationTitle: NSLocalizedString("poetry.collection.rename.title", comment: "Rename Collection"),
+                nameLabel: NSLocalizedString("poetry.collection.name", comment: "Name"),
+                synopsisLabel: NSLocalizedString("poetry.collection.synopsis", comment: "Synopsis"),
+                synopsisFooter: NSLocalizedString("poetry.collection.synopsis.footer", comment: "Brief description of this collection"),
+                initialName: collection.name ?? "",
+                initialSynopsis: collection.synopsis ?? ""
+            ) { updatedName, updatedSynopsis in
+                updateCollection(collection, name: updatedName, synopsis: updatedSynopsis)
             }
-            Button(NSLocalizedString("button.rename", comment: "Rename")) {
-                if let collection = collectionToRename {
-                    renameCollection(collection, to: newCollectionName)
-                }
-                collectionToRename = nil
-                newCollectionName = ""
-            }
-            .disabled(newCollectionName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
         .alert(NSLocalizedString("submissions.name.title", comment: "Name Submission"), isPresented: $showSubmissionNamePrompt) {
             TextField(NSLocalizedString("submissions.name.placeholder", comment: "Name"), text: $newSubmissionName)
@@ -170,16 +165,14 @@ struct PoetryCollectionsView: View {
     
     @ViewBuilder
     private var bottomToolbarContent: some View {
-        // Rename button (only for single selection)
+        // Edit button (only for single selection)
         if selectedCollections.count == 1 {
             Button {
                 if let collection = selectedCollections.first {
-                    collectionToRename = collection
-                    newCollectionName = collection.name ?? ""
-                    showRenameSheet = true
+                    collectionToEdit = collection
                 }
             } label: {
-                Label(NSLocalizedString("button.rename", comment: "Rename"), systemImage: "pencil")
+                Label(NSLocalizedString("button.edit", comment: "Edit"), systemImage: "pencil")
             }
         }
         
@@ -276,10 +269,10 @@ struct PoetryCollectionsView: View {
         editMode = .inactive
     }
     
-    private func renameCollection(_ collection: PoetryCollection, to newName: String) {
-        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        collection.name = trimmed
+    private func updateCollection(_ collection: PoetryCollection, name: String, synopsis: String) {
+        guard !name.isEmpty else { return }
+        collection.name = name
+        collection.synopsis = synopsis.isEmpty ? nil : synopsis
         collection.modifiedDate = Date()
         try? modelContext.save()
     }
