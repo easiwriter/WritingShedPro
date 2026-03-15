@@ -698,6 +698,18 @@ struct TextStyleEditorView: View {
         
         do {
             try modelContext.save()
+
+            if let stylesheet = style.styleSheet {
+                let updatedFiles = StyleSheetService.reapplyUpdatedStyle(
+                    styleName: style.name,
+                    in: stylesheet,
+                    context: modelContext
+                )
+                #if DEBUG
+                print("✅ Reapplied updated style '\(style.name)' in \(updatedFiles) file(s)")
+                #endif
+            }
+
             onSave?() // Notify that changes were saved
             
             // Notify that a style in the stylesheet has been modified

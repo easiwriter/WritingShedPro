@@ -542,6 +542,147 @@ struct StyleSheetService {
     ) -> TextStyleModel? {
         return resolveStyle(named: textStyle.rawValue, for: project, context: context)
     }
+
+    // MARK: - Style Reapply
+
+    /// Reapply an updated style definition to all files that reference this style name
+    /// in all projects using the provided stylesheet.
+    ///
+    /// This is used when the user edits a style and chooses "Update Style" so that
+    /// manuscript preview/export reflects the new style immediately, even for files
+    /// that are not currently open in the editor.
+    @discardableResult
+    static func reapplyUpdatedStyle(
+        styleName: String,
+        in styleSheet: StyleSheet,
+        context: ModelContext
+    ) -> Int {
+        let projects = styleSheet.projects ?? []
+        guard !projects.isEmpty else { return 0 }
+
+        var updatedFilesCount = 0
+
+        for project in projects {
+            updatedFilesCount += reapplyStyleInProject(
+                styleName: styleName,
+                styleSheet: styleSheet,
+                project: project,
+                context: context
+            )
+        }
+
+        if updatedFilesCount > 0 {
+            do {
+                try context.save()
+            } catch {
+                #if DEBUG
+                print("❌ reapplyUpdatedStyle save failed: \(error)")
+                #endif
+            }
+        }
+
+        return updatedFilesCount
+    }
+
+    private static func reapplyStyleInProject(
+        styleName: String,
+        styleSheet: StyleSheet,
+        project: Project,
+        context: ModelContext
+    ) -> Int {
+        guard let folders = project.folders else { return 0 }
+
+        var updatedCount = 0
+
+        func processFolder(_ folder: Folder) {
+            if let textFiles = folder.textFiles {
+                for textFile in textFiles {
+                    if reapplyStyleInFile(
+                        textFile,
+                        styleName: styleName,
+                        styleSheet: styleSheet,
+                        project: project,
+                        context: context
+                    ) {
+                        updatedCount += 1
+                    }
+                }
+            }
+
+            if let subfolders = folder.folders {
+                for subfolder in subfolders {
+                    processFolder(subfolder)
+                }
+            }
+        }
+
+        for folder in folders {
+            processFolder(folder)
+        }
+
+        return updatedCount
+    }
+
+    private static func reapplyStyleInFile(
+        _ file: TextFile,
+        styleName: String,
+        styleSheet: StyleSheet,
+        project: Project,
+        context: ModelContext
+    ) -> Bool {
+        guard let version = file.currentVersion,
+              let attributedString = version.attributedContent,
+              attributedString.length > 0,
+              let updatedStyle = styleSheet.style(named: styleName)
+                ?? resolveStyle(named: styleName, for: project, context: context) else {
+            return false
+        }
+
+        let updatedAttributes = updatedStyle.generateAttributes()
+        guard let updatedBaseFont = updatedAttributes[.font] as? UIFont else { return false }
+
+        let mutable = NSMutableAttributedString(attributedString: attributedString)
+        let fullRange = NSRange(location: 0, length: mutable.length)
+        var didChange = false
+
+        mutable.enumerateAttribute(.textStyle, in: fullRange, options: []) { value, styleRange, _ in
+            guard let value = value as? String, value == styleName else { return }
+
+            mutable.enumerateAttributes(in: styleRange, options: []) { currentAttrs, subrange, _ in
+                var newAttrs = updatedAttributes
+
+                let existingFont = currentAttrs[.font] as? UIFont ?? updatedBaseFont
+                let existingTraits = existingFont.fontDescriptor.symbolicTraits
+                if !existingTraits.isEmpty,
+                   let descriptor = updatedBaseFont.fontDescriptor.withSymbolicTraits(existingTraits) {
+                    newAttrs[.font] = UIFont(descriptor: descriptor, size: updatedBaseFont.pointSize)
+                } else {
+                    newAttrs[.font] = updatedBaseFont
+                }
+
+                newAttrs[.textStyle] = styleName
+
+                if let attachment = currentAttrs[.attachment] {
+                    newAttrs[.attachment] = attachment
+                }
+
+                if let poemSectionType = currentAttrs[.poemSectionType] {
+                    newAttrs[.poemSectionType] = poemSectionType
+                    newAttrs[.foregroundColor] = UIColor.systemGray
+                }
+
+                mutable.setAttributes(newAttrs, range: subrange)
+            }
+
+            didChange = true
+        }
+
+        guard didChange else { return false }
+
+        version.attributedContent = mutable
+        file.modifiedDate = Date()
+        return true
+    }
     
     // MARK: - Style Usage Detection
     
