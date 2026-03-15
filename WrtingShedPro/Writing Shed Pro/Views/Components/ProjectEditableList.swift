@@ -134,6 +134,9 @@ struct ProjectEditableList: View {
                 onPoetrySettingsTapped: (project.type == .poetry || (project.type == .fiction && project.fictionClass == .verseNovel)) ? {
                     showingPoetrySettings = true
                 } : nil,
+                onDuplicateTapped: {
+                    duplicateProject(project)
+                },
                 onExportTapped: {
                     exportProject(project)
                 }
@@ -199,6 +202,33 @@ struct ProjectEditableList: View {
             exportErrorMessage = error.localizedDescription
             showExportError = true
         }
+    }
+
+    private func duplicateProject(_ project: Project) {
+        let tempURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("project-duplicate-\(UUID().uuidString)")
+            .appendingPathExtension("wsp")
+
+        do {
+            let exportService = JSONExportService()
+            let data = try exportService.exportProject(project)
+            try data.write(to: tempURL, options: .atomic)
+
+            let errorHandler = ImportErrorHandler()
+            let importService = JSONImportService(
+                modelContext: modelContext,
+                errorHandler: errorHandler,
+                generateNewUUIDs: true
+            )
+
+            _ = try importService.importFromJSON(fileURL: tempURL)
+            try? modelContext.save()
+        } catch {
+            exportErrorMessage = error.localizedDescription
+            showExportError = true
+        }
+
+        try? FileManager.default.removeItem(at: tempURL)
     }
     
     // MARK: - Delete

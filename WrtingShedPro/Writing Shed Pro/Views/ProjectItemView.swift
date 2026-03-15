@@ -7,6 +7,7 @@ struct ProjectItemView: View {
     let onPageSetupTapped: () -> Void
     var onManageFormsTapped: (() -> Void)? = nil
     var onPoetrySettingsTapped: (() -> Void)? = nil
+    var onDuplicateTapped: (() -> Void)? = nil
     var onExportTapped: (() -> Void)? = nil
     
     @Environment(\.modelContext) var modelContext
@@ -76,6 +77,12 @@ struct ProjectItemView: View {
                 }
                 
                 stylesheetSubmenu
+
+                if let onDuplicateTapped = onDuplicateTapped {
+                    Button(action: onDuplicateTapped) {
+                        Label(NSLocalizedString("projectItem.duplicateProject", comment: "Duplicate project"), systemImage: "plus.square.on.square")
+                    }
+                }
                 
                 if let onExportTapped = onExportTapped {
                     Button(action: onExportTapped) {
