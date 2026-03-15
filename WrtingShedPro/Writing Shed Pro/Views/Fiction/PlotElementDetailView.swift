@@ -672,9 +672,9 @@ struct CreateSceneForPlotElementSheet: View {
         scene.characters = plotElement.characters
         scene.location = plotElement.locations?.first
         
-        // Link scene to plot element (set both sides of relationship)
+        // Link scene to plot element without creating duplicate join links.
+        // Setting both sides with append can duplicate ScenePlotElementLink rows.
         scene.plotElements = [plotElement]
-        plotElement.linkedScenes = (plotElement.linkedScenes ?? []) + [scene]
         
         // Create TextFile for scene/episode content
         let textFile: TextFile
