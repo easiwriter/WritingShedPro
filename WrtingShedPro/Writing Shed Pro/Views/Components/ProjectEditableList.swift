@@ -131,7 +131,7 @@ struct ProjectEditableList: View {
                 onManageFormsTapped: project.type == .poetry ? {
                     showingManageForms = true
                 } : nil,
-                onPoetrySettingsTapped: project.type == .poetry ? {
+                onPoetrySettingsTapped: (project.type == .poetry || (project.type == .fiction && project.fictionClass == .verseNovel)) ? {
                     showingPoetrySettings = true
                 } : nil,
                 onExportTapped: {

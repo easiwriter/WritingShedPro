@@ -19,6 +19,11 @@ struct ProjectItemView: View {
         }
         return project.type.rawValue.capitalized
     }
+
+    /// Poetry settings apply to Poetry projects and Verse Novel fiction projects.
+    private var supportsPoetrySettings: Bool {
+        project.type == .poetry || (project.type == .fiction && project.fictionClass == .verseNovel)
+    }
     
     var body: some View {
         HStack {
@@ -64,7 +69,7 @@ struct ProjectItemView: View {
                     }
                 }
                 
-                if project.type == .poetry, let onPoetrySettingsTapped = onPoetrySettingsTapped {
+                if supportsPoetrySettings, let onPoetrySettingsTapped = onPoetrySettingsTapped {
                     Button(action: onPoetrySettingsTapped) {
                         Label(NSLocalizedString("settings.poetrySettings", comment: "Poetry Settings"), systemImage: "waveform.path")
                     }
