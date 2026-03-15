@@ -66,8 +66,7 @@ struct ProseListView: View {
     @State private var showRenameSheet = false
     @State private var fileToRename: TextFile?
     
-    /// File details state
-    @State private var showFileDetails = false
+    /// File details state (sheet(item:) avoids timing issues/blank sheets)
     @State private var fileForDetails: TextFile?
     
     /// Export state
@@ -252,8 +251,12 @@ struct ProseListView: View {
             .sheet(isPresented: $showRenameSheet) {
                 renameSheet
             }
-            .sheet(isPresented: $showFileDetails) {
-                detailsSheet
+            .sheet(item: $fileForDetails) { file in
+                FileDetailsSheet(file: file, onExport: { f in
+                    fileForDetails = nil
+                    filesToExport = [f]
+                    showExportMenu = true
+                })
             }
             .sheet(isPresented: $showSearchView) {
                 if let folder = proseFolder {
@@ -574,17 +577,6 @@ struct ProseListView: View {
                     renameFile(file, to: newName)
                 }
             )
-        }
-    }
-    
-    @ViewBuilder
-    private var detailsSheet: some View {
-        if let file = fileForDetails {
-            FileDetailsSheet(file: file, onExport: { f in
-                showFileDetails = false
-                filesToExport = [f]
-                showExportMenu = true
-            })
         }
     }
     
@@ -936,7 +928,6 @@ struct ProseListView: View {
     private func fileOptionsMenu(for file: TextFile) -> some View {
         Button {
             fileForDetails = file
-            showFileDetails = true
         } label: {
             Image(systemName: "ellipsis.circle")
                 .imageScale(.large)
