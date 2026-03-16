@@ -28,9 +28,7 @@ struct AddSceneSheet: View {
     @State private var title: String = ""
     @State private var summary: String = ""
     @State private var selectedMonomythStage: MonomythStage?
-    @State private var selectedCampbellStage: CampbellMonomythStage?
     @State private var selectedThreeActStage: ThreeActStage?
-    @State private var selectedPearsonStage: PearsonStage?
     @State private var selectedLocation: Location?
     @State private var selectedCharacters: Set<Character> = []
     @State private var selectedContentType: FileContentType = .richText
@@ -203,52 +201,6 @@ struct AddSceneSheet: View {
                     } header: {
                         Text(NSLocalizedString("fiction.scene.section.monomyth", comment: "Hero's Journey"))
                     }
-                } else if project.storyStructure == .monomythCampbell {
-                    Section {
-                        Picker(NSLocalizedString("fiction.scene.monomythStage", comment: "Story Stage"), selection: $selectedCampbellStage) {
-                            Text(NSLocalizedString("fiction.scene.monomythStage.none", comment: "None"))
-                                .tag(nil as CampbellMonomythStage?)
-                            
-                            ForEach(CampbellMonomythStage.allCases, id: \.self) { stage in
-                                HStack {
-                                    Text("\(stage.order).")
-                                    Text(stage.localizedName)
-                                }
-                                .tag(stage as CampbellMonomythStage?)
-                            }
-                        }
-                        
-                        if let stage = selectedCampbellStage {
-                            Text(stage.description)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                    } header: {
-                        Text(NSLocalizedString("fiction.scene.section.monomyth", comment: "Hero's Journey"))
-                    }
-                } else if project.storyStructure == .monomythPearson {
-                    Section {
-                        Picker(NSLocalizedString("fiction.scene.monomythStage", comment: "Story Stage"), selection: $selectedPearsonStage) {
-                            Text(NSLocalizedString("fiction.scene.monomythStage.none", comment: "None"))
-                                .tag(nil as PearsonStage?)
-                            
-                            ForEach(PearsonStage.allCases, id: \.self) { stage in
-                                HStack {
-                                    Text("\(stage.order).")
-                                    Text(stage.localizedName)
-                                }
-                                .tag(stage as PearsonStage?)
-                            }
-                        }
-                        
-                        if let stage = selectedPearsonStage {
-                            Text(stage.description)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                    } header: {
-                        Text(NSLocalizedString("fiction.scene.section.monomyth", comment: "Hero's Journey"))
-                    }
                 } else if project.storyStructure == .threeAct {
                     Section {
                         Picker(NSLocalizedString("fiction.scene.storyStage", comment: "Act"), selection: $selectedThreeActStage) {
@@ -349,13 +301,18 @@ struct AddSceneSheet: View {
         switch project.storyStructure {
         case .monomythVogler:
             scene.monomythStage = selectedMonomythStage
-        case .monomythCampbell:
-            scene.campbellStage = selectedCampbellStage
-        case .monomythPearson:
-            scene.pearsonStage = selectedPearsonStage
+            scene.campbellStageRaw = nil
+            scene.pearsonStageRaw = nil
         case .threeAct:
             scene.threeActStage = selectedThreeActStage
+            scene.monomythStageRaw = nil
+            scene.campbellStageRaw = nil
+            scene.pearsonStageRaw = nil
         case .freeform:
+            scene.monomythStageRaw = nil
+            scene.campbellStageRaw = nil
+            scene.threeActStageRaw = nil
+            scene.pearsonStageRaw = nil
             break
         }
         

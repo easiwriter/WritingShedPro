@@ -66,4 +66,38 @@ final class CloudKitSyncThrottlerTests: XCTestCase {
 
         wait(for: [expectation], timeout: 1.0)
     }
+
+    func testRepeatedImportStartDoesNotResetOriginalStartTime() {
+        let throttler = CloudKitSyncThrottler.shared
+        let originalStart = Date().addingTimeInterval(-150)
+        throttler._testMarkImportStarted(at: originalStart)
+        throttler._testMarkImportStarted(at: Date())
+
+        let active = throttler.hasActiveCloudKitEvent
+
+        XCTAssertFalse(active)
+        XCTAssertFalse(throttler.importInProgress)
+
+        let staleEvent = throttler.recentCloudKitEvents.first {
+            $0.type == "import" && $0.phase == "timeout" && $0.status == "stale-cleared"
+        }
+        XCTAssertNotNil(staleEvent)
+    }
+
+    func testRepeatedExportStartDoesNotResetOriginalStartTime() {
+        let throttler = CloudKitSyncThrottler.shared
+        let originalStart = Date().addingTimeInterval(-150)
+        throttler._testMarkExportStarted(at: originalStart)
+        throttler._testMarkExportStarted(at: Date())
+
+        let active = throttler.hasActiveCloudKitEvent
+
+        XCTAssertFalse(active)
+        XCTAssertFalse(throttler.exportInProgress)
+
+        let staleEvent = throttler.recentCloudKitEvents.first {
+            $0.type == "export" && $0.phase == "timeout" && $0.status == "stale-cleared"
+        }
+        XCTAssertNotNil(staleEvent)
+    }
 }

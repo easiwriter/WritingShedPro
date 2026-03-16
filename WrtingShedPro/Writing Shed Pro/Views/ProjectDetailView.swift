@@ -293,7 +293,7 @@ struct ProjectInfoSheet: View {
                 get: { project.storyStructure },
                 set: { project.storyStructure = $0 }
             )) {
-                ForEach(StoryStructure.allCases, id: \.self) { structure in
+                ForEach(StoryStructure.userFacingCases, id: \.self) { structure in
                     Text(structure.localizedName).tag(structure)
                 }
             }

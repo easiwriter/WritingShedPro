@@ -5,6 +5,7 @@ Fiction projects in Writing Shed Pro provide specialized tools for writing novel
 ## What Makes Fiction Mode Special
 
 Fiction mode understands the unique needs of fiction writers:
+
 - **Scene-based writing**: Build your story scene by scene
 - **Chapter organization**: Group scenes into chapters (novels)
 - **Plot tracking**: Map your story structure
@@ -26,20 +27,26 @@ Fiction mode understands the unique needs of fiction writers:
 ## Fiction Classes
 
 ### Novel
+
 For longer works with chapter structure:
+
 - Chapters contain scenes
 - Organize your book by chapters and scenes
 - Full manuscript assembly
 
 ### Verse Novel
+
 For novels written in verse:
+
 - Organized by books and episodes
 - Combines poetry and narrative structure
 - Each episode is a poem or verse passage
 - Full manuscript assembly with poetry formatting
 
 ### Short Fiction
+
 For stories without chapters:
+
 - Scenes are the primary unit
 - Simpler organization
 - Direct manuscript export
@@ -72,20 +79,25 @@ Use the status filter tabs at the top of the scene list to focus on Draft, Ready
 Choose a structure to help organize your plot:
 
 ### Freeform
+
 No predefined stages—organize your plot however you like.
 
 ### Three-Act Structure
+
 Classic narrative structure:
+
 1. **Act 1 - Setup**: Introduce world and characters, inciting incident
 2. **Act 2 - Confrontation**: Rising action, complications
 3. **Act 3 - Resolution**: Climax and conclusion
 
 ### The Monomyth (Hero's Journey)
 
-The monomyth, or Hero's Journey, is a narrative pattern identified by mythologist Joseph Campbell in *The Hero with a Thousand Faces* (1949). Campbell observed that myths and stories across cultures share a common structure in which a hero ventures from the ordinary world into a realm of adventure, faces trials, and returns transformed. Christopher Vogler later adapted Campbell's work for screenwriters and novelists in *The Writer's Journey: Mythic Structure for Writers* (1992), condensing it into a practical 12-stage framework. Carol S. Pearson took a different approach in *Awakening the Heroes Within* (1991), organizing the journey into three broad phases—Preparation, Journey, and Return—and mapping twelve character archetypes across them. Writing Shed Pro offers all three versions as story structures.
+The monomyth, or Hero's Journey, is a narrative framework commonly used to map a protagonist's transformation through challenge and return. Writing Shed Pro uses the practical 12-stage adaptation popularized in *The Writer's Journey*.
 
 ### Monomyth (Vogler)
+
 Christopher Vogler's 12-stage Hero's Journey:
+
 1. Ordinary World
 2. Call to Adventure
 3. Refusal of the Call
@@ -99,73 +111,49 @@ Christopher Vogler's 12-stage Hero's Journey:
 11. Resurrection
 12. Return with the Elixir
 
-### Monomyth (Campbell)
-Joseph Campbell's 17-stage Hero's Journey:
-1. The Ordinary World
-2. The Call to Adventure
-3. Refusal of the Call
-4. Supernatural Aid
-5. Crossing the First Threshold
-6. Belly of the Whale
-7. The Road of Trials
-8. Meeting with the Goddess
-9. Woman as Temptress
-10. Atonement with the Father
-11. Apotheosis
-12. The Ultimate Boon
-13. Refusal of the Return
-14. The Magic Flight
-15. Rescue from Without
-16. Crossing the Return Threshold
-17. Master of Two Worlds
-
-### Monomyth (Pearson)
-Carol S. Pearson's framework from *Awakening the Heroes Within* organizes the hero's journey into three broad phases, each associated with four character archetypes:
-
-**Preparation** — The soul prepares to embark on the journey:
-- Innocent, Orphan, Warrior, Caregiver
-
-**Journey** — The soul searches for identity and wholeness:
-- Seeker, Destroyer, Lover, Creator
-
-**Return** — The soul returns to transform the world:
-- Ruler, Magician, Sage, Jester
-
-When you select Monomyth (Pearson) as your story structure, plot elements are assigned to one of the three phases instead of individual stages. In addition, the character archetype picker switches from Vogler's eight archetypes to Pearson's twelve, grouped by phase.
-
 You can change the structure later in Project Settings.
 
 ## Core Concepts
 
 ### Scenes
+
 The fundamental unit of fiction. Each scene:
+
 - Is a single continuous action
 - Has a clear outcome
 - Advances the story
 - Has a workflow status (Draft, Ready, or Set Aside)
 
 ### Chapters (Novel) / Books (Verse Novel)
+
 Containers for scenes or episodes:
+
 - Group related scenes into reading order
 - Novel uses Chapters; Verse Novel uses Books
 - Determine manuscript assembly order
 - Can be added to body matter for export
 
 ### Plot Elements
+
 Story beats and events:
+
 - Major and minor plot points
 - Linked to story structure stages
 - Connected to scenes
 
 ### Characters
+
 Your story's people:
+
 - Names and descriptions
-- Character archetype (Vogler's 8 or Pearson's 12, depending on story structure)
+- Character archetype (Vogler's 8)
 - Relationships
 - Arcs and development
 
 ### Locations
+
 Where your story happens:
+
 - Settings and places
 - Descriptions
 - Atmosphere notes
@@ -173,16 +161,19 @@ Where your story happens:
 ## Fiction Workflow
 
 ### 1. Plan (Optional)
+
 - Create plot elements for your story structure
 - Define main characters and locations
 - Outline chapters
 
 ### 2. Draft
+
 - Write scenes (they start with Draft status)
 - Link scenes to plot elements
 - Connect to characters and locations
 
 ### 3. Organize
+
 - Change finished scenes to Ready status
 - Arrange scenes into chapters (or books for Verse Novel)
 - Refine your structure
@@ -200,11 +191,13 @@ When viewing all scenes in a Novel or Verse Novel project, scenes are automatica
 This makes it easy to see your story structure at a glance without navigating into individual chapters.
 
 ### 4. Export
+
 - Assemble the manuscript
 - Export to PDF, RTF, HTML, or Markdown
 - Share or submit
 
 ## See Also
+
 - [Organizing Your Fiction](72-organizing-your-fiction.md)
 - [Scene Organization](73-scene-organization.md)
 - [Manuscript Formatting](74-manuscript-formatting.md)

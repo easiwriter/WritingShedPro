@@ -84,8 +84,6 @@ enum StoryStructure: String, Codable, CaseIterable {
     case freeform           // No predefined structure
     case threeAct           // 3-act structure (Setup, Confrontation, Resolution)
     case monomythVogler     // 12-stage Hero's Journey (Christopher Vogler)
-    case monomythCampbell   // 17-stage Hero's Journey (Joseph Campbell)
-    case monomythPearson    // 3-phase Hero's Journey (Carol S. Pearson)
     
     var localizedName: String {
         switch self {
@@ -95,11 +93,12 @@ enum StoryStructure: String, Codable, CaseIterable {
             return NSLocalizedString("storyStructure.threeAct", comment: "3-Act Structure")
         case .monomythVogler:
             return NSLocalizedString("storyStructure.monomythVogler", comment: "Hero's Journey (Vogler)")
-        case .monomythCampbell:
-            return NSLocalizedString("storyStructure.monomythCampbell", comment: "Hero's Journey (Campbell)")
-        case .monomythPearson:
-            return NSLocalizedString("storyStructure.monomythPearson", comment: "Hero's Journey (Pearson)")
         }
+    }
+
+    /// User-facing structures exposed in project creation/editing.
+    static var userFacingCases: [StoryStructure] {
+        [.freeform, .threeAct, .monomythVogler]
     }
     
     var description: String {
@@ -110,26 +109,17 @@ enum StoryStructure: String, Codable, CaseIterable {
             return NSLocalizedString("storyStructure.threeAct.description", comment: "Classic 3-act structure: Setup, Confrontation, Resolution")
         case .monomythVogler:
             return NSLocalizedString("storyStructure.monomythVogler.description", comment: "12 stages from The Writer's Journey by Christopher Vogler")
-        case .monomythCampbell:
-            return NSLocalizedString("storyStructure.monomythCampbell.description", comment: "17 stages from The Hero with a Thousand Faces by Joseph Campbell")
-        case .monomythPearson:
-            return NSLocalizedString("storyStructure.monomythPearson.description", comment: "3 phases and 12 archetypes from Awakening the Heroes Within by Carol S. Pearson")
         }
     }
     
     /// Whether this structure uses monomyth stages
     var usesMonomyth: Bool {
         switch self {
-        case .monomythVogler, .monomythCampbell, .monomythPearson:
+        case .monomythVogler:
             return true
         case .freeform, .threeAct:
             return false
         }
-    }
-    
-    /// Whether this structure uses Pearson's archetype system
-    var usesPearsonArchetypes: Bool {
-        self == .monomythPearson
     }
     
     /// Number of stages/acts in this structure
@@ -141,132 +131,6 @@ enum StoryStructure: String, Codable, CaseIterable {
             return 3
         case .monomythVogler:
             return 12
-        case .monomythCampbell:
-            return 17
-        case .monomythPearson:
-            return 3
-        }
-    }
-}
-
-/// The 17 stages of Joseph Campbell's monomyth from "The Hero with a Thousand Faces"
-enum CampbellMonomythStage: String, Codable, CaseIterable {
-    case theOrdinaryWorld
-    case theCallToAdventure
-    case refusalOfTheCall
-    case supernaturalAid
-    case crossingTheFirstThreshold
-    case bellyOfTheWhale
-    case theRoadOfTrials
-    case meetingWithTheGoddess
-    case womanAsTemptress
-    case atonementWithTheFather
-    case apotheosis
-    case theUltimateBoon
-    case refusalOfTheReturn
-    case theMagicFlight
-    case rescueFromWithout
-    case crossingTheReturnThreshold
-    case masterOfTwoWorlds
-    
-    var localizedName: String {
-        switch self {
-        case .theOrdinaryWorld:
-            return NSLocalizedString("campbell.theOrdinaryWorld", comment: "The Ordinary World")
-        case .theCallToAdventure:
-            return NSLocalizedString("campbell.theCallToAdventure", comment: "The Call to Adventure")
-        case .refusalOfTheCall:
-            return NSLocalizedString("campbell.refusalOfTheCall", comment: "Refusal of the Call")
-        case .supernaturalAid:
-            return NSLocalizedString("campbell.supernaturalAid", comment: "Supernatural Aid")
-        case .crossingTheFirstThreshold:
-            return NSLocalizedString("campbell.crossingTheFirstThreshold", comment: "Crossing the First Threshold")
-        case .bellyOfTheWhale:
-            return NSLocalizedString("campbell.bellyOfTheWhale", comment: "Belly of the Whale")
-        case .theRoadOfTrials:
-            return NSLocalizedString("campbell.theRoadOfTrials", comment: "The Road of Trials")
-        case .meetingWithTheGoddess:
-            return NSLocalizedString("campbell.meetingWithTheGoddess", comment: "Meeting with the Goddess")
-        case .womanAsTemptress:
-            return NSLocalizedString("campbell.womanAsTemptress", comment: "Woman as Temptress")
-        case .atonementWithTheFather:
-            return NSLocalizedString("campbell.atonementWithTheFather", comment: "Atonement with the Father")
-        case .apotheosis:
-            return NSLocalizedString("campbell.apotheosis", comment: "Apotheosis")
-        case .theUltimateBoon:
-            return NSLocalizedString("campbell.theUltimateBoon", comment: "The Ultimate Boon")
-        case .refusalOfTheReturn:
-            return NSLocalizedString("campbell.refusalOfTheReturn", comment: "Refusal of the Return")
-        case .theMagicFlight:
-            return NSLocalizedString("campbell.theMagicFlight", comment: "The Magic Flight")
-        case .rescueFromWithout:
-            return NSLocalizedString("campbell.rescueFromWithout", comment: "Rescue from Without")
-        case .crossingTheReturnThreshold:
-            return NSLocalizedString("campbell.crossingTheReturnThreshold", comment: "Crossing the Return Threshold")
-        case .masterOfTwoWorlds:
-            return NSLocalizedString("campbell.masterOfTwoWorlds", comment: "Master of Two Worlds")
-        }
-    }
-    
-    var description: String {
-        switch self {
-        case .theOrdinaryWorld:
-            return NSLocalizedString("campbell.theOrdinaryWorld.description", comment: "The hero's normal world before the adventure begins")
-        case .theCallToAdventure:
-            return NSLocalizedString("campbell.theCallToAdventure.description", comment: "The hero receives a call to action or adventure")
-        case .refusalOfTheCall:
-            return NSLocalizedString("campbell.refusalOfTheCall.description", comment: "The hero initially refuses the call due to fear or obligation")
-        case .supernaturalAid:
-            return NSLocalizedString("campbell.supernaturalAid.description", comment: "The hero receives help from a mentor or magical guide")
-        case .crossingTheFirstThreshold:
-            return NSLocalizedString("campbell.crossingTheFirstThreshold.description", comment: "The hero commits to the adventure and enters the special world")
-        case .bellyOfTheWhale:
-            return NSLocalizedString("campbell.bellyOfTheWhale.description", comment: "The hero is swallowed into the unknown, representing final separation")
-        case .theRoadOfTrials:
-            return NSLocalizedString("campbell.theRoadOfTrials.description", comment: "The hero faces a series of tests and obstacles")
-        case .meetingWithTheGoddess:
-            return NSLocalizedString("campbell.meetingWithTheGoddess.description", comment: "The hero experiences unconditional love or encounters the divine feminine")
-        case .womanAsTemptress:
-            return NSLocalizedString("campbell.womanAsTemptress.description", comment: "The hero faces temptation that may lead them astray")
-        case .atonementWithTheFather:
-            return NSLocalizedString("campbell.atonementWithTheFather.description", comment: "The hero confronts the ultimate power in their life")
-        case .apotheosis:
-            return NSLocalizedString("campbell.apotheosis.description", comment: "The hero achieves a higher state of being or understanding")
-        case .theUltimateBoon:
-            return NSLocalizedString("campbell.theUltimateBoon.description", comment: "The hero receives the goal of the quest")
-        case .refusalOfTheReturn:
-            return NSLocalizedString("campbell.refusalOfTheReturn.description", comment: "The hero may not want to return to the ordinary world")
-        case .theMagicFlight:
-            return NSLocalizedString("campbell.theMagicFlight.description", comment: "The hero escapes with the boon, possibly pursued")
-        case .rescueFromWithout:
-            return NSLocalizedString("campbell.rescueFromWithout.description", comment: "The hero needs help from the ordinary world to return")
-        case .crossingTheReturnThreshold:
-            return NSLocalizedString("campbell.crossingTheReturnThreshold.description", comment: "The hero returns to the ordinary world transformed")
-        case .masterOfTwoWorlds:
-            return NSLocalizedString("campbell.masterOfTwoWorlds.description", comment: "The hero achieves balance between inner and outer worlds")
-        }
-    }
-    
-    /// Order in the hero's journey (1-17)
-    var order: Int {
-        switch self {
-        case .theOrdinaryWorld: return 1
-        case .theCallToAdventure: return 2
-        case .refusalOfTheCall: return 3
-        case .supernaturalAid: return 4
-        case .crossingTheFirstThreshold: return 5
-        case .bellyOfTheWhale: return 6
-        case .theRoadOfTrials: return 7
-        case .meetingWithTheGoddess: return 8
-        case .womanAsTemptress: return 9
-        case .atonementWithTheFather: return 10
-        case .apotheosis: return 11
-        case .theUltimateBoon: return 12
-        case .refusalOfTheReturn: return 13
-        case .theMagicFlight: return 14
-        case .rescueFromWithout: return 15
-        case .crossingTheReturnThreshold: return 16
-        case .masterOfTwoWorlds: return 17
         }
     }
 }
@@ -330,156 +194,6 @@ enum PlotStructure: String, Codable, CaseIterable {
     }
 }
 
-/// The 3 phases of Carol S. Pearson's hero's journey from "Awakening the Heroes Within"
-enum PearsonStage: String, Codable, CaseIterable {
-    case preparation    // Ego stage: Innocent, Orphan, Warrior, Caregiver
-    case journey        // Soul stage: Seeker, Destroyer, Lover, Creator
-    case returnPhase    // Self stage: Ruler, Magician, Sage, Jester
-    
-    var localizedName: String {
-        switch self {
-        case .preparation:
-            return NSLocalizedString("pearson.preparation", comment: "Preparation (Ego)")
-        case .journey:
-            return NSLocalizedString("pearson.journey", comment: "Journey (Soul)")
-        case .returnPhase:
-            return NSLocalizedString("pearson.returnPhase", comment: "Return (Self)")
-        }
-    }
-    
-    var description: String {
-        switch self {
-        case .preparation:
-            return NSLocalizedString("pearson.preparation.description", comment: "The ego stage — establishing identity through the Innocent, Orphan, Warrior, and Caregiver")
-        case .journey:
-            return NSLocalizedString("pearson.journey.description", comment: "The soul stage — transformation through the Seeker, Destroyer, Lover, and Creator")
-        case .returnPhase:
-            return NSLocalizedString("pearson.returnPhase.description", comment: "The self stage — wholeness through the Ruler, Magician, Sage, and Jester")
-        }
-    }
-    
-    /// Order in the hero's journey (1-3)
-    var order: Int {
-        switch self {
-        case .preparation: return 1
-        case .journey: return 2
-        case .returnPhase: return 3
-        }
-    }
-    
-    /// The Pearson archetypes associated with this phase
-    var archetypes: [PearsonArchetype] {
-        switch self {
-        case .preparation: return [.innocent, .orphan, .warrior, .caregiver]
-        case .journey: return [.seeker, .destroyer, .lover, .creator]
-        case .returnPhase: return [.ruler, .magician, .sage, .jester]
-        }
-    }
-}
-
-/// The 12 archetypes from Carol S. Pearson's "Awakening the Heroes Within"
-enum PearsonArchetype: String, Codable, CaseIterable {
-    // Preparation (Ego)
-    case innocent
-    case orphan
-    case warrior
-    case caregiver
-    // Journey (Soul)
-    case seeker
-    case destroyer
-    case lover
-    case creator
-    // Return (Self)
-    case ruler
-    case magician
-    case sage
-    case jester
-    
-    var localizedName: String {
-        switch self {
-        case .innocent:
-            return NSLocalizedString("pearsonArchetype.innocent", comment: "Innocent")
-        case .orphan:
-            return NSLocalizedString("pearsonArchetype.orphan", comment: "Orphan")
-        case .warrior:
-            return NSLocalizedString("pearsonArchetype.warrior", comment: "Warrior")
-        case .caregiver:
-            return NSLocalizedString("pearsonArchetype.caregiver", comment: "Caregiver")
-        case .seeker:
-            return NSLocalizedString("pearsonArchetype.seeker", comment: "Seeker")
-        case .destroyer:
-            return NSLocalizedString("pearsonArchetype.destroyer", comment: "Destroyer")
-        case .lover:
-            return NSLocalizedString("pearsonArchetype.lover", comment: "Lover")
-        case .creator:
-            return NSLocalizedString("pearsonArchetype.creator", comment: "Creator")
-        case .ruler:
-            return NSLocalizedString("pearsonArchetype.ruler", comment: "Ruler")
-        case .magician:
-            return NSLocalizedString("pearsonArchetype.magician", comment: "Magician")
-        case .sage:
-            return NSLocalizedString("pearsonArchetype.sage", comment: "Sage")
-        case .jester:
-            return NSLocalizedString("pearsonArchetype.jester", comment: "Jester")
-        }
-    }
-    
-    var description: String {
-        switch self {
-        case .innocent:
-            return NSLocalizedString("pearsonArchetype.innocent.description", comment: "Innocent description")
-        case .orphan:
-            return NSLocalizedString("pearsonArchetype.orphan.description", comment: "Orphan description")
-        case .warrior:
-            return NSLocalizedString("pearsonArchetype.warrior.description", comment: "Warrior description")
-        case .caregiver:
-            return NSLocalizedString("pearsonArchetype.caregiver.description", comment: "Caregiver description")
-        case .seeker:
-            return NSLocalizedString("pearsonArchetype.seeker.description", comment: "Seeker description")
-        case .destroyer:
-            return NSLocalizedString("pearsonArchetype.destroyer.description", comment: "Destroyer description")
-        case .lover:
-            return NSLocalizedString("pearsonArchetype.lover.description", comment: "Lover description")
-        case .creator:
-            return NSLocalizedString("pearsonArchetype.creator.description", comment: "Creator description")
-        case .ruler:
-            return NSLocalizedString("pearsonArchetype.ruler.description", comment: "Ruler description")
-        case .magician:
-            return NSLocalizedString("pearsonArchetype.magician.description", comment: "Magician description")
-        case .sage:
-            return NSLocalizedString("pearsonArchetype.sage.description", comment: "Sage description")
-        case .jester:
-            return NSLocalizedString("pearsonArchetype.jester.description", comment: "Jester description")
-        }
-    }
-    
-    /// The phase this archetype belongs to
-    var phase: PearsonStage {
-        switch self {
-        case .innocent, .orphan, .warrior, .caregiver: return .preparation
-        case .seeker, .destroyer, .lover, .creator: return .journey
-        case .ruler, .magician, .sage, .jester: return .returnPhase
-        }
-    }
-    
-    /// Order within the full 12-archetype sequence (1-12)
-    var order: Int {
-        switch self {
-        case .innocent: return 1
-        case .orphan: return 2
-        case .warrior: return 3
-        case .caregiver: return 4
-        case .seeker: return 5
-        case .destroyer: return 6
-        case .lover: return 7
-        case .creator: return 8
-        case .ruler: return 9
-        case .magician: return 10
-        case .sage: return 11
-        case .jester: return 12
-        }
-    }
-}
 
 /// Character archetypes from The Writer's Journey (Christopher Vogler)
 enum CharacterArchetype: String, Codable, CaseIterable {
@@ -637,9 +351,9 @@ final class StoryScene {
     var userOrder: Int?
     var synopsis: String?  // Brief description of what happens
     var monomythStageRaw: String?  // Vogler's 12 stages
-    var campbellStageRaw: String?  // Campbell's 17 stages
+    var campbellStageRaw: String?  // Legacy field retained for old imports
     var threeActStageRaw: String?  // Three-act structure
-    var pearsonStageRaw: String?   // Pearson's 3 phases
+    var pearsonStageRaw: String?   // Legacy field retained for old imports
     var createdDate: Date = Date()
     var modifiedDate: Date = Date()
     
@@ -751,14 +465,6 @@ final class StoryScene {
         set { monomythStageRaw = newValue?.rawValue }
     }
     
-    var campbellStage: CampbellMonomythStage? {
-        get {
-            guard let raw = campbellStageRaw else { return nil }
-            return CampbellMonomythStage(rawValue: raw)
-        }
-        set { campbellStageRaw = newValue?.rawValue }
-    }
-    
     var threeActStage: ThreeActStage? {
         get {
             guard let raw = threeActStageRaw else { return nil }
@@ -767,29 +473,17 @@ final class StoryScene {
         set { threeActStageRaw = newValue?.rawValue }
     }
     
-    var pearsonStage: PearsonStage? {
-        get {
-            guard let raw = pearsonStageRaw else { return nil }
-            return PearsonStage(rawValue: raw)
-        }
-        set { pearsonStageRaw = newValue?.rawValue }
-    }
-    
     /// Returns the stage order based on whichever stage type is set
     var stageOrder: Int? {
         if let stage = monomythStage { return stage.order }
-        if let stage = campbellStage { return stage.order }
         if let stage = threeActStage { return stage.order }
-        if let stage = pearsonStage { return stage.order }
         return nil
     }
     
     /// Returns the localized stage name based on whichever stage type is set
     var stageLocalizedName: String? {
         if let stage = monomythStage { return stage.localizedName }
-        if let stage = campbellStage { return stage.localizedName }
         if let stage = threeActStage { return stage.localizedName }
-        if let stage = pearsonStage { return stage.localizedName }
         return nil
     }
     
@@ -944,7 +638,7 @@ final class Character {
     var name: String?
     var role: String?  // Character's role in the story (protagonist, love interest, etc.)
     var archetypeRaw: String?  // Only used when monomyth enabled (Vogler archetypes)
-    var pearsonArchetypeRaw: String?  // Only used when Pearson structure enabled
+    var pearsonArchetypeRaw: String?  // Legacy field retained for old imports
     var history: String?  // Character's background/history
     var looks: String?  // Physical appearance description
     var traits: String?  // Personality traits
@@ -1017,34 +711,11 @@ final class Character {
         }
     }
     
-    /// Primary Pearson archetype (first selected, for backward compatibility)
-    var pearsonArchetype: PearsonArchetype? {
-        get { pearsonArchetypes.first }
-        set {
-            if let value = newValue {
-                pearsonArchetypes = [value]
-            } else {
-                pearsonArchetypes = []
-            }
-        }
-    }
-    
-    /// All selected Pearson archetypes (stored as comma-separated in pearsonArchetypeRaw)
-    var pearsonArchetypes: [PearsonArchetype] {
-        get {
-            guard let raw = pearsonArchetypeRaw, !raw.isEmpty else { return [] }
-            return raw.split(separator: ",").compactMap { PearsonArchetype(rawValue: String($0)) }
-        }
-        set {
-            pearsonArchetypeRaw = newValue.isEmpty ? nil : newValue.map(\.rawValue).joined(separator: ",")
-        }
-    }
-    
-    init(name: String? = nil, role: String? = nil, archetypes: [CharacterArchetype] = [], pearsonArchetypes: [PearsonArchetype] = [], history: String? = nil, looks: String? = nil, traits: String? = nil, work: String? = nil) {
+    init(name: String? = nil, role: String? = nil, archetypes: [CharacterArchetype] = [], history: String? = nil, looks: String? = nil, traits: String? = nil, work: String? = nil) {
         self.name = name
         self.role = role
         self.archetypeRaw = archetypes.isEmpty ? nil : archetypes.map(\.rawValue).joined(separator: ",")
-        self.pearsonArchetypeRaw = pearsonArchetypes.isEmpty ? nil : pearsonArchetypes.map(\.rawValue).joined(separator: ",")
+        self.pearsonArchetypeRaw = nil
         self.history = history
         self.looks = looks
         self.traits = traits
@@ -1127,9 +798,9 @@ final class PlotElement {
     var notes: String?
     var userOrder: Int?
     var monomythStageRaw: String?  // Vogler's 12 stages
-    var campbellStageRaw: String?  // Campbell's 17 stages
+    var campbellStageRaw: String?  // Legacy field retained for old imports
     var threeActStageRaw: String?  // Three-act structure
-    var pearsonStageRaw: String?   // Pearson's 3 phases
+    var pearsonStageRaw: String?   // Legacy field retained for old imports
     var createdDate: Date = Date()
     var modifiedDate: Date = Date()
     
@@ -1198,14 +869,6 @@ final class PlotElement {
         set { monomythStageRaw = newValue?.rawValue }
     }
     
-    var campbellStage: CampbellMonomythStage? {
-        get {
-            guard let raw = campbellStageRaw else { return nil }
-            return CampbellMonomythStage(rawValue: raw)
-        }
-        set { campbellStageRaw = newValue?.rawValue }
-    }
-    
     var threeActStage: ThreeActStage? {
         get {
             guard let raw = threeActStageRaw else { return nil }
@@ -1214,41 +877,29 @@ final class PlotElement {
         set { threeActStageRaw = newValue?.rawValue }
     }
     
-    var pearsonStage: PearsonStage? {
-        get {
-            guard let raw = pearsonStageRaw else { return nil }
-            return PearsonStage(rawValue: raw)
-        }
-        set { pearsonStageRaw = newValue?.rawValue }
-    }
-    
     /// Returns the stage order based on whichever stage type is set
     var stageOrder: Int? {
         if let stage = monomythStage { return stage.order }
-        if let stage = campbellStage { return stage.order }
         if let stage = threeActStage { return stage.order }
-        if let stage = pearsonStage { return stage.order }
         return nil
     }
     
     /// Returns the localized stage name based on whichever stage type is set
     var stageLocalizedName: String? {
         if let stage = monomythStage { return stage.localizedName }
-        if let stage = campbellStage { return stage.localizedName }
         if let stage = threeActStage { return stage.localizedName }
-        if let stage = pearsonStage { return stage.localizedName }
         return nil
     }
     
-    init(name: String? = nil, notes: String? = nil, monomythStage: MonomythStage? = nil, campbellStage: CampbellMonomythStage? = nil, threeActStage: ThreeActStage? = nil, pearsonStage: PearsonStage? = nil, userOrder: Int? = nil) {
+    init(name: String? = nil, notes: String? = nil, monomythStage: MonomythStage? = nil, threeActStage: ThreeActStage? = nil, userOrder: Int? = nil) {
         // Set name from provided name or from stage
-        self.name = name ?? monomythStage?.localizedName ?? campbellStage?.localizedName ?? threeActStage?.localizedName ?? pearsonStage?.localizedName
+        self.name = name ?? monomythStage?.localizedName ?? threeActStage?.localizedName
         self.notes = notes
         self.monomythStageRaw = monomythStage?.rawValue
-        self.campbellStageRaw = campbellStage?.rawValue
+        self.campbellStageRaw = nil
         self.threeActStageRaw = threeActStage?.rawValue
-        self.pearsonStageRaw = pearsonStage?.rawValue
+        self.pearsonStageRaw = nil
         // Use provided order or derive from stage
-        self.userOrder = userOrder ?? monomythStage?.order ?? campbellStage?.order ?? threeActStage?.order ?? pearsonStage?.order
+        self.userOrder = userOrder ?? monomythStage?.order ?? threeActStage?.order
     }
 }

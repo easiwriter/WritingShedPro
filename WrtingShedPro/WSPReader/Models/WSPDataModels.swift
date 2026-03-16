@@ -247,7 +247,6 @@ struct WSPStorySceneData: Codable {
     var isTrashed: Bool = false
     var trashedDate: Date?
     var monomythStageRaw: String?
-    var campbellStageRaw: String?
     var threeActStageRaw: String?
 }
 
@@ -277,9 +276,7 @@ struct WSPPlotElementData: Codable {
     var notes: String?
     var userOrder: Int?
     var monomythStageRaw: String?
-    var campbellStageRaw: String?
     var threeActStageRaw: String?
-    var pearsonStageRaw: String?
     var createdDate: Date = Date()
     var modifiedDate: Date = Date()
     var linkedSceneIds: [String]?

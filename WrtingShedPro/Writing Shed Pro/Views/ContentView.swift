@@ -28,6 +28,9 @@ struct ContentView: View {
 
     /// Debounced task handle for remote-change reconciliation.
     @State private var remoteReconcileTask: Task<Void, Never>?
+
+    @State private var showSyncRecoveryBanner = false
+    @State private var syncRecoveryBannerTask: Task<Void, Never>?
     
     var body: some View {
         ContentViewBody(
@@ -42,6 +45,22 @@ struct ContentView: View {
             onPrefetchProjectData: prefetchProjectData,
             onRunMigrations: runMigrations
         )
+        .overlay(alignment: .top) {
+            if showSyncRecoveryBanner {
+                HStack(spacing: 8) {
+                    Image(systemName: "arrow.triangle.2.circlepath.icloud")
+                    Text(NSLocalizedString("sync.recovery.banner", comment: "Sync delayed, retrying"))
+                        .font(.caption)
+                        .multilineTextAlignment(.leading)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .padding(.top, 8)
+                .padding(.horizontal, 12)
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
         .id(refreshTrigger)
         .task {
             if scenePhase == .active {
@@ -63,6 +82,7 @@ struct ContentView: View {
                 .publisher(for: NSNotification.Name("NSPersistentStoreRemoteChangeNotification"))
                 .receive(on: RunLoop.main)
         ) { _ in
+            dismissSyncRecoveryBanner()
             scheduleRemoteReconcile(reason: "remote-change")
         }
         .onReceive(
@@ -70,6 +90,7 @@ struct ContentView: View {
                 .publisher(for: NSNotification.Name("NSPersistentStoreCoordinatorStoresDidChangeNotification"))
                 .receive(on: RunLoop.main)
         ) { _ in
+            dismissSyncRecoveryBanner()
             scheduleRemoteReconcile(reason: "stores-did-change")
         }
     }
@@ -125,15 +146,27 @@ struct ContentView: View {
         reconcileProjectListIfNeeded()
 
         let throttler = CloudKitSyncThrottler.shared
+        let now = Date()
+        let lastEvent = throttler.lastSyncTime ?? .distantPast
+        let secondsSinceEvent = now.timeIntervalSince(lastEvent)
+
         if throttler.hasActiveCloudKitEvent {
+            // Recovery path: if CloudKit reports an active event but we have seen no
+            // remote-change activity for several minutes, proactively nudge the daemon.
+            // This avoids requiring user edits (rename/touch) to wake stalled propagation.
+            if secondsSinceEvent >= 180 && !throttler.isRateLimited && !throttler.isManualKickPaused {
+                showSyncRecoveryBannerTemporarily()
+                #if DEBUG
+                print("⚠️ [ContentView] Sync watchdog: CloudKit event appears idle for \(Int(secondsSinceEvent))s — issuing guarded recovery nudge")
+                #endif
+                forceCloudKitImport(allowDuringActiveEvent: true)
+                lastForegroundSyncDate = now
+            }
             #if DEBUG
             print("⏳ [ContentView] Sync watchdog: CloudKit event in progress, skipping proactive sync actions")
             #endif
             return
         }
-        let now = Date()
-        let lastEvent = throttler.lastSyncTime ?? .distantPast
-        let secondsSinceEvent = now.timeIntervalSince(lastEvent)
 
         guard secondsSinceEvent >= 180 else {
             #if DEBUG
@@ -347,8 +380,8 @@ struct ContentView: View {
     /// **Rate-limit aware**: Skips the operation if CloudKit recently returned
     /// a rate-limit or service-unavailable error, to avoid piling on requests
     /// and making the throttling worse.
-    private func forceCloudKitImport() {
-        guard !CloudKitSyncThrottler.shared.hasActiveCloudKitEvent else {
+    private func forceCloudKitImport(allowDuringActiveEvent: Bool = false) {
+        guard allowDuringActiveEvent || !CloudKitSyncThrottler.shared.hasActiveCloudKitEvent else {
             #if DEBUG
             print("⏳ [ContentView] forceCloudKitImport skipped — CloudKit event in progress")
             #endif
@@ -414,6 +447,29 @@ struct ContentView: View {
             
             operation.qualityOfService = .userInitiated
             database.add(operation)
+        }
+    }
+
+    private func showSyncRecoveryBannerTemporarily() {
+        syncRecoveryBannerTask?.cancel()
+        withAnimation {
+            showSyncRecoveryBanner = true
+        }
+
+        syncRecoveryBannerTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 8_000_000_000)
+            withAnimation {
+                showSyncRecoveryBanner = false
+            }
+        }
+    }
+
+    private func dismissSyncRecoveryBanner() {
+        syncRecoveryBannerTask?.cancel()
+        syncRecoveryBannerTask = nil
+        guard showSyncRecoveryBanner else { return }
+        withAnimation {
+            showSyncRecoveryBanner = false
         }
     }
     

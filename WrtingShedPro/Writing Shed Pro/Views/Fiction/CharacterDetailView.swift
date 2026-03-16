@@ -26,7 +26,6 @@ struct CharacterDetailView: View {
     @State private var editName: String = ""
     @State private var editRole: String = ""
     @State private var editArchetypes: Set<CharacterArchetype> = []
-    @State private var editPearsonArchetypes: Set<PearsonArchetype> = []
     @State private var editHistory: String = ""
     @State private var editLooks: String = ""
     @State private var editTraits: String = ""
@@ -114,26 +113,6 @@ struct CharacterDetailView: View {
                             .font(.body)
                         Text(NSLocalizedString("archetype.\(archetype.rawValue).description", comment: "Description"))
                             .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
-            } header: {
-                Text(NSLocalizedString("fiction.character.section.archetype", comment: "Archetype"))
-            }
-        }
-        
-        // Archetypes (Pearson)
-        if !character.pearsonArchetypes.isEmpty {
-            Section {
-                ForEach(character.pearsonArchetypes.sorted { $0.order < $1.order }, id: \.self) { archetype in
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(archetype.localizedName)
-                            .font(.body)
-                        Text(archetype.description)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Text(String(format: NSLocalizedString("fiction.character.pearsonPhase", comment: "Phase: %@"), archetype.phase.localizedName))
-                            .font(.caption2)
                             .foregroundColor(.secondary)
                     }
                 }
@@ -239,66 +218,31 @@ struct CharacterDetailView: View {
         
         // Archetypes
         Section {
-            if let usesPearson = character.project?.storyStructure.usesPearsonArchetypes, usesPearson {
-                // Pearson's 12 archetypes grouped by phase
-                ForEach(PearsonStage.allCases, id: \.self) { phase in
-                    DisclosureGroup(phase.localizedName) {
-                        ForEach(phase.archetypes, id: \.self) { archetype in
-                            Button {
-                                if editPearsonArchetypes.contains(archetype) {
-                                    editPearsonArchetypes.remove(archetype)
-                                } else {
-                                    editPearsonArchetypes.insert(archetype)
-                                }
-                            } label: {
-                                HStack {
-                                    Text(archetype.localizedName)
-                                        .foregroundColor(.primary)
-                                    Spacer()
-                                    if editPearsonArchetypes.contains(archetype) {
-                                        Image(systemName: "checkmark")
-                                            .foregroundColor(.accentColor)
-                                    }
-                                }
-                            }
-                        }
+            ForEach(CharacterArchetype.allCases, id: \.self) { archetype in
+                Button {
+                    if editArchetypes.contains(archetype) {
+                        editArchetypes.remove(archetype)
+                    } else {
+                        editArchetypes.insert(archetype)
                     }
-                }
-                
-                if !editPearsonArchetypes.isEmpty {
-                    let sorted = editPearsonArchetypes.sorted { $0.order < $1.order }
-                    Text(sorted.map(\.localizedName).joined(separator: ", "))
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            } else {
-                // Vogler's 8 archetypes (default)
-                ForEach(CharacterArchetype.allCases, id: \.self) { archetype in
-                    Button {
+                } label: {
+                    HStack {
+                        Text(NSLocalizedString("archetype.\(archetype.rawValue)", comment: "Archetype"))
+                            .foregroundColor(.primary)
+                        Spacer()
                         if editArchetypes.contains(archetype) {
-                            editArchetypes.remove(archetype)
-                        } else {
-                            editArchetypes.insert(archetype)
-                        }
-                    } label: {
-                        HStack {
-                            Text(NSLocalizedString("archetype.\(archetype.rawValue)", comment: "Archetype"))
-                                .foregroundColor(.primary)
-                            Spacer()
-                            if editArchetypes.contains(archetype) {
-                                Image(systemName: "checkmark")
-                                    .foregroundColor(.accentColor)
-                            }
+                            Image(systemName: "checkmark")
+                                .foregroundColor(.accentColor)
                         }
                     }
                 }
-                
-                if !editArchetypes.isEmpty {
-                    let sorted = editArchetypes.sorted { $0.rawValue < $1.rawValue }
-                    Text(sorted.map { NSLocalizedString("archetype.\($0.rawValue)", comment: "") }.joined(separator: ", "))
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
+            }
+            
+            if !editArchetypes.isEmpty {
+                let sorted = editArchetypes.sorted { $0.rawValue < $1.rawValue }
+                Text(sorted.map { NSLocalizedString("archetype.\($0.rawValue)", comment: "") }.joined(separator: ", "))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
         } header: {
             Text(NSLocalizedString("fiction.character.section.archetype", comment: "Archetype"))
@@ -345,7 +289,6 @@ struct CharacterDetailView: View {
         editName = character.name ?? ""
         editRole = character.role ?? ""
         editArchetypes = Set(character.archetypes)
-        editPearsonArchetypes = Set(character.pearsonArchetypes)
         editHistory = character.history ?? ""
         editLooks = character.looks ?? ""
         editTraits = character.traits ?? ""
@@ -357,7 +300,7 @@ struct CharacterDetailView: View {
         character.name = editName.trimmingCharacters(in: .whitespacesAndNewlines)
         character.role = editRole.isEmpty ? nil : editRole
         character.archetypes = Array(editArchetypes)
-        character.pearsonArchetypes = Array(editPearsonArchetypes)
+        character.pearsonArchetypeRaw = nil
         character.history = editHistory.isEmpty ? nil : editHistory
         character.looks = editLooks.isEmpty ? nil : editLooks
         character.traits = editTraits.isEmpty ? nil : editTraits

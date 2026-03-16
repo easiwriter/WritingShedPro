@@ -25,7 +25,6 @@ struct AddCharacterSheet: View {
     @State private var name: String = ""
     @State private var role: String = ""
     @State private var selectedArchetypes: Set<CharacterArchetype> = []
-    @State private var selectedPearsonArchetypes: Set<PearsonArchetype> = []
     @State private var history: String = ""
     @State private var looks: String = ""
     @State private var traits: String = ""
@@ -57,66 +56,31 @@ struct AddCharacterSheet: View {
                 
                 // Archetype (optional)
                 Section {
-                    if project.storyStructure.usesPearsonArchetypes {
-                        // Pearson's 12 archetypes grouped by phase
-                        ForEach(PearsonStage.allCases, id: \.self) { phase in
-                            DisclosureGroup(phase.localizedName) {
-                                ForEach(phase.archetypes, id: \.self) { archetype in
-                                    Button {
-                                        if selectedPearsonArchetypes.contains(archetype) {
-                                            selectedPearsonArchetypes.remove(archetype)
-                                        } else {
-                                            selectedPearsonArchetypes.insert(archetype)
-                                        }
-                                    } label: {
-                                        HStack {
-                                            Text(archetype.localizedName)
-                                                .foregroundColor(.primary)
-                                            Spacer()
-                                            if selectedPearsonArchetypes.contains(archetype) {
-                                                Image(systemName: "checkmark")
-                                                    .foregroundColor(.accentColor)
-                                            }
-                                        }
-                                    }
-                                }
+                    ForEach(CharacterArchetype.allCases, id: \.self) { archetype in
+                        Button {
+                            if selectedArchetypes.contains(archetype) {
+                                selectedArchetypes.remove(archetype)
+                            } else {
+                                selectedArchetypes.insert(archetype)
                             }
-                        }
-                        
-                        if !selectedPearsonArchetypes.isEmpty {
-                            let sorted = selectedPearsonArchetypes.sorted { $0.order < $1.order }
-                            Text(sorted.map(\.localizedName).joined(separator: ", "))
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                    } else {
-                        // Vogler's 8 archetypes (default)
-                        ForEach(CharacterArchetype.allCases, id: \.self) { archetype in
-                            Button {
+                        } label: {
+                            HStack {
+                                Text(NSLocalizedString("archetype.\(archetype.rawValue)", comment: "Archetype name"))
+                                    .foregroundColor(.primary)
+                                Spacer()
                                 if selectedArchetypes.contains(archetype) {
-                                    selectedArchetypes.remove(archetype)
-                                } else {
-                                    selectedArchetypes.insert(archetype)
-                                }
-                            } label: {
-                                HStack {
-                                    Text(NSLocalizedString("archetype.\(archetype.rawValue)", comment: "Archetype name"))
-                                        .foregroundColor(.primary)
-                                    Spacer()
-                                    if selectedArchetypes.contains(archetype) {
-                                        Image(systemName: "checkmark")
-                                            .foregroundColor(.accentColor)
-                                    }
+                                    Image(systemName: "checkmark")
+                                        .foregroundColor(.accentColor)
                                 }
                             }
                         }
-                        
-                        if !selectedArchetypes.isEmpty {
-                            let sorted = selectedArchetypes.sorted { $0.rawValue < $1.rawValue }
-                            Text(sorted.map { NSLocalizedString("archetype.\($0.rawValue)", comment: "") }.joined(separator: ", "))
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
+                    }
+                    
+                    if !selectedArchetypes.isEmpty {
+                        let sorted = selectedArchetypes.sorted { $0.rawValue < $1.rawValue }
+                        Text(sorted.map { NSLocalizedString("archetype.\($0.rawValue)", comment: "") }.joined(separator: ", "))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
                     }
                 } header: {
                     Text(NSLocalizedString("fiction.character.section.archetype", comment: "Archetype"))
@@ -198,7 +162,6 @@ struct AddCharacterSheet: View {
             name: trimmedName,
             role: role.isEmpty ? nil : role,
             archetypes: Array(selectedArchetypes),
-            pearsonArchetypes: Array(selectedPearsonArchetypes),
             history: history.isEmpty ? nil : history,
             looks: looks.isEmpty ? nil : looks,
             traits: traits.isEmpty ? nil : traits,

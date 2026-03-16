@@ -284,7 +284,6 @@ class JSONImportService {
             scene.isTrashed = sceneData.isTrashed
             scene.trashedDate = sceneData.trashedDate
             scene.monomythStageRaw = sceneData.monomythStageRaw
-            scene.campbellStageRaw = sceneData.campbellStageRaw
             scene.threeActStageRaw = sceneData.threeActStageRaw
             scene.project = project
             
@@ -380,9 +379,7 @@ class JSONImportService {
             element.notes = plotData.notes
             element.userOrder = plotData.userOrder
             element.monomythStageRaw = plotData.monomythStageRaw
-            element.campbellStageRaw = plotData.campbellStageRaw
             element.threeActStageRaw = plotData.threeActStageRaw
-            element.pearsonStageRaw = plotData.pearsonStageRaw
             element.createdDate = plotData.createdDate
             element.modifiedDate = plotData.modifiedDate
             element.project = project

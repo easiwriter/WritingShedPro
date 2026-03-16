@@ -10,11 +10,18 @@ struct CopyToProjectPickerView: View {
     let onCancel: () -> Void
     
     @Query private var allProjects: [Project]
+
+    private func isPoetryCompatible(_ project: Project) -> Bool {
+        project.type == .poetry || (project.type == .fiction && project.fictionClass == .verseNovel)
+    }
     
     /// Filtered list: same type, not trashed, not the source project
     private var eligibleProjects: [Project] {
         allProjects.filter { project in
-            project.type == sourceProject.type &&
+            (
+                project.type == sourceProject.type ||
+                (isPoetryCompatible(sourceProject) && isPoetryCompatible(project))
+            ) &&
             !project.isTrashed &&
             project.id != sourceProject.id
         }

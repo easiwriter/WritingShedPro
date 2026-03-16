@@ -164,6 +164,16 @@ struct SyncDiagnosticsView: View {
         lines.append("isManualKickPaused: \(syncThrottler.isManualKickPaused)")
         lines.append("consecutiveImportNetworkFailures: \(syncThrottler.consecutiveImportNetworkFailures)")
         lines.append("lastRemoteEvent: \(syncThrottler.lastSyncTime?.formatted(date: .omitted, time: .standard) ?? "nil")")
+            if let importStart = syncThrottler.importStartTime {
+                lines.append("importAgeSeconds: \(Int(Date().timeIntervalSince(importStart)))")
+            } else {
+                lines.append("importAgeSeconds: nil")
+            }
+            if let exportStart = syncThrottler.exportStartTime {
+                lines.append("exportAgeSeconds: \(Int(Date().timeIntervalSince(exportStart)))")
+            } else {
+                lines.append("exportAgeSeconds: nil")
+            }
         lines.append("rateLimitedUntil: \(syncThrottler.rateLimitedUntil?.formatted(date: .omitted, time: .standard) ?? "nil")")
         lines.append("manualKickPausedUntil: \(syncThrottler.manualKickPausedUntil?.formatted(date: .omitted, time: .standard) ?? "nil")")
         lines.append("recentCloudKitEvents:")

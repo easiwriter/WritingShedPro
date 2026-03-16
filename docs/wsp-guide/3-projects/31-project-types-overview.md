@@ -6,7 +6,7 @@ Writing Shed Pro offers four project types, each designed for a specific kind of
 ## The Four Project Types
 
 | Project Type | Best For | Key Features |
-|--------------|----------|--------------|
+| --- | --- | --- |
 | **Prose** | Essays, articles, general writing | Simple organization, flexible structure |
 | **Poetry** | Poems and verse | Syllable counting, rhyme tools, form templates |
 | **Fiction** | Novels, verse novels, and short stories | Scenes, chapters, plot elements, characters |
@@ -16,7 +16,8 @@ Writing Shed Pro offers four project types, each designed for a specific kind of
 
 Prose projects are the most flexible type, suitable for any writing that doesn't fit the specialized categories.
 
-### Use For
+### Prose Use Cases
+
 - Essays and academic writing
 - Blog posts and articles
 - Personal journals
@@ -24,6 +25,7 @@ Prose projects are the most flexible type, suitable for any writing that doesn't
 - Any general-purpose writing
 
 ### Workflow Status
+
 - Draft
 - Ready
 - Set Aside
@@ -31,23 +33,25 @@ Prose projects are the most flexible type, suitable for any writing that doesn't
 
 Deleted files go to the **Trash** folder.
 
-### Features
+### Prose Features
+
 - Standard text formatting
 - Footnotes and comments
 - Images with captions
-
 
 ## Poetry Projects
 
 Poetry projects include specialized tools for writing verse in both free and formal styles.
 
-### Use For
+### Poetry Use Cases
+
 - Traditional forms (sonnets, haiku, villanelles, etc.)
 - Free verse
 - Song lyrics
 - Any metered or structured verse
 
-### Folder Structure
+### Poetry Folder Structure
+
 - Poems (your writing area)
 - Manuscript (Front Matter, Body Matter, Back Matter)
 - Collections (Poetry Collections — first-class grouping of poems)
@@ -58,7 +62,8 @@ Poetry projects include specialized tools for writing verse in both free and for
 - Other
 - Trash
 
-### Features
+### Poetry Features
+
 - **Form Templates**: Start with the structure of 30+ poetry forms
 - **Syllable Counting**: Real-time syllable counts per line
 - **Stress Analysis**: View stress patterns for metered verse
@@ -74,15 +79,17 @@ See [Poetry Mode Overview](../6-poetry-features/61-poetry-mode-overview.md) for 
 Fiction projects help you organize and write novels, verse novels, and short stories.
 
 ### Fiction Classes
+
 When creating a fiction project, you choose a class:
 
 | Class | Structure | Use For |
-|-------|-----------|---------|
+| --- | --- | --- |
 | **Novel** | Chapters contain Scenes | Long-form fiction |
 | **Verse Novel** | Books contain Episodes (verse) | Novel-length poetry |
 | **Short Fiction** | Scenes only (no chapters) | Short stories, novellas |
 
 ### Novel Structure
+
 - Manuscript (Front Matter, Body Matter, Back Matter)
 - Scenes (workflow status view)
 - Chapters
@@ -96,6 +103,7 @@ When creating a fiction project, you choose a class:
 - Trash
 
 ### Verse Novel Structure
+
 - Manuscript (Front Matter, Body Matter, Back Matter)
 - Episodes (workflow status view)
 - Books
@@ -109,6 +117,7 @@ When creating a fiction project, you choose a class:
 - Trash
 
 ### Short Fiction Structure
+
 - Manuscript (Front Matter, Body Matter, Back Matter)
 - Scenes (workflow status view)
 - Plot Elements
@@ -121,15 +130,17 @@ When creating a fiction project, you choose a class:
 - Trash
 
 ### Story Structures
+
 Choose a story structure to help organize your plot:
+
 - **Freeform**: No predefined structure
 - **Three-Act**: Classic beginning, middle, end
 - **Monomyth (Vogler)**: 12-stage Hero's Journey
-- **Monomyth (Campbell)**: 17-stage mythic structure
-- **Hero's Inner Journey (Pearson)**: 3 phases and 12 archetypes
-> **Further Reading**: *The Writer's Journey* by Christopher Vogler, *The Hero with a Thousand Faces* by Joseph Campbell, *Awakening the Heroes Within* by Carol S. Pearson.
 
-### Features
+> **Further Reading**: *The Writer's Journey* by Christopher Vogler.
+
+### Fiction Features
+
 - **Scene Management**: Create and organize scenes with status tracking
 - **Plot Outlining**: Map story beats to structure stages
 - **Character Profiles**: Track character details and arcs
@@ -143,13 +154,15 @@ See [Fiction Mode Overview](../7-fiction-features/71-fiction-mode-overview.md) f
 
 Drama projects provide script formatting tools for playwrights and screenwriters.
 
-### Use For
+### Drama Use Cases
+
 - Stage plays
 - Screenplays
 - Teleplays
 - Radio plays
 
-### Folder Structure
+### Drama Folder Structure
+
 - Manuscript (Front Matter, Body Matter, Back Matter)
 - Scenes (your writing, filtered by workflow status)
 - Acts (group scenes into acts)
@@ -163,11 +176,14 @@ Drama projects provide script formatting tools for playwrights and screenwriters
 - Trash
 
 ### Output Formats
+
 Choose how your script is formatted:
+
 - **Film/Screenplay**: Industry-standard screenplay format
 - **Stage Play**: Traditional stage script format
 
-### Features
+### Drama Features
+
 - **Drama Markup Language (DML)**: Easy markup for dialogue and directions
 - **Auto-Formatting**: Character names, dialogue, parentheticals formatted automatically
 - **Dual Output**: Same source renders as film or stage format
@@ -179,25 +195,31 @@ See [Drama Mode Overview](../8-drama-features/81-drama-mode-overview.md) for det
 ## Choosing a Project Type
 
 ### When You're Unsure
+
 - Start with **Prose** if you're not writing poetry, fiction, or scripts
 - You can always create a new project of the right type later
 - Projects can't change type after creation
 
 ### Multiple Types of Writing
+
 Create separate projects for different kinds of work:
+
 - One Poetry project for all your poems
 - One Fiction project per novel
 - One Drama project per screenplay
 
 ### Can I Change a Project's Type?
+
 No. The project type is set at creation and cannot be changed. This is because each type has a different data structure optimized for that kind of writing.
 
 If you realize you need a different type:
+
 1. Create a new project of the correct type
 2. Copy your text content to the new project
 3. Delete the old project if no longer needed
 
 ## See Also
+
 - [Creating Projects](32-creating-projects.md)
 - [Poetry Mode Overview](../6-poetry-features/61-poetry-mode-overview.md)
 - [Fiction Mode Overview](../7-fiction-features/71-fiction-mode-overview.md)

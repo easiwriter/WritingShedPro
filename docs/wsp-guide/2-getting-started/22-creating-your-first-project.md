@@ -5,6 +5,7 @@ A project is the foundation of your writing in Writing Shed Pro. Every poem, sto
 ## What Is a Project?
 
 A project is a container for related writing work. Think of it as a binder or portfolio. For example:
+
 - A poetry project might hold all your poems for a year
 - A fiction project might contain a novel with all its chapters
 - A drama project might hold a screenplay and its notes
@@ -14,7 +15,7 @@ A project is a container for related writing work. Think of it as a binder or po
 When creating a project, you choose a type that determines its features and folder structure:
 
 | Type | Best For | Special Features |
-|------|----------|------------------|
+| --- | --- | --- |
 | **Prose** | Essays, articles, general writing | Simple folders, flexible organization |
 | **Poetry** | Poems and verse | Syllable counting, rhyme tools, form templates |
 | **Fiction** | Novels and short stories | Scenes, chapters, plot elements, characters |
@@ -32,8 +33,6 @@ You can't change a project's type after creation, so choose the one that best fi
    - Freeform (no predefined structure)
    - Three-Act
    - Monomyth (Vogler's 12 stages)
-   - Monomyth (Campbell's 17 stages)
-   - Hero's Inner Journey (Pearson's 3 phases and 12 archetypes)
 6. Tap **Create**
 
 Your new project opens automatically.
@@ -43,7 +42,9 @@ Your new project opens automatically.
 Every project starts with standard folders:
 
 ### Workflow Status (All Project Types)
+
 Every file has a workflow status that determines where it appears:
+
 - **Draft**: Works in progress
 - **Ready**: Completed and polished
 - **Set Aside**: Parked for later
@@ -51,28 +52,26 @@ Every file has a workflow status that determines where it appears:
 - **Trash**: Deleted items (restorable until emptied)
 
 ### Poetry & Short Fiction Additions
+
 - **Collections**: Group related files together
 - **Publications**: Track magazines and competitions
 - **Submissions**: Track what you've sent where
 
 ### Novel Additions
+
 - **Chapters**: Organize scenes into chapters
 - **Plot Elements**: Track story beats and plot points
 - **Characters**: Define character profiles
 - **Locations**: Define story settings
 
 ### Short Fiction Additions
+
 - **Collections**: Group related stories together
 - **Publications**: Track magazines and competitions
 - **Submissions**: Track what you've sent where
 
-### Novel Additions
-- **Chapters**: Organise scenes into chapters
-- **Plot Elements**: Track story beats and plot points
-- **Characters**: Define character profiles
-- **Locations**: Define story settings
-
 ### Verse Novel Additions
+
 - **Books and Episodes**: Organise your verse novel by books and episodes
 - Each episode uses the poetry editor for verse writing
 - **Plot Elements**: Track story beats and plot points
@@ -80,6 +79,7 @@ Every file has a workflow status that determines where it appears:
 - **Locations**: Define story settings
 
 ### Drama Additions
+
 - **Acts**: Organise scenes into acts
 - **Plot Elements**: Track story beats and plot points
 - **Characters**: Define character profiles
@@ -98,7 +98,7 @@ After creating a project, you can customize its settings:
    - **Story Structure** (Fiction/Drama): Change the structure template
    - **Page Setup**: Configure page size, margins, headers and footers
    - **Export**: Export the project as a `.wsp` archive
-   
+
 ## Working with Multiple Projects
 
 You can have as many projects as you need. The project list shows all your projects with options to:
@@ -108,6 +108,7 @@ You can have as many projects as you need. The project list shows all your proje
 - **Reorder**: In Edit mode, drag to rearrange (when using custom order)
 
 ### Sorting Options
+
 1. Tap the sort button in the project list toolbar
 2. Choose:
    - **Name**: Alphabetical order
@@ -116,6 +117,7 @@ You can have as many projects as you need. The project list shows all your proje
    - **User's Order**: Your custom arrangement
 
 ### Custom Order
+
 1. Set sort to "User's Order"
 2. Tap **Edit**
 3. Drag projects using the handle on the right
@@ -124,12 +126,15 @@ You can have as many projects as you need. The project list shows all your proje
 ## Project Best Practices
 
 ### One Project per Major Work
+
 For novels and screenplays, use one project per work. This keeps everything organized and allows proper export of the full manuscript.
 
 ### Collect Related Short Works
+
 For poetry or short stories, you might keep a year's worth of poems in one project, using folders and collections to organize.
 
 ### Use Descriptive Names
+
 Name projects clearly: "Spring 2026 Poems" is better than "Poems." You can always rename later.
 
 ## Deleting a Project
@@ -146,6 +151,7 @@ Alternatively, swipe left on a project in the list and tap **Delete**.
 **Warning**: Deleting a project forever permanently removes all its files. This action cannot be undone. Consider exporting important work before deleting.
 
 ## See Also
+
 - [Project Types Overview](../3-projects/31-project-types-overview.md)
 - [Folders and Files](../3-projects/34-folders-and-files.md)
 - [The Interface Tour](23-the-interface-tour.md)

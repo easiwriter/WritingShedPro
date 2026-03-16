@@ -51,7 +51,7 @@ struct AddProjectSheet: View {
                     
                     if selectedType == .fiction || selectedType == .drama {
                         Picker(NSLocalizedString("addProject.storyStructure", comment: "Story structure picker label"), selection: $selectedStoryStructure) {
-                            ForEach(StoryStructure.allCases, id: \.self) { structure in
+                            ForEach(StoryStructure.userFacingCases, id: \.self) { structure in
                                 Text(structure.localizedName).tag(structure)
                             }
                         }

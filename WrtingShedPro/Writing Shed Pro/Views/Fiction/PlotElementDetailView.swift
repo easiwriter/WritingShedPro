@@ -27,9 +27,7 @@ struct PlotElementDetailView: View {
     @State private var editTitle: String = ""
     @State private var editDescription: String = ""
     @State private var editMonomythStage: MonomythStage?
-    @State private var editCampbellStage: CampbellMonomythStage?
     @State private var editThreeActStage: ThreeActStage?
-    @State private var editPearsonStage: PearsonStage?
     @State private var editCharacters: Set<Character> = []
     @State private var editLocations: Set<Location> = []
     @State private var editLinkedScenes: Set<StoryScene> = []
@@ -261,7 +259,7 @@ struct PlotElementDetailView: View {
         }
         
         // Stage picker based on story structure
-        if project.storyStructure == .monomythVogler {
+        if project.storyStructure.usesMonomyth {
             Section {
                 Picker(NSLocalizedString("fiction.plot.element.stage", comment: "Stage"), selection: $editMonomythStage) {
                     Text(NSLocalizedString("fiction.plot.element.stage.none", comment: "None"))
@@ -277,52 +275,6 @@ struct PlotElementDetailView: View {
                 }
                 
                 if let stage = editMonomythStage {
-                    Text(stage.description)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            } header: {
-                Text(NSLocalizedString("fiction.plot.element.section.monomyth", comment: "Hero's Journey"))
-            }
-        } else if project.storyStructure == .monomythCampbell {
-            Section {
-                Picker(NSLocalizedString("fiction.plot.element.stage", comment: "Stage"), selection: $editCampbellStage) {
-                    Text(NSLocalizedString("fiction.plot.element.stage.none", comment: "None"))
-                        .tag(nil as CampbellMonomythStage?)
-                    
-                    ForEach(CampbellMonomythStage.allCases, id: \.self) { stage in
-                        HStack {
-                            Text("\(stage.order).")
-                            Text(stage.localizedName)
-                        }
-                        .tag(stage as CampbellMonomythStage?)
-                    }
-                }
-                
-                if let stage = editCampbellStage {
-                    Text(stage.description)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            } header: {
-                Text(NSLocalizedString("fiction.plot.element.section.monomyth", comment: "Hero's Journey"))
-            }
-        } else if project.storyStructure == .monomythPearson {
-            Section {
-                Picker(NSLocalizedString("fiction.plot.element.stage", comment: "Stage"), selection: $editPearsonStage) {
-                    Text(NSLocalizedString("fiction.plot.element.stage.none", comment: "None"))
-                        .tag(nil as PearsonStage?)
-                    
-                    ForEach(PearsonStage.allCases, id: \.self) { stage in
-                        HStack {
-                            Text("\(stage.order).")
-                            Text(stage.localizedName)
-                        }
-                        .tag(stage as PearsonStage?)
-                    }
-                }
-                
-                if let stage = editPearsonStage {
                     Text(stage.description)
                         .font(.caption)
                         .foregroundColor(.secondary)
@@ -468,9 +420,7 @@ struct PlotElementDetailView: View {
         editTitle = plotElement.name ?? ""
         editDescription = plotElement.notes ?? ""
         editMonomythStage = plotElement.monomythStage
-        editCampbellStage = plotElement.campbellStage
         editThreeActStage = plotElement.threeActStage
-        editPearsonStage = plotElement.pearsonStage
         editCharacters = Set(plotElement.characters ?? [])
         editLocations = Set(plotElement.locations ?? [])
         editLinkedScenes = Set(plotElement.linkedScenes ?? [])
@@ -485,29 +435,19 @@ struct PlotElementDetailView: View {
         switch project.storyStructure {
         case .monomythVogler:
             plotElement.monomythStage = editMonomythStage
-            plotElement.campbellStage = nil
+            plotElement.campbellStageRaw = nil
             plotElement.threeActStage = nil
-            plotElement.pearsonStage = nil
-        case .monomythCampbell:
-            plotElement.campbellStage = editCampbellStage
-            plotElement.monomythStage = nil
-            plotElement.threeActStage = nil
-            plotElement.pearsonStage = nil
-        case .monomythPearson:
-            plotElement.pearsonStage = editPearsonStage
-            plotElement.monomythStage = nil
-            plotElement.campbellStage = nil
-            plotElement.threeActStage = nil
+            plotElement.pearsonStageRaw = nil
         case .threeAct:
             plotElement.threeActStage = editThreeActStage
             plotElement.monomythStage = nil
-            plotElement.campbellStage = nil
-            plotElement.pearsonStage = nil
+            plotElement.campbellStageRaw = nil
+            plotElement.pearsonStageRaw = nil
         case .freeform:
             plotElement.monomythStage = nil
-            plotElement.campbellStage = nil
+            plotElement.campbellStageRaw = nil
             plotElement.threeActStage = nil
-            plotElement.pearsonStage = nil
+            plotElement.pearsonStageRaw = nil
         }
         
         plotElement.characters = Array(editCharacters)
@@ -667,8 +607,9 @@ struct CreateSceneForPlotElementSheet: View {
         project.scenes?.append(scene)
         
         scene.monomythStage = plotElement.monomythStage
-        scene.campbellStage = plotElement.campbellStage
-        scene.pearsonStage = plotElement.pearsonStage
+        scene.threeActStage = plotElement.threeActStage
+        scene.campbellStageRaw = nil
+        scene.pearsonStageRaw = nil
         scene.characters = plotElement.characters
         scene.location = plotElement.locations?.first
         

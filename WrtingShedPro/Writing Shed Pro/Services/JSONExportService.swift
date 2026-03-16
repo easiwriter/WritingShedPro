@@ -526,7 +526,6 @@ class JSONExportService {
                 isTrashed: scene.isTrashed,
                 trashedDate: scene.trashedDate,
                 monomythStageRaw: scene.monomythStageRaw,
-                campbellStageRaw: scene.campbellStageRaw,
                 threeActStageRaw: scene.threeActStageRaw
             )
         }
@@ -580,9 +579,7 @@ class JSONExportService {
                 notes: element.notes,
                 userOrder: element.userOrder,
                 monomythStageRaw: element.monomythStageRaw,
-                campbellStageRaw: element.campbellStageRaw,
                 threeActStageRaw: element.threeActStageRaw,
-                pearsonStageRaw: element.pearsonStageRaw,
                 createdDate: element.createdDate,
                 modifiedDate: element.modifiedDate,
                 linkedSceneIds: element.linkedScenes?.map { $0.id.uuidString },
@@ -1022,7 +1019,6 @@ struct WSPStorySceneData: Codable {
     var isTrashed: Bool = false
     var trashedDate: Date?
     var monomythStageRaw: String?
-    var campbellStageRaw: String?
     var threeActStageRaw: String?
 }
 
@@ -1052,9 +1048,7 @@ struct WSPPlotElementData: Codable {
     var notes: String?
     var userOrder: Int?
     var monomythStageRaw: String?
-    var campbellStageRaw: String?
     var threeActStageRaw: String?
-    var pearsonStageRaw: String?
     var createdDate: Date = Date()
     var modifiedDate: Date = Date()
     var linkedSceneIds: [String]?

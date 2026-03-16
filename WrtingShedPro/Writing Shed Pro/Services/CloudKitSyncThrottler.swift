@@ -369,8 +369,7 @@ final class CloudKitSyncThrottler {
                 case .import:
                     typeLabel = "import"
                     if event.endDate == nil {
-                        self.importInProgress = true
-                        self.importStartTime = Date()
+                        self.markImportStarted()
                         self.appendCloudKitEvent(
                             type: typeLabel,
                             phase: "started",
@@ -395,8 +394,7 @@ final class CloudKitSyncThrottler {
                 case .export:
                     typeLabel = "export"
                     if event.endDate == nil {
-                        self.exportInProgress = true
-                        self.exportStartTime = Date()
+                        self.markExportStarted()
                         self.appendCloudKitEvent(
                             type: typeLabel,
                             phase: "started",
@@ -532,6 +530,30 @@ final class CloudKitSyncThrottler {
             recentCloudKitEvents.removeLast(recentCloudKitEvents.count - maxRecentEventCount)
         }
     }
+
+    private func markImportStarted(now: Date = Date()) {
+        if !importInProgress {
+            importInProgress = true
+            importStartTime = now
+            return
+        }
+
+        if importStartTime == nil {
+            importStartTime = now
+        }
+    }
+
+    private func markExportStarted(now: Date = Date()) {
+        if !exportInProgress {
+            exportInProgress = true
+            exportStartTime = now
+            return
+        }
+
+        if exportStartTime == nil {
+            exportStartTime = now
+        }
+    }
     
     deinit {
         quietTimer?.invalidate()
@@ -551,6 +573,16 @@ extension CloudKitSyncThrottler {
     func _testSetExportInProgress(startedAt date: Date) {
         exportInProgress = true
         exportStartTime = date
+    }
+
+    /// Test hook: simulate receiving an import start event.
+    func _testMarkImportStarted(at date: Date) {
+        markImportStarted(now: date)
+    }
+
+    /// Test hook: simulate receiving an export start event.
+    func _testMarkExportStarted(at date: Date) {
+        markExportStarted(now: date)
     }
 }
 #endif
