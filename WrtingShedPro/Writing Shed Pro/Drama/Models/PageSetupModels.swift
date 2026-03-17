@@ -1,0 +1,194 @@
+//
+//  PageSetupModels.swift
+//  Writing Shed Pro
+//
+//  SwiftData models for Page Setup functionality
+//
+
+import Foundation
+import SwiftData
+
+// MARK: - PageSetup Model
+
+@Model
+final class PageSetup {
+        // Header/Footer text fields
+        var headerLeft: String? = nil
+        var headerCenter: String? = nil
+        var headerRight: String? = nil
+        var footerLeft: String? = nil
+        var footerCenter: String? = nil
+        var footerRight: String? = nil
+    var id: UUID = UUID()
+    var paperName: String?
+    var orientation: Int16 = 0  // 0 = portrait, 1 = landscape
+    var headers: Int16 = 0      // 0 = false, 1 = true
+    var footers: Int16 = 0      // 0 = false, 1 = true
+    // var facingPages: Int16 = 0  // REMOVED: No longer used
+    var pageBreakBetweenFiles: Int16 = 1  // 0 = false, 1 = true (default true)
+        var hasPageBreakBetweenFiles: Bool {
+            get { pageBreakBetweenFiles == 1 }
+            set { pageBreakBetweenFiles = newValue ? 1 : 0 }
+        }
+    var hideFirstSection: Int16 = 0
+    var matchPreviousSection: Int16 = 0
+    
+    // Margins (in points)
+    var marginTop: Double = 0.0
+    var marginBottom: Double = 0.0
+    var marginLeft: Double = 0.0
+    var marginRight: Double = 0.0
+    
+    // Header/Footer depths (in points)
+    var headerDepth: Double = 0.0
+    var footerDepth: Double = 0.0
+    
+    // Scale factor for unit conversion
+    var scaleFactor: Double = 96.0  // Default to inches
+    
+    // Relationships
+    @Relationship(inverse: \Project.pageSetup)
+    var project: Project?
+    
+    @Relationship(deleteRule: .cascade, inverse: \PrinterPaper.pageSetup)
+    var printerPapers: [PrinterPaper]?
+    
+    init(
+        paperName: String? = nil,
+        orientation: Orientation = .portrait,
+        headers: Bool = false,
+        footers: Bool = false,
+        marginTop: Double = PageSetupDefaults.marginTop,
+        marginBottom: Double = PageSetupDefaults.marginBottom,
+        marginLeft: Double = PageSetupDefaults.marginLeft,
+        marginRight: Double = PageSetupDefaults.marginRight,
+        headerDepth: Double = PageSetupDefaults.headerDepth,
+        footerDepth: Double = PageSetupDefaults.footerDepth,
+        scaleFactor: Double = PageSetupDefaults.scaleFactorInches
+    ) {
+        // Use region-appropriate default paper if none specified
+        self.paperName = paperName ?? PaperSizes.defaultForRegion.rawValue
+        self.orientation = orientation.rawValue
+        self.headers = headers ? 1 : 0
+        self.footers = footers ? 1 : 0
+        self.marginTop = marginTop
+        self.marginBottom = marginBottom
+        self.marginLeft = marginLeft
+        self.marginRight = marginRight
+        self.headerDepth = headerDepth
+        self.footerDepth = footerDepth
+        self.scaleFactor = scaleFactor
+        self.printerPapers = []
+    }
+    
+    // MARK: - Computed Properties
+    
+    var orientationEnum: Orientation {
+        get { Orientation(rawValue: orientation) ?? .portrait }
+        set { orientation = newValue.rawValue }
+    }
+    
+    var hasHeaders: Bool {
+        get { headers == 1 }
+        set { headers = newValue ? 1 : 0 }
+    }
+    
+    var hasFooters: Bool {
+        get { footers == 1 }
+        set { footers = newValue ? 1 : 0 }
+    }
+    
+    // var hasFacingPages: Bool { // REMOVED: No longer used
+    //     get { facingPages == 1 }
+    //     set { facingPages = newValue ? 1 : 0 }
+    // }
+    
+    var paperSize: PaperSizes {
+        get {
+            guard let paperName = paperName,
+                  let size = PaperSizes(rawValue: paperName) else {
+                return .defaultForRegion
+            }
+            return size
+        }
+        set {
+            paperName = newValue.rawValue
+        }
+    }
+    
+    // MARK: - Factory Method
+    
+    /// Create a new PageSetup with region-appropriate defaults
+    static func createWithDefaults() -> PageSetup {
+        return PageSetup(
+            paperName: PaperSizes.defaultForRegion.rawValue,
+            orientation: .portrait,
+            headers: false,
+            footers: false,
+            marginTop: PageSetupDefaults.marginTop,
+            marginBottom: PageSetupDefaults.marginBottom,
+            marginLeft: PageSetupDefaults.marginLeft,
+            marginRight: PageSetupDefaults.marginRight,
+            headerDepth: PageSetupDefaults.headerDepth,
+            footerDepth: PageSetupDefaults.footerDepth,
+            scaleFactor: PageSetupDefaults.scaleFactorInches
+        )
+    }
+    
+    // MARK: - Layout Comparison
+    
+    /// Check if two PageSetup instances have equivalent layout values
+    /// Used to avoid resetting scroll position when CloudKit syncs create new instances with same values
+    func isLayoutEquivalent(to other: PageSetup) -> Bool {
+        let samePaper: Bool = paperName == other.paperName
+        let sameOrientation: Bool = orientation == other.orientation
+        let sameSize: Bool = samePaper && sameOrientation
+        
+        let sameTop: Bool = marginTop == other.marginTop
+        let sameBottom: Bool = marginBottom == other.marginBottom
+        let sameLeft: Bool = marginLeft == other.marginLeft
+        let sameRight: Bool = marginRight == other.marginRight
+        let sameMargins: Bool = sameTop && sameBottom && sameLeft && sameRight
+        
+        let sameHDepth: Bool = headerDepth == other.headerDepth
+        let sameFDepth: Bool = footerDepth == other.footerDepth
+        let sameHeaders: Bool = headers == other.headers
+        let sameFooters: Bool = footers == other.footers
+        let sameHeaderFooter: Bool = sameHDepth && sameFDepth && sameHeaders && sameFooters
+        
+        return sameSize && sameMargins && sameHeaderFooter
+    }
+}
+
+// MARK: - PrinterPaper Model
+
+@Model
+final class PrinterPaper {
+    var id: UUID = UUID()
+    var paperName: String?
+    var sizeH: Double = 0.0     // Horizontal size
+    var sizeV: Double = 0.0     // Vertical size
+    var rectH: Double = 0.0     // Printable rect horizontal
+    var rectV: Double = 0.0     // Printable rect vertical
+    var scalefactor: Double = 96.0
+    
+    // Relationship
+    @Relationship(deleteRule: .nullify)
+    var pageSetup: PageSetup?
+    
+    init(
+        paperName: String? = nil,
+        sizeH: Double = 0.0,
+        sizeV: Double = 0.0,
+        rectH: Double = 0.0,
+        rectV: Double = 0.0,
+        scalefactor: Double = 96.0
+    ) {
+        self.paperName = paperName
+        self.sizeH = sizeH
+        self.sizeV = sizeV
+        self.rectH = rectH
+        self.rectV = rectV
+        self.scalefactor = scalefactor
+    }
+}

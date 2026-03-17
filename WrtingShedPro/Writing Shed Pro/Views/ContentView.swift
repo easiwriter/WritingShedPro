@@ -22,6 +22,11 @@ struct ContentView: View {
     /// during CloudKit activity can cause unnecessary write churn.
     @State private var hasRunStartupMigrations = false
 
+    /// Stylesheet initialization must run at most once per app launch.
+    /// Running this while CloudKit import is inflight can create duplicate system defaults.
+    @State private var hasInitializedStyleSheets = false
+    @State private var styleSheetInitTask: Task<Void, Never>?
+
     /// Last time we auto-normalized project userOrder values.
     /// Used to avoid repeated writes during prolonged CloudKit churn.
     @State private var lastAutoOrderNormalizationDate: Date = .distantPast
@@ -712,25 +717,64 @@ struct ContentView: View {
     
     /// Initialize default stylesheets async on main thread (moved from Write_App to avoid blocking launch)
     private func initializeStyleSheets() {
-        Task { @MainActor in
+        guard !hasInitializedStyleSheets else {
+            #if DEBUG
+            print("⏭️ [ContentView] Stylesheets already initialized in this launch — skipping")
+            #endif
+            return
+        }
+
+        guard styleSheetInitTask == nil else {
+            #if DEBUG
+            print("⏳ [ContentView] Stylesheet initialization already pending")
+            #endif
+            return
+        }
+
+        styleSheetInitTask = Task { @MainActor in
+            defer { styleSheetInitTask = nil }
+
+            let throttler = CloudKitSyncThrottler.shared
+
+            // Give CloudKit a brief chance to start initial import before we initialize defaults.
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+
+            var waitCycles = 0
+            let maxWait = 30  // up to 30 seconds
+            while (throttler.hasActiveCloudKitEvent || throttler.isSyncing) && waitCycles < maxWait {
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                waitCycles += 1
+                #if DEBUG
+                if waitCycles % 5 == 0 {
+                    print("⏳ [ContentView] Waiting for CloudKit to settle before stylesheet init... (\(waitCycles)s)")
+                }
+                #endif
+            }
+
             // Run async on main thread (ModelContext must stay on its creation thread)
             StyleSheetService.initializeStyleSheetsIfNeeded(context: modelContext)
             #if DEBUG
-            print("✅ [ContentView] Stylesheets initialized")
+            if waitCycles > 0 {
+                print("✅ [ContentView] Stylesheets initialized after waiting \(waitCycles)s for sync to settle")
+            } else {
+                print("✅ [ContentView] Stylesheets initialized")
+            }
             #endif
-            
+
             // Migrate heading styles to include TOC settings (for existing stylesheets)
             StyleSheetService.migrateHeadingStylesToTOC(context: modelContext)
             #if DEBUG
             print("✅ [ContentView] TOC migration complete")
             #endif
-            
+
             // Migrate heading styles to bold (Title 1–3, Large Title were not bold previously)
             StyleSheetService.migrateHeadingStylesToBold(context: modelContext)
             #if DEBUG
             print("✅ [ContentView] Heading bold migration complete")
             #endif
-            
+
+            hasInitializedStyleSheets = true
+
             // One-time fix: Convert user guide files to markdown mode
             migrateUserGuideToMarkdown()
         }
