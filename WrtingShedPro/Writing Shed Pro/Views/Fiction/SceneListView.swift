@@ -270,6 +270,46 @@ struct SceneListView: View {
         // Only group when viewing all scenes (no chapter/act/book filter)
         guard chapter == nil && act == nil && book == nil else { return nil }
 
+        if isVerseNovel {
+            let books = project.books ?? []
+            guard !books.isEmpty else { return nil }
+
+            let currentSceneIDs: Set<UUID> = Set(sortedScenes.map { $0.id })
+            var groups: [SceneChapterGroup] = []
+
+            let sortedBooks: [Book] = books.sorted { (b0: Book, b1: Book) -> Bool in
+                let order0: Int = b0.userOrder ?? Int.max
+                let order1: Int = b1.userOrder ?? Int.max
+                if order0 != order1 { return order0 < order1 }
+                return (b0.name ?? "").localizedCaseInsensitiveCompare(b1.name ?? "") == .orderedAscending
+            }
+
+            for b in sortedBooks {
+                let bookScenes: [StoryScene] = sortedScenes.filter { (scene: StoryScene) -> Bool in
+                    scene.book?.id == b.id && currentSceneIDs.contains(scene.id)
+                }
+                if !bookScenes.isEmpty {
+                    groups.append(SceneChapterGroup(
+                        id: b.id.uuidString,
+                        name: b.name ?? fictionClass.chapterSingularName,
+                        scenes: bookScenes
+                    ))
+                }
+            }
+
+            let assignedSceneIDs: Set<UUID> = Set(groups.flatMap { (g: SceneChapterGroup) in g.scenes.map { $0.id } })
+            let unassignedScenes: [StoryScene] = sortedScenes.filter { (scene: StoryScene) -> Bool in !assignedSceneIDs.contains(scene.id) }
+            if !unassignedScenes.isEmpty {
+                groups.append(SceneChapterGroup(
+                    id: "__unassigned__",
+                    name: NSLocalizedString("fiction.episodes.unassigned", comment: "Unassigned"),
+                    scenes: unassignedScenes
+                ))
+            }
+
+            return groups.isEmpty ? nil : groups
+        }
+
         let chapters = project.chapters ?? []
         guard !chapters.isEmpty else { return nil }
         

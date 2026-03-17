@@ -321,8 +321,15 @@ class MigrationService {
             populateBodyMatter(project: project, context: context)
             
             if project.type == .poetry {
-                migratePoetryCollections(project: project, context: context)
+                // CloudKit-safe: do NOT auto-migrate Submission-based collections on launch.
+                // Collection entities and SubmittedFile links can sync in separate phases,
+                // and running conversion during partial sync can create duplicate/empty
+                // PoetryCollection records on one device.
+                //
+                // Keep existing PoetryCollection data intact and only perform harmless
+                // folder positioning at startup.
                 repositionCollectionsFolder(project: project)
+                deduplicatePoetryCollections(project: project, context: context)
             } else {
                 removeCollectionsFolder(project: project, context: context)
             }
@@ -554,6 +561,74 @@ class MigrationService {
         
         #if DEBUG
         print("  ↳ Repositioned Collections folder to order \(newOrder) in \(project.name ?? "Untitled")")
+        #endif
+    }
+
+    // MARK: - Poetry Collection Deduplication
+
+    /// Merge duplicate PoetryCollection records that share the same display name.
+    ///
+    /// CloudKit can transiently produce duplicate container records on one device when
+    /// entity and relationship sync phases are interrupted/retried. This pass is idempotent
+    /// and conservative: it groups by normalized name, keeps one canonical collection,
+    /// merges file links and body-matter flags, then deletes only redundant duplicates.
+    private static func deduplicatePoetryCollections(project: Project, context: ModelContext) {
+        let collections = project.poetryCollections ?? []
+        guard collections.count > 1 else { return }
+
+        // Group by case-insensitive trimmed name.
+        var groups: [String: [PoetryCollection]] = [:]
+        for collection in collections {
+            let normalizedName = (collection.name ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .lowercased()
+            groups[normalizedName, default: []].append(collection)
+        }
+
+        var removedCount = 0
+
+        for (_, group) in groups where group.count > 1 {
+            // Prefer a keeper with existing poems; then lowest userOrder; then oldest createdDate.
+            let sorted = group.sorted { lhs, rhs in
+                let lhsHasPoems = (lhs.textFiles?.isEmpty == false)
+                let rhsHasPoems = (rhs.textFiles?.isEmpty == false)
+                if lhsHasPoems != rhsHasPoems { return lhsHasPoems }
+
+                let lhsOrder = lhs.userOrder ?? Int.max
+                let rhsOrder = rhs.userOrder ?? Int.max
+                if lhsOrder != rhsOrder { return lhsOrder < rhsOrder }
+
+                return lhs.createdDate < rhs.createdDate
+            }
+
+            guard let keeper = sorted.first else { continue }
+            let duplicates = sorted.dropFirst()
+
+            // Merge metadata from duplicates into keeper.
+            if keeper.synopsis == nil {
+                keeper.synopsis = duplicates.first(where: { ($0.synopsis ?? "").isEmpty == false })?.synopsis
+            }
+
+            if !keeper.isInBodyMatter,
+               let bodyMatterSource = duplicates.first(where: { $0.isInBodyMatter }) {
+                keeper.isInBodyMatter = true
+                keeper.bodyMatterOrder = bodyMatterSource.bodyMatterOrder
+            }
+
+            // Merge file links to avoid data loss.
+            for duplicate in duplicates {
+                for file in duplicate.textFiles ?? [] {
+                    file.addToPoetryCollection(keeper)
+                }
+                context.delete(duplicate)
+                removedCount += 1
+            }
+        }
+
+        #if DEBUG
+        if removedCount > 0 {
+            print("🧹 [MigrationService] Deduplicated \(removedCount) duplicate PoetryCollection records in \(project.name ?? \"Untitled\")")
+        }
         #endif
     }
     

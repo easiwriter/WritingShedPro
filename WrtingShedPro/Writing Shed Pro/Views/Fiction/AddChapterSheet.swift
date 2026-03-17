@@ -46,6 +46,11 @@ struct AddChapterSheet: View {
     }
     
     private var nextOrderIndex: Int {
+        if isVerseNovel {
+            let books = project.books ?? []
+            return (books.map { $0.userOrder ?? 0 }.max() ?? -1) + 1
+        }
+
         let chapters = project.chapters ?? []
         return (chapters.map { $0.userOrder ?? 0 }.max() ?? -1) + 1
     }
@@ -201,14 +206,23 @@ struct AddChapterSheet: View {
             return
         }
         
-        let chapter = Chapter(
-            name: trimmedTitle,
-            synopsis: summary.isEmpty ? nil : summary,
-            userOrder: nextOrderIndex
-        )
-        chapter.project = project
-        
-        modelContext.insert(chapter)
+        if isVerseNovel {
+            let book = Book(
+                name: trimmedTitle,
+                synopsis: summary.isEmpty ? nil : summary,
+                userOrder: nextOrderIndex
+            )
+            book.project = project
+            modelContext.insert(book)
+        } else {
+            let chapter = Chapter(
+                name: trimmedTitle,
+                synopsis: summary.isEmpty ? nil : summary,
+                userOrder: nextOrderIndex
+            )
+            chapter.project = project
+            modelContext.insert(chapter)
+        }
         
         do {
             try modelContext.save()

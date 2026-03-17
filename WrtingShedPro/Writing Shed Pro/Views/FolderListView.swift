@@ -1231,6 +1231,9 @@ struct FolderRowView: View {
     // Get chapter/story count for Chapters/Stories folder
     private var chapterCount: Int {
         guard isChaptersFolder, let project = folder.project else { return 0 }
+        if folder.name == "Books" && project.fictionClass == .verseNovel {
+            return project.books?.count ?? 0
+        }
         return project.chapters?.count ?? 0
     }
     
