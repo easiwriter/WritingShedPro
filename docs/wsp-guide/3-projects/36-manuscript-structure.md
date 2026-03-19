@@ -2,6 +2,8 @@
 
 Writing Shed Pro uses a **Manuscript** folder to organize your work for export and publication. This guide covers the manuscript structure, its subfolders, and the special files for front and back matter.
 
+For organization strategy (workflow status and deciding what to include), see [Organizing Your Work](35-organizing-your-work.md).
+
 ## Overview
 
 The Manuscript folder provides a structured way to assemble your writing into a complete, publishable document. It contains three main subfolders:
@@ -24,7 +26,7 @@ Manuscript/
     └── Contributors (user-created)
 ```
 
-The body folder is always called **Body Matter** for all project types. You manage its contents through the Body Matter view, where you can add, remove, and reorder items for manuscript assembly.
+The body folder is always called **Body Matter** for all project types. You manage its contents through the Body Matter view, where you can add, remove, and reorder body containers (or direct files, where supported) for manuscript assembly.
 
 ## Front Matter
 
@@ -65,14 +67,14 @@ To enable auto-generated TOC:
 
 **Note**: Auto-generated TOC requires consistent use of heading paragraph styles.
 
-## Body Content
+## Body Matter Content
 
 The middle folder contains your actual writing, organized according to project type. How body content is assembled into the manuscript differs for each type:
 
 | Project Type | Body Folder | Hierarchy | Assembly Order |
 |-------------|-------------|-----------|---------------|
 | **Prose** | Body Matter | Sections → Files | Section order, then file order within each section |
-| **Poetry** | Body Matter | Collections and/or poems | Body matter order (collections and individual poems) |
+| **Poetry** | Body Matter | Collections and individual poems | Body matter order (collections and individual poems) |
 | **Novel** | Body Matter | Chapters → Scenes | Chapter order, then scene order within each chapter |
 | **Verse Novel** | Body Matter | Books → Episodes | Book order, then episode order within each book |
 | **Short Fiction** | Body Matter | Flat (scenes only) | Scene order |
@@ -80,12 +82,15 @@ The middle folder contains your actual writing, organized according to project t
 
 ### Including Files in the Manuscript
 
-Files are included in manuscript assembly by adding their parent container to **Body Matter**. For example:
+Files are included in manuscript assembly by adding their parent **body container** to **Body Matter**. For example:
 - In a Novel, add a chapter to Body Matter to include all its scenes
 - In Poetry, add a collection or individual poem to Body Matter
 - In Prose, add a section to Body Matter to include all its files
 
 To exclude a file from the manuscript, remove it from its container or move it to a container that is not included in Body Matter.
+
+For project-type container naming and organization patterns, see [Organizing Your Work](35-organizing-your-work.md).
+
 ### Type-Specific Assembly Details
 
 Each project type has unique assembly features documented in its own guide:
@@ -189,7 +194,7 @@ See [Index Generation](../10-advanced-features/108-index-generation.md) for deta
 #### How Reference Markers Appear
 
 All reference types insert inline markers in your text:
-- **In the editor**: Markers appear as coloured inline elements
+- **In the editor**: Markers appear as colored inline elements
 - **In PDF export**: Markers are rendered in the appropriate format for the reference type
 - **In plain text export**: Markers are converted to readable text (e.g., "see Note 1", "see Glossary")
 
@@ -240,7 +245,7 @@ When exporting your manuscript, you can control which sections are included:
 
 The exported manuscript follows this order:
 1. Front Matter (in file order)
-2. Body Content (in file/chapter order)
+2. Body Matter Content (in file/chapter order)
 3. Back Matter:
    - Endnotes
    - Glossary
@@ -272,10 +277,12 @@ Files in Front Matter and Back Matter appear in the order shown in the folder. T
 2. Drag files to the desired order
 3. Tap **Done**
 
-## Related Topics
+## See Also
 
 - [Export Options](../9-publishing/91-export-options.md)
 - [PDF Export](../9-publishing/92-pdf-export.md)
 - [Footnotes](../4-writing/45-footnotes.md)
 - [Index Generation](../10-advanced-features/108-index-generation.md)
 - [Contributors](../10-advanced-features/107-contributors.md)
+
+---

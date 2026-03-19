@@ -1,6 +1,8 @@
 # Organizing Your Work
 
-A well-organized project makes writing easier and more productive. This guide covers strategies and features for keeping your work organized.
+A well-organized project makes writing easier and more productive. This guide focuses on **organization strategy**: workflow status, ordering, and manuscript assembly decisions.
+
+For step-by-step actions (creating, renaming, deleting, restoring, and detailed list operations), see [Folders and Files](34-folders-and-files.md).
 
 ## Workflow Status Lifecycle
 
@@ -61,35 +63,28 @@ Control how files appear in lists:
 - **Date Modified**: When files were last edited
 - **User's Order**: Your custom arrangement
 
-### Setting Sort Order
+### Custom Ordering Notes
 
-1. Open a folder
-2. Tap the sort button in the toolbar
-3. Choose your preferred order
+- Use **User's Order** when sequence matters (submissions, reading flow, revision passes)
+- Keep one stable ordering strategy per folder to avoid accidental reshuffling
+- Custom order is saved and syncs across devices
 
-### Custom Ordering
+For exact tap-by-tap sorting and drag-reorder steps, see [Folders and Files](34-folders-and-files.md).
 
-1. Set sort to "User's Order"
-2. Tap **Edit**
-3. Drag files using the handles
-4. Tap **Done**
+## Project Body Containers and Body Matter
 
-Custom order is saved and syncs across devices.
+Writing Shed Pro uses project-specific **body containers** to group content for manuscript assembly. Poetry Collections are one example, not the only one.
 
-## Project Containers and Body Matter
-
-Writing Shed Pro uses project-specific **containers** to group content. Poetry collections are one type of container, not the only one.
-
-### Container Types by Project
+### Body Matter Units by Project
 
 - **Prose**: Sections
 - **Poetry**: Collections
 - **Fiction (Novel)**: Chapters
-- **Fiction (Short Fiction)**: Stories
+- **Fiction (Short Fiction)**: Scenes (directly ordered)
 - **Fiction (Verse Novel)**: Books
 - **Drama**: Acts
 
-These containers can be added to **Manuscript → Body Matter** and reordered. During export, body matter is assembled in that order.
+These units are added to **Manuscript → Body Matter** and reordered. During export, body matter is assembled in that order.
 
 ### Common Uses
 
@@ -98,7 +93,7 @@ These containers can be added to **Manuscript → Body Matter** and reordered. D
 - Organize long projects into manageable structure
 - Control manuscript assembly order for export and print
 
-See [Poetry Collections](../10-advanced-features/104-collections.md) for Poetry-specific details.
+See [Manuscript Structure](36-manuscript-structure.md) for full assembly behavior across project types, and [Poetry Collections](../10-advanced-features/104-collections.md) for Poetry-specific details.
 
 ## Searching
 
@@ -119,6 +114,8 @@ Search scope is limited to the current folder.
 - Search by file name
 - Search within file content
 - Case-insensitive by default
+
+For advanced find/replace workflows inside files, see [Search and Replace](../10-advanced-features/101-search-and-replace.md).
 
 ## Tags and Metadata
 
@@ -170,7 +167,7 @@ Keep your project healthy:
 - Change finished work to Ready
 - Change paused work to Set Aside
 - Empty Trash monthly
-- Review project containers for relevance
+- Review body containers for relevance
 
 ### Spring Cleaning
 
@@ -189,6 +186,7 @@ Keep your project healthy:
 ## See Also
 
 - [Folders and Files](34-folders-and-files.md)
+- [Manuscript Structure](36-manuscript-structure.md)
 - [Collections](../10-advanced-features/104-collections.md)
 - [Project Types Overview](31-project-types-overview.md)
 - [Search and Replace](../10-advanced-features/101-search-and-replace.md)

@@ -2,6 +2,8 @@
 
 Writing Shed Pro organizes your work in a hierarchy of folders and files within each project. This guide explains how to work with both.
 
+For organization strategy (status lifecycle, ordering strategy, and manuscript assembly planning), see [Organizing Your Work](35-organizing-your-work.md).
+
 ## Understanding the Hierarchy
 
 ```
@@ -39,7 +41,7 @@ Tap a status tab to filter the file list.
 ### Poetry
 Additional project folders:
 - **Poems**: Your main writing area for poems
-- **Collections**: Poetry Collections — group related poems together
+- **Collections**: Poetry body containers — group related poems together for manuscript assembly
 - **Submissions**: Track what you've sent
 - **Magazines**: Publication targets
 - **Competitions**: Contest targets
@@ -47,7 +49,7 @@ Additional project folders:
 ### Fiction (Novel, Verse Novel, Short Fiction)
 Additional project folders:
 - **Scenes** (or **Episodes** for Verse Novel): Your story scenes
-- **Chapters** (Novel), **Books** (Verse Novel): Organizational containers
+- **Chapters** (Novel), **Books** (Verse Novel): Body containers used in manuscript assembly
 - **Plot Elements**: Story beats
 - **Characters**: Character profiles
 - **Locations**: Setting definitions
@@ -92,6 +94,8 @@ Files can be reordered within a folder:
 3. Drag files using the handle on the right
 4. Tap **Done**
 
+For guidance on when to use **Name**, **Date Modified**, or **User's Order** as a long-term strategy, see [Organizing Your Work](35-organizing-your-work.md).
+
 ### Sort Options
 - **Name**: Alphabetical order
 - **Date Created**: Chronological order
@@ -111,8 +115,6 @@ Deleted files go to **Trash** and can be restored.
 2. Select one or more files
 3. Tap **Delete**
 4. Confirm
-
-
 
 ## The Trash
 
@@ -178,6 +180,7 @@ The current content becomes a new version, so nothing is lost.
 
 ## See Also
 - [Organizing Your Work](35-organizing-your-work.md)
+- [Manuscript Structure](36-manuscript-structure.md)
 - [The Editor](../4-writing/41-the-editor.md)
 - [Collections](../10-advanced-features/104-collections.md)
 

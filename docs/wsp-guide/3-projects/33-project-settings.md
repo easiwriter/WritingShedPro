@@ -6,7 +6,7 @@ Every project has settings that control its behavior and appearance. This guide 
 
 Open project settings via the **⋯ (ellipsis) button** in the toolbar when a project is open.
 
-## Settings
+## Available Settings
 
 ### Project Name
 
@@ -120,7 +120,7 @@ Some settings can cause data loss if used incorrectly.
 
 ### Clear Trash
 
-- Permanently and forever deletes all items in the project's Trash folder
+- Permanently deletes all items in the project's Trash folder
 - Cannot be undone
 
 ## Settings That Sync

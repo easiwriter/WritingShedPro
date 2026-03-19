@@ -1127,7 +1127,7 @@ hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
 <tr>
 <td><strong>Drama</strong></td>
 <td>Scripts and plays</td>
-<td>Script formatting, DML markup, film/stage output</td>
+<td>Script formatting, DML markup, Film/Stage output</td>
 </tr>
 </tbody>
 </table>
@@ -1487,7 +1487,7 @@ hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
 <p>Every project has settings that control its behavior and appearance. This guide explains what you can configure and how.</p>
 <h2 id="accessing-project-settings">Accessing Project Settings</h2>
 <p>Open project settings via the <strong>⋯ (ellipsis) button</strong> in the toolbar when a project is open.</p>
-<h2 id="settings">Settings</h2>
+<h2 id="available-settings">Available Settings</h2>
 <h3 id="project-name">Project Name</h3>
 <p>Change the project's display name. Changes sync immediately across devices.</p>
 <h3 id="author-name">Author Name</h3>
@@ -1578,7 +1578,7 @@ hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
 </ul>
 <h3 id="clear-trash">Clear Trash</h3>
 <ul>
-<li>Permanently and forever deletes all items in the project's Trash folder</li>
+<li>Permanently deletes all items in the project's Trash folder</li>
 <li>Cannot be undone</li>
 </ul>
 <h2 id="settings-that-sync">Settings That Sync</h2>
@@ -1604,6 +1604,7 @@ hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
 
 <h1 id="folders-and-files">Folders and Files</h1>
 <p>Writing Shed Pro organizes your work in a hierarchy of folders and files within each project. This guide explains how to work with both.</p>
+<p>For organization strategy (status lifecycle, ordering strategy, and manuscript assembly planning), see <a href="#35-organizing-your-work">Organizing Your Work</a>.</p>
 <h2 id="understanding-the-hierarchy">Understanding the Hierarchy</h2>
 <pre><code>Project
 └── Folders
@@ -1635,14 +1636,14 @@ hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
 <h3 id="poetry">Poetry</h3>
 <p>Additional project folders:
 - <strong>Poems</strong>: Your main writing area for poems
-- <strong>Collections</strong>: Poetry Collections — group related poems together
+- <strong>Collections</strong>: Poetry body containers — group related poems together for manuscript assembly
 - <strong>Submissions</strong>: Track what you've sent
 - <strong>Magazines</strong>: Publication targets
 - <strong>Competitions</strong>: Contest targets</p>
 <h3 id="fiction-novel-verse-novel-short-fiction">Fiction (Novel, Verse Novel, Short Fiction)</h3>
 <p>Additional project folders:
 - <strong>Scenes</strong> (or <strong>Episodes</strong> for Verse Novel): Your story scenes
-- <strong>Chapters</strong> (Novel), <strong>Books</strong> (Verse Novel): Organizational containers
+- <strong>Chapters</strong> (Novel), <strong>Books</strong> (Verse Novel): Body containers used in manuscript assembly
 - <strong>Plot Elements</strong>: Story beats
 - <strong>Characters</strong>: Character profiles
 - <strong>Locations</strong>: Setting definitions
@@ -1683,6 +1684,7 @@ hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
 <li>Drag files using the handle on the right</li>
 <li>Tap <strong>Done</strong></li>
 </ol>
+<p>For guidance on when to use <strong>Name</strong>, <strong>Date Modified</strong>, or <strong>User's Order</strong> as a long-term strategy, see <a href="#35-organizing-your-work">Organizing Your Work</a>.</p>
 <h3 id="sort-options">Sort Options</h3>
 <ul>
 <li><strong>Name</strong>: Alphabetical order</li>
@@ -1767,6 +1769,7 @@ hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
 <h2 id="see-also">See Also</h2>
 <ul>
 <li><a href="#35-organizing-your-work">Organizing Your Work</a></li>
+<li><a href="#36-manuscript-structure">Manuscript Structure</a></li>
 <li><a href="#41-the-editor">The Editor</a></li>
 <li><a href="#104-collections">Collections</a></li>
 </ul>
@@ -1777,7 +1780,8 @@ hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
 <a id="35-organizing-your-work"></a>
 
 <h1 id="organizing-your-work">Organizing Your Work</h1>
-<p>A well-organized project makes writing easier and more productive. This guide covers strategies and features for keeping your work organized.</p>
+<p>A well-organized project makes writing easier and more productive. This guide focuses on <strong>organization strategy</strong>: workflow status, ordering, and manuscript assembly decisions.</p>
+<p>For step-by-step actions (creating, renaming, deleting, restoring, and detailed list operations), see <a href="#34-folders-and-files">Folders and Files</a>.</p>
 <h2 id="workflow-status-lifecycle">Workflow Status Lifecycle</h2>
 <p>Writing Shed Pro uses file workflow statuses to support a natural writing lifecycle:</p>
 <pre><code class="language-text">Draft → Ready → Published
@@ -1824,32 +1828,25 @@ Set Aside
 <li><strong>Date Modified</strong>: When files were last edited</li>
 <li><strong>User's Order</strong>: Your custom arrangement</li>
 </ul>
-<h3 id="setting-sort-order">Setting Sort Order</h3>
-<ol>
-<li>Open a folder</li>
-<li>Tap the sort button in the toolbar</li>
-<li>Choose your preferred order</li>
-</ol>
-<h3 id="custom-ordering">Custom Ordering</h3>
-<ol>
-<li>Set sort to "User's Order"</li>
-<li>Tap <strong>Edit</strong></li>
-<li>Drag files using the handles</li>
-<li>Tap <strong>Done</strong></li>
-</ol>
-<p>Custom order is saved and syncs across devices.</p>
-<h2 id="project-containers-and-body-matter">Project Containers and Body Matter</h2>
-<p>Writing Shed Pro uses project-specific <strong>containers</strong> to group content. Poetry collections are one type of container, not the only one.</p>
-<h3 id="container-types-by-project">Container Types by Project</h3>
+<h3 id="custom-ordering-notes">Custom Ordering Notes</h3>
+<ul>
+<li>Use <strong>User's Order</strong> when sequence matters (submissions, reading flow, revision passes)</li>
+<li>Keep one stable ordering strategy per folder to avoid accidental reshuffling</li>
+<li>Custom order is saved and syncs across devices</li>
+</ul>
+<p>For exact tap-by-tap sorting and drag-reorder steps, see <a href="#34-folders-and-files">Folders and Files</a>.</p>
+<h2 id="project-body-containers-and-body-matter">Project Body Containers and Body Matter</h2>
+<p>Writing Shed Pro uses project-specific <strong>body containers</strong> to group content for manuscript assembly. Poetry Collections are one example, not the only one.</p>
+<h3 id="body-matter-units-by-project">Body Matter Units by Project</h3>
 <ul>
 <li><strong>Prose</strong>: Sections</li>
 <li><strong>Poetry</strong>: Collections</li>
 <li><strong>Fiction (Novel)</strong>: Chapters</li>
-<li><strong>Fiction (Short Fiction)</strong>: Stories</li>
+<li><strong>Fiction (Short Fiction)</strong>: Scenes (directly ordered)</li>
 <li><strong>Fiction (Verse Novel)</strong>: Books</li>
 <li><strong>Drama</strong>: Acts</li>
 </ul>
-<p>These containers can be added to <strong>Manuscript → Body Matter</strong> and reordered. During export, body matter is assembled in that order.</p>
+<p>These units are added to <strong>Manuscript → Body Matter</strong> and reordered. During export, body matter is assembled in that order.</p>
 <h3 id="common-uses">Common Uses</h3>
 <ul>
 <li>Group related pieces into coherent units</li>
@@ -1857,7 +1854,7 @@ Set Aside
 <li>Organize long projects into manageable structure</li>
 <li>Control manuscript assembly order for export and print</li>
 </ul>
-<p>See <a href="#104-collections">Poetry Collections</a> for Poetry-specific details.</p>
+<p>See <a href="#36-manuscript-structure">Manuscript Structure</a> for full assembly behavior across project types, and <a href="#104-collections">Poetry Collections</a> for Poetry-specific details.</p>
 <h2 id="searching">Searching</h2>
 <p>Find files quickly with search:</p>
 <h3 id="project-search">Project Search</h3>
@@ -1874,6 +1871,7 @@ Set Aside
 <li>Search within file content</li>
 <li>Case-insensitive by default</li>
 </ul>
+<p>For advanced find/replace workflows inside files, see <a href="#101-search-and-replace">Search and Replace</a>.</p>
 <h2 id="tags-and-metadata">Tags and Metadata</h2>
 <p>While Writing Shed Pro doesn't have explicit tags, you can use:</p>
 <h3 id="naming-conventions">Naming Conventions</h3>
@@ -1916,7 +1914,7 @@ Set Aside
 <li>Change finished work to Ready</li>
 <li>Change paused work to Set Aside</li>
 <li>Empty Trash monthly</li>
-<li>Review project containers for relevance</li>
+<li>Review body containers for relevance</li>
 </ul>
 <h3 id="spring-cleaning">Spring Cleaning</h3>
 <ul>
@@ -1935,6 +1933,7 @@ Set Aside
 <h2 id="see-also">See Also</h2>
 <ul>
 <li><a href="#34-folders-and-files">Folders and Files</a></li>
+<li><a href="#36-manuscript-structure">Manuscript Structure</a></li>
 <li><a href="#104-collections">Collections</a></li>
 <li><a href="#31-project-types-overview">Project Types Overview</a></li>
 <li><a href="#101-search-and-replace">Search and Replace</a></li>
@@ -1947,6 +1946,7 @@ Set Aside
 
 <h1 id="manuscript-structure">Manuscript Structure</h1>
 <p>Writing Shed Pro uses a <strong>Manuscript</strong> folder to organize your work for export and publication. This guide covers the manuscript structure, its subfolders, and the special files for front and back matter.</p>
+<p>For organization strategy (workflow status and deciding what to include), see <a href="#35-organizing-your-work">Organizing Your Work</a>.</p>
 <h2 id="overview">Overview</h2>
 <p>The Manuscript folder provides a structured way to assemble your writing into a complete, publishable document. It contains three main subfolders:</p>
 <pre><code>Manuscript/
@@ -1965,7 +1965,7 @@ Set Aside
     ├── Index (auto-generated)
     └── Contributors (user-created)
 </code></pre>
-<p>The body folder is always called <strong>Body Matter</strong> for all project types. You manage its contents through the Body Matter view, where you can add, remove, and reorder items for manuscript assembly.</p>
+<p>The body folder is always called <strong>Body Matter</strong> for all project types. You manage its contents through the Body Matter view, where you can add, remove, and reorder body containers (or direct files, where supported) for manuscript assembly.</p>
 <h2 id="front-matter">Front Matter</h2>
 <p>Front matter appears at the beginning of your manuscript, before the main content. Writing Shed Pro provides files for common front matter elements, but <strong>you supply the content</strong>.</p>
 <h3 id="common-front-matter-files">Common Front Matter Files</h3>
@@ -2042,7 +2042,7 @@ Set Aside
 2. Enable <strong>Include Table of Contents</strong>
 3. The TOC will be generated based on Heading 1, Heading 2, etc. styles in your content</p>
 <p><strong>Note</strong>: Auto-generated TOC requires consistent use of heading paragraph styles.</p>
-<h2 id="body-content">Body Content</h2>
+<h2 id="body-matter-content">Body Matter Content</h2>
 <p>The middle folder contains your actual writing, organized according to project type. How body content is assembled into the manuscript differs for each type:</p>
 <table>
 <thead>
@@ -2063,7 +2063,7 @@ Set Aside
 <tr>
 <td><strong>Poetry</strong></td>
 <td>Body Matter</td>
-<td>Collections and/or poems</td>
+<td>Collections and individual poems</td>
 <td>Body matter order (collections and individual poems)</td>
 </tr>
 <tr>
@@ -2093,11 +2093,12 @@ Set Aside
 </tbody>
 </table>
 <h3 id="including-files-in-the-manuscript">Including Files in the Manuscript</h3>
-<p>Files are included in manuscript assembly by adding their parent container to <strong>Body Matter</strong>. For example:
+<p>Files are included in manuscript assembly by adding their parent <strong>body container</strong> to <strong>Body Matter</strong>. For example:
 - In a Novel, add a chapter to Body Matter to include all its scenes
 - In Poetry, add a collection or individual poem to Body Matter
 - In Prose, add a section to Body Matter to include all its files</p>
 <p>To exclude a file from the manuscript, remove it from its container or move it to a container that is not included in Body Matter.</p>
+<p>For project-type container naming and organization patterns, see <a href="#35-organizing-your-work">Organizing Your Work</a>.</p>
 <h3 id="type-specific-assembly-details">Type-Specific Assembly Details</h3>
 <p>Each project type has unique assembly features documented in its own guide:</p>
 <ul>
@@ -2173,7 +2174,7 @@ Set Aside
 <p><strong>Note</strong>: Index with page numbers is only available in PDF export, since other formats don't have fixed page numbers.</p>
 <h4 id="how-reference-markers-appear">How Reference Markers Appear</h4>
 <p>All reference types insert inline markers in your text:
-- <strong>In the editor</strong>: Markers appear as coloured inline elements
+- <strong>In the editor</strong>: Markers appear as colored inline elements
 - <strong>In PDF export</strong>: Markers are rendered in the appropriate format for the reference type
 - <strong>In plain text export</strong>: Markers are converted to readable text (e.g., "see Note 1", "see Glossary")</p>
 <p>Markers are stored as metadata — they don't alter your text content. Deleting a marker removes the reference without affecting surrounding text.</p>
@@ -2212,7 +2213,7 @@ Set Aside
 <h3 id="section-order-in-export">Section Order in Export</h3>
 <p>The exported manuscript follows this order:
 1. Front Matter (in file order)
-2. Body Content (in file/chapter order)
+2. Body Matter Content (in file/chapter order)
 3. Back Matter:
    - Endnotes
    - Glossary
@@ -2238,7 +2239,7 @@ Set Aside
 1. Tap <strong>Edit</strong> in the folder
 2. Drag files to the desired order
 3. Tap <strong>Done</strong></p>
-<h2 id="related-topics">Related Topics</h2>
+<h2 id="see-also">See Also</h2>
 <ul>
 <li><a href="#91-export-options">Export Options</a></li>
 <li><a href="#92-pdf-export">PDF Export</a></li>

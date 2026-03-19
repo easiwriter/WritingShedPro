@@ -65,6 +65,7 @@ body > *:first-child { margin-top: 0 !important; }
 
 <h1 id="manuscript-structure">Manuscript Structure</h1>
 <p>Writing Shed Pro uses a <strong>Manuscript</strong> folder to organize your work for export and publication. This guide covers the manuscript structure, its subfolders, and the special files for front and back matter.</p>
+<p>For organization strategy (workflow status and deciding what to include), see <a href="guide:35-organizing-your-work">Organizing Your Work</a>.</p>
 <h2 id="overview">Overview</h2>
 <p>The Manuscript folder provides a structured way to assemble your writing into a complete, publishable document. It contains three main subfolders:</p>
 <pre><code>Manuscript/
@@ -83,7 +84,7 @@ body > *:first-child { margin-top: 0 !important; }
     ├── Index (auto-generated)
     └── Contributors (user-created)
 </code></pre>
-<p>The body folder is always called <strong>Body Matter</strong> for all project types. You manage its contents through the Body Matter view, where you can add, remove, and reorder items for manuscript assembly.</p>
+<p>The body folder is always called <strong>Body Matter</strong> for all project types. You manage its contents through the Body Matter view, where you can add, remove, and reorder body containers (or direct files, where supported) for manuscript assembly.</p>
 <h2 id="front-matter">Front Matter</h2>
 <p>Front matter appears at the beginning of your manuscript, before the main content. Writing Shed Pro provides files for common front matter elements, but <strong>you supply the content</strong>.</p>
 <h3 id="common-front-matter-files">Common Front Matter Files</h3>
@@ -160,7 +161,7 @@ body > *:first-child { margin-top: 0 !important; }
 2. Enable <strong>Include Table of Contents</strong>
 3. The TOC will be generated based on Heading 1, Heading 2, etc. styles in your content</p>
 <p><strong>Note</strong>: Auto-generated TOC requires consistent use of heading paragraph styles.</p>
-<h2 id="body-content">Body Content</h2>
+<h2 id="body-matter-content">Body Matter Content</h2>
 <p>The middle folder contains your actual writing, organized according to project type. How body content is assembled into the manuscript differs for each type:</p>
 <table>
 <thead>
@@ -181,7 +182,7 @@ body > *:first-child { margin-top: 0 !important; }
 <tr>
 <td><strong>Poetry</strong></td>
 <td>Body Matter</td>
-<td>Collections and/or poems</td>
+<td>Collections and individual poems</td>
 <td>Body matter order (collections and individual poems)</td>
 </tr>
 <tr>
@@ -211,11 +212,12 @@ body > *:first-child { margin-top: 0 !important; }
 </tbody>
 </table>
 <h3 id="including-files-in-the-manuscript">Including Files in the Manuscript</h3>
-<p>Files are included in manuscript assembly by adding their parent container to <strong>Body Matter</strong>. For example:
+<p>Files are included in manuscript assembly by adding their parent <strong>body container</strong> to <strong>Body Matter</strong>. For example:
 - In a Novel, add a chapter to Body Matter to include all its scenes
 - In Poetry, add a collection or individual poem to Body Matter
 - In Prose, add a section to Body Matter to include all its files</p>
 <p>To exclude a file from the manuscript, remove it from its container or move it to a container that is not included in Body Matter.</p>
+<p>For project-type container naming and organization patterns, see <a href="guide:35-organizing-your-work">Organizing Your Work</a>.</p>
 <h3 id="type-specific-assembly-details">Type-Specific Assembly Details</h3>
 <p>Each project type has unique assembly features documented in its own guide:</p>
 <ul>
@@ -291,7 +293,7 @@ body > *:first-child { margin-top: 0 !important; }
 <p><strong>Note</strong>: Index with page numbers is only available in PDF export, since other formats don't have fixed page numbers.</p>
 <h4 id="how-reference-markers-appear">How Reference Markers Appear</h4>
 <p>All reference types insert inline markers in your text:
-- <strong>In the editor</strong>: Markers appear as coloured inline elements
+- <strong>In the editor</strong>: Markers appear as colored inline elements
 - <strong>In PDF export</strong>: Markers are rendered in the appropriate format for the reference type
 - <strong>In plain text export</strong>: Markers are converted to readable text (e.g., "see Note 1", "see Glossary")</p>
 <p>Markers are stored as metadata — they don't alter your text content. Deleting a marker removes the reference without affecting surrounding text.</p>
@@ -330,7 +332,7 @@ body > *:first-child { margin-top: 0 !important; }
 <h3 id="section-order-in-export">Section Order in Export</h3>
 <p>The exported manuscript follows this order:
 1. Front Matter (in file order)
-2. Body Content (in file/chapter order)
+2. Body Matter Content (in file/chapter order)
 3. Back Matter:
    - Endnotes
    - Glossary
@@ -356,7 +358,7 @@ body > *:first-child { margin-top: 0 !important; }
 1. Tap <strong>Edit</strong> in the folder
 2. Drag files to the desired order
 3. Tap <strong>Done</strong></p>
-<h2 id="related-topics">Related Topics</h2>
+<h2 id="see-also">See Also</h2>
 <ul>
 <li><a href="guide:91-export-options">Export Options</a></li>
 <li><a href="guide:92-pdf-export">PDF Export</a></li>

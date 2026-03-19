@@ -10,7 +10,7 @@ Writing Shed Pro offers four project types, each designed for a specific kind of
 | **Prose** | Essays, articles, general writing | Simple organization, flexible structure |
 | **Poetry** | Poems and verse | Syllable counting, rhyme tools, form templates |
 | **Fiction** | Novels, verse novels, and short stories | Scenes, chapters, plot elements, characters |
-| **Drama** | Scripts and plays | Script formatting, DML markup, film/stage output |
+| **Drama** | Scripts and plays | Script formatting, DML markup, Film/Stage output |
 
 ## Prose Projects
 
