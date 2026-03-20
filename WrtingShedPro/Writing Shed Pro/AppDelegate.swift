@@ -8,7 +8,37 @@
 import UIKit
 import CloudKit
 
+extension NSNotification.Name {
+    /// Posted by AppDelegate when a file is opened via Finder / Share sheet / drag-from-dock.
+    /// `object` is the `URL` to open.
+    static let writingShedProOpenFile = NSNotification.Name("WritingShedProOpenFile")
+    /// Posted to tell the main ContentView to present its file-importer picker.
+    static let writingShedProShowImportPicker = NSNotification.Name("WritingShedProShowImportPicker")
+}
+
 class AppDelegate: UIResponder, UIApplicationDelegate {
+
+    // Store URL delivered at cold-launch so ContentView can consume it in onAppear/task.
+    private(set) var pendingOpenURL: URL?
+
+    func consumePendingOpenURL() -> URL? {
+        defer { pendingOpenURL = nil }
+        return pendingOpenURL
+    }
+
+    // MARK: - File Open via Finder / Share sheet
+
+    /// Called by UIKit when another app (Finder, Files, etc.) asks this app to open a URL.
+    /// This is the reliable Mac Catalyst entry point – SwiftUI's onOpenURL can miss the cold-launch case.
+    func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
+        #if DEBUG
+        print("📂 [AppDelegate] application(_:open:options:) → \(url.lastPathComponent)")
+        #endif
+        pendingOpenURL = url
+        NotificationCenter.default.post(name: .writingShedProOpenFile, object: url)
+        return true
+    }
+
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
         // CRITICAL for Mac Catalyst: register for remote (silent push) notifications.
         // NSPersistentCloudKitContainer relies on CKDatabaseSubscription pushes to

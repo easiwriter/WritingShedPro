@@ -14,11 +14,5 @@
 	<array>
 		<string>CloudKit</string>
 	</array>
-	<key>com.apple.security.temporary-exception.files.absolute-path.read-only</key>
-	<array>
-		<string>/Users/*/Library/Containers/com.writing-shed.osx-writing-shed/Data/Library/Application Support/com.writing-shed.osx-writing-shed/Writing-Shed.sqlite</string>
-		<string>/Users/*/Library/Containers/com.writing-shed.osx-writing-shed/Data/Library/Application Support/com.writing-shed.osx-writing-shed/Writing-Shed.sqlite-wal</string>
-		<string>/Users/*/Library/Containers/com.writing-shed.osx-writing-shed/Data/Library/Application Support/com.writing-shed.osx-writing-shed/Writing-Shed.sqlite-shm</string>
-	</array>
 </dict>
 </plist>

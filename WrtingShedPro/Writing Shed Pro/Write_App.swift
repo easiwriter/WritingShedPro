@@ -523,6 +523,17 @@ struct Write_App: App {
                 }
         }
         .modelContainer(sharedModelContainer)
+        .commands {
+            // Replace the system "File > Open..." (Cmd+O) command so it uses our
+            // existing .fileImporter mechanism instead of going through
+            // NSDocumentController, which silently does nothing for non-document apps.
+            CommandGroup(replacing: .openItem) {
+                Button("Open WSP File...") {
+                    NotificationCenter.default.post(name: .writingShedProShowImportPicker, object: nil)
+                }
+                .keyboardShortcut("o", modifiers: .command)
+            }
+        }
     }
     
     private func checkCloudKitStatus() {

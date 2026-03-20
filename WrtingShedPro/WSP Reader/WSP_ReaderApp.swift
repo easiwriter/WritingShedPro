@@ -2,31 +2,53 @@
 //  WSP_ReaderApp.swift
 //  WSP Reader
 //
-//  Created by Keith Lander on 25/01/2026.
+//  Restored app entry point for WSP Reader target.
 //
 
 import SwiftUI
-import SwiftData
+import UniformTypeIdentifiers
 
 @main
 struct WSP_ReaderApp: App {
-    var sharedModelContainer: ModelContainer = {
-        let schema = Schema([
-            Item.self,
-        ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
-
-        do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
-        } catch {
-            fatalError("Could not create ModelContainer: \(error)")
-        }
-    }()
+    @State private var appState = ReaderAppState()
 
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environment(appState)
+                .onOpenURL { url in
+                    if url.pathExtension.lowercased() == "wsp" {
+                        appState.openDocument(at: url)
+                    }
+                }
         }
-        .modelContainer(sharedModelContainer)
+        .commands {
+            CommandGroup(replacing: .newItem) {
+                Button("Open...") {
+                    appState.showFilePicker = true
+                }
+                .keyboardShortcut("o", modifiers: .command)
+            }
+
+            CommandGroup(after: .newItem) {
+                Button("Close Document") {
+                    appState.closeDocument()
+                }
+                .keyboardShortcut("w", modifiers: .command)
+                .disabled(appState.currentDocument == nil)
+            }
+        }
+        #if os(macOS)
+        Settings {
+            ReaderSettingsView()
+                .environment(appState)
+        }
+        #endif
+    }
+}
+
+extension UTType {
+    static var wspDocument: UTType {
+        UTType(exportedAs: "com.writing-shed.wsp")
     }
 }

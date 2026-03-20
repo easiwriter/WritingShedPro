@@ -13,12 +13,11 @@ struct DocumentReaderView: View {
     var document: WSPDocument
     
     @State private var selectedFile: WSPReaderFile?
-    @State private var selectedManuscriptFolder: WSPReaderFolder?
     @State private var showSidebar: Bool = true
     @State private var searchText: String = ""
     @State private var showSearch: Bool = false
     @State private var showDocumentInfo: Bool = false
-    @State private var showManuscriptView: Bool = false
+    @State private var showManuscriptSheet: Bool = false
     
     var body: some View {
         NavigationSplitView(columnVisibility: .constant(showSidebar ? .all : .detailOnly)) {
@@ -39,9 +38,23 @@ struct DocumentReaderView: View {
         .sheet(isPresented: $showDocumentInfo) {
             DocumentInfoView(document: document)
         }
-        .onChange(of: selectedFile?.id) { _, newID in
-            if newID != nil {
-                showManuscriptView = false
+        .sheet(isPresented: $showManuscriptSheet) {
+            NavigationStack {
+                ManuscriptReaderView(
+                    title: document.manuscriptPreviewTitle,
+                    files: document.manuscriptPreviewFiles,
+                    fontSize: appState.fontSize,
+                    onNavigateToFile: navigateToFile
+                )
+                .navigationTitle("Manuscript")
+                #if os(iOS)
+                .navigationBarTitleDisplayMode(.inline)
+                #endif
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { showManuscriptSheet = false }
+                    }
+                }
             }
         }
     }
@@ -62,14 +75,6 @@ struct DocumentReaderView: View {
     @ViewBuilder
     private var standardSidebar: some View {
         List(selection: $selectedFile) {
-            Section("Reader") {
-                Button {
-                    appState.showFilePicker = true
-                } label: {
-                    Label("Open Another Project", systemImage: "folder.badge.plus")
-                }
-            }
-
             // Project header
             Section {
                 HStack {
@@ -88,17 +93,25 @@ struct DocumentReaderView: View {
                 }
                 .padding(.vertical, 4)
             }
+
+            Section("Reader") {
+                Button {
+                    appState.showFilePicker = true
+                } label: {
+                    Label("Open Another Project", systemImage: "folder.badge.plus")
+                }
+
+                Button {
+                    showManuscriptSheet = true
+                } label: {
+                    Label("View Manuscript", systemImage: "eye")
+                }
+            }
             
-            // Work folders only - tap folder to open manuscript-style reading
+            // Primary work folders only (container + file folder)
             Section("Folders") {
-                ForEach(document.readerVisibleFolders) { folder in
-                    Button {
-                        selectedManuscriptFolder = folder
-                        selectedFile = nil
-                        showManuscriptView = true
-                    } label: {
-                        Label(folder.name, systemImage: folder.iconName)
-                    }
+                ForEach(document.readerPrimaryFolders) { folder in
+                    FolderSection(folder: folder, selectedFile: $selectedFile)
                 }
             }
         }
@@ -114,14 +127,7 @@ struct DocumentReaderView: View {
     
     @ViewBuilder
     private var detailContent: some View {
-        if showManuscriptView, let folder = selectedManuscriptFolder {
-            ManuscriptReaderView(
-                title: folder.name,
-                files: document.manuscriptFiles(in: folder),
-                fontSize: appState.fontSize,
-                onNavigateToFile: navigateToFile
-            )
-        } else if let file = selectedFile {
+        if let file = selectedFile {
             FileReaderView(
                 file: file, 
                 fontSize: appState.fontSize,
@@ -141,7 +147,7 @@ struct DocumentReaderView: View {
     private func navigateToFile(_ fileId: String) {
         // Find file by ID anywhere in the document
         if let file = document.findFile(byId: fileId) {
-            showManuscriptView = false
+            showManuscriptSheet = false
             selectedFile = file
         }
     }
@@ -190,6 +196,14 @@ struct DocumentReaderView: View {
                 }
                 
                 Divider()
+
+                Button {
+                    showManuscriptSheet = true
+                } label: {
+                    Label("View Manuscript", systemImage: "eye")
+                }
+
+                Divider()
                 
                 Button {
                     showDocumentInfo = true
@@ -217,6 +231,13 @@ struct DocumentReaderView: View {
                 Image(systemName: showSidebar ? "sidebar.left" : "sidebar.leading")
             }
             .help(showSidebar ? "Hide Sidebar" : "Show Sidebar")
+
+            Button {
+                showManuscriptSheet = true
+            } label: {
+                Image(systemName: "eye")
+            }
+            .help("View Manuscript")
             
             fontSizeControls
             
@@ -335,12 +356,21 @@ struct ManuscriptReaderView: View {
         let mutable = NSMutableAttributedString(attributedString: original)
 
         mutable.enumerateAttribute(.font, in: NSRange(location: 0, length: mutable.length)) { value, range, _ in
+            #if canImport(UIKit)
             if let font = value as? UIFont {
                 let scaleFactor = fontSize / 16.0
                 let newSize = font.pointSize * scaleFactor
                 let newFont = font.withSize(newSize)
                 mutable.addAttribute(.font, value: newFont, range: range)
             }
+            #elseif canImport(AppKit)
+            if let font = value as? NSFont {
+                let scaleFactor = fontSize / 16.0
+                let newSize = font.pointSize * scaleFactor
+                let newFont = NSFont(descriptor: font.fontDescriptor, size: newSize) ?? NSFont.systemFont(ofSize: newSize)
+                mutable.addAttribute(.font, value: newFont, range: range)
+            }
+            #endif
         }
 
         return mutable
@@ -359,6 +389,74 @@ struct ManuscriptReaderView: View {
         }
 
         return false
+    }
+}
+
+// MARK: - Folder Section
+
+struct FolderSection: View {
+    let folder: WSPReaderFolder
+    @Binding var selectedFile: WSPReaderFile?
+
+    @State private var isExpanded: Bool = false
+
+    var body: some View {
+        DisclosureGroup(isExpanded: $isExpanded) {
+            ForEach(folder.files) { file in
+                FileRow(file: file, isSelected: selectedFile?.id == file.id)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        selectedFile = file
+                    }
+            }
+
+            ForEach(folder.subfolders) { subfolder in
+                FolderSection(folder: subfolder, selectedFile: $selectedFile)
+            }
+        } label: {
+            Label(folder.name, systemImage: folder.iconName)
+                .foregroundStyle(.primary)
+        }
+    }
+}
+
+// MARK: - File Row
+
+struct FileRow: View {
+    let file: WSPReaderFile
+    let isSelected: Bool
+
+    var body: some View {
+        HStack {
+            Image(systemName: "doc.text")
+                .foregroundStyle(isSelected ? .white : .secondary)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(file.name)
+                    .foregroundStyle(isSelected ? .white : .primary)
+                    .lineLimit(1)
+
+                Text("\(file.wordCount) words")
+                    .font(.caption2)
+                    .foregroundStyle(isSelected ? .white.opacity(0.8) : .secondary)
+            }
+
+            if let status = file.workflowStatus, !status.isEmpty {
+                Text(status.capitalized)
+                    .font(.caption2)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(isSelected ? Color.white.opacity(0.2) : Color.secondary.opacity(0.12))
+                    .clipShape(Capsule())
+                    .foregroundStyle(isSelected ? .white : .secondary)
+            }
+
+            Spacer()
+        }
+        .padding(.vertical, 4)
+        .padding(.horizontal, 8)
+        .background(isSelected ? Color.accentColor : Color.clear)
+        .cornerRadius(6)
     }
 }
 

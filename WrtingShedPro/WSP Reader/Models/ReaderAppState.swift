@@ -1,57 +1,14 @@
 //
-//  WSPReaderApp.swift
+//  ReaderAppState.swift
 //  WSP Reader
 //
-//  A free, standalone app that opens and displays WSP documents in read-only mode.
+//  Global app state for the WSP Reader
 //  Feature 026: WSP Reader App
 //
 
+import Foundation
 import SwiftUI
-import UniformTypeIdentifiers
 import Observation
-
-@main
-struct WSPReaderApp: App {
-    @State private var appState = ReaderAppState()
-    
-    var body: some Scene {
-        WindowGroup {
-            ContentView()
-                .environment(appState)
-                .onOpenURL { url in
-                    // Handle file opened from Files, Mail, Safari, etc.
-                    if url.pathExtension.lowercased() == "wsp" {
-                        appState.openDocument(at: url)
-                    }
-                }
-        }
-        .commands {
-            CommandGroup(replacing: .newItem) {
-                Button("Open...") {
-                    appState.showFilePicker = true
-                }
-                .keyboardShortcut("o", modifiers: .command)
-            }
-            
-            CommandGroup(after: .newItem) {
-                Button("Close Document") {
-                    appState.closeDocument()
-                }
-                .keyboardShortcut("w", modifiers: .command)
-                .disabled(appState.currentDocument == nil)
-            }
-        }
-        
-        #if os(macOS)
-        Settings {
-            ReaderSettingsView()
-                .environment(appState)
-        }
-        #endif
-    }
-}
-
-// MARK: - App State
 
 /// Global app state for the WSP Reader
 @Observable
@@ -253,13 +210,5 @@ enum ReaderError: LocalizedError, Identifiable {
         case .parsingError(let message):
             return "Error parsing document: \(message)"
         }
-    }
-}
-
-// MARK: - UTType Extension
-
-extension UTType {
-    static var wspDocument: UTType {
-        UTType(exportedAs: "com.writing-shed.wsp")
     }
 }

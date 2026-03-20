@@ -2,65 +2,280 @@
 //  ContentView.swift
 //  WSP Reader
 //
-//  Created by Keith Lander on 25/01/2026.
+//  Main content view - shows home screen or document reader.
+//  Feature 026: WSP Reader App
 //
 
 import SwiftUI
-import SwiftData
+import UniformTypeIdentifiers
 
 struct ContentView: View {
-    @Environment(\.modelContext) private var modelContext
-    @Query private var items: [Item]
-
+    @Environment(ReaderAppState.self) var appState
+    
     var body: some View {
-        NavigationSplitView {
-            List {
-                ForEach(items) { item in
-                    NavigationLink {
-                        Text("Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
-                    } label: {
-                        Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
+        @Bindable var appState = appState
+        Group {
+            if let document = appState.currentDocument {
+                DocumentReaderView(document: document)
+            } else {
+                HomeView()
+            }
+        }
+        .fileImporter(
+            isPresented: $appState.showFilePicker,
+            allowedContentTypes: [.wspDocument, UTType(filenameExtension: "wsp") ?? .data],
+            allowsMultipleSelection: false
+        ) { result in
+            // Defer UI work until the picker sheet has fully dismissed.
+            // Without this, alerts and view transitions can be swallowed on Catalyst.
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let urls):
+                    guard let url = urls.first else { return }
+                    let gotAccess = url.startAccessingSecurityScopedResource()
+                    appState.openDocument(at: url)
+                    if gotAccess { url.stopAccessingSecurityScopedResource() }
+                case .failure(let error):
+                    let nsError = error as NSError
+                    // Ignore user cancellation (closes picker without selecting)
+                    guard !(nsError.domain == NSCocoaErrorDomain && nsError.code == NSUserCancelledError) else { return }
+                    appState.currentError = ReaderError.openFailed(error.localizedDescription)
+                }
+            }
+        }
+        .alert(item: $appState.currentError) { error in
+            Alert(
+                title: Text("Error"),
+                message: Text(error.localizedDescription),
+                dismissButton: .default(Text("OK"))
+            )
+        }
+        .onDrop(of: [.wspDocument, .fileURL], isTargeted: nil) { providers in
+            handleDrop(providers: providers)
+        }
+    }
+    
+    private func handleDrop(providers: [NSItemProvider]) -> Bool {
+        guard let provider = providers.first else { return false }
+        
+        // Try WSP document type first
+        if provider.hasItemConformingToTypeIdentifier(UTType.wspDocument.identifier) {
+            provider.loadItem(forTypeIdentifier: UTType.wspDocument.identifier, options: nil) { item, error in
+                if let url = item as? URL {
+                    DispatchQueue.main.async {
+                        appState.openDocument(at: url)
                     }
                 }
-                .onDelete(perform: deleteItems)
             }
-#if os(macOS)
-            .navigationSplitViewColumnWidth(min: 180, ideal: 200)
-#endif
+            return true
+        }
+        
+        // Fall back to file URL
+        if provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
+            provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, error in
+                if let data = item as? Data,
+                   let url = URL(dataRepresentation: data, relativeTo: nil),
+                   url.pathExtension.lowercased() == "wsp" {
+                    DispatchQueue.main.async {
+                        appState.openDocument(at: url)
+                    }
+                }
+            }
+            return true
+        }
+        
+        return false
+    }
+}
+
+// MARK: - Home View
+
+struct HomeView: View {
+    @Environment(ReaderAppState.self) var appState
+    
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 24) {
+                Spacer()
+                
+                // App icon
+                Image(systemName: "book.fill")
+                    .font(.system(size: 80))
+                    .foregroundStyle(.brown)
+                
+                Text("WSP Reader")
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+                
+                Text("Open and read Writing Shed Pro documents")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                
+                #if os(macOS)
+                // Drag and drop zone for macOS
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12)
+                        .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [8, 4]))
+                        .foregroundStyle(.tertiary)
+                    
+                    VStack(spacing: 8) {
+                        Image(systemName: "arrow.down.doc")
+                            .font(.title)
+                            .foregroundStyle(.secondary)
+                        
+                        Text("Drop .wsp file here")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .frame(height: 100)
+                .padding(.horizontal, 40)
+                #endif
+                
+                // Open button
+                Button {
+                    appState.showFilePicker = true
+                } label: {
+                    Label("Open WSP Document", systemImage: "doc.badge.plus")
+                        .font(.headline)
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 12)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.brown)
+                
+                Spacer()
+                
+                // Recent documents
+                if !appState.recentDocuments.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Recent")
+                                .font(.headline)
+                                .foregroundStyle(.secondary)
+                            
+                            Spacer()
+                            
+                            Button("Clear") {
+                                appState.clearRecentDocuments()
+                            }
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        }
+                        .padding(.horizontal)
+                        
+                        Divider()
+                        
+                        ForEach(appState.recentDocuments) { doc in
+                            RecentDocumentRow(document: doc)
+                        }
+                    }
+                    .padding(.bottom, 24)
+                }
+                
+                // Upgrade prompt
+                UpgradePromptView()
+                    .padding(.bottom, 8)
+            }
+            .frame(maxWidth: 500)
+            .padding()
+            .navigationTitle("")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
             .toolbar {
-#if os(iOS)
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
-                }
-#endif
-                ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
+                #if os(iOS)
+                ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink(destination: ReaderSettingsView()) {
+                        Image(systemName: "gear")
                     }
                 }
-            }
-        } detail: {
-            Text("Select an item")
-        }
-    }
-
-    private func addItem() {
-        withAnimation {
-            let newItem = Item(timestamp: Date())
-            modelContext.insert(newItem)
-        }
-    }
-
-    private func deleteItems(offsets: IndexSet) {
-        withAnimation {
-            for index in offsets {
-                modelContext.delete(items[index])
+                #endif
             }
         }
     }
 }
 
-#Preview {
-    ContentView()
-        .modelContainer(for: Item.self, inMemory: true)
+// MARK: - Recent Document Row
+
+struct RecentDocumentRow: View {
+    @Environment(ReaderAppState.self) var appState
+    let document: RecentDocument
+    
+    var body: some View {
+        Button {
+            appState.openRecentDocument(document)
+        } label: {
+            HStack {
+                Image(systemName: "doc.richtext")
+                    .foregroundStyle(.brown)
+                    .font(.title2)
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(document.name)
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                    
+                    Text(formattedDate)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                
+                Spacer()
+                
+                Image(systemName: "chevron.right")
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 8)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+    
+    private var formattedDate: String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        return "Opened \(formatter.localizedString(for: document.lastOpened, relativeTo: Date()))"
+    }
+}
+
+// MARK: - Upgrade Prompt
+
+struct UpgradePromptView: View {
+    var body: some View {
+        Button {
+            openAppStore()
+        } label: {
+            HStack {
+                Image(systemName: "pencil.and.outline")
+                    .foregroundStyle(.brown)
+                
+                Text("Get Writing Shed Pro")
+                    .foregroundStyle(.primary)
+                
+                Spacer()
+                
+                Image(systemName: "arrow.up.right.square")
+                    .foregroundStyle(.secondary)
+            }
+            .padding()
+            .background(.quaternary.opacity(0.5))
+            .cornerRadius(12)
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal)
+    }
+    
+    private func openAppStore() {
+        // Open App Store link to Writing Shed Pro
+        // Replace with actual App Store URL when available
+        if let url = URL(string: "https://apps.apple.com/app/writing-shed-pro/id0000000000") {
+            #if os(iOS)
+            UIApplication.shared.open(url)
+            #elseif os(macOS)
+            NSWorkspace.shared.open(url)
+            #endif
+        }
+    }
 }

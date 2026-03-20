@@ -7,6 +7,11 @@
 //
 
 import SwiftUI
+#if os(iOS)
+import UIKit
+#elseif os(macOS)
+import AppKit
+#endif
 
 struct ReaderSettingsView: View {
     @Environment(ReaderAppState.self) var appState
@@ -65,7 +70,7 @@ struct ReaderSettingsView: View {
                             .foregroundStyle(.secondary)
                     }
                     
-                    Link(destination: URL(string: "https://writingshedpro.com")!) {
+                    Link(destination: AppConstants.websiteURL) {
                         HStack {
                             Text("Website")
                             Spacer()
@@ -74,7 +79,7 @@ struct ReaderSettingsView: View {
                         }
                     }
                     
-                    Link(destination: URL(string: "https://writingshedpro.com/support")!) {
+                    Link(destination: AppConstants.supportURL) {
                         HStack {
                             Text("Support")
                             Spacer()
@@ -83,7 +88,7 @@ struct ReaderSettingsView: View {
                         }
                     }
                     
-                    Link(destination: URL(string: "https://writingshedpro.com/privacy")!) {
+                    Link(destination: AppConstants.privacyURL) {
                         HStack {
                             Text("Privacy Policy")
                             Spacer()
@@ -137,14 +142,11 @@ struct ReaderSettingsView: View {
     }
     
     private func openAppStore() {
-        // Replace with actual App Store URL
-        if let url = URL(string: "https://apps.apple.com/app/writing-shed-pro/id0000000000") {
-            #if os(iOS)
-            UIApplication.shared.open(url)
-            #elseif os(macOS)
-            NSWorkspace.shared.open(url)
-            #endif
-        }
+        #if os(iOS)
+        UIApplication.shared.open(AppConstants.appStoreURL)
+        #elseif os(macOS)
+        NSWorkspace.shared.open(AppConstants.appStoreURL)
+        #endif
     }
 }
 

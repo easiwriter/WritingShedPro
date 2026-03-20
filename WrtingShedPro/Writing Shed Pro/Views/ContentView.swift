@@ -149,6 +149,36 @@ struct ContentView: View {
                 }
             }
         }
+        // Handle files opened from Finder / Share sheet while the app is already running.
+        .onReceive(NotificationCenter.default.publisher(for: .writingShedProOpenFile)) { notification in
+            guard let url = notification.object as? URL else { return }
+            #if DEBUG
+            print("[ContentView] onReceive writingShedProOpenFile: \(url.lastPathComponent)")
+            #endif
+            handleOpenedFileURL(url)
+        }
+        // Handle File > Open... (Cmd+O) menu command — show the file importer picker.
+        .onReceive(NotificationCenter.default.publisher(for: .writingShedProShowImportPicker)) { _ in
+            #if DEBUG
+            print("[ContentView] onReceive writingShedProShowImportPicker — presenting file importer")
+            #endif
+            state.showingJSONImportPicker = true
+        }
+        // Handle files opened at cold launch (URL stored by AppDelegate before this view appeared).
+        .task {
+            guard let delegate = UIApplication.shared.delegate as? AppDelegate,
+                  let url = delegate.consumePendingOpenURL() else { return }
+            #if DEBUG
+            print("[ContentView] task: consuming pending open URL: \(url.lastPathComponent)")
+            #endif
+            handleOpenedFileURL(url)
+        }
+    }
+
+    private func handleOpenedFileURL(_ url: URL) {
+        let ext = url.pathExtension.lowercased()
+        guard ext == "wsp" || ext == "wsd" || ext == "json" else { return }
+        handleJSONImport(.success([url]))
     }
     
     // MARK: - Foreground Resume Sync

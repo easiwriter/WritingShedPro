@@ -7,8 +7,12 @@
 //
 
 import Foundation
-import UIKit
 import Observation
+#if canImport(UIKit)
+import UIKit
+#elseif canImport(AppKit)
+import AppKit
+#endif
 
 /// Represents a parsed WSP document for reading
 @Observable
@@ -59,6 +63,57 @@ class WSPDocument {
     /// Top-level folders shown in Reader (work-only view)
     var readerVisibleFolders: [WSPReaderFolder] {
         folders.filter { Self.isReaderVisibleFolderName($0.name) }
+    }
+
+    /// Primary folders for Reader UI: one container folder + one file/content folder
+    var readerPrimaryFolders: [WSPReaderFolder] {
+        let visible = readerVisibleFolders.filter { Self.hasBrowsableContent($0) }
+        guard visible.count > 2 else { return visible }
+
+        let preferred = Self.preferredFolderNames(for: projectType)
+        let container = firstFolder(in: visible, matchingAny: preferred.container)
+        let content = firstFolder(in: visible, matchingAny: preferred.content, excludingID: container?.id)
+
+        if let container, let content {
+            return [container, content]
+        }
+        if let container {
+            if let fallback = visible.first(where: { $0.id != container.id }) {
+                return [container, fallback]
+            }
+            return [container]
+        }
+        if let content {
+            if let fallback = visible.first(where: { $0.id != content.id }) {
+                return [fallback, content]
+            }
+            return [content]
+        }
+
+        return Array(visible.prefix(2))
+    }
+
+    /// Container folder used as manuscript source when available
+    var readerContainerFolder: WSPReaderFolder? {
+        let visible = readerVisibleFolders.filter { Self.hasBrowsableContent($0) }
+        let preferred = Self.preferredFolderNames(for: projectType)
+        return firstFolder(in: visible, matchingAny: preferred.container) ?? readerPrimaryFolders.first
+    }
+
+    /// Manuscript preview files (container/body-matter first)
+    var manuscriptPreviewFiles: [WSPReaderFile] {
+        if let container = readerContainerFolder {
+            let files = manuscriptFiles(in: container)
+            if !files.isEmpty {
+                return files
+            }
+        }
+        return manuscriptOrderedFiles.filter { !$0.isTOCFile }
+    }
+
+    /// Manuscript preview title
+    var manuscriptPreviewTitle: String {
+        readerContainerFolder?.name ?? "Manuscript"
     }
     
     /// Publications (read-only display)
@@ -180,6 +235,69 @@ class WSPDocument {
             "back matter"
         ]
         return !hiddenKeywords.contains { lower.contains($0) }
+    }
+
+    private static func preferredFolderNames(for projectType: String) -> (container: [String], content: [String]) {
+        switch projectType.lowercased() {
+        case "poetry":
+            return (
+                container: ["Collections", "Collection", "Sections", "Section"],
+                content: ["Poems", "Poem", "Files"]
+            )
+        case "manual":
+            return (
+                container: ["Sections", "Section", "Collections", "Collection"],
+                content: ["Entries", "Files", "Prose"]
+            )
+        case "drama":
+            return (
+                container: ["Acts", "Act", "Scenes", "Scene"],
+                content: ["Scenes", "Scene", "Files"]
+            )
+        case "fiction", "shortfiction", "short_fiction", "short fiction", "prose":
+            return (
+                container: ["Books", "Book", "Chapters", "Chapter", "Sections", "Section"],
+                content: ["Prose", "Stories", "Story", "Files"]
+            )
+        default:
+            return (
+                container: ["Collections", "Sections", "Books", "Chapters", "Acts"],
+                content: ["Poems", "Prose", "Scenes", "Stories", "Entries", "Files"]
+            )
+        }
+    }
+
+    private func firstFolder(in folders: [WSPReaderFolder], matchingAny names: [String], excludingID: String? = nil) -> WSPReaderFolder? {
+        for preferredName in names {
+            if let folder = folders.first(where: {
+                $0.name.caseInsensitiveCompare(preferredName) == .orderedSame &&
+                (excludingID == nil || $0.id != excludingID)
+            }) {
+                return folder
+            }
+        }
+        // Fallback: contains match for robustness with localized/variant names
+        for preferredName in names {
+            if let folder = folders.first(where: {
+                $0.name.localizedCaseInsensitiveContains(preferredName) &&
+                (excludingID == nil || $0.id != excludingID)
+            }) {
+                return folder
+            }
+        }
+        return nil
+    }
+
+    private static func hasBrowsableContent(_ folder: WSPReaderFolder) -> Bool {
+        if !folder.files.isEmpty {
+            return true
+        }
+        for subfolder in folder.subfolders {
+            if hasBrowsableContent(subfolder) {
+                return true
+            }
+        }
+        return false
     }
 }
 
@@ -303,8 +421,8 @@ struct WSPReaderVersion: Identifiable {
         self.versionNumber = data.versionNumber
         self.comment = data.comment
         self.notes = data.notes
-        self.comments = data.comments.map { WSPReaderComment(from: $0) }
-        self.footnotes = data.footnotes.map { WSPReaderFootnote(from: $0) }
+        self.comments = (data.comments ?? []).map { WSPReaderComment(from: $0) }
+        self.footnotes = (data.footnotes ?? []).map { WSPReaderFootnote(from: $0) }
     }
     
     /// Get formatted attributed string
@@ -317,24 +435,31 @@ struct WSPReaderVersion: Identifiable {
                 return decoded
             }
             // Legacy format: RTF data (Word imports, Writing Shed 1.x)
+            #if canImport(UIKit)
             if let attributed = try? NSAttributedString(
                 data: data,
                 options: [.documentType: NSAttributedString.DocumentType.rtf],
                 documentAttributes: nil) {
                 return attributed
             }
+            #endif
         }
         // Plain-text fallback
         let paragraphStyle = NSMutableParagraphStyle()
         paragraphStyle.lineSpacing = 4
-        return NSAttributedString(
-            string: content,
-            attributes: [
-                .font: UIFont.preferredFont(forTextStyle: .body),
-                .foregroundColor: UIColor.label,
-                .paragraphStyle: paragraphStyle
-            ]
-        )
+        #if canImport(UIKit)
+        return NSAttributedString(string: content, attributes: [
+            .font: UIFont.preferredFont(forTextStyle: .body),
+            .foregroundColor: UIColor.label,
+            .paragraphStyle: paragraphStyle
+        ])
+        #elseif canImport(AppKit)
+        return NSAttributedString(string: content, attributes: [
+            .font: NSFont.preferredFont(forTextStyle: .body),
+            .foregroundColor: NSColor.labelColor,
+            .paragraphStyle: paragraphStyle
+        ])
+        #endif
     }
 }
 

@@ -7,7 +7,11 @@
 //
 
 import SwiftUI
+#if canImport(UIKit)
 import UIKit
+#elseif canImport(AppKit)
+import AppKit
+#endif
 
 struct FileReaderView: View {
     let file: WSPReaderFile
@@ -44,7 +48,7 @@ struct FileReaderView: View {
             .padding()
             .frame(maxWidth: 700, alignment: .leading)
         }
-        .background(Color(uiColor: .systemBackground))
+        .background(readerBackground)
         .navigationTitle(file.name)
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
@@ -150,15 +154,34 @@ struct FileReaderView: View {
         
         // Scale fonts to match user preference
         mutable.enumerateAttribute(.font, in: NSRange(location: 0, length: mutable.length)) { value, range, _ in
+            #if canImport(UIKit)
             if let font = value as? UIFont {
                 let scaleFactor = fontSize / 16.0
                 let newSize = font.pointSize * scaleFactor
                 let newFont = font.withSize(newSize)
                 mutable.addAttribute(.font, value: newFont, range: range)
             }
+            #elseif canImport(AppKit)
+            if let font = value as? NSFont {
+                let scaleFactor = fontSize / 16.0
+                let newSize = font.pointSize * scaleFactor
+                let newFont = NSFont(descriptor: font.fontDescriptor, size: newSize) ?? NSFont.systemFont(ofSize: newSize)
+                mutable.addAttribute(.font, value: newFont, range: range)
+            }
+            #endif
         }
         
         return mutable
+    }
+
+    private var readerBackground: Color {
+        #if canImport(UIKit)
+        return Color(uiColor: .systemBackground)
+        #elseif canImport(AppKit)
+        return Color(nsColor: .textBackgroundColor)
+        #else
+        return Color.background
+        #endif
     }
     
     private var footnotes: [WSPReaderFootnote] {
@@ -201,15 +224,33 @@ struct FileReaderView: View {
 
 // MARK: - Attributed Text View
 
-struct AttributedTextView: UIViewRepresentable {
+struct AttributedTextView: View {
     let attributedString: NSAttributedString
     let fontSize: CGFloat
     var onLinkTap: ((URL) -> Bool)? = nil
-    
+
+    var body: some View {
+        #if canImport(UIKit)
+        UIKitAttributedTextView(attributedString: attributedString, onLinkTap: onLinkTap)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        #else
+        Text(attributedString.string)
+            .font(.system(size: fontSize))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .textSelection(.enabled)
+        #endif
+    }
+}
+
+#if canImport(UIKit)
+private struct UIKitAttributedTextView: UIViewRepresentable {
+    let attributedString: NSAttributedString
+    var onLinkTap: ((URL) -> Bool)? = nil
+
     func makeCoordinator() -> Coordinator {
         Coordinator(onLinkTap: onLinkTap)
     }
-    
+
     func makeUIView(context: Context) -> UITextView {
         let textView = UITextView()
         textView.isEditable = false
@@ -225,30 +266,28 @@ struct AttributedTextView: UIViewRepresentable {
         ]
         return textView
     }
-    
+
     func updateUIView(_ textView: UITextView, context: Context) {
         textView.attributedText = attributedString
         context.coordinator.onLinkTap = onLinkTap
     }
-    
+
     class Coordinator: NSObject, UITextViewDelegate {
         var onLinkTap: ((URL) -> Bool)?
-        
+
         init(onLinkTap: ((URL) -> Bool)?) {
             self.onLinkTap = onLinkTap
         }
-        
-        func textView(_ textView: UITextView, shouldInteractWith URL: URL, in characterRange: NSRange, interaction: UITextItemInteraction) -> Bool {
-            // Check if we have a custom handler
+
+        func textView(_ textView: UITextView, shouldInteractWith URL: URL, in characterRange: NSRange) -> Bool {
             if let handler = onLinkTap {
-                // Return false if handler consumed the link
                 return !handler(URL)
             }
-            // Default: let system handle external links
             return true
         }
     }
 }
+#endif
 
 // MARK: - Footnotes Sheet
 
